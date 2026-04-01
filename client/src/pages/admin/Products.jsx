@@ -25,12 +25,22 @@ function Products() {
 
   useEffect(() => {
     if (selectedStore) {
+      setLoading(true);
       fetchAll();
+    } else {
+      setLoading(false);
+      setProducts([]);
+      setCategories([]);
+      setIngredients([]);
+      setExtras([]);
     }
   }, [selectedStore]);
 
   const fetchAll = async () => {
-    if (!selectedStore) return;
+    if (!selectedStore) {
+      setLoading(false);
+      return;
+    }
     
     try {
       const token = localStorage.getItem('token');

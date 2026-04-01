@@ -17,12 +17,19 @@ function Categories() {
 
   useEffect(() => {
     if (selectedStore) {
+      setLoading(true);
       fetchCategories();
+    } else {
+      setLoading(false);
+      setCategories([]);
     }
   }, [selectedStore]);
 
   const fetchCategories = async () => {
-    if (!selectedStore) return;
+    if (!selectedStore) {
+      setLoading(false);
+      return;
+    }
     
     try {
       const token = localStorage.getItem('token');
@@ -30,7 +37,7 @@ function Categories() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      setCategories(data);
+      setCategories(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching categories:', error);
     } finally {

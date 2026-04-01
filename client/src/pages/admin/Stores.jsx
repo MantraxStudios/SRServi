@@ -367,25 +367,62 @@ function Stores() {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          zIndex: 1000
+          zIndex: 1000,
+          padding: '20px'
         }}>
           <div style={{
-            backgroundColor: 'var(--color-secondary)',
-            borderRadius: 'var(--radius-md)',
-            padding: '30px',
-            width: '90%',
-            maxWidth: '500px',
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '32px',
+            width: '100%',
+            maxWidth: '600px',
             maxHeight: '90vh',
-            overflowY: 'auto'
+            overflowY: 'auto',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
           }}>
-            <h3 style={{ margin: '0 0 20px 0', color: 'var(--color-primary)' }}>
-              {editingStore ? 'Editar Tienda' : 'Nueva Tienda'}
-            </h3>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #f0f0f0'
+            }}>
+              <h3 style={{ 
+                margin: 0, 
+                color: '#333',
+                fontSize: '20px',
+                fontWeight: '700'
+              }}>
+                {editingStore ? 'Editar Tienda' : 'Nueva Tienda'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#999',
+                  padding: '0',
+                  lineHeight: '1'
+                }}
+              >
+                ×
+              </button>
+            </div>
 
             <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: 'var(--color-primary)' }}>
-                  Nombre de la Tienda
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '8px', 
+                  fontWeight: '600', 
+                  color: '#333',
+                  fontSize: '14px'
+                }}>
+                  Nombre de la Tienda *
                 </label>
                 <input
                   type="text"
@@ -393,104 +430,182 @@ function Stores() {
                   value={formData.name}
                   onChange={handleChange}
                   required
+                  placeholder="Ej: Mi Restaurante"
                   style={{
                     width: '100%',
-                    padding: '10px',
-                    border: '2px solid #ddd',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: '14px'
+                    padding: '12px 16px',
+                    border: '2px solid #e0e0e0',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    transition: 'border-color 0.2s',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: 'var(--color-primary)' }}>
-                    Color Principal
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <input
-                      type="color"
-                      name="primary_color"
-                      value={formData.primary_color}
-                      onChange={handleChange}
-                      style={{ width: '50px', height: '40px', border: 'none', cursor: 'pointer' }}
-                    />
-                    <input
-                      type="text"
-                      name="primary_color"
-                      value={formData.primary_color}
-                      onChange={handleChange}
-                      style={{
-                        flex: 1,
-                        padding: '8px',
-                        border: '1px solid #ddd',
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '12px', 
+                  fontWeight: '600', 
+                  color: '#333',
+                  fontSize: '14px'
+                }}>
+                  Colores de la Tienda
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                  <div>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      marginBottom: '6px'
+                    }}>
+                      <div style={{
+                        width: '16px',
+                        height: '16px',
                         borderRadius: '4px',
-                        fontSize: '12px'
-                      }}
-                    />
+                        backgroundColor: formData.primary_color
+                      }} />
+                      <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Principal</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="color"
+                        name="primary_color"
+                        value={formData.primary_color}
+                        onChange={handleChange}
+                        style={{ 
+                          width: '44px', 
+                          height: '44px', 
+                          border: '2px solid #e0e0e0',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          padding: '2px'
+                        }}
+                      />
+                      <input
+                        type="text"
+                        name="primary_color"
+                        value={formData.primary_color}
+                        onChange={handleChange}
+                        style={{
+                          flex: 1,
+                          padding: '10px',
+                          border: '2px solid #e0e0e0',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontFamily: 'monospace'
+                        }}
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: 'var(--color-primary)' }}>
-                    Color Secundario
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <input
-                      type="color"
-                      name="secondary_color"
-                      value={formData.secondary_color}
-                      onChange={handleChange}
-                      style={{ width: '50px', height: '40px', border: 'none', cursor: 'pointer' }}
-                    />
-                    <input
-                      type="text"
-                      name="secondary_color"
-                      value={formData.secondary_color}
-                      onChange={handleChange}
-                      style={{
-                        flex: 1,
-                        padding: '8px',
-                        border: '1px solid #ddd',
+                  <div>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      marginBottom: '6px'
+                    }}>
+                      <div style={{
+                        width: '16px',
+                        height: '16px',
                         borderRadius: '4px',
-                        fontSize: '12px'
-                      }}
-                    />
+                        backgroundColor: formData.secondary_color,
+                        border: '1px solid #ddd'
+                      }} />
+                      <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Secundario</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="color"
+                        name="secondary_color"
+                        value={formData.secondary_color}
+                        onChange={handleChange}
+                        style={{ 
+                          width: '44px', 
+                          height: '44px', 
+                          border: '2px solid #e0e0e0',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          padding: '2px'
+                        }}
+                      />
+                      <input
+                        type="text"
+                        name="secondary_color"
+                        value={formData.secondary_color}
+                        onChange={handleChange}
+                        style={{
+                          flex: 1,
+                          padding: '10px',
+                          border: '2px solid #e0e0e0',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontFamily: 'monospace'
+                        }}
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: 'var(--color-primary)' }}>
-                    Color Acento
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <input
-                      type="color"
-                      name="accent_color"
-                      value={formData.accent_color}
-                      onChange={handleChange}
-                      style={{ width: '50px', height: '40px', border: 'none', cursor: 'pointer' }}
-                    />
-                    <input
-                      type="text"
-                      name="accent_color"
-                      value={formData.accent_color}
-                      onChange={handleChange}
-                      style={{
-                        flex: 1,
-                        padding: '8px',
-                        border: '1px solid #ddd',
+                  <div>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      marginBottom: '6px'
+                    }}>
+                      <div style={{
+                        width: '16px',
+                        height: '16px',
                         borderRadius: '4px',
-                        fontSize: '12px'
-                      }}
-                    />
+                        backgroundColor: formData.accent_color
+                      }} />
+                      <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Acento</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="color"
+                        name="accent_color"
+                        value={formData.accent_color}
+                        onChange={handleChange}
+                        style={{ 
+                          width: '44px', 
+                          height: '44px', 
+                          border: '2px solid #e0e0e0',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          padding: '2px'
+                        }}
+                      />
+                      <input
+                        type="text"
+                        name="accent_color"
+                        value={formData.accent_color}
+                        onChange={handleChange}
+                        style={{
+                          flex: 1,
+                          padding: '10px',
+                          border: '2px solid #e0e0e0',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontFamily: 'monospace'
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="form-group">
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: 'var(--color-primary)' }}>
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '8px', 
+                  fontWeight: '600', 
+                  color: '#333',
+                  fontSize: '14px'
+                }}>
                   Moneda
                 </label>
                 <div style={{ position: 'relative' }}>
@@ -499,19 +614,25 @@ function Stores() {
                     onClick={() => setCurrencyDropdownOpen(!currencyDropdownOpen)}
                     style={{
                       width: '100%',
-                      padding: '10px',
-                      border: '2px solid #ddd',
-                      borderRadius: 'var(--radius-sm)',
+                      padding: '12px 16px',
+                      border: '2px solid #e0e0e0',
+                      borderRadius: '8px',
                       backgroundColor: '#fff',
                       cursor: 'pointer',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      fontSize: '14px'
+                      fontSize: '14px',
+                      color: '#333'
                     }}
                   >
-                    <span>{formData.currency_symbol} {formData.currency_code} - {formData.currency_name}</span>
-                    <span>▼</span>
+                    <span>
+                      <span style={{ marginRight: '8px' }}>
+                        {CURRENCIES.find(c => c.code === formData.currency_code)?.flag || '🏳️'}
+                      </span>
+                      <strong>{formData.currency_symbol}</strong> {formData.currency_code} - {formData.currency_name}
+                    </span>
+                    <span style={{ fontSize: '10px' }}>▼</span>
                   </button>
                   {currencyDropdownOpen && (
                     <div style={{
@@ -520,31 +641,45 @@ function Stores() {
                       left: 0,
                       right: 0,
                       backgroundColor: '#fff',
-                      border: '2px solid #ddd',
-                      borderRadius: 'var(--radius-sm)',
-                      maxHeight: '200px',
+                      border: '2px solid #e0e0e0',
+                      borderRadius: '8px',
+                      marginTop: '4px',
+                      maxHeight: '240px',
                       overflowY: 'auto',
-                      zIndex: 10
+                      zIndex: 10,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                     }}>
                       {CURRENCIES.map(currency => (
                         <div
                           key={currency.code}
                           onClick={() => selectCurrency(currency)}
                           style={{
-                            padding: '10px',
+                            padding: '12px 16px',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '10px',
-                            backgroundColor: formData.currency_code === currency.code ? '#f0f0f0' : '#fff'
+                            gap: '12px',
+                            backgroundColor: formData.currency_code === currency.code ? '#f0f7ff' : '#fff',
+                            borderBottom: '1px solid #f0f0f0'
                           }}
-                          onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-                          onMouseLeave={(e) => e.target.style.backgroundColor = formData.currency_code === currency.code ? '#f0f0f0' : '#fff'}
+                          onMouseEnter={(e) => {
+                            if (formData.currency_code !== currency.code) {
+                              e.currentTarget.style.backgroundColor = '#f5f5f5';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (formData.currency_code !== currency.code) {
+                              e.currentTarget.style.backgroundColor = '#fff';
+                            }
+                          }}
                         >
-                          <span>{currency.flag}</span>
-                          <span>{currency.symbol}</span>
-                          <span style={{ fontWeight: '600' }}>{currency.code}</span>
-                          <span style={{ color: '#666', fontSize: '12px' }}>{currency.name}</span>
+                          <span style={{ fontSize: '20px' }}>{currency.flag}</span>
+                          <strong style={{ fontSize: '16px', minWidth: '30px' }}>{currency.symbol}</strong>
+                          <span style={{ fontWeight: '600', minWidth: '50px' }}>{currency.code}</span>
+                          <span style={{ color: '#666', fontSize: '13px' }}>{currency.name}</span>
+                          {formData.currency_code === currency.code && (
+                            <span style={{ marginLeft: 'auto', color: '#007bff' }}>✓</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -552,19 +687,20 @@ function Stores() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '32px', paddingTop: '24px', borderTop: '1px solid #f0f0f0' }}>
                 <button
                   type="button"
                   onClick={() => { setShowModal(false); resetForm(); }}
                   style={{
                     flex: 1,
-                    padding: '12px',
-                    backgroundColor: '#f8f9fa',
-                    border: '1px solid #ddd',
-                    borderRadius: 'var(--radius-sm)',
+                    padding: '14px 20px',
+                    backgroundColor: '#f5f5f5',
+                    border: 'none',
+                    borderRadius: '8px',
                     cursor: 'pointer',
                     fontSize: '14px',
-                    fontWeight: '600'
+                    fontWeight: '600',
+                    color: '#666'
                   }}
                 >
                   Cancelar
@@ -574,18 +710,19 @@ function Stores() {
                   disabled={loading}
                   style={{
                     flex: 1,
-                    padding: '12px',
-                    backgroundColor: 'var(--color-primary)',
-                    color: 'var(--color-secondary)',
+                    padding: '14px 20px',
+                    backgroundColor: formData.primary_color || '#000',
+                    color: formData.secondary_color || '#fff',
                     border: 'none',
-                    borderRadius: 'var(--radius-sm)',
+                    borderRadius: '8px',
                     cursor: loading ? 'not-allowed' : 'pointer',
                     fontSize: '14px',
                     fontWeight: '600',
-                    opacity: loading ? 0.7 : 1
+                    opacity: loading ? 0.7 : 1,
+                    transition: 'opacity 0.2s'
                   }}
                 >
-                  {loading ? 'Guardando...' : (editingStore ? 'Actualizar' : 'Crear')}
+                  {loading ? 'Guardando...' : (editingStore ? 'Actualizar Tienda' : 'Crear Tienda')}
                 </button>
               </div>
             </form>

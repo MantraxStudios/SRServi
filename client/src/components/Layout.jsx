@@ -39,12 +39,43 @@ function Layout() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      setStores(data);
       
-      if (data.length > 0 && !selectedStore) {
-        const savedStoreId = localStorage.getItem('selectedStoreId');
-        const savedStore = data.find(s => s.id === parseInt(savedStoreId));
-        setSelectedStore(savedStore || data[0]);
+      if (Array.isArray(data) && data.length === 0) {
+        const response2 = await fetch('http://localhost:3001/api/stores', {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: user?.business_name || user?.username || 'Mi Tienda',
+            primary_color: '#000000',
+            secondary_color: '#FFFFFF',
+            accent_color: '#D4AF37',
+            header_color: '#000000',
+            currency_code: 'USD',
+            currency_symbol: '$',
+            currency_name: 'Dólar Estadounidense'
+          })
+        });
+        
+        if (response2.ok) {
+          const newStore = await response2.json();
+          setStores([newStore]);
+          setSelectedStore(newStore);
+          localStorage.setItem('selectedStoreId', newStore.id.toString());
+        }
+      } else {
+        setStores(data);
+        
+        if (data.length > 0 && !selectedStore) {
+          const savedStoreId = localStorage.getItem('selectedStoreId');
+          const savedStore = data.find(s => s.id === parseInt(savedStoreId));
+          setSelectedStore(savedStore || data[0]);
+          if (savedStore || data[0]) {
+            localStorage.setItem('selectedStoreId', (savedStore || data[0]).id.toString());
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching stores:', error);

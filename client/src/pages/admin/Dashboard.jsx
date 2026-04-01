@@ -25,15 +25,22 @@ function Dashboard() {
     extras: 0
   });
   const [recentOrders, setRecentOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (selectedStore) {
+      setLoading(true);
       fetchData();
+    } else {
+      setLoading(false);
     }
   }, [selectedStore]);
 
   const fetchData = async () => {
-    if (!selectedStore) return;
+    if (!selectedStore) {
+      setLoading(false);
+      return;
+    }
     
     try {
       const token = localStorage.getItem('token');
@@ -67,6 +74,8 @@ function Dashboard() {
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
+    } finally {
+      setLoading(false);
     }
   };
 

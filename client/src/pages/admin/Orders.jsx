@@ -10,12 +10,19 @@ function Orders() {
 
   useEffect(() => {
     if (selectedStore) {
+      setLoading(true);
       fetchOrders();
+    } else {
+      setLoading(false);
+      setOrders([]);
     }
   }, [selectedStore]);
 
   const fetchOrders = async () => {
-    if (!selectedStore) return;
+    if (!selectedStore) {
+      setLoading(false);
+      return;
+    }
     
     try {
       const token = localStorage.getItem('token');
@@ -23,7 +30,7 @@ function Orders() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      setOrders(data);
+      setOrders(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {

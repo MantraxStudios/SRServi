@@ -17,12 +17,19 @@ function Extras() {
 
   useEffect(() => {
     if (selectedStore) {
+      setLoading(true);
       fetchExtras();
+    } else {
+      setLoading(false);
+      setExtras([]);
     }
   }, [selectedStore]);
 
   const fetchExtras = async () => {
-    if (!selectedStore) return;
+    if (!selectedStore) {
+      setLoading(false);
+      return;
+    }
     
     try {
       const token = localStorage.getItem('token');
@@ -30,7 +37,7 @@ function Extras() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      setExtras(data);
+      setExtras(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching extras:', error);
     } finally {

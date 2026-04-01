@@ -17,12 +17,19 @@ function Ingredients() {
 
   useEffect(() => {
     if (selectedStore) {
+      setLoading(true);
       fetchIngredients();
+    } else {
+      setLoading(false);
+      setIngredients([]);
     }
   }, [selectedStore]);
 
   const fetchIngredients = async () => {
-    if (!selectedStore) return;
+    if (!selectedStore) {
+      setLoading(false);
+      return;
+    }
     
     try {
       const token = localStorage.getItem('token');
@@ -30,7 +37,7 @@ function Ingredients() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      setIngredients(data);
+      setIngredients(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching ingredients:', error);
     } finally {
