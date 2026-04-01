@@ -66,6 +66,17 @@ async function createTables() {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`;
 
+  const createWorkersTable = `
+    CREATE TABLE IF NOT EXISTS workers (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      username VARCHAR(255) UNIQUE NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )`;
+
   const createCategoriesTable = `
     CREATE TABLE IF NOT EXISTS categories (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -165,6 +176,7 @@ async function createTables() {
   await pool.execute(createProductExtrasTable);
   await pool.execute(createOrdersTable);
   await pool.execute(createOrderItemsTable);
+  await pool.execute(createWorkersTable);
 
   await migrateTables();
 
@@ -301,11 +313,16 @@ export async function getUserById(id) {
 }
 
 export async function getStores(userId) {
-  const [rows] = await pool.execute(
-    'SELECT * FROM stores WHERE user_id = ? ORDER BY name',
-    [userId]
-  );
-  return rows;
+  if (userId) {
+    const [rows] = await pool.execute(
+      'SELECT * FROM stores WHERE user_id = ? ORDER BY name',
+      [userId]
+    );
+    return rows;
+  } else {
+    const [rows] = await pool.execute('SELECT * FROM stores ORDER BY name');
+    return rows;
+  }
 }
 
 export async function createStore(userId, data) {
@@ -672,6 +689,13 @@ export async function createOrder(storeId, orderData) {
     [storeId, customer_name || null, total]
   );
   const orderId = result.insertId;
+  
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const randomLetter = letters[Math.floor(Math.random() * letters.length)];
+  const randomNumber = Math.floor(Math.random() * 99) + 1;
+  const orderNumber = `${randomLetter}${randomNumber.toString().padStart(2, '0')}`;
+  await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [orderNumber, orderId]);
+  const finalOrder = { id: orderId, order_number: orderNumber, store_id: storeId, customer_name, total, status: 'pending', items };
 
   for (const item of items) {
     await pool.execute(
@@ -688,20 +712,25 @@ export async function createOrder(storeId, orderData) {
     );
   }
 
-  return { id: orderId, store_id: storeId, customer_name, total, status: 'pending', items };
+  return finalOrder;
 }
 
 export async function getOrders(storeId) {
   const [rows] = await pool.execute(
-    'SELECT * FROM orders WHERE store_id = ? ORDER BY created_at DESC',
+    `SELECT o.*, w.name as completed_by_name 
+     FROM orders o 
+     LEFT JOIN workers w ON o.completed_by = w.id 
+     WHERE o.store_id = ? 
+     ORDER BY o.created_at DESC`,
     [storeId]
   );
 
   const orders = [];
   for (const order of rows) {
+    const totalValue = parseFloat(order.total);
     const ord = {
       ...order,
-      total: parseFloat(order.total),
+      total: isNaN(totalValue) ? 0 : totalValue,
       items: await getOrderItems(order.id)
     };
     orders.push(ord);
@@ -711,9 +740,9 @@ export async function getOrders(storeId) {
 
 async function getOrderItems(orderId) {
   const [rows] = await pool.execute(`
-    SELECT oi.*, p.name as product_name 
+    SELECT oi.*, COALESCE(p.name, 'Producto eliminado') as product_name 
     FROM order_items oi 
-    JOIN products p ON oi.product_id = p.id 
+    LEFT JOIN products p ON oi.product_id = p.id 
     WHERE oi.order_id = ?
   `, [orderId]);
   
@@ -725,7 +754,14 @@ async function getOrderItems(orderId) {
   }));
 }
 
-export async function updateOrderStatus(orderId, storeId, status) {
+export async function updateOrderStatus(orderId, storeId, status, workerId, workerName) {
+  if (status === 'completed' && workerId) {
+    await pool.execute(
+      'UPDATE orders SET status = ?, completed_by = ?, completed_at = NOW() WHERE id = ? AND store_id = ?',
+      [status, workerId, orderId, storeId]
+    );
+    return { id: orderId, status, completed_by: workerId, completed_by_name: workerName };
+  }
   await pool.execute(
     'UPDATE orders SET status = ? WHERE id = ? AND store_id = ?',
     [status, orderId, storeId]
@@ -751,6 +787,93 @@ export async function updateUserSettings(userId, settings) {
   );
   
   return await getUserById(userId);
+}
+
+export async function createWorker(storeId, data) {
+  const { username, password, name } = data;
+  const hashedPassword = await bcrypt.hash(password, 10);
+  
+  const [result] = await pool.execute(
+    'INSERT INTO workers (store_id, username, password, name) VALUES (?, ?, ?, ?)',
+    [storeId, username, hashedPassword, name]
+  );
+  
+  return {
+    id: result.insertId,
+    store_id: storeId,
+    username,
+    name
+  };
+}
+
+export async function getWorkers(storeId) {
+  const [rows] = await pool.execute(
+    'SELECT id, store_id, username, name, created_at FROM workers WHERE store_id = ? ORDER BY name',
+    [storeId]
+  );
+  return rows;
+}
+
+export async function getWorkerById(workerId) {
+  const [rows] = await pool.execute(
+    'SELECT id, store_id, username, name, created_at FROM workers WHERE id = ?',
+    [workerId]
+  );
+  return rows.length > 0 ? rows[0] : null;
+}
+
+export async function authenticateWorker(username, password) {
+  const [rows] = await pool.execute(
+    'SELECT w.*, s.name as store_name, s.code as store_code FROM workers w JOIN stores s ON w.store_id = s.id WHERE w.username = ?',
+    [username]
+  );
+  
+  if (rows.length === 0) {
+    return null;
+  }
+  
+  const worker = rows[0];
+  const isValid = await bcrypt.compare(password, worker.password);
+  
+  if (!isValid) {
+    return null;
+  }
+  
+  return {
+    id: worker.id,
+    store_id: worker.store_id,
+    store_name: worker.store_name,
+    store_code: worker.store_code,
+    username: worker.username,
+    name: worker.name
+  };
+}
+
+export async function deleteWorker(workerId, storeId) {
+  await pool.execute(
+    'DELETE FROM workers WHERE id = ? AND store_id = ?',
+    [workerId, storeId]
+  );
+  return { id: workerId };
+}
+
+export async function getWorkerOrders(storeId) {
+  const [rows] = await pool.execute(`
+    SELECT o.* FROM orders o 
+    WHERE o.store_id = ? 
+    ORDER BY o.created_at DESC
+  `, [storeId]);
+  
+  const orders = [];
+  for (const order of rows) {
+    const items = await getOrderItems(order.id);
+    orders.push({
+      ...order,
+      total: parseFloat(order.total),
+      items
+    });
+  }
+  return orders;
 }
 
 export { pool };

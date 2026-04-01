@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import WorkerLogin from './pages/WorkerLogin';
+import WorkerPanel from './pages/WorkerPanel';
 import Dashboard from './pages/admin/Dashboard';
 import Stores from './pages/admin/Stores';
 import Categories from './pages/admin/Categories';
@@ -10,6 +12,7 @@ import Products from './pages/admin/Products';
 import Ingredients from './pages/admin/Ingredients';
 import Extras from './pages/admin/Extras';
 import Orders from './pages/admin/Orders';
+import Workers from './pages/admin/Workers';
 import Settings from './pages/admin/Settings';
 import Index from './pages/Index';
 import Store from './pages/Store';
@@ -59,8 +62,11 @@ function App() {
             <Route path="ingredients" element={<Ingredients />} />
             <Route path="extras" element={<Extras />} />
             <Route path="orders" element={<Orders />} />
+            <Route path="workers" element={<Workers />} />
             <Route path="settings" element={<Settings />} />
           </Route>
+          <Route path="/worker-login" element={<WorkerLogin />} />
+          <Route path="/worker-panel" element={<WorkerPanel />} />
         </Routes>
       </Router>
     </AuthProvider>

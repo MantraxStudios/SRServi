@@ -37,7 +37,13 @@ import {
   getPublicProducts,
   createOrder,
   getOrders,
-  updateUserSettings
+  updateUserSettings,
+  createWorker,
+  getWorkers,
+  deleteWorker,
+  authenticateWorker,
+  getWorkerOrders,
+  updateOrderStatus
 } from './database.js';
 
 const app = express();
@@ -153,7 +159,7 @@ app.post('/api/auth/register', async (req, res) => {
       currency_name: 'Dólar Estadounidense'
     });
     
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, email: user.email, type: 'user' }, JWT_SECRET, { expiresIn: '7d' });
     
     res.json({ user, token, store });
   } catch (error) {
@@ -175,7 +181,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
     
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, email: user.email, type: 'user' }, JWT_SECRET, { expiresIn: '7d' });
     
     res.json({ user, token });
   } catch (error) {
@@ -247,11 +253,28 @@ app.put('/api/user/settings', authenticateToken, async (req, res) => {
   }
  });
 
-app.get('/api/stores', authenticateToken, async (req, res) => {
+app.get('/api/stores', async (req, res) => {
   try {
-    const stores = await getStores(req.user.id);
+    const stores = await getStores();
     res.json(stores);
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/stores/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('Fetching store:', id);
+    const stores = await getStores();
+    console.log('Stores found:', stores.length);
+    const store = stores.find(s => s.id === parseInt(id));
+    if (!store) {
+      return res.status(404).json({ error: 'Tienda no encontrada' });
+    }
+    res.json(store);
+  } catch (error) {
+    console.error('Error fetching store:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -617,9 +640,17 @@ app.post('/api/orders', async (req, res) => {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
     }
     
+    console.log('Creating order:', { store_id, customer_name, items });
     const order = await createOrder(parseInt(store_id), { customer_name, items });
+    
+    const socketId = userSockets.get(parseInt(store_id));
+    if (socketId) {
+      io.to(socketId).emit('new_order', order);
+    }
+    
     res.json(order);
   } catch (error) {
+    console.error('❌ Error creando orden:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -637,10 +668,154 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/orders/store/:storeId', async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const orders = await getOrders(parseInt(storeId));
+    if (orders.length > 0) {
+      console.log('First order items:', orders[0].items);
+    }
+    res.json(orders);
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/orders/:id/status', authenticateToken, async (req, res) => {
+  try {
+    const { status, worker_id, worker_name } = req.body;
+    const { id } = req.params;
+    const { store_id } = req.query;
+    
+    if (!store_id) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    
+    const order = await updateOrderStatus(parseInt(id), parseInt(store_id), status, worker_id, worker_name);
+    const io_instance = req.app.get('io');
+    if (io_instance) {
+      io_instance.to(`store_${store_id}`).emit('order_updated', order);
+    }
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/workers/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+    }
+    
+    const worker = await authenticateWorker(username, password);
+    
+    if (!worker) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    
+    const token = jwt.sign(
+      { id: worker.id, type: 'worker', store_id: worker.store_id },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    res.json({
+      token,
+      worker: {
+        id: worker.id,
+        username: worker.username,
+        name: worker.name,
+        store_id: worker.store_id,
+        store_name: worker.store_name,
+        store_code: worker.store_code
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/workers', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user' && req.user.type !== 'worker') {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+    
+    const storeId = req.query.store_id || req.user.store_id;
+    if (!storeId) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    
+    const workers = await getWorkers(parseInt(storeId));
+    res.json(workers);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/workers', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+    
+    const { store_id, username, password, name } = req.body;
+    
+    if (!store_id || !username || !password || !name) {
+      return res.status(400).json({ error: 'Todos los campos son requeridos' });
+    }
+    
+    const worker = await createWorker(parseInt(store_id), { username, password, name });
+    res.json(worker);
+  } catch (error) {
+    if (error.message.includes('Duplicate')) {
+      return res.status(400).json({ error: 'El nombre de usuario ya existe' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/workers/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+    
+    const { store_id } = req.query;
+    if (!store_id) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    
+    await deleteWorker(parseInt(req.params.id), parseInt(store_id));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/workers/orders', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'worker') {
+      return res.status(403).json({ error: 'Acceso solo para trabajadores' });
+    }
+    
+    const orders = await getWorkerOrders(req.user.store_id);
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 async function startServer() {
   try {
     await initDatabase();
     console.log('Base de datos inicializada');
+    
+    app.set('io', io);
     
     server.listen(PORT, () => {
       console.log(`Servidor corriendo en http://localhost:${PORT}`);

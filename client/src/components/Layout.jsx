@@ -12,10 +12,11 @@ import {
   faSignOutAlt,
   faPalette,
   faStore,
-  faChevronDown
+  faChevronDown,
+  faUsers
 } from '@fortawesome/free-solid-svg-icons';
 
-const StoreContext = createContext();
+export const StoreContext = createContext();
 
 export const useStore = () => useContext(StoreContext);
 
@@ -277,6 +278,12 @@ function Layout() {
               <NavLink to="/admin/orders">
                 <FontAwesomeIcon icon={faShoppingBag} />
                 <span>Pedidos</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/workers">
+                <FontAwesomeIcon icon={faUsers} />
+                <span>Trabajadores</span>
               </NavLink>
             </li>
             <li>
