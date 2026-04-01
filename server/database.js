@@ -166,7 +166,58 @@ async function createTables() {
   await pool.execute(createOrdersTable);
   await pool.execute(createOrderItemsTable);
 
+  await migrateTables();
+
   console.log('✅ Tablas creadas/verificadas correctamente');
+}
+
+async function migrateTables() {
+  try {
+    const tables = ['categories', 'ingredients', 'extras', 'products', 'orders'];
+    
+    for (const table of tables) {
+      try {
+        const [columns] = await pool.execute(`SHOW COLUMNS FROM ${table}`);
+        const columnNames = columns.map(c => c.Field);
+        
+        if (columnNames.includes('user_id') && !columnNames.includes('store_id')) {
+          console.log(`⚠️ Agregando columna store_id a tabla ${table}...`);
+          
+          await pool.execute(`ALTER TABLE ${table} ADD COLUMN store_id INT AFTER user_id`);
+          
+          const [userData] = await pool.execute(`SELECT id, user_id FROM ${table}`);
+          
+          if (userData.length > 0) {
+            console.log(`  Copiando ${userData.length} registros de user_id a store_id...`);
+            for (const row of userData) {
+              await pool.execute(
+                `UPDATE ${table} SET store_id = ? WHERE id = ?`,
+                [row.user_id, row.id]
+              );
+            }
+          }
+          
+          await pool.execute(`ALTER TABLE ${table} DROP COLUMN user_id`);
+          console.log(`✅ Tabla ${table} migrada correctamente`);
+        } else if (!columnNames.includes('user_id') && !columnNames.includes('store_id')) {
+          console.log(`⚠️ Agregando columna store_id a tabla ${table} (sin datos anteriores)...`);
+          await pool.execute(`ALTER TABLE ${table} ADD COLUMN store_id INT`);
+        } else {
+          console.log(`ℹ️ Tabla ${table} ya tiene la estructura correcta`);
+        }
+      } catch (tableError) {
+        if (tableError.message.includes('Duplicate column')) {
+          console.log(`ℹ️ Columna store_id ya existe en ${table}`);
+        } else {
+          console.error(`❌ Error migrando tabla ${table}:`, tableError.message);
+        }
+      }
+    }
+    
+    console.log('✅ Migración de tablas completada');
+  } catch (error) {
+    console.error('❌ Error en migración:', error.message);
+  }
 }
 
 function generateCode() {

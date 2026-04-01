@@ -16,6 +16,7 @@ import {
   updateStore,
   deleteStore,
   getStoreById,
+  getStoreByCode,
   getCategories,
   createCategory,
   updateCategory,
@@ -196,7 +197,6 @@ app.get('/api/public/:code', async (req, res) => {
     res.json({
       store: {
         id: store.id,
-        user_id: store.user_id,
         code: store.code,
         name: store.name,
         primary_color: store.primary_color || '#000000',
@@ -210,6 +210,7 @@ app.get('/api/public/:code', async (req, res) => {
       products
     });
   } catch (error) {
+    console.error('❌ Error en /api/public:', error);
     res.status(500).json({ error: error.message });
   }
 });
