@@ -145,9 +145,11 @@ async function createTables() {
     CREATE TABLE IF NOT EXISTS orders (
       id INT PRIMARY KEY AUTO_INCREMENT,
       store_id INT NOT NULL,
-      customer_name VARCHAR(255),
+      order_type VARCHAR(50) DEFAULT 'serve',
       total DECIMAL(10, 2) NOT NULL,
       status VARCHAR(50) DEFAULT 'pending',
+      payment_method VARCHAR(20) DEFAULT 'card',
+      cash_approved BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )`;
@@ -161,7 +163,6 @@ async function createTables() {
       unit_price DECIMAL(10, 2) NOT NULL,
       selected_ingredients TEXT,
       selected_extras TEXT,
-      notes TEXT,
       FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
       FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     )`;
@@ -326,7 +327,7 @@ export async function getStores(userId) {
 }
 
 export async function createStore(userId, data) {
-  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name } = data;
+  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, mercadopago_access_token, mercadopago_terminal_id } = data;
   let code = generateCode();
   
   const [existing] = await pool.execute('SELECT id FROM stores WHERE code = ?', [code]);
@@ -337,9 +338,9 @@ export async function createStore(userId, data) {
   }
 
   const [result] = await pool.execute(
-    `INSERT INTO stores (user_id, code, name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [userId, code, name, primary_color || '#000000', secondary_color || '#FFFFFF', accent_color || '#D4AF37', header_color || '#000000', currency_code || 'USD', currency_symbol || '$', currency_name || 'Dólar Estadounidense']
+    `INSERT INTO stores (user_id, code, name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, mercadopago_access_token, mercadopago_terminal_id) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [userId, code, name, primary_color || '#000000', secondary_color || '#FFFFFF', accent_color || '#D4AF37', header_color || '#000000', currency_code || 'USD', currency_symbol || '$', currency_name || 'Dólar Estadounidense', mercadopago_access_token || null, mercadopago_terminal_id || null]
   );
   return { 
     id: result.insertId, 
@@ -352,18 +353,20 @@ export async function createStore(userId, data) {
     header_color: header_color || '#000000',
     currency_code: currency_code || 'USD',
     currency_symbol: currency_symbol || '$',
-    currency_name: currency_name || 'Dólar Estadounidense'
+    currency_name: currency_name || 'Dólar Estadounidense',
+    mercadopago_access_token: mercadopago_access_token || null,
+    mercadopago_terminal_id: mercadopago_terminal_id || null
   };
 }
 
 export async function updateStore(storeId, userId, data) {
-  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name } = data;
+  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, mercadopago_access_token, mercadopago_terminal_id } = data;
   await pool.execute(
-    `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ? 
+    `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ?, mercadopago_access_token = ?, mercadopago_terminal_id = ?
      WHERE id = ? AND user_id = ?`,
-    [name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, storeId, userId]
+    [name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, mercadopago_access_token || null, mercadopago_terminal_id || null, storeId, userId]
   );
-  return { id: storeId, user_id: userId, name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name };
+  return { id: storeId, user_id: userId, name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, mercadopago_access_token: mercadopago_access_token || null, mercadopago_terminal_id: mercadopago_terminal_id || null };
 }
 
 export async function deleteStore(storeId, userId) {
@@ -677,16 +680,18 @@ export async function getPublicProducts(storeId) {
 }
 
 export async function createOrder(storeId, orderData) {
-  const { customer_name, items } = orderData;
+  const { order_type, items, payment_method } = orderData;
   
   let total = 0;
   items.forEach(item => {
     total += item.unit_price * item.quantity;
   });
 
+  const cashApproved = payment_method === 'card' ? true : false;
+  
   const [result] = await pool.execute(
-    'INSERT INTO orders (store_id, customer_name, total) VALUES (?, ?, ?)',
-    [storeId, customer_name || null, total]
+    'INSERT INTO orders (store_id, order_type, total, payment_method, cash_approved) VALUES (?, ?, ?, ?, ?)',
+    [storeId, order_type || 'serve', total, payment_method || 'card', cashApproved]
   );
   const orderId = result.insertId;
   
@@ -695,19 +700,28 @@ export async function createOrder(storeId, orderData) {
   const randomNumber = Math.floor(Math.random() * 99) + 1;
   const orderNumber = `${randomLetter}${randomNumber.toString().padStart(2, '0')}`;
   await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [orderNumber, orderId]);
-  const finalOrder = { id: orderId, order_number: orderNumber, store_id: storeId, customer_name, total, status: 'pending', items };
+  const finalOrder = { 
+    id: orderId, 
+    order_number: orderNumber, 
+    store_id: storeId, 
+    order_type, 
+    total, 
+    status: 'pending',
+    payment_method,
+    cash_approved: cashApproved,
+    items 
+  };
 
   for (const item of items) {
     await pool.execute(
-      'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras) VALUES (?, ?, ?, ?, ?, ?)',
       [
         orderId, 
         item.product_id, 
         item.quantity, 
         item.unit_price, 
         JSON.stringify(item.selected_ingredients || []),
-        JSON.stringify(item.selected_extras || []),
-        item.notes || null
+        JSON.stringify(item.selected_extras || [])
       ]
     );
   }
@@ -767,6 +781,39 @@ export async function updateOrderStatus(orderId, storeId, status, workerId, work
     [status, orderId, storeId]
   );
   return { id: orderId, status };
+}
+
+export async function approveCashPayment(orderId, storeId, workerId, workerName) {
+  await pool.execute(
+    'UPDATE orders SET cash_approved = TRUE WHERE id = ? AND store_id = ?',
+    [orderId, storeId]
+  );
+  
+  const [rows] = await pool.execute(
+    'SELECT * FROM orders WHERE id = ? AND store_id = ?',
+    [orderId, storeId]
+  );
+  
+  if (rows.length === 0) {
+    throw new Error('Orden no encontrada');
+  }
+  
+  const order = rows[0];
+  const totalValue = parseFloat(order.total);
+  const items = await getOrderItems(orderId);
+  
+  return {
+    id: order.id,
+    store_id: order.store_id,
+    order_type: order.order_type,
+    total: isNaN(totalValue) ? 0 : totalValue,
+    status: order.status,
+    payment_method: order.payment_method,
+    cash_approved: true,
+    created_at: order.created_at,
+    order_number: order.order_number,
+    items: items
+  };
 }
 
 export async function updateUserSettings(userId, settings) {
@@ -874,6 +921,70 @@ export async function getWorkerOrders(storeId) {
     });
   }
   return orders;
+}
+
+export async function processMercadoPagoPayment(storeId, orderData) {
+  const { mercadopago_access_token, mercadopago_terminal_id } = await getStoreById(storeId);
+  
+  if (!mercadopago_access_token || !mercadopago_terminal_id) {
+    throw new Error('Configuracion de Mercado Pago no encontrada');
+  }
+
+  const { items, order_type, external_reference } = orderData;
+  
+  let total = 0;
+  items.forEach(item => {
+    total += item.unit_price * item.quantity;
+  });
+
+  const amountInCents = Math.round(total * 100);
+  const idempotencyKey = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  
+  const payload = {
+    type: 'point',
+    external_reference: external_reference || idempotencyKey,
+    description: `Pedido ${order_type === 'takeout' ? 'para llevar' : 'para consumir aqui'}`,
+    expiration_time: 'PT10M',
+    transactions: {
+      payments: [{
+        amount: amountInCents
+      }]
+    },
+    config: {
+      point: {
+        terminal_id: mercadopago_terminal_id,
+        print_on_terminal: 'no_ticket'
+      }
+    }
+  };
+
+  console.log('Enviando pago a Mercado Pago:', payload);
+
+  const response = await fetch('https://api.mercadopago.com/v1/orders', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${mercadopago_access_token}`,
+      'X-Idempotency-Key': idempotencyKey
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Error de Mercado Pago:', errorText);
+    throw new Error('Error al procesar pago con Mercado Pago');
+  }
+
+  const mpResponse = await response.json();
+  console.log('Respuesta de Mercado Pago:', mpResponse);
+  
+  return {
+    mp_order_id: mpResponse.id,
+    status: mpResponse.status,
+    external_reference: mpResponse.external_reference,
+    amount: total
+  };
 }
 
 export { pool };

@@ -43,7 +43,9 @@ import {
   deleteWorker,
   authenticateWorker,
   getWorkerOrders,
-  updateOrderStatus
+  updateOrderStatus,
+  approveCashPayment,
+  processMercadoPagoPayment
 } from './database.js';
 
 const app = express();
@@ -634,14 +636,14 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { store_id, customer_name, items } = req.body;
+    const { store_id, items, order_type, payment_method } = req.body;
     
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
     }
     
-    console.log('Creating order:', { store_id, customer_name, items });
-    const order = await createOrder(parseInt(store_id), { customer_name, items });
+    console.log('Creating order:', { store_id, order_type, payment_method, items });
+    const order = await createOrder(parseInt(store_id), { order_type, payment_method, items });
     
     const socketId = userSockets.get(parseInt(store_id));
     if (socketId) {
@@ -651,6 +653,50 @@ app.post('/api/orders', async (req, res) => {
     res.json(order);
   } catch (error) {
     console.error('❌ Error creando orden:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/orders/process-payment', async (req, res) => {
+  try {
+    const { store_id, items, order_type, payment_method } = req.body;
+    
+    if (!store_id || !items || items.length === 0) {
+      return res.status(400).json({ error: 'Datos del pedido incompletos' });
+    }
+    
+    if (payment_method === 'card') {
+      console.log('Procesando pago con tarjeta:', { store_id, order_type });
+      
+      const mpResult = await processMercadoPagoPayment(parseInt(store_id), {
+        items,
+        order_type
+      });
+      
+      console.log('Pago Mercado Pago procesado:', mpResult);
+      
+      const order = await createOrder(parseInt(store_id), { 
+        order_type, 
+        payment_method: 'card',
+        items,
+        mp_order_id: mpResult.mp_order_id
+      });
+      
+      const socketId = userSockets.get(parseInt(store_id));
+      if (socketId) {
+        io.to(socketId).emit('new_order', order);
+      }
+      
+      res.json({
+        success: true,
+        order,
+        mp_status: mpResult.status
+      });
+    } else {
+      return res.status(400).json({ error: 'Metodo de pago no soportado para este endpoint' });
+    }
+  } catch (error) {
+    console.error('❌ Error procesando pago:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -699,6 +745,30 @@ app.put('/api/orders/:id/status', authenticateToken, async (req, res) => {
     }
     res.json(order);
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/orders/:id/approve-cash', authenticateToken, async (req, res) => {
+  try {
+    const { worker_id, worker_name } = req.body;
+    const { id } = req.params;
+    const { store_id } = req.query;
+    
+    if (!store_id) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    
+    console.log('approve-cash request:', { id, store_id, worker_id, worker_name });
+    const order = await approveCashPayment(parseInt(id), parseInt(store_id), worker_id, worker_name);
+    console.log('approve-cash result:', order);
+    const io_instance = req.app.get('io');
+    if (io_instance) {
+      io_instance.to(`store_${store_id}`).emit('cash_approved', order);
+    }
+    res.json(order);
+  } catch (error) {
+    console.error('approve-cash error:', error);
     res.status(500).json({ error: error.message });
   }
 });

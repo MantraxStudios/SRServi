@@ -77,11 +77,22 @@ function Orders() {
                     <p style={{ color: '#666', fontSize: '14px' }}>
                       {formatDate(order.created_at)}
                     </p>
-                    {order.customer_name && (
-                      <p style={{ color: '#666', fontSize: '14px' }}>
-                        Cliente: {order.customer_name}
-                      </p>
-                    )}
+                    <div style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      padding: '6px 12px',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      fontWeight: '700',
+                      backgroundColor: order.order_type === 'takeout' ? '#007BFF' : '#28A745',
+                      color: '#fff'
+                    }}>
+                      <span style={{ fontSize: '18px' }}>
+                        {order.order_type === 'takeout' ? '🥡' : '🍽️'}
+                      </span>
+                      {order.order_type === 'takeout' ? 'Para Llevar' : 'Para Comer Aqui'}
+                    </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '24px', fontWeight: '700', color: '#D4AF37' }}>
@@ -122,11 +133,6 @@ function Orders() {
                       {item.selected_extras && item.selected_extras.length > 0 && (
                         <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
                           <strong>Extras:</strong> {item.selected_extras.join(', ')}
-                        </div>
-                      )}
-                      {item.notes && (
-                        <div style={{ fontSize: '14px', color: '#666' }}>
-                          <strong>Notas:</strong> {item.notes}
                         </div>
                       )}
                     </div>

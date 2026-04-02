@@ -402,34 +402,100 @@ function Products() {
               {ingredients.length > 0 && (
                 <div className="form-group">
                   <label>Ingredientes</label>
-                  <div style={{ maxHeight: '200px', overflowY: 'auto', border: '2px solid #ccc', borderRadius: '4px', padding: '10px' }}>
-                    {ingredients.map(ing => (
-                      <div 
-                        key={ing.id}
-                        className="option-item"
-                        style={{ 
-                          border: formData.ingredients.find(i => i.ingredient_id === ing.id) 
-                            ? '2px solid #D4AF37' 
-                            : '2px solid #ccc',
-                          backgroundColor: formData.ingredients.find(i => i.ingredient_id === ing.id)
-                            ? 'rgba(212, 175, 55, 0.1)'
-                            : 'transparent'
-                        }}
-                        onClick={() => toggleIngredient(ing.id)}
-                      >
-                        <input 
-                          type="checkbox" 
-                          checked={!!formData.ingredients.find(i => i.ingredient_id === ing.id)}
-                          onChange={() => toggleIngredient(ing.id)}
-                        />
-                        <div className="option-item-info">
-                            <div className="option-item-name">{ing.name}</div>
-                            {Number(ing.price) > 0 && (
-                              <div className="option-item-price">+${Number(ing.price).toFixed(2)}</div>
+                  <div style={{ maxHeight: '250px', overflowY: 'auto', border: '2px solid #ccc', borderRadius: '4px', padding: '10px' }}>
+                    {ingredients.map(ing => {
+                      const selectedIng = formData.ingredients.find(i => i.ingredient_id === ing.id);
+                      return (
+                        <div 
+                          key={ing.id}
+                          className="option-item"
+                          style={{ 
+                            border: selectedIng 
+                              ? '2px solid #D4AF37' 
+                              : '2px solid #ccc',
+                            backgroundColor: selectedIng
+                              ? 'rgba(212, 175, 55, 0.1)'
+                              : 'transparent',
+                            padding: '12px',
+                            marginBottom: '8px',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={!!selectedIng}
+                              onChange={() => toggleIngredient(ing.id)}
+                              style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                            />
+                            <div className="option-item-info" style={{ flex: 1 }}>
+                              <div className="option-item-name">{ing.name}</div>
+                              {Number(ing.price) > 0 && (
+                                <div className="option-item-price">+${Number(ing.price).toFixed(2)}</div>
+                              )}
+                            </div>
+                            {selectedIng && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <label style={{ fontSize: '14px', color: '#666', fontWeight: '600' }}>Max:</label>
+                                <select
+                                  value={selectedIng.max_selections || 1}
+                                  onChange={(e) => {
+                                    const newMax = parseInt(e.target.value);
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      ingredients: prev.ingredients.map(i => 
+                                        i.ingredient_id === ing.id 
+                                          ? { ...i, max_selections: newMax }
+                                          : i
+                                      )
+                                    }));
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{
+                                    padding: '6px 10px',
+                                    borderRadius: '4px',
+                                    border: '2px solid #D4AF37',
+                                    backgroundColor: '#fff',
+                                    fontSize: '14px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    minWidth: '60px'
+                                  }}
+                                >
+                                  {[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].map(num => (
+                                    <option key={num} value={num}>{num}</option>
+                                  ))}
+                                </select>
+                              </div>
                             )}
                           </div>
-                      </div>
-                    ))}
+                          {selectedIng && (
+                            <div style={{ marginTop: '8px', marginLeft: '32px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <input 
+                                type="checkbox"
+                                checked={selectedIng.is_required || false}
+                                onChange={(e) => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    ingredients: prev.ingredients.map(i => 
+                                      i.ingredient_id === ing.id 
+                                        ? { ...i, is_required: e.target.checked }
+                                        : i
+                                    )
+                                  }));
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                              />
+                              <label style={{ fontSize: '13px', color: '#D35400', fontWeight: '600', cursor: 'pointer' }}>
+                                Requerido
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -8,7 +8,9 @@ import {
   faTimes, 
   faBox,
   faArrowLeft,
-  faCopy
+  faCopy,
+  faCreditCard,
+  faMoneyBillWave
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 
@@ -21,13 +23,19 @@ function Store() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [customerName, setCustomerName] = useState('');
+  const [orderType, setOrderType] = useState('serve');
   const [productConfig, setProductConfig] = useState({
     selectedIngredients: [],
     selectedExtras: [],
-    quantity: 1,
-    notes: ''
+    quantity: 1
   });
+  const [ingredientsModalOpen, setIngredientsModalOpen] = useState(false);
+  const [extrasModalOpen, setExtrasModalOpen] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [lastOrderNumber, setLastOrderNumber] = useState(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
 
   useEffect(() => {
     fetchStore();
@@ -164,6 +172,12 @@ function Store() {
           selectedIngredients: prev.selectedIngredients.filter(i => i.id !== ingredient.id)
         };
       } else {
+        const ingredientConfig = selectedProduct.ingredients.find(i => i.id === ingredient.id);
+        const maxSelections = ingredientConfig?.max_selections || 1;
+        if (prev.selectedIngredients.length >= maxSelections) {
+          alert(`Solo puedes seleccionar máximo ${maxSelections} ingrediente(s) de "${ingredientConfig.name}"`);
+          return prev;
+        }
         return {
           ...prev,
           selectedIngredients: [...prev.selectedIngredients, ingredient]
@@ -217,8 +231,7 @@ function Store() {
       quantity: productConfig.quantity,
       total: unitPrice * productConfig.quantity,
       selected_ingredients: productConfig.selectedIngredients.map(i => i.name),
-      selected_extras: productConfig.selectedExtras.map(e => e.name),
-      notes: productConfig.notes
+      selected_extras: productConfig.selectedExtras.map(e => e.name)
     };
 
     setCart([...cart, cartItem]);
@@ -260,37 +273,74 @@ function Store() {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
+    setPaymentModalOpen(true);
+  };
+
+  const processPayment = async () => {
+    if (cart.length === 0) return;
+
+    setProcessingPayment(true);
+    setPaymentError(null);
+
+    console.log('processPayment - orderType:', orderType, 'paymentMethod:', paymentMethod);
+
+    const orderData = {
+      store_id: store.store.id,
+      order_type: orderType,
+      payment_method: paymentMethod,
+      items: cart.map(item => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        selected_ingredients: item.selected_ingredients,
+        selected_extras: item.selected_extras
+      }))
+    };
 
     try {
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          store_id: store.store.id,
-          customer_name: customerName,
-          items: cart.map(item => ({
-            product_id: item.product_id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            selected_ingredients: item.selected_ingredients,
-            selected_extras: item.selected_extras,
-            notes: item.notes
-          }))
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al procesar el pedido');
+      let response;
+      
+      if (paymentMethod === 'card') {
+        response = await fetch('/api/orders/process-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(orderData)
+        });
+      } else {
+        response = await fetch('/api/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(orderData)
+        });
       }
 
-      alert('Pedido realizado exitosamente!');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al procesar el pedido');
+      }
+
+      const result = await response.json();
+      const order = result.order || result;
+      
+      setLastOrderNumber(order.order_number);
+      setPaymentModalOpen(false);
       setCart([]);
       setCartOpen(false);
-      setCustomerName('');
+      
+      if (paymentMethod === 'card') {
+        alert('Pago realizado y pedido enviado a cocina!');
+      } else {
+        alert(`Pedido #${order.order_number} - Esperando aprobacion de pago en efectivo`);
+      }
     } catch (err) {
+      setPaymentError(err.message);
       alert(err.message);
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
@@ -576,18 +626,25 @@ function Store() {
           }}>
             <div className="modal-header" style={{
               backgroundColor: colors.header,
-              color: colors.accent
+              color: colors.accent,
+              borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
+              textAlign: 'center',
+              padding: '20px',
+              position: 'relative'
             }}>
-              <h2 className="modal-title">{selectedProduct.name}</h2>
               <button className="modal-close" onClick={closeProductModal} style={{
                 backgroundColor: 'transparent',
                 border: 'none',
                 color: colors.accent,
                 fontSize: '24px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                position: 'absolute',
+                top: '10px',
+                right: '10px'
               }}>
                 <FontAwesomeIcon icon={faTimes} />
               </button>
+              <h2 className="modal-title" style={{ textAlign: 'center', margin: '0', padding: '10px 40px 0 40px' }}>{selectedProduct.name}</h2>
             </div>
 
             <div style={{ marginBottom: '20px', padding: '20px' }}>
@@ -599,129 +656,84 @@ function Store() {
 
               {selectedProduct.ingredients && selectedProduct.ingredients.length > 0 && (
                 <div className="option-group">
-                  <h3 className="option-group-title" style={{ color: colors.primary }}>
+                  <h3 className="option-group-title" style={{ color: colors.primary, marginBottom: '12px' }}>
                     Ingredientes
                     {selectedProduct.ingredients.some(i => i.is_required) && (
                       <span style={{ color: '#DC3545', fontSize: '14px' }}> (Requerido)</span>
                     )}
                   </h3>
-                  {selectedProduct.ingredients.map(ingredient => (
-                    <div 
-                      key={ingredient.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '12px 16px',
-                        backgroundColor: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                          ? colors.accent 
-                          : colors.secondary,
-                        border: `2px solid ${productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                          ? colors.accent 
-                          : colors.primary}`,
-                        borderRadius: 'var(--radius-md)',
-                        marginBottom: '8px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onClick={() => toggleIngredient(ingredient)}
-                    >
-                      <input 
-                        type="checkbox" 
-                        checked={!!productConfig.selectedIngredients.find(i => i.id === ingredient.id)}
-                        onChange={() => toggleIngredient(ingredient)}
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          marginRight: '12px',
-                          accentColor: colors.accent
-                        }}
-                      />
-                      <div style={{ flex: 1, color: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                        ? colors.primary 
-                        : colors.primary }}>
-                        <div style={{ fontWeight: '600', color: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                          ? colors.primary 
-                          : colors.primary }}>
-                          {ingredient.name}
-                        </div>
-                        {Number(ingredient.price) > 0 && (
-                          <div style={{ fontSize: '14px', color: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                            ? colors.primary 
-                            : '#666' }}>
-                            +{colors.currency.symbol}{Number(ingredient.price).toFixed(2)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                  <button
+                    onClick={() => setIngredientsModalOpen(true)}
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      border: `2px solid ${colors.primary}`,
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '16px',
+                      backgroundColor: colors.secondary,
+                      color: colors.primary,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.borderColor = colors.accent;
+                      e.target.style.backgroundColor = `${colors.accent}10`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.borderColor = colors.primary;
+                      e.target.style.backgroundColor = colors.secondary;
+                    }}
+                  >
+                    <span>
+                      {productConfig.selectedIngredients.length > 0 
+                        ? `Seleccionados: ${productConfig.selectedIngredients.length}` 
+                        : 'Toca para seleccionar'}
+                    </span>
+                    <span style={{ fontSize: '20px' }}>›</span>
+                  </button>
                 </div>
               )}
 
               {selectedProduct.extras && selectedProduct.extras.length > 0 && (
                 <div className="option-group">
-                  <h3 className="option-group-title" style={{ color: colors.primary }}>Extras</h3>
-                  {selectedProduct.extras.map(extra => (
-                    <div 
-                      key={extra.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '12px 16px',
-                        backgroundColor: productConfig.selectedExtras.find(e => e.id === extra.id) 
-                          ? colors.accent 
-                          : colors.secondary,
-                        border: `2px solid ${productConfig.selectedExtras.find(e => e.id === extra.id) 
-                          ? colors.accent 
-                          : colors.primary}`,
-                        borderRadius: 'var(--radius-md)',
-                        marginBottom: '8px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onClick={() => toggleExtra(extra)}
-                    >
-                      <input 
-                        type="checkbox" 
-                        checked={!!productConfig.selectedExtras.find(e => e.id === extra.id)}
-                        onChange={() => toggleExtra(extra)}
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          marginRight: '12px',
-                          accentColor: colors.accent
-                        }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600', color: colors.primary }}>
-                          {extra.name}
-                        </div>
-                        {Number(extra.price) > 0 && (
-                          <div style={{ fontSize: '14px', color: '#666' }}>
-                            +{colors.currency.symbol}{Number(extra.price).toFixed(2)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                  <h3 className="option-group-title" style={{ color: colors.primary, marginBottom: '12px' }}>Extras</h3>
+                  <button
+                    onClick={() => setExtrasModalOpen(true)}
+                    style={{
+                      width: '100%',
+                      padding: '14px 16px',
+                      border: `2px solid ${colors.primary}`,
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '16px',
+                      backgroundColor: colors.secondary,
+                      color: colors.primary,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.borderColor = colors.accent;
+                      e.target.style.backgroundColor = `${colors.accent}10`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.borderColor = colors.primary;
+                      e.target.style.backgroundColor = colors.secondary;
+                    }}
+                  >
+                    <span>
+                      {productConfig.selectedExtras.length > 0 
+                        ? `Seleccionados: ${productConfig.selectedExtras.length}` 
+                        : 'Toca para seleccionar'}
+                    </span>
+                    <span style={{ fontSize: '20px' }}>›</span>
+                  </button>
                 </div>
               )}
-
-              <div className="option-group">
-                <h3 className="option-group-title" style={{ color: colors.primary }}>Notas</h3>
-                <textarea
-                  value={productConfig.notes}
-                  onChange={(e) => setProductConfig(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Alguna nota especial?"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: `2px solid ${colors.primary}`,
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: '16px',
-                    minHeight: '80px'
-                  }}
-                />
-              </div>
 
               <div className="option-group">
                 <h3 className="option-group-title" style={{ color: colors.primary }}>Cantidad</h3>
@@ -793,6 +805,400 @@ function Store() {
             >
               Agregar al Carrito - {colors.currency.symbol}{(calculateProductPrice() * productConfig.quantity).toFixed(2)}
             </button>
+          </div>
+        </div>
+      )}
+
+      {ingredientsModalOpen && selectedProduct && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 3000,
+            padding: '20px'
+          }}
+          onClick={() => setIngredientsModalOpen(false)}
+        >
+          <div 
+            style={{
+              backgroundColor: colors.secondary,
+              borderRadius: 'var(--radius-xl)',
+              width: '100%',
+              maxWidth: '450px',
+              maxHeight: '80vh',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              backgroundColor: colors.header,
+              color: colors.accent,
+              padding: '20px',
+              borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
+              textAlign: 'center',
+              position: 'relative'
+            }}>
+              <button 
+                onClick={() => setIngredientsModalOpen(false)}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: colors.accent,
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px'
+                }}
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+              <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>Ingredientes</h2>
+            </div>
+            
+            <div style={{
+              padding: '12px 20px',
+              backgroundColor: colors.secondary,
+              borderBottom: `2px solid ${colors.primary}`,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <span style={{
+                fontSize: '16px',
+                fontWeight: '700',
+                color: colors.primary
+              }}>
+                Seleccionados:
+              </span>
+              <span style={{
+                fontSize: '20px',
+                fontWeight: '700',
+                color: productConfig.selectedIngredients.length > 0 ? colors.accent : colors.primary
+              }}>
+                {productConfig.selectedIngredients.length}
+              </span>
+              {selectedProduct.ingredients[0]?.max_selections && (
+                <>
+                  <span style={{ color: colors.primary }}>/</span>
+                  <span style={{
+                    fontSize: '20px',
+                    fontWeight: '700',
+                    color: colors.primary
+                  }}>
+                    {selectedProduct.ingredients[0].max_selections}
+                  </span>
+                </>
+              )}
+            </div>
+            
+            <div style={{
+              flex: 1,
+              overflow: 'auto',
+              padding: '20px'
+            }}>
+              {selectedProduct.ingredients.map(ingredient => (
+                <div 
+                  key={ingredient.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '16px',
+                    backgroundColor: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
+                      ? colors.accent 
+                      : colors.secondary,
+                    border: `3px solid ${productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
+                      ? colors.accent 
+                      : colors.primary}`,
+                    borderRadius: 'var(--radius-lg)',
+                    marginBottom: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onClick={() => toggleIngredient(ingredient)}
+                  onMouseEnter={(e) => {
+                    if (!productConfig.selectedIngredients.find(i => i.id === ingredient.id)) {
+                      e.currentTarget.style.borderColor = colors.accent;
+                      e.currentTarget.style.transform = 'scale(1.02)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!productConfig.selectedIngredients.find(i => i.id === ingredient.id)) {
+                      e.currentTarget.style.borderColor = colors.primary;
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }
+                  }}
+                >
+                  <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    border: `3px solid ${productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
+                      ? colors.primary 
+                      : colors.primary}`,
+                    backgroundColor: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
+                      ? colors.primary 
+                      : 'transparent',
+                    marginRight: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease'
+                  }}>
+                    {productConfig.selectedIngredients.find(i => i.id === ingredient.id) && (
+                      <span style={{ color: colors.accent, fontSize: '16px', fontWeight: 'bold' }}>✓</span>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ 
+                      fontWeight: '700', 
+                      fontSize: '18px',
+                      color: colors.primary 
+                    }}>
+                      {ingredient.name}
+                    </div>
+                    {Number(ingredient.price) > 0 && (
+                      <div style={{ 
+                        fontSize: '15px', 
+                        color: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
+                          ? colors.primary 
+                          : '#666',
+                        marginTop: '4px'
+                      }}>
+                        +{colors.currency.symbol}{Number(ingredient.price).toFixed(2)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{
+              padding: '20px',
+              borderTop: `2px solid ${colors.primary}`
+            }}>
+              <button 
+                onClick={() => setIngredientsModalOpen(false)}
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  fontSize: '18px',
+                  backgroundColor: colors.accent,
+                  color: colors.primary,
+                  border: 'none',
+                  borderRadius: 'var(--radius-md)',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
+                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+              >
+                Listo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {extrasModalOpen && selectedProduct && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 3000,
+            padding: '20px'
+          }}
+          onClick={() => setExtrasModalOpen(false)}
+        >
+          <div 
+            style={{
+              backgroundColor: colors.secondary,
+              borderRadius: 'var(--radius-xl)',
+              width: '100%',
+              maxWidth: '450px',
+              maxHeight: '80vh',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              backgroundColor: colors.header,
+              color: colors.accent,
+              padding: '20px',
+              borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
+              textAlign: 'center',
+              position: 'relative'
+            }}>
+              <button 
+                onClick={() => setExtrasModalOpen(false)}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: colors.accent,
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px'
+                }}
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+              <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>Extras</h2>
+            </div>
+            
+            <div style={{
+              padding: '12px 20px',
+              backgroundColor: colors.secondary,
+              borderBottom: `2px solid ${colors.primary}`,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <span style={{
+                fontSize: '16px',
+                fontWeight: '700',
+                color: colors.primary
+              }}>
+                Seleccionados:
+              </span>
+              <span style={{
+                fontSize: '20px',
+                fontWeight: '700',
+                color: productConfig.selectedExtras.length > 0 ? colors.accent : colors.primary
+              }}>
+                {productConfig.selectedExtras.length}
+              </span>
+            </div>
+            
+            <div style={{
+              flex: 1,
+              overflow: 'auto',
+              padding: '20px'
+            }}>
+              {selectedProduct.extras.map(extra => (
+                <div 
+                  key={extra.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '16px',
+                    backgroundColor: productConfig.selectedExtras.find(e => e.id === extra.id) 
+                      ? colors.accent 
+                      : colors.secondary,
+                    border: `3px solid ${productConfig.selectedExtras.find(e => e.id === extra.id) 
+                      ? colors.accent 
+                      : colors.primary}`,
+                    borderRadius: 'var(--radius-lg)',
+                    marginBottom: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onClick={() => toggleExtra(extra)}
+                  onMouseEnter={(e) => {
+                    if (!productConfig.selectedExtras.find(e => e.id === extra.id)) {
+                      e.currentTarget.style.borderColor = colors.accent;
+                      e.currentTarget.style.transform = 'scale(1.02)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!productConfig.selectedExtras.find(e => e.id === extra.id)) {
+                      e.currentTarget.style.borderColor = colors.primary;
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }
+                  }}
+                >
+                  <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    border: `3px solid ${productConfig.selectedExtras.find(e => e.id === extra.id) 
+                      ? colors.primary 
+                      : colors.primary}`,
+                    backgroundColor: productConfig.selectedExtras.find(e => e.id === extra.id) 
+                      ? colors.primary 
+                      : 'transparent',
+                    marginRight: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease'
+                  }}>
+                    {productConfig.selectedExtras.find(e => e.id === extra.id) && (
+                      <span style={{ color: colors.accent, fontSize: '16px', fontWeight: 'bold' }}>✓</span>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ 
+                      fontWeight: '700', 
+                      fontSize: '18px',
+                      color: colors.primary 
+                    }}>
+                      {extra.name}
+                    </div>
+                    {Number(extra.price) > 0 && (
+                      <div style={{ 
+                        fontSize: '15px', 
+                        color: productConfig.selectedExtras.find(e => e.id === extra.id) 
+                          ? colors.primary 
+                          : '#666',
+                        marginTop: '4px'
+                      }}>
+                        +{colors.currency.symbol}{Number(extra.price).toFixed(2)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{
+              padding: '20px',
+              borderTop: `2px solid ${colors.primary}`
+            }}>
+              <button 
+                onClick={() => setExtrasModalOpen(false)}
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  fontSize: '18px',
+                  backgroundColor: colors.accent,
+                  color: colors.primary,
+                  border: 'none',
+                  borderRadius: 'var(--radius-md)',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
+                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+              >
+                Listo
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -961,40 +1367,83 @@ function Store() {
                 <span style={{ fontWeight: '600' }}>{colors.currency.symbol}{Number(getCartTotal()).toFixed(2)}</span>
               </div>
               
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Tu nombre"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: `2px solid ${colors.primary}`,
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: '16px',
-                    backgroundColor: colors.secondary,
-                    color: colors.primary
-                  }}
-                />
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '16px', 
+                  fontWeight: '700', 
+                  color: colors.primary, 
+                  marginBottom: '12px' 
+                }}>
+                  Como lo quieres?
+                </label>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: '1fr 1fr', 
+                  gap: '12px' 
+                }}>
+                  <button
+                    onClick={() => setOrderType('serve')}
+                    style={{
+                      padding: '16px',
+                      fontSize: '16px',
+                      backgroundColor: orderType === 'serve' ? colors.primary : colors.secondary,
+                      color: orderType === 'serve' ? colors.secondary : colors.primary,
+                      border: `3px solid ${orderType === 'serve' ? colors.accent : colors.primary}`,
+                      borderRadius: 'var(--radius-lg)',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <span style={{ fontSize: '28px' }}>🍽️</span>
+                    <span>Para Comer Aqui</span>
+                  </button>
+                  <button
+                    onClick={() => setOrderType('takeout')}
+                    style={{
+                      padding: '16px',
+                      fontSize: '16px',
+                      backgroundColor: orderType === 'takeout' ? colors.primary : colors.secondary,
+                      color: orderType === 'takeout' ? colors.secondary : colors.primary,
+                      border: `3px solid ${orderType === 'takeout' ? colors.accent : colors.primary}`,
+                      borderRadius: 'var(--radius-lg)',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <span style={{ fontSize: '28px' }}>🥡</span>
+                    <span>Para Llevar</span>
+                  </button>
+                </div>
               </div>
               
               <button
                 onClick={handleCheckout}
-                disabled={!customerName.trim()}
                 style={{
                   width: '100%',
                   padding: '16px',
                   fontSize: '18px',
-                  backgroundColor: customerName.trim() ? colors.accent : '#ccc',
-                  color: customerName.trim() ? colors.primary : '#666',
+                  backgroundColor: colors.accent,
+                  color: colors.primary,
                   border: 'none',
                   borderRadius: 'var(--radius-md)',
                   fontWeight: '600',
-                  cursor: customerName.trim() ? 'pointer' : 'not-allowed',
+                  cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   marginBottom: '8px'
                 }}
+                onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
+                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
               >
                 Confirmar Pedido
               </button>
@@ -1021,7 +1470,7 @@ function Store() {
       </div>
 
       {cartOpen && (
-        <div 
+        <div
           style={{
             position: 'fixed',
             top: 0,
@@ -1033,6 +1482,262 @@ function Store() {
           }}
           onClick={() => setCartOpen(false)}
         />
+      )}
+
+      {paymentModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div style={{
+            backgroundColor: colors.secondary,
+            borderRadius: '20px',
+            padding: '30px',
+            width: '100%',
+            maxWidth: '400px',
+            textAlign: 'center'
+          }}>
+            <h2 style={{
+              color: colors.primary,
+              marginBottom: '10px',
+              fontSize: '24px'
+            }}>
+              {processingPayment ? 'Procesando Pago...' : 'Metodo de Pago'}
+            </h2>
+            <p style={{
+              color: '#666',
+              marginBottom: '25px',
+              fontSize: '14px'
+            }}>
+              {processingPayment 
+                ? (paymentMethod === 'card' 
+                    ? 'Acerque o pase la tarjeta en el terminal Point' 
+                    : 'Procesando...')
+                : 'Selecciona como deseas pagar'
+              }
+            </p>
+
+            {processingPayment ? (
+              <div style={{
+                padding: '40px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '20px'
+              }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  border: `5px solid ${colors.accent}`,
+                  borderTop: `5px solid ${colors.primary}`,
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }} />
+                <p style={{ color: '#666', fontSize: '14px' }}>
+                  Esperando confirmacion del terminal...
+                </p>
+              </div>
+            ) : (
+              <>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '15px'
+                }}>
+                  <button
+                    onClick={() => setPaymentMethod('card')}
+                    style={{
+                      padding: '20px',
+                      backgroundColor: paymentMethod === 'card' ? colors.primary : colors.secondary,
+                      color: paymentMethod === 'card' ? colors.secondary : colors.primary,
+                      border: `3px solid ${paymentMethod === 'card' ? colors.accent : '#ddd'}`,
+                      borderRadius: '15px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '28px' }} />
+                    <span style={{ fontSize: '18px', fontWeight: '700' }}>Tarjeta</span>
+                  </button>
+
+                  <button
+                    onClick={() => setPaymentMethod('cash')}
+                    style={{
+                      padding: '20px',
+                      backgroundColor: paymentMethod === 'cash' ? colors.primary : colors.secondary,
+                      color: paymentMethod === 'cash' ? colors.secondary : colors.primary,
+                      border: `3px solid ${paymentMethod === 'cash' ? colors.accent : '#ddd'}`,
+                      borderRadius: '15px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '28px' }} />
+                    <span style={{ fontSize: '18px', fontWeight: '700' }}>Efectivo</span>
+                  </button>
+                </div>
+
+                <p style={{
+                  color: '#999',
+                  marginTop: '20px',
+                  fontSize: '13px',
+                  fontStyle: 'italic'
+                }}>
+                  Pagar con efectivo, justo por favor
+                </p>
+
+                <button
+                  onClick={() => processPayment()}
+                  disabled={!paymentMethod}
+                  style={{
+                    marginTop: '20px',
+                    padding: '14px 30px',
+                    backgroundColor: paymentMethod ? colors.accent : '#ccc',
+                    color: colors.primary,
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    cursor: paymentMethod ? 'pointer' : 'not-allowed',
+                    width: '100%'
+                  }}
+                >
+                  Confirmar Pago
+                </button>
+
+                <button
+                  onClick={() => {
+                    setPaymentModalOpen(false);
+                  }}
+                  style={{
+                    marginTop: '10px',
+                    padding: '10px',
+                    backgroundColor: 'transparent',
+                    color: '#666',
+                    border: 'none',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancelar
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {lastOrderNumber && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div style={{
+            backgroundColor: colors.secondary,
+            borderRadius: '20px',
+            padding: '40px',
+            width: '100%',
+            maxWidth: '400px',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              fontSize: '60px',
+              marginBottom: '20px'
+            }}>
+              ✅
+            </div>
+            <h2 style={{
+              color: colors.primary,
+              marginBottom: '10px',
+              fontSize: '24px'
+            }}>
+              Pedido Recibido
+            </h2>
+            <p style={{
+              color: '#666',
+              marginBottom: '20px',
+              fontSize: '14px'
+            }}>
+              Tu pedido esta esperando confirmacion de pago
+            </p>
+            <div style={{
+              backgroundColor: colors.primary,
+              color: colors.secondary,
+              padding: '20px',
+              borderRadius: '15px',
+              marginBottom: '20px'
+            }}>
+              <p style={{
+                fontSize: '14px',
+                marginBottom: '5px',
+                opacity: 0.8
+              }}>
+                Numero de Orden
+              </p>
+              <p style={{
+                fontSize: '48px',
+                fontWeight: '700',
+                margin: 0
+              }}>
+                {lastOrderNumber}
+              </p>
+            </div>
+            <p style={{
+              color: '#999',
+              fontSize: '13px',
+              fontStyle: 'italic'
+            }}>
+              Pagar en caja al recoger tu pedido
+            </p>
+            <button
+              onClick={() => setLastOrderNumber(null)}
+              style={{
+                marginTop: '25px',
+                padding: '14px 30px',
+                backgroundColor: colors.accent,
+                color: colors.primary,
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '16px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                width: '100%'
+              }}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

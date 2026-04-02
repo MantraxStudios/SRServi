@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave } from '@fortawesome/free-solid-svg-icons';
 
 function WorkerPanel() {
   const navigate = useNavigate();
@@ -10,6 +10,7 @@ function WorkerPanel() {
   const [workers, setWorkers] = useState([]);
   const [orders, setOrders] = useState([]);
   const [completedOrders, setCompletedOrders] = useState([]);
+  const [pendingCashOrders, setPendingCashOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [filter, setFilter] = useState('all');
@@ -46,6 +47,15 @@ function WorkerPanel() {
     });
 
     socket.on('new_order', (order) => {
+      if (order.payment_method === 'cash' && !order.cash_approved) {
+        setPendingCashOrders(prev => [order, ...prev]);
+      } else {
+        setOrders(prev => [order, ...prev]);
+      }
+    });
+
+    socket.on('cash_approved', (order) => {
+      setPendingCashOrders(prev => prev.filter(o => o.id !== order.id));
       setOrders(prev => [order, ...prev]);
     });
 
@@ -91,10 +101,15 @@ function WorkerPanel() {
       
       const data = await response.json();
       console.log('Orders fetched:', data.length);
-      const activeOrders = data.filter(o => o.status !== 'completed');
+      if (data.length > 0) {
+        console.log('First order order_type:', data[0].order_type);
+      }
+      const activeOrders = data.filter(o => o.status !== 'completed' && !(o.payment_method === 'cash' && !o.cash_approved));
       const completed = data.filter(o => o.status === 'completed');
+      const pendingCash = data.filter(o => o.payment_method === 'cash' && !o.cash_approved && o.status !== 'completed');
       setOrders(activeOrders);
       setCompletedOrders(completed);
+      setPendingCashOrders(pendingCash);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -177,16 +192,41 @@ function WorkerPanel() {
     navigate('/worker-login');
   };
 
+  const approveCashPayment = async (orderId) => {
+    try {
+      const token = localStorage.getItem('workerToken');
+      const response = await fetch(`/api/orders/${orderId}/approve-cash?store_id=${worker.store_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          worker_id: worker.id,
+          worker_name: worker.name
+        })
+      });
+
+      if (response.ok) {
+        const updatedOrder = await response.json();
+        setPendingCashOrders(prev => prev.filter(o => o.id !== orderId));
+        setOrders(prev => [{ ...updatedOrder, ...pendingCashOrders.find(o => o.id === orderId) }, ...prev]);
+      }
+    } catch (error) {
+      console.error('Error approving cash payment:', error);
+    }
+  };
+
   const filteredOrders = (orders || []).filter(order => {
     const matchesFilter = filter === 'all' || order.status === filter;
     const matchesSearch = (order.order_number || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
-                          (order.customer_name || '').toLowerCase().includes((searchTerm || '').toLowerCase());
+                          (order.order_type || '').toLowerCase().includes((searchTerm || '').toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
   const filteredCompletedOrders = (completedOrders || []).filter(order => {
     const matchesSearch = (order.order_number || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
-                          (order.customer_name || '').toLowerCase().includes((searchTerm || '').toLowerCase());
+                          (order.order_type || '').toLowerCase().includes((searchTerm || '').toLowerCase());
     return matchesSearch;
   });
 
@@ -657,7 +697,7 @@ function WorkerPanel() {
           <FontAwesomeIcon icon={faSearch} style={s.searchIcon} />
           <input
             type="text"
-            placeholder="Buscar por número o cliente..."
+            placeholder="Buscar por número de pedido..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={s.searchInput}
@@ -681,6 +721,37 @@ function WorkerPanel() {
             onClick={() => setActiveTab('active')}
           >
             <FontAwesomeIcon icon={faClock} /> Activos ({orders.length})
+          </button>
+          <button
+            style={{
+              ...s.tabButton(activeTab === 'cash'),
+              background: activeTab === 'cash' ? colors.primary : 'transparent',
+              color: activeTab === 'cash' ? colors.secondary : '#666',
+              borderBottom: activeTab === 'cash' ? `3px solid ${colors.accent}` : '3px solid transparent',
+              position: 'relative'
+            }}
+            onClick={() => setActiveTab('cash')}
+          >
+            <FontAwesomeIcon icon={faMoneyBillWave} /> Efectivo ({pendingCashOrders.length})
+            {pendingCashOrders.length > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: '#DC3545',
+                color: 'white',
+                borderRadius: '50%',
+                width: '20px',
+                height: '20px',
+                fontSize: '11px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 'bold'
+              }}>
+                {pendingCashOrders.length}
+              </span>
+            )}
           </button>
           <button
             style={s.tabButton(activeTab === 'completed')}
@@ -707,13 +778,26 @@ function WorkerPanel() {
                 >
                   <div style={s.orderHeader}>
                     <h3 style={s.orderNumber}>{getOrderDisplayNumber(order)}</h3>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      background: order.order_type === 'takeout' ? '#007BFF' : '#28A745',
+                      color: 'white',
+                      fontSize: '11px',
+                      fontWeight: 'bold'
+                    }}>
+                      <FontAwesomeIcon icon={order.order_type === 'takeout' ? faBox : faClock} />
+                      {order.order_type === 'takeout' ? 'Llevar' : 'Aqui'}
+                    </div>
+                  </div>
+                  <div style={s.orderInfo}>
                     <div style={s.statusBadge(order.status)}>
                       <FontAwesomeIcon icon={getStatusIcon(order.status)} />
                       {order.status}
                     </div>
-                  </div>
-                  <div style={s.orderInfo}>
-                    <p style={s.customerName}>{order.customer_name || 'Cliente'}</p>
                     <p style={s.orderTime}>
                       {new Date(order.created_at).toLocaleTimeString('es-ES', { 
                         hour: '2-digit', 
@@ -726,6 +810,58 @@ function WorkerPanel() {
                   </div>
                   <button style={s.viewButton} onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); }}>
                     Ver Detalles
+                  </button>
+                </div>
+              ))}
+            </div>
+          )
+        ) : activeTab === 'cash' ? (
+          pendingCashOrders.length === 0 ? (
+            <div style={s.emptyState}>
+              <p>No hay pagos en efectivo pendientes</p>
+            </div>
+          ) : (
+            <div style={s.ordersList}>
+              {pendingCashOrders.map(order => (
+                <div 
+                  key={order.id} 
+                  style={{...s.orderCard, border: '2px solid #DC3545'}}
+                >
+                  <div style={s.orderHeader}>
+                    <h3 style={s.orderNumber}>{getOrderDisplayNumber(order)}</h3>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      background: '#28A745',
+                      color: 'white',
+                      fontSize: '11px',
+                      fontWeight: 'bold'
+                    }}>
+                      <FontAwesomeIcon icon={faMoneyBillWave} /> Efectivo
+                    </div>
+                  </div>
+                  <div style={s.orderInfo}>
+                    <div style={{...s.statusBadge('pending'), background: '#FFC107', color: '#000'}}>
+                      <FontAwesomeIcon icon={faClock} /> Pendiente de Pago
+                    </div>
+                    <p style={s.orderTime}>
+                      {new Date(order.created_at).toLocaleTimeString('es-ES', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </p>
+                  </div>
+                  <div style={s.totalAmount}>
+                    ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
+                  </div>
+                  <button 
+                    style={{...s.viewButton, background: '#28A745', color: 'white'}}
+                    onClick={() => approveCashPayment(order.id)}
+                  >
+                    <FontAwesomeIcon icon={faCheck} /> Aprobar Pago
                   </button>
                 </div>
               ))}
@@ -746,12 +882,25 @@ function WorkerPanel() {
                 >
                   <div style={s.orderHeader}>
                     <h3 style={s.orderNumber}>{getOrderDisplayNumber(order)}</h3>
-                    <div style={{...s.statusBadge('completed'), background: '#28a745', color: 'white'}}>
-                      <FontAwesomeIcon icon={faCheck} /> Completado
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      background: order.order_type === 'takeout' ? '#007BFF' : '#28A745',
+                      color: 'white',
+                      fontSize: '11px',
+                      fontWeight: 'bold'
+                    }}>
+                      <FontAwesomeIcon icon={order.order_type === 'takeout' ? faBox : faClock} />
+                      {order.order_type === 'takeout' ? 'Llevar' : 'Aqui'}
                     </div>
                   </div>
                   <div style={s.orderInfo}>
-                    <p style={s.customerName}>{order.customer_name || 'Cliente'}</p>
+                    <div style={{...s.statusBadge('completed'), background: '#28a745', color: 'white'}}>
+                      <FontAwesomeIcon icon={faCheck} /> Completado
+                    </div>
                     <p style={s.orderTime}>
                       {new Date(order.completed_at || order.created_at).toLocaleString('es-ES', { 
                         hour: '2-digit', 
@@ -783,12 +932,16 @@ function WorkerPanel() {
             </div>
 
             <div style={s.detailRow}>
-              <span style={s.detailLabel}>Cliente:</span>
-              <span style={s.detailValue}>{selectedOrder.customer_name}</span>
-            </div>
-            <div style={s.detailRow}>
-              <span style={s.detailLabel}>Teléfono:</span>
-              <span style={s.detailValue}>{selectedOrder.customer_phone || 'N/A'}</span>
+              <span style={s.detailLabel}>Tipo:</span>
+              <span style={{
+                ...s.detailValue,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <FontAwesomeIcon icon={selectedOrder.order_type === 'takeout' ? faBox : faClock} style={{ fontSize: '16px' }} />
+                {selectedOrder.order_type === 'takeout' ? 'Para Llevar' : 'Para Comer Aqui'}
+              </span>
             </div>
             <div style={s.detailRow}>
               <span style={s.detailLabel}>Estado:</span>
@@ -816,11 +969,6 @@ function WorkerPanel() {
                         {item.selected_extras && item.selected_extras.length > 0 && (
                           <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
                             <strong>Extras:</strong> {Array.isArray(item.selected_extras) ? item.selected_extras.map(e => e.name || e).join(', ') : item.selected_extras}
-                          </div>
-                        )}
-                        {item.notes && (
-                          <div style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
-                            <strong>Notas:</strong> {item.notes}
                           </div>
                         )}
                       </div>

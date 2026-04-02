@@ -33,7 +33,9 @@ function Stores() {
     header_color: '#000000',
     currency_code: 'USD',
     currency_symbol: '$',
-    currency_name: 'Dólar Estadounidense'
+    currency_name: 'Dólar Estadounidense',
+    mercadopago_access_token: '',
+    mercadopago_terminal_id: ''
   });
 
   useEffect(() => {
@@ -63,7 +65,9 @@ function Stores() {
       header_color: '#000000',
       currency_code: 'USD',
       currency_symbol: '$',
-      currency_name: 'Dólar Estadounidense'
+      currency_name: 'Dólar Estadounidense',
+      mercadopago_access_token: '',
+      mercadopago_terminal_id: ''
     });
     setEditingStore(null);
   };
@@ -79,7 +83,9 @@ function Stores() {
         header_color: store.header_color || '#000000',
         currency_code: store.currency_code || 'USD',
         currency_symbol: store.currency_symbol || '$',
-        currency_name: store.currency_name || 'Dólar Estadounidense'
+        currency_name: store.currency_name || 'Dólar Estadounidense',
+        mercadopago_access_token: store.mercadopago_access_token || '',
+        mercadopago_terminal_id: store.mercadopago_terminal_id || ''
       });
     } else {
       resetForm();
@@ -684,6 +690,100 @@ function Stores() {
                       ))}
                     </div>
                   )}
+                </div>
+              </div>
+
+              <div style={{ 
+                marginBottom: '24px',
+                padding: '20px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '12px',
+                border: '2px solid #e9ecef'
+              }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '10px',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    backgroundColor: '#00B1EA',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    fontWeight: '700',
+                    fontSize: '14px'
+                  }}>
+                    MP
+                  </div>
+                  <div>
+                    <h4 style={{ margin: 0, color: '#333', fontSize: '16px' }}>Mercado Pago Point</h4>
+                    <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '12px' }}>Configuracion para pagos con tarjeta</p>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ 
+                    display: 'block', 
+                    marginBottom: '8px', 
+                    fontWeight: '600', 
+                    color: '#333',
+                    fontSize: '14px'
+                  }}>
+                    Access Token de Mercado Pago
+                  </label>
+                  <input
+                    type="password"
+                    name="mercadopago_access_token"
+                    value={formData.mercadopago_access_token}
+                    onChange={handleChange}
+                    placeholder="APP_USR-xxxxxxxx-xxxxxx-..."
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: '2px solid #e0e0e0',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <p style={{ margin: '6px 0 0 0', color: '#666', fontSize: '12px' }}>
+                    Lo encuentras en Mercado Pago Developers → Tus Apps → Credenciales de produccion
+                  </p>
+                </div>
+
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    marginBottom: '8px', 
+                    fontWeight: '600', 
+                    color: '#333',
+                    fontSize: '14px'
+                  }}>
+                    ID del Terminal Point
+                  </label>
+                  <input
+                    type="text"
+                    name="mercadopago_terminal_id"
+                    value={formData.mercadopago_terminal_id}
+                    onChange={handleChange}
+                    placeholder="NEWLAND_N950__XXXXXXXX"
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: '2px solid #e0e0e0',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <p style={{ margin: '6px 0 0 0', color: '#666', fontSize: '12px' }}>
+                    Lo encuentras en Mercado Pago Developers → Tu negocio → Point
+                  </p>
                 </div>
               </div>
 
