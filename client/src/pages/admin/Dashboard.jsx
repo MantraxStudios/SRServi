@@ -171,32 +171,41 @@ function Dashboard() {
   return (
     <>
       <header className="admin-header">
-        <div>
-          <h1 style={{ fontSize: '24px', margin: 0 }}>Panel de Control</h1>
-          <p style={{ fontSize: '13px', color: '#666', margin: '4px 0 0 0' }}>
-            {user?.business_name || user?.username}
-          </p>
-        </div>
         <div style={{
           display: 'flex',
-          gap: '12px',
-          alignItems: 'center'
-        }}>
-          <div style={{
-          background: 'linear-gradient(135deg, var(--gold), var(--gold-light))',
-          padding: '12px 24px',
-          borderRadius: 'var(--radius-md)',
-          color: 'white',
-          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '16px',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          gap: '12px',
-          boxShadow: '0 4px 12px rgba(212, 175, 55, 0.3)'
+          width: '100%'
         }}>
-          <span style={{ fontSize: '14px', fontWeight: '600', opacity: 0.9 }}>Código:</span>
-          <span style={{ fontSize: '26px', fontWeight: '800', letterSpacing: '3px', color: 'var(--white)' }}>
-            {user?.code}
-          </span>
-        </div>
+          <div>
+            <h1 style={{ fontSize: '24px', margin: 0 }}>Panel de Control</h1>
+            <p style={{ fontSize: '13px', color: '#666', margin: '4px 0 0 0' }}>
+              {user?.business_name || user?.username}
+            </p>
+          </div>
+          <div style={{
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{
+            background: 'linear-gradient(135deg, var(--gold), var(--gold-light))',
+            padding: '12px 24px',
+            borderRadius: 'var(--radius-md)',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            boxShadow: '0 4px 12px rgba(212, 175, 55, 0.3)'
+          }}>
+            <span style={{ fontSize: '14px', fontWeight: '600', opacity: 0.9 }}>Código:</span>
+            <span style={{ fontSize: '26px', fontWeight: '800', letterSpacing: '3px', color: 'var(--white)' }}>
+              {user?.code}
+            </span>
+          </div>
           <Link 
             to="/admin/settings" 
             style={{
@@ -222,11 +231,17 @@ function Dashboard() {
           >
             <FontAwesomeIcon icon={faCog} style={{ fontSize: '20px' }} />
           </Link>
+          </div>
         </div>
       </header>
 
       <div className="admin-main" style={{ padding: '24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+          gap: '16px', 
+          marginBottom: '24px' 
+        }}>
           <StatCard 
             icon={faBox} 
             value={stats.products} 
@@ -261,7 +276,11 @@ function Dashboard() {
           />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+          gap: '24px' 
+        }}>
           <div className="card" style={{ padding: '20px' }}>
             <div style={{ 
               display: 'flex', 

@@ -7,7 +7,8 @@ import {
   faMinus, 
   faTimes, 
   faBox,
-  faArrowLeft
+  faArrowLeft,
+  faCopy
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 
@@ -252,6 +253,11 @@ function Store() {
     return cart.reduce((count, item) => count + item.quantity, 0);
   };
 
+  const copyCode = () => {
+    navigator.clipboard.writeText(code);
+    alert('Código copiado: ' + code);
+  };
+
   const handleCheckout = async () => {
     if (cart.length === 0) return;
 
@@ -353,9 +359,28 @@ function Store() {
         <p style={{ 
           opacity: 0.9, 
           fontSize: '14px',
-          color: colors.secondary
+          color: colors.secondary,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
         }}>
           Tu código de pedido: <strong style={{ fontSize: '18px', letterSpacing: '2px' }}>{code}</strong>
+          <button 
+            onClick={copyCode}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '6px 10px',
+              cursor: 'pointer',
+              color: colors.secondary,
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            title="Copiar código"
+          >
+            <FontAwesomeIcon icon={faCopy} style={{ fontSize: '14px' }} />
+          </button>
         </p>
       </header>
 
