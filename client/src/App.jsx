@@ -14,6 +14,8 @@ import Extras from './pages/admin/Extras';
 import Orders from './pages/admin/Orders';
 import Workers from './pages/admin/Workers';
 import Settings from './pages/admin/Settings';
+import MercadoPagoPoints from './pages/admin/MercadoPagoPoints';
+import Coupons from './pages/admin/Coupons';
 import Index from './pages/Index';
 import Store from './pages/Store';
 
@@ -48,7 +50,7 @@ function PublicRoute({ children }) {
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/store/:code" element={<Store />} />
@@ -63,6 +65,8 @@ function App() {
             <Route path="extras" element={<Extras />} />
             <Route path="orders" element={<Orders />} />
             <Route path="workers" element={<Workers />} />
+            <Route path="mercado-pago-points" element={<MercadoPagoPoints />} />
+            <Route path="coupons" element={<Coupons />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="/worker-login" element={<WorkerLogin />} />

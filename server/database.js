@@ -81,6 +81,7 @@ async function createTables() {
     CREATE TABLE IF NOT EXISTS categories (
       id INT PRIMARY KEY AUTO_INCREMENT,
       store_id INT NOT NULL,
+      user_id INT DEFAULT NULL,
       name VARCHAR(255) NOT NULL,
       description TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -105,6 +106,23 @@ async function createTables() {
       price DECIMAL(10, 2) DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )`;
+
+  const createCouponsTable = `
+    CREATE TABLE IF NOT EXISTS coupons (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      code VARCHAR(50) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      discount_type VARCHAR(20) NOT NULL DEFAULT 'percent',
+      discount_value DECIMAL(10, 2) NOT NULL DEFAULT 0,
+      min_order_total DECIMAL(10, 2) NOT NULL DEFAULT 0,
+      usage_limit INT DEFAULT NULL,
+      usage_count INT NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
+      UNIQUE KEY unique_coupon_per_store (store_id, code)
     )`;
 
   const createProductsTable = `
@@ -172,12 +190,26 @@ async function createTables() {
   await pool.execute(createCategoriesTable);
   await pool.execute(createIngredientsTable);
   await pool.execute(createExtrasTable);
+  await pool.execute(createCouponsTable);
   await pool.execute(createProductsTable);
   await pool.execute(createProductIngredientsTable);
   await pool.execute(createProductExtrasTable);
   await pool.execute(createOrdersTable);
   await pool.execute(createOrderItemsTable);
   await pool.execute(createWorkersTable);
+
+  const createMercadoPagoTerminalsTable = `
+    CREATE TABLE IF NOT EXISTS mercado_pago_terminals (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL DEFAULT 1,
+      name VARCHAR(255) NOT NULL,
+      mercadopago_access_token VARCHAR(500) NOT NULL,
+      mercadopago_terminal_id VARCHAR(100) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`;
+  
+  await pool.execute(createMercadoPagoTerminalsTable);
 
   await migrateTables();
 
@@ -225,6 +257,35 @@ async function migrateTables() {
           console.error(`❌ Error migrando tabla ${table}:`, tableError.message);
         }
       }
+    }
+
+    try {
+      const [orderColumns] = await pool.execute('SHOW COLUMNS FROM orders');
+      const orderColumnNames = orderColumns.map(c => c.Field);
+
+      if (!orderColumnNames.includes('subtotal')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN subtotal DECIMAL(10, 2) NOT NULL DEFAULT 0 AFTER order_type');
+      }
+      if (!orderColumnNames.includes('discount_total')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN discount_total DECIMAL(10, 2) NOT NULL DEFAULT 0 AFTER subtotal');
+      }
+      if (!orderColumnNames.includes('coupon_code')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN coupon_code VARCHAR(50) DEFAULT NULL AFTER discount_total');
+      }
+      if (!orderColumnNames.includes('mp_order_id')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN mp_order_id VARCHAR(100) DEFAULT NULL');
+      }
+      if (!orderColumnNames.includes('external_reference')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN external_reference VARCHAR(100) DEFAULT NULL');
+      }
+      if (!orderColumnNames.includes('user_id')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN user_id INT DEFAULT NULL');
+      }
+      if (!orderColumnNames.includes('terminal_id')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN terminal_id INT DEFAULT NULL');
+      }
+    } catch (orderMigrationError) {
+      console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
     }
     
     console.log('✅ Migración de tablas completada');
@@ -405,9 +466,10 @@ export async function getCategories(storeId) {
 
 export async function createCategory(storeId, data) {
   const { name, description } = data;
+  const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO categories (store_id, name, description) VALUES (?, ?, ?)',
-    [storeId, name, description || null]
+    'INSERT INTO categories (store_id, user_id, name, description) VALUES (?, ?, ?, ?)',
+    [storeId, store.user_id, name, description || null]
   );
   return { id: result.insertId, store_id: storeId, name, description };
 }
@@ -439,9 +501,10 @@ export async function getIngredients(storeId) {
 
 export async function createIngredient(storeId, data) {
   const { name, price } = data;
+  const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO ingredients (store_id, name, price) VALUES (?, ?, ?)',
-    [storeId, name, price || 0]
+    'INSERT INTO ingredients (store_id, user_id, name, price) VALUES (?, ?, ?, ?)',
+    [storeId, store.user_id, name, price || 0]
   );
   return { id: result.insertId, store_id: storeId, name, price: price || 0 };
 }
@@ -473,9 +536,10 @@ export async function getExtras(storeId) {
 
 export async function createExtra(storeId, data) {
   const { name, price } = data;
+  const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO extras (store_id, name, price) VALUES (?, ?, ?)',
-    [storeId, name, price || 0]
+    'INSERT INTO extras (store_id, user_id, name, price) VALUES (?, ?, ?, ?)',
+    [storeId, store.user_id, name, price || 0]
   );
   return { id: result.insertId, store_id: storeId, name, price: price || 0 };
 }
@@ -495,6 +559,92 @@ export async function deleteExtra(extraId, storeId) {
     [extraId, storeId]
   );
   return true;
+}
+
+export async function getCoupons(storeId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM coupons WHERE store_id = ? ORDER BY created_at DESC',
+    [storeId]
+  );
+  return rows;
+}
+
+export async function createCoupon(storeId, data) {
+  const {
+    code,
+    name,
+    discount_type,
+    discount_value,
+    min_order_total,
+    usage_limit,
+    is_active
+  } = data;
+
+  const normalizedCode = String(code || '').trim().toUpperCase();
+
+  const [result] = await pool.execute(
+    `INSERT INTO coupons (
+      store_id, code, name, discount_type, discount_value, min_order_total, usage_limit, is_active
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      storeId,
+      normalizedCode,
+      name,
+      discount_type || 'percent',
+      Number(discount_value) || 0,
+      Number(min_order_total) || 0,
+      usage_limit === null || usage_limit === '' ? null : Number(usage_limit),
+      is_active === false ? 0 : 1
+    ]
+  );
+
+  const [rows] = await pool.execute('SELECT * FROM coupons WHERE id = ?', [result.insertId]);
+  return rows[0];
+}
+
+export async function updateCoupon(couponId, storeId, data) {
+  const {
+    code,
+    name,
+    discount_type,
+    discount_value,
+    min_order_total,
+    usage_limit,
+    is_active
+  } = data;
+
+  const normalizedCode = String(code || '').trim().toUpperCase();
+
+  await pool.execute(
+    `UPDATE coupons SET
+      code = ?,
+      name = ?,
+      discount_type = ?,
+      discount_value = ?,
+      min_order_total = ?,
+      usage_limit = ?,
+      is_active = ?
+     WHERE id = ? AND store_id = ?`,
+    [
+      normalizedCode,
+      name,
+      discount_type || 'percent',
+      Number(discount_value) || 0,
+      Number(min_order_total) || 0,
+      usage_limit === null || usage_limit === '' ? null : Number(usage_limit),
+      is_active === false ? 0 : 1,
+      couponId,
+      storeId
+    ]
+  );
+
+  const [rows] = await pool.execute('SELECT * FROM coupons WHERE id = ? AND store_id = ?', [couponId, storeId]);
+  return rows[0] || null;
+}
+
+export async function deleteCoupon(couponId, storeId) {
+  await pool.execute('DELETE FROM coupons WHERE id = ? AND store_id = ?', [couponId, storeId]);
+  return { id: couponId };
 }
 
 async function getProductIngredients(productId) {
@@ -551,9 +701,10 @@ export async function getProducts(storeId) {
 export async function createProduct(storeId, data) {
   const { name, description, price, category_id, image, ingredients, extras } = data;
   
+  const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO products (store_id, category_id, name, description, price, image) VALUES (?, ?, ?, ?, ?, ?)',
-    [storeId, category_id || null, name, description || null, price, image || null]
+    'INSERT INTO products (store_id, user_id, category_id, name, description, price, image) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, category_id || null, name, description || null, price, image || null]
   );
   const productId = result.insertId;
 
@@ -679,21 +830,112 @@ export async function getPublicProducts(storeId) {
   return products;
 }
 
+function calculateDiscountAmount(total, discountType, discountValue) {
+  const safeTotal = Number(total) || 0;
+  const safeValue = Number(discountValue) || 0;
+
+  if (safeTotal <= 0 || safeValue <= 0) return 0;
+
+  let discount = 0;
+  if (discountType === 'fixed') {
+    discount = safeValue;
+  } else {
+    discount = (safeTotal * safeValue) / 100;
+  }
+
+  if (discount > safeTotal) return safeTotal;
+  return Number(discount.toFixed(2));
+}
+
+async function resolveCouponForOrder(storeId, couponCode, subtotal) {
+  if (!couponCode) {
+    return {
+      subtotal: Number(subtotal.toFixed(2)),
+      discount_total: 0,
+      total: Number(subtotal.toFixed(2)),
+      coupon_code: null,
+      coupon_id: null
+    };
+  }
+
+  const normalizedCode = String(couponCode).trim().toUpperCase();
+  if (!normalizedCode) {
+    return {
+      subtotal: Number(subtotal.toFixed(2)),
+      discount_total: 0,
+      total: Number(subtotal.toFixed(2)),
+      coupon_code: null,
+      coupon_id: null
+    };
+  }
+
+  const [rows] = await pool.execute(
+    `SELECT * FROM coupons 
+     WHERE store_id = ? AND UPPER(code) = ? 
+     LIMIT 1`,
+    [storeId, normalizedCode]
+  );
+
+  if (rows.length === 0) {
+    throw new Error('Cupón no válido');
+  }
+
+  const coupon = rows[0];
+  if (!coupon.is_active) {
+    throw new Error('Cupón inactivo');
+  }
+
+  const minOrderTotal = Number(coupon.min_order_total || 0);
+  if (subtotal < minOrderTotal) {
+    throw new Error(`Este cupón requiere un pedido mínimo de ${minOrderTotal.toFixed(2)}`);
+  }
+
+  if (coupon.usage_limit !== null && Number(coupon.usage_count) >= Number(coupon.usage_limit)) {
+    throw new Error('Este cupón alcanzó su límite de uso');
+  }
+
+  const discountTotal = calculateDiscountAmount(subtotal, coupon.discount_type, coupon.discount_value);
+  const finalTotal = Number(Math.max(subtotal - discountTotal, 0).toFixed(2));
+
+  return {
+    subtotal: Number(subtotal.toFixed(2)),
+    discount_total: discountTotal,
+    total: finalTotal,
+    coupon_code: coupon.code,
+    coupon_id: coupon.id
+  };
+}
+
+export async function validateCouponForStore(storeId, couponCode, subtotal) {
+  return await resolveCouponForOrder(storeId, couponCode, Number(subtotal) || 0);
+}
+
 export async function createOrder(storeId, orderData) {
-  const { order_type, items, payment_method } = orderData;
+  const { order_type, items, payment_method, coupon_code } = orderData;
   
-  let total = 0;
+  let subtotal = 0;
   items.forEach(item => {
-    total += item.unit_price * item.quantity;
+    subtotal += item.unit_price * item.quantity;
   });
+
+  const couponData = await resolveCouponForOrder(storeId, coupon_code, subtotal);
+  const total = couponData.total;
 
   const cashApproved = payment_method === 'card' ? true : false;
   
+  const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO orders (store_id, order_type, total, payment_method, cash_approved) VALUES (?, ?, ?, ?, ?)',
-    [storeId, order_type || 'serve', total, payment_method || 'card', cashApproved]
+    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null]
   );
   const orderId = result.insertId;
+
+  if (couponData.coupon_id) {
+    await pool.execute(
+      'UPDATE coupons SET usage_count = usage_count + 1 WHERE id = ?',
+      [couponData.coupon_id]
+    );
+  }
   
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const randomLetter = letters[Math.floor(Math.random() * letters.length)];
@@ -705,6 +947,9 @@ export async function createOrder(storeId, orderData) {
     order_number: orderNumber, 
     store_id: storeId, 
     order_type, 
+    subtotal: couponData.subtotal,
+    discount_total: couponData.discount_total,
+    coupon_code: couponData.coupon_code,
     total, 
     status: 'pending',
     payment_method,
@@ -734,7 +979,7 @@ export async function getOrders(storeId) {
     `SELECT o.*, w.name as completed_by_name 
      FROM orders o 
      LEFT JOIN workers w ON o.completed_by = w.id 
-     WHERE o.store_id = ? 
+     WHERE o.store_id = ? AND o.status NOT IN ('pending', 'canceled')
      ORDER BY o.created_at DESC`,
     [storeId]
   );
@@ -923,21 +1168,118 @@ export async function getWorkerOrders(storeId) {
   return orders;
 }
 
-export async function processMercadoPagoPayment(storeId, orderData) {
-  const { mercadopago_access_token, mercadopago_terminal_id } = await getStoreById(storeId);
+export async function createMercadoPagoTerminal(userId, data) {
+  const { name, mercadopago_access_token, mercadopago_terminal_id } = data;
   
+  const [result] = await pool.execute(
+    `INSERT INTO mercado_pago_terminals (user_id, name, mercadopago_access_token, mercadopago_terminal_id) 
+     VALUES (?, ?, ?, ?)`,
+    [userId, name, mercadopago_access_token, mercadopago_terminal_id]
+  );
+  
+  return {
+    id: result.insertId,
+    user_id: userId,
+    name,
+    mercadopago_access_token,
+    mercadopago_terminal_id
+  };
+}
+
+export async function getMercadoPagoTerminals(userId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM mercado_pago_terminals WHERE user_id = ? ORDER BY created_at DESC',
+    [userId]
+  );
+  return rows;
+}
+
+export async function getMercadoPagoTerminalsByStore(storeId) {
+  const [rows] = await pool.execute(
+    `SELECT m.id, m.name, m.mercadopago_terminal_id
+     FROM mercado_pago_terminals m
+     JOIN stores s ON s.user_id = m.user_id
+     WHERE s.id = ?
+     ORDER BY m.created_at DESC`,
+    [storeId]
+  );
+  return rows;
+}
+
+export async function getMercadoPagoTerminalForStore(storeId, terminalId) {
+  const [rows] = await pool.execute(
+    `SELECT m.*
+     FROM mercado_pago_terminals m
+     JOIN stores s ON s.user_id = m.user_id
+     WHERE s.id = ? AND m.id = ?
+     LIMIT 1`,
+    [storeId, terminalId]
+  );
+  return rows.length > 0 ? rows[0] : null;
+}
+
+export async function updateMercadoPagoTerminal(terminalId, userId, data) {
+  const { name, mercadopago_access_token, mercadopago_terminal_id } = data;
+  
+  await pool.execute(
+    `UPDATE mercado_pago_terminals 
+     SET name = ?, mercadopago_access_token = ?, mercadopago_terminal_id = ?
+     WHERE id = ? AND user_id = ?`,
+    [name, mercadopago_access_token, mercadopago_terminal_id, terminalId, userId]
+  );
+  
+  return {
+    id: terminalId,
+    user_id: userId,
+    name,
+    mercadopago_access_token,
+    mercadopago_terminal_id
+  };
+}
+
+export async function deleteMercadoPagoTerminal(terminalId, userId) {
+  await pool.execute(
+    'DELETE FROM mercado_pago_terminals WHERE id = ? AND user_id = ?',
+    [terminalId, userId]
+  );
+  return { id: terminalId };
+}
+
+export async function processMercadoPagoPayment(storeId, orderData) {
+  const { items, order_type, external_reference, selected_terminal_id, coupon_code, total: frontendTotal } = orderData;
+  let mercadopago_access_token = null;
+  let mercadopago_terminal_id = null;
+
+  if (selected_terminal_id) {
+    const terminal = await getMercadoPagoTerminalForStore(storeId, selected_terminal_id);
+    if (!terminal) {
+      throw new Error('La máquina seleccionada no está disponible para esta tienda');
+    }
+    mercadopago_access_token = terminal.mercadopago_access_token;
+    mercadopago_terminal_id = terminal.mercadopago_terminal_id;
+  } else {
+    const store = await getStoreById(storeId);
+    mercadopago_access_token = store?.mercadopago_access_token || null;
+    mercadopago_terminal_id = store?.mercadopago_terminal_id || null;
+  }
+
   if (!mercadopago_access_token || !mercadopago_terminal_id) {
     throw new Error('Configuracion de Mercado Pago no encontrada');
   }
-
-  const { items, order_type, external_reference } = orderData;
   
-  let total = 0;
+  let subtotal = 0;
   items.forEach(item => {
-    total += item.unit_price * item.quantity;
+    subtotal += item.unit_price * item.quantity;
   });
 
+  const couponData = await resolveCouponForOrder(storeId, coupon_code, subtotal);
+  const total = frontendTotal ? parseFloat(frontendTotal) : couponData.total;
   const amountInCents = Math.round(total * 100);
+  const amountInt = Math.round(total);
+  const amountStr = String(amountInCents);
+  const totalAmountStr = Number(total).toFixed(2);
+  
+  const storeInfo = await getStoreById(storeId);
   const idempotencyKey = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
   const payload = {
@@ -947,7 +1289,7 @@ export async function processMercadoPagoPayment(storeId, orderData) {
     expiration_time: 'PT10M',
     transactions: {
       payments: [{
-        amount: amountInCents
+        amount: String(Math.round(total))
       }]
     },
     config: {
@@ -973,7 +1315,7 @@ export async function processMercadoPagoPayment(storeId, orderData) {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Error de Mercado Pago:', errorText);
-    throw new Error('Error al procesar pago con Mercado Pago');
+    throw new Error(`Error al procesar pago con Mercado Pago: ${errorText}`);
   }
 
   const mpResponse = await response.json();
@@ -983,8 +1325,62 @@ export async function processMercadoPagoPayment(storeId, orderData) {
     mp_order_id: mpResponse.id,
     status: mpResponse.status,
     external_reference: mpResponse.external_reference,
-    amount: total
+    amount: total,
+    subtotal: couponData.subtotal,
+    discount_total: couponData.discount_total,
+    coupon_code: couponData.coupon_code
   };
+}
+
+export async function confirmCardPayment(orderId, storeId) {
+  await pool.execute(
+    'UPDATE orders SET cash_approved = TRUE WHERE id = ? AND store_id = ?',
+    [orderId, storeId]
+  );
+  const [rows] = await pool.execute(
+    'SELECT * FROM orders WHERE id = ? AND store_id = ?',
+    [orderId, storeId]
+  );
+  return rows.length > 0 ? rows[0] : null;
+}
+
+export async function getMercadoPagoOrderStatus(mpOrderId, mercadopagoAccessToken) {
+  const response = await fetch(`https://api.mercadopago.com/v1/orders/${mpOrderId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${mercadopagoAccessToken}`
+    }
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Error al consultar estado de pago: ${errorText}`);
+  }
+
+  const result = await response.json();
+  console.log('Mercado Pago Order Status Response:', JSON.stringify(result, null, 2));
+  return result;
+}
+
+export async function cancelMercadoPagoOrder(mpOrderId, mercadopagoAccessToken) {
+  const idempotencyKey = `CANCEL-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const response = await fetch(`https://api.mercadopago.com/v1/orders/${mpOrderId}/cancel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${mercadopagoAccessToken}`,
+      'X-Idempotency-Key': idempotencyKey
+    },
+    body: JSON.stringify({ id: mpOrderId })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Error al cancelar pago: ${errorText}`);
+  }
+
+  return await response.json();
 }
 
 export { pool };

@@ -49,6 +49,11 @@ function Categories() {
     e.preventDefault();
     setError('');
 
+    if (!selectedStore?.id) {
+      setError('Selecciona una tienda primero');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       const url = editingCategory 
@@ -65,7 +70,8 @@ function Categories() {
       });
 
       if (!response.ok) {
-        throw new Error('Error al guardar la categoria');
+        const data = await response.json();
+        throw new Error(data.error || 'Error al guardar la categoria');
       }
 
       setShowModal(false);

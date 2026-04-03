@@ -29,6 +29,11 @@ import {
   createExtra,
   updateExtra,
   deleteExtra,
+  getCoupons,
+  createCoupon,
+  updateCoupon,
+  deleteCoupon,
+  validateCouponForStore,
   getProducts,
   createProduct,
   updateProduct,
@@ -45,7 +50,16 @@ import {
   getWorkerOrders,
   updateOrderStatus,
   approveCashPayment,
-  processMercadoPagoPayment
+  processMercadoPagoPayment,
+  confirmCardPayment,
+  getMercadoPagoOrderStatus,
+  cancelMercadoPagoOrder,
+  createMercadoPagoTerminal,
+  getMercadoPagoTerminals,
+  getMercadoPagoTerminalsByStore,
+  updateMercadoPagoTerminal,
+  deleteMercadoPagoTerminal,
+  pool
 } from './database.js';
 
 const app = express();
@@ -223,6 +237,39 @@ app.get('/api/public/:code', async (req, res) => {
   }
 });
 
+app.get('/api/public/:code/mercado-pago-terminals', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const store = await getStoreByCode(code.toUpperCase());
+    
+    if (!store) {
+      return res.status(404).json({ error: 'Código no encontrado' });
+    }
+
+    const terminals = await getMercadoPagoTerminalsByStore(store.id);
+    res.json(terminals);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/public/:code/coupons/validate', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const { coupon_code, subtotal } = req.body;
+    const store = await getStoreByCode(code.toUpperCase());
+
+    if (!store) {
+      return res.status(404).json({ error: 'Código no encontrado' });
+    }
+
+    const result = await validateCouponForStore(store.id, coupon_code, Number(subtotal) || 0);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.get('/api/user', authenticateToken, async (req, res) => {
   try {
     const user = await getUserById(req.user.id);
@@ -340,9 +387,13 @@ app.get('/api/categories', authenticateToken, async (req, res) => {
     if (!storeId) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
-    const categories = await getCategories(parseInt(storeId));
+    const parsedId = parseInt(storeId);
+    console.log(`[Categories] GET store_id=${storeId} parsed=${parsedId}`);
+    const categories = await getCategories(parsedId);
+    console.log(`[Categories] Found ${categories.length} categories`);
     res.json(categories);
   } catch (error) {
+    console.error(`[Categories] GET Error:`, error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -520,6 +571,80 @@ app.delete('/api/extras/:id', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/coupons', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    if (!storeId) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const coupons = await getCoupons(parseInt(storeId));
+    res.json(coupons);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/coupons', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, code, name, discount_type, discount_value, min_order_total, usage_limit, is_active } = req.body;
+    if (!store_id) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    if (!code || !name) {
+      return res.status(400).json({ error: 'code y name son requeridos' });
+    }
+    const coupon = await createCoupon(parseInt(store_id), {
+      code,
+      name,
+      discount_type,
+      discount_value,
+      min_order_total,
+      usage_limit,
+      is_active
+    });
+    res.json(coupon);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/coupons/:id', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, code, name, discount_type, discount_value, min_order_total, usage_limit, is_active } = req.body;
+    if (!store_id) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    if (!code || !name) {
+      return res.status(400).json({ error: 'code y name son requeridos' });
+    }
+    const coupon = await updateCoupon(parseInt(req.params.id), parseInt(store_id), {
+      code,
+      name,
+      discount_type,
+      discount_value,
+      min_order_total,
+      usage_limit,
+      is_active
+    });
+    res.json(coupon);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/coupons/:id', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    await deleteCoupon(parseInt(req.params.id), parseInt(store_id));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/products', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id;
@@ -636,14 +761,14 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { store_id, items, order_type, payment_method } = req.body;
+    const { store_id, items, order_type, payment_method, coupon_code } = req.body;
     
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
     }
     
     console.log('Creating order:', { store_id, order_type, payment_method, items });
-    const order = await createOrder(parseInt(store_id), { order_type, payment_method, items });
+    const order = await createOrder(parseInt(store_id), { order_type, payment_method, items, coupon_code });
     
     const socketId = userSockets.get(parseInt(store_id));
     if (socketId) {
@@ -659,27 +784,32 @@ app.post('/api/orders', async (req, res) => {
 
 app.post('/api/orders/process-payment', async (req, res) => {
   try {
-    const { store_id, items, order_type, payment_method } = req.body;
+    const { store_id, items, order_type, payment_method, selected_terminal_id, coupon_code } = req.body;
     
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
     }
     
     if (payment_method === 'card') {
-      console.log('Procesando pago con tarjeta:', { store_id, order_type });
+      console.log('Procesando pago con tarjeta:', { store_id, order_type, selected_terminal_id });
       
       const mpResult = await processMercadoPagoPayment(parseInt(store_id), {
         items,
-        order_type
+        order_type,
+        selected_terminal_id: selected_terminal_id ? parseInt(selected_terminal_id) : null,
+        coupon_code
       });
       
-      console.log('Pago Mercado Pago procesado:', mpResult);
+      console.log('Pago Mercado Pago procesado:', JSON.stringify(mpResult));
       
       const order = await createOrder(parseInt(store_id), { 
         order_type, 
         payment_method: 'card',
         items,
-        mp_order_id: mpResult.mp_order_id
+        mp_order_id: mpResult.mp_order_id,
+        external_reference: mpResult.external_reference,
+        coupon_code,
+        terminal_id: selected_terminal_id ? parseInt(selected_terminal_id) : null
       });
       
       const socketId = userSockets.get(parseInt(store_id));
@@ -697,6 +827,216 @@ app.post('/api/orders/process-payment', async (req, res) => {
     }
   } catch (error) {
     console.error('❌ Error procesando pago:', error);
+    const isValidationError = [
+      'Configuracion de Mercado Pago',
+      'La máquina seleccionada',
+      'Cupón'
+    ].some(text => String(error.message || '').includes(text));
+    res.status(isValidationError ? 400 : 500).json({ error: error.message });
+  }
+});
+
+app.get('/api/orders/:orderId/payment-status', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const storeId = req.query.store_id;
+    console.log('>>> payment-status endpoint llamado | orderId:', orderId, '| storeId:', storeId);
+    if (!storeId) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+
+    const store = await getStoreById(parseInt(storeId));
+    const [orders] = await pool.execute(
+      'SELECT * FROM orders WHERE id = ? AND store_id = ?',
+      [parseInt(orderId), parseInt(storeId)]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ error: 'Orden no encontrada' });
+    }
+
+    const order = orders[0];
+
+    if (order.payment_method !== 'card') {
+      const status = order.status === 'completed' ? 'approved' : 'pending';
+      return res.json({ mp_status: status, payment_status: status, order_status: order.status, order, mp_full: null });
+    }
+
+    let mercadopagoAccessToken = store?.mercadopago_access_token;
+    if (order.terminal_id) {
+      const [termRows] = await pool.execute("SELECT mercadopago_access_token FROM mercado_pago_terminals WHERE id = ?", [order.terminal_id]);
+      if (termRows[0]?.mercadopago_access_token) mercadopagoAccessToken = termRows[0].mercadopago_access_token;
+    }
+    if (!mercadopagoAccessToken) {
+      return res.json({ mp_status: 'pending', payment_status: 'pending', order_status: order.status, order, mp_full: null });
+    }
+
+    let mpStatus = null;
+    let mpOrderId = order.mp_order_id;
+    console.log('  mp_order_id desde DB:', mpOrderId, '| external_reference:', order.external_reference);
+
+    if (mpOrderId) {
+      try {
+        console.log('  Llamando getMercadoPagoOrderStatus con:', mpOrderId);
+        mpStatus = await getMercadoPagoOrderStatus(mpOrderId, mercadopagoAccessToken);
+        console.log('  getMercadoPagoOrderStatus result status:', mpStatus?.status);
+      } catch (err) {
+        console.log('  [ERROR getMercadoPagoOrderStatus]:', err.message);
+        mpStatus = null;
+      }
+    }
+
+    console.log('  mpStatus después de consulta:', mpStatus ? mpStatus.status : 'null');
+    console.log('  Intentando busqueda por external_reference:', order.external_reference);
+    if (!mpStatus && order.external_reference) {
+      try {
+        const today = new Date();
+        const beginDate = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+        const endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+        const searchUrl = `https://api.mercadopago.com/v1/orders?limit=50&begin_date=${beginDate}&end_date=${endDate}`;
+        const searchRes = await fetch(searchUrl, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${mercadopagoAccessToken}`
+          }
+        });
+        const searchData = await searchRes.json();
+        console.log('=== MP ORDERS SEARCH ===');
+        console.log('Total orders found:', (searchData.data || []).length);
+        (searchData.data || []).forEach(o => {
+          console.log('  MP Order:', o.id, '| status:', o.status, '| external_reference:', o.external_reference);
+        });
+        console.log('=== END MP ORDERS SEARCH ===');
+        const found = (searchData.data || []).find(o => o.external_reference === order.external_reference);
+        if (found) {
+          mpOrderId = found.id;
+          mpStatus = found;
+          await pool.execute('UPDATE orders SET mp_order_id = ? WHERE id = ?', [mpOrderId, parseInt(orderId)]);
+          console.log('mp_order_id actualizado desde busqueda:', mpOrderId, '| status:', found.status);
+        }
+      } catch (err) {
+        console.log('Error buscando orden en MP:', err.message);
+      }
+    }
+
+    if (!mpStatus) {
+      return res.json({ mp_status: 'pending', payment_status: 'pending', order_status: order.status, order, mp_full: null });
+    }
+
+    const paymentStatus = mpStatus.transactions?.payments?.[0]?.status || mpStatus.status;
+    const paidAmount = mpStatus.transactions?.payments?.[0]?.paid_amount || '0';
+
+    if (mpStatus.status === 'canceled') {
+      await updateOrderStatus(parseInt(orderId), parseInt(storeId), 'canceled');
+      const [rows] = await pool.execute(
+        'SELECT * FROM orders WHERE id = ? AND store_id = ?',
+        [parseInt(orderId), parseInt(storeId)]
+      );
+      return res.json({
+        mp_status: mpStatus.status,
+        payment_status: paymentStatus,
+        paid_amount: paidAmount,
+        order_status: 'canceled',
+        order: rows[0],
+        mp_full: mpStatus
+      });
+    }
+
+    const result = {
+      mp_status: mpStatus.status,
+      payment_status: paymentStatus,
+      paid_amount: paidAmount,
+      order_status: order.status,
+      order: order,
+      mp_full: mpStatus
+    };
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/debug/order/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { store_id } = req.query;
+    const [orders] = await pool.execute(
+      'SELECT * FROM orders WHERE id = ? AND store_id = ?',
+      [parseInt(orderId), parseInt(store_id)]
+    );
+    const [cols] = await pool.execute('SHOW COLUMNS FROM orders');
+    res.json({ order: orders[0] || null, columns: cols.map(c => c.Field) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/orders/:orderId/confirm-payment', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const storeId = req.body.store_id;
+    if (!storeId) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+
+    const updatedOrder = await confirmCardPayment(parseInt(orderId), parseInt(storeId));
+
+    const socketId = userSockets.get(parseInt(storeId));
+    if (socketId && updatedOrder) {
+      const items = await getOrderItems(parseInt(orderId));
+      io.to(socketId).emit('payment_confirmed', { ...updatedOrder, items });
+    }
+
+    res.json({ success: true, order: updatedOrder });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/orders/:orderId/cancel-payment', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const storeId = req.body.store_id;
+    if (!storeId) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+
+    const [orders] = await pool.execute(
+      'SELECT * FROM orders WHERE id = ? AND store_id = ?',
+      [parseInt(orderId), parseInt(storeId)]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ error: 'Orden no encontrada' });
+    }
+
+    const order = orders[0];
+    if (!order.mp_order_id) {
+      return res.status(400).json({ error: 'Esta orden no tiene un pago de Mercado Pago' });
+    }
+
+    const store = await getStoreById(parseInt(storeId));
+    let mercadopagoAccessToken = store?.mercadopago_access_token;
+    if (order.terminal_id) {
+      const [termRows] = await pool.execute("SELECT mercadopago_access_token FROM mercado_pago_terminals WHERE id = ?", [order.terminal_id]);
+      if (termRows[0]?.mercadopago_access_token) mercadopagoAccessToken = termRows[0].mercadopago_access_token;
+    }
+
+    if (mercadopagoAccessToken) {
+      try {
+        await cancelMercadoPagoOrder(order.mp_order_id, mercadopagoAccessToken);
+      } catch (cancelError) {
+        console.error('Error cancelando orden en Mercado Pago:', cancelError.message);
+      }
+    }
+
+    await pool.execute(
+      'UPDATE orders SET status = ? WHERE id = ? AND store_id = ?',
+      ['canceled', parseInt(orderId), parseInt(storeId)]
+    );
+
+    res.json({ success: true, message: 'Pago cancelado' });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
@@ -875,6 +1215,66 @@ app.get('/api/workers/orders', authenticateToken, async (req, res) => {
     
     const orders = await getWorkerOrders(req.user.store_id);
     res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
+  try {
+    const terminals = await getMercadoPagoTerminals(req.user.id);
+    res.json(terminals);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
+  try {
+    const { name, mercadopago_access_token, mercadopago_terminal_id } = req.body;
+    
+    if (!name || !mercadopago_access_token || !mercadopago_terminal_id) {
+      return res.status(400).json({ error: 'Todos los campos son requeridos' });
+    }
+    
+    const terminal = await createMercadoPagoTerminal(req.user.id, {
+      name,
+      mercadopago_access_token,
+      mercadopago_terminal_id
+    });
+    
+    res.json(terminal);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/mercado-pago-terminals/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, mercadopago_access_token, mercadopago_terminal_id } = req.body;
+    
+    if (!name || !mercadopago_access_token || !mercadopago_terminal_id) {
+      return res.status(400).json({ error: 'Todos los campos son requeridos' });
+    }
+    
+    const terminal = await updateMercadoPagoTerminal(parseInt(id), req.user.id, {
+      name,
+      mercadopago_access_token,
+      mercadopago_terminal_id
+    });
+    
+    res.json(terminal);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/mercado-pago-terminals/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await deleteMercadoPagoTerminal(parseInt(id), req.user.id);
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

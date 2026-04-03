@@ -13,7 +13,9 @@ import {
   faPalette,
   faStore,
   faChevronDown,
-  faUsers
+  faUsers,
+  faCreditCard,
+  faPercent
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -284,6 +286,18 @@ function Layout() {
               <NavLink to="/admin/workers">
                 <FontAwesomeIcon icon={faUsers} />
                 <span>Trabajadores</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/coupons">
+                <FontAwesomeIcon icon={faPercent} />
+                <span>Cupones</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/mercado-pago-points">
+                <FontAwesomeIcon icon={faCreditCard} />
+                <span>Point</span>
               </NavLink>
             </li>
             <li>

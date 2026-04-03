@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faShoppingCart, 
   faPlus, 
   faMinus, 
   faTimes, 
+  faTimesCircle,
   faBox,
   faArrowLeft,
   faCopy,
@@ -17,10 +18,12 @@ import { io } from 'socket.io-client';
 function Store() {
   const { code } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const terminalFromUrl = searchParams.get('terminal');
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState([]); 
   const [cartOpen, setCartOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [orderType, setOrderType] = useState('serve');
@@ -36,6 +39,16 @@ function Store() {
   const [lastOrderNumber, setLastOrderNumber] = useState(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
+  const [availableTerminals, setAvailableTerminals] = useState([]);
+  const [selectedTerminalId, setSelectedTerminalId] = useState('');
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [pendingOrderData, setPendingOrderData] = useState(null);
+  const [paymentWaiting, setPaymentWaiting] = useState(false);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [paymentCancelled, setPaymentCancelled] = useState(false);
+  const [paymentTimeLeft, setPaymentTimeLeft] = useState(90);
 
   useEffect(() => {
     fetchStore();
@@ -95,7 +108,7 @@ function Store() {
     return () => {
       socket.disconnect();
     };
-  }, [code]);
+  }, [code, terminalFromUrl]);
 
   useEffect(() => {
     if (store?.store?.id) {
@@ -120,6 +133,24 @@ function Store() {
       console.log('Store data received:', data);
       console.log('Number of products:', data.products?.length || 0);
       setStore(data);
+
+      const terminalsResponse = await fetch(`/api/public/${code}/mercado-pago-terminals`);
+      if (terminalsResponse.ok) {
+        const terminalsData = await terminalsResponse.json();
+        const safeTerminals = Array.isArray(terminalsData) ? terminalsData : [];
+        setAvailableTerminals(safeTerminals);
+        const hasTerminalFromUrl = terminalFromUrl && safeTerminals.some(terminal => String(terminal.id) === String(terminalFromUrl));
+        setSelectedTerminalId(prev =>
+          hasTerminalFromUrl
+            ? String(terminalFromUrl)
+            : (prev && safeTerminals.some(terminal => String(terminal.id) === String(prev)))
+            ? prev
+            : (safeTerminals[0]?.id ? String(safeTerminals[0].id) : '')
+        );
+      } else {
+        setAvailableTerminals([]);
+        setSelectedTerminalId('');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -262,6 +293,12 @@ function Store() {
     return cart.reduce((total, item) => total + (item.unit_price * item.quantity), 0);
   };
 
+  const getFinalTotal = () => {
+    const subtotal = getCartTotal();
+    const discount = Number(appliedCoupon?.discount_total || 0);
+    return Math.max(subtotal - discount, 0);
+  };
+
   const getCartCount = () => {
     return cart.reduce((count, item) => count + item.quantity, 0);
   };
@@ -276,31 +313,71 @@ function Store() {
     setPaymentModalOpen(true);
   };
 
-  const processPayment = async () => {
-    if (cart.length === 0) return;
+  const applyCoupon = async () => {
+    if (!couponCodeInput.trim() || cart.length === 0) return;
+    try {
+      setCouponLoading(true);
+      const response = await fetch(`/api/public/${code}/coupons/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          coupon_code: couponCodeInput.trim(),
+          subtotal: getCartTotal()
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudo aplicar el cupón');
+      }
+      setAppliedCoupon(data);
+      setCouponCodeInput(data.coupon_code || couponCodeInput.trim().toUpperCase());
+    } catch (err) {
+      alert(err.message);
+      setAppliedCoupon(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
 
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCodeInput('');
+  };
+
+  const processPayment = async (selectedMethod = paymentMethod) => {
+    if (cart.length === 0) return;
+    if (selectedMethod === 'card' && !selectedTerminalId) {
+      alert('No hay máquina Point asignada para esta sesión');
+      return;
+    }
+
+    setPaymentMethod(selectedMethod);
     setProcessingPayment(true);
     setPaymentError(null);
+    setPaymentConfirmed(false);
+    setPaymentCancelled(false);
 
-    console.log('processPayment - orderType:', orderType, 'paymentMethod:', paymentMethod);
-
+    const finalTotal = getFinalTotal();
     const orderData = {
       store_id: store.store.id,
       order_type: orderType,
-      payment_method: paymentMethod,
+      payment_method: selectedMethod,
       items: cart.map(item => ({
         product_id: item.product_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
         selected_ingredients: item.selected_ingredients,
         selected_extras: item.selected_extras
-      }))
+      })),
+      selected_terminal_id: selectedMethod === 'card' && selectedTerminalId ? parseInt(selectedTerminalId) : null,
+      coupon_code: appliedCoupon?.coupon_code || null,
+      total: Number(finalTotal).toFixed(2)
     };
 
     try {
       let response;
       
-      if (paymentMethod === 'card') {
+      if (selectedMethod === 'card') {
         response = await fetch('/api/orders/process-payment', {
           method: 'POST',
           headers: {
@@ -325,16 +402,18 @@ function Store() {
 
       const result = await response.json();
       const order = result.order || result;
+      const storeId = store.store.id;
       
-      setLastOrderNumber(order.order_number);
-      setPaymentModalOpen(false);
-      setCart([]);
-      setCartOpen(false);
-      
-      if (paymentMethod === 'card') {
-        alert('Pago realizado y pedido enviado a cocina!');
+      setPendingOrderData({ order, storeId });
+
+      if (selectedMethod === 'card') {
+        setPaymentWaiting(true);
+        setPaymentTimeLeft(90);
       } else {
-        alert(`Pedido #${order.order_number} - Esperando aprobacion de pago en efectivo`);
+        setLastOrderNumber(order.order_number);
+        setPaymentModalOpen(false);
+        setCart([]);
+        setCartOpen(false);
       }
     } catch (err) {
       setPaymentError(err.message);
@@ -343,6 +422,75 @@ function Store() {
       setProcessingPayment(false);
     }
   };
+
+  useEffect(() => {
+    if (!paymentWaiting || !pendingOrderData) return;
+
+    const orderId = pendingOrderData.order.id;
+    const storeId = pendingOrderData.storeId;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/orders/${orderId}/payment-status?store_id=${storeId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const mpStatus = data.mp_status || data.status;
+        const payStatus = data.payment_status || data.status;
+        const paidAmount = data.paid_amount || '0';
+
+        const isApproved = (payStatus === 'approved' || payStatus === 'paid') && parseFloat(paidAmount) > 0;
+        const isCancelled = mpStatus === 'canceled' || mpStatus === 'refunded' ||
+          payStatus === 'canceled' || payStatus === 'refunded' ||
+          data.order_status === 'canceled' || data.order_status === 'refunded';
+
+        if (isApproved) {
+          clearInterval(pollInterval);
+          clearInterval(timerInterval);
+          await fetch(`/api/orders/${orderId}/confirm-payment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ store_id: storeId })
+          });
+          setPaymentConfirmed(true);
+          setLastOrderNumber(pendingOrderData.order.order_number);
+          setCart([]);
+          setCartOpen(false);
+          setPaymentModalOpen(false);
+          setPaymentWaiting(false);
+        } else if (isCancelled) {
+          clearInterval(pollInterval);
+          clearInterval(timerInterval);
+          setPaymentWaiting(false);
+          setPaymentCancelled(true);
+        }
+      } catch (err) {
+        console.error('Error polling payment status:', err);
+      }
+    }, 5000);
+
+    const timerInterval = setInterval(() => {
+      setPaymentTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerInterval);
+          clearInterval(pollInterval);
+          setPaymentWaiting(false);
+          setPaymentCancelled(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearInterval(timerInterval);
+    };
+  }, [paymentWaiting, pendingOrderData, pendingOrderData?.order?.id]);
+
+  useEffect(() => {
+    setAppliedCoupon(null);
+  }, [cart]);
 
   const groupProductsByCategory = () => {
     if (!store?.products) return {};
@@ -1366,6 +1514,80 @@ function Store() {
                 <span>Subtotal:</span>
                 <span style={{ fontWeight: '600' }}>{colors.currency.symbol}{Number(getCartTotal()).toFixed(2)}</span>
               </div>
+
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                <input
+                  type="text"
+                  value={couponCodeInput}
+                  onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
+                  placeholder="Cupón de descuento"
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: '10px',
+                    border: '2px solid #ddd',
+                    fontSize: '14px'
+                  }}
+                />
+                {appliedCoupon ? (
+                  <button
+                    onClick={removeCoupon}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      backgroundColor: '#dc3545',
+                      color: '#fff',
+                      cursor: 'pointer',
+                      fontWeight: '700'
+                    }}
+                  >
+                    Quitar
+                  </button>
+                ) : (
+                  <button
+                    onClick={applyCoupon}
+                    disabled={couponLoading || !couponCodeInput.trim()}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      backgroundColor: colors.primary,
+                      color: colors.secondary,
+                      cursor: couponLoading || !couponCodeInput.trim() ? 'not-allowed' : 'pointer',
+                      opacity: couponLoading || !couponCodeInput.trim() ? 0.5 : 1,
+                      fontWeight: '700'
+                    }}
+                  >
+                    {couponLoading ? '...' : 'Aplicar'}
+                  </button>
+                )}
+              </div>
+
+              {appliedCoupon && (
+                <>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginBottom: '8px',
+                    fontSize: '15px',
+                    color: '#28a745'
+                  }}>
+                    <span>Descuento ({appliedCoupon.coupon_code}):</span>
+                    <span style={{ fontWeight: '700' }}>-{colors.currency.symbol}{Number(appliedCoupon.discount_total || 0).toFixed(2)}</span>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginBottom: '8px',
+                    fontSize: '18px',
+                    color: colors.primary
+                  }}>
+                    <span style={{ fontWeight: '700' }}>Total:</span>
+                    <span style={{ fontWeight: '700' }}>{colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
               
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ 
@@ -1556,12 +1778,12 @@ function Store() {
                   gap: '15px'
                 }}>
                   <button
-                    onClick={() => setPaymentMethod('card')}
+                    onClick={() => processPayment('card')}
                     style={{
                       padding: '20px',
-                      backgroundColor: paymentMethod === 'card' ? colors.primary : colors.secondary,
-                      color: paymentMethod === 'card' ? colors.secondary : colors.primary,
-                      border: `3px solid ${paymentMethod === 'card' ? colors.accent : '#ddd'}`,
+                      backgroundColor: colors.secondary,
+                      color: colors.primary,
+                      border: `3px solid #ddd`,
                       borderRadius: '15px',
                       cursor: 'pointer',
                       transition: 'all 0.2s ease',
@@ -1576,12 +1798,12 @@ function Store() {
                   </button>
 
                   <button
-                    onClick={() => setPaymentMethod('cash')}
+                    onClick={() => processPayment('cash')}
                     style={{
                       padding: '20px',
-                      backgroundColor: paymentMethod === 'cash' ? colors.primary : colors.secondary,
-                      color: paymentMethod === 'cash' ? colors.secondary : colors.primary,
-                      border: `3px solid ${paymentMethod === 'cash' ? colors.accent : '#ddd'}`,
+                      backgroundColor: colors.secondary,
+                      color: colors.primary,
+                      border: `3px solid #ddd`,
                       borderRadius: '15px',
                       cursor: 'pointer',
                       transition: 'all 0.2s ease',
@@ -1596,33 +1818,25 @@ function Store() {
                   </button>
                 </div>
 
+                <div style={{
+                  marginTop: '14px',
+                  fontSize: '13px',
+                  color: '#666'
+                }}>
+                  Máquina Point asignada:{' '}
+                  <strong>
+                    {availableTerminals.find(terminal => String(terminal.id) === String(selectedTerminalId))?.name || 'No disponible'}
+                  </strong>
+                </div>
+
                 <p style={{
                   color: '#999',
                   marginTop: '20px',
                   fontSize: '13px',
                   fontStyle: 'italic'
                 }}>
-                  Pagar con efectivo, justo por favor
+                  Al tocar Tarjeta o Efectivo el pedido se procesa inmediatamente
                 </p>
-
-                <button
-                  onClick={() => processPayment()}
-                  disabled={!paymentMethod}
-                  style={{
-                    marginTop: '20px',
-                    padding: '14px 30px',
-                    backgroundColor: paymentMethod ? colors.accent : '#ccc',
-                    color: colors.primary,
-                    border: 'none',
-                    borderRadius: '10px',
-                    fontSize: '16px',
-                    fontWeight: '700',
-                    cursor: paymentMethod ? 'pointer' : 'not-allowed',
-                    width: '100%'
-                  }}
-                >
-                  Confirmar Pago
-                </button>
 
                 <button
                   onClick={() => {
@@ -1642,6 +1856,268 @@ function Store() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {paymentWaiting && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div style={{
+            backgroundColor: colors.secondary,
+            borderRadius: '20px',
+            padding: '40px',
+            width: '100%',
+            maxWidth: '400px',
+            textAlign: 'center'
+          }}>
+            <h2 style={{ color: colors.primary, marginBottom: '10px', fontSize: '24px' }}>
+              Esperando Pago
+            </h2>
+            <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
+              Acerque o pase la tarjeta en el terminal Point
+            </p>
+            <div style={{
+              width: '80px',
+              height: '80px',
+              border: `6px solid ${colors.accent}`,
+              borderTop: `6px solid ${colors.primary}`,
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto 20px'
+            }} />
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '10px' }}>
+              Esperando confirmacion del pago...
+            </p>
+            <p style={{
+              color: paymentTimeLeft <= 30 ? '#DC3545' : colors.primary,
+              fontSize: '24px',
+              fontWeight: '700',
+              marginBottom: '20px'
+            }}>
+              {Math.floor(paymentTimeLeft / 60)}:{String(paymentTimeLeft % 60).padStart(2, '0')}
+            </p>
+            <button
+              onClick={async () => {
+                if (!pendingOrderData) return;
+                try {
+                  await fetch(`/api/orders/${pendingOrderData.order.id}/cancel-payment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ store_id: pendingOrderData.storeId })
+                  });
+                } catch (e) { console.error(e); }
+                setPaymentWaiting(false);
+                setPaymentCancelled(true);
+              }}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#DC3545',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              Cancelar pago
+            </button>
+          </div>
+        </div>
+      )}
+
+      {paymentConfirmed && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div style={{
+            backgroundColor: colors.secondary,
+            borderRadius: '20px',
+            padding: '40px',
+            width: '100%',
+            maxWidth: '400px',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '60px', marginBottom: '20px' }}>✅</div>
+            <h2 style={{ color: colors.primary, marginBottom: '10px', fontSize: '24px' }}>
+              Pago Confirmado
+            </h2>
+            <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
+              Tu pago fue aprobado correctamente
+            </p>
+            <div style={{
+              backgroundColor: colors.primary,
+              color: colors.secondary,
+              padding: '20px',
+              borderRadius: '15px',
+              marginBottom: '20px'
+            }}>
+              <p style={{ fontSize: '14px', marginBottom: '5px', opacity: 0.8 }}>Numero de Orden</p>
+              <p style={{ fontSize: '48px', fontWeight: '700', margin: 0 }}>
+                {lastOrderNumber}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setPaymentConfirmed(false);
+                setPendingOrderData(null);
+                setLastOrderNumber(null);
+                setPaymentModalOpen(false);
+              }}
+              style={{
+                marginTop: '25px',
+                padding: '14px 30px',
+                backgroundColor: colors.accent,
+                color: colors.primary,
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '16px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                width: '100%'
+              }}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {paymentCancelled && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div style={{
+            backgroundColor: colors.secondary,
+            borderRadius: '20px',
+            padding: '40px',
+            width: '100%',
+            maxWidth: '400px',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '60px', marginBottom: '20px' }}>❌</div>
+            <h2 style={{ color: '#DC3545', marginBottom: '10px', fontSize: '24px' }}>
+              Pago No Completado
+            </h2>
+            <p style={{ color: '#666', marginBottom: '25px', fontSize: '14px' }}>
+              El pago no fue completado o se cancelo. Como quieres pagar?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <button
+                onClick={() => {
+                  setPaymentCancelled(false);
+                  setPendingOrderData(null);
+                  setProcessingPayment(true);
+                  processPayment('card');
+                }}
+                style={{
+                  padding: '18px',
+                  backgroundColor: colors.primary,
+                  color: colors.secondary,
+                  border: 'none',
+                  borderRadius: '15px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px'
+                }}
+              >
+                <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '22px' }} />
+                <span style={{ fontSize: '18px', fontWeight: '700' }}>Reintentar con Tarjeta</span>
+              </button>
+              <button
+                onClick={() => {
+                  setPaymentCancelled(false);
+                  setPaymentModalOpen(true);
+                }}
+                style={{
+                  padding: '18px',
+                  backgroundColor: colors.accent,
+                  color: colors.primary,
+                  border: 'none',
+                  borderRadius: '15px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px'
+                }}
+              >
+                <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '22px' }} />
+                <span style={{ fontSize: '18px', fontWeight: '700' }}>Pagar en Efectivo</span>
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await fetch(`/api/orders/${pendingOrderData.order.id}/cancel-payment`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ store_id: pendingOrderData.storeId })
+                    });
+                  } catch (e) { console.error(e); }
+                  setPaymentCancelled(false);
+                  setPendingOrderData(null);
+                  setPaymentWaiting(false);
+                  setCart([]);
+                  setCartOpen(false);
+                  setPaymentModalOpen(false);
+                }}
+                style={{
+                  padding: '18px',
+                  backgroundColor: '#DC3545',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '15px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px'
+                }}
+              >
+                <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '22px' }} />
+                <span style={{ fontSize: '18px', fontWeight: '700' }}>Cancelar Orden</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
