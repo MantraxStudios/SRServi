@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -45,6 +45,44 @@ function Store() {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponLoading, setCouponLoading] = useState(false);
   const [pendingOrderData, setPendingOrderData] = useState(null);
+  const [activeCategory, setActiveCategory] = useState('all');
+  const categoryRef = useRef(null);
+
+  useEffect(() => {
+    setActiveCategory('all');
+  }, [store?.id]);
+
+  useEffect(() => {
+    const container = categoryRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const cat = entry.target.dataset.category;
+            if (cat) setActiveCategory(cat);
+          }
+        });
+      },
+      { root: container, threshold: 0.5 }
+    );
+
+    const reobserve = () => {
+      const tabs = container.querySelectorAll('.categoryTab');
+      tabs.forEach((tab) => observer.observe(tab));
+    };
+
+    reobserve();
+    const mutationObserver = new MutationObserver(reobserve);
+    mutationObserver.observe(container, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, []);
+
   const [paymentWaiting, setPaymentWaiting] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [paymentCancelled, setPaymentCancelled] = useState(false);
@@ -439,8 +477,14 @@ function Store() {
         const payStatus = data.payment_status || data.status;
         const paidAmount = data.paid_amount || '0';
 
-        const isApproved = (payStatus === 'approved' || payStatus === 'paid') && parseFloat(paidAmount) > 0;
+        // La nueva API de MP Point usa 'processed' para pagos exitosos.
+        // El backend ya mapea 'processed' -> 'approved', pero cubrimos ambos por seguridad.
+        const isApproved =
+          (payStatus === 'approved' || payStatus === 'paid' || payStatus === 'processed' ||
+           mpStatus === 'processed') &&
+          (parseFloat(paidAmount) > 0 || payStatus === 'processed' || mpStatus === 'processed');
         const isCancelled = mpStatus === 'canceled' || mpStatus === 'refunded' ||
+          mpStatus === 'expired' || mpStatus === 'failed' ||
           payStatus === 'canceled' || payStatus === 'refunded' ||
           data.order_status === 'canceled' || data.order_status === 'refunded';
 
@@ -548,39 +592,77 @@ function Store() {
       }}>
         <h1 style={{ 
           fontSize: '36px', 
-          marginBottom: '12px',
           fontWeight: '700',
           color: colors.accent
         }}>
-          {store?.user?.business_name || store?.user?.username}
+          {store?.store?.name}
         </h1>
         <p style={{ 
-          opacity: 0.9, 
-          fontSize: '14px',
+          fontSize: '13px',
           color: colors.secondary,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
+          marginTop: '6px',
+          opacity: 0.85
         }}>
-          Tu código de pedido: <strong style={{ fontSize: '18px', letterSpacing: '2px' }}>{code}</strong>
-          <button 
-            onClick={copyCode}
-            style={{
-              background: 'rgba(255,255,255,0.2)',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '6px 10px',
-              cursor: 'pointer',
-              color: colors.secondary,
-              display: 'flex',
-              alignItems: 'center'
-            }}
-            title="Copiar código"
-          >
-            <FontAwesomeIcon icon={faCopy} style={{ fontSize: '14px' }} />
-          </button>
+          AutoServicio By SRAutomatic
         </p>
       </header>
+
+      <div style={{ padding: '16px 16px 8px', backgroundColor: colors.secondary }}>
+        <div
+          ref={categoryRef}
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}
+        >
+        <style>{`.categoryTab{outline:none!important}.categoryTab:focus{outline:none!important}.categoryTab:active{transform:scale(0.97)}`}</style>
+        <button
+          className="categoryTab"
+          data-category="all"
+          onClick={() => setActiveCategory('all')}
+          style={{
+            flexShrink: 0,
+            padding: '14px 28px',
+            borderRadius: '25px',
+            border: `2px solid ${activeCategory === 'all' ? colors.accent : '#ddd'}`,
+            backgroundColor: activeCategory === 'all' ? colors.accent : colors.secondary,
+            color: activeCategory === 'all' ? colors.primary : '#666',
+            fontWeight: activeCategory === 'all' ? '700' : '500',
+            fontSize: '16px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: activeCategory === 'all' ? `0 4px 12px ${colors.accent}40` : 'none'
+          }}
+        >
+          Todo
+        </button>
+        {Object.keys(groupedProducts).map(cat => (
+          <button
+            key={cat}
+            className="categoryTab"
+            data-category={cat}
+            onClick={() => setActiveCategory(cat)}
+            style={{
+              flexShrink: 0,
+              padding: '14px 28px',
+              borderRadius: '25px',
+              border: `2px solid ${activeCategory === cat ? colors.accent : '#ddd'}`,
+              backgroundColor: activeCategory === cat ? colors.accent : colors.secondary,
+              color: activeCategory === cat ? colors.primary : '#666',
+              fontWeight: activeCategory === cat ? '700' : '500',
+              fontSize: '16px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: activeCategory === cat ? `0 4px 12px ${colors.accent}40` : 'none'
+            }}
+          >
+            {cat}
+          </button>
+        ))}
+        </div>
+      </div>
 
       {!hasProducts && (
         <div style={{
@@ -622,18 +704,10 @@ function Store() {
 
       {hasProducts && (
         <div className="products-grid">
-          {Object.entries(groupedProducts).map(([category, products]) => (
+          {Object.entries(groupedProducts)
+            .filter(([category]) => activeCategory === 'all' || activeCategory === category)
+            .map(([category, products]) => (
             <div key={category}>
-              <h2 style={{ 
-                fontSize: '24px', 
-                fontWeight: '700', 
-                marginBottom: '20px',
-                padding: '10px 0',
-                borderBottom: `3px solid ${colors.accent}`,
-                color: colors.primary
-              }}>
-                {category}
-              </h2>
               {products.map(product => (
                 <div 
                   key={product.id} 
@@ -2037,6 +2111,11 @@ function Store() {
             <h2 style={{ color: '#DC3545', marginBottom: '10px', fontSize: '24px' }}>
               Pago No Completado
             </h2>
+            {pendingOrderData?.order?.order_number && (
+              <p style={{ color: '#DC3545', marginBottom: '10px', fontSize: '18px', fontWeight: '700' }}>
+                Orden #{pendingOrderData.order.order_number}
+              </p>
+            )}
             <p style={{ color: '#666', marginBottom: '25px', fontSize: '14px' }}>
               El pago no fue completado o se cancelo. Como quieres pagar?
             </p>

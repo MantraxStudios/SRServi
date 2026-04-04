@@ -49,14 +49,16 @@ function WorkerPanel() {
     socket.on('new_order', (order) => {
       if (order.payment_method === 'cash' && !order.cash_approved) {
         setPendingCashOrders(prev => [order, ...prev]);
-      } else {
+      } else if (order.payment_process === 1) {
         setOrders(prev => [order, ...prev]);
       }
     });
 
     socket.on('cash_approved', (order) => {
       setPendingCashOrders(prev => prev.filter(o => o.id !== order.id));
-      setOrders(prev => [order, ...prev]);
+      if (order.payment_process === 1) {
+        setOrders(prev => [order, ...prev]);
+      }
     });
 
     return () => socket.disconnect();
@@ -104,9 +106,9 @@ function WorkerPanel() {
       if (data.length > 0) {
         console.log('First order order_type:', data[0].order_type);
       }
-      const activeOrders = data.filter(o => o.status !== 'completed' && !(o.payment_method === 'cash' && !o.cash_approved));
+      const activeOrders = data.filter(o => o.status !== 'completed' && o.payment_process === 1);
       const completed = data.filter(o => o.status === 'completed');
-      const pendingCash = data.filter(o => o.payment_method === 'cash' && !o.cash_approved && o.status !== 'completed');
+      const pendingCash = data.filter(o => o.payment_method === 'cash' && !o.cash_approved && o.payment_process === 0);
       setOrders(activeOrders);
       setCompletedOrders(completed);
       setPendingCashOrders(pendingCash);

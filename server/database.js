@@ -284,6 +284,9 @@ async function migrateTables() {
       if (!orderColumnNames.includes('terminal_id')) {
         await pool.execute('ALTER TABLE orders ADD COLUMN terminal_id INT DEFAULT NULL');
       }
+      if (!orderColumnNames.includes('payment_process')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN payment_process TINYINT(1) NOT NULL DEFAULT 0');
+      }
     } catch (orderMigrationError) {
       console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
     }
@@ -925,8 +928,8 @@ export async function createOrder(storeId, orderData) {
   
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null]
+    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, payment_process) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, 0]
   );
   const orderId = result.insertId;
 
@@ -979,7 +982,7 @@ export async function getOrders(storeId) {
     `SELECT o.*, w.name as completed_by_name 
      FROM orders o 
      LEFT JOIN workers w ON o.completed_by = w.id 
-     WHERE o.store_id = ? AND o.status NOT IN ('pending', 'canceled')
+     WHERE o.store_id = ? AND (o.payment_process = 1 OR (o.payment_method = 'cash' AND o.cash_approved = 0))
      ORDER BY o.created_at DESC`,
     [storeId]
   );
@@ -1030,7 +1033,7 @@ export async function updateOrderStatus(orderId, storeId, status, workerId, work
 
 export async function approveCashPayment(orderId, storeId, workerId, workerName) {
   await pool.execute(
-    'UPDATE orders SET cash_approved = TRUE WHERE id = ? AND store_id = ?',
+    'UPDATE orders SET cash_approved = TRUE, payment_process = 1 WHERE id = ? AND store_id = ?',
     [orderId, storeId]
   );
   
@@ -1334,7 +1337,7 @@ export async function processMercadoPagoPayment(storeId, orderData) {
 
 export async function confirmCardPayment(orderId, storeId) {
   await pool.execute(
-    'UPDATE orders SET cash_approved = TRUE WHERE id = ? AND store_id = ?',
+    'UPDATE orders SET cash_approved = TRUE, payment_process = 1 WHERE id = ? AND store_id = ?',
     [orderId, storeId]
   );
   const [rows] = await pool.execute(

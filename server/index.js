@@ -923,10 +923,16 @@ app.get('/api/orders/:orderId/payment-status', async (req, res) => {
       return res.json({ mp_status: 'pending', payment_status: 'pending', order_status: order.status, order, mp_full: null });
     }
 
-    const paymentStatus = mpStatus.transactions?.payments?.[0]?.status || mpStatus.status;
-    const paidAmount = mpStatus.transactions?.payments?.[0]?.paid_amount || '0';
+    // La nueva API de MP Point usa "processed" para pagos exitosos (no "approved")
+    // El campo de monto es "amount", no "paid_amount"
+    const rawStatus = mpStatus.transactions?.payments?.[0]?.status || mpStatus.status;
+    const paymentStatus = (rawStatus === 'processed' || mpStatus.status === 'processed') ? 'approved' : rawStatus;
+    const paidAmount =
+      mpStatus.transactions?.payments?.[0]?.paid_amount ||
+      mpStatus.transactions?.payments?.[0]?.amount ||
+      (mpStatus.status === 'processed' ? '1' : '0');
 
-    if (mpStatus.status === 'canceled') {
+    if (mpStatus.status === 'canceled' || mpStatus.status === 'expired' || mpStatus.status === 'failed') {
       await updateOrderStatus(parseInt(orderId), parseInt(storeId), 'canceled');
       const [rows] = await pool.execute(
         'SELECT * FROM orders WHERE id = ? AND store_id = ?',
