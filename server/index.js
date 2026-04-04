@@ -44,7 +44,12 @@ import {
   updateProduct,
   deleteProduct,
   getProductById,
+  getProductByBarcode,
+  searchProducts,
   getPublicProducts,
+  getInventory,
+  updateInventory,
+  setInventoryStock,
   createOrder,
   getOrders,
   updateUserSettings,
@@ -62,6 +67,7 @@ import {
   createMercadoPagoTerminal,
   getMercadoPagoTerminals,
   getMercadoPagoTerminalsByStore,
+  getMercadoPagoTerminalById,
   updateMercadoPagoTerminal,
   deleteMercadoPagoTerminal,
   pool
@@ -737,9 +743,152 @@ app.get('/api/products', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/products/barcode/:barcode', authenticateToken, async (req, res) => {
+  try {
+    const { barcode } = req.params;
+    const storeId = req.query.store_id;
+    if (!storeId) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const product = await getProductByBarcode(barcode, parseInt(storeId));
+    if (!product) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/products/search/:query', authenticateToken, async (req, res) => {
+  try {
+    const { query } = req.params;
+    const storeId = req.query.store_id;
+    if (!storeId) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const products = await searchProducts(query, parseInt(storeId));
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/inventory/:productId', authenticateToken, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const inventory = await getInventory(parseInt(productId));
+    res.json(inventory);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/inventory/:productId', authenticateToken, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { adjustment, store_id } = req.body;
+    if (adjustment === undefined) {
+      return res.status(400).json({ error: 'adjustment es requerido' });
+    }
+    const updated = await updateInventory(parseInt(productId), parseInt(adjustment), parseInt(store_id));
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/inventory/:productId/stock', authenticateToken, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { stock, store_id } = req.body;
+    if (stock === undefined) {
+      return res.status(400).json({ error: 'stock es requerido' });
+    }
+    const updated = await setInventoryStock(parseInt(productId), parseInt(stock));
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/market/create-payment', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, terminal_id, amount, description } = req.body;
+
+    if (!store_id || !terminal_id || !amount) {
+      return res.status(400).json({ error: 'store_id, terminal_id y amount son requeridos' });
+    }
+
+    const terminal = await getMercadoPagoTerminalById(parseInt(terminal_id));
+    if (!terminal) {
+      return res.status(404).json({ error: 'Terminal no encontrada' });
+    }
+
+    const mercadopago_access_token = terminal.mercadopago_access_token;
+    const mercadopago_terminal_id = terminal.mercadopago_terminal_id;
+
+    if (!mercadopago_access_token || !mercadopago_terminal_id) {
+      return res.status(400).json({ error: 'Terminal no configurada correctamente' });
+    }
+
+    const idempotencyKey = `MARKET-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const payload = {
+      type: 'point',
+      external_reference: idempotencyKey,
+      description: description || 'Venta Market POS',
+      expiration_time: 'PT10M',
+      transactions: {
+        payments: [{
+          amount: String(Math.round(amount))
+        }]
+      },
+      config: {
+        point: {
+          terminal_id: mercadopago_terminal_id,
+          print_on_terminal: 'no_ticket'
+        }
+      }
+    };
+
+    console.log('Enviando pago Point desde Market:', payload);
+
+    const response = await fetch('https://api.mercadopago.com/v1/orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${mercadopago_access_token}`,
+        'X-Idempotency-Key': idempotencyKey
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error de Mercado Pago:', errorText);
+      return res.status(400).json({ error: `Error al procesar pago: ${errorText}` });
+    }
+
+    const mpResponse = await response.json();
+    console.log('Respuesta de Mercado Pago:', mpResponse);
+
+    res.json({
+      id: mpResponse.id,
+      payment_id: mpResponse.id,
+      status: mpResponse.status,
+      external_reference: mpResponse.external_reference,
+      amount: amount
+    });
+  } catch (error) {
+    console.error('Error procesando pago Market:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/products', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, description, price, category_id, ingredients, extras } = req.body;
+    const { store_id, name, barcode, description, price, category_id } = req.body;
     
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
@@ -748,26 +897,15 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
       return res.status(400).json({ error: 'Nombre y precio son requeridos' });
     }
     
-    let parsedIngredients = [];
-    let parsedExtras = [];
-    
-    try {
-      parsedIngredients = ingredients ? JSON.parse(ingredients) : [];
-      parsedExtras = extras ? JSON.parse(extras) : [];
-    } catch (e) {
-      console.error('Error parsing ingredients/extras:', e);
-    }
-    
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
     
     const product = await createProduct(parseInt(store_id), {
       name,
+      barcode,
       description,
       price,
       category_id,
-      image: imageUrl,
-      ingredients: parsedIngredients,
-      extras: parsedExtras
+      image: imageUrl
     });
     
     emitProductUpdate(parseInt(store_id), 'product_created', product);
@@ -779,23 +917,13 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
 
 app.put('/api/products/:id', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, description, price, category_id, ingredients, extras } = req.body;
+    const { store_id, name, barcode, description, price, category_id } = req.body;
     
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
     if (!name || price === undefined) {
       return res.status(400).json({ error: 'Nombre y precio son requeridos' });
-    }
-    
-    let parsedIngredients = [];
-    let parsedExtras = [];
-    
-    try {
-      parsedIngredients = ingredients ? JSON.parse(ingredients) : [];
-      parsedExtras = extras ? JSON.parse(extras) : [];
-    } catch (e) {
-      console.error('Error parsing ingredients/extras:', e);
     }
     
     let imageUrl;
@@ -808,12 +936,11 @@ app.put('/api/products/:id', authenticateToken, upload.single('image'), async (r
     
     const product = await updateProduct(parseInt(req.params.id), parseInt(store_id), {
       name,
+      barcode,
       description,
       price,
       category_id,
-      image: imageUrl,
-      ingredients: parsedIngredients,
-      extras: parsedExtras
+      image: imageUrl
     });
     
     emitProductUpdate(parseInt(store_id), 'product_updated', product);

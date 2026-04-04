@@ -17,6 +17,7 @@ import Settings from './pages/admin/Settings';
 import MercadoPagoPoints from './pages/admin/MercadoPagoPoints';
 import Coupons from './pages/admin/Coupons';
 import Configurations from './pages/admin/Configurations';
+import Market from './pages/admin/Market';
 import Index from './pages/Index';
 import Store from './pages/Store';
 
@@ -69,6 +70,7 @@ function App() {
             <Route path="mercado-pago-points" element={<MercadoPagoPoints />} />
             <Route path="coupons" element={<Coupons />} />
             <Route path="configurations" element={<Configurations />} />
+            <Route path="market" element={<Market />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="/worker-login" element={<WorkerLogin />} />

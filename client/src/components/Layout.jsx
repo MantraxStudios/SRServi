@@ -18,7 +18,8 @@ import {
   faPercent,
   faCog,
   faBars,
-  faTimes
+  faTimes,
+  faBarcode
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -297,6 +298,12 @@ function Layout() {
               <NavLink to="/admin" end className="sidebar-item" onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faHome} />
                 <span>Inicio</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/market" className="sidebar-item" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faBarcode} />
+                <span>Market</span>
               </NavLink>
             </li>
             <li>

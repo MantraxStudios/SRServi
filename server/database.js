@@ -154,9 +154,20 @@ async function createTables() {
       description TEXT,
       price DECIMAL(10, 2) NOT NULL,
       image TEXT,
+      barcode VARCHAR(100) UNIQUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
       FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+    )`;
+
+  const createInventoryTable = `
+    CREATE TABLE IF NOT EXISTS inventory (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      product_id INT NOT NULL,
+      stock INT NOT NULL DEFAULT 0,
+      min_stock INT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     )`;
 
   const createProductIngredientsTable = `
@@ -231,6 +242,8 @@ async function createTables() {
     )`;
   
   await pool.execute(createMercadoPagoTerminalsTable);
+
+  await pool.execute(createInventoryTable);
 
   await migrateTables();
 
@@ -336,6 +349,31 @@ async function migrateTables() {
         } else {
           console.error(`❌ Error migrando ${tableName}:`, migErr.message);
         }
+      }
+    }
+
+    try {
+      const [productCols] = await pool.execute('SHOW COLUMNS FROM products');
+      const productColNames = productCols.map(c => c.Field);
+      if (!productColNames.includes('barcode')) {
+        console.log('⚠️ Agregando columna barcode a tabla products...');
+        await pool.execute('ALTER TABLE products ADD COLUMN barcode VARCHAR(100) UNIQUE');
+        console.log('✅ Columna barcode agregada a products');
+      } else {
+        console.log('ℹ️ Tabla products ya tiene columna barcode');
+      }
+    } catch (migErr) {
+      console.error('❌ Error migrando products:', migErr.message);
+    }
+
+    try {
+      await pool.execute('SELECT 1 FROM inventory LIMIT 1');
+      console.log('ℹ️ Tabla inventory ya existe');
+    } catch (err) {
+      if (err.message.includes("doesn't exist")) {
+        console.log('⚠️ Creando tabla inventory...');
+        await pool.execute(createInventoryTable);
+        console.log('✅ Tabla inventory creada');
       }
     }
 
@@ -885,85 +923,44 @@ export async function getProducts(storeId) {
 }
 
 export async function createProduct(storeId, data) {
-  const { name, description, price, category_id, image, ingredients, extras } = data;
+  const { name, barcode, description, price, category_id, image } = data;
   
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO products (store_id, user_id, category_id, name, description, price, image) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, category_id || null, name, description || null, price, image || null]
+    'INSERT INTO products (store_id, user_id, category_id, name, barcode, description, price, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, category_id || null, name, barcode || null, description || null, price, image || null]
   );
   const productId = result.insertId;
-
-  if (ingredients && ingredients.length > 0) {
-    for (const ing of ingredients) {
-      await pool.execute(
-        'INSERT INTO product_ingredients (product_id, ingredient_id, is_required, max_selections) VALUES (?, ?, ?, ?)',
-        [productId, ing.ingredient_id, ing.is_required ? 1 : 0, ing.max_selections || 1]
-      );
-    }
-  }
-
-  if (extras && extras.length > 0) {
-    for (const extraId of extras) {
-      await pool.execute(
-        'INSERT INTO product_extras (product_id, extra_id) VALUES (?, ?)',
-        [productId, extraId]
-      );
-    }
-  }
 
   return {
     id: productId,
     store_id: storeId,
     category_id,
     name,
+    barcode,
     description,
     price,
-    image,
-    ingredients: await getProductIngredients(productId),
-    extras: await getProductExtras(productId)
+    image
   };
 }
 
 export async function updateProduct(productId, storeId, data) {
-  const { name, description, price, category_id, image, ingredients, extras } = data;
+  const { name, barcode, description, price, category_id, image } = data;
 
   await pool.execute(
-    'UPDATE products SET name = ?, description = ?, price = ?, category_id = ?, image = ? WHERE id = ? AND store_id = ?',
-    [name, description || null, price, category_id || null, image || null, productId, storeId]
+    'UPDATE products SET name = ?, barcode = ?, description = ?, price = ?, category_id = ?, image = ? WHERE id = ? AND store_id = ?',
+    [name, barcode || null, description || null, price, category_id || null, image || null, productId, storeId]
   );
-
-  await pool.execute('DELETE FROM product_ingredients WHERE product_id = ?', [productId]);
-  await pool.execute('DELETE FROM product_extras WHERE product_id = ?', [productId]);
-
-  if (ingredients && ingredients.length > 0) {
-    for (const ing of ingredients) {
-      await pool.execute(
-        'INSERT INTO product_ingredients (product_id, ingredient_id, is_required, max_selections) VALUES (?, ?, ?, ?)',
-        [productId, ing.ingredient_id, ing.is_required ? 1 : 0, ing.max_selections || 1]
-      );
-    }
-  }
-
-  if (extras && extras.length > 0) {
-    for (const extraId of extras) {
-      await pool.execute(
-        'INSERT INTO product_extras (product_id, extra_id) VALUES (?, ?)',
-        [productId, extraId]
-      );
-    }
-  }
 
   return {
     id: productId,
     store_id: storeId,
     category_id,
     name,
+    barcode,
     description,
     price,
-    image,
-    ingredients: await getProductIngredients(productId),
-    extras: await getProductExtras(productId)
+    image
   };
 }
 
@@ -973,6 +970,81 @@ export async function deleteProduct(productId, storeId) {
     [productId, storeId]
   );
   return true;
+}
+
+export async function getProductByBarcode(barcode, storeId) {
+  const [rows] = await pool.execute(`
+    SELECT p.*, c.name as category_name
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE p.barcode = ? AND p.store_id = ?
+  `, [barcode, storeId]);
+  return rows[0] || null;
+}
+
+export async function searchProducts(query, storeId) {
+  const [rows] = await pool.execute(`
+    SELECT p.*, c.name as category_name
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE p.store_id = ? AND p.name LIKE ?
+    ORDER BY p.name
+    LIMIT 20
+  `, [storeId, `%${query}%`]);
+  return rows;
+}
+
+export async function getInventory(productId) {
+  const [rows] = await pool.execute(`
+    SELECT * FROM inventory WHERE product_id = ?
+  `, [productId]);
+  return rows[0] || { stock: 0, min_stock: 0 };
+}
+
+export async function updateInventory(productId, adjustment, storeId) {
+  const [existing] = await pool.execute(
+    'SELECT * FROM inventory WHERE product_id = ?',
+    [productId]
+  );
+
+  if (existing.length === 0) {
+    await pool.execute(
+      'INSERT INTO inventory (product_id, stock) VALUES (?, ?)',
+      [productId, Math.max(0, adjustment)]
+    );
+  } else {
+    await pool.execute(
+      'UPDATE inventory SET stock = GREATEST(0, stock + ?) WHERE product_id = ?',
+      [adjustment, productId]
+    );
+  }
+
+  const [updated] = await pool.execute(
+    'SELECT stock FROM inventory WHERE product_id = ?',
+    [productId]
+  );
+  return updated[0];
+}
+
+export async function setInventoryStock(productId, stock) {
+  const [existing] = await pool.execute(
+    'SELECT * FROM inventory WHERE product_id = ?',
+    [productId]
+  );
+
+  if (existing.length === 0) {
+    await pool.execute(
+      'INSERT INTO inventory (product_id, stock) VALUES (?, ?)',
+      [productId, Math.max(0, stock)]
+    );
+  } else {
+    await pool.execute(
+      'UPDATE inventory SET stock = ? WHERE product_id = ?',
+      [Math.max(0, stock), productId]
+    );
+  }
+
+  return { stock: Math.max(0, stock) };
 }
 
 export async function getProductById(productId) {
@@ -1400,6 +1472,14 @@ export async function getMercadoPagoTerminalForStore(storeId, terminalId) {
      WHERE s.id = ? AND m.id = ?
      LIMIT 1`,
     [storeId, terminalId]
+  );
+  return rows.length > 0 ? rows[0] : null;
+}
+
+export async function getMercadoPagoTerminalById(terminalId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM mercado_pago_terminals WHERE id = ?',
+    [terminalId]
   );
   return rows.length > 0 ? rows[0] : null;
 }
