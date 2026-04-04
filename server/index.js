@@ -29,6 +29,11 @@ import {
   createExtra,
   updateExtra,
   deleteExtra,
+  getStoreConfigurations,
+  getStoreConfigurationById,
+  createStoreConfiguration,
+  updateStoreConfiguration,
+  deleteStoreConfiguration,
   getCoupons,
   createCoupon,
   updateCoupon,
@@ -460,16 +465,17 @@ app.get('/api/ingredients', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/ingredients', authenticateToken, async (req, res) => {
+app.post('/api/ingredients', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, price } = req.body;
+    const { store_id, name, price, category_id } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const ingredient = await createIngredient(parseInt(store_id), { name, price });
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const ingredient = await createIngredient(parseInt(store_id), { name, price, category_id, image: imageUrl });
     emitProductUpdate(parseInt(store_id), 'ingredient_created', ingredient);
     res.json(ingredient);
   } catch (error) {
@@ -477,16 +483,17 @@ app.post('/api/ingredients', authenticateToken, async (req, res) => {
   }
 });
 
-app.put('/api/ingredients/:id', authenticateToken, async (req, res) => {
+app.put('/api/ingredients/:id', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, price } = req.body;
+    const { store_id, name, price, category_id } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const ingredient = await updateIngredient(parseInt(req.params.id), parseInt(store_id), { name, price });
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const ingredient = await updateIngredient(parseInt(req.params.id), parseInt(store_id), { name, price, category_id, image: imageUrl });
     emitProductUpdate(parseInt(store_id), 'ingredient_updated', ingredient);
     res.json(ingredient);
   } catch (error) {
@@ -522,16 +529,17 @@ app.get('/api/extras', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/extras', authenticateToken, async (req, res) => {
+app.post('/api/extras', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, price } = req.body;
+    const { store_id, name, price, category_id } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const extra = await createExtra(parseInt(store_id), { name, price });
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const extra = await createExtra(parseInt(store_id), { name, price, category_id, image: imageUrl });
     emitProductUpdate(parseInt(store_id), 'extra_created', extra);
     res.json(extra);
   } catch (error) {
@@ -539,16 +547,17 @@ app.post('/api/extras', authenticateToken, async (req, res) => {
   }
 });
 
-app.put('/api/extras/:id', authenticateToken, async (req, res) => {
+app.put('/api/extras/:id', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, price } = req.body;
+    const { store_id, name, price, category_id } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const extra = await updateExtra(parseInt(req.params.id), parseInt(store_id), { name, price });
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const extra = await updateExtra(parseInt(req.params.id), parseInt(store_id), { name, price, category_id, image: imageUrl });
     emitProductUpdate(parseInt(store_id), 'extra_updated', extra);
     res.json(extra);
   } catch (error) {
@@ -566,6 +575,76 @@ app.delete('/api/extras/:id', authenticateToken, async (req, res) => {
     await deleteExtra(parseInt(extraId), parseInt(store_id));
     emitProductUpdate(parseInt(store_id), 'extra_deleted', { id: extraId });
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/store-configurations', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    if (!storeId) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const configurations = await getStoreConfigurations(parseInt(storeId));
+    res.json(configurations);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/store-configurations', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, name, description, accept_cash, accept_card, is_active, is_default } = req.body;
+    if (!store_id) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    if (!name) {
+      return res.status(400).json({ error: 'Nombre es requerido' });
+    }
+    const configuration = await createStoreConfiguration(parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default });
+    res.json(configuration);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/store-configurations/:id', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, name, description, accept_cash, accept_card, is_active, is_default } = req.body;
+    if (!store_id) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    if (!name) {
+      return res.status(400).json({ error: 'Nombre es requerido' });
+    }
+    const configuration = await updateStoreConfiguration(parseInt(req.params.id), parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default });
+    res.json(configuration);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/store-configurations/:id', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const configId = req.params.id;
+    await deleteStoreConfiguration(parseInt(configId), parseInt(store_id));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/public/store-configurations/:storeId', async (req, res) => {
+  try {
+    const storeId = req.params.storeId;
+    const configurations = await getStoreConfigurations(parseInt(storeId));
+    const activeConfigs = configurations.filter(c => c.is_active);
+    res.json(activeConfigs);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

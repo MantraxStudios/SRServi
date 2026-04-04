@@ -20,6 +20,7 @@ function Store() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const terminalFromUrl = searchParams.get('terminal');
+  const configFromUrl = searchParams.get('config');
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -46,6 +47,8 @@ function Store() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [pendingOrderData, setPendingOrderData] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
+  const [configurations, setConfigurations] = useState([]);
+  const [selectedConfiguration, setSelectedConfiguration] = useState(null);
   const categoryRef = useRef(null);
 
   useEffect(() => {
@@ -188,6 +191,23 @@ function Store() {
       } else {
         setAvailableTerminals([]);
         setSelectedTerminalId('');
+      }
+
+      const configsResponse = await fetch(`/api/public/store-configurations/${data.store.id}`);
+      if (configsResponse.ok) {
+        const configsData = await configsResponse.json();
+        setConfigurations(configsData);
+        
+        if (configFromUrl) {
+          const urlConfig = configsData.find(c => String(c.id) === String(configFromUrl));
+          setSelectedConfiguration(urlConfig || null);
+        } else {
+          const defaultConfig = configsData.find(c => c.is_default) || configsData[0];
+          setSelectedConfiguration(defaultConfig || null);
+        }
+      } else {
+        setConfigurations([]);
+        setSelectedConfiguration(null);
       }
     } catch (err) {
       setError(err.message);
@@ -606,6 +626,47 @@ function Store() {
           AutoServicio By SRAutomatic
         </p>
       </header>
+
+      {!configFromUrl && configurations.length > 1 && (
+        <div style={{ 
+          padding: '12px 16px', 
+          backgroundColor: colors.secondary,
+          borderBottom: `2px solid ${colors.primary}20`
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}>
+            {configurations.map(config => (
+              <button
+                key={config.id}
+                onClick={() => setSelectedConfiguration(config)}
+                style={{
+                  flexShrink: 0,
+                  padding: '10px 20px',
+                  borderRadius: '20px',
+                  border: `2px solid ${selectedConfiguration?.id === config.id ? colors.accent : '#ddd'}`,
+                  backgroundColor: selectedConfiguration?.id === config.id ? colors.primary : colors.secondary,
+                  color: selectedConfiguration?.id === config.id ? colors.accent : '#666',
+                  fontWeight: selectedConfiguration?.id === config.id ? '700' : '500',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {config.accept_cash && <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '12px' }} />}
+                {config.accept_card && <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '12px' }} />}
+                {config.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: '16px 16px 8px', backgroundColor: colors.secondary }}>
         <div
@@ -1052,9 +1113,9 @@ function Store() {
             style={{
               backgroundColor: colors.secondary,
               borderRadius: 'var(--radius-xl)',
-              width: '100%',
-              maxWidth: '450px',
-              maxHeight: '80vh',
+              width: '95vw',
+              maxWidth: '900px',
+              height: '85vh',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
@@ -1128,82 +1189,103 @@ function Store() {
             <div style={{
               flex: 1,
               overflow: 'auto',
-              padding: '20px'
+              padding: '12px'
             }}>
-              {selectedProduct.ingredients.map(ingredient => (
-                <div 
-                  key={ingredient.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '16px',
-                    backgroundColor: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                      ? colors.accent 
-                      : colors.secondary,
-                    border: `3px solid ${productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                      ? colors.accent 
-                      : colors.primary}`,
-                    borderRadius: 'var(--radius-lg)',
-                    marginBottom: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onClick={() => toggleIngredient(ingredient)}
-                  onMouseEnter={(e) => {
-                    if (!productConfig.selectedIngredients.find(i => i.id === ingredient.id)) {
-                      e.currentTarget.style.borderColor = colors.accent;
-                      e.currentTarget.style.transform = 'scale(1.02)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!productConfig.selectedIngredients.find(i => i.id === ingredient.id)) {
-                      e.currentTarget.style.borderColor = colors.primary;
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }
-                  }}
-                >
-                  <div style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '50%',
-                    border: `3px solid ${productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                      ? colors.primary 
-                      : colors.primary}`,
-                    backgroundColor: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                      ? colors.primary 
-                      : 'transparent',
-                    marginRight: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.2s ease'
-                  }}>
-                    {productConfig.selectedIngredients.find(i => i.id === ingredient.id) && (
-                      <span style={{ color: colors.accent, fontSize: '16px', fontWeight: 'bold' }}>✓</span>
-                    )}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ 
-                      fontWeight: '700', 
-                      fontSize: '18px',
-                      color: colors.primary 
-                    }}>
-                      {ingredient.name}
-                    </div>
-                    {Number(ingredient.price) > 0 && (
-                      <div style={{ 
-                        fontSize: '15px', 
-                        color: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                          ? colors.primary 
-                          : '#666',
-                        marginTop: '4px'
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '10px'
+              }}>
+                {selectedProduct.ingredients.map(ingredient => (
+                  <div 
+                    key={ingredient.id}
+                    style={{
+                      backgroundColor: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
+                        ? colors.accent 
+                        : '#fff',
+                      border: `2px solid ${productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
+                        ? colors.accent 
+                        : '#e0e0e0'}`,
+                      borderRadius: 'var(--radius-md)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      overflow: 'hidden',
+                      position: 'relative'
+                    }}
+                    onClick={() => toggleIngredient(ingredient)}
+                  >
+                    {ingredient.image ? (
+                      <img 
+                        src={ingredient.image}
+                        alt={ingredient.name}
+                        style={{
+                          width: '100%',
+                          height: '140px',
+                          objectFit: 'cover',
+                          borderBottom: `1px solid ${productConfig.selectedIngredients.find(i => i.id === ingredient.id) ? colors.accent : '#e0e0e0'}`
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '100%',
+                        height: '140px',
+                        backgroundColor: colors.primary,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderBottom: `1px solid ${productConfig.selectedIngredients.find(i => i.id === ingredient.id) ? colors.accent : '#e0e0e0'}`
                       }}>
-                        +{colors.currency.symbol}{Number(ingredient.price).toFixed(2)}
+                        <span style={{ color: colors.accent, fontSize: '56px' }}>🍽️</span>
+                      </div>
+                    )}
+                    <div style={{
+                      padding: '8px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ 
+                        fontWeight: '600', 
+                        fontSize: '13px',
+                        color: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
+                          ? '#fff' 
+                          : colors.primary,
+                        marginBottom: '2px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {ingredient.name}
+                      </div>
+                      {Number(ingredient.price) > 0 && (
+                        <div style={{ 
+                          fontSize: '12px', 
+                          fontWeight: '600',
+                          color: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
+                            ? '#fff' 
+                            : colors.accent
+                        }}>
+                          +{colors.currency.symbol}{Number(ingredient.price).toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                    {productConfig.selectedIngredients.find(i => i.id === ingredient.id) && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '4px',
+                        right: '4px',
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        backgroundColor: colors.primary,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <span style={{ color: colors.accent, fontSize: '12px', fontWeight: 'bold' }}>✓</span>
                       </div>
                     )}
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             <div style={{
@@ -1255,9 +1337,9 @@ function Store() {
             style={{
               backgroundColor: colors.secondary,
               borderRadius: 'var(--radius-xl)',
-              width: '100%',
-              maxWidth: '450px',
-              maxHeight: '80vh',
+              width: '95vw',
+              maxWidth: '900px',
+              height: '85vh',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
@@ -1319,82 +1401,103 @@ function Store() {
             <div style={{
               flex: 1,
               overflow: 'auto',
-              padding: '20px'
+              padding: '12px'
             }}>
-              {selectedProduct.extras.map(extra => (
-                <div 
-                  key={extra.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '16px',
-                    backgroundColor: productConfig.selectedExtras.find(e => e.id === extra.id) 
-                      ? colors.accent 
-                      : colors.secondary,
-                    border: `3px solid ${productConfig.selectedExtras.find(e => e.id === extra.id) 
-                      ? colors.accent 
-                      : colors.primary}`,
-                    borderRadius: 'var(--radius-lg)',
-                    marginBottom: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onClick={() => toggleExtra(extra)}
-                  onMouseEnter={(e) => {
-                    if (!productConfig.selectedExtras.find(e => e.id === extra.id)) {
-                      e.currentTarget.style.borderColor = colors.accent;
-                      e.currentTarget.style.transform = 'scale(1.02)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!productConfig.selectedExtras.find(e => e.id === extra.id)) {
-                      e.currentTarget.style.borderColor = colors.primary;
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }
-                  }}
-                >
-                  <div style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '50%',
-                    border: `3px solid ${productConfig.selectedExtras.find(e => e.id === extra.id) 
-                      ? colors.primary 
-                      : colors.primary}`,
-                    backgroundColor: productConfig.selectedExtras.find(e => e.id === extra.id) 
-                      ? colors.primary 
-                      : 'transparent',
-                    marginRight: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.2s ease'
-                  }}>
-                    {productConfig.selectedExtras.find(e => e.id === extra.id) && (
-                      <span style={{ color: colors.accent, fontSize: '16px', fontWeight: 'bold' }}>✓</span>
-                    )}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ 
-                      fontWeight: '700', 
-                      fontSize: '18px',
-                      color: colors.primary 
-                    }}>
-                      {extra.name}
-                    </div>
-                    {Number(extra.price) > 0 && (
-                      <div style={{ 
-                        fontSize: '15px', 
-                        color: productConfig.selectedExtras.find(e => e.id === extra.id) 
-                          ? colors.primary 
-                          : '#666',
-                        marginTop: '4px'
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '10px'
+              }}>
+                {selectedProduct.extras.map(extra => (
+                  <div 
+                    key={extra.id}
+                    style={{
+                      backgroundColor: productConfig.selectedExtras.find(e => e.id === extra.id) 
+                        ? colors.accent 
+                        : '#fff',
+                      border: `2px solid ${productConfig.selectedExtras.find(e => e.id === extra.id) 
+                        ? colors.accent 
+                        : '#e0e0e0'}`,
+                      borderRadius: 'var(--radius-md)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      overflow: 'hidden',
+                      position: 'relative'
+                    }}
+                    onClick={() => toggleExtra(extra)}
+                  >
+                    {extra.image ? (
+                      <img 
+                        src={extra.image}
+                        alt={extra.name}
+                        style={{
+                          width: '100%',
+                          height: '140px',
+                          objectFit: 'cover',
+                          borderBottom: `1px solid ${productConfig.selectedExtras.find(e => e.id === extra.id) ? colors.accent : '#e0e0e0'}`
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '100%',
+                        height: '140px',
+                        backgroundColor: colors.primary,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderBottom: `1px solid ${productConfig.selectedExtras.find(e => e.id === extra.id) ? colors.accent : '#e0e0e0'}`
                       }}>
-                        +{colors.currency.symbol}{Number(extra.price).toFixed(2)}
+                        <span style={{ color: colors.accent, fontSize: '56px' }}>🍽️</span>
+                      </div>
+                    )}
+                    <div style={{
+                      padding: '8px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ 
+                        fontWeight: '600', 
+                        fontSize: '13px',
+                        color: productConfig.selectedExtras.find(e => e.id === extra.id) 
+                          ? '#fff' 
+                          : colors.primary,
+                        marginBottom: '2px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {extra.name}
+                      </div>
+                      {Number(extra.price) > 0 && (
+                        <div style={{ 
+                          fontSize: '12px', 
+                          fontWeight: '600',
+                          color: productConfig.selectedExtras.find(e => e.id === extra.id) 
+                            ? '#fff' 
+                            : colors.accent
+                        }}>
+                          +{colors.currency.symbol}{Number(extra.price).toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                    {productConfig.selectedExtras.find(e => e.id === extra.id) && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '4px',
+                        right: '4px',
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        backgroundColor: colors.primary,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <span style={{ color: colors.accent, fontSize: '12px', fontWeight: 'bold' }}>✓</span>
                       </div>
                     )}
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             <div style={{
@@ -1851,57 +1954,67 @@ function Store() {
                   flexDirection: 'column',
                   gap: '15px'
                 }}>
-                  <button
-                    onClick={() => processPayment('card')}
-                    style={{
-                      padding: '20px',
-                      backgroundColor: colors.secondary,
-                      color: colors.primary,
-                      border: `3px solid #ddd`,
-                      borderRadius: '15px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '12px'
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '28px' }} />
-                    <span style={{ fontSize: '18px', fontWeight: '700' }}>Tarjeta</span>
-                  </button>
+                  {selectedConfiguration?.accept_card && (
+                    <button
+                      onClick={() => processPayment('card')}
+                      style={{
+                        padding: '20px',
+                        backgroundColor: colors.secondary,
+                        color: colors.primary,
+                        border: `3px solid #ddd`,
+                        borderRadius: '15px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '12px'
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '28px' }} />
+                      <span style={{ fontSize: '18px', fontWeight: '700' }}>Tarjeta</span>
+                    </button>
+                  )}
 
-                  <button
-                    onClick={() => processPayment('cash')}
-                    style={{
-                      padding: '20px',
-                      backgroundColor: colors.secondary,
-                      color: colors.primary,
-                      border: `3px solid #ddd`,
-                      borderRadius: '15px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '12px'
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '28px' }} />
-                    <span style={{ fontSize: '18px', fontWeight: '700' }}>Efectivo</span>
-                  </button>
+                  {selectedConfiguration?.accept_cash && (
+                    <button
+                      onClick={() => processPayment('cash')}
+                      style={{
+                        padding: '20px',
+                        backgroundColor: colors.secondary,
+                        color: colors.primary,
+                        border: `3px solid #ddd`,
+                        borderRadius: '15px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '12px'
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '28px' }} />
+                      <span style={{ fontSize: '18px', fontWeight: '700' }}>Efectivo</span>
+                    </button>
+                  )}
+
+                  {!selectedConfiguration?.accept_cash && !selectedConfiguration?.accept_card && (
+                    <p style={{ color: '#666' }}>No hay metodos de pago disponibles</p>
+                  )}
                 </div>
 
-                <div style={{
-                  marginTop: '14px',
-                  fontSize: '13px',
-                  color: '#666'
-                }}>
-                  Máquina Point asignada:{' '}
-                  <strong>
-                    {availableTerminals.find(terminal => String(terminal.id) === String(selectedTerminalId))?.name || 'No disponible'}
-                  </strong>
-                </div>
+                {selectedConfiguration?.accept_card && availableTerminals.length > 0 && (
+                  <div style={{
+                    marginTop: '14px',
+                    fontSize: '13px',
+                    color: '#666'
+                  }}>
+                    Maquina Point asignada:{' '}
+                    <strong>
+                      {availableTerminals.find(terminal => String(terminal.id) === String(selectedTerminalId))?.name || 'No disponible'}
+                    </strong>
+                  </div>
+                )}
 
                 <p style={{
                   color: '#999',

@@ -94,8 +94,11 @@ async function createTables() {
       store_id INT NOT NULL,
       name VARCHAR(255) NOT NULL,
       price DECIMAL(10, 2) DEFAULT 0,
+      category_id INT DEFAULT NULL,
+      image TEXT DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
     )`;
 
   const createExtrasTable = `
@@ -104,6 +107,23 @@ async function createTables() {
       store_id INT NOT NULL,
       name VARCHAR(255) NOT NULL,
       price DECIMAL(10, 2) DEFAULT 0,
+      category_id INT DEFAULT NULL,
+      image TEXT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+    )`;
+
+  const createStoreConfigurationsTable = `
+    CREATE TABLE IF NOT EXISTS store_configurations (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      accept_cash BOOLEAN NOT NULL DEFAULT TRUE,
+      accept_card BOOLEAN NOT NULL DEFAULT TRUE,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      is_default BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )`;
@@ -190,6 +210,7 @@ async function createTables() {
   await pool.execute(createCategoriesTable);
   await pool.execute(createIngredientsTable);
   await pool.execute(createExtrasTable);
+  await pool.execute(createStoreConfigurationsTable);
   await pool.execute(createCouponsTable);
   await pool.execute(createProductsTable);
   await pool.execute(createProductIngredientsTable);
@@ -289,6 +310,54 @@ async function migrateTables() {
       }
     } catch (orderMigrationError) {
       console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
+    }
+
+    for (const tableName of ['ingredients', 'extras']) {
+      try {
+        const [cols] = await pool.execute(`SHOW COLUMNS FROM ${tableName}`);
+        const colNames = cols.map(c => c.Field);
+        if (!colNames.includes('category_id')) {
+          console.log(`⚠️ Agregando columna category_id a tabla ${tableName}...`);
+          await pool.execute(`ALTER TABLE ${tableName} ADD COLUMN category_id INT DEFAULT NULL`);
+          console.log(`✅ Columna category_id agregada a ${tableName}`);
+        } else {
+          console.log(`ℹ️ Tabla ${tableName} ya tiene category_id`);
+        }
+        if (!colNames.includes('image')) {
+          console.log(`⚠️ Agregando columna image a tabla ${tableName}...`);
+          await pool.execute(`ALTER TABLE ${tableName} ADD COLUMN image TEXT DEFAULT NULL`);
+          console.log(`✅ Columna image agregada a ${tableName}`);
+        } else {
+          console.log(`ℹ️ Tabla ${tableName} ya tiene image`);
+        }
+      } catch (migErr) {
+        if (migErr.message.includes('Duplicate column')) {
+          console.log(`ℹ️ Columna ya existe en ${tableName}`);
+        } else {
+          console.error(`❌ Error migrando ${tableName}:`, migErr.message);
+        }
+      }
+    }
+
+    try {
+      const [configCols] = await pool.execute('SHOW COLUMNS FROM store_configurations');
+      const configColNames = configCols.map(c => c.Field);
+      if (!configColNames.includes('accept_cash')) {
+        console.log('⚠️ Agregando columnas de pago a tabla store_configurations...');
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN accept_cash BOOLEAN NOT NULL DEFAULT TRUE');
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN accept_card BOOLEAN NOT NULL DEFAULT TRUE');
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE');
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN is_default BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columnas de pago agregadas a store_configurations');
+      } else {
+        console.log('ℹ️ Tabla store_configurations ya tiene columnas de pago');
+      }
+    } catch (migErr) {
+      if (migErr.message.includes('Duplicate column')) {
+        console.log('ℹ️ Columnas de pago ya existen en store_configurations');
+      } else {
+        console.error('❌ Error migrando store_configurations:', migErr.message);
+      }
     }
     
     console.log('✅ Migración de tablas completada');
@@ -496,29 +565,31 @@ export async function deleteCategory(categoryId, storeId) {
 
 export async function getIngredients(storeId) {
   const [rows] = await pool.execute(
-    'SELECT * FROM ingredients WHERE store_id = ? ORDER BY name',
+    `SELECT i.*, c.name AS category_name FROM ingredients i
+     LEFT JOIN categories c ON i.category_id = c.id
+     WHERE i.store_id = ? ORDER BY i.category_id, i.name`,
     [storeId]
   );
   return rows;
 }
 
 export async function createIngredient(storeId, data) {
-  const { name, price } = data;
+  const { name, price, category_id, image } = data;
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO ingredients (store_id, user_id, name, price) VALUES (?, ?, ?, ?)',
-    [storeId, store.user_id, name, price || 0]
+    'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, name, price || 0, category_id || null, image || null]
   );
-  return { id: result.insertId, store_id: storeId, name, price: price || 0 };
+  return { id: result.insertId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null };
 }
 
 export async function updateIngredient(ingredientId, storeId, data) {
-  const { name, price } = data;
+  const { name, price, category_id, image } = data;
   await pool.execute(
-    'UPDATE ingredients SET name = ?, price = ? WHERE id = ? AND store_id = ?',
-    [name, price || 0, ingredientId, storeId]
+    'UPDATE ingredients SET name = ?, price = ?, category_id = ?, image = ? WHERE id = ? AND store_id = ?',
+    [name, price || 0, category_id || null, image || null, ingredientId, storeId]
   );
-  return { id: ingredientId, store_id: storeId, name, price: price || 0 };
+  return { id: ingredientId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null };
 }
 
 export async function deleteIngredient(ingredientId, storeId) {
@@ -531,35 +602,113 @@ export async function deleteIngredient(ingredientId, storeId) {
 
 export async function getExtras(storeId) {
   const [rows] = await pool.execute(
-    'SELECT * FROM extras WHERE store_id = ? ORDER BY name',
+    `SELECT e.*, c.name AS category_name FROM extras e
+     LEFT JOIN categories c ON e.category_id = c.id
+     WHERE e.store_id = ? ORDER BY e.category_id, e.name`,
     [storeId]
   );
   return rows;
 }
 
 export async function createExtra(storeId, data) {
-  const { name, price } = data;
+  const { name, price, category_id, image } = data;
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO extras (store_id, user_id, name, price) VALUES (?, ?, ?, ?)',
-    [storeId, store.user_id, name, price || 0]
+    'INSERT INTO extras (store_id, user_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, name, price || 0, category_id || null, image || null]
   );
-  return { id: result.insertId, store_id: storeId, name, price: price || 0 };
+  return { id: result.insertId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null };
 }
 
 export async function updateExtra(extraId, storeId, data) {
-  const { name, price } = data;
+  const { name, price, category_id, image } = data;
   await pool.execute(
-    'UPDATE extras SET name = ?, price = ? WHERE id = ? AND store_id = ?',
-    [name, price || 0, extraId, storeId]
+    'UPDATE extras SET name = ?, price = ?, category_id = ?, image = ? WHERE id = ? AND store_id = ?',
+    [name, price || 0, category_id || null, image || null, extraId, storeId]
   );
-  return { id: extraId, store_id: storeId, name, price: price || 0 };
+  return { id: extraId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null };
 }
 
 export async function deleteExtra(extraId, storeId) {
   await pool.execute(
     'DELETE FROM extras WHERE id = ? AND store_id = ?',
     [extraId, storeId]
+  );
+  return true;
+}
+
+export async function getStoreConfigurations(storeId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM store_configurations WHERE store_id = ? ORDER BY is_default DESC, name ASC',
+    [storeId]
+  );
+  return rows;
+}
+
+export async function getStoreConfigurationById(configId, storeId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM store_configurations WHERE id = ? AND store_id = ?',
+    [configId, storeId]
+  );
+  return rows[0] || null;
+}
+
+export async function createStoreConfiguration(storeId, data) {
+  const { name, description, accept_cash, accept_card, is_active, is_default } = data;
+  
+  if (is_default) {
+    await pool.execute(
+      'UPDATE store_configurations SET is_default = FALSE WHERE store_id = ?',
+      [storeId]
+    );
+  }
+  
+  const [result] = await pool.execute(
+    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true]
+  );
+  return {
+    id: result.insertId,
+    store_id: storeId,
+    name,
+    description: description || null,
+    accept_cash: accept_cash !== false,
+    accept_card: accept_card !== false,
+    is_active: is_active !== false,
+    is_default: is_default === true
+  };
+}
+
+export async function updateStoreConfiguration(configId, storeId, data) {
+  const { name, description, accept_cash, accept_card, is_active, is_default } = data;
+  
+  if (is_default) {
+    await pool.execute(
+      'UPDATE store_configurations SET is_default = FALSE WHERE store_id = ?',
+      [storeId]
+    );
+  }
+  
+  await pool.execute(
+    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ? WHERE id = ? AND store_id = ?',
+    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, configId, storeId]
+  );
+  return {
+    id: configId,
+    store_id: storeId,
+    name,
+    description: description || null,
+    accept_cash: accept_cash !== false,
+    accept_card: accept_card !== false,
+    is_active: is_active !== false,
+    is_default: is_default === true
+  };
+}
+
+export async function deleteStoreConfiguration(configId, storeId) {
+  await pool.execute(
+    'DELETE FROM store_configurations WHERE id = ? AND store_id = ?',
+    [configId, storeId]
   );
   return true;
 }
@@ -650,7 +799,24 @@ export async function deleteCoupon(couponId, storeId) {
   return { id: couponId };
 }
 
-async function getProductIngredients(productId) {
+async function getProductIngredients(productId, categoryId = null) {
+  if (categoryId) {
+    const [rows] = await pool.execute(`
+      SELECT i.* FROM ingredients i
+      WHERE i.store_id = (SELECT store_id FROM products WHERE id = ?)
+        AND (i.category_id = ? OR i.category_id IS NULL)
+      ORDER BY i.name
+    `, [productId, categoryId]);
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      price: parseFloat(row.price),
+      category_id: row.category_id,
+      image: row.image,
+      is_required: false,
+      max_selections: 1
+    }));
+  }
   const [rows] = await pool.execute(`
     SELECT i.*, pi.is_required, pi.max_selections
     FROM ingredients i
@@ -661,12 +827,28 @@ async function getProductIngredients(productId) {
     id: row.id,
     name: row.name,
     price: parseFloat(row.price),
+    image: row.image,
     is_required: row.is_required,
     max_selections: row.max_selections
   }));
 }
 
-async function getProductExtras(productId) {
+async function getProductExtras(productId, categoryId = null) {
+  if (categoryId) {
+    const [rows] = await pool.execute(`
+      SELECT e.* FROM extras e
+      WHERE e.store_id = (SELECT store_id FROM products WHERE id = ?)
+        AND (e.category_id = ? OR e.category_id IS NULL)
+      ORDER BY e.name
+    `, [productId, categoryId]);
+    return rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      price: parseFloat(row.price),
+      category_id: row.category_id,
+      image: row.image
+    }));
+  }
   const [rows] = await pool.execute(`
     SELECT e.* FROM extras e
     JOIN product_extras pe ON e.id = pe.extra_id
@@ -675,7 +857,8 @@ async function getProductExtras(productId) {
   return rows.map(row => ({
     id: row.id,
     name: row.name,
-    price: parseFloat(row.price)
+    price: parseFloat(row.price),
+    image: row.image
   }));
 }
 
@@ -693,8 +876,8 @@ export async function getProducts(storeId) {
     const prod = {
       ...product,
       price: parseFloat(product.price),
-      ingredients: await getProductIngredients(product.id),
-      extras: await getProductExtras(product.id)
+      ingredients: await getProductIngredients(product.id, product.category_id),
+      extras: await getProductExtras(product.id, product.category_id)
     };
     products.push(prod);
   }
@@ -805,8 +988,8 @@ export async function getProductById(productId) {
   const product = {
     ...rows[0],
     price: parseFloat(rows[0].price),
-    ingredients: await getProductIngredients(productId),
-    extras: await getProductExtras(productId)
+    ingredients: await getProductIngredients(productId, rows[0].category_id),
+    extras: await getProductExtras(productId, rows[0].category_id)
   };
   return product;
 }
@@ -825,8 +1008,8 @@ export async function getPublicProducts(storeId) {
     const prod = {
       ...product,
       price: parseFloat(product.price),
-      ingredients: await getProductIngredients(product.id),
-      extras: await getProductExtras(product.id)
+      ingredients: await getProductIngredients(product.id, product.category_id),
+      extras: await getProductExtras(product.id, product.category_id)
     };
     products.push(prod);
   }
