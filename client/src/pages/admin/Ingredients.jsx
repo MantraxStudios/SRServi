@@ -166,12 +166,13 @@ function Ingredients() {
               No hay ingredientes. Crea tu primer ingrediente.
             </p>
           ) : (
-            Object.entries(groupedIngredients).map(([categoryName, items]) => (
-              <div key={categoryName} style={{ marginBottom: '24px' }}>
-                <h3 style={{ fontSize: '14px', textTransform: 'uppercase', color: '#666', letterSpacing: '0.05em', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #eee' }}>
-                  {categoryName}
-                </h3>
-                <table className="table">
+            <div className="admin-table-wrapper">
+              {Object.entries(groupedIngredients).map(([categoryName, items]) => (
+                <div key={categoryName} style={{ marginBottom: '24px' }}>
+                  <h3 style={{ fontSize: '14px', textTransform: 'uppercase', color: '#666', letterSpacing: '0.05em', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #eee' }}>
+                    {categoryName}
+                  </h3>
+                  <table className="table">
                   <thead>
                     <tr>
                       <th>Nombre</th>
@@ -205,8 +206,9 @@ function Ingredients() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            ))
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

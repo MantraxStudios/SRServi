@@ -166,20 +166,21 @@ function Extras() {
               No hay extras. Crea tu primer extra.
             </p>
           ) : (
-            Object.entries(groupedExtras).map(([categoryName, items]) => (
-              <div key={categoryName} style={{ marginBottom: '24px' }}>
-                <h3 style={{ fontSize: '14px', textTransform: 'uppercase', color: '#666', letterSpacing: '0.05em', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #eee' }}>
-                  {categoryName}
-                </h3>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Precio</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+            <div className="admin-table-wrapper">
+              {Object.entries(groupedExtras).map(([categoryName, items]) => (
+                <div key={categoryName} style={{ marginBottom: '24px' }}>
+                  <h3 style={{ fontSize: '14px', textTransform: 'uppercase', color: '#666', letterSpacing: '0.05em', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #eee' }}>
+                    {categoryName}
+                  </h3>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Nombre</th>
+                        <th>Precio</th>
+                        <th>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                     {items.map(extra => (
                       <tr key={extra.id}>
                         <td style={{ fontWeight: '600' }}>{extra.name}</td>
@@ -203,10 +204,11 @@ function Extras() {
                         </td>
                       </tr>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            ))
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

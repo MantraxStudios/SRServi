@@ -224,19 +224,20 @@ function Products() {
               No hay productos. Crea tu primer producto.
             </p>
           ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Imagen</th>
-                  <th>Nombre</th>
-                  <th>Categoria</th>
-                  <th>Precio</th>
-                  <th>Ingredientes</th>
-                  <th>Extras</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
+            <div className="admin-table-wrapper">
+              <table className="table products-table">
+                <thead>
+                  <tr>
+                    <th>Imagen</th>
+                    <th>Nombre</th>
+                    <th>Categoria</th>
+                    <th>Precio</th>
+                    <th>Ingredientes</th>
+                    <th>Extras</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                 {products.map(product => (
                   <tr key={product.id}>
                     <td>
@@ -280,6 +281,7 @@ function Products() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

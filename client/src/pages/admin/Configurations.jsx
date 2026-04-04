@@ -167,23 +167,22 @@ function Configurations() {
               No hay configuraciones. Crea una para definir los metodos de pago disponibles.
             </p>
           ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Descripcion</th>
-                  <th>Efectivo</th>
-                  <th>Tarjeta</th>
-                  <th>Activo</th>
-                  <th>Predeterminada</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
+            <div className="admin-table-wrapper">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Efectivo</th>
+                    <th>Tarjeta</th>
+                    <th>Activo</th>
+                    <th>Predeterminada</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                 {configurations.map(config => (
                   <tr key={config.id}>
                     <td style={{ fontWeight: '600' }}>{config.name}</td>
-                    <td>{config.description || '-'}</td>
                     <td>
                       {config.accept_cash ? (
                         <span style={{ color: '#28a745' }}><FontAwesomeIcon icon={faCheck} /></span>
@@ -231,6 +230,7 @@ function Configurations() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

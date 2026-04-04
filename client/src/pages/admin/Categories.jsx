@@ -140,15 +140,16 @@ function Categories() {
               No hay categorias. Crea tu primera categoria.
             </p>
           ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Descripcion</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
+            <div className="admin-table-wrapper">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Descripcion</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                 {categories.map(category => (
                   <tr key={category.id}>
                     <td style={{ fontWeight: '600' }}>{category.name}</td>
@@ -172,6 +173,7 @@ function Categories() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

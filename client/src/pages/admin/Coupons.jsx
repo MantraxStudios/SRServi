@@ -160,19 +160,20 @@ function Coupons() {
               No hay cupones. Crea tu primer cupón.
             </p>
           ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Nombre</th>
-                  <th>Descuento</th>
-                  <th>Límite</th>
-                  <th>Usados</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
+            <div className="admin-table-wrapper">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Descuento</th>
+                    <th>Límite</th>
+                    <th>Usados</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
                 {coupons.map(coupon => (
                   <tr key={coupon.id}>
                     <td style={{ fontWeight: '700' }}>{coupon.code}</td>
@@ -209,6 +210,7 @@ function Coupons() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
