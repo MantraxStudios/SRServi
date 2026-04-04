@@ -89,6 +89,7 @@ function Store() {
   const [paymentWaiting, setPaymentWaiting] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [paymentCancelled, setPaymentCancelled] = useState(false);
+  const [cashPaymentSuccess, setCashPaymentSuccess] = useState(false);
   const [paymentTimeLeft, setPaymentTimeLeft] = useState(90);
 
   useEffect(() => {
@@ -469,6 +470,7 @@ function Store() {
         setPaymentTimeLeft(90);
       } else {
         setLastOrderNumber(order.order_number);
+        setCashPaymentSuccess(true);
         setPaymentModalOpen(false);
         setCart([]);
         setCartOpen(false);
@@ -2153,23 +2155,23 @@ function Store() {
           }}>
             <div style={{ fontSize: '60px', marginBottom: '20px' }}>✅</div>
             <h2 style={{ color: colors.primary, marginBottom: '10px', fontSize: '24px' }}>
-              Pago Confirmado
+              Muchas gracias por su compra
             </h2>
-            <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
-              Tu pago fue aprobado correctamente
+            <p style={{ color: '#666', marginBottom: '20px', fontSize: '16px' }}>
+              Por favor espere su orden
             </p>
-            <div style={{
-              backgroundColor: colors.primary,
-              color: colors.secondary,
-              padding: '20px',
-              borderRadius: '15px',
-              marginBottom: '20px'
-            }}>
-              <p style={{ fontSize: '14px', marginBottom: '5px', opacity: 0.8 }}>Numero de Orden</p>
-              <p style={{ fontSize: '48px', fontWeight: '700', margin: 0 }}>
-                {lastOrderNumber}
-              </p>
-            </div>
+            {lastOrderNumber && (
+              <div style={{
+                backgroundColor: colors.primary,
+                color: colors.secondary,
+                padding: '20px',
+                borderRadius: '15px',
+                marginBottom: '20px'
+              }}>
+                <p style={{ fontSize: '14px', marginBottom: '5px', opacity: 0.8 }}>Numero de Orden</p>
+                <p style={{ fontSize: '48px', fontWeight: '700', margin: 0 }}>{lastOrderNumber}</p>
+              </div>
+            )}
             <button
               onClick={() => {
                 setPaymentConfirmed(false);
@@ -2314,7 +2316,7 @@ function Store() {
         </div>
       )}
 
-      {lastOrderNumber && (
+      {cashPaymentSuccess && (
         <div
           style={{
             position: 'fixed',
@@ -2338,57 +2340,37 @@ function Store() {
             maxWidth: '400px',
             textAlign: 'center'
           }}>
-            <div style={{
-              fontSize: '60px',
-              marginBottom: '20px'
-            }}>
-              ✅
-            </div>
-            <h2 style={{
-              color: colors.primary,
-              marginBottom: '10px',
-              fontSize: '24px'
-            }}>
-              Pedido Recibido
+            <div style={{ fontSize: '60px', marginBottom: '20px' }}>✅</div>
+            <h2 style={{ color: colors.primary, marginBottom: '10px', fontSize: '24px' }}>
+              Muchas gracias por su compra
             </h2>
-            <p style={{
-              color: '#666',
-              marginBottom: '20px',
-              fontSize: '14px'
-            }}>
-              Tu pedido esta esperando confirmacion de pago
+            <p style={{ color: '#666', marginBottom: '20px', fontSize: '16px' }}>
+              Por favor espere su orden
             </p>
-            <div style={{
-              backgroundColor: colors.primary,
-              color: colors.secondary,
-              padding: '20px',
-              borderRadius: '15px',
-              marginBottom: '20px'
-            }}>
-              <p style={{
-                fontSize: '14px',
-                marginBottom: '5px',
-                opacity: 0.8
+            {lastOrderNumber && (
+              <div style={{
+                backgroundColor: colors.primary,
+                color: colors.secondary,
+                padding: '20px',
+                borderRadius: '15px',
+                marginBottom: '20px'
               }}>
-                Numero de Orden
-              </p>
-              <p style={{
-                fontSize: '48px',
-                fontWeight: '700',
-                margin: 0
-              }}>
-                {lastOrderNumber}
-              </p>
-            </div>
+                <p style={{ fontSize: '14px', marginBottom: '5px', opacity: 0.8 }}>Numero de Orden</p>
+                <p style={{ fontSize: '48px', fontWeight: '700', margin: 0 }}>{lastOrderNumber}</p>
+              </div>
+            )}
             <p style={{
               color: '#999',
               fontSize: '13px',
               fontStyle: 'italic'
             }}>
-              Pagar en caja al recoger tu pedido
+              Pague con efectivo justo en caja para procesar su orden
             </p>
             <button
-              onClick={() => setLastOrderNumber(null)}
+              onClick={() => {
+                setCashPaymentSuccess(false);
+                setLastOrderNumber(null);
+              }}
               style={{
                 marginTop: '25px',
                 padding: '14px 30px',
