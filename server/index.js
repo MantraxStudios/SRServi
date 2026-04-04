@@ -886,6 +886,63 @@ app.post('/api/market/create-payment', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/market/payment-status/:mpOrderId', authenticateToken, async (req, res) => {
+  try {
+    const { mpOrderId } = req.params;
+    const { store_id, terminal_id } = req.query;
+
+    if (!mpOrderId) {
+      return res.status(400).json({ error: 'mpOrderId es requerido' });
+    }
+
+    if (!store_id || !terminal_id) {
+      return res.status(400).json({ error: 'store_id y terminal_id son requeridos' });
+    }
+
+    const terminal = await getMercadoPagoTerminalById(parseInt(terminal_id));
+    if (!terminal) {
+      return res.status(404).json({ error: 'Terminal no encontrada' });
+    }
+
+    const mercadopago_access_token = terminal.mercadopago_access_token;
+    if (!mercadopago_access_token) {
+      return res.status(400).json({ error: 'Mercado Pago no configurado en la terminal' });
+    }
+
+    const response = await fetch(`https://api.mercadopago.com/v1/orders/${mpOrderId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${mercadopago_access_token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error consultando estado de pago:', errorText);
+      return res.status(400).json({ error: `Error al consultar estado: ${errorText}` });
+    }
+
+    const mpResponse = await response.json();
+    console.log('Estado de pago Market:', mpResponse.status, mpResponse.id);
+
+    const firstPayment = mpResponse.payments?.[0];
+    const paymentStatus = firstPayment?.status || mpResponse.status;
+    const paidAmount = firstPayment?.paid_amount || firstPayment?.amount?.toString() || '0';
+
+    res.json({
+      id: mpResponse.id,
+      status: mpResponse.status,
+      mp_status: mpResponse.status,
+      payment_status: paymentStatus,
+      paid_amount: paidAmount,
+      external_reference: mpResponse.external_reference
+    });
+  } catch (error) {
+    console.error('Error consultando estado de pago Market:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/products', authenticateToken, upload.single('image'), async (req, res) => {
   try {
     const { store_id, name, barcode, description, price, category_id } = req.body;

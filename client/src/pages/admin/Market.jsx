@@ -14,7 +14,9 @@ import {
   faSearch,
   faBox,
   faExclamationTriangle,
-  faChevronDown
+  faChevronDown,
+  faSpinner,
+  faClock
 } from '@fortawesome/free-solid-svg-icons';
 
 function Market() {
@@ -33,6 +35,9 @@ function Market() {
   const [foundProduct, setFoundProduct] = useState(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(null);
+  const [paymentWaiting, setPaymentWaiting] = useState(false);
+  const [pendingOrderData, setPendingOrderData] = useState(null);
+  const [paymentTimeLeft, setPaymentTimeLeft] = useState(600);
   const barcodeInputRef = useRef(null);
   const pointDropdownRef = useRef(null);
 
@@ -58,6 +63,78 @@ function Market() {
       fetchPoints();
     }
   }, [selectedStore]);
+
+  useEffect(() => {
+    if (!paymentWaiting || !pendingOrderData) return;
+
+    const orderId = pendingOrderData.id;
+    const storeId = selectedStore.id;
+    const terminalId = pendingOrderData.terminal_id;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/market/payment-status/${orderId}?store_id=${storeId}&terminal_id=${terminalId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const mpStatus = data.mp_status || data.status;
+        const payStatus = data.payment_status || data.status;
+        const paidAmount = data.paid_amount || '0';
+
+        const isApproved =
+          (payStatus === 'approved' || payStatus === 'paid' || payStatus === 'processed' ||
+           mpStatus === 'processed') &&
+          (parseFloat(paidAmount) > 0 || payStatus === 'processed' || mpStatus === 'processed');
+        const isCancelled = mpStatus === 'canceled' || mpStatus === 'refunded' ||
+          mpStatus === 'expired' || mpStatus === 'failed' ||
+          payStatus === 'canceled' || payStatus === 'refunded' ||
+          data.order_status === 'canceled' || data.order_status === 'refunded';
+
+        if (isApproved) {
+          clearInterval(pollInterval);
+          clearInterval(timerInterval);
+          setPaymentSuccess({
+            id: orderId,
+            amount: pendingOrderData.amount,
+            status: 'approved'
+          });
+          setPaymentWaiting(false);
+          setPendingOrderData(null);
+        } else if (isCancelled) {
+          clearInterval(pollInterval);
+          clearInterval(timerInterval);
+          setPaymentWaiting(false);
+          setPendingOrderData(null);
+          setError('Pago cancelado o expirado');
+          setTimeout(() => setError(null), 3000);
+        }
+      } catch (err) {
+        console.error('Error polling payment status:', err);
+      }
+    }, 2000);
+
+    const timerInterval = setInterval(() => {
+      setPaymentTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerInterval);
+          clearInterval(pollInterval);
+          setPaymentWaiting(false);
+          setPendingOrderData(null);
+          setError('Tiempo de espera agotado');
+          setTimeout(() => setError(null), 3000);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearInterval(timerInterval);
+    };
+  }, [paymentWaiting, pendingOrderData, selectedStore, token]);
 
   const fetchProducts = async () => {
     try {
@@ -205,11 +282,14 @@ function Market() {
 
       if (response.ok) {
         const paymentData = await response.json();
-        setPaymentSuccess(paymentData);
-        setTimeout(() => {
-          setPaymentSuccess(null);
-          clearCart();
-        }, 5000);
+        setPendingOrderData({
+          id: paymentData.id,
+          amount: total,
+          external_reference: paymentData.external_reference,
+          terminal_id: selectedPoint.id
+        });
+        setPaymentWaiting(true);
+        setPaymentTimeLeft(600);
       } else {
         const err = await response.json();
         setError(err.error || 'Error al procesar pago');
@@ -227,6 +307,12 @@ function Market() {
     if (e.key === 'Enter') {
       handleBarcodeSubmit();
     }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (loading) {
@@ -293,8 +379,102 @@ function Market() {
                 Total: ${paymentSuccess.amount?.toFixed(2) || getTotal().toFixed(2)}
               </p>
               <p style={{ fontSize: '16px', marginTop: '10px', opacity: 0.8 }}>
-                ID: {paymentSuccess.payment_id || paymentSuccess.id}
+                ID: {paymentSuccess.id}
               </p>
+              <button
+                onClick={() => {
+                  setPaymentSuccess(null);
+                  clearCart();
+                }}
+                style={{
+                  marginTop: '20px',
+                  padding: '12px 30px',
+                  fontSize: '18px',
+                  backgroundColor: 'white',
+                  color: '#28a745',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {paymentWaiting && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: 'white',
+              padding: '50px',
+              borderRadius: '20px',
+              textAlign: 'center',
+              maxWidth: '500px',
+              width: '90%'
+            }}>
+              <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '60px', color: '#007bff', marginBottom: '20px' }} />
+              <h2 style={{ fontSize: '28px', marginBottom: '10px', color: '#333' }}>
+                Esperando Pago...
+              </h2>
+              <p style={{ fontSize: '18px', color: '#666', marginBottom: '20px' }}>
+                El cliente debe pagar en la maquina Point
+              </p>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                fontSize: '32px',
+                fontWeight: '700',
+                color: '#007bff',
+                marginBottom: '20px'
+              }}>
+                <FontAwesomeIcon icon={faClock} />
+                {formatTime(paymentTimeLeft)}
+              </div>
+              <div style={{
+                backgroundColor: '#f8f9fa',
+                padding: '15px',
+                borderRadius: '10px',
+                marginBottom: '20px'
+              }}>
+                <div style={{ fontSize: '14px', color: '#666' }}>Total a cobrar</div>
+                <div style={{ fontSize: '36px', fontWeight: '700', color: '#28a745' }}>
+                  ${pendingOrderData?.amount?.toFixed(2) || '0.00'}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button
+                  onClick={() => {
+                    setPaymentWaiting(false);
+                    setPendingOrderData(null);
+                  }}
+                  style={{
+                    padding: '12px 30px',
+                    fontSize: '16px',
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -315,6 +495,7 @@ function Market() {
                   onChange={(e) => setBarcode(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Escanee codigo de barras..."
+                  disabled={paymentWaiting}
                   style={{
                     width: '100%',
                     padding: '20px',
@@ -442,6 +623,7 @@ function Market() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && searchProducts()}
                   placeholder="Nombre del producto..."
+                  disabled={paymentWaiting}
                   style={{
                     flex: 1,
                     padding: '12px 16px',
@@ -450,7 +632,7 @@ function Market() {
                     borderRadius: '8px'
                   }}
                 />
-                <button className="btn btn-primary" onClick={searchProducts}>
+                <button className="btn btn-primary" onClick={searchProducts} disabled={paymentWaiting}>
                   <FontAwesomeIcon icon={faSearch} />
                 </button>
               </div>
@@ -516,6 +698,7 @@ function Market() {
                       <div style={{ fontWeight: '600', fontSize: '16px' }}>{item.name}</div>
                       <button
                         onClick={() => removeFromCart(item.id)}
+                        disabled={paymentWaiting}
                         style={{
                           background: 'none',
                           border: 'none',
@@ -534,6 +717,7 @@ function Market() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <button
                           onClick={() => updateQuantity(item.id, -1)}
+                          disabled={paymentWaiting}
                           style={{
                             width: '36px',
                             height: '36px',
@@ -550,6 +734,7 @@ function Market() {
                         </span>
                         <button
                           onClick={() => updateQuantity(item.id, 1)}
+                          disabled={paymentWaiting}
                           style={{
                             width: '36px',
                             height: '36px',
@@ -588,16 +773,17 @@ function Market() {
                   Seleccionar Point:
                 </label>
                 <div
-                  onClick={() => setPointDropdownOpen(!pointDropdownOpen)}
+                  onClick={() => !paymentWaiting && setPointDropdownOpen(!pointDropdownOpen)}
                   style={{
                     padding: '14px 16px',
                     border: '2px solid var(--gray)',
                     borderRadius: '10px',
-                    cursor: 'pointer',
+                    cursor: paymentWaiting ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    backgroundColor: 'white'
+                    backgroundColor: 'white',
+                    opacity: paymentWaiting ? 0.6 : 1
                   }}
                 >
                   <span>
@@ -651,10 +837,10 @@ function Market() {
               <button
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '18px', fontSize: '20px' }}
-                disabled={cart.length === 0 || !selectedPoint || processingPayment}
+                disabled={cart.length === 0 || !selectedPoint || processingPayment || paymentWaiting}
                 onClick={handlePayment}
               >
-                <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: '10px' }} />
+                <FontAwesomeIcon icon={processingPayment ? faSpinner : faCreditCard} spin={processingPayment} style={{ marginRight: '10px' }} />
                 {processingPayment ? 'Procesando...' : 'Cobrar'}
               </button>
             </div>
