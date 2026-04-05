@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope, faLock } from '@fortawesome/free-solid-svg-icons';
 
+const API = 'https://srservi2.srautomatic.com';
+
 function Login() {
   const [formData, setFormData] = useState({
     email: '',
@@ -27,7 +29,7 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch(API_URL + '/api/auth/login', {
+      const response = await fetch(API + '/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

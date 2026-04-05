@@ -2,7 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faBox, faGripVertical } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
-import { getImageUrl, API_URL } from '../../config.js';
+import { getImageUrl } from '../../config.js';
+
+const API = 'https://srservi2.srautomatic.com';
+
 import {
   DndContext,
   closestCenter,
@@ -253,7 +256,7 @@ function Products() {
         };
         console.log('📤 Sending order update:', payload);
         
-        const response = await fetch(API_URL + '/api/products/order', {
+        const response = await fetch(API + '/api/products/order', {
           method: 'PUT',
           headers: {
             'Authorization': 'Bearer ' + token,

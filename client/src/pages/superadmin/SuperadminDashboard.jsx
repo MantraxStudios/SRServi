@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { API_URL } from '../../config.js';
+
+const API = 'https://srservi2.srautomatic.com';
+
 import { 
   faUsers, 
   faStore, 
@@ -94,13 +96,13 @@ function SuperadminDashboard() {
     
     try {
       if (activeTab === 'users') {
-        const res = await fetch(API_URL + '/api/superadmin/users', {
+        const res = await fetch(API + '/api/superadmin/users', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await res.json();
         setUsers(data);
       } else if (activeTab === 'stores') {
-        const res = await fetch(API_URL + '/api/superadmin/stores', {
+        const res = await fetch(API + '/api/superadmin/stores', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await res.json();
@@ -196,7 +198,7 @@ function SuperadminDashboard() {
   const handleToggleBanStore = async (store) => {
     const token = localStorage.getItem('superadminToken');
     try {
-      const res = await fetch(API_URL + '/api/superadmin/stores/' + store.id, {
+      const res = await fetch(API + '/api/superadmin/stores/' + store.id, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -216,7 +218,7 @@ function SuperadminDashboard() {
   const handleDeleteStore = async (storeId) => {
     const token = localStorage.getItem('superadminToken');
     try {
-      const res = await fetch(API_URL + '/api/superadmin/stores/' + storeId, {
+      const res = await fetch(API + '/api/superadmin/stores/' + storeId, {
         method: 'DELETE',
         headers: { 'Authorization': 'Bearer ' + token }
       });

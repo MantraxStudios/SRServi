@@ -16,7 +16,9 @@ import {
   faTags
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
-import { SOCKET_URL, getImageUrl, API_URL } from '../config.js';
+import { SOCKET_URL, getImageUrl } from '../config.js';
+
+const API = 'https://srservi2.srautomatic.com';
 
 function Store() {
   const { code } = useParams();
@@ -626,7 +628,7 @@ function Store() {
       let response;
       
       if (selectedMethod === 'card') {
-        response = await fetch(API_URL + '/api/orders/process-payment', {
+        response = await fetch(API + '/api/orders/process-payment', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -634,7 +636,7 @@ function Store() {
           body: JSON.stringify(orderData)
         });
       } else {
-        response = await fetch(API_URL + '/api/orders', {
+        response = await fetch(API + '/api/orders', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

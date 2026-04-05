@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, useContext } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
-import { getImageUrl, API_URL } from '../../config.js';
+import { getImageUrl } from '../../config.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+
+const API = 'https://srservi2.srautomatic.com';
+
 import { 
   faBarcode, 
   faShoppingCart,
@@ -266,7 +269,7 @@ function Market() {
     const total = getTotal();
 
     try {
-      const response = await fetch(API_URL + '/api/market/create-payment', {
+      const response = await fetch(API + '/api/market/create-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

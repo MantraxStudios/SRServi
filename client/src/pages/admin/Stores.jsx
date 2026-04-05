@@ -3,7 +3,9 @@ import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useNavigate } from 'react-router-dom';
 import { faPlus, faEdit, faTrash, faCopy, faStore, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
-import { API_URL, getImageUrl } from '../../config.js';
+import { getImageUrl } from '../../config.js';
+
+const API = 'https://srservi2.srautomatic.com';
 
 const CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'Dólar Estadounidense', flag: '🇺🇸' },
@@ -52,7 +54,7 @@ function Stores() {
 
   const fetchStores = async () => {
     try {
-      const response = await fetch(API_URL + '/api/stores', {
+      const response = await fetch(API + '/api/stores', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
       const data = await response.json();
@@ -66,7 +68,7 @@ function Stores() {
 
   const fetchPlanInfo = async () => {
     try {
-      const response = await fetch(API_URL + '/api/my-plan', {
+      const response = await fetch(API + '/api/my-plan', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
       if (response.ok) {
@@ -142,8 +144,8 @@ function Stores() {
 
     try {
       const url = editingStore
-        ? API_URL + '/api/stores/' + editingStore.id
-        : API_URL + '/api/stores';
+        ? API + '/api/stores/' + editingStore.id
+        : API + '/api/stores';
       
       const method = editingStore ? 'PUT' : 'POST';
       const isPremium = planInfo && planInfo.plan && planInfo.plan.name !== 'Gratis';
@@ -195,7 +197,7 @@ function Stores() {
     }
 
     try {
-      const response = await fetch(API_URL + '/api/stores/' + storeId, {
+      const response = await fetch(API + '/api/stores/' + storeId, {
         method: 'DELETE',
         headers: { 'Authorization': 'Bearer ' + token }
       });
