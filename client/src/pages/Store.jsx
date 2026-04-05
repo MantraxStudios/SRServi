@@ -1048,7 +1048,7 @@ function Store() {
                             maxHeight: '100%',
                             objectFit: 'contain',
                             transition: 'transform 0.3s ease',
-                            filter: product.stock === 0 ? 'grayscale(100%)' : 'none'
+                            filter: isOutOfStock ? 'grayscale(100%)' : 'none'
                           }}
                         />
                       ) : (
