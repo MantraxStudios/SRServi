@@ -325,14 +325,14 @@ function Store() {
       notes: ''
     });
     
-    const hasRequiredIngredients = product.ingredients && product.ingredients.some(ing => ing.is_required);
-    const hasOptionalIngredients = product.ingredients && product.ingredients.some(ing => !ing.is_required);
+    const hasIngredients = product.ingredients && product.ingredients.length > 0;
     
-    if (hasRequiredIngredients) {
+    if (hasIngredients) {
       setProductModalStep('complements');
       setTimeout(() => setIngredientsModalOpen(true), 100);
     } else {
       setProductModalStep('main');
+      setTimeout(() => addToCart(), 100);
     }
   };
 
@@ -451,6 +451,8 @@ function Store() {
     if (!selectedProduct) return;
 
     setAddingToCart(true);
+    setIngredientsModalOpen(false);
+    setExtrasModalOpen(false);
     
     setTimeout(() => {
       const unitPrice = calculateProductPrice();
@@ -488,8 +490,13 @@ function Store() {
     }
     
     setIngredientsModalOpen(false);
-    setProductModalStep('extras');
-    setTimeout(() => setExtrasModalOpen(true), 100);
+    
+    if (selectedProduct.extras && selectedProduct.extras.length > 0) {
+      setProductModalStep('extras');
+      setTimeout(() => setExtrasModalOpen(true), 100);
+    } else {
+      setTimeout(() => addToCart(), 100);
+    }
   };
 
   const handleBackToMain = () => {
@@ -1213,272 +1220,6 @@ function Store() {
         }}
         autoFocus
       />
-
-      {selectedProduct && (
-        <div className="modal-overlay" onClick={closeProductModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ 
-            maxWidth: '500px',
-            backgroundColor: colors.secondary,
-            border: `3px solid ${colors.primary}`,
-            overflow: 'hidden'
-          }}>
-            <div className="modal-header" style={{
-              backgroundColor: colors.header,
-              color: colors.accent,
-              borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
-              textAlign: 'center',
-              padding: '20px',
-              position: 'relative'
-            }}>
-              <button className="modal-close" onClick={closeProductModal} style={{
-                backgroundColor: 'transparent',
-                border: 'none',
-                color: colors.accent,
-                fontSize: '24px',
-                cursor: 'pointer',
-                position: 'absolute',
-                top: '10px',
-                right: '10px'
-              }}>
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
-              {productModalStep !== 'main' && (
-                <button onClick={productModalStep === 'complements' ? handleBackToMain : handleBackToComplements} style={{
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  color: colors.accent,
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  position: 'absolute',
-                  top: '10px',
-                  left: '10px'
-                }}>
-                  ‹
-                </button>
-              )}
-              <h2 className="modal-title" style={{ textAlign: 'center', margin: '0', padding: '10px 40px 0 40px' }}>{selectedProduct.name}</h2>
-            </div>
-
-            <div style={{ padding: '20px', animation: 'fadeIn 0.3s ease' }}>
-              {selectedProduct.image && (
-                <img 
-                  src={selectedProduct.image} 
-                  alt={selectedProduct.name}
-                  style={{
-                    width: '100%',
-                    height: '200px',
-                    objectFit: 'cover',
-                    borderRadius: 'var(--radius-md)',
-                    marginBottom: '16px'
-                  }}
-                />
-              )}
-              {selectedProduct.description && (
-                <p style={{ color: '#666', marginBottom: '20px', textAlign: 'center' }}>
-                  {selectedProduct.description}
-                </p>
-              )}
-              
-              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <span style={{ fontSize: '32px', fontWeight: '700', color: colors.accent }}>
-                  {colors.currency.symbol}{calculateProductPrice().toFixed(2)}
-                </span>
-              </div>
-
-              {(productModalStep === 'main' || productModalStep === 'complements') && selectedProduct.ingredients && selectedProduct.ingredients.length > 0 && (
-                <button
-                  onClick={() => {
-                    setProductModalStep('complements');
-                    setTimeout(() => setIngredientsModalOpen(true), 50);
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '18px 20px',
-                    border: `3px solid ${productModalStep === 'complements' ? colors.accent : colors.primary}`,
-                    borderRadius: 'var(--radius-lg)',
-                    fontSize: '18px',
-                    fontWeight: '600',
-                    backgroundColor: productModalStep === 'complements' ? `${colors.accent}20` : colors.secondary,
-                    color: colors.primary,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '12px',
-                    transition: 'all 0.2s ease',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.borderColor = colors.accent;
-                    e.target.style.transform = 'scale(1.02)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.borderColor = productModalStep === 'complements' ? colors.accent : colors.primary;
-                    e.target.style.transform = 'scale(1)';
-                  }}
-                >
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '24px' }}>🍽️</span>
-                    1. Complementos
-                    {productConfig.selectedIngredients.length > 0 && (
-                      <span style={{
-                        backgroundColor: colors.accent,
-                        color: colors.primary,
-                        padding: '4px 10px',
-                        borderRadius: '20px',
-                        fontSize: '14px'
-                      }}>
-                        {productConfig.selectedIngredients.length}
-                      </span>
-                    )}
-                  </span>
-                  <span style={{ fontSize: '24px' }}>›</span>
-                </button>
-              )}
-
-              {(productModalStep === 'main' || productModalStep === 'extras') && selectedProduct.extras && selectedProduct.extras.length > 0 && (
-                <button
-                  onClick={() => {
-                    setProductModalStep('extras');
-                    setTimeout(() => setExtrasModalOpen(true), 50);
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '18px 20px',
-                    border: `3px solid ${productModalStep === 'extras' ? colors.accent : colors.primary}`,
-                    borderRadius: 'var(--radius-lg)',
-                    fontSize: '18px',
-                    fontWeight: '600',
-                    backgroundColor: productModalStep === 'extras' ? `${colors.accent}20` : colors.secondary,
-                    color: colors.primary,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '12px',
-                    transition: 'all 0.2s ease',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.borderColor = colors.accent;
-                    e.target.style.transform = 'scale(1.02)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.borderColor = productModalStep === 'extras' ? colors.accent : colors.primary;
-                    e.target.style.transform = 'scale(1)';
-                  }}
-                >
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '24px' }}>➕</span>
-                    2. Extras
-                    {productConfig.selectedExtras.length > 0 && (
-                      <span style={{
-                        backgroundColor: colors.accent,
-                        color: colors.primary,
-                        padding: '4px 10px',
-                        borderRadius: '20px',
-                        fontSize: '14px'
-                      }}>
-                        +{productConfig.selectedExtras.length}
-                      </span>
-                    )}
-                  </span>
-                  <span style={{ fontSize: '24px' }}>›</span>
-                </button>
-              )}
-
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '20px',
-                marginTop: '20px',
-                padding: '16px',
-                backgroundColor: `${colors.primary}10`,
-                borderRadius: 'var(--radius-lg)'
-              }}>
-                <button 
-                  style={{
-                    backgroundColor: colors.primary,
-                    color: colors.secondary,
-                    border: 'none',
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    fontSize: '20px'
-                  }}
-                  onClick={() => setProductConfig(prev => ({ ...prev, quantity: Math.max(1, prev.quantity - 1) }))}
-                  disabled={productConfig.quantity <= 1}
-                >
-                  <FontAwesomeIcon icon={faMinus} />
-                </button>
-                <span style={{ fontSize: '32px', fontWeight: '700', minWidth: '50px', textAlign: 'center', color: colors.primary }}>
-                  {productConfig.quantity}
-                </span>
-                <button 
-                  style={{
-                    backgroundColor: colors.primary,
-                    color: colors.secondary,
-                    border: 'none',
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    fontSize: '20px'
-                  }}
-                  onClick={() => setProductConfig(prev => ({ ...prev, quantity: prev.quantity + 1 }))}
-                >
-                  <FontAwesomeIcon icon={faPlus} />
-                </button>
-              </div>
-            </div>
-
-            {productModalStep === 'main' && (
-              <button 
-                style={{
-                  width: '100%',
-                  padding: '20px',
-                  fontSize: '20px',
-                  backgroundColor: addingToCart ? '#28a745' : colors.accent,
-                  color: colors.primary,
-                  border: 'none',
-                  fontWeight: '700',
-                  cursor: addingToCart ? 'default' : 'pointer',
-                  transition: 'all 0.3s ease',
-                  transform: addingToCart ? 'scale(0.95)' : 'scale(1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px'
-                }}
-                onClick={addToCart}
-                disabled={addingToCart}
-              >
-                {addingToCart ? (
-                  <>
-                    <span style={{ animation: 'pulse 0.5s infinite' }}>✓</span>
-                    ¡Agregado!
-                  </>
-                ) : (
-                  <>
-                    <span style={{ fontSize: '24px' }}>🛒</span>
-                    Agregar - {colors.currency.symbol}{(calculateProductPrice() * productConfig.quantity).toFixed(2)}
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {ingredientsModalOpen && selectedProduct && (
         <div 
