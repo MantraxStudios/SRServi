@@ -367,6 +367,12 @@ function Minimarket() {
             e.preventDefault();
             const found = products.find(p => p.barcode === barcode);
             if (found) {
+              if (!found.unlimited_stock && found.stock === 0) {
+                setBarcodeFeedback('Agotado: ' + found.name);
+                setTimeout(() => setBarcodeFeedback(null), 2000);
+                setBarcode('');
+                return;
+              }
               addToCart(found);
               setBarcode('');
               setBarcodeFeedback(found.name);

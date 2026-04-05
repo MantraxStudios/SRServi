@@ -501,15 +501,29 @@ app.post('/api/ingredients', authenticateToken, upload.single('image'), async (r
 
 app.put('/api/ingredients/:id', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, price, category_id } = req.body;
+    const { store_id, name, price, category_id, stock, unlimited_stock } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-    const ingredient = await updateIngredient(parseInt(req.params.id), parseInt(store_id), { name, price, category_id, image: imageUrl });
+    let imageUrl;
+    if (req.file) {
+      imageUrl = `/uploads/${req.file.filename}`;
+    } else {
+      const existing = await pool.execute('SELECT image FROM ingredients WHERE id = ?', [req.params.id]);
+      imageUrl = existing[0][0]?.image || null;
+    }
+    const ingredient = await updateIngredient(parseInt(req.params.id), parseInt(store_id), { 
+      name, 
+      price, 
+      category_id, 
+      image: imageUrl,
+      stock: stock !== undefined ? parseInt(stock) : 0,
+      unlimited_stock: unlimited_stock === 'true' || unlimited_stock === true
+    });
+    req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { product_id: parseInt(req.params.id), stock: ingredient.stock, unlimited_stock: ingredient.unlimited_stock });
     emitProductUpdate(parseInt(store_id), 'ingredient_updated', ingredient);
     res.json(ingredient);
   } catch (error) {
@@ -565,15 +579,29 @@ app.post('/api/extras', authenticateToken, upload.single('image'), async (req, r
 
 app.put('/api/extras/:id', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, price, category_id } = req.body;
+    const { store_id, name, price, category_id, stock, unlimited_stock } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-    const extra = await updateExtra(parseInt(req.params.id), parseInt(store_id), { name, price, category_id, image: imageUrl });
+    let imageUrl;
+    if (req.file) {
+      imageUrl = `/uploads/${req.file.filename}`;
+    } else {
+      const existing = await pool.execute('SELECT image FROM extras WHERE id = ?', [req.params.id]);
+      imageUrl = existing[0][0]?.image || null;
+    }
+    const extra = await updateExtra(parseInt(req.params.id), parseInt(store_id), { 
+      name, 
+      price, 
+      category_id, 
+      image: imageUrl,
+      stock: stock !== undefined ? parseInt(stock) : 0,
+      unlimited_stock: unlimited_stock === 'true' || unlimited_stock === true
+    });
+    req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { product_id: parseInt(req.params.id), stock: extra.stock, unlimited_stock: extra.unlimited_stock });
     emitProductUpdate(parseInt(store_id), 'extra_updated', extra);
     res.json(extra);
   } catch (error) {
@@ -812,6 +840,9 @@ app.put('/api/inventory/:productId', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'adjustment es requerido' });
     }
     const updated = await updateInventory(parseInt(productId), parseInt(adjustment), parseInt(store_id));
+    if (store_id) {
+      req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { product_id: parseInt(productId), ...updated });
+    }
     res.json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -826,6 +857,30 @@ app.put('/api/inventory/:productId/stock', authenticateToken, async (req, res) =
       return res.status(400).json({ error: 'stock es requerido' });
     }
     const updated = await setInventoryStock(parseInt(productId), parseInt(stock));
+    if (store_id) {
+      req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { product_id: parseInt(productId), ...updated });
+    }
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/inventory/:productId/unlimited', authenticateToken, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { unlimited_stock, store_id } = req.body;
+    if (unlimited_stock === undefined) {
+      return res.status(400).json({ error: 'unlimited_stock es requerido' });
+    }
+    await pool.execute(
+      'INSERT INTO inventory (product_id, unlimited_stock) VALUES (?, ?) ON DUPLICATE KEY UPDATE unlimited_stock = ?',
+      [parseInt(productId), unlimited_stock, unlimited_stock]
+    );
+    const updated = await getInventory(parseInt(productId));
+    if (store_id) {
+      req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { product_id: parseInt(productId), ...updated });
+    }
     res.json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });

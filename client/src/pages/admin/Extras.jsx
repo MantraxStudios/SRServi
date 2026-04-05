@@ -14,7 +14,9 @@ function Extras() {
     name: '',
     price: '',
     category_id: '',
-    imageFile: null
+    imageFile: null,
+    stock: '',
+    unlimited_stock: false
   });
   const [error, setError] = useState('');
 
@@ -75,6 +77,8 @@ function Extras() {
       formDataToSend.append('price', parseFloat(formData.price) || 0);
       formDataToSend.append('category_id', formData.category_id || '');
       formDataToSend.append('store_id', selectedStore.id);
+      formDataToSend.append('stock', parseInt(formData.stock) || 0);
+      formDataToSend.append('unlimited_stock', formData.unlimited_stock);
       if (formData.imageFile) {
         formDataToSend.append('image', formData.imageFile);
       }
@@ -93,7 +97,7 @@ function Extras() {
 
       setShowModal(false);
       setEditingExtra(null);
-      setFormData({ name: '', price: '', category_id: '', imageFile: null });
+      setFormData({ name: '', price: '', category_id: '', imageFile: null, stock: '', unlimited_stock: false });
       fetchExtras();
     } catch (err) {
       setError(err.message);
@@ -106,7 +110,9 @@ function Extras() {
       name: extra.name,
       price: extra.price?.toString() || '0',
       category_id: extra.category_id?.toString() || '',
-      imageFile: null
+      imageFile: null,
+      stock: extra.stock?.toString() || '0',
+      unlimited_stock: extra.unlimited_stock || false
     });
     setShowModal(true);
   };
@@ -133,7 +139,7 @@ function Extras() {
 
   const openModal = () => {
     setEditingExtra(null);
-    setFormData({ name: '', price: '', category_id: '', imageFile: null });
+    setFormData({ name: '', price: '', category_id: '', imageFile: null, stock: '', unlimited_stock: false });
     setShowModal(true);
   };
 
@@ -177,6 +183,7 @@ function Extras() {
                       <tr>
                         <th>Nombre</th>
                         <th>Precio</th>
+                        <th>Stock</th>
                         <th>Acciones</th>
                       </tr>
                     </thead>
@@ -186,6 +193,15 @@ function Extras() {
                         <td style={{ fontWeight: '600' }}>{extra.name}</td>
                         <td>
                           {Number(extra.price) > 0 ? `$${Number(extra.price).toFixed(2)}` : '-'}
+                        </td>
+                        <td>
+                          {extra.unlimited_stock ? (
+                            <span style={{ fontWeight: '700', color: '#28a745', fontSize: '18px' }}>∞</span>
+                          ) : (
+                            <span style={{ fontWeight: '700', color: extra.stock === 0 ? '#dc3545' : extra.stock < 10 ? '#ffc107' : '#28a745' }}>
+                              {extra.stock}
+                            </span>
+                          )}
                         </td>
                         <td>
                           <button
@@ -256,6 +272,33 @@ function Extras() {
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
+              </div>
+              <div className="form-group">
+                <label>Stock</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.stock}
+                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                  placeholder="0"
+                  disabled={formData.unlimited_stock}
+                />
+              </div>
+              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '20px', padding: '16px', background: formData.unlimited_stock ? '#d4edda' : '#fff3cd', borderRadius: '12px', border: `2px solid ${formData.unlimited_stock ? '#28a745' : '#ffc107'}` }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.unlimited_stock}
+                    onChange={(e) => setFormData({ ...formData, unlimited_stock: e.target.checked })}
+                    style={{ width: '22px', height: '22px', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontWeight: '600', color: formData.unlimited_stock ? '#155724' : '#856404' }}>
+                    Stock Ilimitado
+                  </span>
+                </label>
+                <span style={{ fontSize: '13px', color: formData.unlimited_stock ? '#28a745' : '#856404', marginLeft: 'auto' }}>
+                  {formData.unlimited_stock ? '∞ Stock Ilimitado' : 'Completo'}
+                </span>
               </div>
               <div className="form-group">
                 <label>Imagen</label>

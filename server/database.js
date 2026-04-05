@@ -168,6 +168,7 @@ async function createTables() {
       product_id INT NOT NULL,
       stock INT NOT NULL DEFAULT 0,
       min_stock INT NOT NULL DEFAULT 0,
+      unlimited_stock BOOLEAN NOT NULL DEFAULT FALSE,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     )`;
@@ -377,6 +378,58 @@ async function migrateTables() {
         await pool.execute(createInventoryTable);
         console.log('✅ Tabla inventory creada');
       }
+    }
+
+    try {
+      const [invCols] = await pool.execute('SHOW COLUMNS FROM inventory');
+      const invColNames = invCols.map(c => c.Field);
+      if (!invColNames.includes('unlimited_stock')) {
+        console.log('⚠️ Agregando columna unlimited_stock a tabla inventory...');
+        await pool.execute('ALTER TABLE inventory ADD COLUMN unlimited_stock BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna unlimited_stock agregada a inventory');
+      } else {
+        console.log('ℹ️ Tabla inventory ya tiene columna unlimited_stock');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando inventory:', err.message);
+    }
+
+    try {
+      const [ingCols] = await pool.execute('SHOW COLUMNS FROM ingredients');
+      const ingColNames = ingCols.map(c => c.Field);
+      if (!ingColNames.includes('stock')) {
+        console.log('⚠️ Agregando columna stock a tabla ingredients...');
+        await pool.execute('ALTER TABLE ingredients ADD COLUMN stock INT NOT NULL DEFAULT 0');
+        await pool.execute('ALTER TABLE ingredients ADD COLUMN unlimited_stock BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columnas stock y unlimited_stock agregadas a ingredients');
+      } else if (!ingColNames.includes('unlimited_stock')) {
+        console.log('⚠️ Agregando columna unlimited_stock a tabla ingredients...');
+        await pool.execute('ALTER TABLE ingredients ADD COLUMN unlimited_stock BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna unlimited_stock agregada a ingredients');
+      } else {
+        console.log('ℹ️ Tabla ingredients ya tiene columnas de stock');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando ingredients:', err.message);
+    }
+
+    try {
+      const [extCols] = await pool.execute('SHOW COLUMNS FROM extras');
+      const extColNames = extCols.map(c => c.Field);
+      if (!extColNames.includes('stock')) {
+        console.log('⚠️ Agregando columna stock a tabla extras...');
+        await pool.execute('ALTER TABLE extras ADD COLUMN stock INT NOT NULL DEFAULT 0');
+        await pool.execute('ALTER TABLE extras ADD COLUMN unlimited_stock BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columnas stock y unlimited_stock agregadas a extras');
+      } else if (!extColNames.includes('unlimited_stock')) {
+        console.log('⚠️ Agregando columna unlimited_stock a tabla extras...');
+        await pool.execute('ALTER TABLE extras ADD COLUMN unlimited_stock BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna unlimited_stock agregada a extras');
+      } else {
+        console.log('ℹ️ Tabla extras ya tiene columnas de stock');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando extras:', err.message);
     }
 
     try {
@@ -626,26 +679,31 @@ export async function getIngredients(storeId) {
      WHERE i.store_id = ? ORDER BY i.category_id, i.name`,
     [storeId]
   );
-  return rows;
+  return rows.map(ing => ({
+    ...ing,
+    price: parseFloat(ing.price) || 0,
+    stock: parseInt(ing.stock) || 0,
+    unlimited_stock: ing.unlimited_stock || false
+  }));
 }
 
 export async function createIngredient(storeId, data) {
-  const { name, price, category_id, image } = data;
+  const { name, price, category_id, image, stock, unlimited_stock } = data;
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, name, price || 0, category_id || null, image || null]
+    'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image, stock, unlimited_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false]
   );
-  return { id: result.insertId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null };
+  return { id: result.insertId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false };
 }
 
 export async function updateIngredient(ingredientId, storeId, data) {
-  const { name, price, category_id, image } = data;
+  const { name, price, category_id, image, stock, unlimited_stock } = data;
   await pool.execute(
-    'UPDATE ingredients SET name = ?, price = ?, category_id = ?, image = ? WHERE id = ? AND store_id = ?',
-    [name, price || 0, category_id || null, image || null, ingredientId, storeId]
+    'UPDATE ingredients SET name = ?, price = ?, category_id = ?, image = ?, stock = ?, unlimited_stock = ? WHERE id = ? AND store_id = ?',
+    [name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false, ingredientId, storeId]
   );
-  return { id: ingredientId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null };
+  return { id: ingredientId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false };
 }
 
 export async function deleteIngredient(ingredientId, storeId) {
@@ -663,26 +721,31 @@ export async function getExtras(storeId) {
      WHERE e.store_id = ? ORDER BY e.category_id, e.name`,
     [storeId]
   );
-  return rows;
+  return rows.map(ext => ({
+    ...ext,
+    price: parseFloat(ext.price) || 0,
+    stock: parseInt(ext.stock) || 0,
+    unlimited_stock: ext.unlimited_stock || false
+  }));
 }
 
 export async function createExtra(storeId, data) {
-  const { name, price, category_id, image } = data;
+  const { name, price, category_id, image, stock, unlimited_stock } = data;
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO extras (store_id, user_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, name, price || 0, category_id || null, image || null]
+    'INSERT INTO extras (store_id, user_id, name, price, category_id, image, stock, unlimited_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false]
   );
-  return { id: result.insertId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null };
+  return { id: result.insertId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false };
 }
 
 export async function updateExtra(extraId, storeId, data) {
-  const { name, price, category_id, image } = data;
+  const { name, price, category_id, image, stock, unlimited_stock } = data;
   await pool.execute(
-    'UPDATE extras SET name = ?, price = ?, category_id = ?, image = ? WHERE id = ? AND store_id = ?',
-    [name, price || 0, category_id || null, image || null, extraId, storeId]
+    'UPDATE extras SET name = ?, price = ?, category_id = ?, image = ?, stock = ?, unlimited_stock = ? WHERE id = ? AND store_id = ?',
+    [name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false, extraId, storeId]
   );
-  return { id: extraId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null };
+  return { id: extraId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false };
 }
 
 export async function deleteExtra(extraId, storeId) {
@@ -862,7 +925,8 @@ export async function deleteCoupon(couponId, storeId) {
 async function getProductIngredients(productId, categoryId = null) {
   if (categoryId) {
     const [rows] = await pool.execute(`
-      SELECT i.* FROM ingredients i
+      SELECT i.*, COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
+      FROM ingredients i
       WHERE i.store_id = (SELECT store_id FROM products WHERE id = ?)
         AND (i.category_id = ? OR i.category_id IS NULL)
       ORDER BY i.name
@@ -873,12 +937,15 @@ async function getProductIngredients(productId, categoryId = null) {
       price: parseFloat(row.price),
       category_id: row.category_id,
       image: row.image,
+      stock: parseInt(row.stock) || 0,
+      unlimited_stock: row.unlimited_stock || false,
       is_required: false,
       max_selections: 1
     }));
   }
   const [rows] = await pool.execute(`
-    SELECT i.*, pi.is_required, pi.max_selections
+    SELECT i.*, pi.is_required, pi.max_selections,
+           COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
     FROM ingredients i
     JOIN product_ingredients pi ON i.id = pi.ingredient_id
     WHERE pi.product_id = ?
@@ -888,6 +955,8 @@ async function getProductIngredients(productId, categoryId = null) {
     name: row.name,
     price: parseFloat(row.price),
     image: row.image,
+    stock: parseInt(row.stock) || 0,
+    unlimited_stock: row.unlimited_stock || false,
     is_required: row.is_required,
     max_selections: row.max_selections
   }));
@@ -896,7 +965,8 @@ async function getProductIngredients(productId, categoryId = null) {
 async function getProductExtras(productId, categoryId = null) {
   if (categoryId) {
     const [rows] = await pool.execute(`
-      SELECT e.* FROM extras e
+      SELECT e.*, COALESCE(e.stock, 0) as stock, COALESCE(e.unlimited_stock, FALSE) as unlimited_stock
+      FROM extras e
       WHERE e.store_id = (SELECT store_id FROM products WHERE id = ?)
         AND (e.category_id = ? OR e.category_id IS NULL)
       ORDER BY e.name
@@ -906,11 +976,14 @@ async function getProductExtras(productId, categoryId = null) {
       name: row.name,
       price: parseFloat(row.price),
       category_id: row.category_id,
-      image: row.image
+      image: row.image,
+      stock: parseInt(row.stock) || 0,
+      unlimited_stock: row.unlimited_stock || false
     }));
   }
   const [rows] = await pool.execute(`
-    SELECT e.* FROM extras e
+    SELECT e.*, COALESCE(e.stock, 0) as stock, COALESCE(e.unlimited_stock, FALSE) as unlimited_stock
+    FROM extras e
     JOIN product_extras pe ON e.id = pe.extra_id
     WHERE pe.product_id = ?
   `, [productId]);
@@ -918,15 +991,20 @@ async function getProductExtras(productId, categoryId = null) {
     id: row.id,
     name: row.name,
     price: parseFloat(row.price),
-    image: row.image
+    image: row.image,
+    stock: parseInt(row.stock) || 0,
+    unlimited_stock: row.unlimited_stock || false
   }));
 }
 
 export async function getProducts(storeId) {
   const [rows] = await pool.execute(`
-    SELECT p.*, c.name as category_name 
+    SELECT p.*, c.name as category_name,
+           COALESCE(i.stock, 0) as stock,
+           COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
     FROM products p 
     LEFT JOIN categories c ON p.category_id = c.id 
+    LEFT JOIN inventory i ON p.id = i.product_id
     WHERE p.store_id = ? 
     ORDER BY p.created_at DESC
   `, [storeId]);
@@ -936,6 +1014,8 @@ export async function getProducts(storeId) {
     const prod = {
       ...product,
       price: parseFloat(product.price),
+      stock: parseInt(product.stock) || 0,
+      unlimited_stock: product.unlimited_stock || false,
       ingredients: await getProductIngredients(product.id, product.category_id),
       extras: await getProductExtras(product.id, product.category_id)
     };
@@ -1090,9 +1170,12 @@ export async function getProductById(productId) {
 
 export async function getPublicProducts(storeId) {
   const [rows] = await pool.execute(`
-    SELECT p.*, c.name as category_name 
+    SELECT p.*, c.name as category_name,
+           COALESCE(i.stock, 0) as stock,
+           COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
     FROM products p 
     LEFT JOIN categories c ON p.category_id = c.id 
+    LEFT JOIN inventory i ON p.id = i.product_id
     WHERE p.store_id = ? 
     ORDER BY c.name, p.name
   `, [storeId]);
@@ -1102,6 +1185,8 @@ export async function getPublicProducts(storeId) {
     const prod = {
       ...product,
       price: parseFloat(product.price),
+      stock: parseInt(product.stock) || 0,
+      unlimited_stock: product.unlimited_stock || false,
       ingredients: await getProductIngredients(product.id, product.category_id),
       extras: await getProductExtras(product.id, product.category_id)
     };

@@ -331,7 +331,7 @@ function Layout() {
                   </NavLink>
                   <NavLink to="/admin/ingredients" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faFlask} />
-                    <span>Ingredientes</span>
+                    <span>Complementos</span>
                   </NavLink>
                   <NavLink to="/admin/extras" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faPlus} />

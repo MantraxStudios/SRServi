@@ -36,6 +36,8 @@ function Store() {
   });
   const [ingredientsModalOpen, setIngredientsModalOpen] = useState(false);
   const [extrasModalOpen, setExtrasModalOpen] = useState(false);
+  const [productModalStep, setProductModalStep] = useState('main');
+  const [addingToCart, setAddingToCart] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [lastOrderNumber, setLastOrderNumber] = useState(null);
@@ -156,6 +158,47 @@ function Store() {
     socket.on('extra_created', () => fetchStore());
     socket.on('extra_updated', () => fetchStore());
     socket.on('extra_deleted', () => fetchStore());
+    socket.on('inventory_updated', (data) => {
+      console.log('Inventario actualizado en tiempo real:', data);
+      setStore(prev => {
+        if (!prev) return prev;
+        const updatedProducts = prev.products.map(product => {
+          if (product.id === data.product_id) {
+            return {
+              ...product,
+              stock: data.stock !== undefined ? data.stock : product.stock,
+              unlimited_stock: data.unlimited_stock !== undefined ? data.unlimited_stock : product.unlimited_stock
+            };
+          }
+          if (product.ingredients) {
+            product.ingredients = product.ingredients.map(ing => {
+              if (ing.id === data.product_id) {
+                return {
+                  ...ing,
+                  stock: data.stock !== undefined ? data.stock : ing.stock,
+                  unlimited_stock: data.unlimited_stock !== undefined ? data.unlimited_stock : ing.unlimited_stock
+                };
+              }
+              return ing;
+            });
+          }
+          if (product.extras) {
+            product.extras = product.extras.map(ext => {
+              if (ext.id === data.product_id) {
+                return {
+                  ...ext,
+                  stock: data.stock !== undefined ? data.stock : ext.stock,
+                  unlimited_stock: data.unlimited_stock !== undefined ? data.unlimited_stock : ext.unlimited_stock
+                };
+              }
+              return ext;
+            });
+          }
+          return product;
+        });
+        return { ...prev, products: updatedProducts };
+      });
+    });
     
     return () => {
       socket.disconnect();
@@ -182,9 +225,28 @@ function Store() {
       }
 
       const data = await response.json();
-      console.log('Store data received:', data);
-      console.log('Number of products:', data.products?.length || 0);
-      setStore(data);
+      const uniqueProducts = (data.products || []).filter((product, index, self) =>
+        index === self.findIndex((p) => p.id === product.id)
+      );
+      const uniqueCategories = (data.categories || []).filter((cat, index, self) =>
+        index === self.findIndex((c) => c.id === cat.id)
+      );
+      const uniqueIngredients = (data.ingredients || []).filter((ing, index, self) =>
+        index === self.findIndex((i) => i.id === ing.id)
+      );
+      const uniqueExtras = (data.extras || []).filter((ext, index, self) =>
+        index === self.findIndex((e) => e.id === ext.id)
+      );
+      const deduplicatedData = {
+        ...data,
+        products: uniqueProducts,
+        categories: uniqueCategories,
+        ingredients: uniqueIngredients,
+        extras: uniqueExtras
+      };
+      console.log('Store data received:', deduplicatedData);
+      console.log('Number of products:', deduplicatedData.products?.length || 0);
+      setStore(deduplicatedData);
 
       const terminalsResponse = await fetch(`/api/public/${code}/mercado-pago-terminals`);
       if (terminalsResponse.ok) {
@@ -250,6 +312,11 @@ function Store() {
   };
 
   const openProductModal = (product) => {
+    if (!product.unlimited_stock && product.stock === 0) {
+      setNotification({ name: product.name, agotado: true });
+      setTimeout(() => setNotification(null), 2000);
+      return;
+    }
     setSelectedProduct(product);
     setProductConfig({
       selectedIngredients: [],
@@ -261,6 +328,10 @@ function Store() {
 
   const closeProductModal = () => {
     setSelectedProduct(null);
+    setProductModalStep('main');
+    setAddingToCart(false);
+    setIngredientsModalOpen(false);
+    setExtrasModalOpen(false);
   };
 
   useEffect(() => {
@@ -279,6 +350,11 @@ function Store() {
     if (!store?.products) return;
     const found = store.products.find(p => p.barcode === barcodeValue);
     if (found) {
+      if (!found.unlimited_stock && found.stock === 0) {
+        setNotification({ name: found.name, agotado: true });
+        setTimeout(() => setNotification(null), 2000);
+        return;
+      }
       setNotification({ name: found.name, image: found.image });
       setTimeout(() => setNotification(null), 2000);
       const unitPrice = found.price;
@@ -298,6 +374,10 @@ function Store() {
   };
 
   const toggleIngredient = (ingredient) => {
+    const isOutOfStock = !ingredient.unlimited_stock && ingredient.stock === 0;
+    if (isOutOfStock) {
+      return;
+    }
     setProductConfig(prev => {
       const exists = prev.selectedIngredients.find(i => i.id === ingredient.id);
       if (exists) {
@@ -321,6 +401,10 @@ function Store() {
   };
 
   const toggleExtra = (extra) => {
+    const isOutOfStock = !extra.unlimited_stock && extra.stock === 0;
+    if (isOutOfStock) {
+      return;
+    }
     setProductConfig(prev => {
       const exists = prev.selectedExtras.find(e => e.id === extra.id);
       if (exists) {
@@ -356,22 +440,48 @@ function Store() {
   const addToCart = () => {
     if (!selectedProduct) return;
 
-    const unitPrice = calculateProductPrice();
-    const cartItem = {
-      id: Date.now(),
-      product_id: selectedProduct.id,
-      product_name: selectedProduct.name,
-      unit_price: unitPrice,
-      quantity: productConfig.quantity,
-      total: unitPrice * productConfig.quantity,
-      selected_ingredients: productConfig.selectedIngredients.map(i => i.name),
-      selected_extras: productConfig.selectedExtras.map(e => e.name)
-    };
+    setAddingToCart(true);
+    
+    setTimeout(() => {
+      const unitPrice = calculateProductPrice();
+      const cartItem = {
+        id: Date.now(),
+        product_id: selectedProduct.id,
+        product_name: selectedProduct.name,
+        unit_price: unitPrice,
+        quantity: productConfig.quantity,
+        total: unitPrice * productConfig.quantity,
+        selected_ingredients: productConfig.selectedIngredients.map(i => i.name),
+        selected_extras: productConfig.selectedExtras.map(e => e.name)
+      };
 
-    setCart([...cart, cartItem]);
-    setNotification({ name: selectedProduct.name, image: selectedProduct.image });
-    setTimeout(() => setNotification(null), 2000);
-    closeProductModal();
+      setCart([...cart, cartItem]);
+      setNotification({ name: selectedProduct.name, image: selectedProduct.image });
+      setAddingToCart(false);
+      setProductModalStep('main');
+      setTimeout(() => {
+        setNotification(null);
+        closeProductModal();
+      }, 1500);
+    }, 800);
+  };
+
+  const handleNextToExtras = () => {
+    setIngredientsModalOpen(false);
+    setProductModalStep('extras');
+    setTimeout(() => setExtrasModalOpen(true), 100);
+  };
+
+  const handleBackToMain = () => {
+    setIngredientsModalOpen(false);
+    setExtrasModalOpen(false);
+    setProductModalStep('main');
+  };
+
+  const handleBackToComplements = () => {
+    setExtrasModalOpen(false);
+    setProductModalStep('complements');
+    setTimeout(() => setIngredientsModalOpen(true), 100);
   };
 
   const updateQuantity = (itemId, delta) => {
@@ -817,34 +927,76 @@ function Store() {
             .filter(([category]) => activeCategory === 'all' || activeCategory === category)
             .map(([category, products]) => (
             <div key={category}>
-              {products.map(product => (
+              {products.map(product => {
+                const isOutOfStock = !product.unlimited_stock && product.stock === 0;
+                return (
                 <div 
                   key={product.id} 
                   style={{
-                    backgroundColor: colors.secondary,
-                    border: `2px solid ${colors.accent}40`,
+                    backgroundColor: isOutOfStock ? '#f8f9fa' : colors.secondary,
+                    border: `2px solid ${isOutOfStock ? '#dee2e6' : colors.accent + '40'}`,
                     borderRadius: 'var(--radius-lg)',
                     overflow: 'hidden',
-                    cursor: 'pointer',
+                    cursor: isOutOfStock ? 'not-allowed' : 'pointer',
                     transition: 'all 0.3s ease',
                     marginBottom: '20px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+                    opacity: isOutOfStock ? 0.6 : 1,
+                    position: 'relative'
                   }}
                   onClick={() => openProductModal(product)}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-8px)';
-                    e.currentTarget.style.boxShadow = `0 12px 32px ${colors.accent}30`;
-                    e.currentTarget.style.borderColor = colors.accent;
+                    if (!isOutOfStock) {
+                      e.currentTarget.style.transform = 'translateY(-8px)';
+                      e.currentTarget.style.boxShadow = `0 12px 32px ${colors.accent}30`;
+                      e.currentTarget.style.borderColor = colors.accent;
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.05)';
-                    e.currentTarget.style.borderColor = `${colors.accent}40`;
+                    if (!isOutOfStock) {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.05)';
+                      e.currentTarget.style.borderColor = `${colors.accent}40`;
+                    }
                   }}
                 >
+                  {isOutOfStock && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      zIndex: 2,
+                      boxShadow: '0 2px 8px rgba(220, 53, 69, 0.3)'
+                    }}>
+                      Agotado
+                    </div>
+                  )}
+                  {product.unlimited_stock && !isOutOfStock && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      backgroundColor: '#28a745',
+                      color: 'white',
+                      padding: '6px 14px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      zIndex: 2,
+                      boxShadow: '0 2px 8px rgba(40, 167, 69, 0.3)'
+                    }}>
+                      ∞ Stock
+                    </div>
+                  )}
                   <div className="product-image" style={{
                     height: '180px',
-                    backgroundColor: `${colors.accent}10`,
+                    backgroundColor: isOutOfStock ? '#e9ecef' : `${colors.accent}10`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -858,13 +1010,16 @@ function Store() {
                           width: '100%', 
                           height: '100%', 
                           objectFit: 'cover',
-                          transition: 'transform 0.3s ease'
+                          transition: 'transform 0.3s ease',
+                          filter: product.stock === 0 ? 'grayscale(100%)' : 'none'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                        onMouseEnter={(e) => {
+                          if (!isOutOfStock) e.currentTarget.style.transform = 'scale(1.05)';
+                        }}
                         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                       />
                     ) : (
-                      <FontAwesomeIcon icon={faBox} style={{ fontSize: '64px', color: colors.accent, opacity: 0.6 }} />
+                      <FontAwesomeIcon icon={faBox} style={{ fontSize: '64px', color: isOutOfStock ? '#adb5bd' : colors.accent, opacity: 0.6 }} />
                     )}
                   </div>
                   <div className="product-info" style={{ padding: '20px' }}>
@@ -872,13 +1027,13 @@ function Store() {
                       fontSize: '22px', 
                       fontWeight: '700', 
                       marginBottom: '8px', 
-                      color: colors.primary 
+                      color: isOutOfStock ? '#adb5bd' : colors.primary 
                     }}>
                       {product.name}
                     </h3>
                     {product.description && (
                       <p className="product-description" style={{
-                        color: '#666',
+                        color: isOutOfStock ? '#adb5bd' : '#666',
                         marginBottom: '12px',
                         lineHeight: '1.5',
                         fontSize: '14px'
@@ -887,14 +1042,15 @@ function Store() {
                     <div style={{ 
                       fontSize: '28px', 
                       fontWeight: '700', 
-                      color: colors.accent,
+                      color: isOutOfStock ? '#adb5bd' : colors.accent,
                       marginTop: '8px'
                     }}>
                       {colors.currency.symbol}{Number(product.price).toFixed(2)}
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           ))}
         </div>
@@ -1005,7 +1161,11 @@ function Store() {
           )}
           <div>
             <div style={{ fontSize: '14px', fontWeight: '600', color: '#212529' }}>{notification.name}</div>
-            <div style={{ fontSize: '12px', color: '#28a745', marginTop: '2px' }}>Agregado ✓</div>
+            {notification.agotado ? (
+              <div style={{ fontSize: '12px', color: '#dc3545', marginTop: '2px' }}>Agotado</div>
+            ) : (
+              <div style={{ fontSize: '12px', color: '#28a745', marginTop: '2px' }}>Agregado ✓</div>
+            )}
           </div>
         </div>
       )}
@@ -1039,7 +1199,8 @@ function Store() {
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ 
             maxWidth: '500px',
             backgroundColor: colors.secondary,
-            border: `3px solid ${colors.primary}`
+            border: `3px solid ${colors.primary}`,
+            overflow: 'hidden'
           }}>
             <div className="modal-header" style={{
               backgroundColor: colors.header,
@@ -1061,120 +1222,183 @@ function Store() {
               }}>
                 <FontAwesomeIcon icon={faTimes} />
               </button>
+              {productModalStep !== 'main' && (
+                <button onClick={productModalStep === 'complements' ? handleBackToMain : handleBackToComplements} style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: colors.accent,
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  position: 'absolute',
+                  top: '10px',
+                  left: '10px'
+                }}>
+                  ‹
+                </button>
+              )}
               <h2 className="modal-title" style={{ textAlign: 'center', margin: '0', padding: '10px 40px 0 40px' }}>{selectedProduct.name}</h2>
             </div>
 
-            <div style={{ marginBottom: '20px', padding: '20px' }}>
-              {selectedProduct.description && (
-                <p style={{ color: '#666', marginBottom: '20px' }}>
-                  {selectedProduct.description}
-                </p>
-              )}
-
-              {selectedProduct.ingredients && selectedProduct.ingredients.length > 0 && (
-                <div className="option-group">
-                  <h3 className="option-group-title" style={{ color: colors.primary, marginBottom: '12px' }}>
-                    Ingredientes
-                    {selectedProduct.ingredients.some(i => i.is_required) && (
-                      <span style={{ color: '#DC3545', fontSize: '14px' }}> (Requerido)</span>
-                    )}
-                  </h3>
-                  <button
-                    onClick={() => setIngredientsModalOpen(true)}
+            {productModalStep === 'main' && (
+              <div style={{ padding: '20px', animation: 'fadeIn 0.3s ease' }}>
+                {selectedProduct.image && (
+                  <img 
+                    src={selectedProduct.image} 
+                    alt={selectedProduct.name}
                     style={{
                       width: '100%',
-                      padding: '14px 16px',
-                      border: `2px solid ${colors.primary}`,
+                      height: '200px',
+                      objectFit: 'cover',
                       borderRadius: 'var(--radius-md)',
-                      fontSize: '16px',
+                      marginBottom: '16px'
+                    }}
+                  />
+                )}
+                {selectedProduct.description && (
+                  <p style={{ color: '#666', marginBottom: '20px', textAlign: 'center' }}>
+                    {selectedProduct.description}
+                  </p>
+                )}
+                
+                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                  <span style={{ fontSize: '32px', fontWeight: '700', color: colors.accent }}>
+                    {colors.currency.symbol}{calculateProductPrice().toFixed(2)}
+                  </span>
+                </div>
+
+                {selectedProduct.ingredients && selectedProduct.ingredients.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setProductModalStep('complements');
+                      setTimeout(() => setIngredientsModalOpen(true), 50);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '18px 20px',
+                      border: `3px solid ${colors.primary}`,
+                      borderRadius: 'var(--radius-lg)',
+                      fontSize: '18px',
+                      fontWeight: '600',
                       backgroundColor: colors.secondary,
                       color: colors.primary,
                       cursor: 'pointer',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      transition: 'all 0.2s ease'
+                      marginBottom: '12px',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                     }}
                     onMouseEnter={(e) => {
                       e.target.style.borderColor = colors.accent;
-                      e.target.style.backgroundColor = `${colors.accent}10`;
+                      e.target.style.transform = 'scale(1.02)';
                     }}
                     onMouseLeave={(e) => {
                       e.target.style.borderColor = colors.primary;
-                      e.target.style.backgroundColor = colors.secondary;
+                      e.target.style.transform = 'scale(1)';
                     }}
                   >
-                    <span>
-                      {productConfig.selectedIngredients.length > 0 
-                        ? `Seleccionados: ${productConfig.selectedIngredients.length}` 
-                        : 'Toca para seleccionar'}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ fontSize: '24px' }}>🍽️</span>
+                      1. Complementos
+                      {productConfig.selectedIngredients.length > 0 && (
+                        <span style={{
+                          backgroundColor: colors.accent,
+                          color: colors.primary,
+                          padding: '4px 10px',
+                          borderRadius: '20px',
+                          fontSize: '14px'
+                        }}>
+                          {productConfig.selectedIngredients.length}
+                        </span>
+                      )}
                     </span>
-                    <span style={{ fontSize: '20px' }}>›</span>
+                    <span style={{ fontSize: '24px' }}>›</span>
                   </button>
-                </div>
-              )}
+                )}
 
-              {selectedProduct.extras && selectedProduct.extras.length > 0 && (
-                <div className="option-group">
-                  <h3 className="option-group-title" style={{ color: colors.primary, marginBottom: '12px' }}>Extras</h3>
+                {selectedProduct.extras && selectedProduct.extras.length > 0 && (
                   <button
-                    onClick={() => setExtrasModalOpen(true)}
+                    onClick={() => {
+                      setProductModalStep('extras');
+                      setTimeout(() => setExtrasModalOpen(true), 50);
+                    }}
                     style={{
                       width: '100%',
-                      padding: '14px 16px',
-                      border: `2px solid ${colors.primary}`,
-                      borderRadius: 'var(--radius-md)',
-                      fontSize: '16px',
+                      padding: '18px 20px',
+                      border: `3px solid ${colors.primary}`,
+                      borderRadius: 'var(--radius-lg)',
+                      fontSize: '18px',
+                      fontWeight: '600',
                       backgroundColor: colors.secondary,
                       color: colors.primary,
                       cursor: 'pointer',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      transition: 'all 0.2s ease'
+                      marginBottom: '12px',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                     }}
                     onMouseEnter={(e) => {
                       e.target.style.borderColor = colors.accent;
-                      e.target.style.backgroundColor = `${colors.accent}10`;
+                      e.target.style.transform = 'scale(1.02)';
                     }}
                     onMouseLeave={(e) => {
                       e.target.style.borderColor = colors.primary;
-                      e.target.style.backgroundColor = colors.secondary;
+                      e.target.style.transform = 'scale(1)';
                     }}
                   >
-                    <span>
-                      {productConfig.selectedExtras.length > 0 
-                        ? `Seleccionados: ${productConfig.selectedExtras.length}` 
-                        : 'Toca para seleccionar'}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ fontSize: '24px' }}>➕</span>
+                      2. Extras
+                      {productConfig.selectedExtras.length > 0 && (
+                        <span style={{
+                          backgroundColor: colors.accent,
+                          color: colors.primary,
+                          padding: '4px 10px',
+                          borderRadius: '20px',
+                          fontSize: '14px'
+                        }}>
+                          +{productConfig.selectedExtras.length}
+                        </span>
+                      )}
                     </span>
-                    <span style={{ fontSize: '20px' }}>›</span>
+                    <span style={{ fontSize: '24px' }}>›</span>
                   </button>
-                </div>
-              )}
+                )}
 
-              <div className="option-group">
-                <h3 className="option-group-title" style={{ color: colors.primary }}>Cantidad</h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '20px',
+                  marginTop: '20px',
+                  padding: '16px',
+                  backgroundColor: `${colors.primary}10`,
+                  borderRadius: 'var(--radius-lg)'
+                }}>
                   <button 
                     style={{
                       backgroundColor: colors.primary,
                       color: colors.secondary,
                       border: 'none',
-                      width: '44px',
-                      height: '44px',
+                      width: '48px',
+                      height: '48px',
                       borderRadius: '50%',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
-                      transition: 'all 0.2s ease'
+                      transition: 'all 0.2s ease',
+                      fontSize: '20px'
                     }}
                     onClick={() => setProductConfig(prev => ({ ...prev, quantity: Math.max(1, prev.quantity - 1) }))}
                     disabled={productConfig.quantity <= 1}
                   >
                     <FontAwesomeIcon icon={faMinus} />
                   </button>
-                  <span style={{ fontSize: '24px', fontWeight: '700', minWidth: '40px', textAlign: 'center', color: colors.primary }}>
+                  <span style={{ fontSize: '32px', fontWeight: '700', minWidth: '50px', textAlign: 'center', color: colors.primary }}>
                     {productConfig.quantity}
                   </span>
                   <button 
@@ -1182,14 +1406,15 @@ function Store() {
                       backgroundColor: colors.primary,
                       color: colors.secondary,
                       border: 'none',
-                      width: '44px',
-                      height: '44px',
+                      width: '48px',
+                      height: '48px',
                       borderRadius: '50%',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
-                      transition: 'all 0.2s ease'
+                      transition: 'all 0.2s ease',
+                      fontSize: '20px'
                     }}
                     onClick={() => setProductConfig(prev => ({ ...prev, quantity: prev.quantity + 1 }))}
                   >
@@ -1197,31 +1422,78 @@ function Store() {
                   </button>
                 </div>
               </div>
-            </div>
+            )}
 
-            <button 
-              style={{
-                width: '100%',
-                padding: '16px',
-                fontSize: '18px',
-                backgroundColor: colors.accent,
-                color: colors.primary,
-                border: 'none',
-                borderRadius: 'var(--radius-md)',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-              onClick={addToCart}
-              onMouseEnter={(e) => {
-                e.target.style.transform = 'scale(1.02)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'scale(1)';
-              }}
-            >
-              Agregar al Carrito - {colors.currency.symbol}{(calculateProductPrice() * productConfig.quantity).toFixed(2)}
-            </button>
+            {productModalStep === 'complements' && (
+              <div style={{ padding: '20px', animation: 'slideIn 0.3s ease' }}>
+                <p style={{ color: '#666', textAlign: 'center', marginBottom: '20px' }}>
+                  Selecciona los complementos para tu pedido
+                </p>
+                <button
+                  onClick={handleNextToExtras}
+                  style={{
+                    width: '100%',
+                    padding: '18px',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    backgroundColor: colors.accent,
+                    color: colors.primary,
+                    border: 'none',
+                    borderRadius: 'var(--radius-lg)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    marginTop: '20px'
+                  }}
+                  onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                >
+                  Siguiente {selectedProduct.extras?.length > 0 ? '›' : '›'}
+                </button>
+              </div>
+            )}
+
+            {productModalStep === 'extras' && (
+              <div style={{ padding: '20px', animation: 'slideIn 0.3s ease' }}>
+                <p style={{ color: '#666', textAlign: 'center', marginBottom: '20px' }}>
+                  Agrega extras a tu pedido
+                </p>
+              </div>
+            )}
+
+            {productModalStep === 'main' && (
+              <button 
+                style={{
+                  width: '100%',
+                  padding: '20px',
+                  fontSize: '20px',
+                  backgroundColor: addingToCart ? '#28a745' : colors.accent,
+                  color: colors.primary,
+                  border: 'none',
+                  fontWeight: '700',
+                  cursor: addingToCart ? 'default' : 'pointer',
+                  transition: 'all 0.3s ease',
+                  transform: addingToCart ? 'scale(0.95)' : 'scale(1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px'
+                }}
+                onClick={addToCart}
+                disabled={addingToCart}
+              >
+                {addingToCart ? (
+                  <>
+                    <span style={{ animation: 'pulse 0.5s infinite' }}>✓</span>
+                    ¡Agregado!
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: '24px' }}>🛒</span>
+                    Agregar - {colors.currency.symbol}{(calculateProductPrice() * productConfig.quantity).toFixed(2)}
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1266,7 +1538,10 @@ function Store() {
               position: 'relative'
             }}>
               <button 
-                onClick={() => setIngredientsModalOpen(false)}
+                onClick={() => {
+                  setIngredientsModalOpen(false);
+                  setProductModalStep('main');
+                }}
                 style={{
                   backgroundColor: 'transparent',
                   border: 'none',
@@ -1280,7 +1555,9 @@ function Store() {
               >
                 <FontAwesomeIcon icon={faTimes} />
               </button>
-              <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>Ingredientes</h2>
+              <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>
+                {productModalStep === 'main' ? 'Complementos' : `1. Complementos`}
+              </h2>
             </div>
             
             <div style={{
@@ -1330,24 +1607,57 @@ function Store() {
                 gridTemplateColumns: 'repeat(4, 1fr)',
                 gap: '10px'
               }}>
-                {selectedProduct.ingredients.map(ingredient => (
+                {selectedProduct.ingredients.map(ingredient => {
+                  const ingredientIsOutOfStock = !ingredient.unlimited_stock && ingredient.stock === 0;
+                  return (
                   <div 
                     key={ingredient.id}
                     style={{
-                      backgroundColor: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                        ? colors.accent 
-                        : '#fff',
-                      border: `2px solid ${productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                        ? colors.accent 
-                        : '#e0e0e0'}`,
+                      backgroundColor: ingredientIsOutOfStock ? '#f8f9fa' : (productConfig.selectedIngredients.find(i => i.id === ingredient.id) ? colors.accent : '#fff'),
+                      border: `2px solid ${productConfig.selectedIngredients.find(i => i.id === ingredient.id) ? colors.accent : ingredientIsOutOfStock ? '#dc3545' : '#e0e0e0'}`,
                       borderRadius: 'var(--radius-md)',
-                      cursor: 'pointer',
+                      cursor: ingredientIsOutOfStock ? 'not-allowed' : 'pointer',
                       transition: 'all 0.2s ease',
                       overflow: 'hidden',
-                      position: 'relative'
+                      position: 'relative',
+                      opacity: ingredientIsOutOfStock ? 0.6 : 1
                     }}
                     onClick={() => toggleIngredient(ingredient)}
                   >
+                    {ingredientIsOutOfStock && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '8px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        zIndex: 2,
+                      }}>
+                        Agotado
+                      </div>
+                    )}
+                    {ingredient.unlimited_stock && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '8px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: '#28a745',
+                        color: 'white',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        zIndex: 2,
+                      }}>
+                        ∞ Stock
+                      </div>
+                    )}
                     {ingredient.image ? (
                       <img 
                         src={ingredient.image}
@@ -1379,9 +1689,7 @@ function Store() {
                       <div style={{ 
                         fontWeight: '600', 
                         fontSize: '13px',
-                        color: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                          ? '#fff' 
-                          : colors.primary,
+                        color: productConfig.selectedIngredients.find(i => i.id === ingredient.id) ? '#fff' : colors.primary,
                         marginBottom: '2px',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -1393,9 +1701,7 @@ function Store() {
                         <div style={{ 
                           fontSize: '12px', 
                           fontWeight: '600',
-                          color: productConfig.selectedIngredients.find(i => i.id === ingredient.id) 
-                            ? '#fff' 
-                            : colors.accent
+                          color: productConfig.selectedIngredients.find(i => i.id === ingredient.id) ? '#fff' : colors.accent
                         }}>
                           +{colors.currency.symbol}{Number(ingredient.price).toFixed(2)}
                         </div>
@@ -1418,7 +1724,8 @@ function Store() {
                       </div>
                     )}
                   </div>
-                ))}
+                );
+                })}
               </div>
             </div>
 
@@ -1426,25 +1733,48 @@ function Store() {
               padding: '20px',
               borderTop: `2px solid ${colors.primary}`
             }}>
-              <button 
-                onClick={() => setIngredientsModalOpen(false)}
-                style={{
-                  width: '100%',
-                  padding: '16px',
-                  fontSize: '18px',
-                  backgroundColor: colors.accent,
-                  color: colors.primary,
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
-                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-              >
-                Listo
-              </button>
+              {productModalStep === 'main' ? (
+                <button 
+                  onClick={() => setIngredientsModalOpen(false)}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    fontSize: '18px',
+                    backgroundColor: colors.accent,
+                    color: colors.primary,
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                >
+                  Listo
+                </button>
+              ) : (
+                <button 
+                  onClick={selectedProduct.extras?.length > 0 ? handleNextToExtras : addToCart}
+                  disabled={addingToCart}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    fontSize: '18px',
+                    backgroundColor: addingToCart ? '#28a745' : colors.accent,
+                    color: colors.primary,
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: '700',
+                    cursor: addingToCart ? 'default' : 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => !addingToCart && (e.target.style.transform = 'scale(1.02)')}
+                  onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                >
+                  {selectedProduct.extras?.length > 0 ? 'Siguiente ›' : (addingToCart ? '✓ ¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`)}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1490,7 +1820,10 @@ function Store() {
               position: 'relative'
             }}>
               <button 
-                onClick={() => setExtrasModalOpen(false)}
+                onClick={() => {
+                  setExtrasModalOpen(false);
+                  setProductModalStep('main');
+                }}
                 style={{
                   backgroundColor: 'transparent',
                   border: 'none',
@@ -1504,7 +1837,9 @@ function Store() {
               >
                 <FontAwesomeIcon icon={faTimes} />
               </button>
-              <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>Extras</h2>
+              <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>
+                {productModalStep === 'main' ? 'Extras' : `2. Extras`}
+              </h2>
             </div>
             
             <div style={{
@@ -1542,24 +1877,57 @@ function Store() {
                 gridTemplateColumns: 'repeat(4, 1fr)',
                 gap: '10px'
               }}>
-                {selectedProduct.extras.map(extra => (
+                {selectedProduct.extras.map(extra => {
+                  const extraIsOutOfStock = !extra.unlimited_stock && extra.stock === 0;
+                  return (
                   <div 
                     key={extra.id}
                     style={{
-                      backgroundColor: productConfig.selectedExtras.find(e => e.id === extra.id) 
-                        ? colors.accent 
-                        : '#fff',
-                      border: `2px solid ${productConfig.selectedExtras.find(e => e.id === extra.id) 
-                        ? colors.accent 
-                        : '#e0e0e0'}`,
+                      backgroundColor: extraIsOutOfStock ? '#f8f9fa' : (productConfig.selectedExtras.find(e => e.id === extra.id) ? colors.accent : '#fff'),
+                      border: `2px solid ${productConfig.selectedExtras.find(e => e.id === extra.id) ? colors.accent : extraIsOutOfStock ? '#dc3545' : '#e0e0e0'}`,
                       borderRadius: 'var(--radius-md)',
-                      cursor: 'pointer',
+                      cursor: extraIsOutOfStock ? 'not-allowed' : 'pointer',
                       transition: 'all 0.2s ease',
                       overflow: 'hidden',
-                      position: 'relative'
+                      position: 'relative',
+                      opacity: extraIsOutOfStock ? 0.6 : 1
                     }}
                     onClick={() => toggleExtra(extra)}
                   >
+                    {extraIsOutOfStock && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '8px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        zIndex: 2,
+                      }}>
+                        Agotado
+                      </div>
+                    )}
+                    {extra.unlimited_stock && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '8px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: '#28a745',
+                        color: 'white',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        zIndex: 2,
+                      }}>
+                        ∞ Stock
+                      </div>
+                    )}
                     {extra.image ? (
                       <img 
                         src={extra.image}
@@ -1591,9 +1959,7 @@ function Store() {
                       <div style={{ 
                         fontWeight: '600', 
                         fontSize: '13px',
-                        color: productConfig.selectedExtras.find(e => e.id === extra.id) 
-                          ? '#fff' 
-                          : colors.primary,
+                        color: productConfig.selectedExtras.find(e => e.id === extra.id) ? '#fff' : colors.primary,
                         marginBottom: '2px',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -1605,9 +1971,7 @@ function Store() {
                         <div style={{ 
                           fontSize: '12px', 
                           fontWeight: '600',
-                          color: productConfig.selectedExtras.find(e => e.id === extra.id) 
-                            ? '#fff' 
-                            : colors.accent
+                          color: productConfig.selectedExtras.find(e => e.id === extra.id) ? '#fff' : colors.accent
                         }}>
                           +{colors.currency.symbol}{Number(extra.price).toFixed(2)}
                         </div>
@@ -1630,7 +1994,8 @@ function Store() {
                       </div>
                     )}
                   </div>
-                ))}
+                );
+                })}
               </div>
             </div>
 
@@ -1638,25 +2003,48 @@ function Store() {
               padding: '20px',
               borderTop: `2px solid ${colors.primary}`
             }}>
-              <button 
-                onClick={() => setExtrasModalOpen(false)}
-                style={{
-                  width: '100%',
-                  padding: '16px',
-                  fontSize: '18px',
-                  backgroundColor: colors.accent,
-                  color: colors.primary,
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
-                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-              >
-                Listo
-              </button>
+              {productModalStep === 'main' ? (
+                <button 
+                  onClick={() => setExtrasModalOpen(false)}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    fontSize: '18px',
+                    backgroundColor: colors.accent,
+                    color: colors.primary,
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                >
+                  Listo
+                </button>
+              ) : (
+                <button 
+                  onClick={addToCart}
+                  disabled={addingToCart}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    fontSize: '18px',
+                    backgroundColor: addingToCart ? '#28a745' : colors.accent,
+                    color: colors.primary,
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: '700',
+                    cursor: addingToCart ? 'default' : 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => !addingToCart && (e.target.style.transform = 'scale(1.02)')}
+                  onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                >
+                  {addingToCart ? '✓ ¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`}
+                </button>
+              )}
             </div>
           </div>
         </div>

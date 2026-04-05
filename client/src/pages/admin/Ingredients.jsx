@@ -14,7 +14,9 @@ function Ingredients() {
     name: '',
     price: '',
     category_id: '',
-    imageFile: null
+    imageFile: null,
+    stock: '',
+    unlimited_stock: false
   });
   const [error, setError] = useState('');
 
@@ -75,6 +77,8 @@ function Ingredients() {
       formDataToSend.append('price', parseFloat(formData.price) || 0);
       formDataToSend.append('category_id', formData.category_id || '');
       formDataToSend.append('store_id', selectedStore.id);
+      formDataToSend.append('stock', parseInt(formData.stock) || 0);
+      formDataToSend.append('unlimited_stock', formData.unlimited_stock);
       if (formData.imageFile) {
         formDataToSend.append('image', formData.imageFile);
       }
@@ -93,7 +97,7 @@ function Ingredients() {
 
       setShowModal(false);
       setEditingIngredient(null);
-      setFormData({ name: '', price: '', category_id: '', imageFile: null });
+      setFormData({ name: '', price: '', category_id: '', imageFile: null, stock: '', unlimited_stock: false });
       fetchIngredients();
     } catch (err) {
       setError(err.message);
@@ -106,7 +110,9 @@ function Ingredients() {
       name: ingredient.name,
       price: ingredient.price?.toString() || '0',
       category_id: ingredient.category_id?.toString() || '',
-      imageFile: null
+      imageFile: null,
+      stock: ingredient.stock?.toString() || '0',
+      unlimited_stock: ingredient.unlimited_stock || false
     });
     setShowModal(true);
   };
@@ -133,7 +139,7 @@ function Ingredients() {
 
   const openModal = () => {
     setEditingIngredient(null);
-    setFormData({ name: '', price: '', category_id: '', imageFile: null });
+    setFormData({ name: '', price: '', category_id: '', imageFile: null, stock: '', unlimited_stock: false });
     setShowModal(true);
   };
 
@@ -151,7 +157,7 @@ function Ingredients() {
   return (
     <>
       <header className="admin-header">
-        <h1>Ingredientes</h1>
+        <h1>Complementos</h1>
         <button className="btn btn-primary" onClick={openModal}>
           <FontAwesomeIcon icon={faPlus} />
           Nuevo Ingrediente
@@ -177,6 +183,7 @@ function Ingredients() {
                     <tr>
                       <th>Nombre</th>
                       <th>Precio Adicional</th>
+                      <th>Stock</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
@@ -186,6 +193,15 @@ function Ingredients() {
                         <td style={{ fontWeight: '600' }}>{ingredient.name}</td>
                         <td>
                           {Number(ingredient.price) > 0 ? `$${Number(ingredient.price).toFixed(2)}` : '-'}
+                        </td>
+                        <td>
+                          {ingredient.unlimited_stock ? (
+                            <span style={{ fontWeight: '700', color: '#28a745', fontSize: '18px' }}>∞</span>
+                          ) : (
+                            <span style={{ fontWeight: '700', color: ingredient.stock === 0 ? '#dc3545' : ingredient.stock < 10 ? '#ffc107' : '#28a745' }}>
+                              {ingredient.stock}
+                            </span>
+                          )}
                         </td>
                         <td>
                           <button
@@ -256,6 +272,33 @@ function Ingredients() {
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
+              </div>
+              <div className="form-group">
+                <label>Stock</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.stock}
+                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                  placeholder="0"
+                  disabled={formData.unlimited_stock}
+                />
+              </div>
+              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '20px', padding: '16px', background: formData.unlimited_stock ? '#d4edda' : '#fff3cd', borderRadius: '12px', border: `2px solid ${formData.unlimited_stock ? '#28a745' : '#ffc107'}` }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.unlimited_stock}
+                    onChange={(e) => setFormData({ ...formData, unlimited_stock: e.target.checked })}
+                    style={{ width: '22px', height: '22px', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontWeight: '600', color: formData.unlimited_stock ? '#155724' : '#856404' }}>
+                    Stock Ilimitado
+                  </span>
+                </label>
+                <span style={{ fontSize: '13px', color: formData.unlimited_stock ? '#28a745' : '#856404', marginLeft: 'auto' }}>
+                  {formData.unlimited_stock ? '∞ Stock Ilimitado' : 'Completo'}
+                </span>
               </div>
               <div className="form-group">
                 <label>Imagen</label>
