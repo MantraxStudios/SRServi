@@ -20,7 +20,8 @@ import {
   faBars,
   faTimes,
   faBarcode,
-  faCrown
+  faCrown,
+  faChartLine
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -353,6 +354,10 @@ function Layout() {
                   <NavLink to="/admin/orders" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faShoppingBag} />
                     <span>Pedidos</span>
+                  </NavLink>
+                  <NavLink to="/admin/analytics" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faChartLine} />
+                    <span>Análisis</span>
                   </NavLink>
                   <NavLink to="/admin/workers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faUsers} />

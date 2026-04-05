@@ -84,6 +84,11 @@ import {
   canUserCreateStore,
   assignPlanToUser,
   getPlanById,
+  getAnalytics,
+  getSalesByDay,
+  getTopProducts,
+  getOrdersByHour,
+  getRecentOrders,
   pool
 } from './database.js';
 
@@ -139,19 +144,21 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 1024 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!file) {
       return cb(null, false);
     }
-    const filetypes = /jpeg|jpg|png|webp/;
-    const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+    
+    const mimetype = allowedMimes.includes(file.mimetype);
+    const extname = allowedExts.includes(path.extname(file.originalname).toLowerCase());
     
     if (mimetype && extname) {
       return cb(null, true);
     }
-    cb(new Error('Solo se permiten imágenes (jpeg, jpg, png, webp)'));
+    cb(new Error('Solo se permiten imágenes (jpeg, jpg, png, webp, gif)'));
   }
 });
 
@@ -262,6 +269,7 @@ app.get('/api/public/:code', async (req, res) => {
         secondary_color: store.secondary_color || '#FFFFFF',
         accent_color: store.accent_color || '#D4AF37',
         header_color: store.header_color || '#000000',
+        logo_url: store.logo_url || null,
         currency_code: store.currency_code || 'USD',
         currency_symbol: store.currency_symbol || '$',
         currency_name: store.currency_name || 'Dólar Estadounidense'
@@ -375,12 +383,13 @@ app.get('/api/stores/:id', async (req, res) => {
   }
 });
 
-app.post('/api/stores', authenticateToken, async (req, res) => {
+app.post('/api/stores', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
     const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
+    const logo_url = req.file ? `/uploads/${req.file.filename}` : null;
     const store = await createStore(req.user.id, { 
       name, 
       primary_color, 
@@ -389,7 +398,8 @@ app.post('/api/stores', authenticateToken, async (req, res) => {
       header_color, 
       currency_code, 
       currency_symbol, 
-      currency_name 
+      currency_name,
+      logo_url
     });
     res.json(store);
   } catch (error) {
@@ -405,11 +415,15 @@ app.post('/api/stores', authenticateToken, async (req, res) => {
   }
 });
 
-app.put('/api/stores/:id', authenticateToken, async (req, res) => {
+app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
     const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
+    }
+    let logo_url;
+    if (req.file) {
+      logo_url = `/uploads/${req.file.filename}`;
     }
     const store = await updateStore(req.params.id, req.user.id, { 
       name, 
@@ -419,7 +433,8 @@ app.put('/api/stores/:id', authenticateToken, async (req, res) => {
       header_color, 
       currency_code, 
       currency_symbol, 
-      currency_name 
+      currency_name,
+      logo_url
     });
     res.json(store);
   } catch (error) {
@@ -475,6 +490,77 @@ app.post('/api/subscribe-plan', authenticateToken, async (req, res) => {
     }
     const result = await assignPlanToUser(req.user.id, planId, billingCycle || 'monthly');
     res.json({ success: true, message: `Te has suscrito al plan ${result.plan}`, plan: result.plan });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/analytics/summary', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    const dateRange = req.query.range || 'week';
+    if (!storeId) {
+      return res.status(400).json({ error: 'Store ID es requerido' });
+    }
+    const analytics = await getAnalytics(parseInt(storeId), dateRange);
+    res.json(analytics);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/analytics/sales-by-day', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    const dateRange = req.query.range || 'week';
+    if (!storeId) {
+      return res.status(400).json({ error: 'Store ID es requerido' });
+    }
+    const sales = await getSalesByDay(parseInt(storeId), dateRange);
+    res.json(sales);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/analytics/top-products', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    const dateRange = req.query.range || 'week';
+    const limit = parseInt(req.query.limit) || 10;
+    if (!storeId) {
+      return res.status(400).json({ error: 'Store ID es requerido' });
+    }
+    const products = await getTopProducts(parseInt(storeId), limit, dateRange);
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/analytics/orders-by-hour', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    const dateRange = req.query.range || 'week';
+    if (!storeId) {
+      return res.status(400).json({ error: 'Store ID es requerido' });
+    }
+    const orders = await getOrdersByHour(parseInt(storeId), dateRange);
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/analytics/recent-orders', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    const limit = parseInt(req.query.limit) || 10;
+    if (!storeId) {
+      return res.status(400).json({ error: 'Store ID es requerido' });
+    }
+    const orders = await getRecentOrders(parseInt(storeId), limit);
+    res.json(orders);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

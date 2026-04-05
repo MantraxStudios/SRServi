@@ -542,6 +542,14 @@ async function migrateTables() {
       } else {
         console.log('ℹ️ Tabla stores ya tiene columna is_banned');
       }
+
+      const [logoCheck] = await pool.execute("SHOW COLUMNS FROM stores LIKE 'logo_url'");
+      if (logoCheck.length === 0) {
+        await pool.execute('ALTER TABLE stores ADD COLUMN logo_url VARCHAR(500) DEFAULT NULL');
+        console.log('✅ Columna logo_url agregada a stores');
+      } else {
+        console.log('ℹ️ Tabla stores ya tiene columna logo_url');
+      }
     } catch (err) {
       if (err.message.includes('Duplicate column')) {
         console.log('ℹ️ Columna is_banned ya existe en stores');
@@ -592,10 +600,31 @@ async function migrateTables() {
         await pool.execute(`
           INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
           ('Gratis', 'Plan gratuito básico', 2, 0, 0, '["2 tiendas máximo", "Gestión de productos", "Punto de venta"]'),
-          ('Profesional', 'Para negocios en crecimiento', 10, 19.99, 199.99, '["10 tiendas máximo", "Análisis avanzados", "Soporte prioritario", "Cupones de descuento"]'),
-          ('Empresarial', 'Para grandes empresas', 100, 49.99, 499.99, '["Tiendas ilimitadas", "Análisis avanzados", "Soporte 24/7", "Workers ilimitados", "Personalización avanzada"]')
+          ('Premium', 'Plan para negocios en crecimiento', 10, 19.99, 199.99, '["Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
         `);
         console.log('✅ Planes por defecto insertados');
+      } else {
+        const [existingPlans] = await pool.execute('SELECT * FROM plans');
+        for (const plan of existingPlans) {
+          if (plan.name === 'Profesional' || plan.name === 'Empresarial') {
+            await pool.execute('DELETE FROM plans WHERE id = ?', [plan.id]);
+            console.log('⚠️ Eliminando plan obsoleto:', plan.name);
+          } else if (plan.name === 'Gratis') {
+            await pool.execute(
+              'UPDATE plans SET features = ? WHERE id = ?',
+              ['["2 tiendas máximo", "Gestión de productos", "Punto de venta"]', plan.id]
+            );
+            console.log('ℹ️ Plan Gratis actualizado');
+          }
+        }
+        const [remainingPlans] = await pool.execute("SELECT COUNT(*) as count FROM plans WHERE name = 'Premium'");
+        if (remainingPlans[0].count === 0) {
+          await pool.execute(`
+            INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
+            ('Premium', 'Plan para negocios en crecimiento', 10, 19.99, 199.99, '["Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
+          `);
+          console.log('✅ Plan Premium insertado');
+        }
       }
     } catch (err) {
       console.error('❌ Error en user_plans:', err.message);
@@ -714,7 +743,7 @@ export async function createStore(userId, data) {
     throw error;
   }
 
-  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, mercadopago_access_token, mercadopago_terminal_id } = data;
+  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url } = data;
   let code = generateCode();
   
   const [existing] = await pool.execute('SELECT id FROM stores WHERE code = ?', [code]);
@@ -725,9 +754,9 @@ export async function createStore(userId, data) {
   }
 
   const [result] = await pool.execute(
-    `INSERT INTO stores (user_id, code, name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, mercadopago_access_token, mercadopago_terminal_id) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [userId, code, name, primary_color || '#000000', secondary_color || '#FFFFFF', accent_color || '#D4AF37', header_color || '#000000', currency_code || 'USD', currency_symbol || '$', currency_name || 'Dólar Estadounidense', mercadopago_access_token || null, mercadopago_terminal_id || null]
+    `INSERT INTO stores (user_id, code, name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [userId, code, name, primary_color || '#000000', secondary_color || '#FFFFFF', accent_color || '#D4AF37', header_color || '#000000', currency_code || 'USD', currency_symbol || '$', currency_name || 'Dólar Estadounidense', logo_url || null]
   );
   return { 
     id: result.insertId, 
@@ -741,19 +770,28 @@ export async function createStore(userId, data) {
     currency_code: currency_code || 'USD',
     currency_symbol: currency_symbol || '$',
     currency_name: currency_name || 'Dólar Estadounidense',
-    mercadopago_access_token: mercadopago_access_token || null,
-    mercadopago_terminal_id: mercadopago_terminal_id || null
+    logo_url: logo_url || null
   };
 }
 
 export async function updateStore(storeId, userId, data) {
-  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, mercadopago_access_token, mercadopago_terminal_id } = data;
-  await pool.execute(
-    `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ?, mercadopago_access_token = ?, mercadopago_terminal_id = ?
-     WHERE id = ? AND user_id = ?`,
-    [name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, mercadopago_access_token || null, mercadopago_terminal_id || null, storeId, userId]
-  );
-  return { id: storeId, user_id: userId, name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, mercadopago_access_token: mercadopago_access_token || null, mercadopago_terminal_id: mercadopago_terminal_id || null };
+  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url } = data;
+  
+  let query = `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ?`;
+  let params = [name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name];
+  
+  if (logo_url !== undefined) {
+    query += `, logo_url = ?`;
+    params.push(logo_url);
+  }
+  
+  query += ` WHERE id = ? AND user_id = ?`;
+  params.push(storeId, userId);
+  
+  await pool.execute(query, params);
+  
+  const [rows] = await pool.execute('SELECT * FROM stores WHERE id = ?', [storeId]);
+  return rows[0];
 }
 
 export async function deleteStore(storeId, userId) {
@@ -2088,6 +2126,155 @@ export async function assignPlanToUser(userId, planId, billingCycle = 'monthly')
 export async function getPlanById(planId) {
   const [rows] = await pool.execute('SELECT * FROM plans WHERE id = ?', [planId]);
   return rows[0] || null;
+}
+
+export async function getAnalytics(storeId, dateRange = 'week') {
+  let dateFilter = '';
+  const now = new Date();
+  
+  switch (dateRange) {
+    case 'today':
+      dateFilter = `AND DATE(o.created_at) = CURDATE()`;
+      break;
+    case 'week':
+      dateFilter = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`;
+      break;
+    case 'month':
+      dateFilter = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)`;
+      break;
+    case 'year':
+      dateFilter = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL 365 DAY)`;
+      break;
+    default:
+      dateFilter = `AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)`;
+  }
+
+  const totalOrdersQuery = `
+    SELECT COUNT(*) as total, 
+           SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN 1 ELSE 0 END) as completed,
+           SUM(CASE WHEN status IN ('pending', 'waiting') THEN 1 ELSE 0 END) as pending,
+           SUM(CASE WHEN status IN ('cancelled') THEN 1 ELSE 0 END) as cancelled,
+           SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN total_amount ELSE 0 END) as revenue
+    FROM orders o
+    WHERE store_id = ? ${dateFilter}
+  `;
+  
+  const [totals] = await pool.execute(totalOrdersQuery, [storeId]);
+  
+  const avgOrderQuery = `
+    SELECT AVG(total_amount) as avg_order
+    FROM orders
+    WHERE store_id = ? AND status IN ('paid', 'processed', 'completed', 'approved') ${dateFilter.replace('o.', '')}
+  `;
+  
+  const [avgResult] = await pool.execute(avgOrderQuery.replace('o.created_at', 'created_at').replace('DATE(o.created_at)', 'DATE(created_at)'), [storeId]);
+
+  return {
+    totalOrders: totals[0].total || 0,
+    completedOrders: totals[0].completed || 0,
+    pendingOrders: totals[0].pending || 0,
+    cancelledOrders: totals[0].cancelled || 0,
+    revenue: parseFloat(totals[0].revenue || 0),
+    avgOrder: parseFloat(avgResult[0].avg_order || 0)
+  };
+}
+
+export async function getSalesByDay(storeId, dateRange = 'week') {
+  let interval = '7 DAY';
+  switch (dateRange) {
+    case 'today': interval = '1 DAY'; break;
+    case 'week': interval = '7 DAY'; break;
+    case 'month': interval = '30 DAY'; break;
+    case 'year': interval = '365 DAY'; break;
+  }
+
+  const query = `
+    SELECT DATE(created_at) as date,
+           COUNT(*) as orders,
+           SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN total_amount ELSE 0 END) as revenue
+    FROM orders
+    WHERE store_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
+    GROUP BY DATE(created_at)
+    ORDER BY date ASC
+  `;
+  
+  const [rows] = await pool.execute(query, [storeId]);
+  return rows;
+}
+
+export async function getTopProducts(storeId, limit = 10, dateRange = 'week') {
+  let interval = '7 DAY';
+  switch (dateRange) {
+    case 'today': interval = '1 DAY'; break;
+    case 'week': interval = '7 DAY'; break;
+    case 'month': interval = '30 DAY'; break;
+    case 'year': interval = '365 DAY'; break;
+  }
+
+  const query = `
+    SELECT 
+      p.id,
+      p.name,
+      p.image,
+      SUM(oi.quantity) as total_sold,
+      SUM(oi.quantity * oi.price) as revenue
+    FROM order_items oi
+    JOIN orders o ON oi.order_id = o.id
+    JOIN products p ON oi.product_id = p.id
+    WHERE o.store_id = ? 
+      AND o.status IN ('paid', 'processed', 'completed', 'approved')
+      AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
+    GROUP BY p.id, p.name, p.image
+    ORDER BY total_sold DESC
+    LIMIT ?
+  `;
+  
+  const [rows] = await pool.execute(query, [storeId, limit]);
+  return rows;
+}
+
+export async function getOrdersByHour(storeId, dateRange = 'week') {
+  let interval = '7 DAY';
+  switch (dateRange) {
+    case 'today': interval = '1 DAY'; break;
+    case 'week': interval = '7 DAY'; break;
+    case 'month': interval = '30 DAY'; break;
+    case 'year': interval = '365 DAY'; break;
+  }
+
+  const query = `
+    SELECT 
+      HOUR(created_at) as hour,
+      COUNT(*) as orders
+    FROM orders
+    WHERE store_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
+    GROUP BY HOUR(created_at)
+    ORDER BY hour ASC
+  `;
+  
+  const [rows] = await pool.execute(query, [storeId]);
+  return rows;
+}
+
+export async function getRecentOrders(storeId, limit = 10) {
+  const query = `
+    SELECT 
+      o.id,
+      o.status,
+      o.total_amount,
+      o.created_at,
+      o.customer_name,
+      COUNT(oi.id) as items_count
+    FROM orders o
+    LEFT JOIN order_items oi ON o.id = oi.order_id
+    WHERE o.store_id = ?
+    GROUP BY o.id
+    ORDER BY o.created_at DESC
+    LIMIT ?
+  `;
+  
+  const [rows] = await pool.execute(query, [storeId, limit]);
+  return rows;
 }
 
 export { pool };

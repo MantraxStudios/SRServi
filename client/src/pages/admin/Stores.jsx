@@ -27,6 +27,8 @@ function Stores() {
   const [copiedCode, setCopiedCode] = useState(null);
   const [planInfo, setPlanInfo] = useState(null);
   const [storeLimitError, setStoreLimitError] = useState(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
@@ -85,10 +87,11 @@ function Stores() {
       currency_code: 'USD',
       currency_symbol: '$',
       currency_name: 'Dólar Estadounidense',
-      mercadopago_access_token: '',
-      mercadopago_terminal_id: ''
+      logo_url: ''
     });
     setEditingStore(null);
+    setLogoFile(null);
+    setLogoPreview(null);
   };
 
   const openModal = (store = null) => {
@@ -103,9 +106,10 @@ function Stores() {
         currency_code: store.currency_code || 'USD',
         currency_symbol: store.currency_symbol || '$',
         currency_name: store.currency_name || 'Dólar Estadounidense',
-        mercadopago_access_token: store.mercadopago_access_token || '',
-        mercadopago_terminal_id: store.mercadopago_terminal_id || ''
+        logo_url: store.logo_url || ''
       });
+      setLogoFile(null);
+      setLogoPreview(store.logo_url ? `http://localhost:3001${store.logo_url}` : null);
     } else {
       resetForm();
     }
@@ -142,13 +146,22 @@ function Stores() {
       
       const method = editingStore ? 'PUT' : 'POST';
 
+      const formDataToSend = new FormData();
+      Object.keys(formData).forEach(key => {
+        if (key !== 'logo_url' && key !== 'logo') {
+          formDataToSend.append(key, formData[key]);
+        }
+      });
+      if (logoFile) {
+        formDataToSend.append('logo', logoFile);
+      }
+
       const response = await fetch(url, {
         method,
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: formDataToSend
       });
 
       if (response.ok) {
@@ -455,7 +468,7 @@ function Stores() {
             borderRadius: '12px',
             padding: '32px',
             width: '100%',
-            maxWidth: '600px',
+            maxWidth: '700px',
             maxHeight: '90vh',
             overflowY: 'auto',
             boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
@@ -562,6 +575,70 @@ function Stores() {
               </div>
 
               <div style={{ marginBottom: '24px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '12px',
+                  fontWeight: '600',
+                  color: '#333',
+                  fontSize: '14px'
+                }}>
+                  Logo de la Tienda
+                </label>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  padding: '16px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '12px',
+                  border: '2px dashed #e0e0e0'
+                }}>
+                  <div style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '12px',
+                    backgroundColor: formData.secondary_color || '#f0f0f0',
+                    border: `2px solid ${formData.primary_color || '#e0e0e0'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden'
+                  }}>
+                    {logoPreview || formData.logo_url ? (
+                      <img src={logoPreview || `http://localhost:3001${formData.logo_url}`} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span style={{ fontSize: '24px', color: '#999' }}>🖼️</span>
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setLogoFile(file);
+                          setLogoPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        border: '2px solid #e0e0e0',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        boxSizing: 'border-box',
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <p style={{ margin: '6px 0 0 0', color: '#666', fontSize: '11px' }}>
+                      Selecciona una imagen para el logo (JPG, PNG, GIF)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
                 <label style={{ 
                   display: 'block', 
                   marginBottom: '12px', 
@@ -571,7 +648,7 @@ function Stores() {
                 }}>
                   Colores de la Tienda
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                   <div>
                     <div style={{ 
                       display: 'flex', 
@@ -594,10 +671,10 @@ function Stores() {
                         value={formData.primary_color}
                         onChange={handleChange}
                         style={{ 
-                          width: '44px', 
-                          height: '44px', 
+                          width: '36px', 
+                          height: '36px', 
                           border: '2px solid #e0e0e0',
-                          borderRadius: '8px',
+                          borderRadius: '6px',
                           cursor: 'pointer',
                           padding: '2px'
                         }}
@@ -609,10 +686,10 @@ function Stores() {
                         onChange={handleChange}
                         style={{
                           flex: 1,
-                          padding: '10px',
+                          padding: '6px 8px',
                           border: '2px solid #e0e0e0',
-                          borderRadius: '8px',
-                          fontSize: '12px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
                           fontFamily: 'monospace'
                         }}
                       />
@@ -642,10 +719,10 @@ function Stores() {
                         value={formData.secondary_color}
                         onChange={handleChange}
                         style={{ 
-                          width: '44px', 
-                          height: '44px', 
+                          width: '36px', 
+                          height: '36px', 
                           border: '2px solid #e0e0e0',
-                          borderRadius: '8px',
+                          borderRadius: '6px',
                           cursor: 'pointer',
                           padding: '2px'
                         }}
@@ -657,10 +734,10 @@ function Stores() {
                         onChange={handleChange}
                         style={{
                           flex: 1,
-                          padding: '10px',
+                          padding: '6px 8px',
                           border: '2px solid #e0e0e0',
-                          borderRadius: '8px',
-                          fontSize: '12px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
                           fontFamily: 'monospace'
                         }}
                       />
@@ -689,10 +766,10 @@ function Stores() {
                         value={formData.accent_color}
                         onChange={handleChange}
                         style={{ 
-                          width: '44px', 
-                          height: '44px', 
+                          width: '36px', 
+                          height: '36px', 
                           border: '2px solid #e0e0e0',
-                          borderRadius: '8px',
+                          borderRadius: '6px',
                           cursor: 'pointer',
                           padding: '2px'
                         }}
@@ -704,10 +781,57 @@ function Stores() {
                         onChange={handleChange}
                         style={{
                           flex: 1,
-                          padding: '10px',
+                          padding: '6px 8px',
                           border: '2px solid #e0e0e0',
-                          borderRadius: '8px',
-                          fontSize: '12px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontFamily: 'monospace'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      marginBottom: '6px'
+                    }}>
+                      <div style={{
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '4px',
+                        backgroundColor: formData.header_color
+                      }} />
+                      <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Header</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="color"
+                        name="header_color"
+                        value={formData.header_color}
+                        onChange={handleChange}
+                        style={{ 
+                          width: '36px', 
+                          height: '36px', 
+                          border: '2px solid #e0e0e0',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          padding: '2px'
+                        }}
+                      />
+                      <input
+                        type="text"
+                        name="header_color"
+                        value={formData.header_color}
+                        onChange={handleChange}
+                        style={{
+                          flex: 1,
+                          padding: '6px 8px',
+                          border: '2px solid #e0e0e0',
+                          borderRadius: '6px',
+                          fontSize: '11px',
                           fontFamily: 'monospace'
                         }}
                       />
@@ -802,100 +926,6 @@ function Stores() {
                       ))}
                     </div>
                   )}
-                </div>
-              </div>
-
-              <div style={{ 
-                marginBottom: '24px',
-                padding: '20px',
-                backgroundColor: '#f8f9fa',
-                borderRadius: '12px',
-                border: '2px solid #e9ecef'
-              }}>
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '10px',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{
-                    width: '40px',
-                    height: '40px',
-                    backgroundColor: '#00B1EA',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
-                    fontWeight: '700',
-                    fontSize: '14px'
-                  }}>
-                    MP
-                  </div>
-                  <div>
-                    <h4 style={{ margin: 0, color: '#333', fontSize: '16px' }}>Mercado Pago Point</h4>
-                    <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '12px' }}>Configuracion para pagos con tarjeta</p>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ 
-                    display: 'block', 
-                    marginBottom: '8px', 
-                    fontWeight: '600', 
-                    color: '#333',
-                    fontSize: '14px'
-                  }}>
-                    Access Token de Mercado Pago
-                  </label>
-                  <input
-                    type="password"
-                    name="mercadopago_access_token"
-                    value={formData.mercadopago_access_token}
-                    onChange={handleChange}
-                    placeholder="APP_USR-xxxxxxxx-xxxxxx-..."
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      border: '2px solid #e0e0e0',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                  <p style={{ margin: '6px 0 0 0', color: '#666', fontSize: '12px' }}>
-                    Lo encuentras en Mercado Pago Developers → Tus Apps → Credenciales de produccion
-                  </p>
-                </div>
-
-                <div>
-                  <label style={{ 
-                    display: 'block', 
-                    marginBottom: '8px', 
-                    fontWeight: '600', 
-                    color: '#333',
-                    fontSize: '14px'
-                  }}>
-                    ID del Terminal Point
-                  </label>
-                  <input
-                    type="text"
-                    name="mercadopago_terminal_id"
-                    value={formData.mercadopago_terminal_id}
-                    onChange={handleChange}
-                    placeholder="NEWLAND_N950__XXXXXXXX"
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      border: '2px solid #e0e0e0',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                  <p style={{ margin: '6px 0 0 0', color: '#666', fontSize: '12px' }}>
-                    Lo encuentras en Mercado Pago Developers → Tu negocio → Point
-                  </p>
                 </div>
               </div>
 

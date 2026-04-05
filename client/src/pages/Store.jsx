@@ -796,24 +796,48 @@ function Store() {
         background: `linear-gradient(135deg, ${colors.header}, ${colors.primary})`,
         color: colors.accent,
         padding: '16px 24px',
-        textAlign: 'center',
         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
       }}>
-        <h1 style={{ 
-          fontSize: '24px', 
-          fontWeight: '700',
-          color: colors.accent
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
         }}>
-          {store?.store?.name}
-        </h1>
-        <p style={{ 
-          fontSize: '12px',
-          color: colors.secondary,
-          marginTop: '4px',
-          opacity: 0.85
-        }}>
-          AutoServicio By SRAutomatic
-        </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {store?.store?.logo_url && (
+              <img 
+                src={store.store.logo_url} 
+                alt={store?.store?.name} 
+                style={{ 
+                  maxHeight: '80px',
+                  maxWidth: '140px',
+                  objectFit: 'contain'
+                }} 
+              />
+            )}
+            <div>
+              <h1 style={{ 
+                fontSize: '28px', 
+                fontWeight: '700',
+                color: colors.accent,
+                margin: 0
+              }}>
+                {store?.store?.name}
+              </h1>
+            </div>
+          </div>
+          <p style={{ 
+            fontSize: '16px',
+            fontWeight: '600',
+            color: colors.secondary,
+            margin: 0,
+            opacity: 0.9
+          }}>
+            AutoServicio By SRAutomatic
+          </p>
+        </div>
       </header>
 
       {!configFromUrl && configurations.length > 1 && (
@@ -1014,23 +1038,6 @@ function Store() {
                         boxShadow: '0 2px 8px rgba(220, 53, 69, 0.3)'
                       }}>
                         Agotado
-                      </div>
-                    )}
-                    {isUnlimited && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        backgroundColor: '#28a745',
-                        color: 'white',
-                        padding: '6px 14px',
-                        borderRadius: '8px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        zIndex: 2,
-                        boxShadow: '0 2px 8px rgba(40, 167, 69, 0.3)'
-                      }}>
-                        ∞ Stock
                       </div>
                     )}
                     <div className="product-image" style={{
