@@ -13,6 +13,7 @@ import {
   faExclamationTriangle,
   faShieldAlt,
   faChartBar,
+  faCreditCard,
   faTimes
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -34,6 +35,7 @@ function SuperadminDashboard() {
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
   const [stores, setStores] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingUser, setEditingUser] = useState(null);
@@ -65,12 +67,18 @@ function SuperadminDashboard() {
         });
         const data = await res.json();
         setUsers(data);
-      } else {
+      } else if (activeTab === 'stores') {
         const res = await fetch('http://localhost:3001/api/superadmin/stores', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
         setStores(data);
+      } else if (activeTab === 'subscriptions') {
+        const res = await fetch('http://localhost:3001/api/superadmin/subscriptions', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        setSubscriptions(data);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -346,6 +354,25 @@ function SuperadminDashboard() {
             <FontAwesomeIcon icon={faStore} style={{ fontSize: '18px' }} />
             {sidebarOpen && <span>Tiendas</span>}
           </div>
+
+          <div 
+            onClick={() => setActiveTab('subscriptions')}
+            style={{
+              padding: '14px 16px',
+              borderRadius: '12px',
+              backgroundColor: activeTab === 'subscriptions' ? COLORS.gold : 'transparent',
+              color: activeTab === 'subscriptions' ? COLORS.black : COLORS.white,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              transition: 'all 0.2s ease',
+              fontWeight: activeTab === 'subscriptions' ? '600' : '400'
+            }}
+          >
+            <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '18px' }} />
+            {sidebarOpen && <span>Suscripciones</span>}
+          </div>
         </nav>
 
         <div style={{ padding: '20px', borderTop: `1px solid ${COLORS.gold}` }}>
@@ -385,10 +412,10 @@ function SuperadminDashboard() {
               color: COLORS.black,
               marginBottom: '4px'
             }}>
-              {activeTab === 'users' ? 'Gestión de Usuarios' : 'Gestión de Tiendas'}
+              {activeTab === 'users' ? 'Gestión de Usuarios' : activeTab === 'stores' ? 'Gestión de Tiendas' : 'Suscripciones'}
             </h1>
             <p style={{ color: COLORS.grayDark, fontSize: '14px' }}>
-              Administra {activeTab === 'users' ? 'las cuentas de usuarios' : 'todas las tiendas'}
+              {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : 'Ver todas las suscripciones de usuarios'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
@@ -417,6 +444,19 @@ function SuperadminDashboard() {
               <FontAwesomeIcon icon={faStore} />
               <span style={{ fontWeight: '600' }}>{stats.totalStores}</span>
               <span style={{ color: COLORS.black, opacity: 0.7 }}>Tiendas</span>
+            </div>
+            <div style={{
+              backgroundColor: COLORS.success,
+              color: COLORS.white,
+              padding: '10px 20px',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <FontAwesomeIcon icon={faCreditCard} />
+              <span style={{ fontWeight: '600' }}>{subscriptions.length}</span>
+              <span style={{ color: 'rgba(255,255,255,0.8)' }}>Subs</span>
             </div>
           </div>
         </header>
@@ -633,7 +673,7 @@ function SuperadminDashboard() {
                   </div>
                 )}
               </div>
-            ) : (
+            ) : activeTab === 'stores' ? (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
@@ -752,7 +792,116 @@ function SuperadminDashboard() {
                   </div>
                 )}
               </div>
-            )}
+            ) : activeTab === 'subscriptions' ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: `2px solid ${COLORS.grayLight}` }}>
+                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Usuario</th>
+                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Email</th>
+                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Plan</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Ciclo</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Precio</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Inicio</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Vencimiento</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subscriptions.map(sub => (
+                      <tr key={sub.id} style={{ borderBottom: `1px solid ${COLORS.grayLight}`, transition: 'background-color 0.2s' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.grayLight}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                        <td style={{ padding: '16px 12px' }}>
+                          <div style={{ fontWeight: '600', color: COLORS.black }}>{sub.username}</div>
+                          <div style={{ fontSize: '12px', color: COLORS.grayDark }}>{sub.business_name || '-'}</div>
+                        </td>
+                        <td style={{ padding: '16px 12px', color: COLORS.grayDark }}>{sub.email}</td>
+                        <td style={{ padding: '16px 12px' }}>
+                          <span style={{
+                            backgroundColor: sub.plan_name === 'Gratis' ? COLORS.gray : COLORS.gold,
+                            color: sub.plan_name === 'Gratis' ? COLORS.black : COLORS.black,
+                            padding: '6px 14px',
+                            borderRadius: '20px',
+                            fontSize: '12px',
+                            fontWeight: '600'
+                          }}>
+                            {sub.plan_name}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                          <span style={{
+                            backgroundColor: COLORS.black,
+                            color: COLORS.white,
+                            padding: '6px 14px',
+                            borderRadius: '20px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            textTransform: 'capitalize'
+                          }}>
+                            {sub.billing_cycle === 'monthly' ? 'Mensual' : 'Anual'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                          <div style={{ fontWeight: '600', color: COLORS.black }}>
+                            {sub.plan_name === 'Gratis' ? 'Gratis' : 
+                              sub.billing_cycle === 'monthly' 
+                                ? `$${sub.price_monthly}/mes` 
+                                : `$${sub.price_yearly}/año`}
+                          </div>
+                        </td>
+                        <td style={{ padding: '16px 12px', textAlign: 'center', color: COLORS.grayDark, fontSize: '13px' }}>
+                          {sub.starts_at ? new Date(sub.starts_at).toLocaleDateString('es-ES') : '-'}
+                        </td>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                          <span style={{
+                            backgroundColor: new Date(sub.ends_at) > new Date() ? 'rgba(40,167,69,0.1)' : 'rgba(220,53,69,0.1)',
+                            color: new Date(sub.ends_at) > new Date() ? COLORS.success : COLORS.danger,
+                            padding: '6px 14px',
+                            borderRadius: '20px',
+                            fontSize: '12px',
+                            fontWeight: '600'
+                          }}>
+                            {sub.ends_at ? new Date(sub.ends_at).toLocaleDateString('es-ES') : '-'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                          {sub.is_active && new Date(sub.ends_at) > new Date() ? (
+                            <span style={{
+                              backgroundColor: COLORS.success,
+                              color: COLORS.white,
+                              padding: '6px 14px',
+                              borderRadius: '20px',
+                              fontSize: '12px',
+                              fontWeight: '600'
+                            }}>
+                              Activa
+                            </span>
+                          ) : (
+                            <span style={{
+                              backgroundColor: COLORS.danger,
+                              color: COLORS.white,
+                              padding: '6px 14px',
+                              borderRadius: '20px',
+                              fontSize: '12px',
+                              fontWeight: '600'
+                            }}>
+                              Vencida
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {subscriptions.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '60px', color: COLORS.grayDark }}>
+                    <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }} />
+                    <div style={{ fontSize: '16px' }}>No hay suscripciones</div>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

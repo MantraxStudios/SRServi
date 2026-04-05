@@ -2076,6 +2076,33 @@ export async function getUserStoreCount(userId) {
   return rows[0].count;
 }
 
+export async function getAllSubscriptions() {
+  const [rows] = await pool.execute(`
+    SELECT 
+      up.id,
+      up.user_id,
+      up.billing_cycle,
+      up.starts_at,
+      up.ends_at,
+      up.is_active,
+      up.created_at as subscribed_at,
+      p.id as plan_id,
+      p.name as plan_name,
+      p.max_stores,
+      p.price_monthly,
+      p.price_yearly,
+      p.features,
+      u.username,
+      u.email,
+      u.business_name
+    FROM user_plans up
+    JOIN plans p ON up.plan_id = p.id
+    JOIN users u ON up.user_id = u.id
+    ORDER BY up.created_at DESC
+  `);
+  return rows;
+}
+
 export async function canUserCreateStore(userId) {
   const plan = await getUserPlan(userId);
   const storeCount = await getUserStoreCount(userId);

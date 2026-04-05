@@ -258,6 +258,9 @@ app.get('/api/public/:code', async (req, res) => {
       });
     }
     
+    const userPlan = await getUserPlan(store.user_id);
+    const isPremium = userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis';
+    
     const products = await getPublicProducts(store.id);
     
     res.json({
@@ -269,10 +272,11 @@ app.get('/api/public/:code', async (req, res) => {
         secondary_color: store.secondary_color || '#FFFFFF',
         accent_color: store.accent_color || '#D4AF37',
         header_color: store.header_color || '#000000',
-        logo_url: store.logo_url || null,
+        logo_url: isPremium ? (store.logo_url || null) : null,
         currency_code: store.currency_code || 'USD',
         currency_symbol: store.currency_symbol || '$',
-        currency_name: store.currency_name || 'Dólar Estadounidense'
+        currency_name: store.currency_name || 'Dólar Estadounidense',
+        is_premium: isPremium
       },
       products
     });
@@ -417,12 +421,14 @@ app.post('/api/stores', authenticateToken, upload.single('logo'), async (req, re
 
 app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
-    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name } = req.body;
+    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
     let logo_url;
-    if (req.file) {
+    if (remove_logo === 'true') {
+      logo_url = null;
+    } else if (req.file) {
       logo_url = `/uploads/${req.file.filename}`;
     }
     const store = await updateStore(req.params.id, req.user.id, { 
@@ -674,6 +680,15 @@ app.delete('/api/superadmin/stores/:id', authenticateSuperadminToken, async (req
     const { id } = req.params;
     await deleteStoreBySuperadmin(id);
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/superadmin/subscriptions', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const subscriptions = await getAllSubscriptions();
+    res.json(subscriptions);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

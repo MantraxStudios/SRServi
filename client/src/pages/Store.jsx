@@ -798,33 +798,52 @@ function Store() {
         padding: '16px 24px',
         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
       }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <div>
-            <h1 style={{ 
-              fontSize: '28px', 
-              fontWeight: '700',
-              color: colors.accent,
-              margin: 0
+        {store?.store?.is_premium ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              {store?.store?.logo_url && (
+                <img 
+                  src={store.store.logo_url} 
+                  alt={store?.store?.name} 
+                  style={{ 
+                    maxHeight: '80px',
+                    maxWidth: '140px',
+                    objectFit: 'contain'
+                  }} 
+                />
+              )}
+              <h1 style={{ 
+                fontSize: '28px', 
+                fontWeight: '700',
+                color: colors.accent,
+                margin: 0
+              }}>
+                {store?.store?.name}
+              </h1>
+            </div>
+            <p style={{ 
+              fontSize: '16px',
+              fontWeight: '600',
+              color: colors.secondary,
+              margin: 0,
+              opacity: 0.9
             }}>
-              {store?.store?.name}
-            </h1>
+              AutoServicio By SRAutomatic
+            </p>
           </div>
-          <p style={{ 
-            fontSize: '16px',
-            fontWeight: '600',
-            color: colors.secondary,
-            margin: 0,
-            opacity: 0.9
-          }}>
-            AutoServicio By SRAutomatic
-          </p>
-        </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <p style={{ 
+              fontSize: '16px',
+              fontWeight: '600',
+              color: colors.secondary,
+              margin: 0,
+              opacity: 0.9
+            }}>
+              AutoServicio By SRAutomatic
+            </p>
+          </div>
+        )}
       </header>
 
       {!configFromUrl && configurations.length > 1 && (

@@ -145,6 +145,7 @@ function Stores() {
         : 'http://localhost:3001/api/stores';
       
       const method = editingStore ? 'PUT' : 'POST';
+      const isPremium = planInfo && planInfo.plan && planInfo.plan.name !== 'Gratis';
 
       const formDataToSend = new FormData();
       Object.keys(formData).forEach(key => {
@@ -152,9 +153,11 @@ function Stores() {
           formDataToSend.append(key, formData[key]);
         }
       });
-      const isPremium = planInfo && planInfo.plan && planInfo.plan.name !== 'Gratis';
+      
       if (logoFile && isPremium) {
         formDataToSend.append('logo', logoFile);
+      } else if (!isPremium && editingStore) {
+        formDataToSend.append('remove_logo', 'true');
       }
 
       const response = await fetch(url, {
