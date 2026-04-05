@@ -4,15 +4,31 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faUsers, 
   faStore, 
-  faSignOut, 
+  faSignOutAlt, 
   faEdit, 
   faTrash,
   faBan,
   faCheck,
   faSearch,
   faExclamationTriangle,
-  faShieldHalved
+  faShieldAlt,
+  faChartBar,
+  faTimes
 } from '@fortawesome/free-solid-svg-icons';
+
+const COLORS = {
+  black: '#000000',
+  white: '#FFFFFF',
+  gold: '#D4AF37',
+  goldLight: '#E5C158',
+  goldDark: '#B8962E',
+  grayLight: '#F5F5F5',
+  gray: '#CCCCCC',
+  grayDark: '#666666',
+  success: '#28a745',
+  danger: '#DC3545',
+  warning: '#f57c00'
+};
 
 function SuperadminDashboard() {
   const [activeTab, setActiveTab] = useState('users');
@@ -24,6 +40,7 @@ function SuperadminDashboard() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ email: '', password: '', is_banned: false });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -187,148 +204,238 @@ function SuperadminDashboard() {
     totalUsers: users.length,
     bannedUsers: users.filter(u => u.is_banned).length,
     totalStores: stores.length,
-    bannedStores: stores.filter(s => s.is_banned).length
+    bannedStores: stores.filter(s => s.is_banned).length,
+    activeUsers: users.filter(u => !u.is_banned).length,
+    activeStores: stores.filter(s => !s.is_banned).length
+  };
+
+  const sidebarStyle = {
+    width: sidebarOpen ? '260px' : '70px',
+    minHeight: '100vh',
+    backgroundColor: COLORS.black,
+    color: COLORS.white,
+    transition: 'width 0.3s ease',
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'fixed',
+    left: 0,
+    top: 0,
+    zIndex: 100
+  };
+
+  const mainStyle = {
+    marginLeft: sidebarOpen ? '260px' : '70px',
+    transition: 'margin-left 0.3s ease',
+    minHeight: '100vh',
+    backgroundColor: COLORS.grayLight
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#f5f6fa'
-    }}>
-      <header style={{
-        backgroundColor: '#1a1a2e',
-        padding: '16px 24px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <h1 style={{ 
-          color: '#fff', 
-          fontSize: '20px',
-          margin: 0,
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
+      <div style={sidebarStyle}>
+        <div style={{
+          padding: '20px',
+          borderBottom: `1px solid ${COLORS.gold}`,
           display: 'flex',
           alignItems: 'center',
           gap: '12px'
         }}>
-          <FontAwesomeIcon icon={faShieldHalved} style={{ color: '#e94560' }} />
-          Panel Superadmin
-        </h1>
-        <button
-          onClick={handleLogout}
-          style={{
-            backgroundColor: 'transparent',
-            border: '1px solid #e94560',
-            color: '#e94560',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            cursor: 'pointer',
+          <div style={{
+            width: '40px',
+            height: '40px',
+            backgroundColor: COLORS.gold,
+            borderRadius: '10px',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            fontSize: '14px'
-          }}
-        >
-          <FontAwesomeIcon icon={faSignOut} />
-          Cerrar Sesión
-        </button>
-      </header>
-
-      <div style={{
-        display: 'flex',
-        gap: '24px',
-        padding: '24px',
-        maxWidth: '1200px',
-        margin: '0 auto'
-      }}>
-        <div style={{ flex: '0 0 240px' }}>
-          <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '12px',
-            padding: '20px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+            justifyContent: 'center'
           }}>
-            <div style={{ marginBottom: '16px', cursor: 'pointer' }}>
-              <div 
-                onClick={() => setActiveTab('users')}
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: '8px',
-                  backgroundColor: activeTab === 'users' ? '#e94560' : 'transparent',
-                  color: activeTab === 'users' ? '#fff' : '#333',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  fontWeight: '500'
-                }}
-              >
-                <FontAwesomeIcon icon={faUsers} />
-                Usuarios ({stats.totalUsers})
-              </div>
-            </div>
-            <div style={{ cursor: 'pointer' }}>
-              <div 
-                onClick={() => setActiveTab('stores')}
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: '8px',
-                  backgroundColor: activeTab === 'stores' ? '#e94560' : 'transparent',
-                  color: activeTab === 'stores' ? '#fff' : '#333',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  fontWeight: '500'
-                }}
-              >
-                <FontAwesomeIcon icon={faStore} />
-                Tiendas ({stats.totalStores})
-              </div>
-            </div>
+            <FontAwesomeIcon icon={faShieldAlt} style={{ color: COLORS.black, fontSize: '20px' }} />
           </div>
-
-          <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '12px',
-            padding: '20px',
-            marginTop: '16px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-          }}>
-            <h3 style={{ fontSize: '14px', color: '#666', marginBottom: '16px' }}>Resumen</h3>
-            <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '12px', color: '#999' }}>Usuarios baneados</div>
-              <div style={{ fontSize: '20px', fontWeight: '700', color: '#e94560' }}>{stats.bannedUsers}</div>
-            </div>
+          {sidebarOpen && (
             <div>
-              <div style={{ fontSize: '12px', color: '#999' }}>Tiendas baneadas</div>
-              <div style={{ fontSize: '20px', fontWeight: '700', color: '#e94560' }}>{stats.bannedStores}</div>
+              <div style={{ fontWeight: '700', fontSize: '16px' }}>Superadmin</div>
+              <div style={{ fontSize: '11px', color: COLORS.gold }}>Panel de Control</div>
             </div>
-          </div>
+          )}
         </div>
 
-        <div style={{ flex: 1 }}>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          style={{
+            backgroundColor: 'transparent',
+            border: 'none',
+            color: COLORS.gold,
+            padding: '12px 20px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            fontSize: '18px'
+          }}
+        >
+          <FontAwesomeIcon icon={sidebarOpen ? faTimes : faBars} />
+          {sidebarOpen && <span style={{ fontSize: '14px' }}>Cerrar</span>}
+        </button>
+
+        <nav style={{ flex: 1, padding: '10px' }}>
+          <div 
+            onClick={() => setActiveTab('users')}
+            style={{
+              padding: '14px 16px',
+              borderRadius: '12px',
+              backgroundColor: activeTab === 'users' ? COLORS.gold : 'transparent',
+              color: activeTab === 'users' ? COLORS.black : COLORS.white,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '8px',
+              transition: 'all 0.2s ease',
+              fontWeight: activeTab === 'users' ? '600' : '400'
+            }}
+          >
+            <FontAwesomeIcon icon={faUsers} style={{ fontSize: '18px' }} />
+            {sidebarOpen && <span>Usuarios</span>}
+          </div>
+
+          <div 
+            onClick={() => setActiveTab('stores')}
+            style={{
+              padding: '14px 16px',
+              borderRadius: '12px',
+              backgroundColor: activeTab === 'stores' ? COLORS.gold : 'transparent',
+              color: activeTab === 'stores' ? COLORS.black : COLORS.white,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              transition: 'all 0.2s ease',
+              fontWeight: activeTab === 'stores' ? '600' : '400'
+            }}
+          >
+            <FontAwesomeIcon icon={faStore} style={{ fontSize: '18px' }} />
+            {sidebarOpen && <span>Tiendas</span>}
+          </div>
+        </nav>
+
+        <div style={{ padding: '20px', borderTop: `1px solid ${COLORS.gold}` }}>
+          <div 
+            onClick={handleLogout}
+            style={{
+              padding: '14px 16px',
+              borderRadius: '12px',
+              backgroundColor: 'transparent',
+              color: COLORS.danger,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <FontAwesomeIcon icon={faSignOutAlt} style={{ fontSize: '18px' }} />
+            {sidebarOpen && <span>Cerrar Sesión</span>}
+          </div>
+        </div>
+      </div>
+
+      <div style={mainStyle}>
+        <header style={{
+          backgroundColor: COLORS.white,
+          padding: '20px 30px',
+          borderBottom: `2px solid ${COLORS.grayLight}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div>
+            <h1 style={{ 
+              fontSize: '24px', 
+              fontWeight: '700', 
+              color: COLORS.black,
+              marginBottom: '4px'
+            }}>
+              {activeTab === 'users' ? 'Gestión de Usuarios' : 'Gestión de Tiendas'}
+            </h1>
+            <p style={{ color: COLORS.grayDark, fontSize: '14px' }}>
+              Administra {activeTab === 'users' ? 'las cuentas de usuarios' : 'todas las tiendas'}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{
+              backgroundColor: COLORS.black,
+              color: COLORS.white,
+              padding: '10px 20px',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <FontAwesomeIcon icon={faUsers} />
+              <span style={{ fontWeight: '600' }}>{stats.totalUsers}</span>
+              <span style={{ color: COLORS.gray }}>Usuarios</span>
+            </div>
+            <div style={{
+              backgroundColor: COLORS.gold,
+              color: COLORS.black,
+              padding: '10px 20px',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <FontAwesomeIcon icon={faStore} />
+              <span style={{ fontWeight: '600' }}>{stats.totalStores}</span>
+              <span style={{ color: COLORS.black, opacity: 0.7 }}>Tiendas</span>
+            </div>
+          </div>
+        </header>
+
+        <div style={{ padding: '30px' }}>
           <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '12px',
+            backgroundColor: COLORS.white,
+            borderRadius: '16px',
             padding: '24px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+            boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
           }}>
             <div style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
               alignItems: 'center',
-              marginBottom: '20px'
+              marginBottom: '24px'
             }}>
-              <h2 style={{ fontSize: '18px', margin: 0 }}>
-                {activeTab === 'users' ? 'Gestión de Usuarios' : 'Gestión de Tiendas'}
-              </h2>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <div style={{
+                  padding: '8px 16px',
+                  backgroundColor: COLORS.success,
+                  color: COLORS.white,
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  fontWeight: '600'
+                }}>
+                  {activeTab === 'users' ? stats.activeUsers : stats.activeStores} Activos
+                </div>
+                <div style={{
+                  padding: '8px 16px',
+                  backgroundColor: COLORS.danger,
+                  color: COLORS.white,
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  fontWeight: '600'
+                }}>
+                  {activeTab === 'users' ? stats.bannedUsers : stats.bannedStores} Baneados
+                </div>
+              </div>
               <div style={{ position: 'relative' }}>
                 <FontAwesomeIcon 
                   icon={faSearch} 
                   style={{ 
                     position: 'absolute', 
-                    left: '12px', 
+                    left: '14px', 
                     top: '50%', 
                     transform: 'translateY(-50%)',
-                    color: '#999'
+                    color: COLORS.grayDark
                   }} 
                 />
                 <input
@@ -337,122 +444,135 @@ function SuperadminDashboard() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   style={{
-                    padding: '10px 16px',
-                    paddingLeft: '40px',
-                    borderRadius: '8px',
-                    border: '1px solid #ddd',
-                    width: '250px',
+                    padding: '12px 16px',
+                    paddingLeft: '44px',
+                    borderRadius: '12px',
+                    border: `2px solid ${COLORS.grayLight}`,
+                    width: '300px',
                     fontSize: '14px',
-                    outline: 'none'
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
                   }}
+                  onFocus={(e) => e.target.style.borderColor = COLORS.gold}
+                  onBlur={(e) => e.target.style.borderColor = COLORS.grayLight}
                 />
               </div>
             </div>
 
             {loading ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-                Cargando...
+              <div style={{ textAlign: 'center', padding: '60px', color: COLORS.grayDark }}>
+                <div style={{ fontSize: '18px' }}>Cargando datos...</div>
               </div>
             ) : activeTab === 'users' ? (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ borderBottom: '2px solid #eee' }}>
-                      <th style={{ textAlign: 'left', padding: '12px 8px', color: '#666', fontSize: '12px' }}>Usuario</th>
-                      <th style={{ textAlign: 'left', padding: '12px 8px', color: '#666', fontSize: '12px' }}>Email</th>
-                      <th style={{ textAlign: 'left', padding: '12px 8px', color: '#666', fontSize: '12px' }}>Empresa</th>
-                      <th style={{ textAlign: 'center', padding: '12px 8px', color: '#666', fontSize: '12px' }}>Tiendas</th>
-                      <th style={{ textAlign: 'center', padding: '12px 8px', color: '#666', fontSize: '12px' }}>Estado</th>
-                      <th style={{ textAlign: 'center', padding: '12px 8px', color: '#666', fontSize: '12px' }}>Acciones</th>
+                    <tr style={{ borderBottom: `2px solid ${COLORS.grayLight}` }}>
+                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Usuario</th>
+                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Email</th>
+                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Empresa</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Tiendas</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Estado</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredUsers.map(user => (
-                      <tr key={user.id} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '12px 8px' }}>
-                          <div style={{ fontWeight: '500' }}>{user.username}</div>
-                          <div style={{ fontSize: '12px', color: '#999' }}>Code: {user.code}</div>
+                      <tr key={user.id} style={{ borderBottom: `1px solid ${COLORS.grayLight}`, transition: 'background-color 0.2s' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.grayLight}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                        <td style={{ padding: '16px 12px' }}>
+                          <div style={{ fontWeight: '600', color: COLORS.black }}>{user.username}</div>
+                          <div style={{ fontSize: '12px', color: COLORS.grayDark }}>Code: {user.code}</div>
                         </td>
-                        <td style={{ padding: '12px 8px', color: '#666' }}>{user.email}</td>
-                        <td style={{ padding: '12px 8px', color: '#666' }}>{user.business_name || '-'}</td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                        <td style={{ padding: '16px 12px', color: COLORS.grayDark }}>{user.email}</td>
+                        <td style={{ padding: '16px 12px', color: COLORS.grayDark }}>{user.business_name || '-'}</td>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
                           <span style={{
-                            backgroundColor: '#e3f2fd',
-                            color: '#1976d2',
-                            padding: '4px 12px',
-                            borderRadius: '12px',
+                            backgroundColor: COLORS.gold,
+                            color: COLORS.black,
+                            padding: '6px 14px',
+                            borderRadius: '20px',
                             fontSize: '12px',
-                            fontWeight: '500'
+                            fontWeight: '600'
                           }}>
                             {user.store_count}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
                           {user.is_banned ? (
                             <span style={{
-                              backgroundColor: '#ffebee',
-                              color: '#c62828',
-                              padding: '4px 12px',
-                              borderRadius: '12px',
+                              backgroundColor: COLORS.danger,
+                              color: COLORS.white,
+                              padding: '6px 14px',
+                              borderRadius: '20px',
                               fontSize: '12px',
-                              fontWeight: '500'
+                              fontWeight: '600'
                             }}>
                               Baneado
                             </span>
                           ) : (
                             <span style={{
-                              backgroundColor: '#e8f5e9',
-                              color: '#2e7d32',
-                              padding: '4px 12px',
-                              borderRadius: '12px',
+                              backgroundColor: COLORS.success,
+                              color: COLORS.white,
+                              padding: '6px 14px',
+                              borderRadius: '20px',
                               fontSize: '12px',
-                              fontWeight: '500'
+                              fontWeight: '600'
                             }}>
                               Activo
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
                           <button
                             onClick={() => handleEditUser(user)}
                             style={{
-                              backgroundColor: 'transparent',
+                              backgroundColor: COLORS.grayLight,
                               border: 'none',
-                              color: '#1976d2',
+                              color: COLORS.black,
                               cursor: 'pointer',
-                              padding: '6px',
-                              marginRight: '4px'
+                              padding: '10px',
+                              borderRadius: '10px',
+                              marginRight: '8px',
+                              transition: 'all 0.2s'
                             }}
                             title="Editar"
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = COLORS.gold; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = COLORS.grayLight; }}
                           >
-                            <FontAwesomeIcon icon={faEdit} />
+                            <FontAwesomeIcon icon={faEdit} style={{ fontSize: '14px' }} />
                           </button>
                           <button
                             onClick={() => handleToggleBanUser(user)}
                             style={{
-                              backgroundColor: 'transparent',
+                              backgroundColor: user.is_banned ? 'rgba(40,167,69,0.1)' : 'rgba(245,124,0,0.1)',
                               border: 'none',
-                              color: user.is_banned ? '#2e7d32' : '#f57c00',
+                              color: user.is_banned ? COLORS.success : COLORS.warning,
                               cursor: 'pointer',
-                              padding: '6px',
-                              marginRight: '4px'
+                              padding: '10px',
+                              borderRadius: '10px',
+                              marginRight: '8px',
+                              transition: 'all 0.2s'
                             }}
                             title={user.is_banned ? 'Desbanear' : 'Banear'}
                           >
-                            <FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} />
+                            <FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} style={{ fontSize: '14px' }} />
                           </button>
                           <button
                             onClick={() => setShowDeleteConfirm({ type: 'user', id: user.id, name: user.username })}
                             style={{
-                              backgroundColor: 'transparent',
+                              backgroundColor: 'rgba(220,53,69,0.1)',
                               border: 'none',
-                              color: '#c62828',
+                              color: COLORS.danger,
                               cursor: 'pointer',
-                              padding: '6px'
+                              padding: '10px',
+                              borderRadius: '10px',
+                              transition: 'all 0.2s'
                             }}
                             title="Eliminar"
                           >
-                            <FontAwesomeIcon icon={faTrash} />
+                            <FontAwesomeIcon icon={faTrash} style={{ fontSize: '14px' }} />
                           </button>
                         </td>
                       </tr>
@@ -460,8 +580,9 @@ function SuperadminDashboard() {
                   </tbody>
                 </table>
                 {filteredUsers.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-                    No se encontraron usuarios
+                  <div style={{ textAlign: 'center', padding: '60px', color: COLORS.grayDark }}>
+                    <FontAwesomeIcon icon={faUsers} style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }} />
+                    <div style={{ fontSize: '16px' }}>No se encontraron usuarios</div>
                   </div>
                 )}
               </div>
@@ -469,102 +590,108 @@ function SuperadminDashboard() {
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ borderBottom: '2px solid #eee' }}>
-                      <th style={{ textAlign: 'left', padding: '12px 8px', color: '#666', fontSize: '12px' }}>Tienda</th>
-                      <th style={{ textAlign: 'left', padding: '12px 8px', color: '#666', fontSize: '12px' }}>Propietario</th>
-                      <th style={{ textAlign: 'center', padding: '12px 8px', color: '#666', fontSize: '12px' }}>Productos</th>
-                      <th style={{ textAlign: 'center', padding: '12px 8px', color: '#666', fontSize: '12px' }}>Órdenes</th>
-                      <th style={{ textAlign: 'center', padding: '12px 8px', color: '#666', fontSize: '12px' }}>Estado</th>
-                      <th style={{ textAlign: 'center', padding: '12px 8px', color: '#666', fontSize: '12px' }}>Acciones</th>
+                    <tr style={{ borderBottom: `2px solid ${COLORS.grayLight}` }}>
+                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Tienda</th>
+                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Propietario</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Productos</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Órdenes</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Estado</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredStores.map(store => (
-                      <tr key={store.id} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '12px 8px' }}>
-                          <div style={{ fontWeight: '500' }}>{store.name}</div>
-                          <div style={{ fontSize: '12px', color: '#999' }}>Code: {store.code}</div>
+                      <tr key={store.id} style={{ borderBottom: `1px solid ${COLORS.grayLight}`, transition: 'background-color 0.2s' }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.grayLight}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                        <td style={{ padding: '16px 12px' }}>
+                          <div style={{ fontWeight: '600', color: COLORS.black }}>{store.name}</div>
+                          <div style={{ fontSize: '12px', color: COLORS.grayDark }}>Code: {store.code}</div>
                         </td>
-                        <td style={{ padding: '12px 8px' }}>
-                          <div style={{ color: '#666' }}>{store.user_email}</div>
-                          <div style={{ fontSize: '12px', color: '#999' }}>{store.user_business || '-'}</div>
+                        <td style={{ padding: '16px 12px' }}>
+                          <div style={{ color: COLORS.grayDark }}>{store.user_email}</div>
+                          <div style={{ fontSize: '12px', color: COLORS.grayDark }}>{store.user_business || '-'}</div>
                         </td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
                           <span style={{
-                            backgroundColor: '#e3f2fd',
-                            color: '#1976d2',
-                            padding: '4px 12px',
-                            borderRadius: '12px',
+                            backgroundColor: COLORS.gold,
+                            color: COLORS.black,
+                            padding: '6px 14px',
+                            borderRadius: '20px',
                             fontSize: '12px',
-                            fontWeight: '500'
+                            fontWeight: '600'
                           }}>
                             {store.product_count}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
                           <span style={{
-                            backgroundColor: '#fff3e0',
-                            color: '#e65100',
-                            padding: '4px 12px',
-                            borderRadius: '12px',
+                            backgroundColor: COLORS.black,
+                            color: COLORS.white,
+                            padding: '6px 14px',
+                            borderRadius: '20px',
                             fontSize: '12px',
-                            fontWeight: '500'
+                            fontWeight: '600'
                           }}>
                             {store.order_count}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
                           {store.is_banned ? (
                             <span style={{
-                              backgroundColor: '#ffebee',
-                              color: '#c62828',
-                              padding: '4px 12px',
-                              borderRadius: '12px',
+                              backgroundColor: COLORS.danger,
+                              color: COLORS.white,
+                              padding: '6px 14px',
+                              borderRadius: '20px',
                               fontSize: '12px',
-                              fontWeight: '500'
+                              fontWeight: '600'
                             }}>
                               Baneada
                             </span>
                           ) : (
                             <span style={{
-                              backgroundColor: '#e8f5e9',
-                              color: '#2e7d32',
-                              padding: '4px 12px',
-                              borderRadius: '12px',
+                              backgroundColor: COLORS.success,
+                              color: COLORS.white,
+                              padding: '6px 14px',
+                              borderRadius: '20px',
                               fontSize: '12px',
-                              fontWeight: '500'
+                              fontWeight: '600'
                             }}>
                               Activa
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
                           <button
                             onClick={() => handleToggleBanStore(store)}
                             style={{
-                              backgroundColor: 'transparent',
+                              backgroundColor: store.is_banned ? 'rgba(40,167,69,0.1)' : 'rgba(245,124,0,0.1)',
                               border: 'none',
-                              color: store.is_banned ? '#2e7d32' : '#f57c00',
+                              color: store.is_banned ? COLORS.success : COLORS.warning,
                               cursor: 'pointer',
-                              padding: '6px',
-                              marginRight: '4px'
+                              padding: '10px',
+                              borderRadius: '10px',
+                              marginRight: '8px',
+                              transition: 'all 0.2s'
                             }}
                             title={store.is_banned ? 'Desbanear' : 'Banear'}
                           >
-                            <FontAwesomeIcon icon={store.is_banned ? faCheck : faBan} />
+                            <FontAwesomeIcon icon={store.is_banned ? faCheck : faBan} style={{ fontSize: '14px' }} />
                           </button>
                           <button
                             onClick={() => setShowDeleteConfirm({ type: 'store', id: store.id, name: store.name })}
                             style={{
-                              backgroundColor: 'transparent',
+                              backgroundColor: 'rgba(220,53,69,0.1)',
                               border: 'none',
-                              color: '#c62828',
+                              color: COLORS.danger,
                               cursor: 'pointer',
-                              padding: '6px'
+                              padding: '10px',
+                              borderRadius: '10px',
+                              transition: 'all 0.2s'
                             }}
                             title="Eliminar"
                           >
-                            <FontAwesomeIcon icon={faTrash} />
+                            <FontAwesomeIcon icon={faTrash} style={{ fontSize: '14px' }} />
                           </button>
                         </td>
                       </tr>
@@ -572,8 +699,9 @@ function SuperadminDashboard() {
                   </tbody>
                 </table>
                 {filteredStores.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-                    No se encontraron tiendas
+                  <div style={{ textAlign: 'center', padding: '60px', color: COLORS.grayDark }}>
+                    <FontAwesomeIcon icon={faStore} style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }} />
+                    <div style={{ fontSize: '16px' }}>No se encontraron tiendas</div>
                   </div>
                 )}
               </div>
@@ -589,61 +717,69 @@ function SuperadminDashboard() {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
+          backgroundColor: 'rgba(0,0,0,0.6)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000
         }}>
           <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '12px',
-            padding: '24px',
-            width: '400px',
+            backgroundColor: COLORS.white,
+            borderRadius: '20px',
+            padding: '32px',
+            width: '450px',
             maxWidth: '90%'
           }}>
-            <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Editar Usuario</h3>
+            <h3 style={{ marginTop: 0, marginBottom: '24px', fontSize: '20px', fontWeight: '700' }}>Editar Usuario</h3>
             
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>Email</label>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600' }}>Email</label>
               <input
                 type="email"
                 value={editForm.email}
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #ddd',
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  border: `2px solid ${COLORS.grayLight}`,
                   fontSize: '14px',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  outline: 'none'
                 }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>Nueva Contraseña (dejar vacío para no cambiar)</label>
-              <input
-                type="password"
-                value={editForm.password}
-                onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #ddd',
-                  fontSize: '14px',
-                  boxSizing: 'border-box'
-                }}
+                onFocus={(e) => e.target.style.borderColor = COLORS.gold}
+                onBlur={(e) => e.target.style.borderColor = COLORS.grayLight}
               />
             </div>
 
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600' }}>Nueva Contraseña</label>
+              <input
+                type="password"
+                value={editForm.password}
+                onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                placeholder="Dejar vacío para no cambiar"
+                style={{
+                  width: '100%',
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  border: `2px solid ${COLORS.grayLight}`,
+                  fontSize: '14px',
+                  boxSizing: 'border-box',
+                  outline: 'none'
+                }}
+                onFocus={(e) => e.target.style.borderColor = COLORS.gold}
+                onBlur={(e) => e.target.style.borderColor = COLORS.grayLight}
+              />
+            </div>
+
+            <div style={{ marginBottom: '28px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px' }}>
                 <input
                   type="checkbox"
                   checked={editForm.is_banned}
                   onChange={(e) => setEditForm({ ...editForm, is_banned: e.target.checked })}
+                  style={{ width: '20px', height: '20px', accentColor: COLORS.gold }}
                 />
                 Usuario baneado
               </label>
@@ -653,12 +789,14 @@ function SuperadminDashboard() {
               <button
                 onClick={() => setShowEditModal(false)}
                 style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  border: '1px solid #ddd',
-                  backgroundColor: '#fff',
+                  padding: '14px 28px',
+                  borderRadius: '12px',
+                  border: `2px solid ${COLORS.gray}`,
+                  backgroundColor: COLORS.white,
+                  color: COLORS.black,
                   cursor: 'pointer',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  fontWeight: '600'
                 }}
               >
                 Cancelar
@@ -666,13 +804,14 @@ function SuperadminDashboard() {
               <button
                 onClick={handleSaveUser}
                 style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
+                  padding: '14px 28px',
+                  borderRadius: '12px',
                   border: 'none',
-                  backgroundColor: '#e94560',
-                  color: '#fff',
+                  backgroundColor: COLORS.gold,
+                  color: COLORS.black,
                   cursor: 'pointer',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  fontWeight: '600'
                 }}
               >
                 Guardar
@@ -689,33 +828,34 @@ function SuperadminDashboard() {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
+          backgroundColor: 'rgba(0,0,0,0.6)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000
         }}>
           <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '12px',
-            padding: '24px',
-            width: '400px',
+            backgroundColor: COLORS.white,
+            borderRadius: '20px',
+            padding: '32px',
+            width: '450px',
             maxWidth: '90%'
           }}>
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '12px',
-              marginBottom: '16px',
-              color: '#c62828'
+              gap: '16px',
+              marginBottom: '20px',
+              color: COLORS.danger
             }}>
-              <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '24px' }} />
-              <h3 style={{ margin: 0 }}>Confirmar Eliminación</h3>
+              <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '32px' }} />
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>Confirmar Eliminación</h3>
             </div>
             
-            <p style={{ marginBottom: '20px', color: '#666' }}>
+            <p style={{ marginBottom: '28px', color: COLORS.grayDark, fontSize: '14px', lineHeight: '1.6' }}>
               ¿Estás seguro de eliminar {showDeleteConfirm.type === 'user' ? 'al usuario' : 'la tienda'}{' '}
               <strong>"{showDeleteConfirm.name}"</strong>?
+              <br /><br />
               Esta acción no se puede deshacer y se eliminarán todos los datos asociados.
             </p>
 
@@ -723,12 +863,14 @@ function SuperadminDashboard() {
               <button
                 onClick={() => setShowDeleteConfirm(null)}
                 style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  border: '1px solid #ddd',
-                  backgroundColor: '#fff',
+                  padding: '14px 28px',
+                  borderRadius: '12px',
+                  border: `2px solid ${COLORS.gray}`,
+                  backgroundColor: COLORS.white,
+                  color: COLORS.black,
                   cursor: 'pointer',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  fontWeight: '600'
                 }}
               >
                 Cancelar
@@ -742,13 +884,14 @@ function SuperadminDashboard() {
                   }
                 }}
                 style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
+                  padding: '14px 28px',
+                  borderRadius: '12px',
                   border: 'none',
-                  backgroundColor: '#c62828',
-                  color: '#fff',
+                  backgroundColor: COLORS.danger,
+                  color: COLORS.white,
                   cursor: 'pointer',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  fontWeight: '600'
                 }}
               >
                 Eliminar

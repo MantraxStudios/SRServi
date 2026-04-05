@@ -1,7 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faShieldHalved } from '@fortawesome/free-solid-svg-icons';
+import { faShieldAlt, faEnvelope, faLock, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+
+const COLORS = {
+  black: '#000000',
+  white: '#FFFFFF',
+  gold: '#D4AF37',
+  goldLight: '#E5C158',
+  goldDark: '#B8962E',
+  grayLight: '#F5F5F5',
+  gray: '#CCCCCC',
+  grayDark: '#666666',
+  danger: '#DC3545'
+};
 
 function SuperadminLogin() {
   const [email, setEmail] = useState('');
@@ -44,114 +56,164 @@ function SuperadminLogin() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#1a1a2e',
+      backgroundColor: COLORS.black,
       padding: '20px'
     }}>
       <div style={{
-        backgroundColor: '#16213e',
-        borderRadius: '16px',
-        padding: '40px',
+        backgroundColor: COLORS.white,
+        borderRadius: '24px',
+        padding: '48px',
         width: '100%',
-        maxWidth: '400px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+        maxWidth: '420px',
+        boxShadow: '0 20px 60px rgba(212, 175, 55, 0.2)'
       }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <FontAwesomeIcon 
-            icon={faShieldHalved} 
-            style={{ 
-              fontSize: '48px', 
-              color: '#e94560',
-              marginBottom: '16px'
-            }} 
-          />
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            backgroundColor: COLORS.black,
+            borderRadius: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 20px'
+          }}>
+            <FontAwesomeIcon 
+              icon={faShieldAlt} 
+              style={{ 
+                fontSize: '40px', 
+                color: COLORS.gold
+              }} 
+            />
+          </div>
           <h1 style={{ 
-            color: '#fff', 
-            fontSize: '24px',
+            color: COLORS.black, 
+            fontSize: '28px',
+            fontWeight: '700',
             marginBottom: '8px'
           }}>
             Superadmin
           </h1>
-          <p style={{ color: '#a0a0a0', fontSize: '14px' }}>
+          <p style={{ color: COLORS.grayDark, fontSize: '14px' }}>
             Panel de administración del sistema
           </p>
         </div>
 
         {error && (
           <div style={{
-            backgroundColor: 'rgba(233, 69, 96, 0.1)',
-            border: '1px solid #e94560',
-            borderRadius: '8px',
-            padding: '12px',
-            marginBottom: '20px',
-            color: '#e94560',
-            fontSize: '14px',
-            textAlign: 'center'
+            backgroundColor: 'rgba(220, 53, 69, 0.1)',
+            border: `2px solid ${COLORS.danger}`,
+            borderRadius: '16px',
+            padding: '16px',
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
           }}>
-            {error}
+            <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: COLORS.danger }} />
+            <span style={{ color: COLORS.danger, fontSize: '14px' }}>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleLogin}>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{
-              display: 'block',
-              color: '#fff',
-              marginBottom: '8px',
-              fontSize: '14px',
-              fontWeight: '500'
-            }}>
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                borderRadius: '8px',
-                border: '1px solid #2a2a4a',
-                backgroundColor: '#1a1a2e',
-                color: '#fff',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-                outline: 'none'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#e94560'}
-              onBlur={(e) => e.target.style.borderColor = '#2a2a4a'}
-            />
-          </div>
-
           <div style={{ marginBottom: '24px' }}>
             <label style={{
               display: 'block',
-              color: '#fff',
-              marginBottom: '8px',
+              color: COLORS.black,
+              marginBottom: '10px',
               fontSize: '14px',
-              fontWeight: '500'
+              fontWeight: '600'
+            }}>
+              Email
+            </label>
+            <div style={{ position: 'relative' }}>
+              <FontAwesomeIcon 
+                icon={faEnvelope} 
+                style={{ 
+                  position: 'absolute', 
+                  left: '16px', 
+                  top: '50%', 
+                  transform: 'translateY(-50%)',
+                  color: COLORS.grayDark
+                }} 
+              />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '16px 16px 16px 48px',
+                  borderRadius: '14px',
+                  border: `2px solid ${COLORS.grayLight}`,
+                  backgroundColor: COLORS.grayLight,
+                  color: COLORS.black,
+                  fontSize: '15px',
+                  boxSizing: 'border-box',
+                  outline: 'none',
+                  transition: 'all 0.2s'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = COLORS.gold;
+                  e.target.style.backgroundColor = COLORS.white;
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = COLORS.grayLight;
+                  e.target.style.backgroundColor = COLORS.grayLight;
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '32px' }}>
+            <label style={{
+              display: 'block',
+              color: COLORS.black,
+              marginBottom: '10px',
+              fontSize: '14px',
+              fontWeight: '600'
             }}>
               Contraseña
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                borderRadius: '8px',
-                border: '1px solid #2a2a4a',
-                backgroundColor: '#1a1a2e',
-                color: '#fff',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-                outline: 'none'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#e94560'}
-              onBlur={(e) => e.target.style.borderColor = '#2a2a4a'}
-            />
+            <div style={{ position: 'relative' }}>
+              <FontAwesomeIcon 
+                icon={faLock} 
+                style={{ 
+                  position: 'absolute', 
+                  left: '16px', 
+                  top: '50%', 
+                  transform: 'translateY(-50%)',
+                  color: COLORS.grayDark
+                }} 
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '16px 16px 16px 48px',
+                  borderRadius: '14px',
+                  border: `2px solid ${COLORS.grayLight}`,
+                  backgroundColor: COLORS.grayLight,
+                  color: COLORS.black,
+                  fontSize: '15px',
+                  boxSizing: 'border-box',
+                  outline: 'none',
+                  transition: 'all 0.2s'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = COLORS.gold;
+                  e.target.style.backgroundColor = COLORS.white;
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = COLORS.grayLight;
+                  e.target.style.backgroundColor = COLORS.grayLight;
+                }}
+              />
+            </div>
           </div>
 
           <button
@@ -159,29 +221,50 @@ function SuperadminLogin() {
             disabled={loading}
             style={{
               width: '100%',
-              padding: '14px',
-              borderRadius: '8px',
+              padding: '18px',
+              borderRadius: '14px',
               border: 'none',
-              backgroundColor: loading ? '#4a4a6a' : '#e94560',
-              color: '#fff',
+              backgroundColor: loading ? COLORS.gray : COLORS.black,
+              color: loading ? COLORS.grayDark : COLORS.white,
               fontSize: '16px',
               fontWeight: '600',
               cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.2s'
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px'
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.currentTarget.style.backgroundColor = COLORS.gold;
+                e.currentTarget.style.color = COLORS.black;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!loading) {
+                e.currentTarget.style.backgroundColor = COLORS.black;
+                e.currentTarget.style.color = COLORS.white;
+              }
             }}
           >
             {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
           </button>
         </form>
 
-        <p style={{
-          textAlign: 'center',
-          marginTop: '20px',
-          color: '#a0a0a0',
-          fontSize: '12px'
+        <div style={{
+          marginTop: '32px',
+          paddingTop: '24px',
+          borderTop: `1px solid ${COLORS.grayLight}`,
+          textAlign: 'center'
         }}>
-          ¿Olvidaste tu contraseña? Contacta al desarrollador.
-        </p>
+          <p style={{
+            color: COLORS.grayDark,
+            fontSize: '12px'
+          }}>
+            ¿Olvidaste tu contraseña? Contacta al desarrollador.
+          </p>
+        </div>
       </div>
     </div>
   );
