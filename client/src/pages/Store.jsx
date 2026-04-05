@@ -1779,30 +1779,40 @@ function Store() {
         left: 0,
         right: 0,
         height: '85%',
-        backgroundColor: colors.secondary,
+        backgroundColor: '#f8f9fa',
         boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.3)',
         transition: 'bottom 0.3s ease',
         zIndex: 1001,
         display: 'flex',
         flexDirection: 'column',
-        borderTop: `3px solid ${colors.primary}`
+        borderTopLeftRadius: '24px',
+        borderTopRightRadius: '24px',
+        overflow: 'hidden'
       }} className={cartOpen ? 'open' : ''}>
         <div style={{
-          backgroundColor: colors.header,
+          backgroundColor: colors.primary,
           color: colors.accent,
-          padding: '20px',
+          padding: '20px 24px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <h2 style={{ margin: 0, fontSize: '22px' }}>Carrito</h2>
+          <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '700' }}>
+            🛒 Mi Pedido
+          </h2>
           <button 
             style={{
-              backgroundColor: 'transparent',
+              backgroundColor: 'rgba(255,255,255,0.2)',
               border: 'none',
-              color: colors.accent,
-              fontSize: '24px',
-              cursor: 'pointer'
+              color: '#fff',
+              fontSize: '20px',
+              cursor: 'pointer',
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }} 
             onClick={() => setCartOpen(false)}
           >
@@ -1812,304 +1822,419 @@ function Store() {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
           {cart.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
-              Tu carrito esta vacio
-            </p>
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '60px 20px',
+              color: '#6c757d'
+            }}>
+              <div style={{ fontSize: '80px', marginBottom: '20px' }}>🛒</div>
+              <p style={{ fontSize: '18px', fontWeight: '600' }}>
+                Tu carrito está vacío
+              </p>
+              <p style={{ fontSize: '14px', marginTop: '10px' }}>
+                Agrega productos para comenzar
+              </p>
+            </div>
           ) : (
-            cart.map(item => (
-              <div style={{
-                backgroundColor: colors.secondary,
-                border: `2px solid ${colors.primary}`,
-                borderRadius: 'var(--radius-md)',
-                padding: '16px',
-                marginBottom: '12px'
-              }} key={item.id}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginBottom: '8px'
-                }}>
-                  <h4 style={{ margin: 0, fontSize: '18px', color: colors.primary }}>
-                    {item.product_name}
-                  </h4>
-                  <button 
-                    onClick={() => removeFromCart(item.id)}
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      color: '#DC3545',
-                      cursor: 'pointer',
-                      fontSize: '16px'
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faTimes} />
-                  </button>
-                </div>
-                
-                {item.selected_ingredients && item.selected_ingredients.length > 0 && (
-                  <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>
-                    {item.selected_ingredients.join(', ')}
-                  </div>
-                )}
-                
-                {item.selected_extras && item.selected_extras.length > 0 && (
-                  <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>
-                    Extras: {item.selected_extras.join(', ')}
-                  </div>
-                )}
-                
-                {item.notes && (
-                  <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', fontStyle: 'italic' }}>
-                    Nota: {item.notes}
-                  </div>
-                )}
-                
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginTop: '12px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <button
-                      onClick={() => updateQuantity(item.id, -1)}
-                      style={{
-                        backgroundColor: colors.primary,
-                        color: colors.secondary,
-                        border: 'none',
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        fontSize: '12px'
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faMinus} />
-                    </button>
-                    <span style={{ fontWeight: '600', color: colors.primary }}>{item.quantity}</span>
-                    <button
-                      onClick={() => updateQuantity(item.id, 1)}
-                      style={{
-                        backgroundColor: colors.primary,
-                        color: colors.secondary,
-                        border: 'none',
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '50%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        fontSize: '12px'
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faPlus} />
-                    </button>
-                  </div>
-                  <div style={{ fontSize: '20px', fontWeight: '700', color: colors.accent }}>
-                    {colors.currency.symbol}{Number(item.total).toFixed(2)}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div style={{
-          padding: '24px',
-          borderTop: `2px solid ${colors.primary}`,
-          backgroundColor: colors.secondary
-        }}>
-          {cart.length > 0 && (
             <>
+              {cart.map(item => (
+                <div style={{
+                  backgroundColor: '#fff',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  marginBottom: '16px',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                  border: '1px solid #e9ecef'
+                }} key={item.id}>
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{
+                      width: '80px',
+                      height: '80px',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      backgroundColor: '#f8f9fa',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <span style={{ fontSize: '40px' }}>🍽️</span>
+                    </div>
+                    
+                    <div style={{ flex: 1 }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        marginBottom: '8px'
+                      }}>
+                        <h4 style={{ 
+                          margin: 0, 
+                          fontSize: '18px', 
+                          color: '#212529',
+                          fontWeight: '700'
+                        }}>
+                          {item.product_name}
+                        </h4>
+                        <button 
+                          onClick={() => removeFromCart(item.id)}
+                          style={{
+                            backgroundColor: '#fee2e2',
+                            border: 'none',
+                            color: '#dc3545',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faTimes} />
+                        </button>
+                      </div>
+                      
+                      {item.selected_ingredients && item.selected_ingredients.length > 0 && (
+                        <div style={{ 
+                          fontSize: '13px', 
+                          color: '#6c757d', 
+                          marginBottom: '4px',
+                          lineHeight: '1.4'
+                        }}>
+                          {item.selected_ingredients.join(', ')}
+                        </div>
+                      )}
+                      
+                      {item.selected_extras && item.selected_extras.length > 0 && (
+                        <div style={{ 
+                          fontSize: '13px', 
+                          color: '#6c757d',
+                          lineHeight: '1.4'
+                        }}>
+                          + {item.selected_extras.join(', ')}
+                        </div>
+                      )}
+                      
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginTop: '12px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <button
+                            onClick={() => updateQuantity(item.id, -1)}
+                            style={{
+                              backgroundColor: '#e9ecef',
+                              color: colors.primary,
+                              border: 'none',
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              fontSize: '16px',
+                              fontWeight: '700',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = colors.primary;
+                              e.target.style.color = '#fff';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = '#e9ecef';
+                              e.target.style.color = colors.primary;
+                            }}
+                          >
+                            -
+                          </button>
+                          <span style={{ 
+                            fontWeight: '700', 
+                            color: colors.primary,
+                            fontSize: '18px',
+                            minWidth: '30px',
+                            textAlign: 'center'
+                          }}>
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => updateQuantity(item.id, 1)}
+                            style={{
+                              backgroundColor: '#e9ecef',
+                              color: colors.primary,
+                              border: 'none',
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              fontSize: '16px',
+                              fontWeight: '700',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = colors.primary;
+                              e.target.style.color = '#fff';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = '#e9ecef';
+                              e.target.style.color = colors.primary;
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <div style={{ 
+                          fontSize: '20px', 
+                          fontWeight: '700', 
+                          color: colors.accent 
+                        }}>
+                          {colors.currency.symbol}{Number(item.total).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
               <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginBottom: '8px',
-                fontSize: '16px',
-                color: colors.primary
+                backgroundColor: '#fff',
+                borderRadius: '16px',
+                padding: '16px',
+                marginTop: '20px',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                border: '1px solid #e9ecef'
               }}>
-                <span>Subtotal:</span>
-                <span style={{ fontWeight: '600' }}>{colors.currency.symbol}{Number(getCartTotal()).toFixed(2)}</span>
-              </div>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  color: '#6c757d'
+                }}>
+                  <span>Subtotal:</span>
+                  <span style={{ fontWeight: '600', color: '#212529' }}>
+                    {colors.currency.symbol}{Number(getCartTotal()).toFixed(2)}
+                  </span>
+                </div>
 
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                <input
-                  type="text"
-                  value={couponCodeInput}
-                  onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
-                  placeholder="Cupón de descuento"
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    borderRadius: '10px',
-                    border: '2px solid #ddd',
-                    fontSize: '14px'
-                  }}
-                />
-                {appliedCoupon ? (
-                  <button
-                    onClick={removeCoupon}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      border: 'none',
-                      backgroundColor: '#dc3545',
-                      color: '#fff',
-                      cursor: 'pointer',
-                      fontWeight: '700'
-                    }}
-                  >
-                    Quitar
-                  </button>
-                ) : (
-                  <button
-                    onClick={applyCoupon}
-                    disabled={couponLoading || !couponCodeInput.trim()}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: '10px',
-                      border: 'none',
-                      backgroundColor: colors.primary,
-                      color: colors.secondary,
-                      cursor: couponLoading || !couponCodeInput.trim() ? 'not-allowed' : 'pointer',
-                      opacity: couponLoading || !couponCodeInput.trim() ? 0.5 : 1,
-                      fontWeight: '700'
-                    }}
-                  >
-                    {couponLoading ? '...' : 'Aplicar'}
-                  </button>
-                )}
-              </div>
-
-              {appliedCoupon && (
-                <>
+                {appliedCoupon && (
                   <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    marginBottom: '8px',
-                    fontSize: '15px',
-                    color: '#28a745'
+                    marginBottom: '12px',
+                    fontSize: '14px',
+                    color: '#28a745',
+                    fontWeight: '600'
                   }}>
                     <span>Descuento ({appliedCoupon.coupon_code}):</span>
-                    <span style={{ fontWeight: '700' }}>-{colors.currency.symbol}{Number(appliedCoupon.discount_total || 0).toFixed(2)}</span>
+                    <span>-{colors.currency.symbol}{Number(appliedCoupon.discount_total || 0).toFixed(2)}</span>
                   </div>
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    marginBottom: '8px',
-                    fontSize: '18px',
-                    color: colors.primary
-                  }}>
-                    <span style={{ fontWeight: '700' }}>Total:</span>
-                    <span style={{ fontWeight: '700' }}>{colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}</span>
-                  </div>
-                </>
-              )}
-              
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ 
-                  display: 'block', 
-                  fontSize: '16px', 
-                  fontWeight: '700', 
-                  color: colors.primary, 
-                  marginBottom: '12px' 
+                )}
+
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  paddingTop: '12px',
+                  borderTop: '2px dashed #dee2e6',
+                  fontSize: '20px',
+                  fontWeight: '700',
+                  color: colors.primary
                 }}>
-                  Como lo quieres?
-                </label>
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '1fr 1fr', 
-                  gap: '12px' 
-                }}>
-                  <button
-                    onClick={() => setOrderType('serve')}
+                  <span>Total:</span>
+                  <span>{colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}</span>
+                </div>
+
+                <div style={{ marginTop: '16px' }}>
+                  <input
+                    type="text"
+                    value={couponCodeInput}
+                    onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
+                    placeholder="¿Tienes un cupón?"
                     style={{
-                      padding: '16px',
-                      fontSize: '16px',
-                      backgroundColor: orderType === 'serve' ? colors.primary : colors.secondary,
-                      color: orderType === 'serve' ? colors.secondary : colors.primary,
-                      border: `3px solid ${orderType === 'serve' ? colors.accent : colors.primary}`,
-                      borderRadius: 'var(--radius-lg)',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '8px'
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      border: '2px solid #dee2e6',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s ease',
+                      boxSizing: 'border-box'
                     }}
-                  >
-                    <span style={{ fontSize: '28px' }}>🍽️</span>
-                    <span>Para Comer Aqui</span>
-                  </button>
-                  <button
-                    onClick={() => setOrderType('takeout')}
-                    style={{
-                      padding: '16px',
-                      fontSize: '16px',
-                      backgroundColor: orderType === 'takeout' ? colors.primary : colors.secondary,
-                      color: orderType === 'takeout' ? colors.secondary : colors.primary,
-                      border: `3px solid ${orderType === 'takeout' ? colors.accent : colors.primary}`,
-                      borderRadius: 'var(--radius-lg)',
-                      fontWeight: '700',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <span style={{ fontSize: '28px' }}>🥡</span>
-                    <span>Para Llevar</span>
-                  </button>
+                    onFocus={(e) => e.target.style.borderColor = colors.accent}
+                    onBlur={(e) => e.target.style.borderColor = '#dee2e6'}
+                  />
+                  {appliedCoupon ? (
+                    <button
+                      onClick={removeCoupon}
+                      style={{
+                        width: '100%',
+                        marginTop: '8px',
+                        padding: '10px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        backgroundColor: '#dc3545',
+                        color: '#fff',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Quitar cupón
+                    </button>
+                  ) : (
+                    <button
+                      onClick={applyCoupon}
+                      disabled={couponLoading || !couponCodeInput.trim()}
+                      style={{
+                        width: '100%',
+                        marginTop: '8px',
+                        padding: '10px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        backgroundColor: colors.primary,
+                        color: '#fff',
+                        cursor: couponLoading || !couponCodeInput.trim() ? 'not-allowed' : 'pointer',
+                        opacity: couponLoading || !couponCodeInput.trim() ? 0.5 : 1,
+                        fontWeight: '600',
+                        fontSize: '14px'
+                      }}
+                    >
+                      {couponLoading ? 'Aplicando...' : 'Aplicar cupón'}
+                    </button>
+                  )}
                 </div>
               </div>
-              
-              <button
-                onClick={handleCheckout}
-                style={{
-                  width: '100%',
-                  padding: '16px',
-                  fontSize: '18px',
-                  backgroundColor: colors.accent,
-                  color: colors.primary,
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  marginBottom: '8px'
-                }}
-                onMouseEnter={(e) => e.target.style.transform = 'scale(1.02)'}
-                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-              >
-                Confirmar Pedido
-              </button>
-              
-              <button
-                onClick={() => setCart([])}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  fontSize: '14px',
-                  backgroundColor: 'transparent',
-                  color: '#DC3545',
-                  border: '2px solid #DC3545',
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  fontWeight: '600'
-                }}
-              >
-                Vaciar Carrito
-              </button>
             </>
           )}
         </div>
+
+        {cart.length > 0 && (
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#fff',
+            borderTop: '1px solid #e9ecef',
+            boxShadow: '0 -4px 20px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ 
+                display: 'block', 
+                fontSize: '16px', 
+                fontWeight: '700', 
+                color: '#212529', 
+                marginBottom: '12px',
+                textAlign: 'center'
+              }}>
+                ¿Cómo lo quieres?
+              </label>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1fr 1fr', 
+                gap: '12px' 
+              }}>
+                <button
+                  onClick={() => setOrderType('serve')}
+                  style={{
+                    padding: '16px 12px',
+                    fontSize: '15px',
+                    backgroundColor: orderType === 'serve' ? colors.primary : '#fff',
+                    color: orderType === 'serve' ? '#fff' : '#212529',
+                    border: `2px solid ${orderType === 'serve' ? colors.accent : '#dee2e6'}`,
+                    borderRadius: '14px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: orderType === 'serve' ? '0 4px 12px rgba(0,0,0,0.2)' : 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '32px' }}>🍽️</span>
+                  <span>Comer aquí</span>
+                </button>
+                <button
+                  onClick={() => setOrderType('takeout')}
+                  style={{
+                    padding: '16px 12px',
+                    fontSize: '15px',
+                    backgroundColor: orderType === 'takeout' ? colors.primary : '#fff',
+                    color: orderType === 'takeout' ? '#fff' : '#212529',
+                    border: `2px solid ${orderType === 'takeout' ? colors.accent : '#dee2e6'}`,
+                    borderRadius: '14px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: orderType === 'takeout' ? '0 4px 12px rgba(0,0,0,0.2)' : 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '32px' }}>🥡</span>
+                  <span>Llevar</span>
+                </button>
+              </div>
+            </div>
+            
+            <button
+              onClick={handleCheckout}
+              style={{
+                width: '100%',
+                padding: '18px',
+                fontSize: '18px',
+                backgroundColor: colors.accent,
+                color: colors.primary,
+                border: 'none',
+                borderRadius: '14px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)';
+              }}
+            >
+              <span style={{ fontSize: '20px' }}>✓</span>
+              Confirmar Pedido - {colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}
+            </button>
+            
+            <button
+              onClick={() => setCart([])}
+              style={{
+                width: '100%',
+                marginTop: '10px',
+                padding: '12px',
+                fontSize: '14px',
+                backgroundColor: 'transparent',
+                color: '#dc3545',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+            >
+              Vaciar carrito
+            </button>
+          </div>
+        )}
       </div>
 
       {cartOpen && (
