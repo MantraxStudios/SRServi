@@ -952,9 +952,8 @@ function Store() {
         <div className="products-grid">
           {Object.entries(groupedProducts)
             .filter(([category]) => activeCategory === 'all' || activeCategory === category)
-            .map(([category, products]) => (
-            <div key={category}>
-              {products.map(product => {
+            .flatMap(([category, products]) =>
+              products.map(product => {
                 const isUnlimited = product.unlimited_stock === true || product.unlimited_stock === 1 || product.unlimited_stock === '1';
                 const isOutOfStock = !isUnlimited && product.stock === 0;
                 return (
@@ -964,9 +963,7 @@ function Store() {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    marginBottom: '24px',
-                    cursor: isOutOfStock ? 'default' : 'pointer',
-                    width: '100%'
+                    cursor: isOutOfStock ? 'default' : 'pointer'
                   }}
                 >
                   <div 
@@ -1080,9 +1077,7 @@ function Store() {
                   </div>
                 </div>
               );
-              })}
-            </div>
-          ))}
+            }))}
         </div>
       )}
 
