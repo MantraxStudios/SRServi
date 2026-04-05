@@ -66,7 +66,7 @@ function Stores() {
 
   const fetchPlanInfo = async () => {
     try {
-      const response = await fetch('/api/my-plan', {
+      const response = await fetch(`${API_URL}/api/my-plan`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {

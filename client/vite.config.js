@@ -16,6 +16,7 @@ export default defineConfig({
   server: {
     host,
     port,
+    allowedHosts: ['srservi2.srautomatic.com'],
     proxy: {
       '/api': {
         target: apiUrl,
@@ -26,5 +27,8 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  preview: {
+    allowedHosts: ['srservi2.srautomatic.com']
   }
 })

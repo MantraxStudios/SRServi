@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { getImageUrl } from '../config.js';
+import { getImageUrl, API_URL } from '../config.js';
 import { 
   faBarcode, 
   faShoppingCart,
@@ -214,7 +214,7 @@ function Minimarket() {
       setProcessingPayment(true);
       const storeId = store?.store?.id || store?.id;
       
-      const orderRes = await fetch('/api/market/create-payment', {
+      const orderRes = await fetch(`${API_URL}/api/market/create-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { API_URL } from '../../config.js';
 import { faPlus, faEdit, faTrash, faCreditCard } from '@fortawesome/free-solid-svg-icons';
 
 function MercadoPagoPoints() {
@@ -21,7 +22,7 @@ function MercadoPagoPoints() {
 
   const fetchTerminals = async () => {
     try {
-      const response = await fetch('/api/mercado-pago-terminals', {
+      const response = await fetch(`${API_URL}/api/mercado-pago-terminals`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await response.json();

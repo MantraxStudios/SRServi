@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faLock, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { API_URL } from '../config.js';
 
 function WorkerLogin() {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ function WorkerLogin() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/workers/login', {
+      const response = await fetch(`${API_URL}/api/workers/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faEnvelope, faLock, faStore } from '@fortawesome/free-solid-svg-icons';
+import { API_URL } from '../config.js';
 
 function Register() {
   const [formData, setFormData] = useState({
@@ -41,7 +42,7 @@ function Register() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

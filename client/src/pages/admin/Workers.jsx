@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserPlus, faTrash, faUser, faEnvelope } from '@fortawesome/free-solid-svg-icons';
 import { StoreContext } from '../../components/Layout';
+import { API_URL } from '../../config.js';
 
 function Workers() {
   const { selectedStore, colors } = useContext(StoreContext);
@@ -48,7 +49,7 @@ function Workers() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/workers', {
+      const response = await fetch(`${API_URL}/api/workers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

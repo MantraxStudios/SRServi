@@ -2,6 +2,7 @@ import { useState, useEffect, useContext, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { API_URL } from '../../config.js';
 import { 
   faCrown, 
   faCheck, 
@@ -33,7 +34,7 @@ function Plans() {
 
   const fetchPlans = async () => {
     try {
-      const response = await fetch('/api/plans');
+      const response = await fetch(`${API_URL}/api/plans');
       if (response.ok) {
         const data = await response.json();
         setPlans(data);
@@ -45,7 +46,7 @@ function Plans() {
 
   const fetchMyPlan = async () => {
     try {
-      const response = await fetch('/api/my-plan', {
+      const response = await fetch(`${API_URL}/api/my-plan`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -79,7 +80,7 @@ function Plans() {
     
     if (paymentStatus === 'success' || paymentId) {
       try {
-        const response = await fetch('/api/verify-payment', {
+        const response = await fetch(`${API_URL}/api/verify-payment`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -115,7 +116,7 @@ function Plans() {
     setMpLoading(true);
     
     try {
-      const response = await fetch('/api/create-subscription-preference', {
+      const response = await fetch(`${API_URL}/api/create-subscription-preference`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
