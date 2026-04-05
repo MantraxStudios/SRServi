@@ -19,6 +19,7 @@ import {
   deleteStore,
   getStoreById,
   getStoreByCode,
+  verifyStoreOwnership,
   getCategories,
   createCategory,
   updateCategory,
@@ -373,20 +374,20 @@ app.put('/api/user/settings', authenticateToken, async (req, res) => {
   }
  });
 
-app.get('/api/stores', async (req, res) => {
+app.get('/api/stores', authenticateToken, async (req, res) => {
   try {
-    const stores = await getStores();
+    const stores = await getStores(req.user.id);
     res.json(stores);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/api/stores/:id', async (req, res) => {
+app.get('/api/stores/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     console.log('Fetching store:', id);
-    const stores = await getStores();
+    const stores = await getStores(req.user.id);
     console.log('Stores found:', stores.length);
     const store = stores.find(s => s.id === parseInt(id));
     if (!store) {
@@ -755,6 +756,10 @@ app.get('/api/analytics/summary', authenticateToken, async (req, res) => {
     if (!storeId) {
       return res.status(400).json({ error: 'Store ID es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const analytics = await getAnalytics(parseInt(storeId), dateRange);
     res.json(analytics);
   } catch (error) {
@@ -768,6 +773,10 @@ app.get('/api/analytics/sales-by-day', authenticateToken, async (req, res) => {
     const dateRange = req.query.range || 'week';
     if (!storeId) {
       return res.status(400).json({ error: 'Store ID es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     const sales = await getSalesByDay(parseInt(storeId), dateRange);
     res.json(sales);
@@ -784,6 +793,10 @@ app.get('/api/analytics/top-products', authenticateToken, async (req, res) => {
     if (!storeId) {
       return res.status(400).json({ error: 'Store ID es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const products = await getTopProducts(parseInt(storeId), limit, dateRange);
     res.json(products);
   } catch (error) {
@@ -798,6 +811,10 @@ app.get('/api/analytics/orders-by-hour', authenticateToken, async (req, res) => 
     if (!storeId) {
       return res.status(400).json({ error: 'Store ID es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const orders = await getOrdersByHour(parseInt(storeId), dateRange);
     res.json(orders);
   } catch (error) {
@@ -811,6 +828,10 @@ app.get('/api/analytics/recent-orders', authenticateToken, async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     if (!storeId) {
       return res.status(400).json({ error: 'Store ID es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     const orders = await getRecentOrders(parseInt(storeId), limit);
     res.json(orders);
@@ -949,6 +970,10 @@ app.get('/api/categories', authenticateToken, async (req, res) => {
     if (!storeId) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const parsedId = parseInt(storeId);
     console.log(`[Categories] GET store_id=${storeId} parsed=${parsedId}`);
     const categories = await getCategories(parsedId);
@@ -965,6 +990,10 @@ app.post('/api/categories', authenticateToken, async (req, res) => {
     const { store_id, name, description } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
@@ -983,6 +1012,10 @@ app.put('/api/categories/:id', authenticateToken, async (req, res) => {
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
@@ -1000,6 +1033,10 @@ app.delete('/api/categories/:id', authenticateToken, async (req, res) => {
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const categoryId = req.params.id;
     await deleteCategory(parseInt(categoryId), parseInt(store_id));
     emitProductUpdate(parseInt(store_id), 'category_deleted', { id: categoryId });
@@ -1015,6 +1052,10 @@ app.get('/api/ingredients', authenticateToken, async (req, res) => {
     if (!storeId) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const ingredients = await getIngredients(parseInt(storeId));
     res.json(ingredients);
   } catch (error) {
@@ -1027,6 +1068,10 @@ app.post('/api/ingredients', authenticateToken, upload.single('image'), async (r
     const { store_id, name, price, category_id } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
@@ -1045,6 +1090,10 @@ app.put('/api/ingredients/:id', authenticateToken, upload.single('image'), async
     const { store_id, name, price, category_id, stock, unlimited_stock } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
@@ -1078,6 +1127,10 @@ app.delete('/api/ingredients/:id', authenticateToken, async (req, res) => {
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const ingredientId = req.params.id;
     await deleteIngredient(parseInt(ingredientId), parseInt(store_id));
     emitProductUpdate(parseInt(store_id), 'ingredient_deleted', { id: ingredientId });
@@ -1093,6 +1146,10 @@ app.get('/api/extras', authenticateToken, async (req, res) => {
     if (!storeId) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const extras = await getExtras(parseInt(storeId));
     res.json(extras);
   } catch (error) {
@@ -1105,6 +1162,10 @@ app.post('/api/extras', authenticateToken, upload.single('image'), async (req, r
     const { store_id, name, price, category_id } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
@@ -1123,6 +1184,10 @@ app.put('/api/extras/:id', authenticateToken, upload.single('image'), async (req
     const { store_id, name, price, category_id, stock, unlimited_stock } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
@@ -1156,6 +1221,10 @@ app.delete('/api/extras/:id', authenticateToken, async (req, res) => {
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const extraId = req.params.id;
     await deleteExtra(parseInt(extraId), parseInt(store_id));
     emitProductUpdate(parseInt(store_id), 'extra_deleted', { id: extraId });
@@ -1171,6 +1240,10 @@ app.get('/api/store-configurations', authenticateToken, async (req, res) => {
     if (!storeId) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const configurations = await getStoreConfigurations(parseInt(storeId));
     res.json(configurations);
   } catch (error) {
@@ -1183,6 +1256,10 @@ app.post('/api/store-configurations', authenticateToken, async (req, res) => {
     const { store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
@@ -1200,6 +1277,10 @@ app.put('/api/store-configurations/:id', authenticateToken, async (req, res) => 
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
@@ -1215,6 +1296,10 @@ app.delete('/api/store-configurations/:id', authenticateToken, async (req, res) 
     const { store_id } = req.query;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     const configId = req.params.id;
     await deleteStoreConfiguration(parseInt(configId), parseInt(store_id));
@@ -1251,6 +1336,10 @@ app.get('/api/coupons', authenticateToken, async (req, res) => {
     if (!storeId) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const coupons = await getCoupons(parseInt(storeId));
     res.json(coupons);
   } catch (error) {
@@ -1263,6 +1352,10 @@ app.post('/api/coupons', authenticateToken, async (req, res) => {
     const { store_id, code, name, discount_type, discount_value, min_order_total, usage_limit, is_active } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     if (!code || !name) {
       return res.status(400).json({ error: 'code y name son requeridos' });
@@ -1288,6 +1381,10 @@ app.put('/api/coupons/:id', authenticateToken, async (req, res) => {
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     if (!code || !name) {
       return res.status(400).json({ error: 'code y name son requeridos' });
     }
@@ -1312,6 +1409,10 @@ app.delete('/api/coupons/:id', authenticateToken, async (req, res) => {
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     await deleteCoupon(parseInt(req.params.id), parseInt(store_id));
     res.json({ success: true });
   } catch (error) {
@@ -1324,6 +1425,10 @@ app.get('/api/products', authenticateToken, async (req, res) => {
     const storeId = req.query.store_id;
     if (!storeId) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     const products = await getProducts(parseInt(storeId));
     res.json(products);
@@ -1338,6 +1443,10 @@ app.get('/api/products/barcode/:barcode', authenticateToken, async (req, res) =>
     const storeId = req.query.store_id;
     if (!storeId) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     const product = await getProductByBarcode(barcode, parseInt(storeId));
     if (!product) {
@@ -1356,6 +1465,10 @@ app.get('/api/products/search/:query', authenticateToken, async (req, res) => {
     if (!storeId) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const products = await searchProducts(query, parseInt(storeId));
     res.json(products);
   } catch (error) {
@@ -1366,6 +1479,14 @@ app.get('/api/products/search/:query', authenticateToken, async (req, res) => {
 app.get('/api/inventory/:productId', authenticateToken, async (req, res) => {
   try {
     const { productId } = req.params;
+    const storeId = req.query.store_id;
+    if (!storeId) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const inventory = await getInventory(parseInt(productId));
     res.json(inventory);
   } catch (error) {
@@ -1379,6 +1500,13 @@ app.put('/api/inventory/:productId', authenticateToken, async (req, res) => {
     const { adjustment, store_id } = req.body;
     if (adjustment === undefined) {
       return res.status(400).json({ error: 'adjustment es requerido' });
+    }
+    if (!store_id) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     const updated = await updateInventory(parseInt(productId), parseInt(adjustment), parseInt(store_id));
     if (store_id) {
@@ -1397,6 +1525,13 @@ app.put('/api/inventory/:productId/stock', authenticateToken, async (req, res) =
     if (stock === undefined) {
       return res.status(400).json({ error: 'stock es requerido' });
     }
+    if (!store_id) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const updated = await setInventoryStock(parseInt(productId), parseInt(stock));
     if (store_id) {
       req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { product_id: parseInt(productId), ...updated });
@@ -1414,6 +1549,13 @@ app.put('/api/inventory/:productId/unlimited', authenticateToken, async (req, re
     if (unlimited_stock === undefined) {
       return res.status(400).json({ error: 'unlimited_stock es requerido' });
     }
+    if (!store_id) {
+      return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     await pool.execute(
       'INSERT INTO inventory (product_id, unlimited_stock) VALUES (?, ?) ON DUPLICATE KEY UPDATE unlimited_stock = ?',
       [parseInt(productId), unlimited_stock, unlimited_stock]
@@ -1428,12 +1570,16 @@ app.put('/api/inventory/:productId/unlimited', authenticateToken, async (req, re
   }
 });
 
-app.post('/api/market/create-payment', async (req, res) => {
+app.post('/api/market/create-payment', authenticateToken, async (req, res) => {
   try {
     const { store_id, terminal_id, amount, description } = req.body;
 
     if (!store_id || !terminal_id || !amount) {
       return res.status(400).json({ error: 'store_id, terminal_id y amount son requeridos' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
 
     const terminal = await getMercadoPagoTerminalById(parseInt(terminal_id));
@@ -1503,7 +1649,7 @@ app.post('/api/market/create-payment', async (req, res) => {
   }
 });
 
-app.get('/api/market/payment-status/:mpOrderId', async (req, res) => {
+app.get('/api/market/payment-status/:mpOrderId', authenticateToken, async (req, res) => {
   try {
     const { mpOrderId } = req.params;
     const { store_id, terminal_id } = req.query;
@@ -1514,6 +1660,10 @@ app.get('/api/market/payment-status/:mpOrderId', async (req, res) => {
 
     if (!store_id || !terminal_id) {
       return res.status(400).json({ error: 'store_id y terminal_id son requeridos' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
 
     const terminal = await getMercadoPagoTerminalById(parseInt(terminal_id));
@@ -1569,6 +1719,10 @@ app.put('/api/products/order', authenticateToken, async (req, res) => {
     if (!store_id || !products) {
       return res.status(400).json({ error: 'store_id y products son requeridos' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     await updateProductsOrder(parseInt(store_id), products);
     console.log('✅ Order saved to database');
     emitProductUpdate(parseInt(store_id), 'products_reordered', { products });
@@ -1585,6 +1739,10 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
     
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     if (!name || price === undefined) {
       return res.status(400).json({ error: 'Nombre y precio son requeridos' });
@@ -1614,6 +1772,10 @@ app.put('/api/products/:id', authenticateToken, upload.single('image'), async (r
     
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     if (!name || price === undefined) {
       return res.status(400).json({ error: 'Nombre y precio son requeridos' });
@@ -1648,6 +1810,10 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
     const { store_id } = req.query;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     const productId = req.params.id;
     await deleteProduct(parseInt(productId), parseInt(store_id));
@@ -1952,6 +2118,10 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
     if (!storeId) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const orders = await getOrders(parseInt(storeId));
     res.json(orders);
   } catch (error) {
@@ -1983,6 +2153,11 @@ app.put('/api/orders/:id/status', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
     
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
+    
     const order = await updateOrderStatus(parseInt(id), parseInt(store_id), status, worker_id, worker_name);
     const io_instance = req.app.get('io');
     if (io_instance) {
@@ -2002,6 +2177,11 @@ app.put('/api/orders/:id/approve-cash', authenticateToken, async (req, res) => {
     
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
+    }
+    
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     
     console.log('approve-cash request:', { id, store_id, worker_id, worker_name });
@@ -2064,7 +2244,12 @@ app.get('/api/workers', authenticateToken, async (req, res) => {
     if (!storeId) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
-    
+    if (req.user.type === 'user') {
+      const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+      if (!isOwner) {
+        return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+      }
+    }
     const workers = await getWorkers(parseInt(storeId));
     res.json(workers);
   } catch (error) {
@@ -2083,7 +2268,10 @@ app.post('/api/workers', authenticateToken, async (req, res) => {
     if (!store_id || !username || !password || !name) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
-    
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     const worker = await createWorker(parseInt(store_id), { username, password, name });
     res.json(worker);
   } catch (error) {
@@ -2104,7 +2292,10 @@ app.delete('/api/workers/:id', authenticateToken, async (req, res) => {
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
-    
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
     await deleteWorker(parseInt(req.params.id), parseInt(store_id));
     res.json({ success: true });
   } catch (error) {

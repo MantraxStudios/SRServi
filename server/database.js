@@ -600,7 +600,7 @@ async function migrateTables() {
         await pool.execute(`
           INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
           ('Gratis', 'Plan gratuito básico', 2, 0, 0, '["2 tiendas máximo", "Gestión de productos", "Punto de venta"]'),
-          ('Premium', 'Plan para negocios en crecimiento', 10, 0.20, 2.00, '["Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
+          ('Premium', 'Plan para negocios en crecimiento', 10, 11.00, 11.00, '["Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
         `);
         console.log('✅ Planes por defecto insertados');
       } else {
@@ -621,15 +621,15 @@ async function migrateTables() {
         if (remainingPlans[0].count === 0) {
           await pool.execute(`
             INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
-            ('Premium', 'Plan para negocios en crecimiento', 10, 0.10, 1.00, '["Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
+            ('Premium', 'Plan para negocios en crecimiento', 10, 11.00, 11.00, '["Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
           `);
           console.log('✅ Plan Premium insertado');
         } else {
           await pool.execute(
-            'UPDATE plans SET price_monthly = 0.20, price_yearly = 2.00 WHERE name = ?',
+            'UPDATE plans SET price_monthly = 11.00, price_yearly = 11.00 WHERE name = ?',
             ['Premium']
           );
-          console.log('ℹ️ Plan Premium actualizado a $10/$90');
+          console.log('ℹ️ Plan Premium actualizado a $11/$11');
         }
       }
     } catch (err) {
@@ -806,6 +806,14 @@ export async function deleteStore(storeId, userId) {
     [storeId, userId]
   );
   return true;
+}
+
+export async function verifyStoreOwnership(storeId, userId) {
+  const [rows] = await pool.execute(
+    'SELECT id FROM stores WHERE id = ? AND user_id = ?',
+    [storeId, userId]
+  );
+  return rows.length > 0;
 }
 
 export async function getStoreById(storeId) {
