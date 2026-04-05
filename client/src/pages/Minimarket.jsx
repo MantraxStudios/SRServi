@@ -390,7 +390,7 @@ function Minimarket() {
       />
 
       <div style={{ display: 'flex', height: 'calc(100vh - 65px)' }}>
-        <div style={{ flex: 1, background: colors.secondary }}>
+        <div style={{ flex: 1, background: '#f8f9fa' }}>
           {cart.length === 0 ? (
             <div style={{ 
               display: 'flex', 
@@ -398,14 +398,30 @@ function Minimarket() {
               alignItems: 'center', 
               justifyContent: 'center', 
               height: '100%',
-              color: '#999'
+              color: '#adb5bd'
             }}>
-              <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: '80px', opacity: 0.2, marginBottom: '16px' }} />
-              <p style={{ fontSize: '18px' }}>Escanee productos con el lector de barcode</p>
+              <div style={{ 
+                width: '120px', 
+                height: '120px', 
+                borderRadius: '50%', 
+                background: 'linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '24px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+              }}>
+                <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: '50px', opacity: 0.5 }} />
+              </div>
+              <p style={{ fontSize: '20px', fontWeight: '500' }}>Escanee productos</p>
+              <p style={{ fontSize: '14px', marginTop: '8px', opacity: 0.7 }}>con el lector de barcode</p>
             </div>
           ) : (
             <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+                <div style={{ marginBottom: '20px' }}>
+                  <h2 style={{ fontSize: '14px', color: '#6c757d', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Carrito de compras</h2>
+                </div>
                 {cart.map(item => (
                   <div key={item.id} style={{
                     display: 'flex',
@@ -413,69 +429,76 @@ function Minimarket() {
                     gap: '16px',
                     padding: '16px',
                     background: 'white',
-                    borderRadius: '12px',
+                    borderRadius: '16px',
                     marginBottom: '12px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                    border: '1px solid #f1f3f5'
                   }}>
-                    <div style={{ width: '60px', height: '60px', borderRadius: '10px', background: '#f5f5f5', overflow: 'hidden', flexShrink: 0 }}>
+                    <div style={{ 
+                      width: '64px', 
+                      height: '64px', 
+                      borderRadius: '12px', 
+                      background: '#f8f9fa', 
+                      overflow: 'hidden', 
+                      flexShrink: 0,
+                      border: '1px solid #e9ecef'
+                    }}>
                       {item.image && <img src={item.image.startsWith('http') ? item.image : `http://localhost:3001${item.image}`} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '16px', fontWeight: '600', color: colors.primary }}>{item.name}</div>
-                      <div style={{ fontSize: '13px', color: '#999' }}>${item.price} c/u</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '16px', fontWeight: '600', color: '#212529', marginBottom: '2px' }}>{item.name}</div>
+                      <div style={{ fontSize: '14px', color: '#6c757d' }}>${item.price?.toFixed(2)} c/u</div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <button onClick={() => updateQuantity(item.id, -1)} style={{ background: '#f0f0f0', border: 'none', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <FontAwesomeIcon icon={faMinus} style={{ fontSize: '12px', color: colors.primary }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f8f9fa', padding: '6px', borderRadius: '12px' }}>
+                      <button onClick={() => updateQuantity(item.id, -1)} style={{ background: 'white', border: 'none', borderRadius: '10px', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                        <FontAwesomeIcon icon={faMinus} style={{ fontSize: '14px', color: '#495057' }} />
                       </button>
-                      <span style={{ fontWeight: '700', fontSize: '18px', minWidth: '30px', textAlign: 'center', color: colors.primary }}>{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, 1)} style={{ background: colors.accent, border: 'none', borderRadius: '8px', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <FontAwesomeIcon icon={faPlus} style={{ fontSize: '12px', color: colors.primary }} />
+                      <span style={{ fontWeight: '700', fontSize: '18px', minWidth: '36px', textAlign: 'center', color: '#212529' }}>{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, 1)} style={{ background: colors.accent, border: 'none', borderRadius: '10px', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                        <FontAwesomeIcon icon={faPlus} style={{ fontSize: '14px', color: 'white' }} />
                       </button>
                     </div>
-                    <div style={{ fontSize: '20px', fontWeight: '800', color: colors.accent, minWidth: '80px', textAlign: 'right' }}>
+                    <div style={{ fontSize: '20px', fontWeight: '800', color: colors.accent, minWidth: '90px', textAlign: 'right' }}>
                       ${(item.price * item.quantity).toFixed(2)}
                     </div>
-                    <button onClick={() => removeFromCart(item.id)} style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer', padding: '8px' }}>
-                      <FontAwesomeIcon icon={faTrash} style={{ fontSize: '18px' }} />
+                    <button onClick={() => removeFromCart(item.id)} style={{ background: '#fff5f5', border: 'none', borderRadius: '10px', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FontAwesomeIcon icon={faTrash} style={{ fontSize: '16px', color: '#dc3545' }} />
                     </button>
                   </div>
                 ))}
               </div>
 
               <div style={{ 
-                padding: '20px', 
-                background: 'white', 
-                borderTop: `3px solid ${colors.accent}`,
-                boxShadow: '0 -4px 20px rgba(0,0,0,0.1)'
+                padding: '24px', 
+                background: 'white',
+                borderRadius: '24px 24px 0 0',
+                boxShadow: '0 -4px 24px rgba(0,0,0,0.1)'
               }}>
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '12px', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Terminal Point</div>
-                  <div style={{ fontSize: '15px', fontWeight: '600', color: colors.primary, marginTop: '4px' }}>
-                    <FontAwesomeIcon icon={faCreditCard} style={{ color: colors.accent, marginRight: '8px' }} />
-                    {selectedPoint ? (selectedPoint.name || selectedPoint.device_id) : 'No configurada'}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                  <div style={{ fontSize: '12px', color: '#999', textTransform: 'uppercase', letterSpacing: '1px' }}>Total</div>
-                  <div style={{ fontSize: '42px', fontWeight: '800', color: colors.accent }}>${getTotal().toFixed(2)}</div>
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <div style={{ fontSize: '13px', color: '#6c757d', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Total a Pagar</div>
+                  <div style={{ fontSize: '48px', fontWeight: '800', color: colors.accent, letterSpacing: '-1px' }}>${getTotal().toFixed(2)}</div>
                 </div>
                 <button
                   onClick={handlePayment}
                   disabled={!selectedPoint || processingPayment || paymentWaiting}
                   style={{
                     width: '100%',
-                    padding: '18px',
-                    fontSize: '18px',
+                    padding: '20px',
+                    fontSize: '20px',
                     fontWeight: '700',
-                    background: !selectedPoint || processingPayment || paymentWaiting ? '#ddd' : `linear-gradient(135deg, ${colors.accent}, ${colors.accent}cc)`,
-                    color: colors.primary,
+                    background: !selectedPoint || processingPayment || paymentWaiting ? '#e9ecef' : `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accent}dd 100%)`,
+                    color: !selectedPoint || processingPayment || paymentWaiting ? '#adb5bd' : 'white',
                     border: 'none',
-                    borderRadius: '14px',
-                    cursor: !selectedPoint || processingPayment || paymentWaiting ? 'not-allowed' : 'pointer'
+                    borderRadius: '16px',
+                    cursor: !selectedPoint || processingPayment || paymentWaiting ? 'not-allowed' : 'pointer',
+                    boxShadow: !selectedPoint || processingPayment || paymentWaiting ? 'none' : `0 8px 24px ${colors.accent}40`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px'
                   }}
                 >
-                  <FontAwesomeIcon icon={processingPayment ? faSpinner : faCreditCard} spin={processingPayment} style={{ marginRight: '10px' }} />
+                  <FontAwesomeIcon icon={processingPayment ? faSpinner : faCreditCard} spin={processingPayment} />
                   {processingPayment ? 'Procesando...' : 'PAGAR'}
                 </button>
               </div>

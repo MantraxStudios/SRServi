@@ -99,6 +99,8 @@ function Store() {
   const [cashPaymentSuccess, setCashPaymentSuccess] = useState(false);
   const [paymentTimeLeft, setPaymentTimeLeft] = useState(90);
   const [notification, setNotification] = useState(null);
+  const [barcode, setBarcode] = useState('');
+  const barcodeInputRef = useRef(null);
 
   useEffect(() => {
     fetchStore();
@@ -261,6 +263,40 @@ function Store() {
     setSelectedProduct(null);
   };
 
+  useEffect(() => {
+    if (barcodeInputRef.current) {
+      barcodeInputRef.current.focus();
+    }
+    const interval = setInterval(() => {
+      if (barcodeInputRef.current && document.activeElement !== barcodeInputRef.current) {
+        barcodeInputRef.current.focus();
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleBarcodeScan = (barcodeValue) => {
+    if (!store?.products) return;
+    const found = store.products.find(p => p.barcode === barcodeValue);
+    if (found) {
+      setNotification({ name: found.name, image: found.image });
+      setTimeout(() => setNotification(null), 2000);
+      const unitPrice = found.price;
+      const cartItem = {
+        id: Date.now(),
+        product_id: found.id,
+        product_name: found.name,
+        unit_price: unitPrice,
+        quantity: 1,
+        total: unitPrice
+      };
+      setCart([...cart, cartItem]);
+    } else if (barcodeValue.length > 0) {
+      setNotification({ name: 'Producto no encontrado', image: null });
+      setTimeout(() => setNotification(null), 2000);
+    }
+  };
+
   const toggleIngredient = (ingredient) => {
     setProductConfig(prev => {
       const exists = prev.selectedIngredients.find(i => i.id === ingredient.id);
@@ -333,7 +369,7 @@ function Store() {
     };
 
     setCart([...cart, cartItem]);
-    setNotification(`${selectedProduct.name} agregado al carrito`);
+    setNotification({ name: selectedProduct.name, image: selectedProduct.image });
     setTimeout(() => setNotification(null), 2000);
     closeProductModal();
   };
@@ -944,25 +980,59 @@ function Store() {
         <div style={{
           position: 'fixed',
           bottom: '80px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: colors.primary,
-          color: colors.accent,
-          padding: '14px 24px',
-          borderRadius: '12px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          right: '20px',
+          backgroundColor: 'white',
+          border: '1px solid #e9ecef',
+          padding: '14px',
+          borderRadius: '16px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
           zIndex: 1002,
-          fontSize: '15px',
-          fontWeight: '600',
           display: 'flex',
           alignItems: 'center',
-          gap: '10px',
+          gap: '14px',
           animation: 'slideUp 0.3s ease'
         }}>
-          <FontAwesomeIcon icon={faCheck} style={{ color: '#28a745' }} />
-          {notification}
+          {notification.image ? (
+            <img 
+              src={notification.image.startsWith('http') ? notification.image : `http://localhost:3001${notification.image}`} 
+              alt={notification.name}
+              style={{ width: '56px', height: '56px', borderRadius: '12px', objectFit: 'cover', border: '1px solid #f1f3f5' }}
+            />
+          ) : (
+            <div style={{ width: '56px', height: '56px', borderRadius: '12px', background: '#f8f9fa', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e9ecef' }}>
+              <FontAwesomeIcon icon={faBox} style={{ color: '#adb5bd', fontSize: '24px' }} />
+            </div>
+          )}
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '600', color: '#212529' }}>{notification.name}</div>
+            <div style={{ fontSize: '12px', color: '#28a745', marginTop: '2px' }}>Agregado ✓</div>
+          </div>
         </div>
       )}
+
+      <input
+        ref={barcodeInputRef}
+        type="text"
+        value={barcode}
+        onChange={(e) => setBarcode(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && barcode) {
+            e.preventDefault();
+            handleBarcodeScan(barcode);
+            setBarcode('');
+          }
+        }}
+        style={{
+          position: 'absolute',
+          opacity: 0,
+          width: 0,
+          height: 0,
+          border: 'none',
+          outline: 'none',
+          padding: 0
+        }}
+        autoFocus
+      />
 
       {selectedProduct && (
         <div className="modal-overlay" onClick={closeProductModal}>
