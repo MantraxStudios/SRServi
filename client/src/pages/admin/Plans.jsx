@@ -34,7 +34,7 @@ function Plans() {
 
   const fetchPlans = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/plans');
+      const response = await fetch(API_URL + '/api/plans');
       if (response.ok) {
         const data = await response.json();
         setPlans(data);
