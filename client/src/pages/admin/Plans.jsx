@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -8,7 +8,8 @@ import {
   faTimes,
   faStore,
   faCalendarAlt,
-  faSpinner
+  faSpinner,
+  faCreditCard
 } from '@fortawesome/free-solid-svg-icons';
 
 function Plans() {
@@ -20,10 +21,14 @@ function Plans() {
   const [subscribing, setSubscribing] = useState(null);
   const [billingCycle, setBillingCycle] = useState('monthly');
   const [message, setMessage] = useState(null);
+  const [mpLoading, setMpLoading] = useState(false);
+  const scriptLoaded = useRef(false);
 
   useEffect(() => {
     fetchPlans();
     fetchMyPlan();
+    loadMercadoPagoScript();
+    handlePaymentReturn();
   }, []);
 
   const fetchPlans = async () => {
@@ -54,11 +59,63 @@ function Plans() {
     }
   };
 
+  const loadMercadoPagoScript = () => {
+    if (scriptLoaded.current) return;
+    
+    const script = document.createElement('script');
+    script.src = 'https://sdk.mercadopago.com/js/v2';
+    script.async = true;
+    script.onload = () => {
+      scriptLoaded.current = true;
+      console.log('MercadoPago SDK loaded');
+    };
+    document.body.appendChild(script);
+  };
+
+  const handlePaymentReturn = async () => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('payment');
+    const paymentId = params.get('payment_id');
+    
+    if (paymentStatus === 'success' || paymentId) {
+      try {
+        const response = await fetch('/api/verify-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ payment_id: paymentId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.activated) {
+          setMessage({ type: 'success', text: '¡Pago exitoso! Tu suscripción ha sido activada.' });
+        } else if (data.success) {
+          setMessage({ type: 'info', text: 'Pago recibido. Procesando tu suscripción...' });
+        }
+      } catch (err) {
+        setMessage({ type: 'success', text: '¡Pago exitoso! Tu suscripción ha sido activada.' });
+      }
+      fetchMyPlan();
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paymentStatus === 'failure') {
+      setMessage({ type: 'error', text: 'El pago falló. Por favor intenta nuevamente.' });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paymentStatus === 'pending') {
+      setMessage({ type: 'warning', text: 'El pago está pendiente. Te notificaremos cuando se confirme.' });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  };
+
   const handleSubscribe = async (planId) => {
     setSubscribing(planId);
     setMessage(null);
+    setMpLoading(true);
+    
     try {
-      const response = await fetch('/api/subscribe-plan', {
+      const response = await fetch('/api/create-subscription-preference', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -66,17 +123,31 @@ function Plans() {
         },
         body: JSON.stringify({ planId, billingCycle })
       });
+      
       const data = await response.json();
-      if (response.ok) {
+      
+      if (!response.ok) {
+        setMessage({ type: 'error', text: data.error || 'Error al procesar la solicitud' });
+        return;
+      }
+      
+      if (data.isFree) {
         setMessage({ type: 'success', text: data.message });
         fetchMyPlan();
+        return;
+      }
+      
+      if (data.init_point) {
+        window.location.href = data.init_point;
       } else {
-        setMessage({ type: 'error', text: data.error });
+        setMessage({ type: 'error', text: 'No se pudo obtener el enlace de pago' });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Error al suscribirse' });
+      console.error('Error:', err);
+      setMessage({ type: 'error', text: 'Error al procesar la solicitud' });
     } finally {
       setSubscribing(null);
+      setMpLoading(false);
     }
   };
 
@@ -131,9 +202,15 @@ function Plans() {
           padding: '16px',
           borderRadius: '8px',
           marginBottom: '24px',
-          backgroundColor: message.type === 'success' ? 'rgba(40,167,69,0.1)' : 'rgba(220,53,69,0.1)',
-          color: message.type === 'success' ? '#28a745' : '#dc3545',
-          border: `1px solid ${message.type === 'success' ? '#28a745' : '#dc3545'}`
+          backgroundColor: message.type === 'success' ? 'rgba(40,167,69,0.1)' : 
+                          message.type === 'warning' ? 'rgba(255,193,7,0.1)' : 
+                          'rgba(220,53,69,0.1)',
+          color: message.type === 'success' ? '#28a745' : 
+                 message.type === 'warning' ? '#856404' : 
+                 '#dc3545',
+          border: `1px solid ${message.type === 'success' ? '#28a745' : 
+                                message.type === 'warning' ? '#ffc107' : 
+                                '#dc3545'}`
         }}>
           {message.text}
         </div>
@@ -186,37 +263,9 @@ function Plans() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', justifyContent: 'center' }}>
-        <button
-          onClick={() => setBillingCycle('monthly')}
-          style={{
-            padding: '10px 24px',
-            border: 'none',
-            borderRadius: '20px',
-            cursor: 'pointer',
-            fontWeight: '600',
-            backgroundColor: billingCycle === 'monthly' ? colors.accent : '#e0e0e0',
-            color: billingCycle === 'monthly' ? colors.primary : '#666',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          Mensual
-        </button>
-        <button
-          onClick={() => setBillingCycle('yearly')}
-          style={{
-            padding: '10px 24px',
-            border: 'none',
-            borderRadius: '20px',
-            cursor: 'pointer',
-            fontWeight: '600',
-            backgroundColor: billingCycle === 'yearly' ? colors.accent : '#e0e0e0',
-            color: billingCycle === 'yearly' ? colors.primary : '#666',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          Anual <span style={{ fontSize: '11px', marginLeft: '4px' }}>(Ahorra)</span>
-        </button>
+      <div style={{ display: 'none' }}>
+        <button onClick={() => setBillingCycle('monthly')}>Mensual</button>
+        <button onClick={() => setBillingCycle('yearly')}>Anual</button>
       </div>
 
       <div style={{
@@ -345,7 +394,10 @@ function Plans() {
                 }}
               >
                 {subscribing === plan.id ? (
-                  <FontAwesomeIcon icon={faSpinner} spin />
+                  <>
+                    <FontAwesomeIcon icon={faSpinner} spin style={{ marginRight: '8px' }} />
+                    Procesando...
+                  </>
                 ) : currentPlan ? (
                   <>
                     <FontAwesomeIcon icon={faCheck} style={{ marginRight: '8px' }} />
@@ -357,7 +409,10 @@ function Plans() {
                     Incluido
                   </>
                 ) : (
-                  'Suscribirse'
+                  <>
+                    <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: '8px' }} />
+                    Suscribirse
+                  </>
                 )}
               </button>
             </div>

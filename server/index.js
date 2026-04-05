@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
@@ -5,6 +6,7 @@ import multer from 'multer';
 import path from 'path';
 import http from 'http';
 import { Server } from 'socket.io';
+import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import {
   initDatabase,
   createUser,
@@ -104,6 +106,13 @@ const io = new Server(server, {
 });
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'srservi-secret-key-2024';
+
+const mpClient = new MercadoPagoConfig({
+  accessToken: process.env.MP_ACCESS_TOKEN,
+  options: { timeout: 10000 }
+});
+
+console.log('MercadoPago Token configured:', !!process.env.MP_ACCESS_TOKEN);
 
 app.use(cors());
 app.use(express.json());
@@ -500,6 +509,203 @@ app.post('/api/subscribe-plan', authenticateToken, async (req, res) => {
     res.json({ success: true, message: `Te has suscrito al plan ${result.plan}`, plan: result.plan });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/create-subscription-preference', authenticateToken, async (req, res) => {
+  try {
+    const { planId, billingCycle } = req.body;
+    
+    if (!planId) {
+      return res.status(400).json({ error: 'Plan es requerido' });
+    }
+    
+    const plan = await getPlanById(planId);
+    if (!plan) {
+      return res.status(404).json({ error: 'Plan no encontrado' });
+    }
+    
+    if (plan.price_monthly === 0 && plan.price_yearly === 0) {
+      const result = await assignPlanToUser(req.user.id, planId, billingCycle || 'monthly');
+      return res.json({ 
+        success: true, 
+        message: `Te has suscrito al plan ${result.plan}`,
+        plan: result.plan,
+        isFree: true 
+      });
+    }
+    
+    const price = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
+    const user = await getUserById(req.user.id);
+    
+    console.log('=== Creating MercadoPago Preference ===');
+    console.log('User:', user.email);
+    console.log('Plan:', plan.name, '- Price:', price, 'USD');
+    console.log('Billing Cycle:', billingCycle);
+    
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    
+    const preference = {
+      items: [
+        {
+          id: `plan-${plan.id}-${billingCycle}`,
+          title: `Suscripción ${plan.name} - ${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}`,
+          description: `Acceso al plan ${plan.name} - ${plan.description}`,
+          quantity: 1,
+          currency_id: 'USD',
+          unit_price: Number(price)
+        }
+      ],
+      payer: {
+        email: user.email,
+        name: user.name || user.username
+      },
+      external_reference: `subscription-${req.user.id}-${planId}-${billingCycle}-${Date.now()}`,
+      notification_url: `${process.env.BASE_URL || 'http://localhost:3001'}/api/mercadopago-webhook`,
+      back_urls: {
+        success: `${clientUrl}/admin/plans?payment=success`,
+        failure: `${clientUrl}/admin/plans?payment=failure`,
+        pending: `${clientUrl}/admin/plans?payment=pending`
+      },
+      auto_return: 'approved'
+    };
+    
+    console.log('Calling MercadoPago API...');
+    console.log('Preference:', JSON.stringify(preference, null, 2));
+    
+    const preferenceClient = new Preference(mpClient);
+    const response = await preferenceClient.create({ body: preference });
+    
+    console.log('MercadoPago Response Success:', !!response.id);
+    console.log('Init Point:', response.init_point);
+    
+    const initPoint = response.init_point;
+    
+    if (!initPoint) {
+      console.error('No se получил init_point en la respuesta:', response);
+      return res.status(500).json({ 
+        error: 'Error al crear el enlace de pago. La respuesta de MercadoPago no contiene init_point.',
+        details: response,
+        hint: 'Verifica que tu cuenta de MercadoPago esté activa y tengas permisos para cobrar.'
+      });
+    }
+    
+    res.json({
+      success: true,
+      init_point: initPoint,
+      preference_id: response.id
+    });
+    
+  } catch (error) {
+    console.error('=== MercadoPago Error ===');
+    console.error('Error Message:', error.message);
+    console.error('Error Status:', error.status);
+    console.error('Error Cause:', error.cause);
+    console.error('Error Response:', error.response?.data);
+    
+    let errorMessage = 'Error al crear la preferencia de pago';
+    let errorHint = '';
+    
+    if (error.message?.includes('401') || error.message?.includes('invalid_token')) {
+      errorMessage = 'Token de MercadoPago inválido o expirado.';
+      errorHint = 'Ve a https://dashboard.mercadopago.com/apps y regenera tus tokens.';
+    } else if (error.message?.includes('forbidden') || error.message?.includes('403')) {
+      errorMessage = 'Tu cuenta de MercadoPago no tiene permisos para esta operación.';
+      errorHint = 'Verifica que tu cuenta esté verificada y activa.';
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+      if (error.response.data.cause) {
+        errorHint = JSON.stringify(error.response.data.cause);
+      }
+    }
+    
+    res.status(500).json({ error: errorMessage, hint: errorHint, details: error.message });
+  }
+});
+
+app.post('/api/mercadopago-webhook', async (req, res) => {
+  try {
+    const { type, data } = req.body;
+    
+    if (type === 'payment') {
+      const paymentId = data.id;
+      
+      const paymentClient = new Payment(mpClient);
+      const payment = await paymentClient.get({ id: paymentId });
+      
+      if (payment.status === 'approved') {
+        const externalRef = payment.external_reference;
+        if (externalRef && externalRef.startsWith('subscription-')) {
+          const parts = externalRef.split('-');
+          const userId = parseInt(parts[1]);
+          const planId = parseInt(parts[2]);
+          const billingCycle = parts[3];
+          
+          await assignPlanToUser(userId, planId, billingCycle);
+          console.log(`Suscripción activada para usuario ${userId} - Plan ${planId}`);
+        }
+      }
+    }
+    
+    res.status(200).json({ received: true });
+  } catch (error) {
+    console.error('Error en webhook de MercadoPago:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/get-mp-public-key', async (req, res) => {
+  try {
+    res.json({
+      public_key: process.env.MP_PUBLIC_KEY
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/verify-mp-credentials', authenticateToken, async (req, res) => {
+  try {
+    const accessToken = process.env.MP_ACCESS_TOKEN;
+    const environment = process.env.MP_ENVIRONMENT || 'sandbox';
+    
+    if (!accessToken) {
+      return res.json({
+        valid: false,
+        error: 'Token de acceso no configurado'
+      });
+    }
+    
+    const response = await fetch('https://api.mercadopago.com/users/me', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    if (response.ok) {
+      const userData = await response.json();
+      return res.json({
+        valid: true,
+        environment,
+        user_id: userData.id,
+        nickname: userData.nickname,
+        email: userData.email,
+        site_id: userData.site_id
+      });
+    } else {
+      const errorData = await response.json();
+      return res.json({
+        valid: false,
+        error: errorData.message || 'Token inválido',
+        status: response.status,
+        environment
+      });
+    }
+  } catch (error) {
+    res.json({
+      valid: false,
+      error: error.message
+    });
   }
 });
 
