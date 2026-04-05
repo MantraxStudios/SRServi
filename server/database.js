@@ -2105,6 +2105,71 @@ export async function getAllSubscriptions() {
   return rows;
 }
 
+export async function getSubscriptionHistory() {
+  const [rows] = await pool.execute(`
+    SELECT 
+      u.id as user_id,
+      u.username,
+      u.email,
+      u.business_name,
+      u.is_banned,
+      u.created_at as user_created_at,
+      COALESCE(up.id, 0) as subscription_id,
+      COALESCE(p.name, 'Gratis') as plan_name,
+      COALESCE(p.id, 1) as plan_id,
+      up.billing_cycle,
+      up.starts_at,
+      up.ends_at,
+      up.is_active,
+      up.created_at as subscribed_at,
+      COALESCE(p.price_monthly, 0) as price_monthly,
+      COALESCE(p.price_yearly, 0) as price_yearly
+    FROM users u
+    LEFT JOIN user_plans up ON u.id = up.user_id
+    LEFT JOIN plans p ON up.plan_id = p.id
+    ORDER BY u.email ASC, up.created_at DESC
+  `);
+  
+  const usersMap = new Map();
+  rows.forEach(row => {
+    if (!usersMap.has(row.email)) {
+      usersMap.set(row.email, {
+        user_id: row.user_id,
+        username: row.username,
+        email: row.email,
+        business_name: row.business_name,
+        is_banned: row.is_banned,
+        user_created_at: row.user_created_at,
+        current_plan: row.plan_name,
+        current_plan_id: row.plan_id,
+        current_billing_cycle: row.billing_cycle,
+        current_starts_at: row.starts_at,
+        current_ends_at: row.ends_at,
+        current_is_active: row.is_active,
+        current_price_monthly: row.price_monthly,
+        current_price_yearly: row.price_yearly,
+        subscriptions: []
+      });
+    }
+    if (row.subscription_id) {
+      usersMap.get(row.email).subscriptions.push({
+        id: row.subscription_id,
+        plan_name: row.plan_name,
+        plan_id: row.plan_id,
+        billing_cycle: row.billing_cycle,
+        starts_at: row.starts_at,
+        ends_at: row.ends_at,
+        is_active: row.is_active,
+        subscribed_at: row.subscribed_at,
+        price_monthly: row.price_monthly,
+        price_yearly: row.price_yearly
+      });
+    }
+  });
+  
+  return Array.from(usersMap.values());
+}
+
 export async function canUserCreateStore(userId) {
   const plan = await getUserPlan(userId);
   const storeCount = await getUserStoreCount(userId);

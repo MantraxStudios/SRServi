@@ -43,6 +43,8 @@ function SuperadminDashboard() {
   const [editForm, setEditForm] = useState({ email: '', password: '', is_banned: false });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [selectedSubscription, setSelectedSubscription] = useState(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -800,17 +802,17 @@ function SuperadminDashboard() {
                     <tr style={{ borderBottom: `2px solid ${COLORS.grayLight}` }}>
                       <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Usuario</th>
                       <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Email</th>
-                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Plan</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Ciclo</th>
+                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Plan Actual</th>
                       <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Precio</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Inicio</th>
                       <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Vencimiento</th>
                       <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Estado</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {subscriptions.map(sub => (
-                      <tr key={sub.user_id} style={{ borderBottom: `1px solid ${COLORS.grayLight}`, transition: 'background-color 0.2s' }}
+                      <tr key={sub.email} style={{ borderBottom: `1px solid ${COLORS.grayLight}`, transition: 'background-color 0.2s', cursor: 'pointer' }}
+                          onClick={() => { setSelectedSubscription(sub); setShowSubscriptionModal(true); }}
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.grayLight}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                         <td style={{ padding: '16px 12px' }}>
@@ -820,45 +822,29 @@ function SuperadminDashboard() {
                         <td style={{ padding: '16px 12px', color: COLORS.grayDark }}>{sub.email}</td>
                         <td style={{ padding: '16px 12px' }}>
                           <span style={{
-                            backgroundColor: sub.plan_name === 'Gratis' || !sub.plan_name ? COLORS.gray : COLORS.gold,
+                            backgroundColor: sub.current_plan === 'Gratis' || !sub.current_plan ? COLORS.gray : COLORS.gold,
                             color: COLORS.black,
                             padding: '6px 14px',
                             borderRadius: '20px',
                             fontSize: '12px',
                             fontWeight: '600'
                           }}>
-                            {sub.plan_name || 'Gratis'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
-                          <span style={{
-                            backgroundColor: COLORS.black,
-                            color: COLORS.white,
-                            padding: '6px 14px',
-                            borderRadius: '20px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            textTransform: 'capitalize'
-                          }}>
-                            {sub.billing_cycle === 'monthly' ? 'Mensual' : sub.billing_cycle === 'yearly' ? 'Anual' : '-'}
+                            {sub.current_plan || 'Gratis'}
                           </span>
                         </td>
                         <td style={{ padding: '16px 12px', textAlign: 'center' }}>
                           <div style={{ fontWeight: '600', color: COLORS.black }}>
-                            {!sub.plan_name || sub.plan_name === 'Gratis' ? 'Gratis' : 
-                              sub.billing_cycle === 'monthly' 
-                                ? `$${sub.price_monthly}/mes` 
-                                : `$${sub.price_yearly}/año`}
+                            {!sub.current_plan || sub.current_plan === 'Gratis' ? 'Gratis' : 
+                              sub.current_billing_cycle === 'monthly' 
+                                ? `$${sub.current_price_monthly}/mes` 
+                                : `$${sub.current_price_yearly}/año`}
                           </div>
                         </td>
                         <td style={{ padding: '16px 12px', textAlign: 'center', color: COLORS.grayDark, fontSize: '13px' }}>
-                          {sub.starts_at ? new Date(sub.starts_at).toLocaleDateString('es-ES') : sub.user_created_at ? new Date(sub.user_created_at).toLocaleDateString('es-ES') : '-'}
-                        </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center', color: COLORS.grayDark, fontSize: '13px' }}>
-                          {sub.ends_at ? new Date(sub.ends_at).toLocaleDateString('es-ES') : '-'}
+                          {sub.current_ends_at ? new Date(sub.current_ends_at).toLocaleDateString('es-ES') : '-'}
                         </td>
                         <td style={{ padding: '16px 12px', textAlign: 'center' }}>
-                          {sub.is_active && sub.ends_at && new Date(sub.ends_at) > new Date() ? (
+                          {sub.current_is_active && sub.current_ends_at && new Date(sub.current_ends_at) > new Date() ? (
                             <span style={{
                               backgroundColor: COLORS.success,
                               color: COLORS.white,
@@ -867,9 +853,9 @@ function SuperadminDashboard() {
                               fontSize: '12px',
                               fontWeight: '600'
                             }}>
-                              Activa
+                              Activo
                             </span>
-                          ) : (
+                          ) : sub.current_is_active === false ? (
                             <span style={{
                               backgroundColor: COLORS.danger,
                               color: COLORS.white,
@@ -878,9 +864,37 @@ function SuperadminDashboard() {
                               fontSize: '12px',
                               fontWeight: '600'
                             }}>
-                              Vencida
+                              Cancelado
+                            </span>
+                          ) : (
+                            <span style={{
+                              backgroundColor: COLORS.gray,
+                              color: COLORS.black,
+                              padding: '6px 14px',
+                              borderRadius: '20px',
+                              fontSize: '12px',
+                              fontWeight: '600'
+                            }}>
+                              Gratis
                             </span>
                           )}
+                        </td>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSelectedSubscription(sub); setShowSubscriptionModal(true); }}
+                            style={{
+                              backgroundColor: COLORS.gold,
+                              border: 'none',
+                              color: COLORS.black,
+                              cursor: 'pointer',
+                              padding: '8px 16px',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            Ver Detalles
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -897,6 +911,128 @@ function SuperadminDashboard() {
           </div>
         </div>
       </div>
+
+      {showSubscriptionModal && selectedSubscription && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: COLORS.white,
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '700px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: '700', color: COLORS.black }}>Historial de Suscripciones</h2>
+              <button
+                onClick={() => setShowSubscriptionModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '24px',
+                  color: COLORS.grayDark
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div style={{ backgroundColor: COLORS.grayLight, padding: '16px', borderRadius: '12px', marginBottom: '20px' }}>
+              <div style={{ fontWeight: '600', fontSize: '16px', color: COLORS.black }}>{selectedSubscription.username}</div>
+              <div style={{ fontSize: '14px', color: COLORS.grayDark }}>{selectedSubscription.email}</div>
+              {selectedSubscription.business_name && <div style={{ fontSize: '14px', color: COLORS.grayDark }}>{selectedSubscription.business_name}</div>}
+              <div style={{ fontSize: '12px', color: COLORS.grayDark, marginTop: '8px' }}>Usuario desde: {new Date(selectedSubscription.user_created_at).toLocaleDateString('es-ES')}</div>
+            </div>
+
+            {selectedSubscription.subscriptions.length > 0 ? (
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: COLORS.black }}>Historial de Planes</h3>
+                {selectedSubscription.subscriptions.map((sub, index) => (
+                  <div key={sub.id} style={{ 
+                    border: `2px solid ${sub.is_active ? COLORS.success : COLORS.grayLight}`,
+                    borderRadius: '12px',
+                    padding: '16px',
+                    marginBottom: '12px',
+                    backgroundColor: sub.is_active ? 'rgba(40,167,69,0.05)' : COLORS.white
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                      <div>
+                        <span style={{
+                          backgroundColor: sub.plan_name === 'Gratis' ? COLORS.gray : COLORS.gold,
+                          color: COLORS.black,
+                          padding: '4px 12px',
+                          borderRadius: '16px',
+                          fontSize: '14px',
+                          fontWeight: '600'
+                        }}>
+                          {sub.plan_name}
+                        </span>
+                        {sub.is_active && new Date(sub.ends_at) > new Date() && (
+                          <span style={{
+                            backgroundColor: COLORS.success,
+                            color: COLORS.white,
+                            padding: '4px 12px',
+                            borderRadius: '16px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            marginLeft: '8px'
+                          }}>
+                            Activo
+                          </span>
+                        )}
+                        {sub.is_active === false && (
+                          <span style={{
+                            backgroundColor: COLORS.danger,
+                            color: COLORS.white,
+                            padding: '4px 12px',
+                            borderRadius: '16px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            marginLeft: '8px'
+                          }}>
+                            Cancelado
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: '600', color: COLORS.black }}>
+                          {sub.billing_cycle === 'monthly' ? `$${sub.price_monthly}/mes` : sub.billing_cycle === 'yearly' ? `$${sub.price_yearly}/año` : 'Gratis'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: COLORS.grayDark, textTransform: 'capitalize' }}>{sub.billing_cycle === 'monthly' ? 'Mensual' : sub.billing_cycle === 'yearly' ? 'Anual' : '-'}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px', color: COLORS.grayDark }}>
+                      <div><strong>Inicio:</strong> {sub.starts_at ? new Date(sub.starts_at).toLocaleDateString('es-ES') : '-'}</div>
+                      <div><strong>Vencimiento:</strong> {sub.ends_at ? new Date(sub.ends_at).toLocaleDateString('es-ES') : '-'}</div>
+                      <div><strong>Suscrito:</strong> {sub.subscribed_at ? new Date(sub.subscribed_at).toLocaleDateString('es-ES') : '-'}</div>
+                      <div><strong>ID:</strong> {sub.id}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px', color: COLORS.grayDark }}>
+                <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }} />
+                <div>Este usuario no tiene suscripciones premium</div>
+                <div style={{ fontSize: '14px', marginTop: '8px' }}>Plan actual: <strong>{selectedSubscription.current_plan || 'Gratis'}</strong></div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {showEditModal && (
         <div style={{
