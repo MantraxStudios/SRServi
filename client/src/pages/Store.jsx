@@ -12,7 +12,8 @@ import {
   faCopy,
   faCreditCard,
   faMoneyBillWave,
-  faCheck
+  faCheck,
+  faTags
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 
@@ -982,10 +983,166 @@ function Store() {
         </div>
       )}
 
-      {hasProducts && (
+      {hasProducts && activeCategory === 'all' && (
+        <div className="category-sections">
+          {Object.entries(groupedProducts).map(([category, products], catIndex) => (
+            <div key={category} className="category-section">
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '20px 16px 16px 16px',
+                marginBottom: '8px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <FontAwesomeIcon 
+                    icon={faTags} 
+                    style={{ 
+                      fontSize: '18px',
+                      color: colors.accent
+                    }} 
+                  />
+                  <h3 style={{
+                    fontSize: '22px',
+                    fontWeight: '700',
+                    color: colors.primary,
+                    margin: 0
+                  }}>
+                    {category}
+                  </h3>
+                </div>
+                <div style={{
+                  flex: 1,
+                  height: '2px',
+                  backgroundColor: colors.accent,
+                  borderRadius: '2px',
+                  opacity: 0.3,
+                  marginLeft: '16px'
+                }} />
+              </div>
+              <div className="products-grid">
+                {products.map(product => {
+                  const isUnlimited = product.unlimited_stock === true || product.unlimited_stock === 1 || product.unlimited_stock === '1';
+                  const isOutOfStock = !isUnlimited && product.stock === 0;
+                  return (
+                  <div 
+                    key={product.id} 
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      cursor: isOutOfStock ? 'default' : 'pointer'
+                    }}
+                  >
+                    <div 
+                      style={{
+                        backgroundColor: isOutOfStock ? '#f8f9fa' : '#ffffff',
+                        border: 'none',
+                        borderRadius: '32px',
+                        overflow: 'hidden',
+                        transition: 'all 0.3s ease',
+                        boxShadow: '0 6px 30px rgba(0, 0, 0, 0.25)',
+                        opacity: isOutOfStock ? 0.6 : 1,
+                        width: '300px',
+                        height: '300px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                      onClick={() => openProductModal(product)}
+                      onMouseEnter={(e) => {
+                        if (!isOutOfStock) {
+                          e.currentTarget.style.transform = 'translateY(-8px)';
+                          e.currentTarget.style.boxShadow = '0 20px 50px rgba(0, 0, 0, 0.35)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isOutOfStock) {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 6px 30px rgba(0, 0, 0, 0.25)';
+                        }
+                      }}
+                    >
+                      {isOutOfStock && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '12px',
+                          right: '12px',
+                          backgroundColor: '#dc3545',
+                          color: 'white',
+                          padding: '6px 14px',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          zIndex: 2,
+                          boxShadow: '0 2px 8px rgba(220, 53, 69, 0.3)'
+                        }}>
+                          Agotado
+                        </div>
+                      )}
+                      <div className="product-image" style={{
+                        width: '260px',
+                        height: '260px',
+                        backgroundColor: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        position: 'relative'
+                      }}>
+                        {product.image ? (
+                          <img 
+                            src={product.image.startsWith('http') ? product.image : `http://localhost:3001${product.image}`} 
+                            alt={product.name} 
+                            style={{ 
+                              maxWidth: '100%',
+                              maxHeight: '100%',
+                              objectFit: 'contain',
+                              transition: 'transform 0.3s ease',
+                              filter: isOutOfStock ? 'grayscale(100%)' : 'none'
+                            }}
+                          />
+                        ) : (
+                          <FontAwesomeIcon icon={faBox} style={{ fontSize: '60px', color: isOutOfStock ? '#adb5bd' : '#dee2e6' }} />
+                        )}
+                      </div>
+                    </div>
+                    <div className="product-info" style={{ 
+                      marginTop: '12px',
+                      textAlign: 'center',
+                      width: '100%'
+                    }}>
+                      <div style={{ 
+                        fontSize: '15px', 
+                        fontWeight: '600', 
+                        color: isOutOfStock ? '#adb5bd' : '#212529',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: '8px',
+                        flexWrap: 'wrap'
+                      }}>
+                        <span style={{ fontWeight: '600' }}>{product.name}:</span>
+                        <span style={{ fontWeight: '700' }}>{colors.currency.symbol}{Number(product.price).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {hasProducts && activeCategory !== 'all' && (
         <div className="products-grid">
           {Object.entries(groupedProducts)
-            .filter(([category]) => activeCategory === 'all' || activeCategory === category)
+            .filter(([category]) => activeCategory === category)
             .flatMap(([category, products]) =>
               products.map(product => {
                 const isUnlimited = product.unlimited_stock === true || product.unlimited_stock === 1 || product.unlimited_stock === '1';

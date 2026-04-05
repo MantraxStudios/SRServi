@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -14,7 +14,10 @@ import {
   faShieldAlt,
   faChartBar,
   faCreditCard,
-  faTimes
+  faTimes,
+  faBars,
+  faChevronLeft,
+  faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 
 const COLORS = {
@@ -31,7 +34,32 @@ const COLORS = {
   warning: '#f57c00'
 };
 
+function useWindowSize() {
+  const [windowSize, setWindowSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return windowSize;
+}
+
 function SuperadminDashboard() {
+  const { width } = useWindowSize();
+  const isMobile = width < 768;
+  const isTablet = width >= 768 && width < 1024;
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
   const [stores, setStores] = useState([]);
@@ -42,9 +70,10 @@ function SuperadminDashboard() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ email: '', password: '', is_banned: false });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -249,8 +278,10 @@ function SuperadminDashboard() {
     return { color: COLORS.grayDark, bg: COLORS.grayLight };
   };
 
+  const sidebarWidth = isMobile ? (mobileMenuOpen ? '280px' : '0px') : (sidebarOpen ? '260px' : '70px');
+  
   const sidebarStyle = {
-    width: sidebarOpen ? '260px' : '70px',
+    width: sidebarWidth,
     minHeight: '100vh',
     backgroundColor: COLORS.black,
     color: COLORS.white,
@@ -260,21 +291,53 @@ function SuperadminDashboard() {
     position: 'fixed',
     left: 0,
     top: 0,
-    zIndex: 100
+    zIndex: 100,
+    overflow: 'hidden'
   };
 
   const mainStyle = {
-    marginLeft: sidebarOpen ? '260px' : '70px',
+    marginLeft: isMobile ? '0px' : (sidebarOpen ? '260px' : '70px'),
     transition: 'margin-left 0.3s ease',
     minHeight: '100vh',
-    backgroundColor: COLORS.grayLight
+    backgroundColor: COLORS.grayLight,
+    width: isMobile ? '100%' : 'auto'
+  };
+
+  const thStyle = {
+    textAlign: 'left',
+    padding: isMobile ? '10px 8px' : '14px 12px',
+    color: COLORS.grayDark,
+    fontSize: isMobile ? '10px' : '12px',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    borderBottom: `2px solid ${COLORS.grayLight}`
+  };
+
+  const tdStyle = {
+    padding: isMobile ? '12px 8px' : '16px 12px',
+    fontSize: isMobile ? '13px' : '14px'
   };
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
+      {isMobile && mobileMenuOpen && (
+        <div 
+          onClick={() => setMobileMenuOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            zIndex: 99
+          }}
+        />
+      )}
+      
       <div style={sidebarStyle}>
         <div style={{
-          padding: '20px',
+          padding: isMobile ? '16px' : '20px',
           borderBottom: `1px solid ${COLORS.gold}`,
           display: 'flex',
           alignItems: 'center',
@@ -287,11 +350,12 @@ function SuperadminDashboard() {
             borderRadius: '10px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            flexShrink: 0
           }}>
             <FontAwesomeIcon icon={faShieldAlt} style={{ color: COLORS.black, fontSize: '20px' }} />
           </div>
-          {sidebarOpen && (
+          {sidebarOpen && !isMobile && (
             <div>
               <div style={{ fontWeight: '700', fontSize: '16px' }}>Superadmin</div>
               <div style={{ fontSize: '11px', color: COLORS.gold }}>Panel de Control</div>
@@ -300,7 +364,7 @@ function SuperadminDashboard() {
         </div>
 
         <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
+          onClick={() => isMobile ? setMobileMenuOpen(!mobileMenuOpen) : setSidebarOpen(!sidebarOpen)}
           style={{
             backgroundColor: 'transparent',
             border: 'none',
@@ -314,13 +378,13 @@ function SuperadminDashboard() {
             fontSize: '18px'
           }}
         >
-          <FontAwesomeIcon icon={sidebarOpen ? faTimes : faBars} />
-          {sidebarOpen && <span style={{ fontSize: '14px' }}>Cerrar</span>}
+          <FontAwesomeIcon icon={isMobile ? faBars : (sidebarOpen ? faChevronLeft : faChevronRight)} />
+          {sidebarOpen && !isMobile && <span style={{ fontSize: '14px' }}>Colapsar</span>}
         </button>
 
         <nav style={{ flex: 1, padding: '10px' }}>
           <div 
-            onClick={() => setActiveTab('users')}
+            onClick={() => { setActiveTab('users'); isMobile && setMobileMenuOpen(false); }}
             style={{
               padding: '14px 16px',
               borderRadius: '12px',
@@ -336,11 +400,11 @@ function SuperadminDashboard() {
             }}
           >
             <FontAwesomeIcon icon={faUsers} style={{ fontSize: '18px' }} />
-            {sidebarOpen && <span>Usuarios</span>}
+            {(!isMobile || mobileMenuOpen) && <span>Usuarios</span>}
           </div>
 
           <div 
-            onClick={() => setActiveTab('stores')}
+            onClick={() => { setActiveTab('stores'); isMobile && setMobileMenuOpen(false); }}
             style={{
               padding: '14px 16px',
               borderRadius: '12px',
@@ -355,11 +419,11 @@ function SuperadminDashboard() {
             }}
           >
             <FontAwesomeIcon icon={faStore} style={{ fontSize: '18px' }} />
-            {sidebarOpen && <span>Tiendas</span>}
+            {(!isMobile || mobileMenuOpen) && <span>Tiendas</span>}
           </div>
 
           <div 
-            onClick={() => setActiveTab('subscriptions')}
+            onClick={() => { setActiveTab('subscriptions'); isMobile && setMobileMenuOpen(false); }}
             style={{
               padding: '14px 16px',
               borderRadius: '12px',
@@ -374,11 +438,11 @@ function SuperadminDashboard() {
             }}
           >
             <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '18px' }} />
-            {sidebarOpen && <span>Suscripciones</span>}
+            {(!isMobile || mobileMenuOpen) && <span>Suscripciones</span>}
           </div>
         </nav>
 
-        <div style={{ padding: '20px', borderTop: `1px solid ${COLORS.gold}` }}>
+        <div style={{ padding: '20px', borderTop: `1px solid ${COLORS.gold}`, marginTop: 'auto' }}>
           <div 
             onClick={handleLogout}
             style={{
@@ -394,7 +458,7 @@ function SuperadminDashboard() {
             }}
           >
             <FontAwesomeIcon icon={faSignOutAlt} style={{ fontSize: '18px' }} />
-            {sidebarOpen && <span>Cerrar Sesión</span>}
+            {(!isMobile || mobileMenuOpen) && <span>Cerrar Sesión</span>}
           </div>
         </div>
       </div>
@@ -402,98 +466,124 @@ function SuperadminDashboard() {
       <div style={mainStyle}>
         <header style={{
           backgroundColor: COLORS.white,
-          padding: '20px 30px',
+          padding: isMobile ? '16px' : '20px 30px',
           borderBottom: `2px solid ${COLORS.grayLight}`,
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
         }}>
-          <div>
-            <h1 style={{ 
-              fontSize: '24px', 
-              fontWeight: '700', 
-              color: COLORS.black,
-              marginBottom: '4px'
-            }}>
-              {activeTab === 'users' ? 'Gestión de Usuarios' : activeTab === 'stores' ? 'Gestión de Tiendas' : 'Suscripciones'}
-            </h1>
-            <p style={{ color: COLORS.grayDark, fontSize: '14px' }}>
-              {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : 'Ver todas las suscripciones de usuarios'}
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {isMobile && (
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                style={{
+                  backgroundColor: COLORS.black,
+                  border: 'none',
+                  color: COLORS.white,
+                  cursor: 'pointer',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                <FontAwesomeIcon icon={faBars} />
+              </button>
+            )}
+            <div>
+              <h1 style={{ 
+                fontSize: isMobile ? '18px' : '24px', 
+                fontWeight: '700', 
+                color: COLORS.black,
+                marginBottom: '4px'
+              }}>
+                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : 'Suscripciones'}
+              </h1>
+              <p style={{ color: COLORS.grayDark, fontSize: '13px', display: isMobile ? 'none' : 'block' }}>
+                {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : 'Ver todas las suscripciones'}
+              </p>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <div style={{
               backgroundColor: COLORS.black,
               color: COLORS.white,
-              padding: '10px 20px',
+              padding: isMobile ? '8px 12px' : '10px 20px',
               borderRadius: '12px',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              gap: '6px',
+              fontSize: isMobile ? '12px' : '14px'
             }}>
-              <FontAwesomeIcon icon={faUsers} />
+              <FontAwesomeIcon icon={faUsers} style={{ fontSize: isMobile ? '14px' : '16px' }} />
               <span style={{ fontWeight: '600' }}>{stats.totalUsers}</span>
-              <span style={{ color: COLORS.gray }}>Usuarios</span>
+              {!isMobile && <span style={{ color: COLORS.gray }}>Usuarios</span>}
             </div>
             <div style={{
               backgroundColor: COLORS.gold,
               color: COLORS.black,
-              padding: '10px 20px',
+              padding: isMobile ? '8px 12px' : '10px 20px',
               borderRadius: '12px',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              gap: '6px',
+              fontSize: isMobile ? '12px' : '14px'
             }}>
-              <FontAwesomeIcon icon={faStore} />
+              <FontAwesomeIcon icon={faStore} style={{ fontSize: isMobile ? '14px' : '16px' }} />
               <span style={{ fontWeight: '600' }}>{stats.totalStores}</span>
-              <span style={{ color: COLORS.black, opacity: 0.7 }}>Tiendas</span>
+              {!isMobile && <span style={{ color: COLORS.black, opacity: 0.7 }}>Tiendas</span>}
             </div>
             <div style={{
               backgroundColor: COLORS.success,
               color: COLORS.white,
-              padding: '10px 20px',
+              padding: isMobile ? '8px 12px' : '10px 20px',
               borderRadius: '12px',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px'
+              gap: '6px',
+              fontSize: isMobile ? '12px' : '14px'
             }}>
-              <FontAwesomeIcon icon={faCreditCard} />
+              <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: isMobile ? '14px' : '16px' }} />
               <span style={{ fontWeight: '600' }}>{subscriptions.length}</span>
               <span style={{ color: 'rgba(255,255,255,0.8)' }}>Subs</span>
             </div>
           </div>
         </header>
 
-        <div style={{ padding: '30px' }}>
+        <div style={{ padding: isMobile ? '16px' : '30px' }}>
           <div style={{
             backgroundColor: COLORS.white,
-            borderRadius: '16px',
-            padding: '24px',
+            borderRadius: isMobile ? '12px' : '16px',
+            padding: isMobile ? '16px' : '24px',
             boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
           }}>
             <div style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
               alignItems: 'center',
-              marginBottom: '24px'
+              marginBottom: '24px',
+              flexWrap: 'wrap',
+              gap: '12px'
             }}>
-              <div style={{ display: 'flex', gap: '16px' }}>
+              <div style={{ display: 'flex', gap: isMobile ? '8px' : '16px', flexWrap: 'wrap' }}>
                 <div style={{
-                  padding: '8px 16px',
+                  padding: isMobile ? '6px 12px' : '8px 16px',
                   backgroundColor: COLORS.success,
                   color: COLORS.white,
                   borderRadius: '20px',
-                  fontSize: '13px',
+                  fontSize: isMobile ? '11px' : '13px',
                   fontWeight: '600'
                 }}>
                   {activeTab === 'users' ? stats.activeUsers : stats.activeStores} Activos
                 </div>
                 <div style={{
-                  padding: '8px 16px',
+                  padding: isMobile ? '6px 12px' : '8px 16px',
                   backgroundColor: COLORS.danger,
                   color: COLORS.white,
                   borderRadius: '20px',
-                  fontSize: '13px',
+                  fontSize: isMobile ? '11px' : '13px',
                   fontWeight: '600'
                 }}>
                   {activeTab === 'users' ? stats.bannedUsers : stats.bannedStores} Baneados
@@ -504,10 +594,11 @@ function SuperadminDashboard() {
                   icon={faSearch} 
                   style={{ 
                     position: 'absolute', 
-                    left: '14px', 
+                    left: isMobile ? '10px' : '14px', 
                     top: '50%', 
                     transform: 'translateY(-50%)',
-                    color: COLORS.grayDark
+                    color: COLORS.grayDark,
+                    fontSize: '14px'
                   }} 
                 />
                 <input
@@ -516,11 +607,11 @@ function SuperadminDashboard() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   style={{
-                    padding: '12px 16px',
-                    paddingLeft: '44px',
+                    padding: isMobile ? '10px 12px' : '12px 16px',
+                    paddingLeft: isMobile ? '36px' : '44px',
                     borderRadius: '12px',
                     border: `2px solid ${COLORS.grayLight}`,
-                    width: '300px',
+                    width: isMobile ? '100%' : '300px',
                     fontSize: '14px',
                     outline: 'none',
                     transition: 'border-color 0.2s'
@@ -540,13 +631,13 @@ function SuperadminDashboard() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: `2px solid ${COLORS.grayLight}` }}>
-                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Usuario</th>
-                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Email</th>
-                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Empresa</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Tiendas</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Última Actividad</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Estado</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Acciones</th>
+                      <th style={thStyle}>Usuario</th>
+                      <th style={thStyle}>Email</th>
+                      <th style={{ ...thStyle, display: isMobile ? 'none' : 'table-cell' }}>Empresa</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Tiendas</th>
+                      <th style={{ ...thStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>Última Actividad</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Estado</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -554,17 +645,17 @@ function SuperadminDashboard() {
                       <tr key={user.id} style={{ borderBottom: `1px solid ${COLORS.grayLight}`, transition: 'background-color 0.2s' }}
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.grayLight}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                        <td style={{ padding: '16px 12px' }}>
-                          <div style={{ fontWeight: '600', color: COLORS.black }}>{user.username}</div>
-                          <div style={{ fontSize: '12px', color: COLORS.grayDark }}>Code: {user.code}</div>
+                        <td style={tdStyle}>
+                          <div style={{ fontWeight: '600', color: COLORS.black, fontSize: '14px' }}>{user.username}</div>
+                          <div style={{ fontSize: '11px', color: COLORS.grayDark }}>Code: {user.code}</div>
                         </td>
-                        <td style={{ padding: '16px 12px', color: COLORS.grayDark }}>{user.email}</td>
-                        <td style={{ padding: '16px 12px', color: COLORS.grayDark }}>{user.business_name || '-'}</td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                        <td style={tdStyle}>{user.email}</td>
+                        <td style={{ ...tdStyle, display: isMobile ? 'none' : 'table-cell' }}>{user.business_name || '-'}</td>
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>
                           <span style={{
                             backgroundColor: COLORS.gold,
                             color: COLORS.black,
-                            padding: '6px 14px',
+                            padding: isMobile ? '4px 10px' : '6px 14px',
                             borderRadius: '20px',
                             fontSize: '12px',
                             fontWeight: '600'
@@ -572,7 +663,7 @@ function SuperadminDashboard() {
                             {user.store_count}
                           </span>
                         </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                        <td style={{ ...tdStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>
                           {(() => {
                             const status = getActivityStatus(user.last_active);
                             return (
@@ -589,12 +680,12 @@ function SuperadminDashboard() {
                             );
                           })()}
                         </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>
                           {user.is_banned ? (
                             <span style={{
                               backgroundColor: COLORS.danger,
                               color: COLORS.white,
-                              padding: '6px 14px',
+                              padding: isMobile ? '4px 10px' : '6px 14px',
                               borderRadius: '20px',
                               fontSize: '12px',
                               fontWeight: '600'
@@ -605,7 +696,7 @@ function SuperadminDashboard() {
                             <span style={{
                               backgroundColor: COLORS.success,
                               color: COLORS.white,
-                              padding: '6px 14px',
+                              padding: isMobile ? '4px 10px' : '6px 14px',
                               borderRadius: '20px',
                               fontSize: '12px',
                               fontWeight: '600'
@@ -614,7 +705,7 @@ function SuperadminDashboard() {
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>
                           <button
                             onClick={() => handleEditUser(user)}
                             style={{
@@ -622,7 +713,7 @@ function SuperadminDashboard() {
                               border: 'none',
                               color: COLORS.black,
                               cursor: 'pointer',
-                              padding: '10px',
+                              padding: isMobile ? '8px' : '10px',
                               borderRadius: '10px',
                               marginRight: '8px',
                               transition: 'all 0.2s'
@@ -640,7 +731,7 @@ function SuperadminDashboard() {
                               border: 'none',
                               color: user.is_banned ? COLORS.success : COLORS.warning,
                               cursor: 'pointer',
-                              padding: '10px',
+                              padding: isMobile ? '8px' : '10px',
                               borderRadius: '10px',
                               marginRight: '8px',
                               transition: 'all 0.2s'
@@ -656,7 +747,7 @@ function SuperadminDashboard() {
                               border: 'none',
                               color: COLORS.danger,
                               cursor: 'pointer',
-                              padding: '10px',
+                              padding: isMobile ? '8px' : '10px',
                               borderRadius: '10px',
                               transition: 'all 0.2s'
                             }}
@@ -670,9 +761,9 @@ function SuperadminDashboard() {
                   </tbody>
                 </table>
                 {filteredUsers.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '60px', color: COLORS.grayDark }}>
-                    <FontAwesomeIcon icon={faUsers} style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }} />
-                    <div style={{ fontSize: '16px' }}>No se encontraron usuarios</div>
+                  <div style={{ textAlign: 'center', padding: isMobile ? '40px' : '60px', color: COLORS.grayDark }}>
+                    <FontAwesomeIcon icon={faUsers} style={{ fontSize: isMobile ? '36px' : '48px', marginBottom: '16px', opacity: 0.3 }} />
+                    <div style={{ fontSize: isMobile ? '14px' : '16px' }}>No se encontraron usuarios</div>
                   </div>
                 )}
               </div>
@@ -681,12 +772,12 @@ function SuperadminDashboard() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: `2px solid ${COLORS.grayLight}` }}>
-                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Tienda</th>
-                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Propietario</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Productos</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Órdenes</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Estado</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Acciones</th>
+                      <th style={{ ...thStyle, display: isMobile ? 'none' : 'table-cell' }}>Tienda</th>
+                      <th style={thStyle}>Propietario</th>
+                      <th style={{ ...thStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>Productos</th>
+                      <th style={{ ...thStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>Órdenes</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Estado</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -694,19 +785,19 @@ function SuperadminDashboard() {
                       <tr key={store.id} style={{ borderBottom: `1px solid ${COLORS.grayLight}`, transition: 'background-color 0.2s' }}
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.grayLight}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                        <td style={{ padding: '16px 12px' }}>
+                        <td style={{ ...tdStyle, display: isMobile ? 'none' : 'table-cell' }}>
                           <div style={{ fontWeight: '600', color: COLORS.black }}>{store.name}</div>
-                          <div style={{ fontSize: '12px', color: COLORS.grayDark }}>Code: {store.code}</div>
+                          <div style={{ fontSize: '11px', color: COLORS.grayDark }}>Code: {store.code}</div>
                         </td>
-                        <td style={{ padding: '16px 12px' }}>
+                        <td style={tdStyle}>
                           <div style={{ color: COLORS.grayDark }}>{store.user_email}</div>
-                          <div style={{ fontSize: '12px', color: COLORS.grayDark }}>{store.user_business || '-'}</div>
+                          <div style={{ fontSize: '11px', color: COLORS.grayDark, display: isMobile ? 'none' : 'block' }}>{store.user_business || '-'}</div>
                         </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                        <td style={{ ...tdStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>
                           <span style={{
                             backgroundColor: COLORS.gold,
                             color: COLORS.black,
-                            padding: '6px 14px',
+                            padding: isMobile ? '4px 10px' : '6px 14px',
                             borderRadius: '20px',
                             fontSize: '12px',
                             fontWeight: '600'
@@ -714,11 +805,11 @@ function SuperadminDashboard() {
                             {store.product_count}
                           </span>
                         </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                        <td style={{ ...tdStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>
                           <span style={{
                             backgroundColor: COLORS.black,
                             color: COLORS.white,
-                            padding: '6px 14px',
+                            padding: isMobile ? '4px 10px' : '6px 14px',
                             borderRadius: '20px',
                             fontSize: '12px',
                             fontWeight: '600'
@@ -726,12 +817,12 @@ function SuperadminDashboard() {
                             {store.order_count}
                           </span>
                         </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>
                           {store.is_banned ? (
                             <span style={{
                               backgroundColor: COLORS.danger,
                               color: COLORS.white,
-                              padding: '6px 14px',
+                              padding: isMobile ? '4px 10px' : '6px 14px',
                               borderRadius: '20px',
                               fontSize: '12px',
                               fontWeight: '600'
@@ -742,7 +833,7 @@ function SuperadminDashboard() {
                             <span style={{
                               backgroundColor: COLORS.success,
                               color: COLORS.white,
-                              padding: '6px 14px',
+                              padding: isMobile ? '4px 10px' : '6px 14px',
                               borderRadius: '20px',
                               fontSize: '12px',
                               fontWeight: '600'
@@ -751,7 +842,7 @@ function SuperadminDashboard() {
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>
                           <button
                             onClick={() => handleToggleBanStore(store)}
                             style={{
@@ -759,7 +850,7 @@ function SuperadminDashboard() {
                               border: 'none',
                               color: store.is_banned ? COLORS.success : COLORS.warning,
                               cursor: 'pointer',
-                              padding: '10px',
+                              padding: isMobile ? '8px' : '10px',
                               borderRadius: '10px',
                               marginRight: '8px',
                               transition: 'all 0.2s'
@@ -775,7 +866,7 @@ function SuperadminDashboard() {
                               border: 'none',
                               color: COLORS.danger,
                               cursor: 'pointer',
-                              padding: '10px',
+                              padding: isMobile ? '8px' : '10px',
                               borderRadius: '10px',
                               transition: 'all 0.2s'
                             }}
@@ -789,9 +880,9 @@ function SuperadminDashboard() {
                   </tbody>
                 </table>
                 {filteredStores.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '60px', color: COLORS.grayDark }}>
-                    <FontAwesomeIcon icon={faStore} style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }} />
-                    <div style={{ fontSize: '16px' }}>No se encontraron tiendas</div>
+                  <div style={{ textAlign: 'center', padding: isMobile ? '40px' : '60px', color: COLORS.grayDark }}>
+                    <FontAwesomeIcon icon={faStore} style={{ fontSize: isMobile ? '36px' : '48px', marginBottom: '16px', opacity: 0.3 }} />
+                    <div style={{ fontSize: isMobile ? '14px' : '16px' }}>No se encontraron tiendas</div>
                   </div>
                 )}
               </div>
@@ -800,13 +891,13 @@ function SuperadminDashboard() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: `2px solid ${COLORS.grayLight}` }}>
-                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Usuario</th>
-                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Email</th>
-                      <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Plan Actual</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Precio</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Vencimiento</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Estado</th>
-                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Acciones</th>
+                      <th style={thStyle}>Usuario</th>
+                      <th style={{ ...thStyle, display: isMobile ? 'none' : 'table-cell' }}>Email</th>
+                      <th style={{ ...thStyle, display: isMobile ? 'none' : 'table-cell' }}>Plan Actual</th>
+                      <th style={{ ...thStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>Precio</th>
+                      <th style={{ ...thStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>Vencimiento</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Estado</th>
+                      <th style={{ ...thStyle, textAlign: 'center' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -815,16 +906,16 @@ function SuperadminDashboard() {
                           onClick={() => { setSelectedSubscription(sub); setShowSubscriptionModal(true); }}
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.grayLight}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                        <td style={{ padding: '16px 12px' }}>
+                        <td style={tdStyle}>
                           <div style={{ fontWeight: '600', color: COLORS.black }}>{sub.username}</div>
-                          <div style={{ fontSize: '12px', color: COLORS.grayDark }}>{sub.business_name || '-'}</div>
+                          <div style={{ fontSize: '11px', color: COLORS.grayDark, display: isMobile ? 'none' : 'block' }}>{sub.business_name || '-'}</div>
                         </td>
-                        <td style={{ padding: '16px 12px', color: COLORS.grayDark }}>{sub.email}</td>
-                        <td style={{ padding: '16px 12px' }}>
+                        <td style={{ ...tdStyle, display: isMobile ? 'none' : 'table-cell' }}>{sub.email}</td>
+                        <td style={{ ...tdStyle, display: isMobile ? 'none' : 'table-cell' }}>
                           <span style={{
                             backgroundColor: sub.current_plan === 'Gratis' || !sub.current_plan ? COLORS.gray : COLORS.gold,
                             color: COLORS.black,
-                            padding: '6px 14px',
+                            padding: isMobile ? '4px 10px' : '6px 14px',
                             borderRadius: '20px',
                             fontSize: '12px',
                             fontWeight: '600'
@@ -832,7 +923,7 @@ function SuperadminDashboard() {
                             {sub.current_plan || 'Gratis'}
                           </span>
                         </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                        <td style={{ ...tdStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>
                           <div style={{ fontWeight: '600', color: COLORS.black }}>
                             {!sub.current_plan || sub.current_plan === 'Gratis' ? 'Gratis' : 
                               sub.current_billing_cycle === 'monthly' 
@@ -840,15 +931,15 @@ function SuperadminDashboard() {
                                 : `$${sub.current_price_yearly}/año`}
                           </div>
                         </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center', color: COLORS.grayDark, fontSize: '13px' }}>
+                        <td style={{ ...tdStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell', color: COLORS.grayDark }}>
                           {sub.current_ends_at ? new Date(sub.current_ends_at).toLocaleDateString('es-ES') : '-'}
                         </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>
                           {sub.current_is_active && sub.current_ends_at && new Date(sub.current_ends_at) > new Date() ? (
                             <span style={{
                               backgroundColor: COLORS.success,
                               color: COLORS.white,
-                              padding: '6px 14px',
+                              padding: isMobile ? '4px 10px' : '6px 14px',
                               borderRadius: '20px',
                               fontSize: '12px',
                               fontWeight: '600'
@@ -859,7 +950,7 @@ function SuperadminDashboard() {
                             <span style={{
                               backgroundColor: COLORS.danger,
                               color: COLORS.white,
-                              padding: '6px 14px',
+                              padding: isMobile ? '4px 10px' : '6px 14px',
                               borderRadius: '20px',
                               fontSize: '12px',
                               fontWeight: '600'
@@ -870,7 +961,7 @@ function SuperadminDashboard() {
                             <span style={{
                               backgroundColor: COLORS.gray,
                               color: COLORS.black,
-                              padding: '6px 14px',
+                              padding: isMobile ? '4px 10px' : '6px 14px',
                               borderRadius: '20px',
                               fontSize: '12px',
                               fontWeight: '600'
@@ -879,7 +970,7 @@ function SuperadminDashboard() {
                             </span>
                           )}
                         </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>
                           <button
                             onClick={(e) => { e.stopPropagation(); setSelectedSubscription(sub); setShowSubscriptionModal(true); }}
                             style={{
@@ -887,13 +978,13 @@ function SuperadminDashboard() {
                               border: 'none',
                               color: COLORS.black,
                               cursor: 'pointer',
-                              padding: '8px 16px',
+                              padding: isMobile ? '6px 12px' : '8px 16px',
                               borderRadius: '8px',
                               fontSize: '12px',
                               fontWeight: '600'
                             }}
                           >
-                            Ver Detalles
+                            Ver
                           </button>
                         </td>
                       </tr>
@@ -901,9 +992,9 @@ function SuperadminDashboard() {
                   </tbody>
                 </table>
                 {subscriptions.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '60px', color: COLORS.grayDark }}>
-                    <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }} />
-                    <div style={{ fontSize: '16px' }}>No hay suscripciones</div>
+                  <div style={{ textAlign: 'center', padding: isMobile ? '40px' : '60px', color: COLORS.grayDark }}>
+                    <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: isMobile ? '36px' : '48px', marginBottom: '16px', opacity: 0.3 }} />
+                    <div style={{ fontSize: isMobile ? '14px' : '16px' }}>No hay suscripciones</div>
                   </div>
                 )}
               </div>
@@ -923,19 +1014,20 @@ function SuperadminDashboard() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1000,
+          padding: isMobile ? '16px' : '0'
         }}>
           <div style={{
             backgroundColor: COLORS.white,
-            borderRadius: '16px',
-            padding: '24px',
+            borderRadius: isMobile ? '12px' : '16px',
+            padding: isMobile ? '16px' : '24px',
             maxWidth: '700px',
-            width: '90%',
-            maxHeight: '80vh',
+            width: '100%',
+            maxHeight: isMobile ? '90vh' : '80vh',
             overflow: 'auto'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: '700', color: COLORS.black }}>Historial de Suscripciones</h2>
+              <h2 style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: '700', color: COLORS.black }}>Historial de Suscripciones</h2>
               <button
                 onClick={() => setShowSubscriptionModal(false)}
                 style={{
@@ -943,7 +1035,8 @@ function SuperadminDashboard() {
                   border: 'none',
                   cursor: 'pointer',
                   fontSize: '24px',
-                  color: COLORS.grayDark
+                  color: COLORS.grayDark,
+                  padding: '4px 8px'
                 }}
               >
                 ×
@@ -964,11 +1057,11 @@ function SuperadminDashboard() {
                   <div key={sub.id} style={{ 
                     border: `2px solid ${sub.is_active ? COLORS.success : COLORS.grayLight}`,
                     borderRadius: '12px',
-                    padding: '16px',
+                    padding: isMobile ? '12px' : '16px',
                     marginBottom: '12px',
                     backgroundColor: sub.is_active ? 'rgba(40,167,69,0.05)' : COLORS.white
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
                       <div>
                         <span style={{
                           backgroundColor: sub.plan_name === 'Gratis' ? COLORS.gray : COLORS.gold,
@@ -1014,7 +1107,7 @@ function SuperadminDashboard() {
                         <div style={{ fontSize: '12px', color: COLORS.grayDark, textTransform: 'capitalize' }}>{sub.billing_cycle === 'monthly' ? 'Mensual' : sub.billing_cycle === 'yearly' ? 'Anual' : '-'}</div>
                       </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px', color: COLORS.grayDark }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '8px', fontSize: '13px', color: COLORS.grayDark }}>
                       <div><strong>Inicio:</strong> {sub.starts_at ? new Date(sub.starts_at).toLocaleDateString('es-ES') : '-'}</div>
                       <div><strong>Vencimiento:</strong> {sub.ends_at ? new Date(sub.ends_at).toLocaleDateString('es-ES') : '-'}</div>
                       <div><strong>Suscrito:</strong> {sub.subscribed_at ? new Date(sub.subscribed_at).toLocaleDateString('es-ES') : '-'}</div>
@@ -1045,16 +1138,17 @@ function SuperadminDashboard() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1000,
+          padding: isMobile ? '16px' : '0'
         }}>
           <div style={{
             backgroundColor: COLORS.white,
-            borderRadius: '20px',
-            padding: '32px',
-            width: '450px',
-            maxWidth: '90%'
+            borderRadius: isMobile ? '16px' : '20px',
+            padding: isMobile ? '20px' : '32px',
+            width: '100%',
+            maxWidth: '450px'
           }}>
-            <h3 style={{ marginTop: 0, marginBottom: '24px', fontSize: '20px', fontWeight: '700' }}>Editar Usuario</h3>
+            <h3 style={{ marginTop: 0, marginBottom: isMobile ? '16px' : '24px', fontSize: isMobile ? '18px' : '20px', fontWeight: '700' }}>Editar Usuario</h3>
             
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600' }}>Email</label>
@@ -1064,7 +1158,7 @@ function SuperadminDashboard() {
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                 style={{
                   width: '100%',
-                  padding: '14px 16px',
+                  padding: isMobile ? '12px 14px' : '14px 16px',
                   borderRadius: '12px',
                   border: `2px solid ${COLORS.grayLight}`,
                   fontSize: '14px',
@@ -1085,7 +1179,7 @@ function SuperadminDashboard() {
                 placeholder="Dejar vacío para no cambiar"
                 style={{
                   width: '100%',
-                  padding: '14px 16px',
+                  padding: isMobile ? '12px 14px' : '14px 16px',
                   borderRadius: '12px',
                   border: `2px solid ${COLORS.grayLight}`,
                   fontSize: '14px',
@@ -1097,7 +1191,7 @@ function SuperadminDashboard() {
               />
             </div>
 
-            <div style={{ marginBottom: '28px' }}>
+            <div style={{ marginBottom: isMobile ? '20px' : '28px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px' }}>
                 <input
                   type="checkbox"
@@ -1109,18 +1203,19 @@ function SuperadminDashboard() {
               </label>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button
                 onClick={() => setShowEditModal(false)}
                 style={{
-                  padding: '14px 28px',
+                  padding: isMobile ? '12px 20px' : '14px 28px',
                   borderRadius: '12px',
                   border: `2px solid ${COLORS.gray}`,
                   backgroundColor: COLORS.white,
                   color: COLORS.black,
                   cursor: 'pointer',
                   fontSize: '14px',
-                  fontWeight: '600'
+                  fontWeight: '600',
+                  flex: 1
                 }}
               >
                 Cancelar
@@ -1128,14 +1223,15 @@ function SuperadminDashboard() {
               <button
                 onClick={handleSaveUser}
                 style={{
-                  padding: '14px 28px',
+                  padding: isMobile ? '12px 20px' : '14px 28px',
                   borderRadius: '12px',
                   border: 'none',
                   backgroundColor: COLORS.gold,
                   color: COLORS.black,
                   cursor: 'pointer',
                   fontSize: '14px',
-                  fontWeight: '600'
+                  fontWeight: '600',
+                  flex: 1
                 }}
               >
                 Guardar
@@ -1156,14 +1252,15 @@ function SuperadminDashboard() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1000,
+          padding: isMobile ? '16px' : '0'
         }}>
           <div style={{
             backgroundColor: COLORS.white,
-            borderRadius: '20px',
-            padding: '32px',
-            width: '450px',
-            maxWidth: '90%'
+            borderRadius: isMobile ? '16px' : '20px',
+            padding: isMobile ? '20px' : '32px',
+            width: '100%',
+            maxWidth: '450px'
           }}>
             <div style={{ 
               display: 'flex', 
@@ -1172,29 +1269,30 @@ function SuperadminDashboard() {
               marginBottom: '20px',
               color: COLORS.danger
             }}>
-              <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '32px' }} />
-              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>Confirmar Eliminación</h3>
+              <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: isMobile ? '28px' : '32px' }} />
+              <h3 style={{ margin: 0, fontSize: isMobile ? '18px' : '20px', fontWeight: '700' }}>Confirmar Eliminación</h3>
             </div>
             
-            <p style={{ marginBottom: '28px', color: COLORS.grayDark, fontSize: '14px', lineHeight: '1.6' }}>
+            <p style={{ marginBottom: isMobile ? '20px' : '28px', color: COLORS.grayDark, fontSize: '14px', lineHeight: '1.6' }}>
               ¿Estás seguro de eliminar {showDeleteConfirm.type === 'user' ? 'al usuario' : 'la tienda'}{' '}
               <strong>"{showDeleteConfirm.name}"</strong>?
               <br /><br />
               Esta acción no se puede deshacer y se eliminarán todos los datos asociados.
             </p>
 
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button
                 onClick={() => setShowDeleteConfirm(null)}
                 style={{
-                  padding: '14px 28px',
+                  padding: isMobile ? '12px 20px' : '14px 28px',
                   borderRadius: '12px',
                   border: `2px solid ${COLORS.gray}`,
                   backgroundColor: COLORS.white,
                   color: COLORS.black,
                   cursor: 'pointer',
                   fontSize: '14px',
-                  fontWeight: '600'
+                  fontWeight: '600',
+                  flex: 1
                 }}
               >
                 Cancelar
@@ -1208,14 +1306,15 @@ function SuperadminDashboard() {
                   }
                 }}
                 style={{
-                  padding: '14px 28px',
+                  padding: isMobile ? '12px 20px' : '14px 28px',
                   borderRadius: '12px',
                   border: 'none',
                   backgroundColor: COLORS.danger,
                   color: COLORS.white,
                   cursor: 'pointer',
                   fontSize: '14px',
-                  fontWeight: '600'
+                  fontWeight: '600',
+                  flex: 1
                 }}
               >
                 Eliminar
