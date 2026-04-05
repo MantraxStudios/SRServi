@@ -549,6 +549,57 @@ async function migrateTables() {
         console.error('❌ Error migrando stores:', err.message);
       }
     }
+
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS plans (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          name VARCHAR(100) NOT NULL,
+          description TEXT,
+          max_stores INT NOT NULL DEFAULT 2,
+          price_monthly DECIMAL(10,2) NOT NULL DEFAULT 0,
+          price_yearly DECIMAL(10,2) NOT NULL DEFAULT 0,
+          features JSON,
+          is_active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('ℹ️ Tabla plans verificada/creada');
+    } catch (err) {
+      console.error('❌ Error creando tabla plans:', err.message);
+    }
+
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS user_plans (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          user_id INT NOT NULL,
+          plan_id INT NOT NULL,
+          billing_cycle ENUM('monthly', 'yearly') DEFAULT 'monthly',
+          starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          ends_at TIMESTAMP NOT NULL,
+          is_active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE
+        )
+      `);
+      console.log('ℹ️ Tabla user_plans verificada/creada');
+
+      const [planRows] = await pool.execute('SELECT COUNT(*) as count FROM plans');
+      if (planRows[0].count === 0) {
+        console.log('⚠️ Insertando planes por defecto...');
+        await pool.execute(`
+          INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
+          ('Gratis', 'Plan gratuito básico', 2, 0, 0, '["2 tiendas máximo", "Gestión de productos", "Punto de venta"]'),
+          ('Profesional', 'Para negocios en crecimiento', 10, 19.99, 199.99, '["10 tiendas máximo", "Análisis avanzados", "Soporte prioritario", "Cupones de descuento"]'),
+          ('Empresarial', 'Para grandes empresas', 100, 49.99, 499.99, '["Tiendas ilimitadas", "Análisis avanzados", "Soporte 24/7", "Workers ilimitados", "Personalización avanzada"]')
+        `);
+        console.log('✅ Planes por defecto insertados');
+      }
+    } catch (err) {
+      console.error('❌ Error en user_plans:', err.message);
+    }
     
     console.log('✅ Migración de tablas completada');
   } catch (error) {
@@ -653,6 +704,16 @@ export async function getStores(userId) {
 }
 
 export async function createStore(userId, data) {
+  const canCreate = await canUserCreateStore(userId);
+  
+  if (!canCreate.canCreate) {
+    const error = new Error(`Has alcanzado el límite de ${canCreate.maxStores} tiendas. Actualiza tu plan para crear más tiendas.`);
+    error.code = 'STORE_LIMIT_REACHED';
+    error.maxStores = canCreate.maxStores;
+    error.currentPlan = canCreate.currentPlan;
+    throw error;
+  }
+
   const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, mercadopago_access_token, mercadopago_terminal_id } = data;
   let code = generateCode();
   
@@ -1953,6 +2014,80 @@ export async function createSuperadmin(email, password) {
     [email, hashedPassword]
   );
   return { success: true };
+}
+
+export async function getAllPlans() {
+  const [rows] = await pool.execute('SELECT * FROM plans WHERE is_active = TRUE ORDER BY price_monthly ASC');
+  return rows;
+}
+
+export async function getUserPlan(userId) {
+  const [rows] = await pool.execute(`
+    SELECT up.*, p.name as plan_name, p.max_stores, p.price_monthly, p.price_yearly, p.features
+    FROM user_plans up
+    JOIN plans p ON up.plan_id = p.id
+    WHERE up.user_id = ? AND up.is_active = TRUE AND up.ends_at > NOW()
+    ORDER BY up.created_at DESC
+    LIMIT 1
+  `, [userId]);
+  return rows[0] || null;
+}
+
+export async function getUserStoreCount(userId) {
+  const [rows] = await pool.execute('SELECT COUNT(*) as count FROM stores WHERE user_id = ?', [userId]);
+  return rows[0].count;
+}
+
+export async function canUserCreateStore(userId) {
+  const plan = await getUserPlan(userId);
+  const storeCount = await getUserStoreCount(userId);
+  
+  if (!plan) {
+    return { canCreate: storeCount < 2, maxStores: 2, currentPlan: 'Gratis' };
+  }
+  
+  const maxStores = plan.max_stores;
+  return { 
+    canCreate: storeCount < maxStores, 
+    maxStores, 
+    currentPlan: plan.plan_name,
+    storeCount 
+  };
+}
+
+export async function assignPlanToUser(userId, planId, billingCycle = 'monthly') {
+  const [plans] = await pool.execute('SELECT * FROM plans WHERE id = ?', [planId]);
+  if (plans.length === 0) {
+    throw new Error('Plan no encontrado');
+  }
+  
+  const plan = plans[0];
+  let endsAt;
+  
+  if (billingCycle === 'yearly') {
+    endsAt = new Date();
+    endsAt.setFullYear(endsAt.getFullYear() + 1);
+  } else {
+    endsAt = new Date();
+    endsAt.setMonth(endsAt.getMonth() + 1);
+  }
+  
+  await pool.execute(
+    'UPDATE user_plans SET is_active = FALSE WHERE user_id = ?',
+    [userId]
+  );
+  
+  await pool.execute(
+    'INSERT INTO user_plans (user_id, plan_id, billing_cycle, ends_at) VALUES (?, ?, ?, ?)',
+    [userId, planId, billingCycle, endsAt]
+  );
+  
+  return { success: true, plan: plan.name };
+}
+
+export async function getPlanById(planId) {
+  const [rows] = await pool.execute('SELECT * FROM plans WHERE id = ?', [planId]);
+  return rows[0] || null;
 }
 
 export { pool };

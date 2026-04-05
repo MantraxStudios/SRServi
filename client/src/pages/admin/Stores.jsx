@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { useNavigate } from 'react-router-dom';
+import { faPlus, faEdit, faTrash, faCopy, faStore, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
 const CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'Dólar Estadounidense', flag: '🇺🇸' },
@@ -24,6 +25,9 @@ function Stores() {
   const [editingStore, setEditingStore] = useState(null);
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(null);
+  const [planInfo, setPlanInfo] = useState(null);
+  const [storeLimitError, setStoreLimitError] = useState(null);
+  const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -40,6 +44,7 @@ function Stores() {
 
   useEffect(() => {
     fetchStores();
+    fetchPlanInfo();
   }, []);
 
   const fetchStores = async () => {
@@ -53,6 +58,20 @@ function Stores() {
       console.error('Error fetching stores:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPlanInfo = async () => {
+    try {
+      const response = await fetch('/api/my-plan', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPlanInfo(data);
+      }
+    } catch (err) {
+      console.error('Error fetching plan info:', err);
     }
   };
 
@@ -114,6 +133,7 @@ function Stores() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setStoreLimitError(null);
 
     try {
       const url = editingStore
@@ -133,8 +153,16 @@ function Stores() {
 
       if (response.ok) {
         fetchStores();
+        fetchPlanInfo();
         setShowModal(false);
         resetForm();
+      } else {
+        const data = await response.json();
+        if (data.code === 'STORE_LIMIT_REACHED') {
+          setStoreLimitError(data.error);
+        } else {
+          console.error('Error saving store:', data.error);
+        }
       }
     } catch (error) {
       console.error('Error saving store:', error);
@@ -184,9 +212,17 @@ function Stores() {
           Gestión de Tiendas
         </h2>
         <button
-          onClick={() => openModal()}
+          onClick={() => {
+            if (planInfo && !planInfo.canCreate) {
+              setStoreLimitError(planInfo.currentPlan === 'Gratis' 
+                ? `Has alcanzado el límite de ${planInfo.maxStores} tiendas en tu plan Gratis. Actualiza a un plan superior para crear más tiendas.`
+                : `Has alcanzado el límite de ${planInfo.maxStores} tiendas.`);
+            } else {
+              openModal();
+            }
+          }}
           style={{
-            backgroundColor: 'var(--color-primary)',
+            backgroundColor: planInfo && !planInfo.canCreate ? '#999' : 'var(--color-primary)',
             color: 'var(--color-secondary)',
             border: 'none',
             padding: '12px 24px',
@@ -203,6 +239,44 @@ function Stores() {
           Nueva Tienda
         </button>
       </div>
+
+      {planInfo && !planInfo.canCreate && (
+        <div style={{
+          backgroundColor: 'rgba(245,124,0,0.1)',
+          border: '1px solid #f57c00',
+          borderRadius: '8px',
+          padding: '16px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#f57c00', fontSize: '20px' }} />
+          <div style={{ flex: 1 }}>
+            <strong style={{ color: '#f57c00' }}>Límite de tiendas alcanzado</strong>
+            <p style={{ margin: '4px 0 0 0', color: '#666', fontSize: '13px' }}>
+              Tu plan {planInfo.currentPlan} permite máximo {planInfo.maxStores} tiendas ({planInfo.storeCount}/{planInfo.maxStores}).
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/admin/plans')}
+            style={{
+              backgroundColor: 'var(--color-accent)',
+              color: 'var(--color-primary)',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '600',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <FontAwesomeIcon icon={faStore} style={{ marginRight: '6px' }} />
+            Ver Planes
+          </button>
+        </div>
+      )}
 
       {stores.length === 0 ? (
         <div style={{
@@ -418,6 +492,44 @@ function Stores() {
                 ×
               </button>
             </div>
+
+            {storeLimitError && (
+              <div style={{
+                backgroundColor: 'rgba(220,53,69,0.1)',
+                border: '1px solid #dc3545',
+                borderRadius: '8px',
+                padding: '16px',
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '12px'
+              }}>
+                <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#dc3545', fontSize: '20px', marginTop: '2px' }} />
+                <div style={{ flex: 1 }}>
+                  <strong style={{ color: '#dc3545' }}>No puedes crear más tiendas</strong>
+                  <p style={{ margin: '4px 0 8px 0', color: '#666', fontSize: '13px' }}>
+                    {storeLimitError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setShowModal(false); navigate('/admin/plans'); }}
+                    style={{
+                      backgroundColor: 'var(--color-accent)',
+                      color: 'var(--color-primary)',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faStore} style={{ marginRight: '6px' }} />
+                    Ver Planes para Más Tiendas
+                  </button>
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit}>
               <div style={{ marginBottom: '20px' }}>

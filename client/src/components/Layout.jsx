@@ -19,7 +19,8 @@ import {
   faCog,
   faBars,
   faTimes,
-  faBarcode
+  faBarcode,
+  faCrown
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -373,6 +374,10 @@ function Layout() {
               </button>
               {openDropdowns['sistema'] && (
                 <div className="dropdown-content">
+                  <NavLink to="/admin/plans" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faCrown} />
+                    <span>Planes</span>
+                  </NavLink>
                   <NavLink to="/admin/configurations" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faCog} />
                     <span>Config. Pago</span>

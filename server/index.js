@@ -79,6 +79,11 @@ import {
   updateStoreBySuperadmin,
   deleteStoreBySuperadmin,
   createSuperadmin,
+  getAllPlans,
+  getUserPlan,
+  canUserCreateStore,
+  assignPlanToUser,
+  getPlanById,
   pool
 } from './database.js';
 
@@ -388,6 +393,14 @@ app.post('/api/stores', authenticateToken, async (req, res) => {
     });
     res.json(store);
   } catch (error) {
+    if (error.code === 'STORE_LIMIT_REACHED') {
+      return res.status(403).json({ 
+        error: error.message,
+        code: 'STORE_LIMIT_REACHED',
+        maxStores: error.maxStores,
+        currentPlan: error.currentPlan
+      });
+    }
     res.status(500).json({ error: error.message });
   }
 });
@@ -418,6 +431,50 @@ app.delete('/api/stores/:id', authenticateToken, async (req, res) => {
   try {
     await deleteStore(req.params.id, req.user.id);
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/plans', async (req, res) => {
+  try {
+    const plans = await getAllPlans();
+    res.json(plans);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/my-plan', authenticateToken, async (req, res) => {
+  try {
+    const plan = await getUserPlan(req.user.id);
+    const storeInfo = await canUserCreateStore(req.user.id);
+    res.json({ 
+      plan,
+      ...storeInfo
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/can-create-store', authenticateToken, async (req, res) => {
+  try {
+    const canCreate = await canUserCreateStore(req.user.id);
+    res.json(canCreate);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/subscribe-plan', authenticateToken, async (req, res) => {
+  try {
+    const { planId, billingCycle } = req.body;
+    if (!planId) {
+      return res.status(400).json({ error: 'Plan es requerido' });
+    }
+    const result = await assignPlanToUser(req.user.id, planId, billingCycle || 'monthly');
+    res.json({ success: true, message: `Te has suscrito al plan ${result.plan}`, plan: result.plan });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
