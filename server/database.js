@@ -2079,26 +2079,28 @@ export async function getUserStoreCount(userId) {
 export async function getAllSubscriptions() {
   const [rows] = await pool.execute(`
     SELECT 
-      up.id,
+      up.id as subscription_id,
       up.user_id,
       up.billing_cycle,
       up.starts_at,
       up.ends_at,
       up.is_active,
       up.created_at as subscribed_at,
-      p.id as plan_id,
-      p.name as plan_name,
-      p.max_stores,
-      p.price_monthly,
-      p.price_yearly,
-      p.features,
+      COALESCE(p.id, 1) as plan_id,
+      COALESCE(p.name, 'Gratis') as plan_name,
+      COALESCE(p.max_stores, 2) as max_stores,
+      COALESCE(p.price_monthly, 0) as price_monthly,
+      COALESCE(p.price_yearly, 0) as price_yearly,
+      COALESCE(p.features, '["2 tiendas máximo", "Gestión de productos", "Punto de venta"]') as features,
       u.username,
       u.email,
-      u.business_name
-    FROM user_plans up
-    JOIN plans p ON up.plan_id = p.id
-    JOIN users u ON up.user_id = u.id
-    ORDER BY up.created_at DESC
+      u.business_name,
+      u.is_banned,
+      u.created_at as user_created_at
+    FROM users u
+    LEFT JOIN user_plans up ON u.id = up.user_id
+    LEFT JOIN plans p ON up.plan_id = p.id
+    ORDER BY u.created_at DESC
   `);
   return rows;
 }

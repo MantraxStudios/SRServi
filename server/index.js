@@ -80,6 +80,7 @@ import {
   deleteStoreBySuperadmin,
   createSuperadmin,
   getAllPlans,
+  getAllSubscriptions,
   getUserPlan,
   canUserCreateStore,
   assignPlanToUser,
@@ -688,9 +689,11 @@ app.delete('/api/superadmin/stores/:id', authenticateSuperadminToken, async (req
 app.get('/api/superadmin/subscriptions', authenticateSuperadminToken, async (req, res) => {
   try {
     const subscriptions = await getAllSubscriptions();
-    res.json(subscriptions);
+    console.log('📋 Suscripciones encontradas:', subscriptions.length);
+    res.json(subscriptions || []);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error en subscriptions:', error);
+    res.json([]);
   }
 });
 

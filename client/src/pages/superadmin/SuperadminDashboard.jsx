@@ -78,7 +78,8 @@ function SuperadminDashboard() {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
-        setSubscriptions(data);
+        console.log('📋 Datos de suscripciones:', data);
+        setSubscriptions(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -809,7 +810,7 @@ function SuperadminDashboard() {
                   </thead>
                   <tbody>
                     {subscriptions.map(sub => (
-                      <tr key={sub.id} style={{ borderBottom: `1px solid ${COLORS.grayLight}`, transition: 'background-color 0.2s' }}
+                      <tr key={sub.user_id} style={{ borderBottom: `1px solid ${COLORS.grayLight}`, transition: 'background-color 0.2s' }}
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.grayLight}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                         <td style={{ padding: '16px 12px' }}>
@@ -819,14 +820,14 @@ function SuperadminDashboard() {
                         <td style={{ padding: '16px 12px', color: COLORS.grayDark }}>{sub.email}</td>
                         <td style={{ padding: '16px 12px' }}>
                           <span style={{
-                            backgroundColor: sub.plan_name === 'Gratis' ? COLORS.gray : COLORS.gold,
-                            color: sub.plan_name === 'Gratis' ? COLORS.black : COLORS.black,
+                            backgroundColor: sub.plan_name === 'Gratis' || !sub.plan_name ? COLORS.gray : COLORS.gold,
+                            color: COLORS.black,
                             padding: '6px 14px',
                             borderRadius: '20px',
                             fontSize: '12px',
                             fontWeight: '600'
                           }}>
-                            {sub.plan_name}
+                            {sub.plan_name || 'Gratis'}
                           </span>
                         </td>
                         <td style={{ padding: '16px 12px', textAlign: 'center' }}>
@@ -839,34 +840,25 @@ function SuperadminDashboard() {
                             fontWeight: '600',
                             textTransform: 'capitalize'
                           }}>
-                            {sub.billing_cycle === 'monthly' ? 'Mensual' : 'Anual'}
+                            {sub.billing_cycle === 'monthly' ? 'Mensual' : sub.billing_cycle === 'yearly' ? 'Anual' : '-'}
                           </span>
                         </td>
                         <td style={{ padding: '16px 12px', textAlign: 'center' }}>
                           <div style={{ fontWeight: '600', color: COLORS.black }}>
-                            {sub.plan_name === 'Gratis' ? 'Gratis' : 
+                            {!sub.plan_name || sub.plan_name === 'Gratis' ? 'Gratis' : 
                               sub.billing_cycle === 'monthly' 
                                 ? `$${sub.price_monthly}/mes` 
                                 : `$${sub.price_yearly}/año`}
                           </div>
                         </td>
                         <td style={{ padding: '16px 12px', textAlign: 'center', color: COLORS.grayDark, fontSize: '13px' }}>
-                          {sub.starts_at ? new Date(sub.starts_at).toLocaleDateString('es-ES') : '-'}
+                          {sub.starts_at ? new Date(sub.starts_at).toLocaleDateString('es-ES') : sub.user_created_at ? new Date(sub.user_created_at).toLocaleDateString('es-ES') : '-'}
+                        </td>
+                        <td style={{ padding: '16px 12px', textAlign: 'center', color: COLORS.grayDark, fontSize: '13px' }}>
+                          {sub.ends_at ? new Date(sub.ends_at).toLocaleDateString('es-ES') : '-'}
                         </td>
                         <td style={{ padding: '16px 12px', textAlign: 'center' }}>
-                          <span style={{
-                            backgroundColor: new Date(sub.ends_at) > new Date() ? 'rgba(40,167,69,0.1)' : 'rgba(220,53,69,0.1)',
-                            color: new Date(sub.ends_at) > new Date() ? COLORS.success : COLORS.danger,
-                            padding: '6px 14px',
-                            borderRadius: '20px',
-                            fontSize: '12px',
-                            fontWeight: '600'
-                          }}>
-                            {sub.ends_at ? new Date(sub.ends_at).toLocaleDateString('es-ES') : '-'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
-                          {sub.is_active && new Date(sub.ends_at) > new Date() ? (
+                          {sub.is_active && sub.ends_at && new Date(sub.ends_at) > new Date() ? (
                             <span style={{
                               backgroundColor: COLORS.success,
                               color: COLORS.white,
