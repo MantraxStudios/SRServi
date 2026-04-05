@@ -479,10 +479,9 @@ a {
 
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 24px;
   padding: 20px;
-  max-width: 1200px;
   margin: 0 auto;
 }
 
@@ -1094,18 +1093,9 @@ a {
   }
 
   .products-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 16px;
     padding: 16px;
-  }
-
-  .products-container {
-    padding: 16px !important;
-    gap: 16px !important;
-  }
-
-  .products-container > div > div {
-    width: calc(50% - 8px) !important;
   }
 
   .modal {
@@ -1142,12 +1132,9 @@ a {
 }
 
 @media (max-width: 480px) {
-  .products-container {
-    padding: 12px !important;
-    gap: 12px !important;
-  }
-
-  .products-container > div > div {
-    width: calc(100% - 8px) !important;
+  .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    padding: 12px;
   }
 }
