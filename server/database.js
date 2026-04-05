@@ -124,6 +124,8 @@ async function createTables() {
       accept_card BOOLEAN NOT NULL DEFAULT TRUE,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
       is_default BOOLEAN NOT NULL DEFAULT FALSE,
+      is_minimarket BOOLEAN NOT NULL DEFAULT FALSE,
+      default_minimarket_terminal INT DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )`;
@@ -390,9 +392,25 @@ async function migrateTables() {
       } else {
         console.log('ℹ️ Tabla store_configurations ya tiene columnas de pago');
       }
+      
+      if (!configColNames.includes('is_minimarket')) {
+        console.log('⚠️ Agregando columna is_minimarket a tabla store_configurations...');
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN is_minimarket BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna is_minimarket agregada a store_configurations');
+      } else {
+        console.log('ℹ️ Tabla store_configurations ya tiene columna is_minimarket');
+      }
+      
+      if (!configColNames.includes('default_minimarket_terminal')) {
+        console.log('⚠️ Agregando columna default_minimarket_terminal a tabla store_configurations...');
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN default_minimarket_terminal INT DEFAULT NULL');
+        console.log('✅ Columna default_minimarket_terminal agregada a store_configurations');
+      } else {
+        console.log('ℹ️ Tabla store_configurations ya tiene columna default_minimarket_terminal');
+      }
     } catch (migErr) {
       if (migErr.message.includes('Duplicate column')) {
-        console.log('ℹ️ Columnas de pago ya existen en store_configurations');
+        console.log('ℹ️ Columnas ya existen en store_configurations');
       } else {
         console.error('❌ Error migrando store_configurations:', migErr.message);
       }
@@ -692,7 +710,7 @@ export async function getStoreConfigurationById(configId, storeId) {
 }
 
 export async function createStoreConfiguration(storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default } = data;
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal } = data;
   
   if (is_default) {
     await pool.execute(
@@ -702,8 +720,8 @@ export async function createStoreConfiguration(storeId, data) {
   }
   
   const [result] = await pool.execute(
-    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true]
+    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null]
   );
   return {
     id: result.insertId,
@@ -713,12 +731,14 @@ export async function createStoreConfiguration(storeId, data) {
     accept_cash: accept_cash !== false,
     accept_card: accept_card !== false,
     is_active: is_active !== false,
-    is_default: is_default === true
+    is_default: is_default === true,
+    is_minimarket: is_minimarket === true,
+    default_minimarket_terminal: default_minimarket_terminal || null
   };
 }
 
 export async function updateStoreConfiguration(configId, storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default } = data;
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal } = data;
   
   if (is_default) {
     await pool.execute(
@@ -728,8 +748,8 @@ export async function updateStoreConfiguration(configId, storeId, data) {
   }
   
   await pool.execute(
-    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ? WHERE id = ? AND store_id = ?',
-    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, configId, storeId]
+    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ? WHERE id = ? AND store_id = ?',
+    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, configId, storeId]
   );
   return {
     id: configId,
@@ -739,7 +759,9 @@ export async function updateStoreConfiguration(configId, storeId, data) {
     accept_cash: accept_cash !== false,
     accept_card: accept_card !== false,
     is_active: is_active !== false,
-    is_default: is_default === true
+    is_default: is_default === true,
+    is_minimarket: is_minimarket === true,
+    default_minimarket_terminal: default_minimarket_terminal || null
   };
 }
 

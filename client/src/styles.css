@@ -368,6 +368,11 @@ a {
   100% { transform: rotate(360deg); }
 }
 
+@keyframes slideUp {
+  0% { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
 .index-card {
   background-color: rgba(255, 255, 255, 0.98);
   border-radius: var(--radius-xl);

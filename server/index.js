@@ -264,6 +264,16 @@ app.get('/api/public/:code/mercado-pago-terminals', async (req, res) => {
   }
 });
 
+app.get('/api/public/terminals/:storeId', async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const terminals = await getMercadoPagoTerminalsByStore(parseInt(storeId));
+    res.json(terminals);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/public/:code/coupons/validate', async (req, res) => {
   try {
     const { code } = req.params;
@@ -601,14 +611,14 @@ app.get('/api/store-configurations', authenticateToken, async (req, res) => {
 
 app.post('/api/store-configurations', authenticateToken, async (req, res) => {
   try {
-    const { store_id, name, description, accept_cash, accept_card, is_active, is_default } = req.body;
+    const { store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const configuration = await createStoreConfiguration(parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default });
+    const configuration = await createStoreConfiguration(parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket });
     res.json(configuration);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -617,14 +627,14 @@ app.post('/api/store-configurations', authenticateToken, async (req, res) => {
 
 app.put('/api/store-configurations/:id', authenticateToken, async (req, res) => {
   try {
-    const { store_id, name, description, accept_cash, accept_card, is_active, is_default } = req.body;
+    const { store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const configuration = await updateStoreConfiguration(parseInt(req.params.id), parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default });
+    const configuration = await updateStoreConfiguration(parseInt(req.params.id), parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket });
     res.json(configuration);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -651,6 +661,16 @@ app.get('/api/public/store-configurations/:storeId', async (req, res) => {
     const configurations = await getStoreConfigurations(parseInt(storeId));
     const activeConfigs = configurations.filter(c => c.is_active);
     res.json(activeConfigs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/public/products/:storeId', async (req, res) => {
+  try {
+    const storeId = req.params.storeId;
+    const products = await getPublicProducts(parseInt(storeId));
+    res.json(products);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -812,7 +832,7 @@ app.put('/api/inventory/:productId/stock', authenticateToken, async (req, res) =
   }
 });
 
-app.post('/api/market/create-payment', authenticateToken, async (req, res) => {
+app.post('/api/market/create-payment', async (req, res) => {
   try {
     const { store_id, terminal_id, amount, description } = req.body;
 
@@ -878,7 +898,8 @@ app.post('/api/market/create-payment', authenticateToken, async (req, res) => {
       payment_id: mpResponse.id,
       status: mpResponse.status,
       external_reference: mpResponse.external_reference,
-      amount: amount
+      amount: amount,
+      terminal_id: terminal_id
     });
   } catch (error) {
     console.error('Error procesando pago Market:', error);
@@ -886,7 +907,7 @@ app.post('/api/market/create-payment', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/api/market/payment-status/:mpOrderId', authenticateToken, async (req, res) => {
+app.get('/api/market/payment-status/:mpOrderId', async (req, res) => {
   try {
     const { mpOrderId } = req.params;
     const { store_id, terminal_id } = req.query;

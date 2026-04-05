@@ -18,6 +18,7 @@ import MercadoPagoPoints from './pages/admin/MercadoPagoPoints';
 import Coupons from './pages/admin/Coupons';
 import Configurations from './pages/admin/Configurations';
 import Market from './pages/admin/Market';
+import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import Store from './pages/Store';
 
@@ -56,6 +57,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/store/:code" element={<Store />} />
+          <Route path="/market/:code" element={<Minimarket />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Layout /></ProtectedRoute>}>

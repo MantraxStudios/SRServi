@@ -11,7 +11,8 @@ import {
   faArrowLeft,
   faCopy,
   faCreditCard,
-  faMoneyBillWave
+  faMoneyBillWave,
+  faCheck
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 
@@ -56,6 +57,12 @@ function Store() {
   }, [store?.id]);
 
   useEffect(() => {
+    if (selectedConfiguration?.is_minimarket && store?.store?.code) {
+      navigate(`/market/${store.store.code}${configFromUrl ? `?config=${configFromUrl}` : ''}`);
+    }
+  }, [selectedConfiguration, store]);
+
+  useEffect(() => {
     const container = categoryRef.current;
     if (!container) return;
 
@@ -91,6 +98,7 @@ function Store() {
   const [paymentCancelled, setPaymentCancelled] = useState(false);
   const [cashPaymentSuccess, setCashPaymentSuccess] = useState(false);
   const [paymentTimeLeft, setPaymentTimeLeft] = useState(90);
+  const [notification, setNotification] = useState(null);
 
   useEffect(() => {
     fetchStore();
@@ -325,6 +333,8 @@ function Store() {
     };
 
     setCart([...cart, cartItem]);
+    setNotification(`${selectedProduct.name} agregado al carrito`);
+    setTimeout(() => setNotification(null), 2000);
     closeProductModal();
   };
 
@@ -857,49 +867,101 @@ function Store() {
       {hasProducts && (
       <div style={{
         position: 'fixed',
-        bottom: '24px',
-        right: '24px',
-        backgroundColor: colors.accent,
-        color: colors.primary,
-        width: '64px',
-        height: '64px',
-        borderRadius: '50%',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: colors.primary,
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-        cursor: 'pointer',
+        justifyContent: 'space-between',
+        padding: '12px 20px',
         zIndex: 1000,
-        transition: 'all 0.2s ease'
-      }} onClick={() => setCartOpen(true)}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.1)';
-          e.currentTarget.style.boxShadow = '0 12px 32px rgba(0, 0, 0, 0.4)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.3)';
-        }}
-      >
-        <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: '24px' }} />
-        {getCartCount() > 0 && (
-          <span style={{
-            position: 'absolute',
-            top: '-8px',
-            right: '-8px',
-            backgroundColor: colors.primary,
-            color: colors.secondary,
+        boxShadow: '0 -4px 20px rgba(0,0,0,0.2)'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          cursor: 'pointer'
+        }} onClick={() => setCartOpen(true)}>
+          <div style={{
+            position: 'relative',
+            backgroundColor: colors.accent,
+            width: '44px',
+            height: '44px',
             borderRadius: '50%',
-            width: '28px',
-            height: '28px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '14px',
-            fontWeight: '700'
-          }}>{getCartCount()}</span>
-        )}
+            justifyContent: 'center'
+          }}>
+            <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: '20px', color: colors.primary }} />
+            <span style={{
+              position: 'absolute',
+              top: '-6px',
+              right: '-6px',
+              backgroundColor: '#DC3545',
+              color: '#fff',
+              borderRadius: '50%',
+              width: '22px',
+              height: '22px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '12px',
+              fontWeight: '700'
+            }}>{getCartCount()}</span>
+          </div>
+          <span style={{ color: colors.accent, fontSize: '14px', fontWeight: '600' }}>Ver carrito</span>
+        </div>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px'
+        }}>
+          <span style={{ color: colors.accent, fontSize: '20px', fontWeight: '700' }}>
+            {colors.currency.symbol}{Number(getCartTotal()).toFixed(2)}
+          </span>
+          <button
+            onClick={() => setCartOpen(true)}
+            style={{
+              backgroundColor: colors.accent,
+              color: colors.primary,
+              border: 'none',
+              padding: '12px 24px',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '700',
+              cursor: 'pointer'
+            }}
+          >
+            PAGAR
+          </button>
+        </div>
       </div>
+      )}
+
+      {notification && (
+        <div style={{
+          position: 'fixed',
+          bottom: '80px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: colors.primary,
+          color: colors.accent,
+          padding: '14px 24px',
+          borderRadius: '12px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          zIndex: 1002,
+          fontSize: '15px',
+          fontWeight: '600',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          animation: 'slideUp 0.3s ease'
+        }}>
+          <FontAwesomeIcon icon={faCheck} style={{ color: '#28a745' }} />
+          {notification}
+        </div>
       )}
 
       {selectedProduct && (
@@ -1532,28 +1594,27 @@ function Store() {
 
       <div style={{
         position: 'fixed',
-        top: 0,
-        right: cartOpen ? 0 : '-100%',
-        width: '400px',
-        maxWidth: '100%',
-        height: '100vh',
+        bottom: cartOpen ? 0 : '-85%',
+        left: 0,
+        right: 0,
+        height: '85%',
         backgroundColor: colors.secondary,
-        boxShadow: '-8px 0 32px rgba(0, 0, 0, 0.3)',
-        transition: 'right 0.3s ease',
+        boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.3)',
+        transition: 'bottom 0.3s ease',
         zIndex: 1001,
         display: 'flex',
         flexDirection: 'column',
-        borderLeft: `3px solid ${colors.primary}`
+        borderTop: `3px solid ${colors.primary}`
       }} className={cartOpen ? 'open' : ''}>
         <div style={{
           backgroundColor: colors.header,
           color: colors.accent,
-          padding: '24px',
+          padding: '20px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <h2 style={{ margin: 0, fontSize: '24px' }}>Carrito</h2>
+          <h2 style={{ margin: 0, fontSize: '22px' }}>Carrito</h2>
           <button 
             style={{
               backgroundColor: 'transparent',

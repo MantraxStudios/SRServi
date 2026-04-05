@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 function Configurations() {
@@ -9,13 +9,16 @@ function Configurations() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
+  const [terminals, setTerminals] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     accept_cash: true,
     accept_card: true,
     is_active: true,
-    is_default: false
+    is_default: false,
+    is_minimarket: false,
+    default_minimarket_terminal: ''
   });
   const [error, setError] = useState('');
 
@@ -28,6 +31,20 @@ function Configurations() {
       setConfigurations([]);
     }
   }, [selectedStore]);
+
+  const fetchTerminals = async () => {
+    if (!selectedStore) return;
+    
+    try {
+      const response = await fetch(`/api/public/terminals/${selectedStore.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setTerminals(data);
+      }
+    } catch (error) {
+      console.error('Error fetching terminals:', error);
+    }
+  };
 
   const fetchConfigurations = async () => {
     if (!selectedStore) {
@@ -91,7 +108,8 @@ function Configurations() {
         accept_cash: true,
         accept_card: true,
         is_active: true,
-        is_default: false
+        is_default: false,
+        is_minimarket: false
       });
       fetchConfigurations();
     } catch (err) {
@@ -101,13 +119,16 @@ function Configurations() {
 
   const handleEdit = (config) => {
     setEditingConfig(config);
+    fetchTerminals();
     setFormData({
       name: config.name,
       description: config.description || '',
       accept_cash: Boolean(config.accept_cash),
       accept_card: Boolean(config.accept_card),
       is_active: Boolean(config.is_active),
-      is_default: Boolean(config.is_default)
+      is_default: Boolean(config.is_default),
+      is_minimarket: Boolean(config.is_minimarket),
+      default_minimarket_terminal: config.default_minimarket_terminal || ''
     });
     setShowModal(true);
   };
@@ -134,13 +155,16 @@ function Configurations() {
 
   const openModal = () => {
     setEditingConfig(null);
+    fetchTerminals();
     setFormData({
       name: '',
       description: '',
       accept_cash: true,
       accept_card: true,
       is_active: true,
-      is_default: false
+      is_default: false,
+      is_minimarket: false,
+      default_minimarket_terminal: ''
     });
     setShowModal(true);
   };
@@ -290,6 +314,70 @@ function Configurations() {
                     <span>Tarjeta</span>
                   </label>
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label>Tipo de Store</label>
+                <div style={{ marginTop: '8px' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px', 
+                    cursor: 'pointer', 
+                    padding: '12px', 
+                    background: formData.is_minimarket ? 'rgba(212, 175, 55, 0.1)' : '#f8f9fa', 
+                    borderRadius: '8px', 
+                    border: formData.is_minimarket ? '2px solid #D4AF37' : '2px solid transparent',
+                    position: 'relative'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={formData.is_minimarket}
+                      onChange={(e) => setFormData({ ...formData, is_minimarket: e.target.checked })}
+                      style={{ 
+                        width: '20px', 
+                        height: '20px', 
+                        cursor: 'pointer',
+                        position: 'relative',
+                        zIndex: 1
+                      }}
+                    />
+                    <FontAwesomeIcon icon={faStore} style={{ color: '#D4AF37' }} />
+                    <span style={{ fontWeight: '600' }}>Minimarket</span>
+                    <span style={{ color: '#666', fontSize: '12px', marginLeft: '8px' }}>(Interfaz simplificada con grid de productos)</span>
+                  </div>
+                </div>
+                {formData.is_minimarket && (
+                  <div style={{ marginTop: '12px', padding: '12px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                    <label style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>
+                      <FontAwesomeIcon icon={faCreditCardAlt} style={{ color: '#D4AF37', marginRight: '8px' }} />
+                      Terminal Point para Minimarket
+                    </label>
+                    <select
+                      value={formData.default_minimarket_terminal}
+                      onChange={(e) => setFormData({ ...formData, default_minimarket_terminal: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        borderRadius: '6px',
+                        border: '1px solid #ddd',
+                        fontSize: '14px'
+                      }}
+                    >
+                      <option value="">Seleccionar terminal...</option>
+                      {terminals.map(terminal => (
+                        <option key={terminal.id} value={terminal.id}>
+                          {terminal.name || terminal.device_id}
+                        </option>
+                      ))}
+                    </select>
+                    {terminals.length === 0 && (
+                      <p style={{ color: '#666', fontSize: '12px', marginTop: '8px' }}>
+                        No hay terminales registrados. <a href="/terminals" style={{ color: '#007bff' }}>Crear terminal</a>
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="form-group">
