@@ -209,6 +209,35 @@ function SuperadminDashboard() {
     activeStores: stores.filter(s => !s.is_banned).length
   };
 
+  const formatLastActive = (date) => {
+    if (!date) return 'Nunca';
+    const now = new Date();
+    const lastActive = new Date(date);
+    const diffMs = now - lastActive;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Ahora';
+    if (diffMins < 60) return `Hace ${diffMins} min`;
+    if (diffHours < 24) return `Hace ${diffHours}h`;
+    if (diffDays < 7) return `Hace ${diffDays}d`;
+    return lastActive.toLocaleDateString('es-ES');
+  };
+
+  const getActivityStatus = (date) => {
+    if (!date) return { color: COLORS.grayDark, bg: COLORS.grayLight };
+    const now = new Date();
+    const lastActive = new Date(date);
+    const diffMs = now - lastActive;
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 5) return { color: COLORS.success, bg: 'rgba(40,167,69,0.1)' };
+    if (diffMins < 60) return { color: COLORS.gold, bg: 'rgba(212,175,55,0.2)' };
+    if (diffMins < 1440) return { color: '#1976d2', bg: 'rgba(25,118,210,0.1)' };
+    return { color: COLORS.grayDark, bg: COLORS.grayLight };
+  };
+
   const sidebarStyle = {
     width: sidebarOpen ? '260px' : '70px',
     minHeight: '100vh',
@@ -472,6 +501,7 @@ function SuperadminDashboard() {
                       <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Email</th>
                       <th style={{ textAlign: 'left', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Empresa</th>
                       <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Tiendas</th>
+                      <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Última Actividad</th>
                       <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Estado</th>
                       <th style={{ textAlign: 'center', padding: '14px 12px', color: COLORS.grayDark, fontSize: '12px', fontWeight: '600', textTransform: 'uppercase' }}>Acciones</th>
                     </tr>
@@ -498,6 +528,23 @@ function SuperadminDashboard() {
                           }}>
                             {user.store_count}
                           </span>
+                        </td>
+                        <td style={{ padding: '16px 12px', textAlign: 'center' }}>
+                          {(() => {
+                            const status = getActivityStatus(user.last_active);
+                            return (
+                              <span style={{
+                                backgroundColor: status.bg,
+                                color: status.color,
+                                padding: '6px 14px',
+                                borderRadius: '20px',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                              }}>
+                                {formatLastActive(user.last_active)}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td style={{ padding: '16px 12px', textAlign: 'center' }}>
                           {user.is_banned ? (

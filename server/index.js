@@ -218,7 +218,9 @@ app.post('/api/auth/login', async (req, res) => {
     }
     
     if (user.is_banned) {
-      return res.status(403).json({ error: 'Tu cuenta ha sido suspendida. Contacta al administrador.' });
+      return res.status(403).json({ 
+        error: 'Tu cuenta ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación. La revisión puede demorar entre 1 semana y 1 mes.' 
+      });
     }
     
     const token = jwt.sign({ id: user.id, email: user.email, type: 'user' }, JWT_SECRET, { expiresIn: '7d' });
@@ -239,7 +241,9 @@ app.get('/api/public/:code', async (req, res) => {
     }
     
     if (store.is_banned) {
-      return res.status(403).json({ error: 'Esta tienda ha sido suspendida.' });
+      return res.status(403).json({ 
+        error: 'Esta tienda ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación. La revisión puede demorar entre 1 semana y 1 mes.' 
+      });
     }
     
     const products = await getPublicProducts(store.id);

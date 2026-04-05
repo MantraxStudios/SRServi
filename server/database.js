@@ -516,9 +516,17 @@ async function migrateTables() {
       } else {
         console.log('ℹ️ Tabla users ya tiene columna is_banned');
       }
+      
+      if (!userColNames.includes('last_active')) {
+        console.log('⚠️ Agregando columna last_active a tabla users...');
+        await pool.execute('ALTER TABLE users ADD COLUMN last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+        console.log('✅ Columna last_active agregada a users');
+      } else {
+        console.log('ℹ️ Tabla users ya tiene columna last_active');
+      }
     } catch (err) {
       if (err.message.includes('Duplicate column')) {
-        console.log('ℹ️ Columna is_banned ya existe en users');
+        console.log('ℹ️ Columnas ya existen en users');
       } else {
         console.error('❌ Error migrando users:', err.message);
       }
@@ -599,6 +607,8 @@ export async function authenticateUser(email, password) {
   if (!isValid) {
     return null;
   }
+  
+  await pool.execute('UPDATE users SET last_active = NOW() WHERE id = ?', [user.id]);
 
   return {
     id: user.id,
@@ -1873,12 +1883,12 @@ export async function authenticateSuperadmin(email, password) {
 
 export async function getAllUsers() {
   const [rows] = await pool.execute(`
-    SELECT u.id, u.username, u.email, u.business_name, u.code, u.is_banned, u.created_at,
+    SELECT u.id, u.username, u.email, u.business_name, u.code, u.is_banned, u.created_at, u.last_active,
            COUNT(s.id) as store_count
     FROM users u
     LEFT JOIN stores s ON u.id = s.user_id
     GROUP BY u.id
-    ORDER BY u.created_at DESC
+    ORDER BY u.last_active DESC
   `);
   return rows;
 }

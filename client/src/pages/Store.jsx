@@ -219,7 +219,11 @@ function Store() {
       
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error('Codigo no encontrado');
+          throw new Error('Código no encontrado');
+        }
+        if (response.status === 403) {
+          const data = await response.json();
+          throw new Error(data.error || 'Tienda suspendida');
         }
         throw new Error('Error al cargar la tienda');
       }
