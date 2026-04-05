@@ -805,28 +805,15 @@ function Store() {
           flexWrap: 'wrap',
           gap: '12px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {store?.store?.logo_url && (
-              <img 
-                src={store.store.logo_url} 
-                alt={store?.store?.name} 
-                style={{ 
-                  maxHeight: '80px',
-                  maxWidth: '140px',
-                  objectFit: 'contain'
-                }} 
-              />
-            )}
-            <div>
-              <h1 style={{ 
-                fontSize: '28px', 
-                fontWeight: '700',
-                color: colors.accent,
-                margin: 0
-              }}>
-                {store?.store?.name}
-              </h1>
-            </div>
+          <div>
+            <h1 style={{ 
+              fontSize: '28px', 
+              fontWeight: '700',
+              color: colors.accent,
+              margin: 0
+            }}>
+              {store?.store?.name}
+            </h1>
           </div>
           <p style={{ 
             fontSize: '16px',
