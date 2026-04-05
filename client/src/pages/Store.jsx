@@ -16,6 +16,7 @@ import {
   faTags
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
+import { SOCKET_URL, getImageUrl } from '../config.js';
 
 function Store() {
   const { code } = useParams();
@@ -108,7 +109,7 @@ function Store() {
   useEffect(() => {
     fetchStore();
     
-    const socket = io('http://localhost:3001');
+    const socket = io(SOCKET_URL);
     
     socket.on('connect', () => {
       console.log('Conectado al servidor WebSocket');
@@ -208,7 +209,7 @@ function Store() {
 
   useEffect(() => {
     if (store?.store?.id) {
-      const socket = io('http://localhost:3001');
+      const socket = io(SOCKET_URL);
       socket.emit('register_store', store.store.id);
       socket.disconnect();
     }
@@ -1096,7 +1097,7 @@ function Store() {
                       }}>
                         {product.image ? (
                           <img 
-                            src={product.image.startsWith('http') ? product.image : `http://localhost:3001${product.image}`} 
+                            src={getImageUrl(product.image)} 
                             alt={product.name} 
                             style={{ 
                               maxWidth: '100%',
@@ -1215,7 +1216,7 @@ function Store() {
                     }}>
                       {product.image ? (
                         <img 
-                          src={product.image.startsWith('http') ? product.image : `http://localhost:3001${product.image}`} 
+                          src={getImageUrl(product.image)} 
                           alt={product.name} 
                           style={{ 
                             maxWidth: '100%',
@@ -1349,7 +1350,7 @@ function Store() {
         }}>
           {notification.image ? (
             <img 
-              src={notification.image.startsWith('http') ? notification.image : `http://localhost:3001${notification.image}`} 
+              src={getImageUrl(notification.image)} 
               alt={notification.name}
               style={{ width: '56px', height: '56px', borderRadius: '12px', objectFit: 'cover', border: '1px solid #f1f3f5' }}
             />

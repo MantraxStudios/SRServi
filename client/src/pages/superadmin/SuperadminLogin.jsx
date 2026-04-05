@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faShieldAlt, faEnvelope, faLock, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { API_URL } from '../../config.js';
 
 const COLORS = {
   black: '#000000',
@@ -28,7 +29,7 @@ function SuperadminLogin() {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:3001/api/superadmin/login', {
+      const res = await fetch(`${API_URL}/api/superadmin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })

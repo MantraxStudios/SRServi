@@ -104,7 +104,8 @@ const io = new Server(server, {
     methods: ['GET', 'POST']
   }
 });
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.SERVER_PORT || 8888;
+const HOST = process.env.SERVER_HOST || '127.0.0.1';
 const JWT_SECRET = process.env.JWT_SECRET || 'srservi-secret-key-2024';
 
 const mpClient = new MercadoPagoConfig({
@@ -566,8 +567,7 @@ app.post('/api/create-subscription-preference', authenticateToken, async (req, r
         success: `${clientUrl}/admin/plans?payment=success`,
         failure: `${clientUrl}/admin/plans?payment=failure`,
         pending: `${clientUrl}/admin/plans?payment=pending`
-      },
-      auto_return: 'approved'
+      }
     };
     
     console.log('Calling MercadoPago API...');
@@ -2192,8 +2192,8 @@ async function startServer() {
     
     app.set('io', io);
     
-    server.listen(PORT, () => {
-      console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    server.listen(PORT, HOST, () => {
+      console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
     });
   } catch (error) {
     console.error('Error al iniciar el servidor:', error);

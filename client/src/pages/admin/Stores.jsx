@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useNavigate } from 'react-router-dom';
 import { faPlus, faEdit, faTrash, faCopy, faStore, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { API_URL, getImageUrl } from '../../config.js';
 
 const CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'Dólar Estadounidense', flag: '🇺🇸' },
@@ -51,7 +52,7 @@ function Stores() {
 
   const fetchStores = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/stores', {
+      const response = await fetch(`${API_URL}/api/stores`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -109,7 +110,7 @@ function Stores() {
         logo_url: store.logo_url || ''
       });
       setLogoFile(null);
-      setLogoPreview(store.logo_url ? `http://localhost:3001${store.logo_url}` : null);
+      setLogoPreview(store.logo_url ? getImageUrl(store.logo_url) : null);
     } else {
       resetForm();
     }
@@ -141,8 +142,8 @@ function Stores() {
 
     try {
       const url = editingStore
-        ? `http://localhost:3001/api/stores/${editingStore.id}`
-        : 'http://localhost:3001/api/stores';
+        ? `${API_URL}/api/stores/${editingStore.id}`
+        : `${API_URL}/api/stores`;
       
       const method = editingStore ? 'PUT' : 'POST';
       const isPremium = planInfo && planInfo.plan && planInfo.plan.name !== 'Gratis';
@@ -194,7 +195,7 @@ function Stores() {
     }
 
     try {
-      const response = await fetch(`http://localhost:3001/api/stores/${storeId}`, {
+      const response = await fetch(`${API_URL}/api/stores/${storeId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -617,7 +618,7 @@ function Stores() {
                         overflow: 'hidden'
                       }}>
                         {logoPreview || formData.logo_url ? (
-                          <img src={logoPreview || `http://localhost:3001${formData.logo_url}`} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={logoPreview || getImageUrl(formData.logo_url)} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                           <span style={{ fontSize: '24px', color: '#999' }}>🖼️</span>
                         )}

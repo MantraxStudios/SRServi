@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../config.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faHome, 
@@ -53,13 +54,13 @@ function Layout() {
 
   const fetchStores = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/stores', {
+      const response = await fetch(`${API_URL}/api/stores`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
       
       if (Array.isArray(data) && data.length === 0) {
-        const response2 = await fetch('http://localhost:3001/api/stores', {
+        const response2 = await fetch(`${API_URL}/api/stores`, {
           method: 'POST',
           headers: { 
             'Authorization': `Bearer ${token}`,

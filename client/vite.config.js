@@ -1,17 +1,28 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
+
+const host = process.env.VITE_CLIENT_HOST || 'localhost';
+const port = parseInt(process.env.VITE_CLIENT_PORT || '5173');
+const apiUrl = process.env.VITE_API_URL || 'http://localhost:8080';
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    'import.meta.env.VITE_API_URL': JSON.stringify(apiUrl),
+    'import.meta.env.VITE_SOCKET_URL': JSON.stringify(process.env.VITE_SOCKET_URL || apiUrl),
+    'import.meta.env.VITE_UPLOAD_URL': JSON.stringify(process.env.VITE_UPLOAD_URL || apiUrl)
+  },
   server: {
-    port: 5173,
+    host,
+    port,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: apiUrl,
         changeOrigin: true
       },
       '/uploads': {
-        target: 'http://localhost:3001',
+        target: apiUrl,
         changeOrigin: true
       }
     }

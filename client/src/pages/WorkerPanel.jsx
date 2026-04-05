@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave } from '@fortawesome/free-solid-svg-icons';
+import { SOCKET_URL } from '../config.js';
 
 function WorkerPanel() {
   const navigate = useNavigate();
@@ -40,7 +41,7 @@ function WorkerPanel() {
     fetchOrders(parsedWorker.store_id);
     fetchWorkers(parsedWorker.store_id);
 
-    const socket = io('http://localhost:3001');
+    const socket = io(SOCKET_URL);
 
     socket.on('connect', () => {
       socket.emit('register_store', parsedWorker.store_id);

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useContext } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
+import { getImageUrl } from '../../config.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faBarcode, 
@@ -775,7 +776,7 @@ function Market() {
             <div className="quick-add-image">
               {foundProduct.image ? (
                 <img 
-                  src={foundProduct.image.startsWith('http') ? foundProduct.image : `http://localhost:3001${foundProduct.image}`}
+                  src={getImageUrl(foundProduct.image)}
                   alt={foundProduct.name}
                 />
               ) : (
@@ -872,7 +873,7 @@ function Market() {
                 <div className="product-card-image">
                   {product.image ? (
                     <img 
-                      src={product.image.startsWith('http') ? product.image : `http://localhost:3001${product.image}`}
+                      src={getImageUrl(product.image)}
                       alt={product.name}
                     />
                   ) : (
@@ -922,7 +923,7 @@ function Market() {
                   <div className="cart-item-image">
                     {item.image ? (
                       <img 
-                        src={item.image.startsWith('http') ? item.image : `http://localhost:3001${item.image}`}
+                        src={getImageUrl(item.image)}
                         alt={item.name}
                       />
                     ) : (

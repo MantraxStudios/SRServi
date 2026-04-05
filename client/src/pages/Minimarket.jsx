@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { getImageUrl } from '../config.js';
 import { 
   faBarcode, 
   faShoppingCart,
@@ -449,7 +450,7 @@ function Minimarket() {
                       flexShrink: 0,
                       border: '1px solid #e9ecef'
                     }}>
-                      {item.image && <img src={item.image.startsWith('http') ? item.image : `http://localhost:3001${item.image}`} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                      {item.image && <img src={getImageUrl(item.image)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '16px', fontWeight: '600', color: '#212529', marginBottom: '2px' }}>{item.name}</div>

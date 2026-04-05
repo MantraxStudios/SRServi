@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faBox, faGripVertical } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
+import { getImageUrl } from '../../config.js';
 import {
   DndContext,
   closestCenter,
@@ -354,7 +355,7 @@ function Products() {
           }}>
             {product.image ? (
               <img 
-                src={product.image.startsWith('http') ? product.image : `http://localhost:3001${product.image}`}
+                src={getImageUrl(product.image)}
                 alt={product.name}
                 style={{
                   maxWidth: '100%',
@@ -529,7 +530,7 @@ function Products() {
                           <img 
                             src={products.find(p => p.id === activeId).image.startsWith('http') 
                               ? products.find(p => p.id === activeId).image 
-                              : `http://localhost:3001${products.find(p => p.id === activeId).image}`}
+                              : getImageUrl(products.find(p => p.id === activeId).image)}
                             alt={products.find(p => p.id === activeId)?.name}
                             style={{
                               maxWidth: '100%',
