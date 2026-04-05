@@ -152,7 +152,8 @@ function Stores() {
           formDataToSend.append(key, formData[key]);
         }
       });
-      if (logoFile) {
+      const isPremium = planInfo && planInfo.plan && planInfo.plan.name !== 'Gratis';
+      if (logoFile && isPremium) {
         formDataToSend.append('logo', logoFile);
       }
 
@@ -574,69 +575,79 @@ function Stores() {
                 />
               </div>
 
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '12px',
-                  fontWeight: '600',
-                  color: '#333',
-                  fontSize: '14px'
-                }}>
-                  Logo de la Tienda
-                </label>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '16px',
-                  padding: '16px',
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '12px',
-                  border: '2px dashed #e0e0e0'
-                }}>
-                  <div style={{
-                    width: '80px',
-                    height: '80px',
-                    borderRadius: '12px',
-                    backgroundColor: formData.secondary_color || '#f0f0f0',
-                    border: `2px solid ${formData.primary_color || '#e0e0e0'}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden'
-                  }}>
-                    {logoPreview || formData.logo_url ? (
-                      <img src={logoPreview || `http://localhost:3001${formData.logo_url}`} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ fontSize: '24px', color: '#999' }}>🖼️</span>
-                    )}
+              {(() => {
+                const isPremium = planInfo && planInfo.plan && planInfo.plan.name !== 'Gratis';
+                
+                if (!isPremium) {
+                  return null;
+                }
+                
+                return (
+                  <div style={{ marginBottom: '24px' }}>
+                    <label style={{ 
+                      display: 'block', 
+                      marginBottom: '12px', 
+                      fontWeight: '600', 
+                      color: '#333',
+                      fontSize: '14px'
+                    }}>
+                      Logo de la Tienda <span style={{ fontSize: '10px', backgroundColor: '#f57c00', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>PREMIUM</span>
+                    </label>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '16px',
+                      padding: '16px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '12px',
+                      border: '2px dashed #e0e0e0'
+                    }}>
+                      <div style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '12px',
+                        backgroundColor: formData.secondary_color || '#f0f0f0',
+                        border: `2px solid ${formData.primary_color || '#e0e0e0'}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden'
+                      }}>
+                        {logoPreview || formData.logo_url ? (
+                          <img src={logoPreview || `http://localhost:3001${formData.logo_url}`} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ fontSize: '24px', color: '#999' }}>🖼️</span>
+                        )}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              setLogoFile(file);
+                              setLogoPreview(URL.createObjectURL(file));
+                            }
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            border: '2px solid #e0e0e0',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            boxSizing: 'border-box',
+                            cursor: 'pointer'
+                          }}
+                        />
+                        <p style={{ margin: '6px 0 0 0', color: '#666', fontSize: '11px' }}>
+                          Selecciona una imagen para el logo (JPG, PNG, GIF)
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          setLogoFile(file);
-                          setLogoPreview(URL.createObjectURL(file));
-                        }
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '10px 14px',
-                        border: '2px solid #e0e0e0',
-                        borderRadius: '8px',
-                        fontSize: '13px',
-                        boxSizing: 'border-box',
-                        cursor: 'pointer'
-                      }}
-                    />
-                    <p style={{ margin: '6px 0 0 0', color: '#666', fontSize: '11px' }}>
-                      Selecciona una imagen para el logo (JPG, PNG, GIF)
-                    </p>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               <div style={{ marginBottom: '24px' }}>
                 <label style={{ 
