@@ -21,6 +21,8 @@ import Market from './pages/admin/Market';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import Store from './pages/Store';
+import SuperadminLogin from './pages/superadmin/SuperadminLogin';
+import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -77,6 +79,8 @@ function App() {
           </Route>
           <Route path="/worker-login" element={<WorkerLogin />} />
           <Route path="/worker-panel" element={<WorkerPanel />} />
+          <Route path="/superadmin/login" element={<SuperadminLogin />} />
+          <Route path="/superadmin/dashboard" element={<SuperadminDashboard />} />
         </Routes>
       </Router>
     </AuthProvider>

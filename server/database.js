@@ -46,6 +46,15 @@ async function createTables() {
       currency_code VARCHAR(10) DEFAULT 'USD',
       currency_symbol VARCHAR(10) DEFAULT '$',
       currency_name VARCHAR(50) DEFAULT 'Dólar Estadounidense',
+      is_banned BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`;
+
+  const createSuperadminTable = `
+    CREATE TABLE IF NOT EXISTS superadmin (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password VARCHAR(255) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`;
 
@@ -62,6 +71,7 @@ async function createTables() {
       currency_code VARCHAR(10) DEFAULT 'USD',
       currency_symbol VARCHAR(10) DEFAULT '$',
       currency_name VARCHAR(50) DEFAULT 'Dólar Estadounidense',
+      is_banned BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`;
@@ -223,6 +233,7 @@ async function createTables() {
     )`;
 
   await pool.execute(createUsersTable);
+  await pool.execute(createSuperadminTable);
   await pool.execute(createStoresTable);
   await pool.execute(createCategoriesTable);
   await pool.execute(createIngredientsTable);
@@ -492,6 +503,42 @@ async function migrateTables() {
         console.log('ℹ️ Columnas ya existen en store_configurations');
       } else {
         console.error('❌ Error migrando store_configurations:', migErr.message);
+      }
+    }
+
+    try {
+      const [userCols] = await pool.execute('SHOW COLUMNS FROM users');
+      const userColNames = userCols.map(c => c.Field);
+      if (!userColNames.includes('is_banned')) {
+        console.log('⚠️ Agregando columna is_banned a tabla users...');
+        await pool.execute('ALTER TABLE users ADD COLUMN is_banned BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna is_banned agregada a users');
+      } else {
+        console.log('ℹ️ Tabla users ya tiene columna is_banned');
+      }
+    } catch (err) {
+      if (err.message.includes('Duplicate column')) {
+        console.log('ℹ️ Columna is_banned ya existe en users');
+      } else {
+        console.error('❌ Error migrando users:', err.message);
+      }
+    }
+
+    try {
+      const [storeCols] = await pool.execute('SHOW COLUMNS FROM stores');
+      const storeColNames = storeCols.map(c => c.Field);
+      if (!storeColNames.includes('is_banned')) {
+        console.log('⚠️ Agregando columna is_banned a tabla stores...');
+        await pool.execute('ALTER TABLE stores ADD COLUMN is_banned BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna is_banned agregada a stores');
+      } else {
+        console.log('ℹ️ Tabla stores ya tiene columna is_banned');
+      }
+    } catch (err) {
+      if (err.message.includes('Duplicate column')) {
+        console.log('ℹ️ Columna is_banned ya existe en stores');
+      } else {
+        console.error('❌ Error migrando stores:', err.message);
       }
     }
     
@@ -1801,6 +1848,100 @@ export async function cancelMercadoPagoOrder(mpOrderId, mercadopagoAccessToken) 
   }
 
   return await response.json();
+}
+
+export async function authenticateSuperadmin(email, password) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM superadmin WHERE email = ?',
+    [email]
+  );
+  
+  if (rows.length === 0) {
+    return null;
+  }
+  
+  const superadmin = rows[0];
+  const isValid = await bcrypt.compare(password, superadmin.password);
+  
+  if (!isValid) {
+    return null;
+  }
+  
+  const { password: _, ...safeSuperadmin } = superadmin;
+  return safeSuperadmin;
+}
+
+export async function getAllUsers() {
+  const [rows] = await pool.execute(`
+    SELECT u.id, u.username, u.email, u.business_name, u.code, u.is_banned, u.created_at,
+           COUNT(s.id) as store_count
+    FROM users u
+    LEFT JOIN stores s ON u.id = s.user_id
+    GROUP BY u.id
+    ORDER BY u.created_at DESC
+  `);
+  return rows;
+}
+
+export async function updateUserBySuperadmin(userId, data) {
+  const { email, password, is_banned } = data;
+  
+  if (password) {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await pool.execute(
+      'UPDATE users SET email = ?, password = ?, is_banned = ? WHERE id = ?',
+      [email, hashedPassword, is_banned, userId]
+    );
+  } else {
+    await pool.execute(
+      'UPDATE users SET email = ?, is_banned = ? WHERE id = ?',
+      [email, is_banned, userId]
+    );
+  }
+  
+  return { success: true };
+}
+
+export async function deleteUserBySuperadmin(userId) {
+  await pool.execute('DELETE FROM users WHERE id = ?', [userId]);
+  return { success: true };
+}
+
+export async function getAllStores() {
+  const [rows] = await pool.execute(`
+    SELECT s.*, u.username, u.email as user_email, u.business_name as user_business,
+           (SELECT COUNT(*) FROM products WHERE store_id = s.id) as product_count,
+           (SELECT COUNT(*) FROM orders WHERE store_id = s.id) as order_count
+    FROM stores s
+    JOIN users u ON s.user_id = u.id
+    ORDER BY s.created_at DESC
+  `);
+  return rows;
+}
+
+export async function updateStoreBySuperadmin(storeId, data) {
+  const { is_banned } = data;
+  
+  await pool.execute(
+    'UPDATE stores SET is_banned = ? WHERE id = ?',
+    [is_banned, storeId]
+  );
+  
+  return { success: true };
+}
+
+export async function deleteStoreBySuperadmin(storeId) {
+  await pool.execute('DELETE FROM stores WHERE id = ?', [storeId]);
+  return { success: true };
+}
+
+export async function createSuperadmin(email, password) {
+  const hashedPassword = await bcrypt.hash(password, 10);
+  await pool.execute(
+    'INSERT INTO superadmin (email, password) VALUES (?, ?)',
+    [email, hashedPassword]
+  );
+  return { success: true };
 }
 
 export { pool };

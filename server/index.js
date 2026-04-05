@@ -71,6 +71,14 @@ import {
   getMercadoPagoTerminalById,
   updateMercadoPagoTerminal,
   deleteMercadoPagoTerminal,
+  authenticateSuperadmin,
+  getAllUsers,
+  updateUserBySuperadmin,
+  deleteUserBySuperadmin,
+  getAllStores,
+  updateStoreBySuperadmin,
+  deleteStoreBySuperadmin,
+  createSuperadmin,
   pool
 } from './database.js';
 
@@ -209,6 +217,10 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
     
+    if (user.is_banned) {
+      return res.status(403).json({ error: 'Tu cuenta ha sido suspendida. Contacta al administrador.' });
+    }
+    
     const token = jwt.sign({ id: user.id, email: user.email, type: 'user' }, JWT_SECRET, { expiresIn: '7d' });
     
     res.json({ user, token });
@@ -224,6 +236,10 @@ app.get('/api/public/:code', async (req, res) => {
     
     if (!store) {
       return res.status(404).json({ error: 'Código no encontrado' });
+    }
+    
+    if (store.is_banned) {
+      return res.status(403).json({ error: 'Esta tienda ha sido suspendida.' });
     }
     
     const products = await getPublicProducts(store.id);
@@ -397,6 +413,119 @@ app.put('/api/stores/:id', authenticateToken, async (req, res) => {
 app.delete('/api/stores/:id', authenticateToken, async (req, res) => {
   try {
     await deleteStore(req.params.id, req.user.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/superadmin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email y contraseña son requeridos' });
+    }
+    const superadmin = await authenticateSuperadmin(email, password);
+    if (!superadmin) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    const token = jwt.sign({ id: superadmin.id, isSuperadmin: true }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ token, superadmin: { id: superadmin.id, email: superadmin.email } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/superadmin/setup', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email y contraseña son requeridos' });
+    }
+    await createSuperadmin(email, password);
+    res.json({ success: true, message: 'Superadmin creado' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+const authenticateSuperadminToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token inválido' });
+    }
+    if (!decoded.isSuperadmin) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+    req.superadmin = decoded;
+    next();
+  });
+};
+
+app.get('/api/superadmin/users', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const users = await getAllUsers();
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/superadmin/users/:id', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email, password, is_banned } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email es requerido' });
+    }
+    await updateUserBySuperadmin(id, { email, password, is_banned });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/superadmin/users/:id', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await deleteUserBySuperadmin(id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/superadmin/stores', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const stores = await getAllStores();
+    res.json(stores);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/superadmin/stores/:id', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { is_banned } = req.body;
+    await updateStoreBySuperadmin(id, { is_banned });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/superadmin/stores/:id', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await deleteStoreBySuperadmin(id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
