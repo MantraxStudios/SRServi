@@ -154,8 +154,11 @@ function Market() {
       });
       if (response.ok) {
         const data = await response.json();
-        setProducts(data);
-        setFilteredProducts(data);
+        const uniqueProducts = (data || []).filter((product, index, self) =>
+          index === self.findIndex((p) => p.id === product.id)
+        );
+        setProducts(uniqueProducts);
+        setFilteredProducts(uniqueProducts);
       }
     } catch (err) {
       console.error('Error fetching products:', err);
