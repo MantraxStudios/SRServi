@@ -654,6 +654,45 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
   }
 });
 
+app.post('/api/verify-payment', authenticateToken, async (req, res) => {
+  try {
+    const { payment_id } = req.body;
+    
+    if (!payment_id) {
+      const userPlan = await getUserPlan(req.user.id);
+      res.json({
+        success: true,
+        activated: userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis'
+      });
+      return;
+    }
+    
+    const paymentClient = new Payment(mpClient);
+    const payment = await paymentClient.get({ id: payment_id });
+    
+    if (payment.status === 'approved') {
+      const userPlan = await getUserPlan(req.user.id);
+      res.json({
+        success: true,
+        activated: userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis',
+        plan: userPlan?.plan_name
+      });
+    } else {
+      res.json({
+        success: false,
+        activated: false,
+        status: payment.status
+      });
+    }
+  } catch (error) {
+    const userPlan = await getUserPlan(req.user.id);
+    res.json({
+      success: true,
+      activated: userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis'
+    });
+  }
+});
+
 app.get('/api/get-mp-public-key', async (req, res) => {
   try {
     res.json({
