@@ -22,8 +22,8 @@ function MercadoPagoPoints() {
 
   const fetchTerminals = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/mercado-pago-terminals`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch(API_URL + '/api/mercado-pago-terminals', {
+        headers: { Authorization: 'Bearer ' + token }
       });
       const data = await response.json();
       setTerminals(Array.isArray(data) ? data : []);

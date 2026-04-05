@@ -54,16 +54,16 @@ function Layout() {
 
   const fetchStores = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/stores`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch(API_URL + '/api/stores', {
+        headers: { 'Authorization': 'Bearer ' + token }
       });
       const data = await response.json();
       
       if (Array.isArray(data) && data.length === 0) {
-        const response2 = await fetch(`${API_URL}/api/stores`, {
+        const response2 = await fetch(API_URL + '/api/stores', {
           method: 'POST',
           headers: { 
-            'Authorization': `Bearer ${token}`,
+            'Authorization': 'Bearer ' + token,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({

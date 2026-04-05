@@ -17,7 +17,7 @@ function WorkerLogin() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/workers/login`, {
+      const response = await fetch(API_URL + '/api/workers/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })

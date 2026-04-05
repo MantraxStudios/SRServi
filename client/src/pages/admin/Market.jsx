@@ -266,11 +266,11 @@ function Market() {
     const total = getTotal();
 
     try {
-      const response = await fetch(`${API_URL}/api/market/create-payment`, {
+      const response = await fetch(API_URL + '/api/market/create-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': 'Bearer ' + token
         },
         body: JSON.stringify({
           store_id: selectedStore.id,

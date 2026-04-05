@@ -5,13 +5,15 @@ import path from 'path'
 const host = process.env.VITE_CLIENT_HOST || 'localhost';
 const port = parseInt(process.env.VITE_CLIENT_PORT || '5173');
 const apiUrl = process.env.VITE_API_URL || 'http://localhost:8080';
+const socketUrl = process.env.VITE_SOCKET_URL || apiUrl;
+const uploadUrl = process.env.VITE_UPLOAD_URL || apiUrl;
 
 export default defineConfig({
   plugins: [react()],
   define: {
     'import.meta.env.VITE_API_URL': JSON.stringify(apiUrl),
-    'import.meta.env.VITE_SOCKET_URL': JSON.stringify(process.env.VITE_SOCKET_URL || apiUrl),
-    'import.meta.env.VITE_UPLOAD_URL': JSON.stringify(process.env.VITE_UPLOAD_URL || apiUrl)
+    'import.meta.env.VITE_SOCKET_URL': JSON.stringify(socketUrl),
+    'import.meta.env.VITE_UPLOAD_URL': JSON.stringify(uploadUrl)
   },
   server: {
     host,

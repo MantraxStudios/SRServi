@@ -626,7 +626,7 @@ function Store() {
       let response;
       
       if (selectedMethod === 'card') {
-        response = await fetch(`${API_URL}/api/orders/process-payment`, {
+        response = await fetch(API_URL + '/api/orders/process-payment', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -634,7 +634,7 @@ function Store() {
           body: JSON.stringify(orderData)
         });
       } else {
-        response = await fetch(`${API_URL}/api/orders`, {
+        response = await fetch(API_URL + '/api/orders', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

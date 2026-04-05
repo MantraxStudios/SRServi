@@ -52,8 +52,8 @@ function Stores() {
 
   const fetchStores = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/stores`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch(API_URL + '/api/stores', {
+        headers: { 'Authorization': 'Bearer ' + token }
       });
       const data = await response.json();
       setStores(data);
@@ -66,8 +66,8 @@ function Stores() {
 
   const fetchPlanInfo = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/my-plan`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch(API_URL + '/api/my-plan', {
+        headers: { 'Authorization': 'Bearer ' + token }
       });
       if (response.ok) {
         const data = await response.json();
@@ -142,8 +142,8 @@ function Stores() {
 
     try {
       const url = editingStore
-        ? `${API_URL}/api/stores/${editingStore.id}`
-        : `${API_URL}/api/stores`;
+        ? API_URL + '/api/stores/' + editingStore.id
+        : API_URL + '/api/stores';
       
       const method = editingStore ? 'PUT' : 'POST';
       const isPremium = planInfo && planInfo.plan && planInfo.plan.name !== 'Gratis';
@@ -195,9 +195,9 @@ function Stores() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/stores/${storeId}`, {
+      const response = await fetch(API_URL + '/api/stores/' + storeId, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': 'Bearer ' + token }
       });
 
       if (response.ok) {

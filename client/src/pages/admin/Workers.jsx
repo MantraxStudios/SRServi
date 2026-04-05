@@ -49,11 +49,11 @@ function Workers() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/workers`, {
+      const response = await fetch(API_URL + '/api/workers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': 'Bearer ' + token
         },
         body: JSON.stringify({
           store_id: selectedStore.id,

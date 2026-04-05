@@ -214,7 +214,7 @@ function Minimarket() {
       setProcessingPayment(true);
       const storeId = store?.store?.id || store?.id;
       
-      const orderRes = await fetch(`${API_URL}/api/market/create-payment`, {
+      const orderRes = await fetch(API_URL + '/api/market/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

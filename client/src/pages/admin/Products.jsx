@@ -253,10 +253,10 @@ function Products() {
         };
         console.log('📤 Sending order update:', payload);
         
-        const response = await fetch(`${API_URL}/api/products/order`, {
+        const response = await fetch(API_URL + '/api/products/order', {
           method: 'PUT',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': 'Bearer ' + token,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(payload)

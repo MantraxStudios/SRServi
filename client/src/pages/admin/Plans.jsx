@@ -46,8 +46,8 @@ function Plans() {
 
   const fetchMyPlan = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/my-plan`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch(API_URL + '/api/my-plan', {
+        headers: { 'Authorization': 'Bearer ' + token }
       });
       if (response.ok) {
         const data = await response.json();
@@ -80,11 +80,11 @@ function Plans() {
     
     if (paymentStatus === 'success' || paymentId) {
       try {
-        const response = await fetch(`${API_URL}/api/verify-payment`, {
+        const response = await fetch(API_URL + '/api/verify-payment', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Authorization': 'Bearer ' + token
           },
           body: JSON.stringify({ payment_id: paymentId })
         });
@@ -116,11 +116,11 @@ function Plans() {
     setMpLoading(true);
     
     try {
-      const response = await fetch(`${API_URL}/api/create-subscription-preference`, {
+      const response = await fetch(API_URL + '/api/create-subscription-preference', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': 'Bearer ' + token
         },
         body: JSON.stringify({ planId, billingCycle })
       });
