@@ -6,7 +6,7 @@ const dbConfig = {
   host: 'localhost',
   port: 3306,
   user: 'root',
-  password: 'mysql',
+  password: 'SDVDttniogreireg@2024',
   database: 'srservi'
 };
 
