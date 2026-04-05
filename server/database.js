@@ -159,6 +159,7 @@ async function createTables() {
       price DECIMAL(10, 2) NOT NULL,
       image TEXT,
       barcode VARCHAR(100) UNIQUE,
+      sort_order INT NOT NULL DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
       FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
@@ -366,6 +367,13 @@ async function migrateTables() {
         console.log('✅ Columna barcode agregada a products');
       } else {
         console.log('ℹ️ Tabla products ya tiene columna barcode');
+      }
+      if (!productColNames.includes('sort_order')) {
+        console.log('⚠️ Agregando columna sort_order a tabla products...');
+        await pool.execute('ALTER TABLE products ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
+        console.log('✅ Columna sort_order agregada a products');
+      } else {
+        console.log('ℹ️ Tabla products ya tiene columna sort_order');
       }
     } catch (migErr) {
       console.error('❌ Error migrando products:', migErr.message);
@@ -1030,12 +1038,12 @@ export async function getProducts(storeId) {
   const [rows] = await pool.execute(`
     SELECT p.*, c.name as category_name,
            COALESCE(i.stock, 0) as stock,
-           COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
+           CASE WHEN i.product_id IS NULL THEN TRUE ELSE COALESCE(i.unlimited_stock, FALSE) END as unlimited_stock
     FROM products p 
     LEFT JOIN categories c ON p.category_id = c.id 
     LEFT JOIN inventory i ON p.id = i.product_id
     WHERE p.store_id = ? 
-    ORDER BY p.created_at DESC
+    ORDER BY p.sort_order ASC, p.created_at DESC
   `, [storeId]);
   
   const products = [];
@@ -1100,6 +1108,16 @@ export async function deleteProduct(productId, storeId) {
     'DELETE FROM products WHERE id = ? AND store_id = ?',
     [productId, storeId]
   );
+  return true;
+}
+
+export async function updateProductsOrder(storeId, productOrders) {
+  for (let i = 0; i < productOrders.length; i++) {
+    await pool.execute(
+      'UPDATE products SET sort_order = ? WHERE id = ? AND store_id = ?',
+      [i, productOrders[i].id, storeId]
+    );
+  }
   return true;
 }
 
@@ -1201,12 +1219,12 @@ export async function getPublicProducts(storeId) {
   const [rows] = await pool.execute(`
     SELECT p.*, c.name as category_name,
            COALESCE(i.stock, 0) as stock,
-           COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
+           CASE WHEN i.product_id IS NULL THEN TRUE ELSE COALESCE(i.unlimited_stock, FALSE) END as unlimited_stock
     FROM products p 
     LEFT JOIN categories c ON p.category_id = c.id 
     LEFT JOIN inventory i ON p.id = i.product_id
     WHERE p.store_id = ? 
-    ORDER BY c.name, p.name
+    ORDER BY p.sort_order ASC, p.name
   `, [storeId]);
   
   const products = [];

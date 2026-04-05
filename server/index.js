@@ -50,6 +50,7 @@ import {
   getInventory,
   updateInventory,
   setInventoryStock,
+  updateProductsOrder,
   createOrder,
   getOrders,
   updateUserSettings,
@@ -639,14 +640,14 @@ app.get('/api/store-configurations', authenticateToken, async (req, res) => {
 
 app.post('/api/store-configurations', authenticateToken, async (req, res) => {
   try {
-    const { store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket } = req.body;
+    const { store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const configuration = await createStoreConfiguration(parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket });
+    const configuration = await createStoreConfiguration(parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout });
     res.json(configuration);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -655,14 +656,14 @@ app.post('/api/store-configurations', authenticateToken, async (req, res) => {
 
 app.put('/api/store-configurations/:id', authenticateToken, async (req, res) => {
   try {
-    const { store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket } = req.body;
+    const { store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const configuration = await updateStoreConfiguration(parseInt(req.params.id), parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket });
+    const configuration = await updateStoreConfiguration(parseInt(req.params.id), parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout });
     res.json(configuration);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1015,6 +1016,25 @@ app.get('/api/market/payment-status/:mpOrderId', async (req, res) => {
     });
   } catch (error) {
     console.error('Error consultando estado de pago Market:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/products/order', authenticateToken, async (req, res) => {
+  try {
+    console.log('📦 Request body:', req.body);
+    console.log('📦 Content-Type:', req.headers['content-type']);
+    const { store_id, products } = req.body;
+    console.log('📦 Received order update:', { store_id, products });
+    if (!store_id || !products) {
+      return res.status(400).json({ error: 'store_id y products son requeridos' });
+    }
+    await updateProductsOrder(parseInt(store_id), products);
+    console.log('✅ Order saved to database');
+    emitProductUpdate(parseInt(store_id), 'products_reordered', { products });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Error saving order:', error);
     res.status(500).json({ error: error.message });
   }
 });

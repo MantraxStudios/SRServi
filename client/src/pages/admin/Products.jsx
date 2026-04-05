@@ -1,7 +1,24 @@
 import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faBox } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faBox, faGripVertical } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 function Products() {
   const { selectedStore } = useStore();
@@ -21,6 +38,7 @@ function Products() {
     unlimited_stock: false
   });
   const [error, setError] = useState('');
+  const [activeId, setActiveId] = useState(null);
 
   const fetchAllRef = useRef(false);
 
@@ -204,6 +222,225 @@ function Products() {
     setShowModal(true);
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
+  };
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    setActiveId(null);
+    
+    if (active.id !== over?.id) {
+      const oldIndex = products.findIndex(p => p.id === active.id);
+      const newIndex = products.findIndex(p => p.id === over.id);
+      
+      const newProducts = arrayMove(products, oldIndex, newIndex);
+      setProducts(newProducts);
+      
+      try {
+        const token = localStorage.getItem('token');
+        const payload = {
+          store_id: selectedStore.id,
+          products: newProducts.map(p => ({ id: p.id }))
+        };
+        console.log('📤 Sending order update:', payload);
+        
+        const response = await fetch('/api/products/order', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        const data = await response.json();
+        console.log('📥 Response:', response.status, data);
+      } catch (error) {
+        console.error('Error saving order:', error);
+      }
+    }
+  };
+
+  function SortableProduct({ product }) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+      isOver
+    } = useSortable({ id: product.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+      zIndex: isDragging ? 1000 : 1
+    };
+
+    const isOutOfStock = !product.unlimited_stock && product.stock === 0;
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+      >
+        <div style={{
+          backgroundColor: isOutOfStock ? '#f8f9fa' : '#ffffff',
+          border: isOver ? '3px dashed #007bff' : 'none',
+          borderRadius: '24px',
+          overflow: 'hidden',
+          boxShadow: isOver ? '0 8px 30px rgba(0, 123, 255, 0.3)' : '0 4px 20px rgba(0, 0, 0, 0.12)',
+          opacity: isOutOfStock ? 0.6 : 1,
+          position: 'relative',
+          transition: 'all 0.2s ease',
+          transform: isOver ? 'scale(1.02)' : 'scale(1)'
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '8px',
+            left: '8px',
+            zIndex: 10,
+            backgroundColor: '#ffffff',
+            borderRadius: '8px',
+            padding: '4px 8px',
+            cursor: 'grab',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          {...attributes}
+          {...listeners}
+          >
+            <FontAwesomeIcon icon={faGripVertical} style={{ fontSize: '16px', color: '#666' }} />
+          </div>
+          
+          {isOutOfStock && (
+            <div style={{
+              position: 'absolute',
+              top: '8px',
+              right: '8px',
+              backgroundColor: '#dc3545',
+              color: 'white',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: '600',
+              zIndex: 10
+            }}>
+              Agotado
+            </div>
+          )}
+          
+          <div style={{
+            height: '200px',
+            width: '100%',
+            backgroundColor: '#f8f9fa',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            paddingTop: '20px'
+          }}>
+            {product.image ? (
+              <img 
+                src={product.image.startsWith('http') ? product.image : `http://localhost:3001${product.image}`}
+                alt={product.name}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain'
+                }}
+              />
+            ) : (
+              <FontAwesomeIcon icon={faBox} style={{ fontSize: '60px', color: '#dee2e6' }} />
+            )}
+          </div>
+          
+          <div style={{ padding: '12px', textAlign: 'center' }}>
+            <h3 style={{
+              fontSize: '14px',
+              fontWeight: '600',
+              color: '#212529',
+              marginBottom: '4px'
+            }}>
+              {product.name}
+            </h3>
+            <p style={{
+              fontSize: '16px',
+              fontWeight: '700',
+              color: '#212529',
+              marginBottom: '12px'
+            }}>
+              ${Number(product.price).toFixed(2)}
+            </p>
+            
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+              <button
+                onClick={() => handleEdit(product)}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#5a6268'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6c757d'}
+              >
+                <FontAwesomeIcon icon={faEdit} style={{ fontSize: '12px' }} />
+                Editar
+              </button>
+              <button
+                onClick={() => handleDelete(product.id)}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c82333'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc3545'}
+              >
+                <FontAwesomeIcon icon={faTrash} style={{ fontSize: '12px' }} />
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return <div className="loading">Cargando...</div>;
   }
@@ -226,80 +463,105 @@ function Products() {
               No hay productos. Crea tu primer producto.
             </p>
           ) : (
-            <div className="admin-table-wrapper">
-              <table className="table products-table">
-                <thead>
-                  <tr>
-                    <th>Imagen</th>
-                    <th>Nombre</th>
-                    <th>Barcode</th>
-                    <th>Categoria</th>
-                    <th>Precio</th>
-                    <th>Stock</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                {products.map(product => (
-                  <tr key={product.id}>
-                    <td>
-                      {product.image ? (
-                        <img 
-                          src={product.image.startsWith('http') ? product.image : `http://localhost:3001${product.image}`}
-                          alt={product.name}
-                          style={{
-                            width: '50px',
-                            height: '50px',
-                            objectFit: 'cover',
-                            borderRadius: 'var(--radius-sm)',
-                            border: '2px solid var(--gray)'
-                          }}
-                        />
-                      ) : (
-                        <FontAwesomeIcon icon={faBox} style={{ fontSize: '24px', color: '#ccc' }} />
-                      )}
-                    </td>
-                    <td style={{ fontWeight: '600' }}>{product.name}</td>
-                    <td style={{ fontFamily: 'monospace', fontSize: '14px' }}>{product.barcode || '-'}</td>
-                    <td>{product.category_name || '-'}</td>
-                    <td>${Number(product.price).toFixed(2)}</td>
-                    <td>
-                      {product.unlimited_stock ? (
-                        <span style={{
-                          fontWeight: '700',
-                          color: '#28a745',
-                          fontSize: '18px'
+            <div style={{
+              padding: '20px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '16px'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '16px',
+                padding: '12px 16px',
+                backgroundColor: '#fff',
+                borderRadius: '10px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+              }}>
+                <FontAwesomeIcon icon={faGripVertical} style={{ fontSize: '16px', color: '#666' }} />
+                <span style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
+                  Arrastra los productos para cambiar su orden en la tienda
+                </span>
+              </div>
+              
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={products.map(p => p.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                    gap: '20px'
+                  }}>
+                    {products.map(product => (
+                      <SortableProduct key={product.id} product={product} />
+                    ))}
+                  </div>
+                </SortableContext>
+                <DragOverlay>
+                  {activeId ? (
+                    <div style={{
+                      backgroundColor: '#ffffff',
+                      border: '3px solid #007bff',
+                      borderRadius: '24px',
+                      overflow: 'hidden',
+                      boxShadow: '0 12px 40px rgba(0, 123, 255, 0.4)',
+                      transform: 'scale(1.05)',
+                      opacity: 0.95
+                    }}>
+                      <div style={{
+                        height: '200px',
+                        width: '100%',
+                        backgroundColor: '#f8f9fa',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        paddingTop: '20px'
+                      }}>
+                        {products.find(p => p.id === activeId)?.image ? (
+                          <img 
+                            src={products.find(p => p.id === activeId).image.startsWith('http') 
+                              ? products.find(p => p.id === activeId).image 
+                              : `http://localhost:3001${products.find(p => p.id === activeId).image}`}
+                            alt={products.find(p => p.id === activeId)?.name}
+                            style={{
+                              maxWidth: '100%',
+                              maxHeight: '100%',
+                              objectFit: 'contain'
+                            }}
+                          />
+                        ) : (
+                          <FontAwesomeIcon icon={faBox} style={{ fontSize: '60px', color: '#dee2e6' }} />
+                        )}
+                      </div>
+                      <div style={{ padding: '12px', textAlign: 'center' }}>
+                        <h3 style={{
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          color: '#212529',
+                          marginBottom: '4px'
                         }}>
-                          ∞
-                        </span>
-                      ) : (
-                        <span style={{
+                          {products.find(p => p.id === activeId)?.name}
+                        </h3>
+                        <p style={{
+                          fontSize: '16px',
                           fontWeight: '700',
-                          color: product.stock === 0 ? '#dc3545' : product.stock < 10 ? '#ffc107' : '#28a745'
+                          color: '#212529'
                         }}>
-                          {product.stock}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <button 
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => handleEdit(product)}
-                        style={{ marginRight: '8px' }}
-                      >
-                        <FontAwesomeIcon icon={faEdit} />
-                      </button>
-                      <button 
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleDelete(product.id)}
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                          ${Number(products.find(p => p.id === activeId)?.price || 0).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
             </div>
           )}
         </div>

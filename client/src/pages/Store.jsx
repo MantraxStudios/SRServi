@@ -955,7 +955,8 @@ function Store() {
             .map(([category, products]) => (
             <div key={category}>
               {products.map(product => {
-                const isOutOfStock = !product.unlimited_stock && product.stock === 0;
+                const isUnlimited = product.unlimited_stock === true || product.unlimited_stock === 1 || product.unlimited_stock === '1';
+                const isOutOfStock = !isUnlimited && product.stock === 0;
                 return (
                 <div 
                   key={product.id} 
@@ -1014,7 +1015,7 @@ function Store() {
                         Agotado
                       </div>
                     )}
-                    {product.unlimited_stock && !isOutOfStock && (
+                    {isUnlimited && (
                       <div style={{
                         position: 'absolute',
                         top: '12px',
