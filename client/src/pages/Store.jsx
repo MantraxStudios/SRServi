@@ -2135,54 +2135,63 @@ function Store() {
               </label>
               <div style={{ 
                 display: 'grid', 
-                gridTemplateColumns: '1fr 1fr', 
+                gridTemplateColumns: selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout ? '1fr 1fr' : '1fr', 
                 gap: '12px' 
               }}>
-                <button
-                  onClick={() => setOrderType('serve')}
-                  style={{
-                    padding: '16px 12px',
-                    fontSize: '15px',
-                    backgroundColor: orderType === 'serve' ? colors.primary : '#fff',
-                    color: orderType === 'serve' ? '#fff' : '#212529',
-                    border: `2px solid ${orderType === 'serve' ? colors.accent : '#dee2e6'}`,
-                    borderRadius: '14px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: orderType === 'serve' ? '0 4px 12px rgba(0,0,0,0.2)' : 'none'
-                  }}
-                >
-                  <span style={{ fontSize: '32px' }}>🍽️</span>
-                  <span>Comer aquí</span>
-                </button>
-                <button
-                  onClick={() => setOrderType('takeout')}
-                  style={{
-                    padding: '16px 12px',
-                    fontSize: '15px',
-                    backgroundColor: orderType === 'takeout' ? colors.primary : '#fff',
-                    color: orderType === 'takeout' ? '#fff' : '#212529',
-                    border: `2px solid ${orderType === 'takeout' ? colors.accent : '#dee2e6'}`,
-                    borderRadius: '14px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: orderType === 'takeout' ? '0 4px 12px rgba(0,0,0,0.2)' : 'none'
-                  }}
-                >
-                  <span style={{ fontSize: '32px' }}>🥡</span>
-                  <span>Llevar</span>
-                </button>
+                {selectedConfiguration?.allow_serve && (
+                  <button
+                    onClick={() => setOrderType('serve')}
+                    style={{
+                      padding: '16px 12px',
+                      fontSize: '15px',
+                      backgroundColor: orderType === 'serve' ? colors.primary : '#fff',
+                      color: orderType === 'serve' ? '#fff' : '#212529',
+                      border: `2px solid ${orderType === 'serve' ? colors.accent : '#dee2e6'}`,
+                      borderRadius: '14px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: orderType === 'serve' ? '0 4px 12px rgba(0,0,0,0.2)' : 'none'
+                    }}
+                  >
+                    <span style={{ fontSize: '32px' }}>🍽️</span>
+                    <span>Comer aquí</span>
+                  </button>
+                )}
+                {selectedConfiguration?.allow_takeout && (
+                  <button
+                    onClick={() => setOrderType('takeout')}
+                    style={{
+                      padding: '16px 12px',
+                      fontSize: '15px',
+                      backgroundColor: orderType === 'takeout' ? colors.primary : '#fff',
+                      color: orderType === 'takeout' ? '#fff' : '#212529',
+                      border: `2px solid ${orderType === 'takeout' ? colors.accent : '#dee2e6'}`,
+                      borderRadius: '14px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: orderType === 'takeout' ? '0 4px 12px rgba(0,0,0,0.2)' : 'none'
+                    }}
+                  >
+                    <span style={{ fontSize: '32px' }}>🥡</span>
+                    <span>Llevar</span>
+                  </button>
+                )}
               </div>
+              {!selectedConfiguration?.allow_serve && !selectedConfiguration?.allow_takeout && (
+                <p style={{ textAlign: 'center', color: '#dc3545', padding: '20px' }}>
+                  No hay opciones de pedido disponibles
+                </p>
+              )}
             </div>
             
             <button

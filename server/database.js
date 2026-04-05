@@ -126,6 +126,8 @@ async function createTables() {
       is_default BOOLEAN NOT NULL DEFAULT FALSE,
       is_minimarket BOOLEAN NOT NULL DEFAULT FALSE,
       default_minimarket_terminal INT DEFAULT NULL,
+      allow_serve BOOLEAN NOT NULL DEFAULT TRUE,
+      allow_takeout BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )`;
@@ -461,6 +463,22 @@ async function migrateTables() {
       } else {
         console.log('ℹ️ Tabla store_configurations ya tiene columna default_minimarket_terminal');
       }
+
+      if (!configColNames.includes('allow_serve')) {
+        console.log('⚠️ Agregando columna allow_serve a tabla store_configurations...');
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN allow_serve BOOLEAN NOT NULL DEFAULT TRUE');
+        console.log('✅ Columna allow_serve agregada a store_configurations');
+      } else {
+        console.log('ℹ️ Tabla store_configurations ya tiene columna allow_serve');
+      }
+
+      if (!configColNames.includes('allow_takeout')) {
+        console.log('⚠️ Agregando columna allow_takeout a tabla store_configurations...');
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN allow_takeout BOOLEAN NOT NULL DEFAULT TRUE');
+        console.log('✅ Columna allow_takeout agregada a store_configurations');
+      } else {
+        console.log('ℹ️ Tabla store_configurations ya tiene columna allow_takeout');
+      }
     } catch (migErr) {
       if (migErr.message.includes('Duplicate column')) {
         console.log('ℹ️ Columnas ya existen en store_configurations');
@@ -780,7 +798,7 @@ export async function getStoreConfigurationById(configId, storeId) {
 }
 
 export async function createStoreConfiguration(storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal } = data;
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout } = data;
   
   if (is_default) {
     await pool.execute(
@@ -790,8 +808,8 @@ export async function createStoreConfiguration(storeId, data) {
   }
   
   const [result] = await pool.execute(
-    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null]
+    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false]
   );
   return {
     id: result.insertId,
@@ -803,12 +821,14 @@ export async function createStoreConfiguration(storeId, data) {
     is_active: is_active !== false,
     is_default: is_default === true,
     is_minimarket: is_minimarket === true,
-    default_minimarket_terminal: default_minimarket_terminal || null
+    default_minimarket_terminal: default_minimarket_terminal || null,
+    allow_serve: allow_serve !== false,
+    allow_takeout: allow_takeout !== false
   };
 }
 
 export async function updateStoreConfiguration(configId, storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal } = data;
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout } = data;
   
   if (is_default) {
     await pool.execute(
@@ -818,8 +838,8 @@ export async function updateStoreConfiguration(configId, storeId, data) {
   }
   
   await pool.execute(
-    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ? WHERE id = ? AND store_id = ?',
-    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, configId, storeId]
+    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ?, allow_serve = ?, allow_takeout = ? WHERE id = ? AND store_id = ?',
+    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, configId, storeId]
   );
   return {
     id: configId,
@@ -831,7 +851,9 @@ export async function updateStoreConfiguration(configId, storeId, data) {
     is_active: is_active !== false,
     is_default: is_default === true,
     is_minimarket: is_minimarket === true,
-    default_minimarket_terminal: default_minimarket_terminal || null
+    default_minimarket_terminal: default_minimarket_terminal || null,
+    allow_serve: allow_serve !== false,
+    allow_takeout: allow_takeout !== false
   };
 }
 

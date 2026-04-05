@@ -18,7 +18,9 @@ function Configurations() {
     is_active: true,
     is_default: false,
     is_minimarket: false,
-    default_minimarket_terminal: ''
+    default_minimarket_terminal: '',
+    allow_serve: true,
+    allow_takeout: true
   });
   const [error, setError] = useState('');
 
@@ -80,6 +82,11 @@ function Configurations() {
       return;
     }
 
+    if (!formData.allow_serve && !formData.allow_takeout) {
+      setError('Debes habilitar al menos una opción de pedido (comer aquí o llevar)');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       const url = editingConfig 
@@ -109,7 +116,10 @@ function Configurations() {
         accept_card: true,
         is_active: true,
         is_default: false,
-        is_minimarket: false
+        is_minimarket: false,
+        default_minimarket_terminal: '',
+        allow_serve: true,
+        allow_takeout: true
       });
       fetchConfigurations();
     } catch (err) {
@@ -128,7 +138,9 @@ function Configurations() {
       is_active: Boolean(config.is_active),
       is_default: Boolean(config.is_default),
       is_minimarket: Boolean(config.is_minimarket),
-      default_minimarket_terminal: config.default_minimarket_terminal || ''
+      default_minimarket_terminal: config.default_minimarket_terminal || '',
+      allow_serve: Boolean(config.allow_serve),
+      allow_takeout: Boolean(config.allow_takeout)
     });
     setShowModal(true);
   };
@@ -164,7 +176,9 @@ function Configurations() {
       is_active: true,
       is_default: false,
       is_minimarket: false,
-      default_minimarket_terminal: ''
+      default_minimarket_terminal: '',
+      allow_serve: true,
+      allow_takeout: true
     });
     setShowModal(true);
   };
@@ -280,6 +294,79 @@ function Configurations() {
                   required
                   placeholder="Ej: Pago con Tarjeta"
                 />
+              </div>
+
+              <div className="form-group">
+                <label>Opciones de Pedido</label>
+                <div style={{ 
+                  marginTop: '8px',
+                  display: 'flex', 
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ 
+                    flex: '1 1 200px',
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px', 
+                    cursor: 'pointer', 
+                    padding: '14px', 
+                    background: formData.allow_serve ? 'rgba(40, 167, 69, 0.1)' : '#f8f9fa', 
+                    borderRadius: '10px', 
+                    border: formData.allow_serve ? '2px solid #28a745' : '2px solid #e0e0e0',
+                    transition: 'all 0.2s ease'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={formData.allow_serve}
+                      onChange={(e) => setFormData({ ...formData, allow_serve: e.target.checked })}
+                      style={{ 
+                        width: '20px', 
+                        height: '20px', 
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <span style={{ fontSize: '24px' }}>🍽️</span>
+                    <div>
+                      <span style={{ fontWeight: '600', display: 'block' }}>Comer aquí</span>
+                      <span style={{ color: '#666', fontSize: '12px' }}>Para servir en mesa</span>
+                    </div>
+                  </div>
+                  
+                  <div style={{ 
+                    flex: '1 1 200px',
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px', 
+                    cursor: 'pointer', 
+                    padding: '14px', 
+                    background: formData.allow_takeout ? 'rgba(0, 123, 255, 0.1)' : '#f8f9fa', 
+                    borderRadius: '10px', 
+                    border: formData.allow_takeout ? '2px solid #007bff' : '2px solid #e0e0e0',
+                    transition: 'all 0.2s ease'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={formData.allow_takeout}
+                      onChange={(e) => setFormData({ ...formData, allow_takeout: e.target.checked })}
+                      style={{ 
+                        width: '20px', 
+                        height: '20px', 
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <span style={{ fontSize: '24px' }}>🥡</span>
+                    <div>
+                      <span style={{ fontWeight: '600', display: 'block' }}>Para llevar</span>
+                      <span style={{ color: '#666', fontSize: '12px' }}>Servicio para llevar</span>
+                    </div>
+                  </div>
+                </div>
+                {!formData.allow_serve && !formData.allow_takeout && (
+                  <p style={{ color: '#dc3545', fontSize: '12px', marginTop: '8px' }}>
+                    ⚠️ Al menos una opción de pedido debe estar habilitada
+                  </p>
+                )}
               </div>
 
               <div className="form-group">
