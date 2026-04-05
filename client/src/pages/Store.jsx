@@ -791,21 +791,21 @@ function Store() {
       <header style={{
         background: `linear-gradient(135deg, ${colors.header}, ${colors.primary})`,
         color: colors.accent,
-        padding: '32px 24px',
+        padding: '16px 24px',
         textAlign: 'center',
         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
       }}>
         <h1 style={{ 
-          fontSize: '36px', 
+          fontSize: '24px', 
           fontWeight: '700',
           color: colors.accent
         }}>
           {store?.store?.name}
         </h1>
         <p style={{ 
-          fontSize: '13px',
+          fontSize: '12px',
           color: colors.secondary,
-          marginTop: '6px',
+          marginTop: '4px',
           opacity: 0.85
         }}>
           AutoServicio By SRAutomatic
@@ -879,7 +879,7 @@ function Store() {
             fontSize: '16px',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
-            boxShadow: activeCategory === 'all' ? `0 4px 12px ${colors.accent}40` : 'none'
+            boxShadow: '0 6px 25px rgba(0, 0, 0, 0.25)'
           }}
         >
           Todo
@@ -901,7 +901,7 @@ function Store() {
               fontSize: '16px',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
-              boxShadow: activeCategory === cat ? `0 4px 12px ${colors.accent}40` : 'none'
+              boxShadow: '0 6px 25px rgba(0, 0, 0, 0.25)'
             }}
           >
             {cat}
@@ -960,119 +960,121 @@ function Store() {
                 <div 
                   key={product.id} 
                   style={{
-                    backgroundColor: isOutOfStock ? '#f8f9fa' : colors.secondary,
-                    border: `2px solid ${isOutOfStock ? '#dee2e6' : colors.accent + '40'}`,
-                    borderRadius: 'var(--radius-lg)',
-                    overflow: 'hidden',
-                    cursor: isOutOfStock ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.3s ease',
-                    marginBottom: '20px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-                    opacity: isOutOfStock ? 0.6 : 1,
-                    position: 'relative'
-                  }}
-                  onClick={() => openProductModal(product)}
-                  onMouseEnter={(e) => {
-                    if (!isOutOfStock) {
-                      e.currentTarget.style.transform = 'translateY(-8px)';
-                      e.currentTarget.style.boxShadow = `0 12px 32px ${colors.accent}30`;
-                      e.currentTarget.style.borderColor = colors.accent;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isOutOfStock) {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.05)';
-                      e.currentTarget.style.borderColor = `${colors.accent}40`;
-                    }
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    marginBottom: '24px',
+                    cursor: isOutOfStock ? 'default' : 'pointer',
+                    width: '100%'
                   }}
                 >
-                  {isOutOfStock && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                      backgroundColor: '#dc3545',
-                      color: 'white',
-                      padding: '6px 14px',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      zIndex: 2,
-                      boxShadow: '0 2px 8px rgba(220, 53, 69, 0.3)'
-                    }}>
-                      Agotado
-                    </div>
-                  )}
-                  {product.unlimited_stock && !isOutOfStock && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                      backgroundColor: '#28a745',
-                      color: 'white',
-                      padding: '6px 14px',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      zIndex: 2,
-                      boxShadow: '0 2px 8px rgba(40, 167, 69, 0.3)'
-                    }}>
-                      ∞ Stock
-                    </div>
-                  )}
-                  <div className="product-image" style={{
-                    height: '180px',
-                    backgroundColor: isOutOfStock ? '#e9ecef' : `${colors.accent}10`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden'
-                  }}>
-                    {product.image ? (
-                      <img 
-                        src={product.image.startsWith('http') ? product.image : `http://localhost:3001${product.image}`} 
-                        alt={product.name} 
-                        style={{ 
-                          width: '100%', 
-                          height: '100%', 
-                          objectFit: 'cover',
-                          transition: 'transform 0.3s ease',
-                          filter: product.stock === 0 ? 'grayscale(100%)' : 'none'
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isOutOfStock) e.currentTarget.style.transform = 'scale(1.05)';
-                        }}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                      />
-                    ) : (
-                      <FontAwesomeIcon icon={faBox} style={{ fontSize: '64px', color: isOutOfStock ? '#adb5bd' : colors.accent, opacity: 0.6 }} />
+                  <div 
+                    style={{
+                      backgroundColor: isOutOfStock ? '#f8f9fa' : '#ffffff',
+                      border: 'none',
+                      borderRadius: '32px',
+                      overflow: 'hidden',
+                      transition: 'all 0.3s ease',
+                      boxShadow: '0 6px 30px rgba(0, 0, 0, 0.25)',
+                      opacity: isOutOfStock ? 0.6 : 1,
+                      width: '300px',
+                      height: '300px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    onClick={() => openProductModal(product)}
+                    onMouseEnter={(e) => {
+                      if (!isOutOfStock) {
+                        e.currentTarget.style.transform = 'translateY(-8px)';
+                        e.currentTarget.style.boxShadow = '0 20px 50px rgba(0, 0, 0, 0.35)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isOutOfStock) {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 6px 30px rgba(0, 0, 0, 0.25)';
+                      }
+                    }}
+                  >
+                    {isOutOfStock && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        zIndex: 2,
+                        boxShadow: '0 2px 8px rgba(220, 53, 69, 0.3)'
+                      }}>
+                        Agotado
+                      </div>
                     )}
+                    {product.unlimited_stock && !isOutOfStock && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        backgroundColor: '#28a745',
+                        color: 'white',
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        zIndex: 2,
+                        boxShadow: '0 2px 8px rgba(40, 167, 69, 0.3)'
+                      }}>
+                        ∞ Stock
+                      </div>
+                    )}
+                    <div className="product-image" style={{
+                      width: '260px',
+                      height: '260px',
+                      backgroundColor: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
+                      position: 'relative'
+                    }}>
+                      {product.image ? (
+                        <img 
+                          src={product.image.startsWith('http') ? product.image : `http://localhost:3001${product.image}`} 
+                          alt={product.name} 
+                          style={{ 
+                            maxWidth: '100%',
+                            maxHeight: '100%',
+                            objectFit: 'contain',
+                            transition: 'transform 0.3s ease',
+                            filter: product.stock === 0 ? 'grayscale(100%)' : 'none'
+                          }}
+                        />
+                      ) : (
+                        <FontAwesomeIcon icon={faBox} style={{ fontSize: '60px', color: isOutOfStock ? '#adb5bd' : '#dee2e6' }} />
+                      )}
+                    </div>
                   </div>
-                  <div className="product-info" style={{ padding: '20px' }}>
-                    <h3 style={{ 
-                      fontSize: '22px', 
-                      fontWeight: '700', 
-                      marginBottom: '8px', 
-                      color: isOutOfStock ? '#adb5bd' : colors.primary 
-                    }}>
-                      {product.name}
-                    </h3>
-                    {product.description && (
-                      <p className="product-description" style={{
-                        color: isOutOfStock ? '#adb5bd' : '#666',
-                        marginBottom: '12px',
-                        lineHeight: '1.5',
-                        fontSize: '14px'
-                      }}>{product.description}</p>
-                    )}
+                  <div className="product-info" style={{ 
+                    marginTop: '12px',
+                    textAlign: 'center',
+                    width: '100%'
+                  }}>
                     <div style={{ 
-                      fontSize: '28px', 
-                      fontWeight: '700', 
-                      color: isOutOfStock ? '#adb5bd' : colors.accent,
-                      marginTop: '8px'
+                      fontSize: '15px', 
+                      fontWeight: '600', 
+                      color: isOutOfStock ? '#adb5bd' : '#212529',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      gap: '8px',
+                      flexWrap: 'wrap'
                     }}>
-                      {colors.currency.symbol}{Number(product.price).toFixed(2)}
+                      <span style={{ fontWeight: '600' }}>{product.name}:</span>
+                      <span style={{ fontWeight: '700' }}>{colors.currency.symbol}{Number(product.price).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
