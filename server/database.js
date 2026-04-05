@@ -761,7 +761,14 @@ export async function getStoreConfigurations(storeId) {
     'SELECT * FROM store_configurations WHERE store_id = ? ORDER BY is_default DESC, name ASC',
     [storeId]
   );
-  return rows;
+  return rows.map(row => ({
+    ...row,
+    accept_cash: Boolean(row.accept_cash),
+    accept_card: Boolean(row.accept_card),
+    is_active: Boolean(row.is_active),
+    is_default: Boolean(row.is_default),
+    is_minimarket: Boolean(row.is_minimarket)
+  }));
 }
 
 export async function getStoreConfigurationById(configId, storeId) {
