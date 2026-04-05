@@ -615,7 +615,8 @@ export async function authenticateUser(email, password) {
     username: user.username,
     email: user.email,
     code: user.code,
-    business_name: user.business_name
+    business_name: user.business_name,
+    is_banned: user.is_banned
   };
 }
 
