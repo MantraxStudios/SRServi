@@ -3298,21 +3298,214 @@ h1, h2, h3, h4, h5, h6 {
 /* ============================================
    Admin Page Components
    ============================================ */
-.product-grid-dnd { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
-.product-card-dnd { background-color: var(--card); border-radius: var(--radius-2xl); overflow: hidden; box-shadow: var(--shadow-md); position: relative; transition: all 0.2s ease; }
-.product-card-dnd.is-over { border: 3px dashed var(--info); box-shadow: 0 8px 30px rgba(59,130,246,0.3); transform: scale(1.02); }
-.product-card-dnd.is-out-of-stock { background-color: var(--muted); opacity: 0.6; }
-.drag-handle { position: absolute; top: 8px; left: 8px; z-index: 10; background-color: var(--card); border-radius: var(--radius-sm); padding: 4px 8px; cursor: grab; box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; }
-.drag-handle-icon { font-size: 16px; color: var(--muted-foreground); }
-.out-of-stock-badge { position: absolute; top: 8px; right: 8px; background-color: var(--danger); color: #fff; padding: 4px 10px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; z-index: 10; }
-.product-image-container { height: 200px; width: 100%; background-color: var(--muted); display: flex; align-items: center; justify-content: center; overflow: hidden; padding-top: 20px; }
-.product-image-container img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.product-image-placeholder { font-size: 60px; color: var(--border); }
-.product-card-body { padding: 12px; text-align: center; }
-.product-card-name { font-size: 14px; font-weight: 600; color: var(--foreground); margin-bottom: 4px; }
-.product-card-price { font-size: 16px; font-weight: 700; color: var(--foreground); margin-bottom: 12px; }
-.product-card-actions { display: flex; gap: 8px; justify-content: center; }
-.product-card-actions .btn { flex: 1; font-size: 13px; }
+/* Product grid - desktop: cards, mobile: compact grid */
+.product-grid-dnd {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.product-card-dnd {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.product-card-dnd:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--gold);
+}
+
+.product-card-dnd.is-over {
+  border: 2px dashed var(--info);
+  box-shadow: 0 4px 16px rgba(59,130,246,0.2);
+  transform: scale(1.01);
+}
+
+.product-card-dnd.is-out-of-stock {
+  background-color: var(--muted);
+  opacity: 0.6;
+}
+
+.drag-handle {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 10;
+  background-color: rgba(255,255,255,0.9);
+  border-radius: var(--radius-xs);
+  padding: 3px 6px;
+  cursor: grab;
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drag-handle-icon {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.out-of-stock-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background-color: var(--danger);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  font-size: 11px;
+  font-weight: 600;
+  z-index: 10;
+}
+
+.product-image-container {
+  height: 130px;
+  width: 100%;
+  background-color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.product-image-container img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.product-image-placeholder {
+  font-size: 36px;
+  color: var(--border);
+}
+
+.product-card-body {
+  padding: 10px 12px;
+}
+
+.product-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.product-card-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gold-dark);
+  margin-bottom: 8px;
+}
+
+.product-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.product-card-actions .btn {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+/* Mobile: compact product cards */
+@media (max-width: 768px) {
+  .product-grid-dnd {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+
+  .product-card-dnd {
+    border-radius: var(--radius-md);
+  }
+
+  .drag-handle {
+    top: 4px;
+    left: 4px;
+    padding: 2px 4px;
+  }
+
+  .drag-handle-icon {
+    font-size: 10px;
+  }
+
+  .out-of-stock-badge {
+    font-size: 9px;
+    padding: 2px 5px;
+    top: 4px;
+    right: 4px;
+  }
+
+  .product-image-container {
+    height: 90px;
+  }
+
+  .product-image-placeholder {
+    font-size: 24px;
+  }
+
+  .product-card-body {
+    padding: 6px 8px;
+  }
+
+  .product-card-name {
+    font-size: 11px;
+    margin-bottom: 1px;
+  }
+
+  .product-card-price {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .product-card-actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .product-card-actions .btn {
+    font-size: 10px;
+    padding: 5px 6px;
+    gap: 3px;
+  }
+}
+
+@media (max-width: 400px) {
+  .product-grid-dnd {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .product-image-container {
+    height: 75px;
+  }
+
+  .product-card-body {
+    padding: 5px 6px;
+  }
+
+  .product-card-name {
+    font-size: 10px;
+  }
+
+  .product-card-price {
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .product-card-actions .btn {
+    font-size: 9px;
+    padding: 4px 4px;
+  }
+}
 .drag-overlay-card { background-color: var(--card); border: 3px solid var(--info); border-radius: var(--radius-2xl); overflow: hidden; box-shadow: 0 12px 40px rgba(59,130,246,0.4); transform: scale(1.05); opacity: 0.95; }
 .drag-hint-bar { padding: 20px; background-color: var(--muted); border-radius: var(--radius-lg); }
 .drag-hint { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 12px 16px; background-color: var(--card); border-radius: var(--radius-md); box-shadow: var(--shadow-xs); }
