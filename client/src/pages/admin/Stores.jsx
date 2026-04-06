@@ -224,8 +224,8 @@ function Stores() {
     <>
       <header className="admin-header">
         <h1>
-          <FontAwesomeIcon icon={faEdit} style={{ marginRight: '10px' }} />
-          Gestión de Tiendas
+          <FontAwesomeIcon icon={faEdit} />
+          {' '}Gestion de Tiendas
         </h1>
         <button
           onClick={() => {
@@ -247,10 +247,10 @@ function Stores() {
       <div className="admin-main">
         {planInfo && !planInfo.canCreate && (
           <div className="store-limit-banner">
-            <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#f57c00', fontSize: '20px' }} />
+            <FontAwesomeIcon icon={faExclamationTriangle} className="store-limit-icon" />
             <div className="flex-1">
-              <strong style={{ color: '#f57c00' }}>Límite de tiendas alcanzado</strong>
-              <p className="text-sm text-muted" style={{ margin: '4px 0 0 0' }}>
+              <strong className="store-limit-title">Limite de tiendas alcanzado</strong>
+              <p className="store-limit-text">
                 Tu plan {planInfo.currentPlan} permite máximo {planInfo.maxStores} tiendas ({planInfo.storeCount}/{planInfo.maxStores}).
               </p>
             </div>
@@ -271,7 +271,6 @@ function Stores() {
             <button
               onClick={() => openModal()}
               className="btn btn-primary"
-              style={{ marginTop: '20px' }}
             >
               <FontAwesomeIcon icon={faPlus} />
               Crear Tienda
@@ -288,9 +287,8 @@ function Stores() {
                 <div className="store-card-actions">
                   <button
                     onClick={() => copyCode(store.code)}
-                    className="store-action-btn"
-                    style={copiedCode === store.code ? { backgroundColor: '#28a745', color: '#fff', borderColor: '#28a745' } : {}}
-                    title="Copiar código"
+                    className={`store-action-btn${copiedCode === store.code ? ' store-card-btn--copied' : ''}`}
+                    title="Copiar codigo"
                   >
                     <FontAwesomeIcon icon={faCopy} />
                   </button>
@@ -350,7 +348,7 @@ function Stores() {
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="store-modal-header">
               <h3 className="store-modal-title">
                 {editingStore ? 'Editar Tienda' : 'Nueva Tienda'}
@@ -366,10 +364,10 @@ function Stores() {
 
             {storeLimitError && (
               <div className="store-limit-error">
-                <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: 'var(--danger)', fontSize: '20px', marginTop: '2px' }} />
+                <FontAwesomeIcon icon={faExclamationTriangle} className="store-error-icon" />
                 <div className="flex-1">
-                  <strong style={{ color: 'var(--danger)' }}>No puedes crear más tiendas</strong>
-                  <p className="text-sm text-muted" style={{ margin: '4px 0 8px 0' }}>
+                  <strong className="store-error-title">No puedes crear mas tiendas</strong>
+                  <p className="store-error-text">
                     {storeLimitError}
                   </p>
                   <button
@@ -420,7 +418,7 @@ function Stores() {
                         {logoPreview || formData.logo_url ? (
                           <img src={logoPreview || getImageUrl(formData.logo_url)} alt="Logo" />
                         ) : (
-                          <span style={{ fontSize: '24px', color: '#999' }}>🖼️</span>
+                          <span className="logo-placeholder">{'\u{1F5BC}\u{FE0F}'}</span>
                         )}
                       </div>
                       <div className="flex-1">
@@ -436,7 +434,7 @@ function Stores() {
                           }}
                           className="file-input"
                         />
-                        <p className="text-xs text-muted" style={{ margin: '6px 0 0 0' }}>
+                        <p className="logo-hint">
                           Selecciona una imagen para el logo (JPG, PNG, GIF)
                         </p>
                       </div>
@@ -551,9 +549,8 @@ function Stores() {
                     className="currency-dropdown-btn"
                   >
                     <span>
-                      <span style={{ marginRight: '8px' }}>
-                        {CURRENCIES.find(c => c.code === formData.currency_code)?.flag || '🏳️'}
-                      </span>
+                      {CURRENCIES.find(c => c.code === formData.currency_code)?.flag || '\u{1F3F3}\u{FE0F}'}
+                      {' '}
                       <strong>{formData.currency_symbol}</strong> {formData.currency_code} - {formData.currency_name}
                     </span>
                     <span className="text-xs">▼</span>
@@ -566,12 +563,12 @@ function Stores() {
                           onClick={() => selectCurrency(currency)}
                           className={`currency-option${formData.currency_code === currency.code ? ' selected' : ''}`}
                         >
-                          <span style={{ fontSize: '20px' }}>{currency.flag}</span>
-                          <strong style={{ fontSize: '16px', minWidth: '30px' }}>{currency.symbol}</strong>
-                          <span className="font-semibold" style={{ minWidth: '50px' }}>{currency.code}</span>
+                          <span className="text-lg">{currency.flag}</span>
+                          <strong>{currency.symbol}</strong>
+                          <span className="font-semibold">{currency.code}</span>
                           <span className="text-sm text-muted">{currency.name}</span>
                           {formData.currency_code === currency.code && (
-                            <span style={{ marginLeft: 'auto', color: 'var(--info)' }}>✓</span>
+                            <span className="text-muted">{'\u2713'}</span>
                           )}
                         </div>
                       ))}

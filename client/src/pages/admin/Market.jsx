@@ -637,8 +637,8 @@ function Market() {
 
       <header className="admin-header">
         <h1>
-          <FontAwesomeIcon icon={faBox} style={{ marginRight: '10px' }} />
-          Market POS
+          <FontAwesomeIcon icon={faBox} />
+          {' '}Market POS
         </h1>
         <div className="flex gap-3">
           <button
@@ -663,7 +663,7 @@ function Market() {
         <div className="quick-add-overlay" onClick={() => { setPaymentSuccess(null); clearCart(); }}>
           <div className="market-success-overlay">
             <FontAwesomeIcon icon={faCheck} className="market-success-icon" />
-            <h2 className="market-success-title">¡Pago Exitoso!</h2>
+            <h2 className="market-success-title">Pago Exitoso!</h2>
             <p className="market-success-amount">
               Total: ${paymentSuccess.amount?.toFixed(2) || getTotal().toFixed(2)}
             </p>
@@ -688,8 +688,8 @@ function Market() {
               El cliente debe pagar en la maquina Point
             </p>
             <div className="market-waiting-timer">
-              <FontAwesomeIcon icon={faClock} style={{ marginRight: '10px' }} />
-              {formatTime(paymentTimeLeft)}
+              <FontAwesomeIcon icon={faClock} />
+              {' '}{formatTime(paymentTimeLeft)}
             </div>
             <div className="market-waiting-amount-box">
               <div className="market-waiting-amount-label">Total a cobrar</div>
@@ -750,8 +750,8 @@ function Market() {
             <div className="quick-add-buttons">
               <button className="btn-cancel" onClick={() => setFoundProduct(null)}>Cancelar</button>
               <button className="btn-add" onClick={() => addToCart(foundProduct, addQuantity)}>
-                <FontAwesomeIcon icon={faPlus} style={{ marginRight: '8px' }} />
-                Agregar
+                <FontAwesomeIcon icon={faPlus} />
+                {' '}Agregar
               </button>
             </div>
           </div>
@@ -835,7 +835,7 @@ function Market() {
             {cart.length === 0 ? (
               <div className="market-cart-empty">
                 <FontAwesomeIcon icon={faShoppingCart} className="market-cart-empty-icon" />
-                <p style={{ marginTop: '10px' }}>Carrito vacio</p>
+                <p>Carrito vacio</p>
               </div>
             ) : (
               cart.map(item => (
@@ -847,7 +847,7 @@ function Market() {
                         alt={item.name}
                       />
                     ) : (
-                      <FontAwesomeIcon icon={faBox} style={{ fontSize: '24px', color: '#ccc', margin: 'auto' }} />
+                      <FontAwesomeIcon icon={faBox} className="product-image-placeholder" />
                     )}
                   </div>
                   <div className="cart-item-info">
@@ -863,7 +863,7 @@ function Market() {
                       onClick={() => updateQuantity(item.id, -1)}
                       disabled={paymentWaiting}
                     >
-                      <FontAwesomeIcon icon={faMinus} style={{ fontSize: '12px' }} />
+                      <FontAwesomeIcon icon={faMinus} className="text-xs" />
                     </button>
                     <span className="qty-value">{item.quantity}</span>
                     <button
@@ -871,14 +871,14 @@ function Market() {
                       onClick={() => updateQuantity(item.id, 1)}
                       disabled={paymentWaiting}
                     >
-                      <FontAwesomeIcon icon={faPlus} style={{ fontSize: '12px' }} />
+                      <FontAwesomeIcon icon={faPlus} className="text-xs" />
                     </button>
                     <button
                       onClick={() => removeFromCart(item.id)}
                       disabled={paymentWaiting}
                       className="cart-remove-btn"
                     >
-                      <FontAwesomeIcon icon={faTrash} style={{ fontSize: '14px' }} />
+                      <FontAwesomeIcon icon={faTrash} className="text-sm" />
                     </button>
                   </div>
                 </div>
@@ -888,22 +888,22 @@ function Market() {
 
           <div className="cart-total">
             <div className="market-checkout-panel">
-              <div style={{ marginBottom: '12px' }}>
+              <div>
                 <div className="market-terminal-label">TERMINAL POINT</div>
                 <div ref={pointDropdownRef}>
                   <div
                     onClick={() => !paymentWaiting && setPointDropdownOpen(!pointDropdownOpen)}
-                    className={`market-terminal-selector${paymentWaiting ? ' disabled' : ''}`}
+                    className={`market-terminal-selector ${paymentWaiting ? 'disabled' : ''}`}
                   >
                     <div className="flex items-center gap-2">
-                      <FontAwesomeIcon icon={faCreditCard} style={{ color: '#D4AF37', fontSize: '14px' }} />
+                      <FontAwesomeIcon icon={faCreditCard} className="pos-terminal-icon" />
                       <div className="market-terminal-name">
                         {selectedPoint ? (selectedPoint.name || selectedPoint.device_id) : 'Seleccionar...'}
                       </div>
                     </div>
                     <FontAwesomeIcon
                       icon={faChevronDown}
-                      style={{ color: '#888', fontSize: '12px', transform: pointDropdownOpen ? 'rotate(180deg)' : 'rotate(0)', transition: '0.2s' }}
+                      className={`pos-dropdown-arrow ${pointDropdownOpen ? 'open' : ''}`}
                     />
                   </div>
                   {pointDropdownOpen && (

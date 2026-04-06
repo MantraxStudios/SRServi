@@ -83,7 +83,7 @@ function MercadoPagoPoints() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'No se pudo guardar la maquina');
+        throw new Error(errorData.error || 'No se pudo guardar la máquina');
       }
 
       closeModal();
@@ -94,7 +94,7 @@ function MercadoPagoPoints() {
   };
 
   const handleDelete = async (terminalId) => {
-    if (!confirm('Seguro que deseas eliminar esta maquina Point?')) return;
+    if (!confirm('¿Seguro que deseas eliminar esta máquina Point?')) return;
 
     try {
       const response = await fetch(`/api/mercado-pago-terminals/${terminalId}`, {
@@ -104,7 +104,7 @@ function MercadoPagoPoints() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'No se pudo eliminar la maquina');
+        throw new Error(errorData.error || 'No se pudo eliminar la máquina');
       }
 
       fetchTerminals();
@@ -121,58 +121,67 @@ function MercadoPagoPoints() {
     <>
       <header className="admin-header">
         <h1>
-          <FontAwesomeIcon icon={faCreditCard} />
-          {' '}Mercado Pago Point
+          <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: '10px' }} />
+          Mercado Pago Point
         </h1>
-        <button className="btn btn-primary" onClick={() => openModal()}>
+        <button
+          onClick={() => openModal()}
+          className="btn btn-primary"
+        >
           <FontAwesomeIcon icon={faPlus} />
-          Nueva Maquina
+          Nueva Máquina
         </button>
       </header>
 
       <div className="admin-main">
         {terminals.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">
-              <FontAwesomeIcon icon={faCreditCard} />
-            </div>
-            <h3 className="empty-state-title">Sin maquinas configuradas</h3>
+            <h3 className="empty-state-title">Sin máquinas configuradas</h3>
             <p className="empty-state-text">
-              Crea tus terminales Point aqui y luego las podras seleccionar en cada compra desde la tienda publica.
+              Crea tus terminales Point aquí y luego las podrás seleccionar en cada compra desde la tienda pública.
             </p>
-            <button className="btn btn-primary" onClick={() => openModal()}>
-              Crear primera maquina
+            <button
+              onClick={() => openModal()}
+              className="btn btn-primary"
+              style={{ marginTop: '20px' }}
+            >
+              Crear primera máquina
             </button>
           </div>
         ) : (
-          <div className="content-grid">
+          <div className="terminals-grid">
             {terminals.map(terminal => (
-              <div key={terminal.id} className="card relative">
-                <div className="card-header">
-                  <h3 className="card-title">
-                    {terminal.name}
-                  </h3>
-                  <div className="flex gap-2">
-                    <button className="btn btn-sm btn-secondary" onClick={() => openModal(terminal)}>
-                      <FontAwesomeIcon icon={faEdit} />
-                    </button>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDelete(terminal.id)}>
-                      <FontAwesomeIcon icon={faTrash} />
-                    </button>
-                  </div>
+              <div key={terminal.id} className="terminal-card">
+                <div className="terminal-card-actions">
+                  <button
+                    onClick={() => openModal(terminal)}
+                    className="store-action-btn"
+                  >
+                    <FontAwesomeIcon icon={faEdit} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(terminal.id)}
+                    className="store-action-btn danger"
+                  >
+                    <FontAwesomeIcon icon={faTrash} />
+                  </button>
                 </div>
 
-                <div className="text-xs text-muted">
+                <h3 className="terminal-card-name">
+                  {terminal.name}
+                </h3>
+
+                <div className="terminal-field-label">
                   Terminal ID
                 </div>
-                <div className="badge badge-info">
+                <div className="terminal-field-value">
                   {terminal.mercadopago_terminal_id}
                 </div>
 
-                <div className="text-xs text-muted">
+                <div className="terminal-field-label">
                   Access Token
                 </div>
-                <div className="badge badge-info">
+                <div className="terminal-field-value masked">
                   {terminal.mercadopago_access_token?.slice(0, 24)}...
                 </div>
               </div>
@@ -182,15 +191,15 @@ function MercadoPagoPoints() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay">
-          <div className="modal">
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">{editingTerminal ? 'Editar Maquina Point' : 'Nueva Maquina Point'}</h2>
+              <h2 className="modal-title">{editingTerminal ? 'Editar Máquina Point' : 'Nueva Máquina Point'}</h2>
               <button className="modal-close" onClick={closeModal}>&times;</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Nombre de la maquina</label>
+                <label>Nombre de la máquina</label>
                 <input
                   type="text"
                   name="name"
@@ -220,12 +229,12 @@ function MercadoPagoPoints() {
                   required
                 />
               </div>
-              <div className="form-actions">
+              <div className="flex gap-3 justify-end">
                 <button type="button" className="btn btn-secondary" onClick={closeModal}>
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  {editingTerminal ? 'Guardar Cambios' : 'Crear Maquina'}
+                  {editingTerminal ? 'Guardar Cambios' : 'Crear Máquina'}
                 </button>
               </div>
             </form>
