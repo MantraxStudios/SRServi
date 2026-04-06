@@ -8,16 +8,16 @@ import { getImageUrl } from '../../config.js';
 const API = 'https://srservi2.srautomatic.com';
 
 const CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'Dolar Estadounidense', flag: '\u{1F1FA}\u{1F1F8}' },
-  { code: 'EUR', symbol: '\u20AC', name: 'Euro', flag: '\u{1F1EA}\u{1F1FA}' },
-  { code: 'GBP', symbol: '\u00A3', name: 'Libra Esterlina', flag: '\u{1F1EC}\u{1F1E7}' },
-  { code: 'JPY', symbol: '\u00A5', name: 'Yen Japones', flag: '\u{1F1EF}\u{1F1F5}' },
-  { code: 'MXN', symbol: '$', name: 'Peso Mexicano', flag: '\u{1F1F2}\u{1F1FD}' },
-  { code: 'COP', symbol: '$', name: 'Peso Colombiano', flag: '\u{1F1E8}\u{1F1F4}' },
-  { code: 'ARS', symbol: '$', name: 'Peso Argentino', flag: '\u{1F1E6}\u{1F1F7}' },
-  { code: 'PEN', symbol: 'S/', name: 'Sol Peruano', flag: '\u{1F1F5}\u{1F1EA}' },
-  { code: 'BRL', symbol: 'R$', name: 'Real Brasileno', flag: '\u{1F1E7}\u{1F1F7}' },
-  { code: 'CLP', symbol: '$', name: 'Peso Chileno', flag: '\u{1F1E8}\u{1F1F1}' }
+  { code: 'USD', symbol: '$', name: 'Dólar Estadounidense', flag: '🇺🇸' },
+  { code: 'EUR', symbol: '€', name: 'Euro', flag: '🇪🇺' },
+  { code: 'GBP', symbol: '£', name: 'Libra Esterlina', flag: '🇬🇧' },
+  { code: 'JPY', symbol: '¥', name: 'Yen Japonés', flag: '🇯🇵' },
+  { code: 'MXN', symbol: '$', name: 'Peso Mexicano', flag: '🇲🇽' },
+  { code: 'COP', symbol: '$', name: 'Peso Colombiano', flag: '🇨🇴' },
+  { code: 'ARS', symbol: '$', name: 'Peso Argentino', flag: '🇦🇷' },
+  { code: 'PEN', symbol: 'S/', name: 'Sol Peruano', flag: '🇵🇪' },
+  { code: 'BRL', symbol: 'R$', name: 'Real Brasileño', flag: '🇧🇷' },
+  { code: 'CLP', symbol: '$', name: 'Peso Chileno', flag: '🇨🇱' }
 ];
 
 function Stores() {
@@ -42,7 +42,7 @@ function Stores() {
     header_color: '#000000',
     currency_code: 'USD',
     currency_symbol: '$',
-    currency_name: 'Dolar Estadounidense',
+    currency_name: 'Dólar Estadounidense',
     mercadopago_access_token: '',
     mercadopago_terminal_id: ''
   });
@@ -89,7 +89,7 @@ function Stores() {
       header_color: '#000000',
       currency_code: 'USD',
       currency_symbol: '$',
-      currency_name: 'Dolar Estadounidense',
+      currency_name: 'Dólar Estadounidense',
       logo_url: ''
     });
     setEditingStore(null);
@@ -108,7 +108,7 @@ function Stores() {
         header_color: store.header_color || '#000000',
         currency_code: store.currency_code || 'USD',
         currency_symbol: store.currency_symbol || '$',
-        currency_name: store.currency_name || 'Dolar Estadounidense',
+        currency_name: store.currency_name || 'Dólar Estadounidense',
         logo_url: store.logo_url || ''
       });
       setLogoFile(null);
@@ -192,7 +192,7 @@ function Stores() {
   };
 
   const handleDelete = async (storeId) => {
-    if (!window.confirm('Estas seguro de eliminar esta tienda? Se eliminaran todos los productos, categorias y pedidos asociados.')) {
+    if (!window.confirm('¿Estás seguro de eliminar esta tienda? Se eliminarán todos los productos, categorías y pedidos asociados.')) {
       return;
     }
 
@@ -217,26 +217,22 @@ function Stores() {
   };
 
   if (loading && stores.length === 0) {
-    return (
-      <div className="flex justify-center items-center" >
-        <div className="spinner"></div>
-      </div>
-    );
+    return <div className="loading">Cargando...</div>;
   }
 
   return (
-    <div className="stores-page">
-      <div className="stores-header">
-        <h2 className="admin-header">
-          <FontAwesomeIcon icon={faEdit} />
-          Gestion de Tiendas
-        </h2>
+    <>
+      <header className="admin-header">
+        <h1>
+          <FontAwesomeIcon icon={faEdit} style={{ marginRight: '10px' }} />
+          Gestión de Tiendas
+        </h1>
         <button
           onClick={() => {
             if (planInfo && !planInfo.canCreate) {
               setStoreLimitError(planInfo.currentPlan === 'Gratis'
-                ? `Has alcanzado el limite de ${planInfo.maxStores} tiendas en tu plan Gratis. Actualiza a un plan superior para crear mas tiendas.`
-                : `Has alcanzado el limite de ${planInfo.maxStores} tiendas.`);
+                ? `Has alcanzado el límite de ${planInfo.maxStores} tiendas en tu plan Gratis. Actualiza a un plan superior para crear más tiendas.`
+                : `Has alcanzado el límite de ${planInfo.maxStores} tiendas.`);
             } else {
               openModal();
             }
@@ -246,123 +242,115 @@ function Stores() {
           <FontAwesomeIcon icon={faPlus} />
           Nueva Tienda
         </button>
-      </div>
+      </header>
 
-      {planInfo && !planInfo.canCreate && (
-        <div className="store-limit-banner">
-          <FontAwesomeIcon icon={faExclamationTriangle} className="store-limit-icon" />
-          <div className="flex-1">
-            <strong className="store-limit-title">Limite de tiendas alcanzado</strong>
-            <p className="store-limit-text">
-              Tu plan {planInfo.currentPlan} permite maximo {planInfo.maxStores} tiendas ({planInfo.storeCount}/{planInfo.maxStores}).
-            </p>
-          </div>
-          <button
-            onClick={() => navigate('/admin/plans')}
-            className="btn btn-accent btn-sm"
-          >
-            <FontAwesomeIcon icon={faStore} />
-            Ver Planes
-          </button>
-        </div>
-      )}
-
-      {stores.length === 0 ? (
-        <div className="store-empty">
-          <h3>No hay tiendas</h3>
-          <p className="text-muted">Crea tu primera tienda para comenzar</p>
-          <button
-            onClick={() => openModal()}
-            className="btn btn-primary"
-          >
-            <FontAwesomeIcon icon={faPlus} />
-            Crear Tienda
-          </button>
-        </div>
-      ) : (
-        <div className="stores-grid">
-          {stores.map(store => (
-            <div
-              key={store.id}
-              className="store-card"
-              style={{ borderColor: store.primary_color || '#000' }}
-            >
-              <div className="store-card-actions">
-                <button
-                  onClick={() => copyCode(store.code)}
-                  className={`store-action-btn ${copiedCode === store.code ? 'store-card-btn--copied' : ''}`}
-                  title="Copiar codigo"
-                >
-                  <FontAwesomeIcon icon={faCopy} />
-                </button>
-                <button
-                  onClick={() => openModal(store)}
-                  className="store-action-btn"
-                >
-                  <FontAwesomeIcon icon={faEdit} />
-                </button>
-                <button
-                  onClick={() => handleDelete(store.id)}
-                  className="store-action-btn danger"
-                >
-                  <FontAwesomeIcon icon={faTrash} />
-                </button>
-              </div>
-
-              <h3
-                className="store-card-name"
-                style={{ color: store.primary_color || '#000' }}
-              >
-                {store.name}
-              </h3>
-
-              <div
-                className="store-code-badge"
-                style={{
-                  backgroundColor: store.primary_color || '#000',
-                  color: store.secondary_color || '#fff'
-                }}
-              >
-                Codigo: {store.code}
-              </div>
-
-              <div className="store-colors-row">
-                <div className="store-color-swatch">
-                  <div
-                    className="store-color-dot"
-                    style={{ backgroundColor: store.primary_color || '#000' }}
-                  />
-                  <span className="store-color-label">Primary</span>
-                </div>
-                <div className="store-color-swatch">
-                  <div
-                    className="store-color-dot"
-                    style={{ backgroundColor: store.secondary_color || '#fff', border: '1px solid #ddd' }}
-                  />
-                  <span className="store-color-label">Secondary</span>
-                </div>
-                <div className="store-color-swatch">
-                  <div
-                    className="store-color-dot"
-                    style={{ backgroundColor: store.accent_color || '#D4AF37' }}
-                  />
-                  <span className="store-color-label">Accent</span>
-                </div>
-              </div>
-
-              <div className="store-currency-info">
-                <span>Moneda:</span>
-                <strong>{store.currency_symbol} {store.currency_code}</strong>
-                <span>({store.currency_name})</span>
-              </div>
+      <div className="admin-main">
+        {planInfo && !planInfo.canCreate && (
+          <div className="store-limit-banner">
+            <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#f57c00', fontSize: '20px' }} />
+            <div className="flex-1">
+              <strong style={{ color: '#f57c00' }}>Límite de tiendas alcanzado</strong>
+              <p className="text-sm text-muted" style={{ margin: '4px 0 0 0' }}>
+                Tu plan {planInfo.currentPlan} permite máximo {planInfo.maxStores} tiendas ({planInfo.storeCount}/{planInfo.maxStores}).
+              </p>
             </div>
-          ))}
-        </div>
-      )}
+            <button
+              onClick={() => navigate('/admin/plans')}
+              className="btn btn-accent btn-sm"
+            >
+              <FontAwesomeIcon icon={faStore} />
+              Ver Planes
+            </button>
+          </div>
+        )}
+
+        {stores.length === 0 ? (
+          <div className="empty-state">
+            <h3 className="empty-state-title">No hay tiendas</h3>
+            <p className="empty-state-text">Crea tu primera tienda para comenzar</p>
+            <button
+              onClick={() => openModal()}
+              className="btn btn-primary"
+              style={{ marginTop: '20px' }}
+            >
+              <FontAwesomeIcon icon={faPlus} />
+              Crear Tienda
+            </button>
+          </div>
+        ) : (
+          <div className="stores-grid">
+            {stores.map(store => (
+              <div
+                key={store.id}
+                className="store-card"
+                style={{ borderColor: store.primary_color || '#000' }}
+              >
+                <div className="store-card-actions">
+                  <button
+                    onClick={() => copyCode(store.code)}
+                    className="store-action-btn"
+                    style={copiedCode === store.code ? { backgroundColor: '#28a745', color: '#fff', borderColor: '#28a745' } : {}}
+                    title="Copiar código"
+                  >
+                    <FontAwesomeIcon icon={faCopy} />
+                  </button>
+                  <button
+                    onClick={() => openModal(store)}
+                    className="store-action-btn"
+                  >
+                    <FontAwesomeIcon icon={faEdit} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(store.id)}
+                    className="store-action-btn danger"
+                  >
+                    <FontAwesomeIcon icon={faTrash} />
+                  </button>
+                </div>
+
+                <h3 className="store-card-name" style={{ color: store.primary_color || '#000' }}>
+                  {store.name}
+                </h3>
+
+                <div
+                  className="store-code-badge"
+                  style={{
+                    backgroundColor: store.primary_color || '#000',
+                    color: store.secondary_color || '#fff'
+                  }}
+                >
+                  Código: {store.code}
+                </div>
+
+                <div className="store-colors-row">
+                  <div className="store-color-swatch">
+                    <div className="store-color-dot" style={{ backgroundColor: store.primary_color || '#000' }} />
+                    <span className="store-color-label">Primary</span>
+                  </div>
+                  <div className="store-color-swatch">
+                    <div className="store-color-dot" style={{ backgroundColor: store.secondary_color || '#fff', border: '1px solid #ddd' }} />
+                    <span className="store-color-label">Secondary</span>
+                  </div>
+                  <div className="store-color-swatch">
+                    <div className="store-color-dot" style={{ backgroundColor: store.accent_color || '#D4AF37' }} />
+                    <span className="store-color-label">Accent</span>
+                  </div>
+                </div>
+
+                <div className="store-currency-info">
+                  <span>Moneda:</span>
+                  <strong>{store.currency_symbol} {store.currency_code}</strong>
+                  <span>({store.currency_name})</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
             <div className="store-modal-header">
               <h3 className="store-modal-title">
                 {editingStore ? 'Editar Tienda' : 'Nueva Tienda'}
@@ -378,10 +366,10 @@ function Stores() {
 
             {storeLimitError && (
               <div className="store-limit-error">
-                <FontAwesomeIcon icon={faExclamationTriangle} className="store-error-icon" />
+                <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: 'var(--danger)', fontSize: '20px', marginTop: '2px' }} />
                 <div className="flex-1">
-                  <strong className="store-error-title">No puedes crear mas tiendas</strong>
-                  <p className="store-error-text">
+                  <strong style={{ color: 'var(--danger)' }}>No puedes crear más tiendas</strong>
+                  <p className="text-sm text-muted" style={{ margin: '4px 0 8px 0' }}>
                     {storeLimitError}
                   </p>
                   <button
@@ -390,7 +378,7 @@ function Stores() {
                     className="btn btn-accent btn-sm"
                   >
                     <FontAwesomeIcon icon={faStore} />
-                    Ver Planes para Mas Tiendas
+                    Ver Planes para Más Tiendas
                   </button>
                 </div>
               </div>
@@ -419,7 +407,7 @@ function Stores() {
                 return (
                   <div className="form-group">
                     <label>
-                      Logo de la Tienda <span className="premium-badge">PREMIUM</span>
+                      Logo de la Tienda <span className="badge badge-warning">PREMIUM</span>
                     </label>
                     <div className="logo-upload-area">
                       <div
@@ -432,7 +420,7 @@ function Stores() {
                         {logoPreview || formData.logo_url ? (
                           <img src={logoPreview || getImageUrl(formData.logo_url)} alt="Logo" />
                         ) : (
-                          <span className="logo-placeholder">{'\u{1F5BC}\u{FE0F}'}</span>
+                          <span style={{ fontSize: '24px', color: '#999' }}>🖼️</span>
                         )}
                       </div>
                       <div className="flex-1">
@@ -448,7 +436,7 @@ function Stores() {
                           }}
                           className="file-input"
                         />
-                        <p className="logo-hint">
+                        <p className="text-xs text-muted" style={{ margin: '6px 0 0 0' }}>
                           Selecciona una imagen para el logo (JPG, PNG, GIF)
                         </p>
                       </div>
@@ -462,10 +450,7 @@ function Stores() {
                 <div className="color-picker-group">
                   <div>
                     <div className="color-picker-item-label">
-                      <div
-                        className="color-dot-preview"
-                        style={{ backgroundColor: formData.primary_color }}
-                      />
+                      <div className="color-dot-preview" style={{ backgroundColor: formData.primary_color }} />
                       <span className="color-picker-label-text">Principal</span>
                     </div>
                     <div className="color-picker-inputs">
@@ -488,10 +473,7 @@ function Stores() {
 
                   <div>
                     <div className="color-picker-item-label">
-                      <div
-                        className="color-dot-preview"
-                        style={{ backgroundColor: formData.secondary_color, border: '1px solid #ddd' }}
-                      />
+                      <div className="color-dot-preview" style={{ backgroundColor: formData.secondary_color, border: '1px solid #ddd' }} />
                       <span className="color-picker-label-text">Secundario</span>
                     </div>
                     <div className="color-picker-inputs">
@@ -514,10 +496,7 @@ function Stores() {
 
                   <div>
                     <div className="color-picker-item-label">
-                      <div
-                        className="color-dot-preview"
-                        style={{ backgroundColor: formData.accent_color }}
-                      />
+                      <div className="color-dot-preview" style={{ backgroundColor: formData.accent_color }} />
                       <span className="color-picker-label-text">Acento</span>
                     </div>
                     <div className="color-picker-inputs">
@@ -540,10 +519,7 @@ function Stores() {
 
                   <div>
                     <div className="color-picker-item-label">
-                      <div
-                        className="color-dot-preview"
-                        style={{ backgroundColor: formData.header_color }}
-                      />
+                      <div className="color-dot-preview" style={{ backgroundColor: formData.header_color }} />
                       <span className="color-picker-label-text">Header</span>
                     </div>
                     <div className="color-picker-inputs">
@@ -568,20 +544,19 @@ function Stores() {
 
               <div className="form-group">
                 <label>Moneda</label>
-                <div className="currency-dropdown relative">
+                <div className="relative">
                   <button
                     type="button"
                     onClick={() => setCurrencyDropdownOpen(!currencyDropdownOpen)}
                     className="currency-dropdown-btn"
                   >
                     <span>
-                      <span>
-                        {CURRENCIES.find(c => c.code === formData.currency_code)?.flag || '\u{1F3F3}\u{FE0F}'}
+                      <span style={{ marginRight: '8px' }}>
+                        {CURRENCIES.find(c => c.code === formData.currency_code)?.flag || '🏳️'}
                       </span>
-                      {' '}
                       <strong>{formData.currency_symbol}</strong> {formData.currency_code} - {formData.currency_name}
                     </span>
-                    <span className="text-xs">{'\u25BC'}</span>
+                    <span className="text-xs">▼</span>
                   </button>
                   {currencyDropdownOpen && (
                     <div className="currency-dropdown-list">
@@ -589,14 +564,14 @@ function Stores() {
                         <div
                           key={currency.code}
                           onClick={() => selectCurrency(currency)}
-                          className={`currency-option ${formData.currency_code === currency.code ? 'selected' : ''}`}
+                          className={`currency-option${formData.currency_code === currency.code ? ' selected' : ''}`}
                         >
-                          <span className="text-lg">{currency.flag}</span>
-                          <strong>{currency.symbol}</strong>
-                          <span className="font-semibold">{currency.code}</span>
-                          <span className="text-muted text-sm">{currency.name}</span>
+                          <span style={{ fontSize: '20px' }}>{currency.flag}</span>
+                          <strong style={{ fontSize: '16px', minWidth: '30px' }}>{currency.symbol}</strong>
+                          <span className="font-semibold" style={{ minWidth: '50px' }}>{currency.code}</span>
+                          <span className="text-sm text-muted">{currency.name}</span>
                           {formData.currency_code === currency.code && (
-                            <span className="text-muted">{'\u2713'}</span>
+                            <span style={{ marginLeft: 'auto', color: 'var(--info)' }}>✓</span>
                           )}
                         </div>
                       ))}
@@ -629,7 +604,7 @@ function Stores() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
