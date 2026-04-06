@@ -23,7 +23,7 @@ function Orders() {
       setLoading(false);
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/orders?store_id=${selectedStore.id}`, {
@@ -60,78 +60,55 @@ function Orders() {
       </header>
       <div className="admin-main">
         {orders.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '60px' }}>
-            <FontAwesomeIcon icon={faShoppingBag} style={{ fontSize: '64px', color: '#ccc', marginBottom: '20px' }} />
-            <h2 style={{ color: '#666', marginBottom: '10px' }}>No hay pedidos</h2>
-            <p style={{ color: '#999' }}>
+          <div className="card empty-state">
+            <FontAwesomeIcon icon={faShoppingBag} className="empty-state-icon" />
+            <h2 className="empty-state-title">No hay pedidos</h2>
+            <p className="empty-state-text">
               Los pedidos realizados por tus clientes apareceran aqui
             </p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gap: '20px' }}>
+          <div className="grid-list">
             {orders.map(order => (
               <div key={order.id} className="card">
                 <div className="card-header">
                   <div>
-                    <h3 style={{ fontSize: '20px' }}>Pedido #{order.id}</h3>
-                    <p style={{ color: '#666', fontSize: '14px' }}>
+                    <h3>Pedido #{order.id}</h3>
+                    <p className="text-muted text-sm">
                       {formatDate(order.created_at)}
                     </p>
-                    <div style={{ 
-                      display: 'inline-flex', 
-                      alignItems: 'center', 
-                      gap: '8px',
-                      padding: '6px 12px',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      fontWeight: '700',
-                      backgroundColor: order.order_type === 'takeout' ? '#007BFF' : '#28A745',
-                      color: '#fff'
-                    }}>
-                      <span style={{ fontSize: '18px' }}>
+                    <div className={`order-type-badge ${order.order_type === 'takeout' ? 'takeout' : 'serve'}`}>
+                      <span>
                         {order.order_type === 'takeout' ? '🥡' : '🍽️'}
                       </span>
                       {order.order_type === 'takeout' ? 'Para Llevar' : 'Para Comer Aqui'}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '24px', fontWeight: '700', color: '#D4AF37' }}>
+                  <div className="text-right">
+                    <div className="order-amount">
                       ${order.total.toFixed(2)}
                     </div>
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '4px 12px',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      backgroundColor: order.status === 'pending' ? '#FFC107' : '#28A745',
-                      color: '#000'
-                    }}>
+                    <span className={`badge ${order.status === 'pending' ? 'badge-warning' : 'badge-success'}`}>
                       {order.status === 'pending' ? 'Pendiente' : 'Completado'}
                     </span>
                   </div>
                 </div>
-                <div style={{ marginTop: '20px' }}>
+                <div className="grid-list">
                   {order.items.map((item, index) => (
-                    <div key={index} style={{
-                      padding: '12px',
-                      border: '1px solid #ccc',
-                      borderRadius: '4px',
-                      marginBottom: '10px'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontWeight: '700' }}>{item.quantity}x {item.product_name}</span>
-                        <span style={{ fontWeight: '700', color: '#D4AF37' }}>
+                    <div key={index} className="order-row flex-col">
+                      <div className="flex justify-between w-full">
+                        <span className="font-bold">{item.quantity}x {item.product_name}</span>
+                        <span className="order-amount text-sm">
                           ${(item.unit_price * item.quantity).toFixed(2)}
                         </span>
                       </div>
                       {item.selected_ingredients && item.selected_ingredients.length > 0 && (
-                        <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+                        <div className="text-sm text-muted">
                           <strong>Ingredientes:</strong> {item.selected_ingredients.join(', ')}
                         </div>
                       )}
                       {item.selected_extras && item.selected_extras.length > 0 && (
-                        <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>
+                        <div className="text-sm text-muted">
                           <strong>Extras:</strong> {item.selected_extras.join(', ')}
                         </div>
                       )}

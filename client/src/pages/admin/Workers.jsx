@@ -6,7 +6,7 @@ import { StoreContext } from '../../components/Layout';
 const API = 'https://srservi2.srautomatic.com';
 
 function Workers() {
-  const { selectedStore, colors } = useContext(StoreContext);
+  const { selectedStore } = useContext(StoreContext);
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -28,7 +28,7 @@ function Workers() {
 
   const fetchWorkers = async () => {
     if (!selectedStore) return;
-    
+
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -91,220 +91,118 @@ function Workers() {
     }
   };
 
-  const s = {
-    container: { padding: '30px', backgroundColor: colors.secondary, minHeight: '100vh' },
-    loadingContainer: {
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', minHeight: '400px', gap: '15px', backgroundColor: colors.secondary
-    },
-    spinner: {
-      width: '40px', height: '40px', border: `4px solid ${colors.secondary}`,
-      borderTop: `4px solid ${colors.primary}`, borderRadius: '50%',
-      animation: 'spin 1s linear infinite'
-    },
-    emptyContainer: {
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      minHeight: '400px', color: colors.primary, backgroundColor: colors.secondary
-    },
-    header: {
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      marginBottom: '30px'
-    },
-    title: { margin: 0, fontSize: '28px', color: colors.primary },
-    subtitle: { margin: '5px 0 0 0', color: colors.primary, opacity: 0.7, fontSize: '14px' },
-    addButton: {
-      display: 'flex', alignItems: 'center', gap: '8px',
-      background: colors.primary,
-      color: colors.secondary, border: 'none', padding: '12px 24px',
-      borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold'
-    },
-    emptyState: {
-      textAlign: 'center', padding: '60px 20px',
-      background: colors.secondary, borderRadius: '12px',
-      boxShadow: `0 2px 10px ${colors.primary}22`
-    },
-    emptyIcon: { fontSize: '60px', color: colors.primary, opacity: 0.3, marginBottom: '20px' },
-    emptyButton: {
-      display: 'inline-flex', alignItems: 'center', gap: '8px',
-      background: colors.primary,
-      color: colors.secondary, border: 'none', padding: '12px 24px',
-      borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', marginTop: '20px'
-    },
-    grid: {
-      display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px'
-    },
-    workerCard: {
-      background: colors.secondary, borderRadius: '12px', padding: '20px',
-      display: 'flex', alignItems: 'center', gap: '15px',
-      boxShadow: `0 2px 10px ${colors.primary}22`
-    },
-    workerAvatar: {
-      width: '60px', height: '60px', borderRadius: '50%',
-      background: colors.primary,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: colors.secondary, fontSize: '24px'
-    },
-    workerInfo: { flex: 1 },
-    workerName: { margin: 0, fontSize: '18px', color: colors.primary },
-    workerUsername: {
-      margin: '5px 0 0 0', fontSize: '14px', color: colors.primary,
-      display: 'flex', alignItems: 'center', gap: '5px', opacity: 0.7
-    },
-    workerDate: { margin: '5px 0 0 0', fontSize: '12px', color: colors.primary, opacity: 0.5 },
-    deleteButton: {
-      background: `${colors.accent}22`, color: colors.accent, border: 'none',
-      padding: '10px', borderRadius: '8px', cursor: 'pointer'
-    },
-    modalOverlay: {
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center',
-      justifyContent: 'center', padding: '20px', zIndex: 1000
-    },
-    modal: {
-      background: colors.secondary, borderRadius: '16px', padding: '30px',
-      maxWidth: '450px', width: '100%', boxShadow: `0 10px 40px ${colors.primary}44`
-    },
-    modalTitle: { margin: '0 0 25px 0', fontSize: '24px', color: colors.primary },
-    error: {
-      background: `${colors.accent}22`, color: colors.accent, padding: '12px',
-      borderRadius: '8px', marginBottom: '20px', fontSize: '14px'
-    },
-    form: { display: 'flex', flexDirection: 'column', gap: '20px' },
-    formGroup: { display: 'flex', flexDirection: 'column', gap: '8px' },
-    label: { fontSize: '14px', color: colors.primary, fontWeight: 'bold' },
-    input: {
-      padding: '12px 15px', border: `2px solid ${colors.primary}22`,
-      borderRadius: '8px', fontSize: '14px', outline: 'none', color: colors.primary,
-      backgroundColor: 'white'
-    },
-    formActions: { display: 'flex', gap: '10px', marginTop: '10px' },
-    cancelButton: {
-      flex: 1, padding: '12px', border: `2px solid ${colors.primary}33`,
-      borderRadius: '8px', background: colors.secondary, color: colors.primary,
-      cursor: 'pointer', fontSize: '14px', fontWeight: 'bold'
-    },
-    submitButton: {
-      flex: 1, padding: '12px', border: 'none', borderRadius: '8px',
-      background: colors.primary,
-      color: colors.secondary, cursor: 'pointer', fontSize: '14px', fontWeight: 'bold'
-    }
-  };
-
   if (loading) {
-    return (
-      <div style={s.loadingContainer}>
-        <div style={s.spinner}></div>
-        <p>Cargando trabajadores...</p>
-      </div>
-    );
+    return <div className="loading">Cargando trabajadores...</div>;
   }
 
   if (!selectedStore) {
     return (
-      <div style={s.emptyContainer}>
-        <p>Selecciona una tienda para ver los trabajadores</p>
+      <div className="empty-state">
+        <p className="empty-state-text">Selecciona una tienda para ver los trabajadores</p>
       </div>
     );
   }
 
   return (
-    <div style={s.container}>
-      <div style={s.header}>
+    <>
+      <header className="admin-header">
         <div>
-          <h1 style={s.title}>Trabajadores</h1>
-          <p style={s.subtitle}>Gestiona los trabajadores de {selectedStore.name}</p>
+          <h1>Trabajadores</h1>
+          <p className="text-sm text-muted">Gestiona los trabajadores de {selectedStore.name}</p>
         </div>
-        <button style={s.addButton} onClick={() => setShowModal(true)}>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
           <FontAwesomeIcon icon={faUserPlus} />
           Agregar Trabajador
         </button>
+      </header>
+
+      <div className="admin-main">
+        {workers.length === 0 ? (
+          <div className="empty-state">
+            <FontAwesomeIcon icon={faUser} className="empty-state-icon" />
+            <h3 className="empty-state-title">No hay trabajadores</h3>
+            <p className="empty-state-text">Agrega trabajadores para que puedan acceder al panel</p>
+            <button className="btn btn-primary" onClick={() => setShowModal(true)} style={{ marginTop: '20px' }}>
+              <FontAwesomeIcon icon={faUserPlus} />
+              Agregar Trabajador
+            </button>
+          </div>
+        ) : (
+          <div className="workers-grid">
+            {workers.map(worker => (
+              <div key={worker.id} className="worker-card-admin">
+                <div className="worker-avatar-circle">
+                  <FontAwesomeIcon icon={faUser} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="worker-name-admin">{worker.name}</h3>
+                  <p className="worker-username-info">
+                    <FontAwesomeIcon icon={faEnvelope} />
+                    {worker.username}
+                  </p>
+                  <p className="worker-created-date">
+                    Creado: {new Date(worker.created_at).toLocaleDateString('es-ES')}
+                  </p>
+                </div>
+                <button className="btn btn-danger btn-icon" onClick={() => handleDelete(worker.id)}>
+                  <FontAwesomeIcon icon={faTrash} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {workers.length === 0 ? (
-        <div style={s.emptyState}>
-          <FontAwesomeIcon icon={faUser} style={s.emptyIcon} />
-          <h3>No hay trabajadores</h3>
-          <p>Agrega trabajadores para que puedan acceder al panel</p>
-          <button style={s.emptyButton} onClick={() => setShowModal(true)}>
-            <FontAwesomeIcon icon={faUserPlus} />
-            Agregar Trabajador
-          </button>
-        </div>
-      ) : (
-        <div style={s.grid}>
-          {workers.map(worker => (
-            <div key={worker.id} style={s.workerCard}>
-              <div style={s.workerAvatar}>
-                <FontAwesomeIcon icon={faUser} />
-              </div>
-              <div style={s.workerInfo}>
-                <h3 style={s.workerName}>{worker.name}</h3>
-                <p style={s.workerUsername}>
-                  <FontAwesomeIcon icon={faEnvelope} />
-                  {worker.username}
-                </p>
-                <p style={s.workerDate}>
-                  Creado: {new Date(worker.created_at).toLocaleDateString('es-ES')}
-                </p>
-              </div>
-              <button style={s.deleteButton} onClick={() => handleDelete(worker.id)}>
-                <FontAwesomeIcon icon={faTrash} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
       {showModal && (
-        <div style={s.modalOverlay} onClick={() => setShowModal(false)}>
-          <div style={s.modal} onClick={(e) => e.stopPropagation()}>
-            <h2 style={s.modalTitle}>Agregar Trabajador</h2>
-            
-            {error && <div style={s.error}>{error}</div>}
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Agregar Trabajador</h2>
+              <button className="modal-close" onClick={() => setShowModal(false)}>&times;</button>
+            </div>
 
-            <form onSubmit={handleSubmit} style={s.form}>
-              <div style={s.formGroup}>
-                <label style={s.label}>Nombre Completo</label>
+            {error && <div className="error">{error}</div>}
+
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label>Nombre Completo</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  style={s.input}
                   placeholder="Ej: Juan Pérez"
                   required
                 />
               </div>
 
-              <div style={s.formGroup}>
-                <label style={s.label}>Usuario</label>
+              <div className="form-group">
+                <label>Usuario</label>
                 <input
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({...formData, username: e.target.value})}
-                  style={s.input}
                   placeholder="Ej: juanperez"
                   required
                 />
               </div>
 
-              <div style={s.formGroup}>
-                <label style={s.label}>Contraseña</label>
+              <div className="form-group">
+                <label>Contraseña</label>
                 <input
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  style={s.input}
                   placeholder="Mínimo 6 caracteres"
                   minLength={6}
                   required
                 />
               </div>
 
-              <div style={s.formActions}>
-                <button type="button" style={s.cancelButton} onClick={() => setShowModal(false)}>
+              <div className="flex gap-3">
+                <button type="button" className="btn btn-secondary flex-1" onClick={() => setShowModal(false)}>
                   Cancelar
                 </button>
-                <button type="submit" style={s.submitButton}>
+                <button type="submit" className="btn btn-primary flex-1">
                   Crear Trabajador
                 </button>
               </div>
@@ -312,7 +210,7 @@ function Workers() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 

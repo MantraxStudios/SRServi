@@ -4,11 +4,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const API = 'https://srservi2.srautomatic.com';
 
-import { 
-  faUsers, 
-  faStore, 
-  faSignOutAlt, 
-  faEdit, 
+import {
+  faUsers,
+  faStore,
+  faSignOutAlt,
+  faEdit,
   faTrash,
   faBan,
   faCheck,
@@ -23,46 +23,7 @@ import {
   faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 
-const COLORS = {
-  black: '#000000',
-  white: '#FFFFFF',
-  gold: '#D4AF37',
-  goldLight: '#E5C158',
-  goldDark: '#B8962E',
-  grayLight: '#F5F5F5',
-  gray: '#CCCCCC',
-  grayDark: '#666666',
-  success: '#28a745',
-  danger: '#DC3545',
-  warning: '#f57c00'
-};
-
-function useWindowSize() {
-  const [windowSize, setWindowSize] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight
-  });
-
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowSize({
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
-    };
-
-    window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  return windowSize;
-}
-
 function SuperadminDashboard() {
-  const { width } = useWindowSize();
-  const isMobile = width < 768;
-  const isTablet = width >= 768 && width < 1024;
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
   const [stores, setStores] = useState([]);
@@ -73,7 +34,7 @@ function SuperadminDashboard() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ email: '', password: '', is_banned: false });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -93,7 +54,7 @@ function SuperadminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     const token = localStorage.getItem('superadminToken');
-    
+
     try {
       if (activeTab === 'users') {
         const res = await fetch(API + '/api/superadmin/users', {
@@ -112,7 +73,7 @@ function SuperadminDashboard() {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await res.json();
-        console.log('📋 Datos de suscripciones:', data);
+        console.log('Datos de suscripciones:', data);
         setSubscriptions(Array.isArray(data) ? data : []);
       }
     } catch (error) {
@@ -145,7 +106,7 @@ function SuperadminDashboard() {
         },
         body: JSON.stringify(editForm)
       });
-      
+
       if (res.ok) {
         setShowEditModal(false);
         fetchData();
@@ -164,12 +125,12 @@ function SuperadminDashboard() {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + token
         },
-        body: JSON.stringify({ 
-          email: user.email, 
-          is_banned: !user.is_banned 
+        body: JSON.stringify({
+          email: user.email,
+          is_banned: !user.is_banned
         })
       });
-      
+
       if (res.ok) {
         fetchData();
       }
@@ -185,7 +146,7 @@ function SuperadminDashboard() {
         method: 'DELETE',
         headers: { 'Authorization': 'Bearer ' + token }
       });
-      
+
       if (res.ok) {
         setShowDeleteConfirm(null);
         fetchData();
@@ -206,7 +167,7 @@ function SuperadminDashboard() {
         },
         body: JSON.stringify({ is_banned: !store.is_banned })
       });
-      
+
       if (res.ok) {
         fetchData();
       }
@@ -222,7 +183,7 @@ function SuperadminDashboard() {
         method: 'DELETE',
         headers: { 'Authorization': 'Bearer ' + token }
       });
-      
+
       if (res.ok) {
         setShowDeleteConfirm(null);
         fetchData();
@@ -232,13 +193,13 @@ function SuperadminDashboard() {
     }
   };
 
-  const filteredUsers = users.filter(user => 
+  const filteredUsers = users.filter(user =>
     user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredStores = stores.filter(store => 
+  const filteredStores = stores.filter(store =>
     store.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     store.user_email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -269,494 +230,210 @@ function SuperadminDashboard() {
   };
 
   const getActivityStatus = (date) => {
-    if (!date) return { color: COLORS.grayDark, bg: COLORS.grayLight };
+    if (!date) return 'inactive';
     const now = new Date();
     const lastActive = new Date(date);
     const diffMs = now - lastActive;
     const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 5) return { color: COLORS.success, bg: 'rgba(40,167,69,0.1)' };
-    if (diffMins < 60) return { color: COLORS.gold, bg: 'rgba(212,175,55,0.2)' };
-    if (diffMins < 1440) return { color: '#1976d2', bg: 'rgba(25,118,210,0.1)' };
-    return { color: COLORS.grayDark, bg: COLORS.grayLight };
-  };
 
-  const sidebarWidth = isMobile ? (mobileMenuOpen ? '280px' : '0px') : (sidebarOpen ? '260px' : '70px');
-  
-  const sidebarStyle = {
-    width: sidebarWidth,
-    minHeight: '100vh',
-    backgroundColor: COLORS.black,
-    color: COLORS.white,
-    transition: 'width 0.3s ease',
-    display: 'flex',
-    flexDirection: 'column',
-    position: 'fixed',
-    left: 0,
-    top: 0,
-    zIndex: 100,
-    overflow: 'hidden'
-  };
-
-  const mainStyle = {
-    marginLeft: isMobile ? '0px' : (sidebarOpen ? '260px' : '70px'),
-    transition: 'margin-left 0.3s ease',
-    minHeight: '100vh',
-    backgroundColor: COLORS.grayLight,
-    width: isMobile ? '100%' : 'auto'
-  };
-
-  const thStyle = {
-    textAlign: 'left',
-    padding: isMobile ? '10px 8px' : '14px 12px',
-    color: COLORS.grayDark,
-    fontSize: isMobile ? '10px' : '12px',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    borderBottom: `2px solid ${COLORS.grayLight}`
-  };
-
-  const tdStyle = {
-    padding: isMobile ? '12px 8px' : '16px 12px',
-    fontSize: isMobile ? '13px' : '14px'
+    if (diffMins < 5) return 'online';
+    if (diffMins < 60) return 'recent';
+    if (diffMins < 1440) return 'today';
+    return 'inactive';
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {isMobile && mobileMenuOpen && (
-        <div 
+    <div className="flex admin-layout">
+      {mobileMenuOpen && (
+        <div
+          className="mobile-overlay"
           onClick={() => setMobileMenuOpen(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            zIndex: 99
-          }}
         />
       )}
-      
-      <div style={sidebarStyle}>
-        <div style={{
-          padding: isMobile ? '16px' : '20px',
-          borderBottom: `1px solid ${COLORS.gold}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            backgroundColor: COLORS.gold,
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
-            <FontAwesomeIcon icon={faShieldAlt} style={{ color: COLORS.black, fontSize: '20px' }} />
+
+      <div className={`admin-sidebar ${sidebarOpen ? 'open' : 'collapsed'} ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+        <div className="sidebar-brand">
+          <div className="sidebar-brand-icon">
+            <FontAwesomeIcon icon={faShieldAlt} />
           </div>
-          {sidebarOpen && !isMobile && (
+          {sidebarOpen && (
             <div>
-              <div style={{ fontWeight: '700', fontSize: '16px' }}>Superadmin</div>
-              <div style={{ fontSize: '11px', color: COLORS.gold }}>Panel de Control</div>
+              <div className="font-bold">Superadmin</div>
+              <div className="text-sm sidebar-brand-subtitle">Panel de Control</div>
             </div>
           )}
         </div>
 
         <button
-          onClick={() => isMobile ? setMobileMenuOpen(!mobileMenuOpen) : setSidebarOpen(!sidebarOpen)}
-          style={{
-            backgroundColor: 'transparent',
-            border: 'none',
-            color: COLORS.gold,
-            padding: '12px 20px',
-            cursor: 'pointer',
-            textAlign: 'left',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            fontSize: '18px'
-          }}
+          className="sidebar-toggle-btn"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
         >
-          <FontAwesomeIcon icon={isMobile ? faBars : (sidebarOpen ? faChevronLeft : faChevronRight)} />
-          {sidebarOpen && !isMobile && <span style={{ fontSize: '14px' }}>Colapsar</span>}
+          <FontAwesomeIcon icon={sidebarOpen ? faChevronLeft : faChevronRight} />
+          {sidebarOpen && <span className="text-sm">Colapsar</span>}
         </button>
 
-        <nav style={{ flex: 1, padding: '10px' }}>
-          <div 
-            onClick={() => { setActiveTab('users'); isMobile && setMobileMenuOpen(false); }}
-            style={{
-              padding: '14px 16px',
-              borderRadius: '12px',
-              backgroundColor: activeTab === 'users' ? COLORS.gold : 'transparent',
-              color: activeTab === 'users' ? COLORS.black : COLORS.white,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              marginBottom: '8px',
-              transition: 'all 0.2s ease',
-              fontWeight: activeTab === 'users' ? '600' : '400'
-            }}
+        <nav className="sidebar-nav flex-1">
+          <div
+            className={`sidebar-nav-item ${activeTab === 'users' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('users'); setMobileMenuOpen(false); }}
           >
-            <FontAwesomeIcon icon={faUsers} style={{ fontSize: '18px' }} />
-            {(!isMobile || mobileMenuOpen) && <span>Usuarios</span>}
+            <FontAwesomeIcon icon={faUsers} />
+            {sidebarOpen && <span>Usuarios</span>}
           </div>
 
-          <div 
-            onClick={() => { setActiveTab('stores'); isMobile && setMobileMenuOpen(false); }}
-            style={{
-              padding: '14px 16px',
-              borderRadius: '12px',
-              backgroundColor: activeTab === 'stores' ? COLORS.gold : 'transparent',
-              color: activeTab === 'stores' ? COLORS.black : COLORS.white,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              transition: 'all 0.2s ease',
-              fontWeight: activeTab === 'stores' ? '600' : '400'
-            }}
+          <div
+            className={`sidebar-nav-item ${activeTab === 'stores' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('stores'); setMobileMenuOpen(false); }}
           >
-            <FontAwesomeIcon icon={faStore} style={{ fontSize: '18px' }} />
-            {(!isMobile || mobileMenuOpen) && <span>Tiendas</span>}
+            <FontAwesomeIcon icon={faStore} />
+            {sidebarOpen && <span>Tiendas</span>}
           </div>
 
-          <div 
-            onClick={() => { setActiveTab('subscriptions'); isMobile && setMobileMenuOpen(false); }}
-            style={{
-              padding: '14px 16px',
-              borderRadius: '12px',
-              backgroundColor: activeTab === 'subscriptions' ? COLORS.gold : 'transparent',
-              color: activeTab === 'subscriptions' ? COLORS.black : COLORS.white,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              transition: 'all 0.2s ease',
-              fontWeight: activeTab === 'subscriptions' ? '600' : '400'
-            }}
+          <div
+            className={`sidebar-nav-item ${activeTab === 'subscriptions' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('subscriptions'); setMobileMenuOpen(false); }}
           >
-            <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '18px' }} />
-            {(!isMobile || mobileMenuOpen) && <span>Suscripciones</span>}
+            <FontAwesomeIcon icon={faCreditCard} />
+            {sidebarOpen && <span>Suscripciones</span>}
           </div>
         </nav>
 
-        <div style={{ padding: '20px', borderTop: `1px solid ${COLORS.gold}`, marginTop: 'auto' }}>
-          <div 
+        <div className="sidebar-footer">
+          <div
+            className="sidebar-nav-item logout"
             onClick={handleLogout}
-            style={{
-              padding: '14px 16px',
-              borderRadius: '12px',
-              backgroundColor: 'transparent',
-              color: COLORS.danger,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              transition: 'all 0.2s ease'
-            }}
           >
-            <FontAwesomeIcon icon={faSignOutAlt} style={{ fontSize: '18px' }} />
-            {(!isMobile || mobileMenuOpen) && <span>Cerrar Sesión</span>}
+            <FontAwesomeIcon icon={faSignOutAlt} />
+            {sidebarOpen && <span>Cerrar Sesion</span>}
           </div>
         </div>
       </div>
 
-      <div style={mainStyle}>
-        <header style={{
-          backgroundColor: COLORS.white,
-          padding: isMobile ? '16px' : '20px 30px',
-          borderBottom: `2px solid ${COLORS.grayLight}`,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {isMobile && (
-              <button
-                onClick={() => setMobileMenuOpen(true)}
-                style={{
-                  backgroundColor: COLORS.black,
-                  border: 'none',
-                  color: COLORS.white,
-                  cursor: 'pointer',
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}
-              >
-                <FontAwesomeIcon icon={faBars} />
-              </button>
-            )}
+      <div className={`admin-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
+        <header className="admin-header">
+          <div className="flex items-center gap-3">
+            <button
+              className="btn mobile-menu-btn"
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              <FontAwesomeIcon icon={faBars} />
+            </button>
             <div>
-              <h1 style={{ 
-                fontSize: isMobile ? '18px' : '24px', 
-                fontWeight: '700', 
-                color: COLORS.black,
-                marginBottom: '4px'
-              }}>
+              <h1 className="admin-header-title">
                 {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : 'Suscripciones'}
               </h1>
-              <p style={{ color: COLORS.grayDark, fontSize: '13px', display: isMobile ? 'none' : 'block' }}>
+              <p className="admin-header-subtitle text-muted text-sm">
                 {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : 'Ver todas las suscripciones'}
               </p>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <div style={{
-              backgroundColor: COLORS.black,
-              color: COLORS.white,
-              padding: isMobile ? '8px 12px' : '10px 20px',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: isMobile ? '12px' : '14px'
-            }}>
-              <FontAwesomeIcon icon={faUsers} style={{ fontSize: isMobile ? '14px' : '16px' }} />
-              <span style={{ fontWeight: '600' }}>{stats.totalUsers}</span>
-              {!isMobile && <span style={{ color: COLORS.gray }}>Usuarios</span>}
+          <div className="flex gap-2 stats-badges">
+            <div className="stat-badge stat-badge-dark">
+              <FontAwesomeIcon icon={faUsers} />
+              <span className="font-bold">{stats.totalUsers}</span>
+              <span className="stat-badge-label">Usuarios</span>
             </div>
-            <div style={{
-              backgroundColor: COLORS.gold,
-              color: COLORS.black,
-              padding: isMobile ? '8px 12px' : '10px 20px',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: isMobile ? '12px' : '14px'
-            }}>
-              <FontAwesomeIcon icon={faStore} style={{ fontSize: isMobile ? '14px' : '16px' }} />
-              <span style={{ fontWeight: '600' }}>{stats.totalStores}</span>
-              {!isMobile && <span style={{ color: COLORS.black, opacity: 0.7 }}>Tiendas</span>}
+            <div className="stat-badge stat-badge-gold">
+              <FontAwesomeIcon icon={faStore} />
+              <span className="font-bold">{stats.totalStores}</span>
+              <span className="stat-badge-label">Tiendas</span>
             </div>
-            <div style={{
-              backgroundColor: COLORS.success,
-              color: COLORS.white,
-              padding: isMobile ? '8px 12px' : '10px 20px',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: isMobile ? '12px' : '14px'
-            }}>
-              <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: isMobile ? '14px' : '16px' }} />
-              <span style={{ fontWeight: '600' }}>{subscriptions.length}</span>
-              <span style={{ color: 'rgba(255,255,255,0.8)' }}>Subs</span>
+            <div className="stat-badge stat-badge-success">
+              <FontAwesomeIcon icon={faCreditCard} />
+              <span className="font-bold">{subscriptions.length}</span>
+              <span className="stat-badge-label">Subs</span>
             </div>
           </div>
         </header>
 
-        <div style={{ padding: isMobile ? '16px' : '30px' }}>
-          <div style={{
-            backgroundColor: COLORS.white,
-            borderRadius: isMobile ? '12px' : '16px',
-            padding: isMobile ? '16px' : '24px',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              marginBottom: '24px',
-              flexWrap: 'wrap',
-              gap: '12px'
-            }}>
-              <div style={{ display: 'flex', gap: isMobile ? '8px' : '16px', flexWrap: 'wrap' }}>
-                <div style={{
-                  padding: isMobile ? '6px 12px' : '8px 16px',
-                  backgroundColor: COLORS.success,
-                  color: COLORS.white,
-                  borderRadius: '20px',
-                  fontSize: isMobile ? '11px' : '13px',
-                  fontWeight: '600'
-                }}>
+        <div className="admin-content">
+          <div className="card">
+            <div className="flex justify-between items-center card-toolbar">
+              <div className="flex gap-4 badge-group">
+                <div className="badge badge-success">
                   {activeTab === 'users' ? stats.activeUsers : stats.activeStores} Activos
                 </div>
-                <div style={{
-                  padding: isMobile ? '6px 12px' : '8px 16px',
-                  backgroundColor: COLORS.danger,
-                  color: COLORS.white,
-                  borderRadius: '20px',
-                  fontSize: isMobile ? '11px' : '13px',
-                  fontWeight: '600'
-                }}>
+                <div className="badge badge-danger">
                   {activeTab === 'users' ? stats.bannedUsers : stats.bannedStores} Baneados
                 </div>
               </div>
-              <div style={{ position: 'relative' }}>
-                <FontAwesomeIcon 
-                  icon={faSearch} 
-                  style={{ 
-                    position: 'absolute', 
-                    left: isMobile ? '10px' : '14px', 
-                    top: '50%', 
-                    transform: 'translateY(-50%)',
-                    color: COLORS.grayDark,
-                    fontSize: '14px'
-                  }} 
-                />
+              <div className="search-wrapper">
+                <FontAwesomeIcon icon={faSearch} className="search-icon" />
                 <input
                   type="text"
+                  className="search-input"
                   placeholder="Buscar..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{
-                    padding: isMobile ? '10px 12px' : '12px 16px',
-                    paddingLeft: isMobile ? '36px' : '44px',
-                    borderRadius: '12px',
-                    border: `2px solid ${COLORS.grayLight}`,
-                    width: isMobile ? '100%' : '300px',
-                    fontSize: '14px',
-                    outline: 'none',
-                    transition: 'border-color 0.2s'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = COLORS.gold}
-                  onBlur={(e) => e.target.style.borderColor = COLORS.grayLight}
                 />
               </div>
             </div>
 
             {loading ? (
-              <div style={{ textAlign: 'center', padding: '60px', color: COLORS.grayDark }}>
-                <div style={{ fontSize: '18px' }}>Cargando datos...</div>
+              <div className="empty-state">
+                <div>Cargando datos...</div>
               </div>
             ) : activeTab === 'users' ? (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div className="admin-table-wrapper">
+                <table className="table admin-table">
                   <thead>
-                    <tr style={{ borderBottom: `2px solid ${COLORS.grayLight}` }}>
-                      <th style={thStyle}>Usuario</th>
-                      <th style={thStyle}>Email</th>
-                      <th style={{ ...thStyle, display: isMobile ? 'none' : 'table-cell' }}>Empresa</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Tiendas</th>
-                      <th style={{ ...thStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>Última Actividad</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Estado</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Acciones</th>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Email</th>
+                      <th className="hide-mobile">Empresa</th>
+                      <th className="text-center">Tiendas</th>
+                      <th className="text-center hide-mobile">Ultima Actividad</th>
+                      <th className="text-center">Estado</th>
+                      <th className="text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredUsers.map(user => (
-                      <tr key={user.id} style={{ borderBottom: `1px solid ${COLORS.grayLight}`, transition: 'background-color 0.2s' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.grayLight}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                        <td style={tdStyle}>
-                          <div style={{ fontWeight: '600', color: COLORS.black, fontSize: '14px' }}>{user.username}</div>
-                          <div style={{ fontSize: '11px', color: COLORS.grayDark }}>Code: {user.code}</div>
+                      <tr key={user.id}>
+                        <td>
+                          <div className="font-bold">{user.username}</div>
+                          <div className="text-sm text-muted">Code: {user.code}</div>
                         </td>
-                        <td style={tdStyle}>{user.email}</td>
-                        <td style={{ ...tdStyle, display: isMobile ? 'none' : 'table-cell' }}>{user.business_name || '-'}</td>
-                        <td style={{ ...tdStyle, textAlign: 'center' }}>
-                          <span style={{
-                            backgroundColor: COLORS.gold,
-                            color: COLORS.black,
-                            padding: isMobile ? '4px 10px' : '6px 14px',
-                            borderRadius: '20px',
-                            fontSize: '12px',
-                            fontWeight: '600'
-                          }}>
+                        <td>{user.email}</td>
+                        <td className="hide-mobile">{user.business_name || '-'}</td>
+                        <td className="text-center">
+                          <span className="badge badge-gold">
                             {user.store_count}
                           </span>
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>
-                          {(() => {
-                            const status = getActivityStatus(user.last_active);
-                            return (
-                              <span style={{
-                                backgroundColor: status.bg,
-                                color: status.color,
-                                padding: '6px 14px',
-                                borderRadius: '20px',
-                                fontSize: '12px',
-                                fontWeight: '600'
-                              }}>
-                                {formatLastActive(user.last_active)}
-                              </span>
-                            );
-                          })()}
+                        <td className="text-center hide-mobile">
+                          <span className={`badge badge-activity-${getActivityStatus(user.last_active)}`}>
+                            {formatLastActive(user.last_active)}
+                          </span>
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <td className="text-center">
                           {user.is_banned ? (
-                            <span style={{
-                              backgroundColor: COLORS.danger,
-                              color: COLORS.white,
-                              padding: isMobile ? '4px 10px' : '6px 14px',
-                              borderRadius: '20px',
-                              fontSize: '12px',
-                              fontWeight: '600'
-                            }}>
-                              Baneado
-                            </span>
+                            <span className="badge badge-danger">Baneado</span>
                           ) : (
-                            <span style={{
-                              backgroundColor: COLORS.success,
-                              color: COLORS.white,
-                              padding: isMobile ? '4px 10px' : '6px 14px',
-                              borderRadius: '20px',
-                              fontSize: '12px',
-                              fontWeight: '600'
-                            }}>
-                              Activo
-                            </span>
+                            <span className="badge badge-success">Activo</span>
                           )}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <td className="text-center">
                           <button
+                            className="btn btn-sm btn-icon"
                             onClick={() => handleEditUser(user)}
-                            style={{
-                              backgroundColor: COLORS.grayLight,
-                              border: 'none',
-                              color: COLORS.black,
-                              cursor: 'pointer',
-                              padding: isMobile ? '8px' : '10px',
-                              borderRadius: '10px',
-                              marginRight: '8px',
-                              transition: 'all 0.2s'
-                            }}
                             title="Editar"
-                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = COLORS.gold; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = COLORS.grayLight; }}
                           >
-                            <FontAwesomeIcon icon={faEdit} style={{ fontSize: '14px' }} />
+                            <FontAwesomeIcon icon={faEdit} />
                           </button>
                           <button
+                            className={`btn btn-sm btn-icon ${user.is_banned ? 'btn-unban' : 'btn-ban'}`}
                             onClick={() => handleToggleBanUser(user)}
-                            style={{
-                              backgroundColor: user.is_banned ? 'rgba(40,167,69,0.1)' : 'rgba(245,124,0,0.1)',
-                              border: 'none',
-                              color: user.is_banned ? COLORS.success : COLORS.warning,
-                              cursor: 'pointer',
-                              padding: isMobile ? '8px' : '10px',
-                              borderRadius: '10px',
-                              marginRight: '8px',
-                              transition: 'all 0.2s'
-                            }}
                             title={user.is_banned ? 'Desbanear' : 'Banear'}
                           >
-                            <FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} style={{ fontSize: '14px' }} />
+                            <FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} />
                           </button>
                           <button
+                            className="btn btn-sm btn-icon btn-delete"
                             onClick={() => setShowDeleteConfirm({ type: 'user', id: user.id, name: user.username })}
-                            style={{
-                              backgroundColor: 'rgba(220,53,69,0.1)',
-                              border: 'none',
-                              color: COLORS.danger,
-                              cursor: 'pointer',
-                              padding: isMobile ? '8px' : '10px',
-                              borderRadius: '10px',
-                              transition: 'all 0.2s'
-                            }}
                             title="Eliminar"
                           >
-                            <FontAwesomeIcon icon={faTrash} style={{ fontSize: '14px' }} />
+                            <FontAwesomeIcon icon={faTrash} />
                           </button>
                         </td>
                       </tr>
@@ -764,118 +441,67 @@ function SuperadminDashboard() {
                   </tbody>
                 </table>
                 {filteredUsers.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: isMobile ? '40px' : '60px', color: COLORS.grayDark }}>
-                    <FontAwesomeIcon icon={faUsers} style={{ fontSize: isMobile ? '36px' : '48px', marginBottom: '16px', opacity: 0.3 }} />
-                    <div style={{ fontSize: isMobile ? '14px' : '16px' }}>No se encontraron usuarios</div>
+                  <div className="empty-state">
+                    <FontAwesomeIcon icon={faUsers} className="empty-state-icon" />
+                    <div>No se encontraron usuarios</div>
                   </div>
                 )}
               </div>
             ) : activeTab === 'stores' ? (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div className="admin-table-wrapper">
+                <table className="table admin-table">
                   <thead>
-                    <tr style={{ borderBottom: `2px solid ${COLORS.grayLight}` }}>
-                      <th style={{ ...thStyle, display: isMobile ? 'none' : 'table-cell' }}>Tienda</th>
-                      <th style={thStyle}>Propietario</th>
-                      <th style={{ ...thStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>Productos</th>
-                      <th style={{ ...thStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>Órdenes</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Estado</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Acciones</th>
+                    <tr>
+                      <th className="hide-mobile">Tienda</th>
+                      <th>Propietario</th>
+                      <th className="text-center hide-mobile">Productos</th>
+                      <th className="text-center hide-mobile">Ordenes</th>
+                      <th className="text-center">Estado</th>
+                      <th className="text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredStores.map(store => (
-                      <tr key={store.id} style={{ borderBottom: `1px solid ${COLORS.grayLight}`, transition: 'background-color 0.2s' }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.grayLight}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                        <td style={{ ...tdStyle, display: isMobile ? 'none' : 'table-cell' }}>
-                          <div style={{ fontWeight: '600', color: COLORS.black }}>{store.name}</div>
-                          <div style={{ fontSize: '11px', color: COLORS.grayDark }}>Code: {store.code}</div>
+                      <tr key={store.id}>
+                        <td className="hide-mobile">
+                          <div className="font-bold">{store.name}</div>
+                          <div className="text-sm text-muted">Code: {store.code}</div>
                         </td>
-                        <td style={tdStyle}>
-                          <div style={{ color: COLORS.grayDark }}>{store.user_email}</div>
-                          <div style={{ fontSize: '11px', color: COLORS.grayDark, display: isMobile ? 'none' : 'block' }}>{store.user_business || '-'}</div>
+                        <td>
+                          <div className="text-muted">{store.user_email}</div>
+                          <div className="text-sm text-muted hide-mobile">{store.user_business || '-'}</div>
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>
-                          <span style={{
-                            backgroundColor: COLORS.gold,
-                            color: COLORS.black,
-                            padding: isMobile ? '4px 10px' : '6px 14px',
-                            borderRadius: '20px',
-                            fontSize: '12px',
-                            fontWeight: '600'
-                          }}>
+                        <td className="text-center hide-mobile">
+                          <span className="badge badge-gold">
                             {store.product_count}
                           </span>
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>
-                          <span style={{
-                            backgroundColor: COLORS.black,
-                            color: COLORS.white,
-                            padding: isMobile ? '4px 10px' : '6px 14px',
-                            borderRadius: '20px',
-                            fontSize: '12px',
-                            fontWeight: '600'
-                          }}>
+                        <td className="text-center hide-mobile">
+                          <span className="badge badge-dark">
                             {store.order_count}
                           </span>
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <td className="text-center">
                           {store.is_banned ? (
-                            <span style={{
-                              backgroundColor: COLORS.danger,
-                              color: COLORS.white,
-                              padding: isMobile ? '4px 10px' : '6px 14px',
-                              borderRadius: '20px',
-                              fontSize: '12px',
-                              fontWeight: '600'
-                            }}>
-                              Baneada
-                            </span>
+                            <span className="badge badge-danger">Baneada</span>
                           ) : (
-                            <span style={{
-                              backgroundColor: COLORS.success,
-                              color: COLORS.white,
-                              padding: isMobile ? '4px 10px' : '6px 14px',
-                              borderRadius: '20px',
-                              fontSize: '12px',
-                              fontWeight: '600'
-                            }}>
-                              Activa
-                            </span>
+                            <span className="badge badge-success">Activa</span>
                           )}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <td className="text-center">
                           <button
+                            className={`btn btn-sm btn-icon ${store.is_banned ? 'btn-unban' : 'btn-ban'}`}
                             onClick={() => handleToggleBanStore(store)}
-                            style={{
-                              backgroundColor: store.is_banned ? 'rgba(40,167,69,0.1)' : 'rgba(245,124,0,0.1)',
-                              border: 'none',
-                              color: store.is_banned ? COLORS.success : COLORS.warning,
-                              cursor: 'pointer',
-                              padding: isMobile ? '8px' : '10px',
-                              borderRadius: '10px',
-                              marginRight: '8px',
-                              transition: 'all 0.2s'
-                            }}
                             title={store.is_banned ? 'Desbanear' : 'Banear'}
                           >
-                            <FontAwesomeIcon icon={store.is_banned ? faCheck : faBan} style={{ fontSize: '14px' }} />
+                            <FontAwesomeIcon icon={store.is_banned ? faCheck : faBan} />
                           </button>
                           <button
+                            className="btn btn-sm btn-icon btn-delete"
                             onClick={() => setShowDeleteConfirm({ type: 'store', id: store.id, name: store.name })}
-                            style={{
-                              backgroundColor: 'rgba(220,53,69,0.1)',
-                              border: 'none',
-                              color: COLORS.danger,
-                              cursor: 'pointer',
-                              padding: isMobile ? '8px' : '10px',
-                              borderRadius: '10px',
-                              transition: 'all 0.2s'
-                            }}
                             title="Eliminar"
                           >
-                            <FontAwesomeIcon icon={faTrash} style={{ fontSize: '14px' }} />
+                            <FontAwesomeIcon icon={faTrash} />
                           </button>
                         </td>
                       </tr>
@@ -883,109 +509,64 @@ function SuperadminDashboard() {
                   </tbody>
                 </table>
                 {filteredStores.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: isMobile ? '40px' : '60px', color: COLORS.grayDark }}>
-                    <FontAwesomeIcon icon={faStore} style={{ fontSize: isMobile ? '36px' : '48px', marginBottom: '16px', opacity: 0.3 }} />
-                    <div style={{ fontSize: isMobile ? '14px' : '16px' }}>No se encontraron tiendas</div>
+                  <div className="empty-state">
+                    <FontAwesomeIcon icon={faStore} className="empty-state-icon" />
+                    <div>No se encontraron tiendas</div>
                   </div>
                 )}
               </div>
             ) : activeTab === 'subscriptions' ? (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div className="admin-table-wrapper">
+                <table className="table admin-table">
                   <thead>
-                    <tr style={{ borderBottom: `2px solid ${COLORS.grayLight}` }}>
-                      <th style={thStyle}>Usuario</th>
-                      <th style={{ ...thStyle, display: isMobile ? 'none' : 'table-cell' }}>Email</th>
-                      <th style={{ ...thStyle, display: isMobile ? 'none' : 'table-cell' }}>Plan Actual</th>
-                      <th style={{ ...thStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>Precio</th>
-                      <th style={{ ...thStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>Vencimiento</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Estado</th>
-                      <th style={{ ...thStyle, textAlign: 'center' }}>Acciones</th>
+                    <tr>
+                      <th>Usuario</th>
+                      <th className="hide-mobile">Email</th>
+                      <th className="hide-mobile">Plan Actual</th>
+                      <th className="text-center hide-mobile">Precio</th>
+                      <th className="text-center hide-mobile">Vencimiento</th>
+                      <th className="text-center">Estado</th>
+                      <th className="text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {subscriptions.map(sub => (
-                      <tr key={sub.email} style={{ borderBottom: `1px solid ${COLORS.grayLight}`, transition: 'background-color 0.2s', cursor: 'pointer' }}
-                          onClick={() => { setSelectedSubscription(sub); setShowSubscriptionModal(true); }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.grayLight}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                        <td style={tdStyle}>
-                          <div style={{ fontWeight: '600', color: COLORS.black }}>{sub.username}</div>
-                          <div style={{ fontSize: '11px', color: COLORS.grayDark, display: isMobile ? 'none' : 'block' }}>{sub.business_name || '-'}</div>
+                      <tr key={sub.email} className="clickable-row"
+                          onClick={() => { setSelectedSubscription(sub); setShowSubscriptionModal(true); }}>
+                        <td>
+                          <div className="font-bold">{sub.username}</div>
+                          <div className="text-sm text-muted hide-mobile">{sub.business_name || '-'}</div>
                         </td>
-                        <td style={{ ...tdStyle, display: isMobile ? 'none' : 'table-cell' }}>{sub.email}</td>
-                        <td style={{ ...tdStyle, display: isMobile ? 'none' : 'table-cell' }}>
-                          <span style={{
-                            backgroundColor: sub.current_plan === 'Gratis' || !sub.current_plan ? COLORS.gray : COLORS.gold,
-                            color: COLORS.black,
-                            padding: isMobile ? '4px 10px' : '6px 14px',
-                            borderRadius: '20px',
-                            fontSize: '12px',
-                            fontWeight: '600'
-                          }}>
+                        <td className="hide-mobile">{sub.email}</td>
+                        <td className="hide-mobile">
+                          <span className={`badge ${sub.current_plan === 'Gratis' || !sub.current_plan ? 'badge-gray' : 'badge-gold'}`}>
                             {sub.current_plan || 'Gratis'}
                           </span>
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell' }}>
-                          <div style={{ fontWeight: '600', color: COLORS.black }}>
-                            {!sub.current_plan || sub.current_plan === 'Gratis' ? 'Gratis' : 
-                              sub.current_billing_cycle === 'monthly' 
-                                ? `$${sub.current_price_monthly}/mes` 
-                                : `$${sub.current_price_yearly}/año`}
+                        <td className="text-center hide-mobile">
+                          <div className="font-bold">
+                            {!sub.current_plan || sub.current_plan === 'Gratis' ? 'Gratis' :
+                              sub.current_billing_cycle === 'monthly'
+                                ? `$${sub.current_price_monthly}/mes`
+                                : `$${sub.current_price_yearly}/ano`}
                           </div>
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center', display: isMobile ? 'none' : 'table-cell', color: COLORS.grayDark }}>
+                        <td className="text-center hide-mobile text-muted">
                           {sub.current_ends_at ? new Date(sub.current_ends_at).toLocaleDateString('es-ES') : '-'}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <td className="text-center">
                           {sub.current_is_active && sub.current_ends_at && new Date(sub.current_ends_at) > new Date() ? (
-                            <span style={{
-                              backgroundColor: COLORS.success,
-                              color: COLORS.white,
-                              padding: isMobile ? '4px 10px' : '6px 14px',
-                              borderRadius: '20px',
-                              fontSize: '12px',
-                              fontWeight: '600'
-                            }}>
-                              Activo
-                            </span>
+                            <span className="badge badge-success">Activo</span>
                           ) : sub.current_is_active === false ? (
-                            <span style={{
-                              backgroundColor: COLORS.danger,
-                              color: COLORS.white,
-                              padding: isMobile ? '4px 10px' : '6px 14px',
-                              borderRadius: '20px',
-                              fontSize: '12px',
-                              fontWeight: '600'
-                            }}>
-                              Cancelado
-                            </span>
+                            <span className="badge badge-danger">Cancelado</span>
                           ) : (
-                            <span style={{
-                              backgroundColor: COLORS.gray,
-                              color: COLORS.black,
-                              padding: isMobile ? '4px 10px' : '6px 14px',
-                              borderRadius: '20px',
-                              fontSize: '12px',
-                              fontWeight: '600'
-                            }}>
-                              Gratis
-                            </span>
+                            <span className="badge badge-gray">Gratis</span>
                           )}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <td className="text-center">
                           <button
+                            className="btn btn-sm btn-primary"
                             onClick={(e) => { e.stopPropagation(); setSelectedSubscription(sub); setShowSubscriptionModal(true); }}
-                            style={{
-                              backgroundColor: COLORS.gold,
-                              border: 'none',
-                              color: COLORS.black,
-                              cursor: 'pointer',
-                              padding: isMobile ? '6px 12px' : '8px 16px',
-                              borderRadius: '8px',
-                              fontSize: '12px',
-                              fontWeight: '600'
-                            }}
                           >
                             Ver
                           </button>
@@ -995,9 +576,9 @@ function SuperadminDashboard() {
                   </tbody>
                 </table>
                 {subscriptions.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: isMobile ? '40px' : '60px', color: COLORS.grayDark }}>
-                    <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: isMobile ? '36px' : '48px', marginBottom: '16px', opacity: 0.3 }} />
-                    <div style={{ fontSize: isMobile ? '14px' : '16px' }}>No hay suscripciones</div>
+                  <div className="empty-state">
+                    <FontAwesomeIcon icon={faCreditCard} className="empty-state-icon" />
+                    <div>No hay suscripciones</div>
                   </div>
                 )}
               </div>
@@ -1007,110 +588,50 @@ function SuperadminDashboard() {
       </div>
 
       {showSubscriptionModal && selectedSubscription && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: isMobile ? '16px' : '0'
-        }}>
-          <div style={{
-            backgroundColor: COLORS.white,
-            borderRadius: isMobile ? '12px' : '16px',
-            padding: isMobile ? '16px' : '24px',
-            maxWidth: '700px',
-            width: '100%',
-            maxHeight: isMobile ? '90vh' : '80vh',
-            overflow: 'auto'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: '700', color: COLORS.black }}>Historial de Suscripciones</h2>
+        <div className="modal-overlay">
+          <div className="modal modal-lg">
+            <div className="modal-header">
+              <h2 className="modal-title">Historial de Suscripciones</h2>
               <button
+                className="modal-close"
                 onClick={() => setShowSubscriptionModal(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '24px',
-                  color: COLORS.grayDark,
-                  padding: '4px 8px'
-                }}
               >
-                ×
+                x
               </button>
             </div>
-            
-            <div style={{ backgroundColor: COLORS.grayLight, padding: '16px', borderRadius: '12px', marginBottom: '20px' }}>
-              <div style={{ fontWeight: '600', fontSize: '16px', color: COLORS.black }}>{selectedSubscription.username}</div>
-              <div style={{ fontSize: '14px', color: COLORS.grayDark }}>{selectedSubscription.email}</div>
-              {selectedSubscription.business_name && <div style={{ fontSize: '14px', color: COLORS.grayDark }}>{selectedSubscription.business_name}</div>}
-              <div style={{ fontSize: '12px', color: COLORS.grayDark, marginTop: '8px' }}>Usuario desde: {new Date(selectedSubscription.user_created_at).toLocaleDateString('es-ES')}</div>
+
+            <div className="subscription-user-info">
+              <div className="font-bold">{selectedSubscription.username}</div>
+              <div className="text-sm text-muted">{selectedSubscription.email}</div>
+              {selectedSubscription.business_name && <div className="text-sm text-muted">{selectedSubscription.business_name}</div>}
+              <div className="text-sm text-muted subscription-since">Usuario desde: {new Date(selectedSubscription.user_created_at).toLocaleDateString('es-ES')}</div>
             </div>
 
             {selectedSubscription.subscriptions.length > 0 ? (
               <div>
-                <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: COLORS.black }}>Historial de Planes</h3>
+                <h3 className="font-bold subscription-history-title">Historial de Planes</h3>
                 {selectedSubscription.subscriptions.map((sub, index) => (
-                  <div key={sub.id} style={{ 
-                    border: `2px solid ${sub.is_active ? COLORS.success : COLORS.grayLight}`,
-                    borderRadius: '12px',
-                    padding: isMobile ? '12px' : '16px',
-                    marginBottom: '12px',
-                    backgroundColor: sub.is_active ? 'rgba(40,167,69,0.05)' : COLORS.white
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div key={sub.id} className={`subscription-card ${sub.is_active ? 'active' : ''}`}>
+                    <div className="flex justify-between items-center subscription-card-header">
                       <div>
-                        <span style={{
-                          backgroundColor: sub.plan_name === 'Gratis' ? COLORS.gray : COLORS.gold,
-                          color: COLORS.black,
-                          padding: '4px 12px',
-                          borderRadius: '16px',
-                          fontSize: '14px',
-                          fontWeight: '600'
-                        }}>
+                        <span className={`badge ${sub.plan_name === 'Gratis' ? 'badge-gray' : 'badge-gold'}`}>
                           {sub.plan_name}
                         </span>
                         {sub.is_active && new Date(sub.ends_at) > new Date() && (
-                          <span style={{
-                            backgroundColor: COLORS.success,
-                            color: COLORS.white,
-                            padding: '4px 12px',
-                            borderRadius: '16px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            marginLeft: '8px'
-                          }}>
-                            Activo
-                          </span>
+                          <span className="badge badge-success subscription-status-badge">Activo</span>
                         )}
                         {sub.is_active === false && (
-                          <span style={{
-                            backgroundColor: COLORS.danger,
-                            color: COLORS.white,
-                            padding: '4px 12px',
-                            borderRadius: '16px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            marginLeft: '8px'
-                          }}>
-                            Cancelado
-                          </span>
+                          <span className="badge badge-danger subscription-status-badge">Cancelado</span>
                         )}
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: '600', color: COLORS.black }}>
-                          {sub.billing_cycle === 'monthly' ? `$${sub.price_monthly}/mes` : sub.billing_cycle === 'yearly' ? `$${sub.price_yearly}/año` : 'Gratis'}
+                      <div className="text-right">
+                        <div className="font-bold">
+                          {sub.billing_cycle === 'monthly' ? `$${sub.price_monthly}/mes` : sub.billing_cycle === 'yearly' ? `$${sub.price_yearly}/ano` : 'Gratis'}
                         </div>
-                        <div style={{ fontSize: '12px', color: COLORS.grayDark, textTransform: 'capitalize' }}>{sub.billing_cycle === 'monthly' ? 'Mensual' : sub.billing_cycle === 'yearly' ? 'Anual' : '-'}</div>
+                        <div className="text-sm text-muted">{sub.billing_cycle === 'monthly' ? 'Mensual' : sub.billing_cycle === 'yearly' ? 'Anual' : '-'}</div>
                       </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '8px', fontSize: '13px', color: COLORS.grayDark }}>
+                    <div className="subscription-card-details">
                       <div><strong>Inicio:</strong> {sub.starts_at ? new Date(sub.starts_at).toLocaleDateString('es-ES') : '-'}</div>
                       <div><strong>Vencimiento:</strong> {sub.ends_at ? new Date(sub.ends_at).toLocaleDateString('es-ES') : '-'}</div>
                       <div><strong>Suscrito:</strong> {sub.subscribed_at ? new Date(sub.subscribed_at).toLocaleDateString('es-ES') : '-'}</div>
@@ -1120,10 +641,10 @@ function SuperadminDashboard() {
                 ))}
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px', color: COLORS.grayDark }}>
-                <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }} />
+              <div className="empty-state">
+                <FontAwesomeIcon icon={faCreditCard} className="empty-state-icon" />
                 <div>Este usuario no tiene suscripciones premium</div>
-                <div style={{ fontSize: '14px', marginTop: '8px' }}>Plan actual: <strong>{selectedSubscription.current_plan || 'Gratis'}</strong></div>
+                <div className="text-sm">Plan actual: <strong>{selectedSubscription.current_plan || 'Gratis'}</strong></div>
               </div>
             )}
           </div>
@@ -1131,111 +652,52 @@ function SuperadminDashboard() {
       )}
 
       {showEditModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: isMobile ? '16px' : '0'
-        }}>
-          <div style={{
-            backgroundColor: COLORS.white,
-            borderRadius: isMobile ? '16px' : '20px',
-            padding: isMobile ? '20px' : '32px',
-            width: '100%',
-            maxWidth: '450px'
-          }}>
-            <h3 style={{ marginTop: 0, marginBottom: isMobile ? '16px' : '24px', fontSize: isMobile ? '18px' : '20px', fontWeight: '700' }}>Editar Usuario</h3>
-            
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600' }}>Email</label>
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3 className="modal-title">Editar Usuario</h3>
+            </div>
+
+            <div className="form-group">
+              <label>Email</label>
               <input
                 type="email"
                 value={editForm.email}
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: isMobile ? '12px 14px' : '14px 16px',
-                  borderRadius: '12px',
-                  border: `2px solid ${COLORS.grayLight}`,
-                  fontSize: '14px',
-                  boxSizing: 'border-box',
-                  outline: 'none'
-                }}
-                onFocus={(e) => e.target.style.borderColor = COLORS.gold}
-                onBlur={(e) => e.target.style.borderColor = COLORS.grayLight}
               />
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600' }}>Nueva Contraseña</label>
+            <div className="form-group">
+              <label>Nueva Contrasena</label>
               <input
                 type="password"
                 value={editForm.password}
                 onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                placeholder="Dejar vacío para no cambiar"
-                style={{
-                  width: '100%',
-                  padding: isMobile ? '12px 14px' : '14px 16px',
-                  borderRadius: '12px',
-                  border: `2px solid ${COLORS.grayLight}`,
-                  fontSize: '14px',
-                  boxSizing: 'border-box',
-                  outline: 'none'
-                }}
-                onFocus={(e) => e.target.style.borderColor = COLORS.gold}
-                onBlur={(e) => e.target.style.borderColor = COLORS.grayLight}
+                placeholder="Dejar vacio para no cambiar"
               />
             </div>
 
-            <div style={{ marginBottom: isMobile ? '20px' : '28px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '14px' }}>
+            <div className="form-group form-group-checkbox">
+              <label>
                 <input
                   type="checkbox"
                   checked={editForm.is_banned}
                   onChange={(e) => setEditForm({ ...editForm, is_banned: e.target.checked })}
-                  style={{ width: '20px', height: '20px', accentColor: COLORS.gold }}
                 />
                 Usuario baneado
               </label>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <div className="flex gap-3 justify-end modal-actions">
               <button
+                className="btn btn-secondary flex-1"
                 onClick={() => setShowEditModal(false)}
-                style={{
-                  padding: isMobile ? '12px 20px' : '14px 28px',
-                  borderRadius: '12px',
-                  border: `2px solid ${COLORS.gray}`,
-                  backgroundColor: COLORS.white,
-                  color: COLORS.black,
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  flex: 1
-                }}
               >
                 Cancelar
               </button>
               <button
+                className="btn btn-primary flex-1"
                 onClick={handleSaveUser}
-                style={{
-                  padding: isMobile ? '12px 20px' : '14px 28px',
-                  borderRadius: '12px',
-                  border: 'none',
-                  backgroundColor: COLORS.gold,
-                  color: COLORS.black,
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  flex: 1
-                }}
               >
                 Guardar
               </button>
@@ -1245,79 +707,35 @@ function SuperadminDashboard() {
       )}
 
       {showDeleteConfirm && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: isMobile ? '16px' : '0'
-        }}>
-          <div style={{
-            backgroundColor: COLORS.white,
-            borderRadius: isMobile ? '16px' : '20px',
-            padding: isMobile ? '20px' : '32px',
-            width: '100%',
-            maxWidth: '450px'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '16px',
-              marginBottom: '20px',
-              color: COLORS.danger
-            }}>
-              <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: isMobile ? '28px' : '32px' }} />
-              <h3 style={{ margin: 0, fontSize: isMobile ? '18px' : '20px', fontWeight: '700' }}>Confirmar Eliminación</h3>
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header delete-header">
+              <FontAwesomeIcon icon={faExclamationTriangle} className="delete-icon" />
+              <h3 className="modal-title">Confirmar Eliminacion</h3>
             </div>
-            
-            <p style={{ marginBottom: isMobile ? '20px' : '28px', color: COLORS.grayDark, fontSize: '14px', lineHeight: '1.6' }}>
-              ¿Estás seguro de eliminar {showDeleteConfirm.type === 'user' ? 'al usuario' : 'la tienda'}{' '}
+
+            <p className="delete-message text-muted">
+              Estas seguro de eliminar {showDeleteConfirm.type === 'user' ? 'al usuario' : 'la tienda'}{' '}
               <strong>"{showDeleteConfirm.name}"</strong>?
               <br /><br />
-              Esta acción no se puede deshacer y se eliminarán todos los datos asociados.
+              Esta accion no se puede deshacer y se eliminaran todos los datos asociados.
             </p>
 
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <div className="flex gap-3 justify-end modal-actions">
               <button
+                className="btn btn-secondary flex-1"
                 onClick={() => setShowDeleteConfirm(null)}
-                style={{
-                  padding: isMobile ? '12px 20px' : '14px 28px',
-                  borderRadius: '12px',
-                  border: `2px solid ${COLORS.gray}`,
-                  backgroundColor: COLORS.white,
-                  color: COLORS.black,
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  flex: 1
-                }}
               >
                 Cancelar
               </button>
               <button
+                className="btn btn-danger flex-1"
                 onClick={() => {
                   if (showDeleteConfirm.type === 'user') {
                     handleDeleteUser(showDeleteConfirm.id);
                   } else {
                     handleDeleteStore(showDeleteConfirm.id);
                   }
-                }}
-                style={{
-                  padding: isMobile ? '12px 20px' : '14px 28px',
-                  borderRadius: '12px',
-                  border: 'none',
-                  backgroundColor: COLORS.danger,
-                  color: COLORS.white,
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  flex: 1
                 }}
               >
                 Eliminar

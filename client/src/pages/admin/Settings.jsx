@@ -6,16 +6,16 @@ import { useStore } from '../../components/Layout';
 import { useNavigate, Link } from 'react-router-dom';
 
 const CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'Dólar Estadounidense', flag: '🇺🇸' },
-  { code: 'EUR', symbol: '€', name: 'Euro', flag: '🇪🇺' },
-  { code: 'GBP', symbol: '£', name: 'Libra Esterlina', flag: '🇬🇧' },
-  { code: 'JPY', symbol: '¥', name: 'Yen Japonés', flag: '🇯🇵' },
-  { code: 'MXN', symbol: '$', name: 'Peso Mexicano', flag: '🇲🇽' },
-  { code: 'COP', symbol: '$', name: 'Peso Colombiano', flag: '🇨🇴' },
-  { code: 'ARS', symbol: '$', name: 'Peso Argentino', flag: '🇦🇷' },
-  { code: 'PEN', symbol: 'S/', name: 'Sol Peruano', flag: '🇵🇪' },
-  { code: 'BRL', symbol: 'R$', name: 'Real Brasileño', flag: '🇧🇷' },
-  { code: 'CLP', symbol: '$', name: 'Peso Chileno', flag: '🇨🇱' }
+  { code: 'USD', symbol: '$', name: 'Dolar Estadounidense', flag: '\u{1F1FA}\u{1F1F8}' },
+  { code: 'EUR', symbol: '\u20AC', name: 'Euro', flag: '\u{1F1EA}\u{1F1FA}' },
+  { code: 'GBP', symbol: '\u00A3', name: 'Libra Esterlina', flag: '\u{1F1EC}\u{1F1E7}' },
+  { code: 'JPY', symbol: '\u00A5', name: 'Yen Japon\u00E9s', flag: '\u{1F1EF}\u{1F1F5}' },
+  { code: 'MXN', symbol: '$', name: 'Peso Mexicano', flag: '\u{1F1F2}\u{1F1FD}' },
+  { code: 'COP', symbol: '$', name: 'Peso Colombiano', flag: '\u{1F1E8}\u{1F1F4}' },
+  { code: 'ARS', symbol: '$', name: 'Peso Argentino', flag: '\u{1F1E6}\u{1F1F7}' },
+  { code: 'PEN', symbol: 'S/', name: 'Sol Peruano', flag: '\u{1F1F5}\u{1F1EA}' },
+  { code: 'BRL', symbol: 'R$', name: 'Real Brasile\u00F1o', flag: '\u{1F1E7}\u{1F1F7}' },
+  { code: 'CLP', symbol: '$', name: 'Peso Chileno', flag: '\u{1F1E8}\u{1F1F1}' }
 ];
 
 function Settings() {
@@ -29,7 +29,7 @@ function Settings() {
     header_color: '#000000',
     currency_code: 'USD',
     currency_symbol: '$',
-    currency_name: 'Dólar Estadounidense'
+    currency_name: 'D\u00F3lar Estadounidense'
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -45,7 +45,7 @@ function Settings() {
         header_color: selectedStore.header_color || '#000000',
         currency_code: selectedStore.currency_code || 'USD',
         currency_symbol: selectedStore.currency_symbol || '$',
-        currency_name: selectedStore.currency_name || 'Dólar Estadounidense'
+        currency_name: selectedStore.currency_name || 'D\u00F3lar Estadounidense'
       });
     }
   }, [selectedStore]);
@@ -85,7 +85,7 @@ function Settings() {
       });
 
       if (!response.ok) {
-        throw new Error('Error al guardar la configuración');
+        throw new Error('Error al guardar la configuraci\u00F3n');
       }
 
       setSuccess(true);
@@ -98,59 +98,14 @@ function Settings() {
     }
   };
 
-  const previewStyles = {
-    backgroundColor: formData.secondary_color,
-    borderRadius: 'var(--radius-lg)',
-    padding: '24px',
-    marginTop: '20px',
-    border: `3px solid ${formData.primary_color}`
-  };
-
-  const headerPreview = {
-    backgroundColor: formData.header_color,
-    color: formData.accent_color,
-    padding: '16px',
-    borderRadius: 'var(--radius-md)',
-    marginBottom: '16px',
-    textAlign: 'center'
-  };
-
-  const buttonPreview = {
-    backgroundColor: formData.accent_color,
-    color: formData.primary_color,
-    padding: '12px 24px',
-    borderRadius: 'var(--radius-md)',
-    border: 'none',
-    fontWeight: '600',
-    cursor: 'pointer',
-    marginRight: '8px'
-  };
-
-  const textPreview = {
-    color: formData.primary_color,
-    fontWeight: '600',
-    marginBottom: '8px'
-  };
-
   if (!selectedStore) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <h2 style={{ color: '#666', marginBottom: '20px' }}>Selecciona una tienda</h2>
-        <p style={{ color: '#999', marginBottom: '20px' }}>
-          Debes seleccionar una tienda desde el menú lateral para ver su configuración
+      <div className="no-store-message">
+        <h2>Selecciona una tienda</h2>
+        <p>
+          Debes seleccionar una tienda desde el men\u00FA lateral para ver su configuraci\u00F3n
         </p>
-        <Link
-          to="/admin/stores"
-          style={{
-            display: 'inline-block',
-            padding: '12px 24px',
-            backgroundColor: '#000',
-            color: '#fff',
-            textDecoration: 'none',
-            borderRadius: '8px',
-            fontWeight: '600'
-          }}
-        >
+        <Link to="/admin/stores" className="btn btn-primary">
           Ir a Tiendas
         </Link>
       </div>
@@ -160,137 +115,86 @@ function Settings() {
   return (
     <>
       <header className="admin-header">
-        <h1>Configuración</h1>
+        <h1>Configuraci\u00F3n</h1>
       </header>
       <div className="admin-main">
         {error && <div className="error">{error}</div>}
-        {success && <div className="success">Configuración guardada exitosamente</div>}
+        {success && <div className="success">Configuraci\u00F3n guardada exitosamente</div>}
 
         <div className="card">
           <div className="card-header">
             <div className="card-title">
-              <FontAwesomeIcon icon={faCoins} style={{ marginRight: '10px' }} />
+              <FontAwesomeIcon icon={faCoins} className="gap-2" />
               Moneda de tu Tienda
             </div>
           </div>
 
           <div className="form-group">
-            <label>Selecciona la moneda que usarás en tu tienda</label>
-            <div style={{ position: 'relative' }}>
+            <label>Selecciona la moneda que usar\u00E1s en tu tienda</label>
+            <div className="currency-dropdown">
               <button
                 type="button"
                 onClick={() => setCurrencyDropdownOpen(!currencyDropdownOpen)}
-                style={{
-                  width: '100%',
-                  padding: '14px 16px',
-                  backgroundColor: 'white',
-                  border: '2px solid #ccc',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: '16px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  transition: 'all 0.2s ease'
-                }}
+                className="currency-dropdown-btn"
               >
                 <span>
                   <strong>{formData.currency_symbol}</strong> - {formData.currency_name} ({formData.currency_code})
                 </span>
-                <span style={{ fontSize: '12px' }}>▼</span>
+                <span className="text-xs">{'\u25BC'}</span>
               </button>
 
               {currencyDropdownOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  maxHeight: '300px',
-                  overflowY: 'auto',
-                  backgroundColor: 'white',
-                  border: '2px solid #ccc',
-                  borderTop: 'none',
-                  borderRadius: '0 0 var(--radius-md) var(--radius-md)',
-                  zIndex: 1000,
-                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)'
-                }}>
+                <div className="currency-dropdown-list">
                   {CURRENCIES.map((currency) => (
                     <button
                       key={currency.code}
                       type="button"
                       onClick={() => selectCurrency(currency)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        backgroundColor: formData.currency_code === currency.code ? '#f0f0f0' : 'white',
-                        border: 'none',
-                        borderBottom: '1px solid #eee',
-                        fontSize: '14px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        textAlign: 'left',
-                        transition: 'background-color 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.backgroundColor = '#f5f5f5';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.backgroundColor = formData.currency_code === currency.code ? '#f0f0f0' : 'white';
-                      }}
+                      className={`currency-option ${formData.currency_code === currency.code ? 'active' : ''}`}
                     >
                       <span>
                         <strong>{currency.symbol}</strong> {currency.code} - {currency.name}
                       </span>
                       {formData.currency_code === currency.code && (
-                        <span style={{ color: 'green' }}>✓</span>
+                        <span className="icon-success">{'\u2713'}</span>
                       )}
                     </button>
                   ))}
                 </div>
               )}
             </div>
-            <small style={{ color: '#666', marginTop: '4px', display: 'block' }}>
-              Los precios en tu tienda se mostrarán con esta moneda
+            <small className="currency-hint">
+              Los precios en tu tienda se mostrar\u00E1n con esta moneda
             </small>
           </div>
         </div>
 
-        <div className="card" style={{ marginTop: '20px' }}>
+        <div className="card">
           <div className="card-header">
             <div className="card-title">
-              <FontAwesomeIcon icon={faPalette} style={{ marginRight: '10px' }} />
+              <FontAwesomeIcon icon={faPalette} className="gap-2" />
               Colores de tu Tienda
             </div>
           </div>
 
           <form onSubmit={handleSubmit}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+            <div className="color-grid">
               <div className="form-group">
                 <label>Color Primario (Texto y Bordes)</label>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div className="color-picker-group">
                   <input
                     type="color"
                     name="primary_color"
                     value={formData.primary_color}
                     onChange={handleChange}
-                    style={{
-                      width: '60px',
-                      height: '50px',
-                      border: '2px solid var(--gray)',
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: 'pointer',
-                      padding: '2px'
-                    }}
+                    className="color-preview"
                   />
                   <input
                     type="text"
                     name="primary_color"
                     value={formData.primary_color}
                     onChange={handleChange}
-                    style={{ flex: 1 }}
+                    className="flex-1"
                     placeholder="#000000"
                   />
                 </div>
@@ -298,27 +202,20 @@ function Settings() {
 
               <div className="form-group">
                 <label>Color Secundario (Fondo)</label>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div className="color-picker-group">
                   <input
                     type="color"
                     name="secondary_color"
                     value={formData.secondary_color}
                     onChange={handleChange}
-                    style={{
-                      width: '60px',
-                      height: '50px',
-                      border: '2px solid var(--gray)',
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: 'pointer',
-                      padding: '2px'
-                    }}
+                    className="color-preview"
                   />
                   <input
                     type="text"
                     name="secondary_color"
                     value={formData.secondary_color}
                     onChange={handleChange}
-                    style={{ flex: 1 }}
+                    className="flex-1"
                     placeholder="#FFFFFF"
                   />
                 </div>
@@ -326,27 +223,20 @@ function Settings() {
 
               <div className="form-group">
                 <label>Color de Acento (Botones)</label>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div className="color-picker-group">
                   <input
                     type="color"
                     name="accent_color"
                     value={formData.accent_color}
                     onChange={handleChange}
-                    style={{
-                      width: '60px',
-                      height: '50px',
-                      border: '2px solid var(--gray)',
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: 'pointer',
-                      padding: '2px'
-                    }}
+                    className="color-preview"
                   />
                   <input
                     type="text"
                     name="accent_color"
                     value={formData.accent_color}
                     onChange={handleChange}
-                    style={{ flex: 1 }}
+                    className="flex-1"
                     placeholder="#D4AF37"
                   />
                 </div>
@@ -354,57 +244,74 @@ function Settings() {
 
               <div className="form-group">
                 <label>Color del Encabezado</label>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div className="color-picker-group">
                   <input
                     type="color"
                     name="header_color"
                     value={formData.header_color}
                     onChange={handleChange}
-                    style={{
-                      width: '60px',
-                      height: '50px',
-                      border: '2px solid var(--gray)',
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: 'pointer',
-                      padding: '2px'
-                    }}
+                    className="color-preview"
                   />
                   <input
                     type="text"
                     name="header_color"
                     value={formData.header_color}
                     onChange={handleChange}
-                    style={{ flex: 1 }}
+                    className="flex-1"
                     placeholder="#000000"
                   />
                 </div>
               </div>
             </div>
 
-            <div style={{ marginTop: '30px' }}>
-              <h3 style={{ marginBottom: '16px', fontSize: '18px' }}>Vista Previa</h3>
-              <div style={previewStyles}>
-                <div style={headerPreview}>
-                  <h2 style={{ margin: 0, fontSize: '20px' }}>
+            <div className="preview-section">
+              <h3>Vista Previa</h3>
+              <div style={{
+                backgroundColor: formData.secondary_color,
+                border: `3px solid ${formData.primary_color}`,
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px'
+              }}>
+                <div style={{
+                  backgroundColor: formData.header_color,
+                  color: formData.accent_color,
+                  padding: '16px',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: '16px',
+                  textAlign: 'center'
+                }}>
+                  <h2 className="font-bold">
                     {user?.business_name || user?.username}
                   </h2>
-                  <small style={{ opacity: 0.8 }}>{formData.currency_symbol} Moneda: {formData.currency_code}</small>
+                  <small>{formData.currency_symbol} Moneda: {formData.currency_code}</small>
                 </div>
 
-                <div style={textPreview}>
+                <div style={{ color: formData.primary_color }} className="font-semibold">
                   Este es un ejemplo de texto con tu color primario
                 </div>
 
-                <div style={{ marginTop: '16px' }}>
-                  <button type="button" style={buttonPreview}>
+                <div className="flex gap-2" style={{ marginTop: '16px' }}>
+                  <button type="button" style={{
+                    backgroundColor: formData.accent_color,
+                    color: formData.primary_color,
+                    padding: '12px 24px',
+                    borderRadius: 'var(--radius-md)',
+                    border: 'none',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}>
                     {formData.currency_symbol} 12.99
                   </button>
                   <button type="button" style={{
-                    ...buttonPreview,
                     backgroundColor: formData.primary_color,
-                    color: formData.secondary_color
+                    color: formData.secondary_color,
+                    padding: '12px 24px',
+                    borderRadius: 'var(--radius-md)',
+                    border: 'none',
+                    fontWeight: '600',
+                    cursor: 'pointer'
                   }}>
-                    Botón Secundario
+                    Bot\u00F3n Secundario
                   </button>
                 </div>
 
@@ -412,7 +319,7 @@ function Settings() {
                   marginTop: '16px',
                   padding: '12px',
                   borderRadius: 'var(--radius-md)',
-                  backgroundColor: formData.secondary_color === '#FFFFFF' ? '#F5F5F5' : 
+                  backgroundColor: formData.secondary_color === '#FFFFFF' ? '#F5F5F5' :
                     (formData.secondary_color === '#000000' ? '#1a1a1a' : formData.secondary_color),
                   border: `2px solid ${formData.accent_color}`
                 }}>
@@ -423,11 +330,10 @@ function Settings() {
 
             <button
               type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%', marginTop: '30px', padding: '16px' }}
+              className="btn btn-primary btn-full btn-lg"
               disabled={loading}
             >
-              {loading ? 'Guardando...' : 'Guardar Configuración'}
+              {loading ? 'Guardando...' : 'Guardar Configuraci\u00F3n'}
             </button>
           </form>
         </div>

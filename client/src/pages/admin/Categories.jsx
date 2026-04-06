@@ -30,7 +30,7 @@ function Categories() {
       setLoading(false);
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/categories?store_id=${selectedStore.id}`, {
@@ -56,10 +56,10 @@ function Categories() {
 
     try {
       const token = localStorage.getItem('token');
-      const url = editingCategory 
-        ? `/api/categories/${editingCategory.id}` 
+      const url = editingCategory
+        ? `/api/categories/${editingCategory.id}`
         : '/api/categories';
-      
+
       const response = await fetch(url, {
         method: editingCategory ? 'PUT' : 'POST',
         headers: {
@@ -136,9 +136,9 @@ function Categories() {
 
         <div className="card">
           {categories.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
-              No hay categorias. Crea tu primera categoria.
-            </p>
+            <div className="empty-state">
+              <p className="empty-state-text">No hay categorias. Crea tu primera categoria.</p>
+            </div>
           ) : (
             <div className="admin-table-wrapper">
               <table className="table">
@@ -152,22 +152,23 @@ function Categories() {
                 <tbody>
                 {categories.map(category => (
                   <tr key={category.id}>
-                    <td style={{ fontWeight: '600' }}>{category.name}</td>
+                    <td className="font-semibold">{category.name}</td>
                     <td>{category.description || '-'}</td>
                     <td>
-                      <button 
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => handleEdit(category)}
-                        style={{ marginRight: '8px' }}
-                      >
-                        <FontAwesomeIcon icon={faEdit} />
-                      </button>
-                      <button 
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleDelete(category.id)}
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
+                      <div className="action-buttons">
+                        <button
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => handleEdit(category)}
+                        >
+                          <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleDelete(category.id)}
+                        >
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -209,7 +210,7 @@ function Categories() {
                   placeholder="Descripcion opcional"
                 />
               </div>
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+              <button type="submit" className="btn btn-primary btn-full">
                 {editingCategory ? 'Actualizar' : 'Crear'}
               </button>
             </form>

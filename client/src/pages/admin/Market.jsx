@@ -6,8 +6,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const API = 'https://srservi2.srautomatic.com';
 
-import { 
-  faBarcode, 
+import {
+  faBarcode,
   faShoppingCart,
   faTrash,
   faPlus,
@@ -71,7 +71,7 @@ function Market() {
 
   useEffect(() => {
     if (searchQuery.trim()) {
-      setFilteredProducts(products.filter(p => 
+      setFilteredProducts(products.filter(p =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase())
       ));
     } else {
@@ -215,10 +215,10 @@ function Market() {
 
   const addToCart = (product, quantity) => {
     const existingItem = cart.find(item => item.id === product.id);
-    
+
     if (existingItem) {
-      setCart(cart.map(item => 
-        item.id === product.id 
+      setCart(cart.map(item =>
+        item.id === product.id
           ? { ...item, quantity: item.quantity + quantity }
           : item
       ));
@@ -231,7 +231,7 @@ function Market() {
         quantity: quantity
       }]);
     }
-    
+
     setFoundProduct(null);
     setAddQuantity(1);
     if (barcodeInputRef.current) {
@@ -332,26 +332,26 @@ function Market() {
           height: calc(100vh - 100px);
           padding: 20px;
         }
-        
+
         .market-products {
           overflow-y: auto;
           padding-right: 10px;
         }
-        
+
         .market-products::-webkit-scrollbar {
           width: 8px;
         }
-        
+
         .market-products::-webkit-scrollbar-track {
           background: #f1f1f1;
           border-radius: 4px;
         }
-        
+
         .market-products::-webkit-scrollbar-thumb {
           background: #ccc;
           border-radius: 4px;
         }
-        
+
         .barcode-section {
           background: white;
           border-radius: 16px;
@@ -359,13 +359,13 @@ function Market() {
           margin-bottom: 20px;
           box-shadow: 0 2px 10px rgba(0,0,0,0.08);
         }
-        
+
         .product-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
           gap: 16px;
         }
-        
+
         .product-card {
           background: white;
           border-radius: 16px;
@@ -375,13 +375,13 @@ function Market() {
           transition: all 0.3s ease;
           border: 2px solid transparent;
         }
-        
+
         .product-card:hover {
           transform: translateY(-5px);
           box-shadow: 0 8px 25px rgba(0,0,0,0.15);
           border-color: var(--gold);
         }
-        
+
         .product-card-image {
           height: 160px;
           background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
@@ -390,17 +390,17 @@ function Market() {
           justify-content: center;
           overflow: hidden;
         }
-        
+
         .product-card-image img {
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
-        
+
         .product-card-info {
           padding: 14px;
         }
-        
+
         .product-card-name {
           font-size: 15px;
           font-weight: 600;
@@ -412,19 +412,19 @@ function Market() {
           -webkit-box-orient: vertical;
           overflow: hidden;
         }
-        
+
         .product-card-price {
           font-size: 22px;
           font-weight: 700;
           color: var(--gold-dark);
         }
-        
+
         .search-bar {
           display: flex;
           gap: 10px;
           margin-top: 15px;
         }
-        
+
         .search-bar input {
           flex: 1;
           padding: 12px 16px;
@@ -432,12 +432,12 @@ function Market() {
           border-radius: 10px;
           font-size: 15px;
         }
-        
+
         .search-bar input:focus {
           outline: none;
           border-color: var(--gold);
         }
-        
+
         .cart-panel {
           background: white;
           border-radius: 16px;
@@ -447,13 +447,13 @@ function Market() {
           height: calc(100vh - 140px);
           box-shadow: 0 2px 10px rgba(0,0,0,0.08);
         }
-        
+
         .cart-items {
           flex: 1;
           overflow-y: auto;
           margin: 15px 0;
         }
-        
+
         .cart-item {
           display: flex;
           gap: 12px;
@@ -462,7 +462,7 @@ function Market() {
           border-radius: 12px;
           margin-bottom: 10px;
         }
-        
+
         .cart-item-image {
           width: 60px;
           height: 60px;
@@ -471,34 +471,34 @@ function Market() {
           overflow: hidden;
           flex-shrink: 0;
         }
-        
+
         .cart-item-image img {
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
-        
+
         .cart-item-info {
           flex: 1;
         }
-        
+
         .cart-item-name {
           font-weight: 600;
           font-size: 14px;
           margin-bottom: 4px;
         }
-        
+
         .cart-item-price {
           color: #666;
           font-size: 13px;
         }
-        
+
         .cart-item-controls {
           display: flex;
           align-items: center;
           gap: 8px;
         }
-        
+
         .qty-btn {
           width: 32px;
           height: 32px;
@@ -510,18 +510,18 @@ function Market() {
           align-items: center;
           justify-content: center;
         }
-        
+
         .qty-btn:hover {
           background: #f0f0f0;
         }
-        
+
         .qty-value {
           font-weight: 700;
           font-size: 16px;
           min-width: 30px;
           text-align: center;
         }
-        
+
         .cart-total {
           padding-top: 0;
           display: flex;
@@ -529,21 +529,21 @@ function Market() {
           gap: 8px;
           width: 100%;
         }
-        
+
         .cart-items::-webkit-scrollbar {
           width: 6px;
         }
-        
+
         .cart-items::-webkit-scrollbar-track {
           background: #f1f1f1;
           border-radius: 3px;
         }
-        
+
         .cart-items::-webkit-scrollbar-thumb {
           background: #ccc;
           border-radius: 3px;
         }
-        
+
         .quick-add-overlay {
           position: fixed;
           top: 0;
@@ -556,7 +556,7 @@ function Market() {
           justify-content: center;
           z-index: 1000;
         }
-        
+
         .quick-add-card {
           background: white;
           border-radius: 20px;
@@ -564,7 +564,7 @@ function Market() {
           width: 350px;
           text-align: center;
         }
-        
+
         .quick-add-image {
           width: 150px;
           height: 150px;
@@ -573,13 +573,13 @@ function Market() {
           margin: 0 auto 20px;
           background: #f5f5f5;
         }
-        
+
         .quick-add-image img {
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
-        
+
         .quick-add-qty {
           display: flex;
           align-items: center;
@@ -587,7 +587,7 @@ function Market() {
           gap: 20px;
           margin: 20px 0;
         }
-        
+
         .quick-add-qty input {
           width: 80px;
           height: 60px;
@@ -597,7 +597,7 @@ function Market() {
           border: 2px solid #ddd;
           border-radius: 10px;
         }
-        
+
         .quick-add-qty button {
           width: 50px;
           height: 50px;
@@ -607,12 +607,12 @@ function Market() {
           cursor: pointer;
           font-size: 24px;
         }
-        
+
         .quick-add-buttons {
           display: flex;
           gap: 10px;
         }
-        
+
         .quick-add-buttons button {
           flex: 1;
           padding: 14px;
@@ -621,13 +621,13 @@ function Market() {
           font-weight: 600;
           cursor: pointer;
         }
-        
+
         .btn-add {
           background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
           color: white;
           border: none;
         }
-        
+
         .btn-cancel {
           background: #f0f0f0;
           color: #666;
@@ -640,8 +640,8 @@ function Market() {
           <FontAwesomeIcon icon={faBox} style={{ marginRight: '10px' }} />
           Market POS
         </h1>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button 
+        <div className="flex gap-3">
+          <button
             className="btn btn-secondary"
             onClick={clearCart}
             disabled={cart.length === 0 || paymentWaiting}
@@ -653,16 +653,7 @@ function Market() {
       </header>
 
       {error && (
-        <div style={{ 
-          margin: '0 20px 20px',
-          padding: '12px 20px',
-          backgroundColor: '#f8d7da',
-          borderRadius: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          color: '#721c24'
-        }}>
+        <div className="market-error-banner">
           <FontAwesomeIcon icon={faExclamationTriangle} />
           {error}
         </div>
@@ -670,31 +661,15 @@ function Market() {
 
       {paymentSuccess && (
         <div className="quick-add-overlay" onClick={() => { setPaymentSuccess(null); clearCart(); }}>
-          <div style={{
-            backgroundColor: '#28a745',
-            color: 'white',
-            padding: '60px',
-            borderRadius: '20px',
-            textAlign: 'center'
-          }}>
-            <FontAwesomeIcon icon={faCheck} style={{ fontSize: '80px', marginBottom: '20px' }} />
-            <h2 style={{ fontSize: '32px', marginBottom: '10px' }}>¡Pago Exitoso!</h2>
-            <p style={{ fontSize: '24px' }}>
+          <div className="market-success-overlay">
+            <FontAwesomeIcon icon={faCheck} className="market-success-icon" />
+            <h2 className="market-success-title">¡Pago Exitoso!</h2>
+            <p className="market-success-amount">
               Total: ${paymentSuccess.amount?.toFixed(2) || getTotal().toFixed(2)}
             </p>
             <button
               onClick={() => { setPaymentSuccess(null); clearCart(); }}
-              style={{
-                marginTop: '20px',
-                padding: '12px 30px',
-                fontSize: '18px',
-                backgroundColor: 'white',
-                color: '#28a745',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: '600'
-              }}
+              className="market-success-btn"
             >
               Aceptar
             </button>
@@ -704,37 +679,21 @@ function Market() {
 
       {paymentWaiting && (
         <div className="quick-add-overlay">
-          <div style={{
-            backgroundColor: 'white',
-            padding: '40px',
-            borderRadius: '20px',
-            textAlign: 'center',
-            maxWidth: '400px'
-          }}>
-            <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '60px', color: '#007bff', marginBottom: '20px' }} />
-            <h2 style={{ fontSize: '24px', marginBottom: '10px' }}>
+          <div className="market-waiting-card">
+            <FontAwesomeIcon icon={faCreditCard} className="market-waiting-icon" />
+            <h2 className="market-waiting-title">
               Esperando Pago...
             </h2>
-            <p style={{ color: '#666', marginBottom: '15px' }}>
+            <p className="market-waiting-text">
               El cliente debe pagar en la maquina Point
             </p>
-            <div style={{
-              fontSize: '36px',
-              fontWeight: '700',
-              color: '#007bff',
-              marginBottom: '20px'
-            }}>
+            <div className="market-waiting-timer">
               <FontAwesomeIcon icon={faClock} style={{ marginRight: '10px' }} />
               {formatTime(paymentTimeLeft)}
             </div>
-            <div style={{
-              backgroundColor: '#f8f9fa',
-              padding: '15px',
-              borderRadius: '10px',
-              marginBottom: '20px'
-            }}>
-              <div style={{ fontSize: '14px', color: '#666' }}>Total a cobrar</div>
-              <div style={{ fontSize: '32px', fontWeight: '700', color: '#28a745' }}>
+            <div className="market-waiting-amount-box">
+              <div className="market-waiting-amount-label">Total a cobrar</div>
+              <div className="market-waiting-amount-value">
                 ${pendingOrderData?.amount?.toFixed(2) || '0.00'}
               </div>
             </div>
@@ -743,15 +702,7 @@ function Market() {
                 setPaymentWaiting(false);
                 setPendingOrderData(null);
               }}
-              style={{
-                padding: '12px 30px',
-                fontSize: '16px',
-                backgroundColor: '#dc3545',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
+              className="btn btn-danger"
             >
               Cancelar
             </button>
@@ -764,30 +715,22 @@ function Market() {
           <div className="quick-add-card">
             <button
               onClick={() => setFoundProduct(null)}
-              style={{
-                position: 'absolute',
-                top: '20px',
-                right: '20px',
-                background: 'none',
-                border: 'none',
-                fontSize: '24px',
-                cursor: 'pointer'
-              }}
+              className="found-product-close"
             >
               <FontAwesomeIcon icon={faTimes} />
             </button>
             <div className="quick-add-image">
               {foundProduct.image ? (
-                <img 
+                <img
                   src={getImageUrl(foundProduct.image)}
                   alt={foundProduct.name}
                 />
               ) : (
-                <FontAwesomeIcon icon={faBox} style={{ fontSize: '60px', color: '#ccc' }} />
+                <FontAwesomeIcon icon={faBox} className="product-image-placeholder" />
               )}
             </div>
-            <h3 style={{ fontSize: '22px', marginBottom: '5px' }}>{foundProduct.name}</h3>
-            <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--gold-dark)' }}>
+            <h3 className="found-product-name">{foundProduct.name}</h3>
+            <div className="found-product-price">
               ${parseFloat(foundProduct.price).toFixed(2)}
             </div>
             <div className="quick-add-qty">
@@ -819,7 +762,7 @@ function Market() {
         <div className="market-products">
           <div className="barcode-section">
             <form onSubmit={handleBarcodeSubmit}>
-              <div style={{ position: 'relative' }}>
+              <div className="relative">
                 <input
                   ref={barcodeInputRef}
                   type="text"
@@ -828,26 +771,9 @@ function Market() {
                   onKeyDown={handleKeyDown}
                   placeholder="Escanee codigo de barras..."
                   disabled={paymentWaiting}
-                  style={{
-                    width: '100%',
-                    padding: '18px 100px 18px 20px',
-                    fontSize: '20px',
-                    textAlign: 'center',
-                    border: '3px solid #e0e0e0',
-                    borderRadius: '12px',
-                    outline: 'none',
-                    letterSpacing: '2px'
-                  }}
+                  className="market-barcode-input"
                 />
-                <div style={{
-                  position: 'absolute',
-                  right: '20px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: '#999',
-                  fontSize: '13px',
-                  fontWeight: '600'
-                }}>
+                <div className="market-barcode-hint">
                   ENTER
                 </div>
               </div>
@@ -875,12 +801,12 @@ function Market() {
               >
                 <div className="product-card-image">
                   {product.image ? (
-                    <img 
+                    <img
                       src={getImageUrl(product.image)}
                       alt={product.name}
                     />
                   ) : (
-                    <FontAwesomeIcon icon={faBox} style={{ fontSize: '48px', color: '#ccc' }} />
+                    <FontAwesomeIcon icon={faBox} className="product-image-placeholder" />
                   )}
                 </div>
                 <div className="product-card-info">
@@ -892,32 +818,23 @@ function Market() {
           </div>
 
           {filteredProducts.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '60px', color: '#666' }}>
-              <FontAwesomeIcon icon={faSearch} style={{ fontSize: '48px', marginBottom: '20px', opacity: 0.3 }} />
+            <div className="market-empty-products">
+              <FontAwesomeIcon icon={faSearch} className="market-empty-products-icon" />
               <p>No se encontraron productos</p>
             </div>
           )}
         </div>
 
         <div className="cart-panel">
-          <h2 style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '10px',
-            fontSize: '20px'
-          }}>
+          <h2 className="market-cart-title">
             <FontAwesomeIcon icon={faShoppingCart} />
             Carrito ({cart.reduce((sum, item) => sum + item.quantity, 0)})
           </h2>
-          
+
           <div className="cart-items">
             {cart.length === 0 ? (
-              <div style={{ 
-                textAlign: 'center', 
-                padding: '40px 20px',
-                color: '#999'
-              }}>
-                <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: '48px', opacity: 0.3 }} />
+              <div className="market-cart-empty">
+                <FontAwesomeIcon icon={faShoppingCart} className="market-cart-empty-icon" />
                 <p style={{ marginTop: '10px' }}>Carrito vacio</p>
               </div>
             ) : (
@@ -925,7 +842,7 @@ function Market() {
                 <div key={item.id} className="cart-item">
                   <div className="cart-item-image">
                     {item.image ? (
-                      <img 
+                      <img
                         src={getImageUrl(item.image)}
                         alt={item.name}
                       />
@@ -936,12 +853,12 @@ function Market() {
                   <div className="cart-item-info">
                     <div className="cart-item-name">{item.name}</div>
                     <div className="cart-item-price">${item.price.toFixed(2)} c/u</div>
-                    <div style={{ fontWeight: '700', color: 'var(--gold-dark)', marginTop: '4px' }}>
+                    <div className="market-item-subtotal">
                       ${(item.price * item.quantity).toFixed(2)}
                     </div>
                   </div>
                   <div className="cart-item-controls">
-                    <button 
+                    <button
                       className="qty-btn"
                       onClick={() => updateQuantity(item.id, -1)}
                       disabled={paymentWaiting}
@@ -949,7 +866,7 @@ function Market() {
                       <FontAwesomeIcon icon={faMinus} style={{ fontSize: '12px' }} />
                     </button>
                     <span className="qty-value">{item.quantity}</span>
-                    <button 
+                    <button
                       className="qty-btn"
                       onClick={() => updateQuantity(item.id, 1)}
                       disabled={paymentWaiting}
@@ -959,13 +876,7 @@ function Market() {
                     <button
                       onClick={() => removeFromCart(item.id)}
                       disabled={paymentWaiting}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#dc3545',
-                        cursor: 'pointer',
-                        marginLeft: '5px'
-                      }}
+                      className="cart-remove-btn"
                     >
                       <FontAwesomeIcon icon={faTrash} style={{ fontSize: '14px' }} />
                     </button>
@@ -976,49 +887,29 @@ function Market() {
           </div>
 
           <div className="cart-total">
-            <div style={{
-              background: '#1a1a2e',
-              borderRadius: '16px',
-              padding: '16px',
-              width: '100%',
-              boxSizing: 'border-box'
-            }}>
+            <div className="market-checkout-panel">
               <div style={{ marginBottom: '12px' }}>
-                <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px', fontWeight: '600' }}>TERMINAL POINT</div>
+                <div className="market-terminal-label">TERMINAL POINT</div>
                 <div ref={pointDropdownRef}>
                   <div
                     onClick={() => !paymentWaiting && setPointDropdownOpen(!pointDropdownOpen)}
-                    style={{
-                      padding: '10px 12px',
-                      background: '#2a2a3e',
-                      borderRadius: '10px',
-                      cursor: paymentWaiting ? 'not-allowed' : 'pointer',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      opacity: paymentWaiting ? 0.6 : 1
-                    }}
+                    className={`market-terminal-selector${paymentWaiting ? ' disabled' : ''}`}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="flex items-center gap-2">
                       <FontAwesomeIcon icon={faCreditCard} style={{ color: '#D4AF37', fontSize: '14px' }} />
-                      <div style={{ fontWeight: '600', fontSize: '13px', color: 'white' }}>
+                      <div className="market-terminal-name">
                         {selectedPoint ? (selectedPoint.name || selectedPoint.device_id) : 'Seleccionar...'}
                       </div>
                     </div>
-                    <FontAwesomeIcon 
+                    <FontAwesomeIcon
                       icon={faChevronDown}
                       style={{ color: '#888', fontSize: '12px', transform: pointDropdownOpen ? 'rotate(180deg)' : 'rotate(0)', transition: '0.2s' }}
                     />
                   </div>
                   {pointDropdownOpen && (
-                    <div style={{
-                      background: '#2a2a3e',
-                      borderRadius: '10px',
-                      marginTop: '6px',
-                      overflow: 'hidden'
-                    }}>
+                    <div className="market-terminal-dropdown">
                       {points.length === 0 ? (
-                        <div style={{ padding: '12px', color: '#888', textAlign: 'center', fontSize: '13px' }}>
+                        <div className="market-terminal-empty">
                           No hay puntos de venta
                         </div>
                       ) : (
@@ -1029,15 +920,9 @@ function Market() {
                               setSelectedPoint(point);
                               setPointDropdownOpen(false);
                             }}
-                            style={{
-                              padding: '10px 12px',
-                              cursor: 'pointer',
-                              backgroundColor: 'transparent',
-                              borderBottom: '1px solid #3a3a4e',
-                              fontSize: '13px'
-                            }}
+                            className="market-terminal-option"
                           >
-                            <div style={{ fontWeight: '600', color: 'white' }}>{point.name || point.device_id}</div>
+                            <div className="market-terminal-option-name">{point.name || point.device_id}</div>
                           </div>
                         ))
                       )}
@@ -1046,12 +931,9 @@ function Market() {
                 </div>
               </div>
 
-              <div style={{
-                textAlign: 'center',
-                marginBottom: '12px'
-              }}>
-                <div style={{ color: '#888', fontSize: '11px', marginBottom: '2px' }}>TOTAL A COBRAR</div>
-                <div style={{ fontSize: '28px', fontWeight: '700', color: '#D4AF37' }}>
+              <div className="market-total-section">
+                <div className="market-total-label">TOTAL A COBRAR</div>
+                <div className="market-total-value">
                   ${getTotal().toFixed(2)}
                 </div>
               </div>
@@ -1059,28 +941,7 @@ function Market() {
               <button
                 onClick={handlePayment}
                 disabled={cart.length === 0 || !selectedPoint || processingPayment || paymentWaiting}
-                style={{
-                  width: '100%',
-                  padding: '14px 16px',
-                  fontSize: '16px',
-                  fontWeight: '700',
-                  background: cart.length === 0 || !selectedPoint 
-                    ? '#555' 
-                    : 'linear-gradient(135deg, #D4AF37 0%, #B8962D 100%)',
-                  color: '#1a1a2e',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: cart.length === 0 || !selectedPoint || processingPayment || paymentWaiting 
-                    ? 'not-allowed' 
-                    : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '10px',
-                  boxShadow: cart.length === 0 || !selectedPoint 
-                    ? 'none' 
-                    : '0 4px 15px rgba(212, 175, 55, 0.3)'
-                }}
+                className="market-pay-btn"
               >
                 <FontAwesomeIcon icon={processingPayment ? faSpinner : faCreditCard} spin={processingPayment} />
                 {processingPayment ? 'Procesando...' : 'COBRAR'}

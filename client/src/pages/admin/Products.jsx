@@ -69,19 +69,19 @@ function Products() {
       setLoading(false);
       return;
     }
-    
+
     const abortController = new AbortController();
-    
+
     try {
       const token = localStorage.getItem('token');
       const [productsRes, categoriesRes] = await Promise.all([
-        fetch(`/api/products?store_id=${selectedStore.id}`, { 
+        fetch(`/api/products?store_id=${selectedStore.id}`, {
           headers: { 'Authorization': `Bearer ${token}` },
-          signal: abortController.signal 
+          signal: abortController.signal
         }),
-        fetch(`/api/categories?store_id=${selectedStore.id}`, { 
+        fetch(`/api/categories?store_id=${selectedStore.id}`, {
           headers: { 'Authorization': `Bearer ${token}` },
-          signal: abortController.signal 
+          signal: abortController.signal
         })
       ]);
 
@@ -113,10 +113,10 @@ function Products() {
 
     try {
       const token = localStorage.getItem('token');
-      const url = editingProduct 
-        ? `/api/products/${editingProduct.id}` 
+      const url = editingProduct
+        ? `/api/products/${editingProduct.id}`
         : '/api/products';
-      
+
       const formDataToSend = new FormData();
       formDataToSend.append('store_id', selectedStore.id);
       formDataToSend.append('name', formData.name);
@@ -124,11 +124,11 @@ function Products() {
       formDataToSend.append('description', formData.description);
       formDataToSend.append('price', parseFloat(formData.price) || 0);
       formDataToSend.append('category_id', formData.category_id || '');
-      
+
       if (formData.imageFile) {
         formDataToSend.append('image', formData.imageFile);
       }
-      
+
       const response = await fetch(url, {
         method: editingProduct ? 'PUT' : 'POST',
         headers: {
@@ -240,22 +240,22 @@ function Products() {
   const handleDragEnd = async (event) => {
     const { active, over } = event;
     setActiveId(null);
-    
+
     if (active.id !== over?.id) {
       const oldIndex = products.findIndex(p => p.id === active.id);
       const newIndex = products.findIndex(p => p.id === over.id);
-      
+
       const newProducts = arrayMove(products, oldIndex, newIndex);
       setProducts(newProducts);
-      
+
       try {
         const token = localStorage.getItem('token');
         const payload = {
           store_id: selectedStore.id,
           products: newProducts.map(p => ({ id: p.id }))
         };
-        console.log('📤 Sending order update:', payload);
-        
+        console.log('Sending order update:', payload);
+
         const response = await fetch(API + '/api/products/order', {
           method: 'PUT',
           headers: {
@@ -264,9 +264,9 @@ function Products() {
           },
           body: JSON.stringify(payload)
         });
-        
+
         const data = await response.json();
-        console.log('📥 Response:', response.status, data);
+        console.log('Response:', response.status, data);
       } catch (error) {
         console.error('Error saving order:', error);
       }
@@ -293,149 +293,64 @@ function Products() {
 
     const isOutOfStock = !product.unlimited_stock && product.stock === 0;
 
+    const cardClass = [
+      'product-card-dnd',
+      isOutOfStock ? 'is-out-of-stock' : '',
+      isOver ? 'is-over' : ''
+    ].filter(Boolean).join(' ');
+
     return (
       <div
         ref={setNodeRef}
         style={style}
       >
-        <div style={{
-          backgroundColor: isOutOfStock ? '#f8f9fa' : '#ffffff',
-          border: isOver ? '3px dashed #007bff' : 'none',
-          borderRadius: '24px',
-          overflow: 'hidden',
-          boxShadow: isOver ? '0 8px 30px rgba(0, 123, 255, 0.3)' : '0 4px 20px rgba(0, 0, 0, 0.12)',
-          opacity: isOutOfStock ? 0.6 : 1,
-          position: 'relative',
-          transition: 'all 0.2s ease',
-          transform: isOver ? 'scale(1.02)' : 'scale(1)'
-        }}>
-          <div style={{
-            position: 'absolute',
-            top: '8px',
-            left: '8px',
-            zIndex: 10,
-            backgroundColor: '#ffffff',
-            borderRadius: '8px',
-            padding: '4px 8px',
-            cursor: 'grab',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          {...attributes}
-          {...listeners}
+        <div className={cardClass}>
+          <div
+            className="drag-handle"
+            {...attributes}
+            {...listeners}
           >
-            <FontAwesomeIcon icon={faGripVertical} style={{ fontSize: '16px', color: '#666' }} />
+            <FontAwesomeIcon icon={faGripVertical} className="drag-handle-icon" />
           </div>
-          
+
           {isOutOfStock && (
-            <div style={{
-              position: 'absolute',
-              top: '8px',
-              right: '8px',
-              backgroundColor: '#dc3545',
-              color: 'white',
-              padding: '4px 10px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              fontWeight: '600',
-              zIndex: 10
-            }}>
+            <div className="out-of-stock-badge">
               Agotado
             </div>
           )}
-          
-          <div style={{
-            height: '200px',
-            width: '100%',
-            backgroundColor: '#f8f9fa',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-            paddingTop: '20px'
-          }}>
+
+          <div className="product-image-container">
             {product.image ? (
-              <img 
+              <img
                 src={getImageUrl(product.image)}
                 alt={product.name}
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain'
-                }}
               />
             ) : (
-              <FontAwesomeIcon icon={faBox} style={{ fontSize: '60px', color: '#dee2e6' }} />
+              <FontAwesomeIcon icon={faBox} className="product-image-placeholder" />
             )}
           </div>
-          
-          <div style={{ padding: '12px', textAlign: 'center' }}>
-            <h3 style={{
-              fontSize: '14px',
-              fontWeight: '600',
-              color: '#212529',
-              marginBottom: '4px'
-            }}>
+
+          <div className="product-card-body">
+            <h3 className="product-card-name">
               {product.name}
             </h3>
-            <p style={{
-              fontSize: '16px',
-              fontWeight: '700',
-              color: '#212529',
-              marginBottom: '12px'
-            }}>
+            <p className="product-card-price">
               ${Number(product.price).toFixed(2)}
             </p>
-            
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+
+            <div className="product-card-actions">
               <button
                 onClick={() => handleEdit(product)}
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#5a6268'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6c757d'}
+                className="btn btn-secondary btn-sm"
               >
-                <FontAwesomeIcon icon={faEdit} style={{ fontSize: '12px' }} />
+                <FontAwesomeIcon icon={faEdit} />
                 Editar
               </button>
               <button
                 onClick={() => handleDelete(product.id)}
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  backgroundColor: '#dc3545',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c82333'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc3545'}
+                className="btn btn-danger btn-sm"
               >
-                <FontAwesomeIcon icon={faTrash} style={{ fontSize: '12px' }} />
+                <FontAwesomeIcon icon={faTrash} />
                 Eliminar
               </button>
             </div>
@@ -463,31 +378,20 @@ function Products() {
 
         <div className="card">
           {products.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
-              No hay productos. Crea tu primer producto.
-            </p>
+            <div className="empty-state">
+              <p className="empty-state-text">
+                No hay productos. Crea tu primer producto.
+              </p>
+            </div>
           ) : (
-            <div style={{
-              padding: '20px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '16px'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginBottom: '16px',
-                padding: '12px 16px',
-                backgroundColor: '#fff',
-                borderRadius: '10px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-              }}>
-                <FontAwesomeIcon icon={faGripVertical} style={{ fontSize: '16px', color: '#666' }} />
-                <span style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
+            <div className="drag-hint-bar">
+              <div className="drag-hint">
+                <FontAwesomeIcon icon={faGripVertical} className="drag-handle-icon" />
+                <span className="drag-hint-text">
                   Arrastra los productos para cambiar su orden en la tienda
                 </span>
               </div>
-              
+
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -498,11 +402,7 @@ function Products() {
                   items={products.map(p => p.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                    gap: '20px'
-                  }}>
+                  <div className="product-grid-dnd">
                     {products.map(product => (
                       <SortableProduct key={product.id} product={product} />
                     ))}
@@ -510,55 +410,24 @@ function Products() {
                 </SortableContext>
                 <DragOverlay>
                   {activeId ? (
-                    <div style={{
-                      backgroundColor: '#ffffff',
-                      border: '3px solid #007bff',
-                      borderRadius: '24px',
-                      overflow: 'hidden',
-                      boxShadow: '0 12px 40px rgba(0, 123, 255, 0.4)',
-                      transform: 'scale(1.05)',
-                      opacity: 0.95
-                    }}>
-                      <div style={{
-                        height: '200px',
-                        width: '100%',
-                        backgroundColor: '#f8f9fa',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                        paddingTop: '20px'
-                      }}>
+                    <div className="drag-overlay-card">
+                      <div className="product-image-container">
                         {products.find(p => p.id === activeId)?.image ? (
-                          <img 
-                            src={products.find(p => p.id === activeId).image.startsWith('http') 
-                              ? products.find(p => p.id === activeId).image 
+                          <img
+                            src={products.find(p => p.id === activeId).image.startsWith('http')
+                              ? products.find(p => p.id === activeId).image
                               : getImageUrl(products.find(p => p.id === activeId).image)}
                             alt={products.find(p => p.id === activeId)?.name}
-                            style={{
-                              maxWidth: '100%',
-                              maxHeight: '100%',
-                              objectFit: 'contain'
-                            }}
                           />
                         ) : (
-                          <FontAwesomeIcon icon={faBox} style={{ fontSize: '60px', color: '#dee2e6' }} />
+                          <FontAwesomeIcon icon={faBox} className="product-image-placeholder" />
                         )}
                       </div>
-                      <div style={{ padding: '12px', textAlign: 'center' }}>
-                        <h3 style={{
-                          fontSize: '14px',
-                          fontWeight: '600',
-                          color: '#212529',
-                          marginBottom: '4px'
-                        }}>
+                      <div className="product-card-body">
+                        <h3 className="product-card-name">
                           {products.find(p => p.id === activeId)?.name}
                         </h3>
-                        <p style={{
-                          fontSize: '16px',
-                          fontWeight: '700',
-                          color: '#212529'
-                        }}>
+                        <p className="product-card-price">
                           ${Number(products.find(p => p.id === activeId)?.price || 0).toFixed(2)}
                         </p>
                       </div>
@@ -573,7 +442,7 @@ function Products() {
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
                 {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
@@ -625,51 +494,33 @@ function Products() {
                       setFormData({ ...formData, imageFile: file });
                     }
                   }}
-                  style={{ 
-                    padding: '10px',
-                    border: '2px dashed #ccc',
-                    borderRadius: 'var(--radius-md)',
-                    width: '100%',
-                    cursor: 'pointer'
-                  }}
+                  className="file-input"
                 />
                 {formData.imageFile && (
-                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <img 
-                      src={URL.createObjectURL(formData.imageFile)} 
-                      alt="Preview" 
-                      style={{ 
-                        width: '100px', 
-                        height: '100px', 
-                        objectFit: 'cover',
-                        borderRadius: 'var(--radius-sm)',
-                        border: '2px solid var(--gold)'
-                      }} 
+                  <div className="image-preview">
+                    <img
+                      src={URL.createObjectURL(formData.imageFile)}
+                      alt="Preview"
+                      className="image-preview-img"
                     />
-                    <span style={{ color: '#666', fontSize: '14px' }}>
+                    <span className="text-muted text-sm">
                       {formData.imageFile.name}
                     </span>
                   </div>
                 )}
                 {editingProduct && !formData.imageFile && formData.image && (
-                  <div style={{ marginTop: '10px' }}>
-                    <img 
-                      src={formData.image} 
-                      alt="Imagen actual" 
-                      style={{ 
-                        width: '100px', 
-                        height: '100px', 
-                        objectFit: 'cover',
-                        borderRadius: 'var(--radius-sm)',
-                        border: '2px solid var(--gray)'
-                      }} 
+                  <div className="image-preview">
+                    <img
+                      src={formData.image}
+                      alt="Imagen actual"
+                      className="image-preview-img--current"
                     />
-                    <p style={{ color: '#666', fontSize: '12px', marginTop: '5px' }}>Imagen actual</p>
+                    <p className="text-muted text-xs">Imagen actual</p>
                   </div>
                 )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div className="form-grid-2">
                 <div className="form-group">
                   <label>Precio</label>
                   <input
@@ -693,19 +544,18 @@ function Products() {
                   />
                 </div>
 
-                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '20px', padding: '16px', background: formData.unlimited_stock ? '#d4edda' : '#fff3cd', borderRadius: '12px', border: `2px solid ${formData.unlimited_stock ? '#28a745' : '#ffc107'}` }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', margin: 0 }}>
+                <div className={`stock-toggle ${formData.unlimited_stock ? 'active' : 'inactive'}`}>
+                  <label>
                     <input
                       type="checkbox"
                       checked={formData.unlimited_stock}
                       onChange={(e) => setFormData({ ...formData, unlimited_stock: e.target.checked })}
-                      style={{ width: '22px', height: '22px', cursor: 'pointer' }}
                     />
-                    <span style={{ fontWeight: '600', color: formData.unlimited_stock ? '#155724' : '#856404' }}>
+                    <span className="stock-toggle-label">
                       Stock Ilimitado
                     </span>
                   </label>
-                  <span style={{ fontSize: '13px', color: formData.unlimited_stock ? '#28a745' : '#856404', marginLeft: 'auto' }}>
+                  <span className="stock-toggle-status">
                     {formData.unlimited_stock ? '∞ Sin limite de ventas' : 'Con limite de stock'}
                   </span>
                 </div>
@@ -724,7 +574,7 @@ function Products() {
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+              <button type="submit" className="btn btn-primary btn-full">
                 {editingProduct ? 'Actualizar' : 'Crear'}
               </button>
             </form>

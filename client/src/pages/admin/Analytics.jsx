@@ -2,10 +2,10 @@ import { useState, useEffect, useContext } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faChartBar, 
-  faDollarSign, 
-  faShoppingCart, 
+import {
+  faChartBar,
+  faDollarSign,
+  faShoppingCart,
   faCheck,
   faClock,
   faTimes,
@@ -18,7 +18,7 @@ import {
 
 function Analytics() {
   const { token } = useAuth();
-  const { selectedStore, colors } = useContext(StoreContext);
+  const { selectedStore } = useContext(StoreContext);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('week');
   const [summary, setSummary] = useState(null);
@@ -94,38 +94,28 @@ function Analytics() {
 
   if (!selectedStore) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <p style={{ color: '#666' }}>Selecciona una tienda para ver los análisis</p>
+      <div className="empty-state">
+        <p className="empty-state-text">Selecciona una tienda para ver los análisis</p>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+    <div className="analytics-container">
+      <div className="flex justify-between items-center" style={{ marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: '700', color: colors.primary, marginBottom: '8px' }}>
-            <FontAwesomeIcon icon={faChartBar} style={{ marginRight: '12px', color: colors.accent }} />
+          <h1 className="text-lg font-bold" style={{ marginBottom: '8px' }}>
+            <FontAwesomeIcon icon={faChartBar} style={{ marginRight: '12px' }} />
             Análisis
           </h1>
-          <p style={{ color: '#666', fontSize: '14px' }}>Estadísticas de tu tienda</p>
+          <p className="text-sm text-muted">Estadísticas de tu tienda</p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="analytics-date-filters">
           {['today', 'week', 'month', 'year'].map((range) => (
             <button
               key={range}
               onClick={() => setDateRange(range)}
-              style={{
-                padding: '10px 16px',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                fontSize: '13px',
-                backgroundColor: dateRange === range ? colors.accent : '#e0e0e0',
-                color: dateRange === range ? colors.primary : '#666',
-                transition: 'all 0.2s ease'
-              }}
+              className={`analytics-date-btn${dateRange === range ? ' active' : ''}`}
             >
               {range === 'today' ? 'Hoy' : range === 'week' ? '7 días' : range === 'month' ? '30 días' : 'Año'}
             </button>
@@ -134,114 +124,62 @@ function Analytics() {
       </div>
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
-          <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: '32px', color: colors.accent }} />
+        <div className="flex justify-center items-center" style={{ height: '300px' }}>
+          <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: '32px' }} />
         </div>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-            <div style={{
-              backgroundColor: colors.secondary,
-              borderRadius: '12px',
-              padding: '20px',
-              border: `1px solid ${colors.primary}11`
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '12px',
-                  backgroundColor: 'rgba(40,167,69,0.1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <FontAwesomeIcon icon={faDollarSign} style={{ color: '#28a745', fontSize: '20px' }} />
+          <div className="stats-grid" style={{ marginBottom: '32px' }}>
+            <div className="analytics-stat-card">
+              <div className="flex items-center gap-3" style={{ marginBottom: '12px' }}>
+                <div className="analytics-stat-icon revenue">
+                  <FontAwesomeIcon icon={faDollarSign} style={{ color: '#22c55e', fontSize: '20px' }} />
                 </div>
                 <div>
-                  <p style={{ margin: 0, color: '#666', fontSize: '12px', fontWeight: '600' }}>Ingresos</p>
-                  <p style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: colors.primary }}>
+                  <p className="analytics-stat-label">Ingresos</p>
+                  <p className="analytics-stat-value">
                     {formatCurrency(summary?.revenue || 0)}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div style={{
-              backgroundColor: colors.secondary,
-              borderRadius: '12px',
-              padding: '20px',
-              border: `1px solid ${colors.primary}11`
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '12px',
-                  backgroundColor: 'rgba(25,118,210,0.1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <FontAwesomeIcon icon={faShoppingCart} style={{ color: '#1976d2', fontSize: '20px' }} />
+            <div className="analytics-stat-card">
+              <div className="flex items-center gap-3" style={{ marginBottom: '12px' }}>
+                <div className="analytics-stat-icon orders">
+                  <FontAwesomeIcon icon={faShoppingCart} style={{ color: '#3b82f6', fontSize: '20px' }} />
                 </div>
                 <div>
-                  <p style={{ margin: 0, color: '#666', fontSize: '12px', fontWeight: '600' }}>Pedidos</p>
-                  <p style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: colors.primary }}>
+                  <p className="analytics-stat-label">Pedidos</p>
+                  <p className="analytics-stat-value">
                     {summary?.totalOrders || 0}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div style={{
-              backgroundColor: colors.secondary,
-              borderRadius: '12px',
-              padding: '20px',
-              border: `1px solid ${colors.primary}11`
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '12px',
-                  backgroundColor: 'rgba(212,175,55,0.1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <FontAwesomeIcon icon={faChartLine} style={{ color: colors.accent, fontSize: '20px' }} />
+            <div className="analytics-stat-card">
+              <div className="flex items-center gap-3" style={{ marginBottom: '12px' }}>
+                <div className="analytics-stat-icon average">
+                  <FontAwesomeIcon icon={faChartLine} style={{ color: 'var(--gold)', fontSize: '20px' }} />
                 </div>
                 <div>
-                  <p style={{ margin: 0, color: '#666', fontSize: '12px', fontWeight: '600' }}>Ticket Promedio</p>
-                  <p style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: colors.primary }}>
+                  <p className="analytics-stat-label">Ticket Promedio</p>
+                  <p className="analytics-stat-value">
                     {formatCurrency(summary?.avgOrder || 0)}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div style={{
-              backgroundColor: colors.secondary,
-              borderRadius: '12px',
-              padding: '20px',
-              border: `1px solid ${colors.primary}11`
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '12px',
-                  backgroundColor: 'rgba(245,124,0,0.1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <FontAwesomeIcon icon={faClock} style={{ color: '#f57c00', fontSize: '20px' }} />
+            <div className="analytics-stat-card">
+              <div className="flex items-center gap-3" style={{ marginBottom: '12px' }}>
+                <div className="analytics-stat-icon pending">
+                  <FontAwesomeIcon icon={faClock} style={{ color: '#f59e0b', fontSize: '20px' }} />
                 </div>
                 <div>
-                  <p style={{ margin: 0, color: '#666', fontSize: '12px', fontWeight: '600' }}>Pendientes</p>
-                  <p style={{ margin: 0, fontSize: '24px', fontWeight: '700', color: colors.primary }}>
+                  <p className="analytics-stat-label">Pendientes</p>
+                  <p className="analytics-stat-value">
                     {summary?.pendingOrders || 0}
                   </p>
                 </div>
@@ -249,139 +187,86 @@ function Analytics() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '24px' }}>
-            <div style={{
-              backgroundColor: colors.secondary,
-              borderRadius: '16px',
-              padding: '24px',
-              border: `1px solid ${colors.primary}11`
-            }}>
-              <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: '700', color: colors.primary }}>
-                <FontAwesomeIcon icon={faCalendarAlt} style={{ marginRight: '8px', color: colors.accent }} />
+          <div className="analytics-grid-2-1">
+            <div className="analytics-section">
+              <h3 className="analytics-section-title">
+                <FontAwesomeIcon icon={faCalendarAlt} style={{ marginRight: '8px' }} />
                 Ventas por Día
               </h3>
               {salesByDay.length > 0 ? (
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '200px' }}>
+                <div className="analytics-chart">
                   {salesByDay.map((day, index) => {
                     const height = ((day.revenue || 0) / maxRevenue) * 100;
                     return (
-                      <div key={index} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                          width: '100%',
-                          height: `${height}%`,
-                          minHeight: '4px',
-                          backgroundColor: colors.accent,
-                          borderRadius: '4px 4px 0 0',
-                          transition: 'height 0.3s ease'
-                        }} />
-                        <span style={{ fontSize: '10px', color: '#666' }}>{formatDate(day.date)}</span>
+                      <div key={index} className="analytics-chart-bar">
+                        <div className="analytics-bar" style={{ height: `${height}%` }} />
+                        <span className="analytics-bar-label">{formatDate(day.date)}</span>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div style={{ textAlign: 'center', padding: '60px', color: '#999' }}>
-                  <FontAwesomeIcon icon={faChartBar} style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }} />
-                  <p>No hay ventas en este período</p>
+                <div className="empty-state">
+                  <FontAwesomeIcon icon={faChartBar} className="empty-state-icon" />
+                  <p className="empty-state-text">No hay ventas en este período</p>
                 </div>
               )}
             </div>
 
-            <div style={{
-              backgroundColor: colors.secondary,
-              borderRadius: '16px',
-              padding: '24px',
-              border: `1px solid ${colors.primary}11`
-            }}>
-              <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: '700', color: colors.primary }}>
-                <FontAwesomeIcon icon={faBox} style={{ marginRight: '8px', color: colors.accent }} />
+            <div className="analytics-section">
+              <h3 className="analytics-section-title">
+                <FontAwesomeIcon icon={faBox} style={{ marginRight: '8px' }} />
                 Pedidos Recientes
               </h3>
-              <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+              <div className="analytics-recent-orders">
                 {recentOrders.length > 0 ? recentOrders.map((order) => {
                   const status = getStatusInfo(order.status);
                   return (
-                    <div key={order.id} style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '12px 0',
-                      borderBottom: `1px solid ${colors.primary}11`
-                    }}>
+                    <div key={order.id} className="analytics-order-row">
                       <div>
-                        <div style={{ fontWeight: '600', color: colors.primary, fontSize: '14px' }}>
+                        <div className="analytics-order-id">
                           #{order.id}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#666' }}>
+                        <div className="analytics-order-items">
                           {order.items_count} {order.items_count === 1 ? 'producto' : 'productos'}
                         </div>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: '700', color: colors.primary, fontSize: '14px' }}>
+                      <div className="text-right">
+                        <div className="analytics-order-amount">
                           {formatCurrency(order.total_amount)}
                         </div>
-                        <span style={{
-                          fontSize: '10px',
-                          fontWeight: '600',
-                          color: status.color,
-                          backgroundColor: `${status.color}15`,
-                          padding: '2px 8px',
-                          borderRadius: '10px'
-                        }}>
+                        <span className="badge" style={{ color: status.color, backgroundColor: `${status.color}15` }}>
                           {status.label}
                         </span>
                       </div>
                     </div>
                   );
                 }) : (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-                    <p>No hay pedidos recientes</p>
+                  <div className="empty-state">
+                    <p className="empty-state-text">No hay pedidos recientes</p>
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          <div style={{
-            backgroundColor: colors.secondary,
-            borderRadius: '16px',
-            padding: '24px',
-            border: `1px solid ${colors.primary}11`
-          }}>
-            <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: '700', color: colors.primary }}>
-              <FontAwesomeIcon icon={faBoxOpen} style={{ marginRight: '8px', color: colors.accent }} />
+          <div className="analytics-section">
+            <h3 className="analytics-section-title">
+              <FontAwesomeIcon icon={faBoxOpen} style={{ marginRight: '8px' }} />
               Productos Más Vendidos
             </h3>
             {topProducts.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+              <div className="analytics-top-products">
                 {topProducts.map((product, index) => (
-                  <div key={product.id} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    padding: '16px',
-                    backgroundColor: colors.primary + '05',
-                    borderRadius: '12px'
-                  }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '10px',
-                      backgroundColor: colors.accent + '20',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: '700',
-                      color: colors.accent,
-                      fontSize: '16px'
-                    }}>
+                  <div key={product.id} className="analytics-top-product">
+                    <div className="analytics-rank">
                       #{index + 1}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: '600', color: colors.primary, fontSize: '14px', marginBottom: '4px' }}>
+                    <div className="flex-1">
+                      <div className="analytics-product-name">
                         {product.name}
                       </div>
-                      <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#666' }}>
+                      <div className="analytics-product-stats">
                         <span>{product.total_sold} vendidos</span>
                         <span>{formatCurrency(product.revenue)}</span>
                       </div>
@@ -390,9 +275,9 @@ function Analytics() {
                 ))}
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-                <FontAwesomeIcon icon={faBoxOpen} style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.3 }} />
-                <p>No hay datos de productos</p>
+              <div className="empty-state">
+                <FontAwesomeIcon icon={faBoxOpen} className="empty-state-icon" />
+                <p className="empty-state-text">No hay datos de productos</p>
               </div>
             )}
           </div>

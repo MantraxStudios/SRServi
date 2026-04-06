@@ -36,7 +36,7 @@ function Configurations() {
 
   const fetchTerminals = async () => {
     if (!selectedStore) return;
-    
+
     try {
       const response = await fetch(`/api/public/terminals/${selectedStore.id}`);
       if (response.ok) {
@@ -53,7 +53,7 @@ function Configurations() {
       setLoading(false);
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/store-configurations?store_id=${selectedStore.id}`, {
@@ -78,21 +78,21 @@ function Configurations() {
     }
 
     if (!formData.accept_cash && !formData.accept_card) {
-      setError('Debes aceptar al menos un método de pago');
+      setError('Debes aceptar al menos un m\u00E9todo de pago');
       return;
     }
 
     if (!formData.allow_serve && !formData.allow_takeout) {
-      setError('Debes habilitar al menos una opción de pedido (comer aquí o llevar)');
+      setError('Debes habilitar al menos una opci\u00F3n de pedido (comer aqu\u00ED o llevar)');
       return;
     }
 
     try {
       const token = localStorage.getItem('token');
-      const url = editingConfig 
-        ? `/api/store-configurations/${editingConfig.id}` 
+      const url = editingConfig
+        ? `/api/store-configurations/${editingConfig.id}`
         : '/api/store-configurations';
-      
+
       const response = await fetch(url, {
         method: editingConfig ? 'PUT' : 'POST',
         headers: {
@@ -104,7 +104,7 @@ function Configurations() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Error al guardar la configuración');
+        throw new Error(data.error || 'Error al guardar la configuraci\u00F3n');
       }
 
       setShowModal(false);
@@ -146,7 +146,7 @@ function Configurations() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar esta configuración?')) return;
+    if (!confirm('\u00BFEst\u00E1s seguro de eliminar esta configuraci\u00F3n?')) return;
 
     try {
       const token = localStorage.getItem('token');
@@ -156,7 +156,7 @@ function Configurations() {
       });
 
       if (!response.ok) {
-        throw new Error('Error al eliminar la configuración');
+        throw new Error('Error al eliminar la configuraci\u00F3n');
       }
 
       fetchConfigurations();
@@ -201,9 +201,11 @@ function Configurations() {
 
         <div className="card">
           {configurations.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
-              No hay configuraciones. Crea una para definir los metodos de pago disponibles.
-            </p>
+            <div className="empty-state">
+              <p className="empty-state-text">
+                No hay configuraciones. Crea una para definir los metodos de pago disponibles.
+              </p>
+            </div>
           ) : (
             <div className="admin-table-wrapper">
               <table className="table">
@@ -220,19 +222,19 @@ function Configurations() {
                 <tbody>
                 {configurations.map(config => (
                   <tr key={config.id}>
-                    <td style={{ fontWeight: '600' }}>{config.name}</td>
+                    <td className="font-semibold">{config.name}</td>
                     <td>
                       {config.accept_cash ? (
-                        <span style={{ color: '#28a745' }}><FontAwesomeIcon icon={faCheck} /></span>
+                        <span className="icon-success"><FontAwesomeIcon icon={faCheck} /></span>
                       ) : (
-                        <span style={{ color: '#dc3545' }}>-</span>
+                        <span className="icon-danger">-</span>
                       )}
                     </td>
                     <td>
                       {config.accept_card ? (
-                        <span style={{ color: '#28a745' }}><FontAwesomeIcon icon={faCheck} /></span>
+                        <span className="icon-success"><FontAwesomeIcon icon={faCheck} /></span>
                       ) : (
-                        <span style={{ color: '#dc3545' }}>-</span>
+                        <span className="icon-danger">-</span>
                       )}
                     </td>
                     <td>
@@ -246,23 +248,24 @@ function Configurations() {
                       {config.is_default ? (
                         <span className="badge badge-primary"><FontAwesomeIcon icon={faCheck} /> Predeterminada</span>
                       ) : (
-                        <span style={{ color: '#666' }}>-</span>
+                        <span className="text-muted">-</span>
                       )}
                     </td>
                     <td>
-                      <button 
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => handleEdit(config)}
-                        style={{ marginRight: '8px' }}
-                      >
-                        <FontAwesomeIcon icon={faEdit} />
-                      </button>
-                      <button 
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleDelete(config.id)}
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => handleEdit(config)}
+                        >
+                          <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleDelete(config.id)}
+                        >
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -298,73 +301,36 @@ function Configurations() {
 
               <div className="form-group">
                 <label>Opciones de Pedido</label>
-                <div style={{ 
-                  marginTop: '8px',
-                  display: 'flex', 
-                  gap: '12px',
-                  flexWrap: 'wrap'
-                }}>
-                  <div style={{ 
-                    flex: '1 1 200px',
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '10px', 
-                    cursor: 'pointer', 
-                    padding: '14px', 
-                    background: formData.allow_serve ? 'rgba(40, 167, 69, 0.1)' : '#f8f9fa', 
-                    borderRadius: '10px', 
-                    border: formData.allow_serve ? '2px solid #28a745' : '2px solid #e0e0e0',
-                    transition: 'all 0.2s ease'
-                  }}>
+                <div className="flex flex-wrap gap-3">
+                  <div className={`checkbox-card ${formData.allow_serve ? 'active-green' : ''}`}>
                     <input
                       type="checkbox"
                       checked={formData.allow_serve}
                       onChange={(e) => setFormData({ ...formData, allow_serve: e.target.checked })}
-                      style={{ 
-                        width: '20px', 
-                        height: '20px', 
-                        cursor: 'pointer'
-                      }}
                     />
-                    <span style={{ fontSize: '24px' }}>🍽️</span>
+                    <span className="checkbox-card-icon">{'\uD83C\uDF7D\uFE0F'}</span>
                     <div>
-                      <span style={{ fontWeight: '600', display: 'block' }}>Comer aquí</span>
-                      <span style={{ color: '#666', fontSize: '12px' }}>Para servir en mesa</span>
+                      <span className="font-semibold">Comer aqu\u00ED</span>
+                      <span className="text-muted text-xs">Para servir en mesa</span>
                     </div>
                   </div>
-                  
-                  <div style={{ 
-                    flex: '1 1 200px',
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '10px', 
-                    cursor: 'pointer', 
-                    padding: '14px', 
-                    background: formData.allow_takeout ? 'rgba(0, 123, 255, 0.1)' : '#f8f9fa', 
-                    borderRadius: '10px', 
-                    border: formData.allow_takeout ? '2px solid #007bff' : '2px solid #e0e0e0',
-                    transition: 'all 0.2s ease'
-                  }}>
+
+                  <div className={`checkbox-card ${formData.allow_takeout ? 'active-blue' : ''}`}>
                     <input
                       type="checkbox"
                       checked={formData.allow_takeout}
                       onChange={(e) => setFormData({ ...formData, allow_takeout: e.target.checked })}
-                      style={{ 
-                        width: '20px', 
-                        height: '20px', 
-                        cursor: 'pointer'
-                      }}
                     />
-                    <span style={{ fontSize: '24px' }}>🥡</span>
+                    <span className="checkbox-card-icon">{'\uD83E\uDD61'}</span>
                     <div>
-                      <span style={{ fontWeight: '600', display: 'block' }}>Para llevar</span>
-                      <span style={{ color: '#666', fontSize: '12px' }}>Servicio para llevar</span>
+                      <span className="font-semibold">Para llevar</span>
+                      <span className="text-muted text-xs">Servicio para llevar</span>
                     </div>
                   </div>
                 </div>
                 {!formData.allow_serve && !formData.allow_takeout && (
-                  <p style={{ color: '#dc3545', fontSize: '12px', marginTop: '8px' }}>
-                    ⚠️ Al menos una opción de pedido debe estar habilitada
+                  <p className="validation-warning">
+                    {'\u26A0\uFE0F'} Al menos una opci\u00F3n de pedido debe estar habilitada
                   </p>
                 )}
               </div>
@@ -381,23 +347,23 @@ function Configurations() {
 
               <div className="form-group">
                 <label>Metodos de Pago</label>
-                <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <div className="flex gap-4">
+                  <label className="checkbox-label">
                     <input
                       type="checkbox"
                       checked={formData.accept_cash}
                       onChange={(e) => setFormData({ ...formData, accept_cash: e.target.checked })}
                     />
-                    <FontAwesomeIcon icon={faMoneyBillWave} style={{ color: '#28a745' }} />
+                    <FontAwesomeIcon icon={faMoneyBillWave} className="icon-success" />
                     <span>Efectivo</span>
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <label className="checkbox-label">
                     <input
                       type="checkbox"
                       checked={formData.accept_card}
                       onChange={(e) => setFormData({ ...formData, accept_card: e.target.checked })}
                     />
-                    <FontAwesomeIcon icon={faCreditCard} style={{ color: '#007bff' }} />
+                    <FontAwesomeIcon icon={faCreditCard} className="icon-blue" />
                     <span>Tarjeta</span>
                   </label>
                 </div>
@@ -405,51 +371,27 @@ function Configurations() {
 
               <div className="form-group">
                 <label>Tipo de Store</label>
-                <div style={{ marginTop: '8px' }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '8px', 
-                    cursor: 'pointer', 
-                    padding: '12px', 
-                    background: formData.is_minimarket ? 'rgba(212, 175, 55, 0.1)' : '#f8f9fa', 
-                    borderRadius: '8px', 
-                    border: formData.is_minimarket ? '2px solid #D4AF37' : '2px solid transparent',
-                    position: 'relative'
-                  }}>
+                <div>
+                  <div className={`checkbox-card ${formData.is_minimarket ? 'active-gold' : ''}`}>
                     <input
                       type="checkbox"
                       checked={formData.is_minimarket}
                       onChange={(e) => setFormData({ ...formData, is_minimarket: e.target.checked })}
-                      style={{ 
-                        width: '20px', 
-                        height: '20px', 
-                        cursor: 'pointer',
-                        position: 'relative',
-                        zIndex: 1
-                      }}
                     />
-                    <FontAwesomeIcon icon={faStore} style={{ color: '#D4AF37' }} />
-                    <span style={{ fontWeight: '600' }}>Minimarket</span>
-                    <span style={{ color: '#666', fontSize: '12px', marginLeft: '8px' }}>(Interfaz simplificada con grid de productos)</span>
+                    <FontAwesomeIcon icon={faStore} className="icon-gold" />
+                    <span className="font-semibold">Minimarket</span>
+                    <span className="text-muted text-xs">(Interfaz simplificada con grid de productos)</span>
                   </div>
                 </div>
                 {formData.is_minimarket && (
-                  <div style={{ marginTop: '12px', padding: '12px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-                    <label style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>
-                      <FontAwesomeIcon icon={faCreditCardAlt} style={{ color: '#D4AF37', marginRight: '8px' }} />
-                      Terminal Point para Minimarket
+                  <div className="minimarket-terminal-section">
+                    <label className="font-semibold">
+                      <FontAwesomeIcon icon={faCreditCardAlt} className="icon-gold" />
+                      {' '}Terminal Point para Minimarket
                     </label>
                     <select
                       value={formData.default_minimarket_terminal}
                       onChange={(e) => setFormData({ ...formData, default_minimarket_terminal: e.target.value })}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        borderRadius: '6px',
-                        border: '1px solid #ddd',
-                        fontSize: '14px'
-                      }}
                     >
                       <option value="">Seleccionar terminal...</option>
                       {terminals.map(terminal => (
@@ -459,8 +401,8 @@ function Configurations() {
                       ))}
                     </select>
                     {terminals.length === 0 && (
-                      <p style={{ color: '#666', fontSize: '12px', marginTop: '8px' }}>
-                        No hay terminales registrados. <a href="/terminals" style={{ color: '#007bff' }}>Crear terminal</a>
+                      <p className="text-muted text-xs">
+                        No hay terminales registrados. <a href="/terminals" className="icon-blue">Crear terminal</a>
                       </p>
                     )}
                   </div>
@@ -468,8 +410,8 @@ function Configurations() {
               </div>
 
               <div className="form-group">
-                <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <div className="flex gap-4">
+                  <label className="checkbox-label">
                     <input
                       type="checkbox"
                       checked={formData.is_active}
@@ -477,7 +419,7 @@ function Configurations() {
                     />
                     <span>Activo</span>
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <label className="checkbox-label">
                     <input
                       type="checkbox"
                       checked={formData.is_default}

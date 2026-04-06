@@ -22,7 +22,7 @@ function Index() {
 
     try {
       const cleanCode = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      
+
       if (cleanCode.length !== 6) {
         throw new Error('El codigo debe tener 6 caracteres');
       }
@@ -117,25 +117,18 @@ function Index() {
             />
           </div>
 
-          <button 
-            type="submit" 
-            className="btn btn-primary"
-            style={{ width: '100%', padding: '16px', fontSize: '18px' }}
+          <button
+            type="submit"
+            className="btn btn-primary btn-lg btn-full"
             disabled={loading || code.length !== 6}
           >
             {loading ? 'Buscando...' : 'Continuar'}
           </button>
         </form>
 
-        <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '2px solid #ccc' }}>
-          <p style={{ color: '#666', fontSize: '14px', marginBottom: '10px' }}>
-            Eres dueno de un negocio?
-          </p>
-          <Link 
-            to="/login"
-            className="btn btn-secondary"
-            style={{ width: '100%' }}
-          >
+        <div className="index-divider">
+          <p>Eres dueno de un negocio?</p>
+          <Link to="/login" className="btn btn-secondary btn-full">
             <FontAwesomeIcon icon={faQrcode} />
             Ir al Panel de Administracion
           </Link>
@@ -143,89 +136,37 @@ function Index() {
       </div>
 
       {showTerminalModal && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.65)',
-            zIndex: 2000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
-          }}
-        >
-          <div style={{
-            backgroundColor: '#fff',
-            borderRadius: '16px',
-            padding: '24px',
-            width: '100%',
-            maxWidth: '440px'
-          }}>
-            <h2 style={{ margin: '0 0 10px 0', fontSize: '22px' }}>
-               Configura tu totem
-             </h2>
-            <p style={{ margin: '0 0 18px 0', color: '#666', fontSize: '14px' }}>
-               Selecciona las opciones para este totem.
-             </p>
+        <div className="modal-overlay">
+          <div className="totem-modal">
+            <h2>Configura tu totem</h2>
+            <p>Selecciona las opciones para este totem.</p>
 
             {configurations.length > 0 && (
               <>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>
-                  Metodo de Pago
-                </label>
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                  marginBottom: '18px'
-                }}>
+                <label className="totem-label">Metodo de Pago</label>
+                <div className="totem-options">
                   {configurations.map(config => (
                     <button
                       key={config.id}
                       type="button"
+                      className={`totem-option ${selectedConfigId === String(config.id) ? 'selected' : ''}`}
                       onClick={() => setSelectedConfigId(String(config.id))}
-                      style={{
-                        width: '100%',
-                        padding: '14px',
-                        borderRadius: '10px',
-                        border: `2px solid ${selectedConfigId === String(config.id) ? '#D4AF37' : '#ddd'}`,
-                        backgroundColor: selectedConfigId === String(config.id) ? '#D4AF3720' : '#fff',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        transition: 'all 0.2s'
-                      }}
                     >
-                      <div style={{
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '50%',
-                        border: `2px solid ${selectedConfigId === String(config.id) ? '#D4AF37' : '#ddd'}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: selectedConfigId === String(config.id) ? '#D4AF37' : '#fff'
-                      }}>
+                      <div className="totem-radio">
                         {selectedConfigId === String(config.id) && (
-                          <span style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold' }}>✓</span>
+                          <span className="totem-radio-check">✓</span>
                         )}
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '700', fontSize: '15px' }}>{config.name}</div>
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                      <div className="totem-option-info">
+                        <div className="totem-option-name">{config.name}</div>
+                        <div className="totem-option-methods">
                           {config.accept_cash && (
-                            <span style={{ fontSize: '12px', color: '#28a745' }}>
+                            <span className="totem-method totem-method-cash">
                               <FontAwesomeIcon icon={faMoneyBillWave} /> Efectivo
                             </span>
                           )}
                           {config.accept_card && (
-                            <span style={{ fontSize: '12px', color: '#007bff' }}>
+                            <span className="totem-method totem-method-card">
                               <FontAwesomeIcon icon={faCreditCard} /> Tarjeta
                             </span>
                           )}
@@ -239,20 +180,11 @@ function Index() {
 
             {terminals.length > 0 && (
               <>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px' }}>
-                  Maquina Point
-                </label>
+                <label className="totem-label">Maquina Point</label>
                 <select
+                  className="totem-select"
                   value={selectedTerminalId}
                   onChange={(e) => setSelectedTerminalId(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '10px',
-                    border: '2px solid #ddd',
-                    fontSize: '15px',
-                    marginBottom: '16px'
-                  }}
                 >
                   {terminals.map((terminal) => (
                     <option key={terminal.id} value={terminal.id}>
@@ -265,8 +197,7 @@ function Index() {
 
             <button
               type="button"
-              className="btn btn-primary"
-              style={{ width: '100%' }}
+              className="btn btn-primary btn-lg btn-full"
               onClick={handleConfirmTerminal}
               disabled={!pendingCode || (configurations.length > 0 && !selectedConfigId)}
             >

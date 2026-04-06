@@ -104,7 +104,7 @@ function Coupons() {
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error || 'No se pudo guardar el cupón');
+        throw new Error(errData.error || 'No se pudo guardar el cup\u00F3n');
       }
 
       setShowModal(false);
@@ -116,7 +116,7 @@ function Coupons() {
   };
 
   const handleDelete = async (couponId) => {
-    if (!confirm('¿Eliminar este cupón?')) return;
+    if (!confirm('\u00BFEliminar este cup\u00F3n?')) return;
 
     try {
       const token = localStorage.getItem('token');
@@ -142,12 +142,12 @@ function Coupons() {
     <>
       <header className="admin-header">
         <h1>
-          <FontAwesomeIcon icon={faPercent} style={{ marginRight: '10px' }} />
-          Cupones
+          <FontAwesomeIcon icon={faPercent} />
+          {' '}Cupones
         </h1>
         <button className="btn btn-primary" onClick={() => openModal()}>
           <FontAwesomeIcon icon={faPlus} />
-          Nuevo Cupón
+          Nuevo Cup\u00F3n
         </button>
       </header>
 
@@ -156,18 +156,20 @@ function Coupons() {
 
         <div className="card">
           {coupons.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
-              No hay cupones. Crea tu primer cupón.
-            </p>
+            <div className="empty-state">
+              <p className="empty-state-text">
+                No hay cupones. Crea tu primer cup\u00F3n.
+              </p>
+            </div>
           ) : (
             <div className="admin-table-wrapper">
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Código</th>
+                    <th>C\u00F3digo</th>
                     <th>Nombre</th>
                     <th>Descuento</th>
-                    <th>Límite</th>
+                    <th>L\u00EDmite</th>
                     <th>Usados</th>
                     <th>Estado</th>
                     <th>Acciones</th>
@@ -176,28 +178,22 @@ function Coupons() {
                 <tbody>
                 {coupons.map(coupon => (
                   <tr key={coupon.id}>
-                    <td style={{ fontWeight: '700' }}>{coupon.code}</td>
+                    <td className="font-bold">{coupon.code}</td>
                     <td>{coupon.name}</td>
                     <td>
                       {coupon.discount_type === 'percent'
                         ? `${Number(coupon.discount_value).toFixed(2)}%`
                         : `$${Number(coupon.discount_value).toFixed(2)}`}
                     </td>
-                    <td>{coupon.usage_limit === null ? 'Sin límite' : coupon.usage_limit}</td>
+                    <td>{coupon.usage_limit === null ? 'Sin l\u00EDmite' : coupon.usage_limit}</td>
                     <td>{coupon.usage_count}</td>
                     <td>
-                      <span style={{
-                        backgroundColor: coupon.is_active ? '#28a745' : '#6c757d',
-                        color: '#fff',
-                        padding: '4px 10px',
-                        borderRadius: '12px',
-                        fontSize: '12px'
-                      }}>
+                      <span className={coupon.is_active ? 'badge badge-success' : 'badge badge-danger'}>
                         {coupon.is_active ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div className="flex gap-2">
                         <button className="btn btn-sm btn-secondary" onClick={() => openModal(coupon)}>
                           <FontAwesomeIcon icon={faEdit} />
                         </button>
@@ -218,10 +214,10 @@ function Coupons() {
       {showModal && (
         <div className="modal-overlay">
           <div className="modal">
-            <h2>{editingCoupon ? 'Editar Cupón' : 'Nuevo Cupón'}</h2>
+            <h2>{editingCoupon ? 'Editar Cup\u00F3n' : 'Nuevo Cup\u00F3n'}</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Código</label>
+                <label>C\u00F3digo</label>
                 <input
                   type="text"
                   value={formData.code}
@@ -260,7 +256,7 @@ function Coupons() {
                 />
               </div>
               <div className="form-group">
-                <label>Monto mínimo de pedido</label>
+                <label>Monto m\u00EDnimo de pedido</label>
                 <input
                   type="number"
                   min="0"
@@ -270,17 +266,17 @@ function Coupons() {
                 />
               </div>
               <div className="form-group">
-                <label>Límite de usos</label>
+                <label>L\u00EDmite de usos</label>
                 <input
                   type="number"
                   min="1"
                   value={formData.usage_limit}
                   onChange={(e) => setFormData(prev => ({ ...prev, usage_limit: e.target.value }))}
-                  placeholder="Vacío = sin límite"
+                  placeholder="Vac\u00EDo = sin l\u00EDmite"
                 />
               </div>
               <div className="form-group">
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label className="checkbox-label">
                   <input
                     type="checkbox"
                     checked={formData.is_active}
@@ -289,7 +285,7 @@ function Coupons() {
                   Activo
                 </label>
               </div>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
                   Cancelar
                 </button>

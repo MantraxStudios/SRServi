@@ -63,7 +63,7 @@ function Register() {
       }
 
       login(data.user, data.token);
-      
+
       alert(`Registro exitoso! Tu codigo es: ${data.user.code}`);
       navigate('/admin');
     } catch (err) {
@@ -76,19 +76,9 @@ function Register() {
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ 
-            width: '80px', 
-            height: '80px', 
-            background: 'linear-gradient(135deg, var(--gold), var(--gold-light))',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 20px',
-            boxShadow: '0 8px 20px rgba(212, 175, 55, 0.3)'
-          }}>
-            <span style={{ fontSize: '32px', fontWeight: '700', color: 'var(--white)' }}>SR</span>
+        <div className="auth-logo">
+          <div className="auth-logo-icon">
+            <span>SR</span>
           </div>
           <h1 className="auth-title">Crear Cuenta</h1>
           <p className="auth-subtitle">Únete a SRServi y comienza a vender</p>
@@ -98,189 +88,92 @@ function Register() {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label style={{ fontSize: '14px', color: 'var(--gray-dark)' }}>Nombre de Usuario</label>
-            <div style={{ position: 'relative' }}>
-              <FontAwesomeIcon 
-                icon={faUser} 
-                style={{ 
-                  position: 'absolute', 
-                  left: '14px', 
-                  top: '50%', 
-                  transform: 'translateY(-50%)',
-                  color: 'var(--gold)',
-                  fontSize: '18px'
-                }} 
-              />
+            <label>Nombre de Usuario</label>
+            <div className="input-icon-wrapper">
+              <FontAwesomeIcon icon={faUser} className="input-icon" />
               <input
                 type="text"
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
                 required
-                style={{ 
-                  paddingLeft: '48px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '2px solid var(--gray)',
-                  fontSize: '16px'
-                }}
                 placeholder="Tu nombre completo"
               />
             </div>
           </div>
 
           <div className="form-group">
-            <label style={{ fontSize: '14px', color: 'var(--gray-dark)' }}>Nombre del Negocio</label>
-            <div style={{ position: 'relative' }}>
-              <FontAwesomeIcon 
-                icon={faStore} 
-                style={{ 
-                  position: 'absolute', 
-                  left: '14px', 
-                  top: '50%', 
-                  transform: 'translateY(-50%)',
-                  color: 'var(--gold)',
-                  fontSize: '18px'
-                }} 
-              />
+            <label>Nombre del Negocio</label>
+            <div className="input-icon-wrapper">
+              <FontAwesomeIcon icon={faStore} className="input-icon" />
               <input
                 type="text"
                 name="business_name"
                 value={formData.business_name}
                 onChange={handleChange}
-                style={{ 
-                  paddingLeft: '48px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '2px solid var(--gray)',
-                  fontSize: '16px'
-                }}
                 placeholder="Nombre de tu restaurante (opcional)"
               />
             </div>
           </div>
 
           <div className="form-group">
-            <label style={{ fontSize: '14px', color: 'var(--gray-dark)' }}>Correo electrónico</label>
-            <div style={{ position: 'relative' }}>
-              <FontAwesomeIcon 
-                icon={faEnvelope} 
-                style={{ 
-                  position: 'absolute', 
-                  left: '14px', 
-                  top: '50%', 
-                  transform: 'translateY(-50%)',
-                  color: 'var(--gold)',
-                  fontSize: '18px'
-                }} 
-              />
+            <label>Correo electrónico</label>
+            <div className="input-icon-wrapper">
+              <FontAwesomeIcon icon={faEnvelope} className="input-icon" />
               <input
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
                 required
-                style={{ 
-                  paddingLeft: '48px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '2px solid var(--gray)',
-                  fontSize: '16px'
-                }}
                 placeholder="tu@email.com"
               />
             </div>
           </div>
 
           <div className="form-group">
-            <label style={{ fontSize: '14px', color: 'var(--gray-dark)' }}>Contraseña</label>
-            <div style={{ position: 'relative' }}>
-              <FontAwesomeIcon 
-                icon={faLock} 
-                style={{ 
-                  position: 'absolute', 
-                  left: '14px', 
-                  top: '50%', 
-                  transform: 'translateY(-50%)',
-                  color: 'var(--gold)',
-                  fontSize: '18px'
-                }} 
-              />
+            <label>Contraseña</label>
+            <div className="input-icon-wrapper">
+              <FontAwesomeIcon icon={faLock} className="input-icon" />
               <input
                 type="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
                 required
-                style={{ 
-                  paddingLeft: '48px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '2px solid var(--gray)',
-                  fontSize: '16px'
-                }}
                 placeholder="Mínimo 6 caracteres"
               />
             </div>
           </div>
 
           <div className="form-group">
-            <label style={{ fontSize: '14px', color: 'var(--gray-dark)' }}>Confirmar Contraseña</label>
-            <div style={{ position: 'relative' }}>
-              <FontAwesomeIcon 
-                icon={faLock} 
-                style={{ 
-                  position: 'absolute', 
-                  left: '14px', 
-                  top: '50%', 
-                  transform: 'translateY(-50%)',
-                  color: 'var(--gold)',
-                  fontSize: '18px'
-                }} 
-              />
+            <label>Confirmar Contraseña</label>
+            <div className="input-icon-wrapper">
+              <FontAwesomeIcon icon={faLock} className="input-icon" />
               <input
                 type="password"
                 name="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
-                style={{ 
-                  paddingLeft: '48px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '2px solid var(--gray)',
-                  fontSize: '16px'
-                }}
                 placeholder="Repite tu contraseña"
               />
             </div>
           </div>
 
-          <button 
-            type="submit" 
-            className="btn btn-primary"
-            style={{ 
-              width: '100%', 
-              marginTop: '8px',
-              padding: '16px',
-              fontSize: '18px',
-              fontWeight: '700',
-              borderRadius: 'var(--radius-md)'
-            }}
+          <button
+            type="submit"
+            className="btn btn-primary btn-lg btn-full auth-submit"
             disabled={loading}
           >
             {loading ? 'Registrando...' : 'Crear Cuenta'}
           </button>
         </form>
 
-        <div className="auth-footer" style={{ marginTop: '32px' }}>
-          <p style={{ fontSize: '15px' }}>
+        <div className="auth-footer">
+          <p>
             ¿Ya tienes cuenta?{' '}
-            <Link 
-              to="/login" 
-              style={{ 
-                color: 'var(--gold)', 
-                fontWeight: '700',
-                fontSize: '15px'
-              }}
-            >
-              Inicia sesión
-            </Link>
+            <Link to="/login" className="auth-link">Inicia sesión</Link>
           </p>
         </div>
       </div>

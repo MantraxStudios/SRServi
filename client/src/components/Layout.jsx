@@ -5,12 +5,12 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const API = 'https://srservi2.srautomatic.com';
 
-import { 
-  faHome, 
-  faList, 
-  faBox, 
-  faFlask, 
-  faPlus, 
+import {
+  faHome,
+  faList,
+  faBox,
+  faFlask,
+  faPlus,
   faShoppingBag,
   faSignOutAlt,
   faPalette,
@@ -60,11 +60,11 @@ function Layout() {
         headers: { 'Authorization': 'Bearer ' + token }
       });
       const data = await response.json();
-      
+
       if (Array.isArray(data) && data.length === 0) {
         const response2 = await fetch(API + '/api/stores', {
           method: 'POST',
-          headers: { 
+          headers: {
             'Authorization': 'Bearer ' + token,
             'Content-Type': 'application/json'
           },
@@ -79,7 +79,7 @@ function Layout() {
             currency_name: 'Dólar Estadounidense'
           })
         });
-        
+
         if (response2.ok) {
           const newStore = await response2.json();
           setStores([newStore]);
@@ -88,7 +88,7 @@ function Layout() {
         }
       } else {
         setStores(data);
-        
+
         if (data.length > 0 && !selectedStore) {
           const savedStoreId = localStorage.getItem('selectedStoreId');
           const savedStore = data.find(s => s.id === parseInt(savedStoreId));
@@ -132,12 +132,10 @@ function Layout() {
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        backgroundColor: colors.secondary
+      <div className="loading-center" style={{
+        '--store-primary': colors.primary,
+        '--store-secondary': colors.secondary,
+        '--store-accent': colors.accent
       }}>
         <div className="spinner"></div>
       </div>
@@ -146,149 +144,61 @@ function Layout() {
 
   return (
     <StoreContext.Provider value={{ selectedStore, stores, selectStore, fetchStores, colors }}>
-      <div style={{ 
-        display: 'flex', 
-        minHeight: '100vh',
-        width: '100vw'
+      <div className="layout-wrapper" style={{
+        '--store-primary': colors.primary,
+        '--store-secondary': colors.secondary,
+        '--store-accent': colors.accent
       }}>
         {isMobile && menuOpen && (
-          <div 
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              zIndex: 998
-            }}
-            onClick={() => setMenuOpen(false)}
-          />
+          <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
         )}
-        
-        <nav className={`admin-sidebar ${isMobile ? (menuOpen ? 'mobile-open' : 'mobile-closed') : ''}`} style={{
-          backgroundColor: colors.primary
-        }}>
-          <div className="sidebar-header" style={{
-            borderBottom: `1px solid ${colors.secondary}33`,
-            display: 'flex',
-            justifyContent: isMobile ? 'space-between' : 'center',
-            alignItems: 'center',
-            paddingRight: isMobile ? '16px' : '0',
-            paddingLeft: isMobile ? '0' : '0'
-          }}>
-            <div style={{ textAlign: isMobile ? 'left' : 'center', flex: isMobile ? 1 : 'none', width: isMobile ? 'auto' : '100%' }}>
-              <h1 style={{ color: colors.secondary }}>SRServi</h1>
-              <small style={{ color: colors.secondary }}>Panel Admin</small>
+
+        <nav className={`admin-sidebar ${isMobile ? (menuOpen ? 'mobile-open' : 'mobile-closed') : ''}`}>
+          <div className="sidebar-header">
+            <div>
+              <h1>SRServi</h1>
+              <small>Panel Admin</small>
             </div>
             {isMobile && (
-              <button
-                onClick={() => setMenuOpen(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: colors.secondary,
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  padding: '8px'
-                }}
-              >
+              <button className="sidebar-close-btn" onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faTimes} />
               </button>
             )}
           </div>
 
-          <div style={{ padding: isMobile ? '8px' : '15px' }}>
-            <div style={{ position: 'relative' }}>
+          <div className="store-selector">
+            <div className="relative">
               <button
+                className="store-selector-btn"
                 onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
-                style={{
-                  width: '100%',
-                  padding: isMobile ? '10px' : '12px',
-                  backgroundColor: colors.secondary,
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  fontSize: isMobile ? '12px' : '14px',
-                  fontWeight: '600',
-                  color: colors.primary
-                }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="store-selector-label">
                   <FontAwesomeIcon icon={faStore} />
-                  <span style={{ 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis', 
-                    whiteSpace: 'nowrap',
-                    maxWidth: isMobile ? '120px' : '150px'
-                  }}>
+                  <span className="store-selector-name">
                     {selectedStore?.name || 'Seleccionar Tienda'}
                   </span>
-                </div>
+                </span>
                 <FontAwesomeIcon icon={faChevronDown} rotation={storeDropdownOpen ? 180 : 0} />
               </button>
 
               {storeDropdownOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  backgroundColor: colors.secondary,
-                  borderRadius: '8px',
-                  marginTop: '5px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                  zIndex: 100,
-                  maxHeight: '300px',
-                  overflowY: 'auto'
-                }}>
+                <div className="store-dropdown">
                   {stores.map(store => (
                     <div
                       key={store.id}
+                      className={`store-dropdown-item ${selectedStore?.id === store.id ? 'active' : ''}`}
                       onClick={() => selectStore(store)}
-                      style={{
-                        padding: isMobile ? '8px 12px' : '12px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        backgroundColor: selectedStore?.id === store.id ? colors.accent + '33' : 'transparent',
-                        borderBottom: stores.indexOf(store) < stores.length - 1 ? `1px solid ${colors.primary}11` : 'none'
-                      }}
                     >
-                      <div style={{
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        backgroundColor: colors.accent,
-                        flexShrink: 0
-                      }} />
-                      <div style={{ flex: 1, overflow: 'hidden' }}>
-                        <div style={{ fontWeight: '600', color: colors.primary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: isMobile ? '12px' : '14px' }}>
-                          {store.name}
-                        </div>
-                        <div style={{ fontSize: '10px', color: '#666' }}>
-                          Código: {store.code}
-                        </div>
+                      <div className="store-dropdown-dot" />
+                      <div className="store-dropdown-info">
+                        <div className="store-dropdown-name">{store.name}</div>
+                        <div className="store-dropdown-code">Código: {store.code}</div>
                       </div>
                     </div>
                   ))}
                   <div
+                    className="store-dropdown-manage"
                     onClick={() => { setStoreDropdownOpen(false); navigate('/admin/stores'); }}
-                    style={{
-                      padding: isMobile ? '8px 12px' : '12px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      color: colors.accent,
-                      fontWeight: '600',
-                      fontSize: isMobile ? '12px' : '14px',
-                      borderTop: `1px solid ${colors.primary}22`
-                    }}
                   >
                     <FontAwesomeIcon icon={faPlus} />
                     Gestionar Tiendas
@@ -300,19 +210,19 @@ function Layout() {
 
           <ul className="sidebar-nav" onClick={(e) => { if (!e.target.closest('.dropdown-item') && !e.target.closest('.dropdown-header') && !e.target.closest('.dropdown-container')) setMenuOpen(false); }}>
             <li>
-              <NavLink to="/admin" end className="sidebar-item" onClick={() => setMenuOpen(false)}>
+              <NavLink to="/admin" end onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faHome} />
                 <span>Inicio</span>
               </NavLink>
             </li>
             <li>
-              <NavLink to="/admin/market" className="sidebar-item" onClick={() => setMenuOpen(false)}>
+              <NavLink to="/admin/market" onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faBarcode} />
                 <span>Market</span>
               </NavLink>
             </li>
             <li>
-              <NavLink to="/admin/stores" className="sidebar-item" onClick={() => setMenuOpen(false)}>
+              <NavLink to="/admin/stores" onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faStore} />
                 <span>Tiendas</span>
               </NavLink>
@@ -322,7 +232,7 @@ function Layout() {
               <button className="dropdown-header" onClick={() => toggleDropdown('productos')}>
                 <FontAwesomeIcon icon={faBox} />
                 <span>Productos</span>
-                <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['productos'] ? 180 : 0} style={{ marginLeft: 'auto', fontSize: '10px' }} />
+                <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['productos'] ? 180 : 0} />
               </button>
               {openDropdowns['productos'] && (
                 <div className="dropdown-content">
@@ -350,7 +260,7 @@ function Layout() {
               <button className="dropdown-header" onClick={() => toggleDropdown('gestion')}>
                 <FontAwesomeIcon icon={faShoppingBag} />
                 <span>Gestion</span>
-                <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['gestion'] ? 180 : 0} style={{ marginLeft: 'auto', fontSize: '10px' }} />
+                <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['gestion'] ? 180 : 0} />
               </button>
               {openDropdowns['gestion'] && (
                 <div className="dropdown-content">
@@ -378,7 +288,7 @@ function Layout() {
               <button className="dropdown-header" onClick={() => toggleDropdown('sistema')}>
                 <FontAwesomeIcon icon={faCog} />
                 <span>Sistema</span>
-                <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['sistema'] ? 180 : 0} style={{ marginLeft: 'auto', fontSize: '10px' }} />
+                <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['sistema'] ? 180 : 0} />
               </button>
               {openDropdowns['sistema'] && (
                 <div className="dropdown-content">
@@ -403,42 +313,19 @@ function Layout() {
             </li>
 
             <li>
-              <button 
-                onClick={handleLogout}
-                className="btn btn-secondary"
-                style={{ width: 'calc(100% - 32px)', margin: '12px 16px', padding: '10px 16px' }}
-              >
+              <button onClick={handleLogout} className="btn btn-secondary btn-full">
                 <FontAwesomeIcon icon={faSignOutAlt} />
                 <span>Cerrar Sesion</span>
               </button>
             </li>
           </ul>
         </nav>
-        <main className="admin-content" style={{
-          flex: 1,
-          backgroundColor: selectedStore?.secondary_color || '#f5f5f5'
-        }}>
-          <div className="mobile-header" style={{
-            display: isMobile ? 'flex' : 'none',
-            backgroundColor: colors.primary,
-            padding: '16px',
-            alignItems: 'center',
-            gap: '16px'
-          }}>
-            <button
-              onClick={() => setMenuOpen(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: colors.secondary,
-                fontSize: '24px',
-                cursor: 'pointer',
-                padding: '8px'
-              }}
-            >
+        <main className="admin-content">
+          <div className="mobile-header">
+            <button className="mobile-header-btn" onClick={() => setMenuOpen(true)}>
               <FontAwesomeIcon icon={faBars} />
             </button>
-            <h1 style={{ color: colors.secondary, fontSize: '18px', margin: 0 }}>SRServi</h1>
+            <h1>SRServi</h1>
           </div>
           <Outlet />
         </main>

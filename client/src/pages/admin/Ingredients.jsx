@@ -168,14 +168,14 @@ function Ingredients() {
 
         <div className="card">
           {ingredients.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#666', padding: '40px' }}>
-              No hay ingredientes. Crea tu primer ingrediente.
-            </p>
+            <div className="empty-state">
+              <p className="empty-state-text">No hay ingredientes. Crea tu primer ingrediente.</p>
+            </div>
           ) : (
             <div className="admin-table-wrapper">
               {Object.entries(groupedIngredients).map(([categoryName, items]) => (
-                <div key={categoryName} style={{ marginBottom: '24px' }}>
-                  <h3 style={{ fontSize: '14px', textTransform: 'uppercase', color: '#666', letterSpacing: '0.05em', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #eee' }}>
+                <div key={categoryName} className="category-group">
+                  <h3 className="category-group-title">
                     {categoryName}
                   </h3>
                   <table className="table">
@@ -190,33 +190,34 @@ function Ingredients() {
                   <tbody>
                     {items.map(ingredient => (
                       <tr key={ingredient.id}>
-                        <td style={{ fontWeight: '600' }}>{ingredient.name}</td>
+                        <td className="font-semibold">{ingredient.name}</td>
                         <td>
                           {Number(ingredient.price) > 0 ? `$${Number(ingredient.price).toFixed(2)}` : '-'}
                         </td>
                         <td>
                           {ingredient.unlimited_stock ? (
-                            <span style={{ fontWeight: '700', color: '#28a745', fontSize: '18px' }}>∞</span>
+                            <span className="stock-unlimited">∞</span>
                           ) : (
-                            <span style={{ fontWeight: '700', color: ingredient.stock === 0 ? '#dc3545' : ingredient.stock < 10 ? '#ffc107' : '#28a745' }}>
+                            <span className={`stock-value ${ingredient.stock === 0 ? 'stock-danger' : ingredient.stock < 10 ? 'stock-warning' : 'stock-ok'}`}>
                               {ingredient.stock}
                             </span>
                           )}
                         </td>
                         <td>
-                          <button
-                            className="btn btn-sm btn-secondary"
-                            onClick={() => handleEdit(ingredient)}
-                            style={{ marginRight: '8px' }}
-                          >
-                            <FontAwesomeIcon icon={faEdit} />
-                          </button>
-                          <button
-                            className="btn btn-sm btn-danger"
-                            onClick={() => handleDelete(ingredient.id)}
-                          >
-                            <FontAwesomeIcon icon={faTrash} />
-                          </button>
+                          <div className="action-buttons">
+                            <button
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => handleEdit(ingredient)}
+                            >
+                              <FontAwesomeIcon icon={faEdit} />
+                            </button>
+                            <button
+                              className="btn btn-sm btn-danger"
+                              onClick={() => handleDelete(ingredient.id)}
+                            >
+                              <FontAwesomeIcon icon={faTrash} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -284,19 +285,18 @@ function Ingredients() {
                   disabled={formData.unlimited_stock}
                 />
               </div>
-              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '20px', padding: '16px', background: formData.unlimited_stock ? '#d4edda' : '#fff3cd', borderRadius: '12px', border: `2px solid ${formData.unlimited_stock ? '#28a745' : '#ffc107'}` }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', margin: 0 }}>
+              <div className={`unlimited-stock-toggle ${formData.unlimited_stock ? 'active' : ''}`}>
+                <label>
                   <input
                     type="checkbox"
                     checked={formData.unlimited_stock}
                     onChange={(e) => setFormData({ ...formData, unlimited_stock: e.target.checked })}
-                    style={{ width: '22px', height: '22px', cursor: 'pointer' }}
                   />
-                  <span style={{ fontWeight: '600', color: formData.unlimited_stock ? '#155724' : '#856404' }}>
+                  <span className="toggle-label">
                     Stock Ilimitado
                   </span>
                 </label>
-                <span style={{ fontSize: '13px', color: formData.unlimited_stock ? '#28a745' : '#856404', marginLeft: 'auto' }}>
+                <span className="toggle-status">
                   {formData.unlimited_stock ? '∞ Stock Ilimitado' : 'Completo'}
                 </span>
               </div>
@@ -311,50 +311,32 @@ function Ingredients() {
                       setFormData({ ...formData, imageFile: file });
                     }
                   }}
-                  style={{
-                    padding: '10px',
-                    border: '2px dashed #ccc',
-                    borderRadius: 'var(--radius-md)',
-                    width: '100%',
-                    cursor: 'pointer'
-                  }}
+                  className="file-upload-input"
                 />
                 {formData.imageFile && (
-                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className="image-preview">
                     <img
                       src={URL.createObjectURL(formData.imageFile)}
                       alt="Preview"
-                      style={{
-                        width: '80px',
-                        height: '80px',
-                        objectFit: 'cover',
-                        borderRadius: 'var(--radius-sm)',
-                        border: '2px solid var(--gold)'
-                      }}
+                      className="image-preview-img"
                     />
-                    <span style={{ color: '#666', fontSize: '14px' }}>
+                    <span className="text-muted text-sm">
                       {formData.imageFile.name}
                     </span>
                   </div>
                 )}
                 {editingIngredient && !formData.imageFile && editingIngredient.image && (
-                  <div style={{ marginTop: '10px' }}>
+                  <div className="image-preview">
                     <img
                       src={editingIngredient.image}
                       alt="Imagen actual"
-                      style={{
-                        width: '80px',
-                        height: '80px',
-                        objectFit: 'cover',
-                        borderRadius: 'var(--radius-sm)',
-                        border: '2px solid var(--gray)'
-                      }}
+                      className="image-preview-img image-preview-img--current"
                     />
-                    <p style={{ color: '#666', fontSize: '12px', marginTop: '5px' }}>Imagen actual</p>
+                    <span className="text-muted text-sm">Imagen actual</span>
                   </div>
                 )}
               </div>
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+              <button type="submit" className="btn btn-primary btn-full">
                 {editingIngredient ? 'Actualizar' : 'Crear'}
               </button>
             </form>

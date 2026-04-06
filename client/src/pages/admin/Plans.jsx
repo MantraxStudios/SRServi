@@ -5,9 +5,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const API = 'https://srservi2.srautomatic.com';
 
-import { 
-  faCrown, 
-  faCheck, 
+import {
+  faCrown,
+  faCheck,
   faTimes,
   faStore,
   faCalendarAlt,
@@ -64,7 +64,7 @@ function Plans() {
 
   const loadMercadoPagoScript = () => {
     if (scriptLoaded.current) return;
-    
+
     const script = document.createElement('script');
     script.src = 'https://sdk.mercadopago.com/js/v2';
     script.async = true;
@@ -79,7 +79,7 @@ function Plans() {
     const params = new URLSearchParams(window.location.search);
     const paymentStatus = params.get('payment');
     const paymentId = params.get('payment_id');
-    
+
     if (paymentStatus === 'success' || paymentId) {
       try {
         const response = await fetch(API + '/api/verify-payment', {
@@ -90,24 +90,24 @@ function Plans() {
           },
           body: JSON.stringify({ payment_id: paymentId })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success && data.activated) {
-          setMessage({ type: 'success', text: '¡Pago exitoso! Tu suscripción ha sido activada.' });
+          setMessage({ type: 'success', text: '\u00A1Pago exitoso! Tu suscripci\u00F3n ha sido activada.' });
         } else if (data.success) {
-          setMessage({ type: 'info', text: 'Pago recibido. Procesando tu suscripción...' });
+          setMessage({ type: 'info', text: 'Pago recibido. Procesando tu suscripci\u00F3n...' });
         }
       } catch (err) {
-        setMessage({ type: 'success', text: '¡Pago exitoso! Tu suscripción ha sido activada.' });
+        setMessage({ type: 'success', text: '\u00A1Pago exitoso! Tu suscripci\u00F3n ha sido activada.' });
       }
       fetchMyPlan();
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (paymentStatus === 'failure') {
-      setMessage({ type: 'error', text: 'El pago falló. Por favor intenta nuevamente.' });
+      setMessage({ type: 'error', text: 'El pago fall\u00F3. Por favor intenta nuevamente.' });
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (paymentStatus === 'pending') {
-      setMessage({ type: 'warning', text: 'El pago está pendiente. Te notificaremos cuando se confirme.' });
+      setMessage({ type: 'warning', text: 'El pago est\u00E1 pendiente. Te notificaremos cuando se confirme.' });
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   };
@@ -116,7 +116,7 @@ function Plans() {
     setSubscribing(planId);
     setMessage(null);
     setMpLoading(true);
-    
+
     try {
       const response = await fetch(API + '/api/create-subscription-preference', {
         method: 'POST',
@@ -126,20 +126,20 @@ function Plans() {
         },
         body: JSON.stringify({ planId, billingCycle })
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
         setMessage({ type: 'error', text: data.error || 'Error al procesar la solicitud' });
         return;
       }
-      
+
       if (data.isFree) {
         setMessage({ type: 'success', text: data.message });
         fetchMyPlan();
         return;
       }
-      
+
       if (data.init_point) {
         window.location.href = data.init_point;
       } else {
@@ -182,100 +182,61 @@ function Plans() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: '32px', color: colors.accent }} />
+      <div className="flex justify-center items-center" style={{ height: '50vh' }}>
+        <FontAwesomeIcon icon={faSpinner} spin style={{ color: colors.accent }} />
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: '700', color: colors.primary, marginBottom: '8px' }}>
-          <FontAwesomeIcon icon={faCrown} style={{ marginRight: '12px', color: colors.accent }} />
-          Planes y Suscripciones
+    <div className="plans-page">
+      <div className="plans-header">
+        <h1>
+          <FontAwesomeIcon icon={faCrown} style={{ color: colors.accent }} />
+          {' '}Planes y Suscripciones
         </h1>
-        <p style={{ color: '#666', fontSize: '14px' }}>
-          Gestiona tu plan y desbloquea más funcionalidades
+        <p>
+          Gestiona tu plan y desbloquea m&aacute;s funcionalidades
         </p>
       </div>
 
       {message && (
-        <div style={{
-          padding: '16px',
-          borderRadius: '8px',
-          marginBottom: '24px',
-          backgroundColor: message.type === 'success' ? 'rgba(40,167,69,0.1)' : 
-                          message.type === 'warning' ? 'rgba(255,193,7,0.1)' : 
-                          'rgba(220,53,69,0.1)',
-          color: message.type === 'success' ? '#28a745' : 
-                 message.type === 'warning' ? '#856404' : 
-                 '#dc3545',
-          border: `1px solid ${message.type === 'success' ? '#28a745' : 
-                                message.type === 'warning' ? '#ffc107' : 
-                                '#dc3545'}`
-        }}>
+        <div className={message.type === 'success' ? 'success' : message.type === 'warning' ? 'badge-warning' : 'error'}>
           {message.text}
         </div>
       )}
 
-      <div style={{
-        backgroundColor: colors.secondary,
-        borderRadius: '12px',
-        padding: '20px',
-        marginBottom: '32px',
-        border: `1px solid ${colors.primary}22`
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          <div style={{
-            backgroundColor: colors.accent,
-            color: colors.primary,
-            padding: '8px 16px',
-            borderRadius: '20px',
-            fontWeight: '700',
-            fontSize: '14px'
-          }}>
-            <FontAwesomeIcon icon={faCrown} style={{ marginRight: '8px' }} />
-            {getCurrentPlanName()}
+      <div className="plans-current-box">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="plans-current-badge" style={{ backgroundColor: colors.accent, color: colors.primary }}>
+            <FontAwesomeIcon icon={faCrown} />
+            {' '}{getCurrentPlanName()}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666' }}>
+          <div className="plans-current-info">
             <FontAwesomeIcon icon={faStore} />
             <span>{myPlan?.storeCount || 0} / {myPlan?.maxStores || 2} tiendas</span>
           </div>
           {myPlan?.plan?.ends_at && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666' }}>
+            <div className="plans-current-info">
               <FontAwesomeIcon icon={faCalendarAlt} />
               <span>Vence: {new Date(myPlan.plan.ends_at).toLocaleDateString('es-ES')}</span>
             </div>
           )}
         </div>
-        <div style={{
-          marginTop: '12px',
-          height: '8px',
-          backgroundColor: '#e0e0e0',
-          borderRadius: '4px',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            height: '100%',
+        <div className="plans-progress-bar">
+          <div className="plans-progress-fill" style={{
             width: `${Math.min(((myPlan?.storeCount || 0) / (myPlan?.maxStores || 2)) * 100, 100)}%`,
-            backgroundColor: myPlan?.storeCount >= myPlan?.maxStores ? colors.accent : colors.accent,
-            borderRadius: '4px',
-            transition: 'width 0.3s ease'
+            backgroundColor: colors.accent
           }} />
         </div>
       </div>
 
-      <div style={{ display: 'none' }}>
+      <div className="hidden">
         <button onClick={() => setBillingCycle('monthly')}>Mensual</button>
         <button onClick={() => setBillingCycle('yearly')}>Anual</button>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-        gap: '24px'
-      }}>
+      <div className="plans-grid">
         {plans.map((plan) => {
           const features = parseFeatures(plan.features);
           const price = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
@@ -285,95 +246,47 @@ function Plans() {
           return (
             <div
               key={plan.id}
-              style={{
-                backgroundColor: colors.secondary,
-                borderRadius: '16px',
-                padding: '24px',
-                border: currentPlan ? `2px solid ${colors.accent}` : `1px solid ${colors.primary}22`,
-                position: 'relative',
-                boxShadow: currentPlan ? `0 4px 20px ${colors.accent}33` : 'none',
-                transform: currentPlan ? 'scale(1.02)' : 'scale(1)',
-                transition: 'all 0.3s ease'
-              }}
+              className={`plan-card ${currentPlan ? 'current' : ''}`}
             >
               {currentPlan && (
-                <div style={{
-                  position: 'absolute',
-                  top: '-12px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  backgroundColor: colors.accent,
-                  color: colors.primary,
-                  padding: '4px 16px',
-                  borderRadius: '12px',
-                  fontSize: '12px',
-                  fontWeight: '700'
-                }}>
+                <div className="plan-card-badge" style={{ backgroundColor: colors.accent, color: colors.primary }}>
                   PLAN ACTUAL
                 </div>
               )}
 
-              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <h3 style={{ 
-                  fontSize: '22px', 
-                  fontWeight: '700', 
-                  color: colors.primary,
-                  marginBottom: '8px'
-                }}>
+              <div className="text-center">
+                <h3 className="plan-card-title">
                   {plan.name}
                 </h3>
-                <p style={{ color: '#666', fontSize: '14px', minHeight: '40px' }}>
+                <p className="plan-card-desc">
                   {plan.description}
                 </p>
               </div>
 
-              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <span style={{ 
-                  fontSize: '36px', 
-                  fontWeight: '700', 
-                  color: colors.primary 
-                }}>
+              <div className="text-center">
+                <span className="plan-card-price">
                   {formatPrice(price)}
                 </span>
                 {price > 0 && (
-                  <span style={{ color: '#666', fontSize: '14px' }}>
-                    /{billingCycle === 'yearly' ? 'año' : 'mes'}
+                  <span className="plan-card-period">
+                    /{billingCycle === 'yearly' ? 'a\u00F1o' : 'mes'}
                   </span>
                 )}
                 {plan.price_yearly > 0 && billingCycle === 'yearly' && (
-                  <div style={{ fontSize: '12px', color: '#28a745', marginTop: '4px' }}>
-                    Ahorra ${(plan.price_monthly * 12 - plan.price_yearly).toFixed(2)}/año
+                  <div className="plan-card-savings">
+                    Ahorra ${(plan.price_monthly * 12 - plan.price_yearly).toFixed(2)}/a\u00F1o
                   </div>
                 )}
               </div>
 
-              <ul style={{ 
-                listStyle: 'none', 
-                padding: 0, 
-                margin: '0 0 24px 0' 
-              }}>
-                <li style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '10px',
-                  padding: '8px 0',
-                  color: '#333',
-                  fontSize: '14px',
-                  borderBottom: `1px solid ${colors.primary}11`
-                }}>
+              <ul className="plan-features">
+                <li className="plan-feature-item">
                   <FontAwesomeIcon icon={faStore} style={{ color: colors.accent, width: '16px' }} />
-                  <strong>{plan.max_stores}</strong> tiendas máximo
+                  <strong>{plan.max_stores}</strong> tiendas m&aacute;ximo
                 </li>
                 {features.map((feature, index) => (
-                  <li key={index} style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '10px',
-                    padding: '8px 0',
-                    color: '#333',
-                    fontSize: '14px'
-                  }}>
-                    <FontAwesomeIcon icon={faCheck} style={{ color: '#28a745', width: '16px' }} />
+                  <li key={index} className="plan-feature-item">
+                    <FontAwesomeIcon icon={faCheck} className="icon-success" style={{ width: '16px' }} />
                     {feature}
                   </li>
                 ))}
@@ -382,39 +295,28 @@ function Plans() {
               <button
                 onClick={() => !currentPlan && !isFree && handleSubscribe(plan.id)}
                 disabled={currentPlan || subscribing === plan.id}
-                style={{
-                  width: '100%',
-                  padding: '14px',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontWeight: '700',
-                  fontSize: '14px',
-                  cursor: currentPlan || isFree ? 'default' : 'pointer',
-                  backgroundColor: currentPlan ? colors.accent : (isFree ? '#e0e0e0' : colors.primary),
-                  color: currentPlan ? colors.primary : (isFree ? '#666' : colors.secondary),
-                  transition: 'all 0.2s ease',
-                  opacity: subscribing === plan.id ? 0.7 : 1
-                }}
+                className={`plan-subscribe-btn ${currentPlan ? 'btn-accent' : isFree ? 'btn-secondary' : 'btn-primary'}`}
+                style={{ opacity: subscribing === plan.id ? 0.7 : 1 }}
               >
                 {subscribing === plan.id ? (
                   <>
-                    <FontAwesomeIcon icon={faSpinner} spin style={{ marginRight: '8px' }} />
-                    Procesando...
+                    <FontAwesomeIcon icon={faSpinner} spin />
+                    {' '}Procesando...
                   </>
                 ) : currentPlan ? (
                   <>
-                    <FontAwesomeIcon icon={faCheck} style={{ marginRight: '8px' }} />
-                    Plan Actual
+                    <FontAwesomeIcon icon={faCheck} />
+                    {' '}Plan Actual
                   </>
                 ) : isFree ? (
                   <>
-                    <FontAwesomeIcon icon={faCheck} style={{ marginRight: '8px' }} />
-                    Incluido
+                    <FontAwesomeIcon icon={faCheck} />
+                    {' '}Incluido
                   </>
                 ) : (
                   <>
-                    <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: '8px' }} />
-                    Suscribirse
+                    <FontAwesomeIcon icon={faCreditCard} />
+                    {' '}Suscribirse
                   </>
                 )}
               </button>
@@ -423,13 +325,8 @@ function Plans() {
         })}
       </div>
 
-      <div style={{
-        marginTop: '48px',
-        textAlign: 'center',
-        color: '#666',
-        fontSize: '13px'
-      }}>
-        <p>¿Preguntas? Contacta a <strong>soporte@srautomatic.com</strong></p>
+      <div className="plans-footer">
+        <p>{'?'}Preguntas? Contacta a <strong>soporte@srautomatic.com</strong></p>
       </div>
     </div>
   );
