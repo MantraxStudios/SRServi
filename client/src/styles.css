@@ -3448,6 +3448,18 @@ h1, h2, h3, h4, h5, h6 {
 .terminal-field-label { font-size: 13px; color: var(--muted-foreground); margin-bottom: 8px; }
 .terminal-field-value { background-color: var(--muted); border-radius: var(--radius-sm); padding: 10px; font-family: monospace; font-size: 13px; margin-bottom: 12px; word-break: break-all; }
 .terminal-field-value.masked { font-size: 12px; color: #888; }
+.store-card-btn--copied { background-color: #28a745 !important; color: #fff !important; border-color: #28a745 !important; }
+.store-limit-icon { color: #f57c00; font-size: 20px; }
+.store-limit-title { color: #f57c00; font-weight: 700; }
+.store-limit-text { margin: 4px 0 0 0; color: var(--muted-foreground); font-size: 13px; }
+.store-error-icon { color: var(--danger); font-size: 20px; margin-top: 2px; }
+.store-error-title { color: var(--danger); font-weight: 700; }
+.store-error-text { margin: 4px 0 8px 0; color: var(--muted-foreground); font-size: 13px; }
+.logo-placeholder { font-size: 24px; color: #999; }
+.logo-hint { margin: 6px 0 0 0; color: var(--muted-foreground); font-size: 11px; }
+.pos-terminal-icon { color: var(--gold); font-size: 14px; }
+.pos-dropdown-arrow { color: #888; font-size: 12px; transition: transform 0.2s; }
+.pos-dropdown-arrow.open { transform: rotate(180deg); }
 
 /* ============================================
    Animations
