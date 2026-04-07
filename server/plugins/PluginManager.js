@@ -88,8 +88,9 @@ class PluginManager {
     let rootPrefix = '';
 
     for (const entry of entries) {
-      if (entry.entryName.endsWith('plugin.json') && !entry.isDirectory) {
-        const parts = entry.entryName.split('/');
+      const normalized = entry.entryName.replace(/\\/g, '/');
+      if (normalized.endsWith('plugin.json') && !entry.isDirectory) {
+        const parts = normalized.split('/').filter(Boolean);
         if (parts.length <= 2) {
           pluginJsonEntry = entry;
           rootPrefix = parts.length === 2 ? parts[0] + '/' : '';
@@ -137,9 +138,12 @@ class PluginManager {
     let extractedCount = 0;
     for (const entry of entries) {
       if (entry.isDirectory) continue;
-      let entryPath = entry.entryName;
-      if (rootPrefix && entryPath.startsWith(rootPrefix)) {
-        entryPath = entryPath.slice(rootPrefix.length);
+      let entryPath = entry.entryName.replace(/\\/g, '/');
+      if (rootPrefix) {
+        const normalizedPrefix = rootPrefix.replace(/\\/g, '/');
+        if (entryPath.startsWith(normalizedPrefix)) {
+          entryPath = entryPath.slice(normalizedPrefix.length);
+        }
       }
       if (!entryPath) continue;
 
