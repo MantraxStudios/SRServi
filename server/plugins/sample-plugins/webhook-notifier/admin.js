@@ -32,7 +32,7 @@
 
         // Load logs
         function loadLogs() {
-          fetch('/api/plugins/webhook-notifier/logs')
+          fetch('/api/plugins/run/webhook-notifier/logs')
             .then(r => r.json())
             .then(logs => {
               var el = document.getElementById('wh-logs');
@@ -65,7 +65,7 @@
           testBtn.addEventListener('click', function() {
             testBtn.textContent = 'Enviando...';
             testBtn.disabled = true;
-            fetch('/api/plugins/webhook-notifier/test?store_id=' + ctx.storeId)
+            fetch('/api/plugins/run/webhook-notifier/test?store_id=' + ctx.storeId)
               .then(function(r) { return r.json(); })
               .then(function(data) {
                 testBtn.textContent = data.success ? 'Enviado!' : 'Error: ' + (data.error || 'unknown');

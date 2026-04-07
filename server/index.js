@@ -2542,6 +2542,11 @@ app.get('/api/admin/plugins', authenticateToken, async (req, res) => {
     const plugins = await pluginManager.getAllPlugins();
     res.json(plugins);
   } catch (error) {
+    console.error('❌ Error in GET /api/admin/plugins:', error);
+    // If table doesn't exist yet, return empty
+    if (error.message && error.message.includes("doesn't exist")) {
+      return res.json([]);
+    }
     res.status(500).json({ error: error.message });
   }
 });
@@ -2614,7 +2619,8 @@ app.get('/api/plugins/client-manifest', async (req, res) => {
     const manifest = await pluginManager.getClientManifest();
     res.json(manifest);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error in GET /api/plugins/client-manifest:', error);
+    res.json([]);
   }
 });
 

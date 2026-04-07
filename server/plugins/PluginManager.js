@@ -19,11 +19,11 @@ class PluginManager {
     this.pluginRouters = new Map();
     this.parentRouter = Router();
 
-    // Mount parent router for all plugin routes
-    app.use('/api/plugins', this.parentRouter);
+    // Mount parent router for plugin sub-routes (per-plugin API routes)
+    app.use('/api/plugins/run', this.parentRouter);
 
     // Serve plugin static files (admin.js, store.js, assets)
-    this.parentRouter.use('/static', (req, res, next) => {
+    app.use('/api/plugins/static', (req, res, next) => {
       const reqPath = req.path;
       const fullPath = path.join(PLUGINS_DIR, reqPath);
       const resolved = path.resolve(fullPath);
@@ -43,9 +43,50 @@ class PluginManager {
   }
 
   /**
+   * Ensure plugin tables exist (called before any DB operation)
+   */
+  async ensureTables() {
+    if (this._tablesReady) return;
+    try {
+      await this.pool.execute(`
+        CREATE TABLE IF NOT EXISTS plugins (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          plugin_id VARCHAR(100) UNIQUE NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          version VARCHAR(50) NOT NULL,
+          description TEXT,
+          author VARCHAR(255),
+          is_active BOOLEAN DEFAULT FALSE,
+          hooks JSON,
+          admin_slots JSON,
+          store_slots JSON,
+          settings_schema JSON,
+          has_routes BOOLEAN DEFAULT FALSE,
+          installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      await this.pool.execute(`
+        CREATE TABLE IF NOT EXISTS plugin_settings (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          plugin_id VARCHAR(100) NOT NULL,
+          store_id INT NOT NULL,
+          settings JSON NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY unique_plugin_store (plugin_id, store_id),
+          FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+        )
+      `);
+      this._tablesReady = true;
+    } catch (error) {
+      console.error('🔌 Error ensuring plugin tables:', error.message);
+    }
+  }
+
+  /**
    * Install a plugin from a ZIP buffer
    */
   async install(zipBuffer) {
+    await this.ensureTables();
     const zip = new AdmZip(zipBuffer);
     const entries = zip.getEntries();
 
@@ -162,6 +203,7 @@ class PluginManager {
    * Activate a plugin - load server.js, register hooks/routes
    */
   async activate(pluginId) {
+    await this.ensureTables();
     const [rows] = await this.pool.execute(
       'SELECT * FROM plugins WHERE plugin_id = ?', [pluginId]
     );
@@ -187,7 +229,7 @@ class PluginManager {
           const router = Router();
           this.pluginRouters.set(pluginId, router);
 
-          // Route delegation
+          // Route delegation under /api/plugins/run/<pluginId>/
           this.parentRouter.use(`/${pluginId}`, (req, res, next) => {
             const pluginRouter = this.pluginRouters.get(pluginId);
             if (pluginRouter) {
@@ -287,6 +329,7 @@ class PluginManager {
    * Load all active plugins on startup
    */
   async loadAllActive() {
+    await this.ensureTables();
     try {
       const [rows] = await this.pool.execute(
         'SELECT plugin_id FROM plugins WHERE is_active = TRUE'
@@ -308,6 +351,7 @@ class PluginManager {
    * Get all plugins from DB
    */
   async getAllPlugins() {
+    await this.ensureTables();
     const [rows] = await this.pool.execute('SELECT * FROM plugins ORDER BY name');
     return rows.map(row => ({
       ...row,
@@ -322,6 +366,7 @@ class PluginManager {
    * Get client manifest - active plugins metadata for frontend
    */
   async getClientManifest() {
+    await this.ensureTables();
     const [rows] = await this.pool.execute(
       'SELECT plugin_id, name, version, admin_slots, store_slots, settings_schema FROM plugins WHERE is_active = TRUE'
     );
