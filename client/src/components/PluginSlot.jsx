@@ -1,44 +1,34 @@
 import { useRef, useEffect } from 'react';
 import { usePlugins } from '../context/PluginContext';
 
-/**
- * PluginSlot - Renders plugin content at designated positions
- *
- * Usage: <PluginSlot name="store-footer" context={{ storeId: 123 }} />
- *
- * Plugins provide a render(container, context) function that writes
- * vanilla DOM into the container. This avoids React version conflicts.
- */
 function PluginSlot({ name, context = {} }) {
   const containerRef = useRef(null);
-  const { getPluginsForSlot } = usePlugins();
-  const plugins = getPluginsForSlot(name);
+  const { registry } = usePlugins();
 
   useEffect(() => {
-    if (!containerRef.current || plugins.length === 0) return;
+    if (!containerRef.current) return;
 
     const container = containerRef.current;
     container.innerHTML = '';
 
-    for (const plugin of plugins) {
-      if (typeof plugin.render === 'function') {
+    for (const [pluginId, pluginDef] of Object.entries(registry)) {
+      const slotDef = pluginDef?.slots?.[name];
+      if (slotDef && typeof slotDef.render === 'function') {
         try {
           const wrapper = document.createElement('div');
-          wrapper.dataset.pluginSlot = `${name}:${plugin.pluginId}`;
+          wrapper.dataset.pluginSlot = `${name}:${pluginId}`;
           container.appendChild(wrapper);
-          plugin.render(wrapper, context);
+          slotDef.render(wrapper, context);
         } catch (err) {
-          console.error(`Plugin "${plugin.pluginId}" error in slot "${name}":`, err);
+          console.error(`Plugin "${pluginId}" error in slot "${name}":`, err);
         }
       }
     }
 
     return () => {
-      container.innerHTML = '';
+      if (containerRef.current) containerRef.current.innerHTML = '';
     };
-  }, [name, plugins, context]);
-
-  if (plugins.length === 0) return null;
+  }, [name, registry]);
 
   return <div ref={containerRef} className="plugin-slot" data-slot={name} />;
 }

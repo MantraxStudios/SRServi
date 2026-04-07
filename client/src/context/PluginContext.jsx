@@ -53,21 +53,24 @@ export function PluginProvider({ children, mode = 'admin' }) {
       const scriptUrl = mode === 'admin' ? plugin.adminJs : plugin.storeJs;
       if (!scriptUrl) continue;
 
+      const scriptKey = `${plugin.id}-${mode}`;
+
       // Check if already loaded
-      if (document.querySelector(`script[data-plugin="${plugin.id}"]`)) {
+      if (document.querySelector(`script[data-plugin-key="${scriptKey}"]`)) {
         continue;
       }
 
       pending++;
       const script = document.createElement('script');
-      script.src = scriptUrl;
-      script.dataset.plugin = plugin.id;
+      script.src = scriptUrl + '?v=' + plugin.version;
+      script.dataset.pluginKey = scriptKey;
       script.onload = () => {
+        console.log(`Plugin script loaded: ${plugin.id} (${mode})`);
         pending--;
         checkDone();
       };
-      script.onerror = () => {
-        console.error(`Error loading plugin script: ${plugin.id}`);
+      script.onerror = (err) => {
+        console.error(`Error loading plugin script: ${plugin.id} (${mode})`, err);
         pending--;
         checkDone();
       };
