@@ -384,12 +384,12 @@ function Store() {
 
   useEffect(() => {
     if (barcodeInputRef.current && !pinModalOpen) {
-      barcodeInputRef.current.focus();
+      barcodeInputRef.current.focus({ preventScroll: true });
     }
     const interval = setInterval(() => {
       if (pinModalOpen) return;
       if (barcodeInputRef.current && document.activeElement !== barcodeInputRef.current) {
-        barcodeInputRef.current.focus();
+        barcodeInputRef.current.focus({ preventScroll: true });
       }
     }, 1000);
     return () => clearInterval(interval);
@@ -1246,7 +1246,6 @@ function Store() {
           }
         }}
         className="barcode-input"
-        autoFocus
       />
 
       {ingredientsModalOpen && selectedProduct && (
