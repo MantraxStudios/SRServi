@@ -1,0 +1,38 @@
+{
+  "id": "welcome-animation",
+  "name": "Welcome Animation",
+  "version": "1.0.0",
+  "description": "Muestra una animación de bienvenida al entrar a la tienda",
+  "author": "SRServi",
+  "hooks": [],
+  "adminSlots": [],
+  "storeSlots": ["store-header"],
+  "settings": {
+    "title": {
+      "type": "string",
+      "label": "Título de bienvenida",
+      "default": "Bienvenido"
+    },
+    "subtitle": {
+      "type": "string",
+      "label": "Subtítulo",
+      "default": "Descubre nuestro menú"
+    },
+    "duration": {
+      "type": "number",
+      "label": "Duración (segundos)",
+      "default": 3
+    },
+    "bg_color": {
+      "type": "string",
+      "label": "Color de fondo (hex)",
+      "default": ""
+    },
+    "emoji": {
+      "type": "string",
+      "label": "Emoji central",
+      "default": "👋"
+    }
+  },
+  "routes": true
+}
