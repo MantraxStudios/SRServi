@@ -17,7 +17,10 @@ import {
   faArrowLeft,
   faArrowRight,
   faSearch,
-  faExclamationTriangle
+  faExclamationTriangle,
+  faMotorcycle,
+  faConciergeBell,
+  faBuilding
 } from '@fortawesome/free-solid-svg-icons';
 import { getImageUrl } from '../config.js';
 
@@ -673,31 +676,24 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
               </div>
 
               {/* Order type */}
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                <button
-                  onClick={() => setOrderType('serve')}
-                  style={{
-                    flex: 1, padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem',
-                    background: orderType === 'serve' ? 'rgba(212,175,55,0.2)' : 'rgba(255,255,255,0.04)',
-                    color: orderType === 'serve' ? '#D4AF37' : 'rgba(255,255,255,0.5)',
-                    outline: orderType === 'serve' ? '1px solid rgba(212,175,55,0.4)' : '1px solid rgba(255,255,255,0.06)'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faUtensils} style={{ marginRight: '0.35rem' }} />
-                  Servir
-                </button>
-                <button
-                  onClick={() => setOrderType('takeout')}
-                  style={{
-                    flex: 1, padding: '0.5rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem',
-                    background: orderType === 'takeout' ? 'rgba(212,175,55,0.2)' : 'rgba(255,255,255,0.04)',
-                    color: orderType === 'takeout' ? '#D4AF37' : 'rgba(255,255,255,0.5)',
-                    outline: orderType === 'takeout' ? '1px solid rgba(212,175,55,0.4)' : '1px solid rgba(255,255,255,0.06)'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faShoppingBag} style={{ marginRight: '0.35rem' }} />
-                  Para llevar
-                </button>
+              <div className="worker-pos-order-type-grid">
+                {[
+                  { value: 'serve', label: 'Servir aqui', icon: faUtensils },
+                  { value: 'takeout', label: 'Para llevar', icon: faShoppingBag },
+                  { value: 'delivery', label: 'Delivery', icon: faMotorcycle },
+                  { value: 'pedidosya', label: 'PedidosYa', icon: faMotorcycle },
+                  { value: 'rappi', label: 'Rappi', icon: faMotorcycle },
+                  { value: 'mostrador', label: 'Mostrador', icon: faConciergeBell }
+                ].map(type => (
+                  <button
+                    key={type.value}
+                    onClick={() => setOrderType(type.value)}
+                    className={`worker-pos-type-btn${orderType === type.value ? ' active' : ''}`}
+                  >
+                    <FontAwesomeIcon icon={type.icon} />
+                    <span>{type.label}</span>
+                  </button>
+                ))}
               </div>
 
               {/* Terminal selector (for card) */}

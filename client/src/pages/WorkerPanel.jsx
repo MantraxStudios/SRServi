@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
 import WorkerNewOrder from '../components/WorkerNewOrder';
 
@@ -292,6 +292,18 @@ function WorkerPanel() {
     }
   };
 
+  const getOrderTypeInfo = (type) => {
+    switch (type) {
+      case 'serve': return { label: 'Aqui', icon: faUtensils, cls: 'serve' };
+      case 'takeout': return { label: 'Llevar', icon: faShoppingBag, cls: 'takeout' };
+      case 'delivery': return { label: 'Delivery', icon: faMotorcycle, cls: 'delivery' };
+      case 'pedidosya': return { label: 'PedidosYa', icon: faMotorcycle, cls: 'pedidosya' };
+      case 'rappi': return { label: 'Rappi', icon: faMotorcycle, cls: 'rappi' };
+      case 'mostrador': return { label: 'Mostrador', icon: faConciergeBell, cls: 'mostrador' };
+      default: return { label: type || 'Aqui', icon: faUtensils, cls: 'serve' };
+    }
+  };
+
   const getOrderDisplayNumber = (order) => {
     if (order.order_number) return order.order_number;
     const id = order.id || 0;
@@ -432,9 +444,9 @@ function WorkerPanel() {
                 >
                   <div className="worker-order-header">
                     <h3 className="worker-order-number">{getOrderDisplayNumber(order)}</h3>
-                    <div className={`worker-order-type ${order.order_type === 'takeout' ? 'takeout' : 'serve'}`}>
-                      <FontAwesomeIcon icon={order.order_type === 'takeout' ? faBox : faClock} />
-                      {order.order_type === 'takeout' ? 'Llevar' : 'Aqui'}
+                    <div className={`worker-order-type ${getOrderTypeInfo(order.order_type).cls}`}>
+                      <FontAwesomeIcon icon={getOrderTypeInfo(order.order_type).icon} />
+                      {getOrderTypeInfo(order.order_type).label}
                     </div>
                   </div>
                   <div className="worker-order-info">
@@ -557,9 +569,9 @@ function WorkerPanel() {
                 >
                   <div className="worker-order-header">
                     <h3 className="worker-order-number">{getOrderDisplayNumber(order)}</h3>
-                    <div className={`worker-order-type ${order.order_type === 'takeout' ? 'takeout' : 'serve'}`}>
-                      <FontAwesomeIcon icon={order.order_type === 'takeout' ? faBox : faClock} />
-                      {order.order_type === 'takeout' ? 'Llevar' : 'Aqui'}
+                    <div className={`worker-order-type ${getOrderTypeInfo(order.order_type).cls}`}>
+                      <FontAwesomeIcon icon={getOrderTypeInfo(order.order_type).icon} />
+                      {getOrderTypeInfo(order.order_type).label}
                     </div>
                   </div>
                   <div className="worker-order-info">
@@ -621,8 +633,8 @@ function WorkerPanel() {
             <div className="worker-detail-row">
               <span className="worker-detail-label">Tipo:</span>
               <span className="worker-detail-value flex items-center gap-2">
-                <FontAwesomeIcon icon={selectedOrder.order_type === 'takeout' ? faBox : faClock} />
-                {selectedOrder.order_type === 'takeout' ? 'Para Llevar' : 'Para Comer Aqui'}
+                <FontAwesomeIcon icon={getOrderTypeInfo(selectedOrder.order_type).icon} />
+                {getOrderTypeInfo(selectedOrder.order_type).label}
               </span>
             </div>
             <div className="worker-detail-row">
