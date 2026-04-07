@@ -22,9 +22,9 @@ function WorkerPanel() {
   const [activeTab, setActiveTab] = useState('active');
 
   const colors = storeColors || {
-    primary: '#1a1a2e',
+    primary: '#0a0a0a',
     secondary: '#ffffff',
-    accent: '#e94560'
+    accent: '#D4AF37'
   };
 
   useEffect(() => {
