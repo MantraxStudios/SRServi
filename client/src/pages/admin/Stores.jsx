@@ -418,7 +418,7 @@ function Stores() {
                         {logoPreview || formData.logo_url ? (
                           <img src={logoPreview || getImageUrl(formData.logo_url)} alt="Logo" />
                         ) : (
-                          <span className="logo-placeholder">{'\u{1F5BC}\u{FE0F}'}</span>
+                          <span className="logo-placeholder">{'\🖼\️'}</span>
                         )}
                       </div>
                       <div className="flex-1">
@@ -549,7 +549,7 @@ function Stores() {
                     className="currency-dropdown-btn"
                   >
                     <span>
-                      {CURRENCIES.find(c => c.code === formData.currency_code)?.flag || '\u{1F3F3}\u{FE0F}'}
+                      {CURRENCIES.find(c => c.code === formData.currency_code)?.flag || '\🏳\️'}
                       {' '}
                       <strong>{formData.currency_symbol}</strong> {formData.currency_code} - {formData.currency_name}
                     </span>
@@ -568,7 +568,7 @@ function Stores() {
                           <span className="font-semibold">{currency.code}</span>
                           <span className="text-sm text-muted">{currency.name}</span>
                           {formData.currency_code === currency.code && (
-                            <span className="text-muted">{'\u2713'}</span>
+                            <span className="text-muted">{'\✓'}</span>
                           )}
                         </div>
                       ))}

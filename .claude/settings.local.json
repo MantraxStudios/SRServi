@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(grep -rn '\\\\\\\\u[0-9a-fA-F]' pages/ components/ --include=\"*.jsx\")",
+      "Bash(node -e ':*)"
     ]
   }
 }

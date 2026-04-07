@@ -223,7 +223,7 @@ function Store() {
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error('C\u00f3digo no encontrado');
+          throw new Error('C\ódigo no encontrado');
         }
         if (response.status === 403) {
           const data = await response.json();
@@ -305,7 +305,7 @@ function Store() {
     currency: {
       symbol: store.store.currency_symbol || '$',
       code: store.store.currency_code || 'USD',
-      name: store.store.currency_name || 'D\u00f3lar Estadounidense'
+      name: store.store.currency_name || 'D\ólar Estadounidense'
     }
   } : {
     primary: '#000000',
@@ -315,7 +315,7 @@ function Store() {
     currency: {
       symbol: '$',
       code: 'USD',
-      name: 'D\u00f3lar Estadounidense'
+      name: 'D\ólar Estadounidense'
     }
   };
 
@@ -407,7 +407,7 @@ function Store() {
         const ingredientConfig = selectedProduct.ingredients.find(i => i.id === ingredient.id);
         const maxSelections = ingredientConfig?.max_selections || 1;
         if (prev.selectedIngredients.length >= maxSelections) {
-          alert(`Solo puedes seleccionar m\u00e1ximo ${maxSelections} ingrediente(s) de "${ingredientConfig.name}"`);
+          alert(`Solo puedes seleccionar m\áximo ${maxSelections} ingrediente(s) de "${ingredientConfig.name}"`);
           return prev;
         }
         return {
@@ -493,7 +493,7 @@ function Store() {
     );
 
     if (missingRequired.length > 0) {
-      alert(`Por favor selecciona los siguientes ingredientes obligatorios:\n${missingRequired.map(i => '\u2022 ' + i.name).join('\n')}`);
+      alert(`Por favor selecciona los siguientes ingredientes obligatorios:\n${missingRequired.map(i => '\• ' + i.name).join('\n')}`);
       return;
     }
     setIngredientsModalOpen(false);
@@ -554,7 +554,7 @@ function Store() {
 
   const copyCode = () => {
     navigator.clipboard.writeText(code);
-    alert('C\u00f3digo copiado: ' + code);
+    alert('C\ódigo copiado: ' + code);
   };
 
   const handleCheckout = async () => {
@@ -576,7 +576,7 @@ function Store() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'No se pudo aplicar el cup\u00f3n');
+        throw new Error(data.error || 'No se pudo aplicar el cup\ón');
       }
       setAppliedCoupon(data);
       setCouponCodeInput(data.coupon_code || couponCodeInput.trim().toUpperCase());
@@ -596,7 +596,7 @@ function Store() {
   const processPayment = async (selectedMethod = paymentMethod) => {
     if (cart.length === 0) return;
     if (selectedMethod === 'card' && !selectedTerminalId) {
-      alert('No hay m\u00e1quina Point asignada para esta sesi\u00f3n');
+      alert('No hay m\áquina Point asignada para esta sesi\ón');
       return;
     }
 
@@ -910,10 +910,10 @@ function Store() {
             <FontAwesomeIcon icon={faBox} style={{ color: colors.accent }} />
           </div>
           <h2>
-            Esta tienda a\u00fan no tiene productos
+            Esta tienda a\ún no tiene productos
           </h2>
           <p>
-            El propietario a\u00fan no ha agregado productos a su cat\u00e1logo. \u00a1Vuelve pronto!
+            El propietario a\ún no ha agregado productos a su cat\álogo. \¡Vuelve pronto!
           </p>
         </div>
       )}
@@ -993,7 +993,7 @@ function Store() {
             {notification.agotado ? (
               <div className="toast-status-soldout">Agotado</div>
             ) : (
-              <div className="toast-status-added">Agregado \u2713</div>
+              <div className="toast-status-added">Agregado \✓</div>
             )}
           </div>
         </div>
@@ -1119,7 +1119,7 @@ function Store() {
                         fontWeight: '600',
                         zIndex: 2,
                       }}>
-                        \u221e Stock
+                        \∞ Stock
                       </div>
                     )}
                     {ingredient.image ? (
@@ -1143,7 +1143,7 @@ function Store() {
                         justifyContent: 'center',
                         borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
                       }}>
-                        <span style={{ color: 'var(--store-accent)', fontSize: '56px' }}>\ud83c\udf7d\ufe0f</span>
+                        <span style={{ color: 'var(--store-accent)', fontSize: '56px' }}>\�\�\️</span>
                       </div>
                     )}
                     <div className="text-center" style={{ padding: '8px' }}>
@@ -1181,7 +1181,7 @@ function Store() {
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}>
-                        <span style={{ color: 'var(--store-accent)', fontSize: '12px', fontWeight: 'bold' }}>\u2713</span>
+                        <span style={{ color: 'var(--store-accent)', fontSize: '12px', fontWeight: 'bold' }}>\✓</span>
                       </div>
                     )}
                   </div>
@@ -1214,7 +1214,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  {selectedProduct.extras?.length > 0 ? 'Siguiente \u203a' : (addingToCart ? '\u2713 \u00a1Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`)}
+                  {selectedProduct.extras?.length > 0 ? 'Siguiente \›' : (addingToCart ? '\✓ \¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`)}
                 </button>
               )}
             </div>
@@ -1318,7 +1318,7 @@ function Store() {
                         fontWeight: '600',
                         zIndex: 2,
                       }}>
-                        \u221e Stock
+                        \∞ Stock
                       </div>
                     )}
                     {extra.image ? (
@@ -1342,7 +1342,7 @@ function Store() {
                         justifyContent: 'center',
                         borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
                       }}>
-                        <span style={{ color: 'var(--store-accent)', fontSize: '56px' }}>\ud83c\udf7d\ufe0f</span>
+                        <span style={{ color: 'var(--store-accent)', fontSize: '56px' }}>\�\�\️</span>
                       </div>
                     )}
                     <div className="text-center" style={{ padding: '8px' }}>
@@ -1380,7 +1380,7 @@ function Store() {
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}>
-                        <span style={{ color: 'var(--store-accent)', fontSize: '12px', fontWeight: 'bold' }}>\u2713</span>
+                        <span style={{ color: 'var(--store-accent)', fontSize: '12px', fontWeight: 'bold' }}>\✓</span>
                       </div>
                     )}
                   </div>
@@ -1413,7 +1413,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  {addingToCart ? '\u2713 \u00a1Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`}
+                  {addingToCart ? '\✓ \¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`}
                 </button>
               )}
             </div>
@@ -1421,117 +1421,66 @@ function Store() {
         </div>
       )}
 
-      <div className={`cart-drawer${cartOpen ? ' open' : ''}`} style={{
-        position: 'fixed',
-        bottom: cartOpen ? 0 : '-85%',
-        left: 0,
-        right: 0,
-        top: 'auto',
-        height: '85%',
-        maxWidth: 'none',
-        transform: 'none',
-        borderTopLeftRadius: '24px',
-        borderTopRightRadius: '24px',
-        transition: 'bottom 0.3s ease',
-        zIndex: 1001
-      }}>
-        <div className="cart-header">
-          <h2 style={{ margin: 0 }}>
-            \ud83d\uded2 Mi Pedido
-          </h2>
-          <button
-            className="modal-close"
-            style={{ color: '#fff' }}
-            onClick={() => setCartOpen(false)}
-          >
+
+      {cartOpen && (
+        <div className="cart-overlay" onClick={() => setCartOpen(false)} />
+      )}
+
+      <div className={`store-cart-sheet${cartOpen ? ' open' : ''}`}>
+        <div className="store-cart-handle" onClick={() => setCartOpen(false)}>
+          <div className="store-cart-handle-bar" />
+        </div>
+
+        <div className="store-cart-header">
+          <div className="store-cart-header-left">
+            <FontAwesomeIcon icon={faShoppingCart} />
+            <h2>Mi Pedido</h2>
+          </div>
+          <button className="store-cart-close" onClick={() => setCartOpen(false)}>
             <FontAwesomeIcon icon={faTimes} />
           </button>
         </div>
 
-        <div className="cart-items">
+        <div className="store-cart-body">
           {cart.length === 0 ? (
-            <div className="text-center" style={{ padding: '60px 20px', color: '#6c757d' }}>
-              <div style={{ fontSize: '80px', marginBottom: '20px' }}>\ud83d\uded2</div>
-              <p className="font-semibold" style={{ fontSize: '18px' }}>
-                Tu carrito est\u00e1 vac\u00edo
-              </p>
-              <p className="text-sm" style={{ marginTop: '10px' }}>
-                Agrega productos para comenzar
-              </p>
+            <div className="store-cart-empty">
+              <FontAwesomeIcon icon={faShoppingCart} className="store-cart-empty-icon" />
+              <p className="store-cart-empty-title">Tu carrito esta vacio</p>
+              <p className="store-cart-empty-text">Agrega productos para comenzar</p>
             </div>
           ) : (
             <>
               {cart.map(item => (
-                <div className="cart-item" key={item.id}>
-                  <div style={{
-                    width: '80px',
-                    height: '80px',
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                    backgroundColor: '#f8f9fa',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <span style={{ fontSize: '40px' }}>\ud83c\udf7d\ufe0f</span>
+                <div className="store-cart-item" key={item.id}>
+                  <div className="store-cart-item-icon">
+                    <FontAwesomeIcon icon={faBox} />
                   </div>
-
-                  <div className="cart-item-info">
-                    <div className="flex justify-between" style={{ alignItems: 'flex-start', marginBottom: '8px' }}>
-                      <h4 className="cart-item-name" style={{ fontSize: '18px' }}>
-                        {item.product_name}
-                      </h4>
-                      <button
-                        onClick={() => removeFromCart(item.id)}
-                        style={{
-                          backgroundColor: '#fee2e2',
-                          border: 'none',
-                          color: '#dc3545',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
+                  <div className="store-cart-item-content">
+                    <div className="store-cart-item-top">
+                      <h4 className="store-cart-item-name">{item.product_name}</h4>
+                      <button className="store-cart-item-remove" onClick={() => removeFromCart(item.id)}>
                         <FontAwesomeIcon icon={faTimes} />
                       </button>
                     </div>
 
                     {item.selected_ingredients && item.selected_ingredients.length > 0 && (
-                      <div className="cart-item-details">
-                        {item.selected_ingredients.join(', ')}
-                      </div>
+                      <div className="store-cart-item-extras">{item.selected_ingredients.join(', ')}</div>
                     )}
-
                     {item.selected_extras && item.selected_extras.length > 0 && (
-                      <div className="cart-item-details">
-                        + {item.selected_extras.join(', ')}
-                      </div>
+                      <div className="store-cart-item-extras">+ {item.selected_extras.join(', ')}</div>
                     )}
 
-                    <div className="flex justify-between items-center" style={{ marginTop: '12px' }}>
-                      <div className="cart-item-quantity">
-                        <button onClick={() => updateQuantity(item.id, -1)}>
-                          -
+                    <div className="store-cart-item-bottom">
+                      <div className="store-cart-qty">
+                        <button className="store-cart-qty-btn" onClick={() => updateQuantity(item.id, -1)}>
+                          <FontAwesomeIcon icon={faMinus} />
                         </button>
-                        <span className="font-bold" style={{
-                          color: 'var(--store-primary)',
-                          fontSize: '18px',
-                          minWidth: '30px',
-                          textAlign: 'center'
-                        }}>
-                          {item.quantity}
-                        </span>
-                        <button onClick={() => updateQuantity(item.id, 1)}>
-                          +
+                        <span className="store-cart-qty-value">{item.quantity}</span>
+                        <button className="store-cart-qty-btn" onClick={() => updateQuantity(item.id, 1)}>
+                          <FontAwesomeIcon icon={faPlus} />
                         </button>
                       </div>
-                      <div className="cart-item-price" style={{ fontSize: '20px', color: 'var(--store-accent)' }}>
+                      <div className="store-cart-item-total">
                         {colors.currency.symbol}{Number(item.total).toFixed(2)}
                       </div>
                     </div>
@@ -1539,74 +1488,34 @@ function Store() {
                 </div>
               ))}
 
-              <div style={{
-                backgroundColor: '#fff',
-                borderRadius: '16px',
-                padding: '16px',
-                marginTop: '20px',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-                border: '1px solid #e9ecef'
-              }}>
-                <div className="flex justify-between" style={{ marginBottom: '12px', fontSize: '16px', color: '#6c757d' }}>
-                  <span>Subtotal:</span>
-                  <span className="font-semibold" style={{ color: '#212529' }}>
-                    {colors.currency.symbol}{Number(getCartTotal()).toFixed(2)}
-                  </span>
+              <div className="store-cart-summary">
+                <div className="store-cart-summary-row">
+                  <span>Subtotal</span>
+                  <span className="font-semibold">{colors.currency.symbol}{Number(getCartTotal()).toFixed(2)}</span>
                 </div>
-
                 {appliedCoupon && (
-                  <div className="flex justify-between font-semibold" style={{
-                    marginBottom: '12px',
-                    fontSize: '14px',
-                    color: '#28a745'
-                  }}>
-                    <span>Descuento ({appliedCoupon.coupon_code}):</span>
+                  <div className="store-cart-summary-row store-cart-discount">
+                    <span>Descuento ({appliedCoupon.coupon_code})</span>
                     <span>-{colors.currency.symbol}{Number(appliedCoupon.discount_total || 0).toFixed(2)}</span>
                   </div>
                 )}
-
-                <div className="cart-total" style={{
-                  paddingTop: '12px',
-                  borderTop: '2px dashed #dee2e6',
-                  fontSize: '20px',
-                  color: 'var(--store-primary)'
-                }}>
-                  <span>Total:</span>
+                <div className="store-cart-summary-total">
+                  <span>Total</span>
                   <span>{colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}</span>
                 </div>
-
-                <div style={{ marginTop: '16px' }}>
+                <div className="store-cart-coupon">
                   <input
                     type="text"
                     value={couponCodeInput}
                     onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
-                    placeholder="\u00bfTienes un cup\u00f3n?"
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      border: '2px solid #dee2e6',
-                      fontSize: '14px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
+                    placeholder="Codigo de cupon"
+                    className="store-cart-coupon-input"
                   />
                   {appliedCoupon ? (
-                    <button
-                      onClick={removeCoupon}
-                      className="btn btn-danger btn-full"
-                      style={{ marginTop: '8px' }}
-                    >
-                      Quitar cup\u00f3n
-                    </button>
+                    <button onClick={removeCoupon} className="btn btn-danger btn-sm">Quitar</button>
                   ) : (
-                    <button
-                      onClick={applyCoupon}
-                      disabled={couponLoading || !couponCodeInput.trim()}
-                      className="btn btn-primary btn-full"
-                      style={{ marginTop: '8px' }}
-                    >
-                      {couponLoading ? 'Aplicando...' : 'Aplicar cup\u00f3n'}
+                    <button onClick={applyCoupon} disabled={couponLoading || !couponCodeInput.trim()} className="btn btn-secondary btn-sm">
+                      {couponLoading ? '...' : 'Aplicar'}
                     </button>
                   )}
                 </div>
@@ -1616,99 +1525,43 @@ function Store() {
         </div>
 
         {cart.length > 0 && (
-          <div className="cart-footer">
-            <div style={{ marginBottom: '16px' }}>
-              <label className="font-bold text-center" style={{
-                display: 'block',
-                fontSize: '16px',
-                marginBottom: '12px'
-              }}>
-                \u00bfC\u00f3mo lo quieres?
-              </label>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout ? '1fr 1fr' : '1fr',
-                gap: '12px'
-              }}>
+          <div className="store-cart-footer">
+            <div className="store-cart-order-type">
+              <label className="store-cart-order-label">Tipo de pedido</label>
+              <div className={`store-cart-type-grid${selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout ? '' : ' single'}`}>
                 {selectedConfiguration?.allow_serve && (
                   <button
                     onClick={() => setOrderType('serve')}
-                    className="btn btn-lg"
-                    style={{
-                      backgroundColor: orderType === 'serve' ? 'var(--store-primary)' : '#fff',
-                      color: orderType === 'serve' ? '#fff' : '#212529',
-                      border: `2px solid ${orderType === 'serve' ? 'var(--store-accent)' : '#dee2e6'}`,
-                      borderRadius: '14px',
-                      flexDirection: 'column',
-                      boxShadow: orderType === 'serve' ? '0 4px 12px rgba(0,0,0,0.2)' : 'none'
-                    }}
+                    className={`store-cart-type-btn${orderType === 'serve' ? ' active' : ''}`}
                   >
-                    <span style={{ fontSize: '32px' }}>\ud83c\udf7d\ufe0f</span>
-                    <span>Comer aqu\u00ed</span>
+                    <FontAwesomeIcon icon={faBox} />
+                    <span>Comer aqui</span>
                   </button>
                 )}
                 {selectedConfiguration?.allow_takeout && (
                   <button
                     onClick={() => setOrderType('takeout')}
-                    className="btn btn-lg"
-                    style={{
-                      backgroundColor: orderType === 'takeout' ? 'var(--store-primary)' : '#fff',
-                      color: orderType === 'takeout' ? '#fff' : '#212529',
-                      border: `2px solid ${orderType === 'takeout' ? 'var(--store-accent)' : '#dee2e6'}`,
-                      borderRadius: '14px',
-                      flexDirection: 'column',
-                      boxShadow: orderType === 'takeout' ? '0 4px 12px rgba(0,0,0,0.2)' : 'none'
-                    }}
+                    className={`store-cart-type-btn${orderType === 'takeout' ? ' active' : ''}`}
                   >
-                    <span style={{ fontSize: '32px' }}>\ud83e\udd61</span>
+                    <FontAwesomeIcon icon={faShoppingCart} />
                     <span>Llevar</span>
                   </button>
                 )}
               </div>
-              {!selectedConfiguration?.allow_serve && !selectedConfiguration?.allow_takeout && (
-                <p className="text-center" style={{ color: '#dc3545', padding: '20px' }}>
-                  No hay opciones de pedido disponibles
-                </p>
-              )}
             </div>
 
-            <button
-              onClick={handleCheckout}
-              className="btn btn-lg btn-full"
-              style={{
-                backgroundColor: 'var(--store-accent)',
-                color: 'var(--store-primary)',
-                borderRadius: '14px',
-                fontWeight: '700',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
-              }}
-            >
-              <span style={{ fontSize: '20px' }}>\u2713</span>
+            <button onClick={handleCheckout} className="store-cart-checkout-btn">
+              <FontAwesomeIcon icon={faCheck} />
               Confirmar Pedido - {colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}
             </button>
 
-            <button
-              onClick={() => setCart([])}
-              className="btn btn-full"
-              style={{
-                marginTop: '10px',
-                backgroundColor: 'transparent',
-                color: '#dc3545',
-                border: 'none'
-              }}
-            >
+            <button onClick={() => setCart([])} className="store-cart-clear-btn">
+              <FontAwesomeIcon icon={faTimesCircle} />
               Vaciar carrito
             </button>
           </div>
         )}
       </div>
-
-      {cartOpen && (
-        <div
-          className="cart-overlay"
-          onClick={() => setCartOpen(false)}
-        />
-      )}
 
       {paymentModalOpen && (
         <div className="modal-overlay">
@@ -1874,7 +1727,7 @@ function Store() {
       {paymentConfirmed && (
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
-            <div style={{ fontSize: '60px', marginBottom: '20px' }}>\u2705</div>
+            <div style={{ fontSize: '60px', marginBottom: '20px' }}>\✅</div>
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
               Muchas gracias por su compra
             </h2>
@@ -1916,7 +1769,7 @@ function Store() {
       {paymentCancelled && (
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
-            <div style={{ fontSize: '60px', marginBottom: '20px' }}>\u274c</div>
+            <div style={{ fontSize: '60px', marginBottom: '20px' }}>\❌</div>
             <h2 style={{ color: '#DC3545', marginBottom: '10px', fontSize: '24px' }}>
               Pago No Completado
             </h2>
@@ -1991,7 +1844,7 @@ function Store() {
       {cashPaymentSuccess && (
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
-            <div style={{ fontSize: '60px', marginBottom: '20px' }}>\u2705</div>
+            <div style={{ fontSize: '60px', marginBottom: '20px' }}>\✅</div>
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
               Muchas gracias por su compra
             </h2>
