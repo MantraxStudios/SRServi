@@ -2642,23 +2642,21 @@ const workshopUpload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 });
 
-// Serve workshop files (logos, zips for download)
 app.use('/api/workshop/files', express.static(workshopDir));
 
-// Publish a plugin to the workshop
+// Publish a plugin (or new version)
 app.post('/api/workshop/publish', authenticateToken, workshopUpload.fields([
   { name: 'plugin', maxCount: 1 },
   { name: 'logo', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const { description, contact_email } = req.body;
+    const { description, contact_email, changelog } = req.body;
     if (!req.files?.plugin?.[0]) return res.status(400).json({ error: 'Se requiere un archivo .zip' });
     if (!contact_email) return res.status(400).json({ error: 'Se requiere email de contacto' });
 
     const zipFile = req.files.plugin[0];
     const logoFile = req.files?.logo?.[0] || null;
 
-    // Read plugin.json from ZIP to get metadata
     const AdmZip = (await import('adm-zip')).default;
     const zip = new AdmZip(zipFile.path);
     const entries = zip.getEntries();
@@ -2690,98 +2688,131 @@ app.post('/api/workshop/publish', authenticateToken, workshopUpload.fields([
       return res.status(400).json({ error: 'plugin.json debe tener id, name y version' });
     }
 
-    // Get author from user's business_name
     const user = await getUserById(req.user.id);
     const author = user?.business_name || user?.username || 'Anónimo';
-
-    // Check if already published
-    const [existing] = await pool.execute('SELECT id FROM plugin_workshop WHERE plugin_id = ?', [pluginJson.id]);
-
     const logoPath = logoFile ? `/api/workshop/files/${logoFile.filename}` : null;
     const zipPath = `/api/workshop/files/${zipFile.filename}`;
 
+    const [existing] = await pool.execute('SELECT id, user_id FROM plugin_workshop WHERE plugin_id = ?', [pluginJson.id]);
+
     if (existing.length > 0) {
-      // Update
-      const oldRow = (await pool.execute('SELECT zip_path, logo, user_id FROM plugin_workshop WHERE plugin_id = ?', [pluginJson.id]))[0][0];
-      if (oldRow.user_id !== req.user.id) {
+      if (existing[0].user_id !== req.user.id) {
         fs.unlinkSync(zipFile.path);
         if (logoFile) fs.unlinkSync(logoFile.path);
         return res.status(403).json({ error: 'No eres el autor de este plugin' });
       }
-      await pool.execute(
-        `UPDATE plugin_workshop SET name = ?, version = ?, description = ?, author = ?, contact_email = ?,
-         zip_path = ?, hooks = ?, admin_slots = ?, store_slots = ?, status = 'pending', updated_at = NOW()
-         ${logoFile ? ', logo = ?' : ''} WHERE plugin_id = ?`,
-        logoFile
-          ? [pluginJson.name, pluginJson.version, description || pluginJson.description || '', author, contact_email,
-             zipPath, JSON.stringify(pluginJson.hooks || []), JSON.stringify(pluginJson.adminSlots || []),
-             JSON.stringify(pluginJson.storeSlots || []), logoPath, pluginJson.id]
-          : [pluginJson.name, pluginJson.version, description || pluginJson.description || '', author, contact_email,
-             zipPath, JSON.stringify(pluginJson.hooks || []), JSON.stringify(pluginJson.adminSlots || []),
-             JSON.stringify(pluginJson.storeSlots || []), pluginJson.id]
+      // Check duplicate version
+      const [dupVer] = await pool.execute(
+        'SELECT id FROM plugin_workshop_versions WHERE plugin_id = ? AND version = ?',
+        [pluginJson.id, pluginJson.version]
       );
+      if (dupVer.length > 0) {
+        fs.unlinkSync(zipFile.path);
+        if (logoFile) fs.unlinkSync(logoFile.path);
+        return res.status(400).json({ error: `La versión ${pluginJson.version} ya existe. Cambia la versión en plugin.json` });
+      }
+      // Update main entry
+      let updateQuery = `UPDATE plugin_workshop SET name = ?, latest_version = ?, description = ?, author = ?, contact_email = ?,
+         hooks = ?, admin_slots = ?, store_slots = ?, updated_at = NOW()`;
+      let updateParams = [pluginJson.name, pluginJson.version, description || pluginJson.description || '', author, contact_email,
+         JSON.stringify(pluginJson.hooks || []), JSON.stringify(pluginJson.adminSlots || []),
+         JSON.stringify(pluginJson.storeSlots || [])];
+      if (logoFile) {
+        updateQuery += ', logo = ?';
+        updateParams.push(logoPath);
+      }
+      updateQuery += ' WHERE plugin_id = ?';
+      updateParams.push(pluginJson.id);
+      await pool.execute(updateQuery, updateParams);
     } else {
       await pool.execute(
-        `INSERT INTO plugin_workshop (plugin_id, user_id, name, version, description, author, contact_email, logo, zip_path, hooks, admin_slots, store_slots)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO plugin_workshop (plugin_id, user_id, name, latest_version, description, author, contact_email, logo, downloads, hooks, admin_slots, store_slots)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
         [pluginJson.id, req.user.id, pluginJson.name, pluginJson.version,
          description || pluginJson.description || '', author, contact_email,
-         logoPath, zipPath, JSON.stringify(pluginJson.hooks || []),
+         logoPath, JSON.stringify(pluginJson.hooks || []),
          JSON.stringify(pluginJson.adminSlots || []), JSON.stringify(pluginJson.storeSlots || [])]
       );
     }
 
-    res.json({ success: true, plugin_id: pluginJson.id, name: pluginJson.name });
+    // Insert version
+    await pool.execute(
+      `INSERT INTO plugin_workshop_versions (plugin_id, version, zip_path, changelog, status)
+       VALUES (?, ?, ?, ?, 'pending')`,
+      [pluginJson.id, pluginJson.version, zipPath, changelog || null]
+    );
+
+    res.json({ success: true, plugin_id: pluginJson.id, name: pluginJson.name, version: pluginJson.version });
   } catch (error) {
     console.error('❌ Error publishing plugin:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Browse workshop - public listing of approved plugins
+// Browse workshop
 app.get('/api/workshop/plugins', async (req, res) => {
   try {
     const search = req.query.search || '';
-    let query = `SELECT plugin_id, name, version, description, author, contact_email, logo, downloads, hooks, admin_slots, store_slots, created_at, updated_at
+    let query = `SELECT plugin_id, name, latest_version, description, author, contact_email, logo, downloads, hooks, admin_slots, store_slots, created_at, updated_at
                  FROM plugin_workshop WHERE status = 'approved'`;
     const params = [];
-
     if (search) {
       query += ' AND (name LIKE ? OR description LIKE ? OR author LIKE ?)';
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
     query += ' ORDER BY downloads DESC, created_at DESC';
-
     const [rows] = await pool.execute(query, params);
     res.json(rows);
   } catch (error) {
-    if (error.message && error.message.includes("doesn't exist")) return res.json([]);
+    if (error.message?.includes("doesn't exist")) return res.json([]);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Download & install from workshop
+// Get versions of a plugin
+app.get('/api/workshop/plugins/:pluginId/versions', async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT v.* FROM plugin_workshop_versions v WHERE v.plugin_id = ? AND v.status = 'approved' ORDER BY v.created_at DESC`,
+      [req.params.pluginId]
+    );
+    res.json(rows);
+  } catch (error) {
+    if (error.message?.includes("doesn't exist")) return res.json([]);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Install a specific version from workshop
 app.post('/api/workshop/install/:pluginId', authenticateToken, async (req, res) => {
   try {
     const { pluginId } = req.params;
-    const [rows] = await pool.execute(
-      'SELECT * FROM plugin_workshop WHERE plugin_id = ? AND status = ?', [pluginId, 'approved']
-    );
-    if (rows.length === 0) return res.status(404).json({ error: 'Plugin no encontrado' });
+    const { version } = req.body || {};
 
-    const workshopPlugin = rows[0];
-    const zipFilePath = path.join(workshopDir, path.basename(workshopPlugin.zip_path));
-
-    if (!fs.existsSync(zipFilePath)) {
-      return res.status(404).json({ error: 'Archivo del plugin no encontrado' });
+    // If version specified, get that version's zip; otherwise get latest approved
+    let zipPath;
+    if (version) {
+      const [vRows] = await pool.execute(
+        'SELECT zip_path FROM plugin_workshop_versions WHERE plugin_id = ? AND version = ? AND status = ?',
+        [pluginId, version, 'approved']
+      );
+      if (vRows.length === 0) return res.status(404).json({ error: 'Versión no encontrada o no aprobada' });
+      zipPath = vRows[0].zip_path;
+    } else {
+      const [vRows] = await pool.execute(
+        'SELECT zip_path FROM plugin_workshop_versions WHERE plugin_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1',
+        [pluginId, 'approved']
+      );
+      if (vRows.length === 0) return res.status(404).json({ error: 'No hay versiones aprobadas' });
+      zipPath = vRows[0].zip_path;
     }
 
+    const zipFilePath = path.join(workshopDir, path.basename(zipPath));
+    if (!fs.existsSync(zipFilePath)) return res.status(404).json({ error: 'Archivo no encontrado' });
     if (!pluginManager) return res.status(500).json({ error: 'Plugin system not ready' });
 
     const zipBuffer = fs.readFileSync(zipFilePath);
     const result = await pluginManager.install(zipBuffer);
-
-    // Increment download count
     await pool.execute('UPDATE plugin_workshop SET downloads = downloads + 1 WHERE plugin_id = ?', [pluginId]);
 
     res.json({ success: true, plugin: result });
@@ -2791,15 +2822,22 @@ app.post('/api/workshop/install/:pluginId', authenticateToken, async (req, res) 
   }
 });
 
-// My published plugins
+// My published plugins (with versions)
 app.get('/api/workshop/my-plugins', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.execute(
       'SELECT * FROM plugin_workshop WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]
     );
+    for (const row of rows) {
+      const [versions] = await pool.execute(
+        'SELECT version, status, changelog, created_at FROM plugin_workshop_versions WHERE plugin_id = ? ORDER BY created_at DESC',
+        [row.plugin_id]
+      );
+      row.versions = versions;
+    }
     res.json(rows);
   } catch (error) {
-    if (error.message && error.message.includes("doesn't exist")) return res.json([]);
+    if (error.message?.includes("doesn't exist")) return res.json([]);
     res.status(500).json({ error: error.message });
   }
 });
@@ -2811,6 +2849,7 @@ app.delete('/api/workshop/my-plugins/:pluginId', authenticateToken, async (req, 
       'SELECT * FROM plugin_workshop WHERE plugin_id = ? AND user_id = ?', [req.params.pluginId, req.user.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'No encontrado' });
+    await pool.execute('DELETE FROM plugin_workshop_versions WHERE plugin_id = ?', [req.params.pluginId]);
     await pool.execute('DELETE FROM plugin_workshop WHERE plugin_id = ? AND user_id = ?', [req.params.pluginId, req.user.id]);
     res.json({ success: true });
   } catch (error) {
@@ -2818,24 +2857,53 @@ app.delete('/api/workshop/my-plugins/:pluginId', authenticateToken, async (req, 
   }
 });
 
-// Superadmin: approve/reject plugins
+// Check installed plugins for current user
+app.get('/api/workshop/installed-ids', authenticateToken, async (req, res) => {
+  try {
+    if (!pluginManager) return res.json([]);
+    const plugins = await pluginManager.getAllPlugins();
+    res.json(plugins.map(p => ({ plugin_id: p.plugin_id, version: p.version })));
+  } catch (error) {
+    res.json([]);
+  }
+});
+
+// Superadmin: list all workshop plugins with versions
 app.get('/api/superadmin/workshop', authenticateSuperadminToken, async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT * FROM plugin_workshop ORDER BY created_at DESC');
+    for (const row of rows) {
+      const [versions] = await pool.execute(
+        'SELECT * FROM plugin_workshop_versions WHERE plugin_id = ? ORDER BY created_at DESC',
+        [row.plugin_id]
+      );
+      row.versions = versions;
+    }
     res.json(rows);
   } catch (error) {
-    if (error.message && error.message.includes("doesn't exist")) return res.json([]);
+    if (error.message?.includes("doesn't exist")) return res.json([]);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.put('/api/superadmin/workshop/:pluginId/status', authenticateSuperadminToken, async (req, res) => {
+// Superadmin: approve/reject a specific version
+app.put('/api/superadmin/workshop/:pluginId/version/:version/status', authenticateSuperadminToken, async (req, res) => {
   try {
     const { status } = req.body;
     if (!['approved', 'rejected', 'pending'].includes(status)) {
       return res.status(400).json({ error: 'Estado inválido' });
     }
-    await pool.execute('UPDATE plugin_workshop SET status = ? WHERE plugin_id = ?', [status, req.params.pluginId]);
+    await pool.execute(
+      'UPDATE plugin_workshop_versions SET status = ? WHERE plugin_id = ? AND version = ?',
+      [status, req.params.pluginId, req.params.version]
+    );
+    // If any version approved, mark main plugin as approved
+    const [approved] = await pool.execute(
+      'SELECT id FROM plugin_workshop_versions WHERE plugin_id = ? AND status = ?',
+      [req.params.pluginId, 'approved']
+    );
+    const mainStatus = approved.length > 0 ? 'approved' : status;
+    await pool.execute('UPDATE plugin_workshop SET status = ? WHERE plugin_id = ?', [mainStatus, req.params.pluginId]);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

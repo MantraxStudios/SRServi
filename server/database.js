@@ -298,12 +298,11 @@ async function createTables() {
       plugin_id VARCHAR(100) UNIQUE NOT NULL,
       user_id INT NOT NULL,
       name VARCHAR(255) NOT NULL,
-      version VARCHAR(50) NOT NULL,
+      latest_version VARCHAR(50) NOT NULL,
       description TEXT,
       author VARCHAR(255) NOT NULL,
       contact_email VARCHAR(255) NOT NULL,
       logo TEXT DEFAULT NULL,
-      zip_path TEXT NOT NULL,
       downloads INT DEFAULT 0,
       status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
       hooks JSON,
@@ -312,6 +311,19 @@ async function createTables() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS plugin_workshop_versions (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      plugin_id VARCHAR(100) NOT NULL,
+      version VARCHAR(50) NOT NULL,
+      zip_path TEXT NOT NULL,
+      changelog TEXT DEFAULT NULL,
+      status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_plugin_version (plugin_id, version)
     )
   `);
 

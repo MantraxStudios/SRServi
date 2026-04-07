@@ -316,7 +316,7 @@ function Layout() {
             </li>
 
             <li>
-              <NavLink to="/admin/plugins" onClick={() => setMenuOpen(false)}>
+              <NavLink to="/admin/plugins" end onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faPuzzlePiece} />
                 <span>Plugins</span>
               </NavLink>
