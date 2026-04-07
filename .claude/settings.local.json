@@ -15,7 +15,8 @@
       "Bash(powershell -Command \"Compress-Archive -Path 'webhook-notifier' -DestinationPath 'C:/Users/tupap/OneDrive/Escritorio/SRServi/webhook-notifier.zip' -Force\")",
       "Bash(node -e \"import\\('./plugins/PluginManager.js'\\).then\\(\\(\\) => console.log\\('OK'\\)\\).catch\\(e => console.error\\('FAIL:', e.message\\)\\)\")",
       "Bash(powershell -Command \"Remove-Item 'C:/Users/tupap/OneDrive/Escritorio/SRServi/webhook-notifier.zip' -Force -ErrorAction SilentlyContinue; Compress-Archive -Path 'webhook-notifier' -DestinationPath 'C:/Users/tupap/OneDrive/Escritorio/SRServi/webhook-notifier.zip' -Force\")",
-      "Bash(powershell -Command \"Compress-Archive -Path 'welcome-animation' -DestinationPath 'C:/Users/tupap/OneDrive/Escritorio/SRServi/welcome-animation.zip' -Force\")"
+      "Bash(powershell -Command \"Compress-Archive -Path 'welcome-animation' -DestinationPath 'C:/Users/tupap/OneDrive/Escritorio/SRServi/welcome-animation.zip' -Force\")",
+      "Bash(powershell -Command \"Expand-Archive -Path 'welcome-animation.zip' -DestinationPath 'temp-check' -Force; Get-ChildItem -Recurse 'temp-check' | Select-Object FullName; Remove-Item -Recurse 'temp-check'\")"
     ]
   }
 }

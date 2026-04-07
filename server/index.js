@@ -7,7 +7,10 @@ import path from 'path';
 import http from 'http';
 import { Server } from 'socket.io';
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
+import { fileURLToPath } from 'url';
 import PluginManager from './plugins/PluginManager.js';
+
+const __serverDir = path.dirname(fileURLToPath(import.meta.url));
 import {
   initDatabase,
   createUser,
@@ -184,7 +187,7 @@ const upload = multer({
 });
 
 app.use('/uploads', express.static('uploads'));
-app.use('/api/plugins/static', express.static('plugins/installed'));
+app.use('/api/plugins/static', express.static(path.join(__serverDir, 'plugins', 'installed')));
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];

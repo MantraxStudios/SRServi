@@ -370,10 +370,18 @@ class PluginManager {
       adminSlots: safeParse(row.admin_slots, []),
       storeSlots: safeParse(row.store_slots, []),
       hasSettings: Object.keys(safeParse(row.settings_schema, {})).length > 0,
-      adminJs: fs.existsSync(path.join(PLUGINS_DIR, row.plugin_id, 'admin.js'))
-        ? `/api/plugins/static/${row.plugin_id}/admin.js` : null,
-      storeJs: fs.existsSync(path.join(PLUGINS_DIR, row.plugin_id, 'store.js'))
-        ? `/api/plugins/static/${row.plugin_id}/store.js` : null
+      adminJs: (() => {
+        const p = path.join(PLUGINS_DIR, row.plugin_id, 'admin.js');
+        const exists = fs.existsSync(p);
+        if (!exists) console.log(`🔌 [Manifest] admin.js NOT found: ${p}`);
+        return exists ? `/api/plugins/static/${row.plugin_id}/admin.js` : null;
+      })(),
+      storeJs: (() => {
+        const p = path.join(PLUGINS_DIR, row.plugin_id, 'store.js');
+        const exists = fs.existsSync(p);
+        if (!exists) console.log(`🔌 [Manifest] store.js NOT found: ${p}`);
+        return exists ? `/api/plugins/static/${row.plugin_id}/store.js` : null;
+      })()
     }));
   }
 
