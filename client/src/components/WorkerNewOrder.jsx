@@ -23,7 +23,7 @@ import { getImageUrl } from '../config.js';
 
 const API = 'https://srservi2.srautomatic.com';
 
-function WorkerNewOrder({ worker, storeId, onClose, onOrderCreated }) {
+function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [ingredients, setIngredients] = useState([]);
@@ -75,48 +75,30 @@ function WorkerNewOrder({ worker, storeId, onClose, onOrderCreated }) {
     setLoading(true);
     setError('');
     try {
-      const [productsRes, categoriesRes, ingredientsRes, extrasRes, terminalsRes, storeRes] = await Promise.all([
-        fetch(API + `/api/products?store_id=${storeId}`, { headers: authHeaders }),
-        fetch(API + `/api/categories?store_id=${storeId}`, { headers: authHeaders }),
-        fetch(API + `/api/ingredients?store_id=${storeId}`, { headers: authHeaders }),
-        fetch(API + `/api/extras?store_id=${storeId}`, { headers: authHeaders }),
-        fetch(API + `/api/mercado-pago-terminals?store_id=${storeId}`, { headers: authHeaders }),
-        fetch(API + `/api/stores/${storeId}`, { headers: authHeaders })
+      if (!storeCode) throw new Error('No se encontro el codigo de tienda');
+
+      // Use public API that returns everything together (products with ingredients/extras)
+      const [storeRes, terminalsRes] = await Promise.all([
+        fetch(API + `/api/public/${storeCode}`),
+        fetch(API + `/api/public/${storeCode}/mercado-pago-terminals`)
       ]);
 
-      if (!productsRes.ok) throw new Error('Error al cargar productos');
+      if (!storeRes.ok) throw new Error('Error al cargar la tienda');
 
-      const [productsData, categoriesData, ingredientsData, extrasData, terminalsData, storeData] = await Promise.all([
-        productsRes.json(),
-        categoriesRes.ok ? categoriesRes.json() : [],
-        ingredientsRes.ok ? ingredientsRes.json() : [],
-        extrasRes.ok ? extrasRes.json() : [],
-        terminalsRes.ok ? terminalsRes.json() : [],
-        storeRes.ok ? storeRes.json() : {}
-      ]);
+      const storeData = await storeRes.json();
+      const terminalsData = terminalsRes.ok ? await terminalsRes.json() : [];
 
-      const rawProducts = Array.isArray(productsData) ? productsData : productsData.products || [];
-      const safeCategories = Array.isArray(categoriesData) ? categoriesData : categoriesData.categories || [];
-      const safeIngredients = Array.isArray(ingredientsData) ? ingredientsData : ingredientsData.ingredients || [];
-      const safeExtras = Array.isArray(extrasData) ? extrasData : extrasData.extras || [];
-      const safeTerminals = Array.isArray(terminalsData) ? terminalsData : [];
-
-      // Deduplicate products by id
-      const safeProducts = rawProducts.filter((product, index, self) =>
+      // Products come with ingredients/extras already attached
+      const rawProducts = (storeData.products || []).filter((product, index, self) =>
         index === self.findIndex((p) => p.id === product.id)
       );
+      const safeCategories = (storeData.categories || []).filter((cat, index, self) =>
+        index === self.findIndex((c) => c.id === cat.id)
+      );
+      const safeTerminals = Array.isArray(terminalsData) ? terminalsData : [];
 
-      // Attach ingredients/extras to products
-      const enrichedProducts = safeProducts.map(product => {
-        const productIngredients = safeIngredients.filter(i => i.product_id === product.id);
-        const productExtras = safeExtras.filter(e => e.product_id === product.id);
-        return { ...product, ingredients: productIngredients, extras: productExtras };
-      });
-
-      setProducts(enrichedProducts);
+      setProducts(rawProducts);
       setCategories(safeCategories);
-      setIngredients(safeIngredients);
-      setExtras(safeExtras);
       setTerminals(safeTerminals);
 
       if (safeTerminals.length > 0) {
@@ -365,7 +347,7 @@ function WorkerNewOrder({ worker, storeId, onClose, onOrderCreated }) {
       const endpoint = method === 'card' ? '/api/orders/process-payment' : '/api/orders';
       const response = await fetch(API + endpoint, {
         method: 'POST',
-        headers: authHeaders,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)
       });
 

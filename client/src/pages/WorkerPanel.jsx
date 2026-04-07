@@ -102,7 +102,10 @@ function WorkerPanel() {
 
   const fetchStoreColors = async (storeId) => {
     try {
-      const response = await fetch(`/api/stores/${storeId}`);
+      const token = localStorage.getItem('workerToken');
+      const response = await fetch(`/api/stores/${storeId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (!response.ok) throw new Error('Store not found');
       const data = await response.json();
       setStoreColors({
@@ -715,6 +718,7 @@ function WorkerPanel() {
         <WorkerNewOrder
           worker={worker}
           storeId={worker.store_id}
+          storeCode={storeCode}
           onClose={() => setShowNewOrder(false)}
           onOrderCreated={() => fetchOrders(worker.store_id)}
         />
