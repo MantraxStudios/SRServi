@@ -3232,6 +3232,35 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: var(--space-2);
 }
 
+.worker-order-items-preview {
+  background: #f8f8f8;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-bottom: var(--space-3);
+}
+
+.worker-order-item-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 13px;
+  color: #333;
+}
+
+.worker-order-item-qty {
+  font-weight: 700;
+  color: #0a0a0a;
+  min-width: 22px;
+}
+
+.worker-order-item-name {
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .worker-order-total {
   font-size: 22px;
   font-weight: 800;
@@ -6239,17 +6268,85 @@ h1, h2, h3, h4, h5, h6 {
   text-align: center;
 }
 
-/* Success/error states */
-.worker-pos-success-icon {
-  font-size: 60px;
-  color: var(--success);
+/* Success overlay with animation */
+.worker-pos-success-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 20px;
+  animation: posSuccessFadeIn 0.4s ease;
 }
 
-.worker-pos-error-icon {
-  font-size: 60px;
-  color: var(--danger);
+.worker-pos-success-check {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: rgba(34,197,94,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56px;
+  color: #22c55e;
+  animation: posSuccessPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+.worker-pos-success-title {
+  color: #fff;
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0;
+  animation: posSuccessSlideUp 0.4s ease 0.15s both;
+}
+
+.worker-pos-success-order {
+  color: var(--gold);
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  animation: posSuccessSlideUp 0.4s ease 0.25s both;
+}
+
+.worker-pos-success-bar {
+  width: 200px;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-top: 10px;
+  animation: posSuccessSlideUp 0.4s ease 0.35s both;
+}
+
+.worker-pos-success-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, var(--gold));
+  border-radius: var(--radius-full);
+  animation: posSuccessBarShrink 3s linear forwards;
+}
+
+@keyframes posSuccessFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes posSuccessPop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes posSuccessSlideUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes posSuccessBarShrink {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+/* Error/waiting states */
 .worker-pos-waiting-spinner {
   width: 50px;
   height: 50px;

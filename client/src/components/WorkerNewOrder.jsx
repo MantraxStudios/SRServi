@@ -401,6 +401,16 @@ function WorkerNewOrder({ worker, storeId, onClose, onOrderCreated }) {
     if (onClose) onClose();
   };
 
+  // Auto-close success after 3 seconds
+  useEffect(() => {
+    if (cashPaymentSuccess || paymentConfirmed) {
+      const timer = setTimeout(() => {
+        handleSuccessClose();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [cashPaymentSuccess, paymentConfirmed]);
+
   const handleCancelledRetry = () => {
     setPaymentCancelled(false);
     setPendingOrderData(null);
@@ -431,30 +441,23 @@ function WorkerNewOrder({ worker, storeId, onClose, onOrderCreated }) {
     );
   }
 
-  // Success overlay
+  // Success overlay with animation
   if (cashPaymentSuccess || paymentConfirmed) {
     return (
       <div className="worker-pos-overlay">
-        <div className="worker-pos-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem' }}>
-          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(34,197,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '3rem', color: '#22c55e' }} />
+        <div className="worker-pos-success-overlay">
+          <div className="worker-pos-success-check">
+            <FontAwesomeIcon icon={faCheckCircle} />
           </div>
-          <h2 style={{ color: '#fff', margin: 0 }}>
+          <h2 className="worker-pos-success-title">
             {paymentConfirmed ? 'Pago confirmado' : 'Pedido creado'}
           </h2>
           {lastOrderNumber && (
-            <p style={{ color: 'rgba(255,255,255,0.7)', margin: 0, fontSize: '1.1rem' }}>
-              Pedido #{lastOrderNumber}
-            </p>
+            <p className="worker-pos-success-order">Pedido #{lastOrderNumber}</p>
           )}
-          <button
-            className="btn"
-            style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '0.75rem 2rem', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem', fontWeight: 600 }}
-            onClick={handleSuccessClose}
-          >
-            <FontAwesomeIcon icon={faCheck} style={{ marginRight: '0.5rem' }} />
-            Aceptar
-          </button>
+          <div className="worker-pos-success-bar">
+            <div className="worker-pos-success-bar-fill" />
+          </div>
         </div>
       </div>
     );
@@ -569,7 +572,7 @@ function WorkerNewOrder({ worker, storeId, onClose, onOrderCreated }) {
             {/* Categories */}
             <div className="worker-pos-categories" ref={categoryScrollRef}>
               <button
-                className={`worker-pos-category-tab ${activeCategory === 'all' ? 'active' : ''}`}
+                className={`worker-pos-category-btn ${activeCategory === 'all' ? 'active' : ''}`}
                 onClick={() => setActiveCategory('all')}
               >
                 Todos
@@ -577,7 +580,7 @@ function WorkerNewOrder({ worker, storeId, onClose, onOrderCreated }) {
               {categories.map(cat => (
                 <button
                   key={cat.id}
-                  className={`worker-pos-category-tab ${String(activeCategory) === String(cat.id) ? 'active' : ''}`}
+                  className={`worker-pos-category-btn ${String(activeCategory) === String(cat.id) ? 'active' : ''}`}
                   onClick={() => setActiveCategory(String(cat.id))}
                 >
                   {cat.name}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
 import WorkerNewOrder from '../components/WorkerNewOrder';
 
@@ -22,6 +22,7 @@ function WorkerPanel() {
   const [switchingWorker, setSwitchingWorker] = useState(null);
   const [activeTab, setActiveTab] = useState('active');
   const [showNewOrder, setShowNewOrder] = useState(false);
+  const [storeCode, setStoreCode] = useState('');
 
   const colors = storeColors || {
     primary: '#0a0a0a',
@@ -109,6 +110,7 @@ function WorkerPanel() {
         secondary: data.secondary_color || '#ffffff',
         accent: data.accent_color || '#D4AF37'
       });
+      if (data.code) setStoreCode(data.code);
     } catch (error) {
       console.error('Error fetching store colors:', error);
     }
@@ -325,11 +327,17 @@ function WorkerPanel() {
         <div className="worker-header-buttons">
           <button className="worker-new-order-btn" onClick={() => setShowNewOrder(true)}>
             <FontAwesomeIcon icon={faPlus} />
-            Nuevo Pedido
+            <span>Nuevo Pedido</span>
           </button>
+          {storeCode && (
+            <button className="worker-switch-btn" onClick={() => window.open(`/store/${storeCode}`, '_blank')}>
+              <FontAwesomeIcon icon={faExternalLinkAlt} />
+              <span>Ver Tienda</span>
+            </button>
+          )}
           <button className="worker-switch-btn" onClick={() => setShowWorkerSwitch(true)}>
             <FontAwesomeIcon icon={faUserCog} />
-            Cambiar Usuario
+            <span>Cambiar</span>
           </button>
           <button className="worker-logout-btn" onClick={handleLogout}>
             <FontAwesomeIcon icon={faSignOutAlt} />
@@ -438,12 +446,19 @@ function WorkerPanel() {
                       })}
                     </p>
                   </div>
+                  {order.items && order.items.length > 0 && (
+                    <div className="worker-order-items-preview">
+                      {order.items.map((item, idx) => (
+                        <div key={idx} className="worker-order-item-line">
+                          <span className="worker-order-item-qty">{item.quantity}x</span>
+                          <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="worker-order-total">
                     ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
                   </div>
-                  <button className="worker-view-btn" onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); }}>
-                    Ver Detalles
-                  </button>
                 </div>
               ))}
             </div>
@@ -477,6 +492,16 @@ function WorkerPanel() {
                       })}
                     </p>
                   </div>
+                  {order.items && order.items.length > 0 && (
+                    <div className="worker-order-items-preview">
+                      {order.items.map((item, idx) => (
+                        <div key={idx} className="worker-order-item-line">
+                          <span className="worker-order-item-qty">{item.quantity}x</span>
+                          <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="worker-order-total">
                     ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
                   </div>
@@ -521,6 +546,16 @@ function WorkerPanel() {
                       })}
                     </p>
                   </div>
+                  {order.items && order.items.length > 0 && (
+                    <div className="worker-order-items-preview">
+                      {order.items.map((item, idx) => (
+                        <div key={idx} className="worker-order-item-line">
+                          <span className="worker-order-item-qty">{item.quantity}x</span>
+                          <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="worker-order-total">
                     ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
                   </div>
