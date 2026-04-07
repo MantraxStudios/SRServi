@@ -138,6 +138,7 @@ function Store() {
   const barcodeInputRef = useRef(null);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     fetchStore();
 
     const socket = io(SOCKET_URL);
