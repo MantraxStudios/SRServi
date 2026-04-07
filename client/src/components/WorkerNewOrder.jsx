@@ -693,18 +693,16 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 ))}
               </div>
 
-              {/* Terminal selector (for card) */}
-              {terminals.length > 0 && (
+              {/* Terminal selector (for card, only serve/takeout) */}
+              {orderType !== 'delivery' && terminals.length > 0 && (
                 <div style={{ marginBottom: '0.75rem' }}>
                   <select
                     value={selectedTerminalId}
                     onChange={(e) => setSelectedTerminalId(e.target.value)}
-                    style={{
-                      width: '100%', padding: '0.5rem', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.8rem', outline: 'none', cursor: 'pointer'
-                    }}
+                    className="worker-pos-terminal-select"
                   >
                     {terminals.map(t => (
-                      <option key={t.id} value={String(t.id)} style={{ background: '#111', color: '#fff' }}>
+                      <option key={t.id} value={String(t.id)}>
                         {t.name || `Terminal ${t.id}`}
                       </option>
                     ))}
@@ -712,43 +710,50 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 </div>
               )}
 
-              {/* Payment buttons */}
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button
-                  disabled={cart.length === 0 || processingPayment}
-                  onClick={() => processPayment('cash')}
-                  style={{
-                    flex: 1, padding: '0.7rem', borderRadius: '8px', border: 'none', cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
-                    background: cart.length === 0 ? 'rgba(34,197,94,0.1)' : '#22c55e',
-                    color: cart.length === 0 ? 'rgba(34,197,94,0.4)' : '#fff',
-                    fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem'
-                  }}
-                >
-                  {processingPayment ? (
-                    <FontAwesomeIcon icon={faSpinner} spin />
-                  ) : (
-                    <FontAwesomeIcon icon={faMoneyBillWave} />
-                  )}
-                  Efectivo
-                </button>
-                <button
-                  disabled={cart.length === 0 || processingPayment || terminals.length === 0}
-                  onClick={() => processPayment('card')}
-                  style={{
-                    flex: 1, padding: '0.7rem', borderRadius: '8px', border: 'none', cursor: (cart.length === 0 || terminals.length === 0) ? 'not-allowed' : 'pointer',
-                    background: (cart.length === 0 || terminals.length === 0) ? 'rgba(99,102,241,0.1)' : '#6366f1',
-                    color: (cart.length === 0 || terminals.length === 0) ? 'rgba(99,102,241,0.4)' : '#fff',
-                    fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem'
-                  }}
-                >
-                  {processingPayment ? (
-                    <FontAwesomeIcon icon={faSpinner} spin />
-                  ) : (
-                    <FontAwesomeIcon icon={faCreditCard} />
-                  )}
-                  Tarjeta
-                </button>
-              </div>
+              {/* Payment buttons - delivery only has delivery btn */}
+              {orderType === 'delivery' ? (
+                <div className="worker-pos-pay-buttons">
+                  <button
+                    disabled={cart.length === 0 || processingPayment}
+                    onClick={() => processPayment('cash')}
+                    className="worker-pos-pay-btn delivery-btn"
+                  >
+                    {processingPayment ? (
+                      <FontAwesomeIcon icon={faSpinner} spin />
+                    ) : (
+                      <FontAwesomeIcon icon={faMotorcycle} />
+                    )}
+                    Confirmar Delivery
+                  </button>
+                </div>
+              ) : (
+                <div className="worker-pos-pay-buttons">
+                  <button
+                    disabled={cart.length === 0 || processingPayment}
+                    onClick={() => processPayment('cash')}
+                    className="worker-pos-pay-btn cash"
+                  >
+                    {processingPayment ? (
+                      <FontAwesomeIcon icon={faSpinner} spin />
+                    ) : (
+                      <FontAwesomeIcon icon={faMoneyBillWave} />
+                    )}
+                    Efectivo
+                  </button>
+                  <button
+                    disabled={cart.length === 0 || processingPayment || terminals.length === 0}
+                    onClick={() => processPayment('card')}
+                    className="worker-pos-pay-btn card"
+                  >
+                    {processingPayment ? (
+                      <FontAwesomeIcon icon={faSpinner} spin />
+                    ) : (
+                      <FontAwesomeIcon icon={faCreditCard} />
+                    )}
+                    Tarjeta
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
