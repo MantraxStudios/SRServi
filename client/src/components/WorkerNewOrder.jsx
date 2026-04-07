@@ -51,6 +51,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
 
   const [selectedTerminalId, setSelectedTerminalId] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
 
   const [paymentWaiting, setPaymentWaiting] = useState(false);
@@ -667,12 +668,9 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
 
             {/* Cart footer */}
             <div className="worker-pos-cart-footer">
-              {/* Total */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: '0.75rem' }}>
-                <span style={{ color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Total</span>
-                <span style={{ color: '#D4AF37', fontSize: '1.3rem', fontWeight: 700 }}>
-                  {currencySymbol}{getCartTotal().toFixed(2)}
-                </span>
+              <div className="worker-pos-summary-total">
+                <span>Total</span>
+                <span>{currencySymbol}{getCartTotal().toFixed(2)}</span>
               </div>
 
               {/* Order type */}
@@ -693,67 +691,20 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 ))}
               </div>
 
-              {/* Terminal selector (for card, only serve/takeout) */}
-              {orderType !== 'delivery' && terminals.length > 0 && (
-                <div style={{ marginBottom: '0.75rem' }}>
-                  <select
-                    value={selectedTerminalId}
-                    onChange={(e) => setSelectedTerminalId(e.target.value)}
-                    className="worker-pos-terminal-select"
-                  >
-                    {terminals.map(t => (
-                      <option key={t.id} value={String(t.id)}>
-                        {t.name || `Terminal ${t.id}`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Payment buttons - delivery only has delivery btn */}
-              {orderType === 'delivery' ? (
-                <div className="worker-pos-pay-buttons">
-                  <button
-                    disabled={cart.length === 0 || processingPayment}
-                    onClick={() => processPayment('cash')}
-                    className="worker-pos-pay-btn delivery-btn"
-                  >
-                    {processingPayment ? (
-                      <FontAwesomeIcon icon={faSpinner} spin />
-                    ) : (
-                      <FontAwesomeIcon icon={faMotorcycle} />
-                    )}
-                    Confirmar Delivery
-                  </button>
-                </div>
-              ) : (
-                <div className="worker-pos-pay-buttons">
-                  <button
-                    disabled={cart.length === 0 || processingPayment}
-                    onClick={() => processPayment('cash')}
-                    className="worker-pos-pay-btn cash"
-                  >
-                    {processingPayment ? (
-                      <FontAwesomeIcon icon={faSpinner} spin />
-                    ) : (
-                      <FontAwesomeIcon icon={faMoneyBillWave} />
-                    )}
-                    Efectivo
-                  </button>
-                  <button
-                    disabled={cart.length === 0 || processingPayment || terminals.length === 0}
-                    onClick={() => processPayment('card')}
-                    className="worker-pos-pay-btn card"
-                  >
-                    {processingPayment ? (
-                      <FontAwesomeIcon icon={faSpinner} spin />
-                    ) : (
-                      <FontAwesomeIcon icon={faCreditCard} />
-                    )}
-                    Tarjeta
-                  </button>
-                </div>
-              )}
+              <button
+                disabled={cart.length === 0}
+                className="worker-pos-checkout-btn"
+                onClick={() => {
+                  if (orderType === 'delivery') {
+                    processPayment('cash');
+                  } else {
+                    setShowPayModal(true);
+                  }
+                }}
+              >
+                <FontAwesomeIcon icon={orderType === 'delivery' ? faMotorcycle : faShoppingCart} />
+                {orderType === 'delivery' ? 'Confirmar Delivery' : 'Cobrar'} - {currencySymbol}{getCartTotal().toFixed(2)}
+              </button>
             </div>
           </div>
         </div>
@@ -922,6 +873,81 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Payment modal */}
+        {showPayModal && (
+          <div className="worker-pos-modal" onClick={(e) => { if (e.target === e.currentTarget) setShowPayModal(false); }}>
+            <div className="worker-pos-pay-modal">
+              <div className="worker-pos-pay-modal-header">
+                <h3>Cobrar pedido</h3>
+                <button className="worker-pos-pay-modal-close" onClick={() => setShowPayModal(false)}>
+                  <FontAwesomeIcon icon={faTimes} />
+                </button>
+              </div>
+
+              <div className="worker-pos-pay-modal-total">
+                <span>Total a cobrar</span>
+                <span className="worker-pos-pay-modal-amount">{currencySymbol}{getCartTotal().toFixed(2)}</span>
+              </div>
+
+              <div className="worker-pos-pay-modal-options">
+                <button
+                  className="worker-pos-pay-modal-option cash"
+                  disabled={processingPayment}
+                  onClick={() => { setShowPayModal(false); processPayment('cash'); }}
+                >
+                  <div className="worker-pos-pay-modal-option-icon cash">
+                    <FontAwesomeIcon icon={faMoneyBillWave} />
+                  </div>
+                  <div className="worker-pos-pay-modal-option-info">
+                    <span className="worker-pos-pay-modal-option-title">Efectivo</span>
+                    <span className="worker-pos-pay-modal-option-desc">Pago en efectivo</span>
+                  </div>
+                  <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
+                </button>
+
+                <button
+                  className="worker-pos-pay-modal-option card"
+                  disabled={processingPayment || terminals.length === 0}
+                  onClick={() => {
+                    if (terminals.length > 0 && selectedTerminalId) {
+                      setShowPayModal(false);
+                      processPayment('card');
+                    }
+                  }}
+                >
+                  <div className="worker-pos-pay-modal-option-icon card">
+                    <FontAwesomeIcon icon={faCreditCard} />
+                  </div>
+                  <div className="worker-pos-pay-modal-option-info">
+                    <span className="worker-pos-pay-modal-option-title">Tarjeta</span>
+                    <span className="worker-pos-pay-modal-option-desc">
+                      {terminals.length === 0 ? 'Sin terminal disponible' : 'Pago con Point'}
+                    </span>
+                  </div>
+                  <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
+                </button>
+              </div>
+
+              {terminals.length > 0 && (
+                <div className="worker-pos-pay-modal-terminal">
+                  <label>Terminal Point</label>
+                  <select
+                    value={selectedTerminalId}
+                    onChange={(e) => setSelectedTerminalId(e.target.value)}
+                    className="worker-pos-terminal-select"
+                  >
+                    {terminals.map(t => (
+                      <option key={t.id} value={String(t.id)}>
+                        {t.name || `Terminal ${t.id}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
         )}
