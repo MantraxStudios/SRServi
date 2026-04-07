@@ -13,7 +13,11 @@ import {
   faCreditCard,
   faMoneyBillWave,
   faCheck,
-  faTags
+  faTags,
+  faInfinity,
+  faUtensils,
+  faChevronRight,
+  faCheckCircle
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -495,7 +499,7 @@ function Store() {
     );
 
     if (missingRequired.length > 0) {
-      alert(`Por favor selecciona los siguientes ingredientes obligatorios:\n${missingRequired.map(i => '• ' + i.name).join('\n')}`);
+      alert(`Por favor selecciona los siguientes ingredientes obligatorios:\n${missingRequired.map(i => '- ' + i.name).join('\n')}`);
       return;
     }
     setIngredientsModalOpen(false);
@@ -996,7 +1000,7 @@ function Store() {
             {notification.agotado ? (
               <div className="toast-status-soldout">Agotado</div>
             ) : (
-              <div className="toast-status-added">Agregado ✓</div>
+              <div className="toast-status-added">Agregado <FontAwesomeIcon icon={faCheck} /></div>
             )}
           </div>
         </div>
@@ -1122,7 +1126,7 @@ function Store() {
                         fontWeight: '600',
                         zIndex: 2,
                       }}>
-                        ∞ Stock
+                        <FontAwesomeIcon icon={faInfinity} /> Stock
                       </div>
                     )}
                     {ingredient.image ? (
@@ -1146,7 +1150,7 @@ function Store() {
                         justifyContent: 'center',
                         borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
                       }}>
-                        <span style={{ color: 'var(--store-accent)', fontSize: '56px' }}>️</span>
+                        <FontAwesomeIcon icon={faUtensils} style={{ fontSize: '48px', color: 'var(--store-accent)' }} />
                       </div>
                     )}
                     <div className="text-center" style={{ padding: '8px' }}>
@@ -1184,7 +1188,7 @@ function Store() {
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}>
-                        <span style={{ color: 'var(--store-accent)', fontSize: '12px', fontWeight: 'bold' }}>✓</span>
+                        <FontAwesomeIcon icon={faCheck} style={{ fontSize: '12px', color: 'var(--store-accent)' }} />
                       </div>
                     )}
                   </div>
@@ -1217,7 +1221,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  {selectedProduct.extras?.length > 0 ? 'Siguiente ›' : (addingToCart ? '✓ ¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`)}
+                  {selectedProduct.extras?.length > 0 ? <>Siguiente <FontAwesomeIcon icon={faChevronRight} /></> : (addingToCart ? '¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`)}
                 </button>
               )}
             </div>
@@ -1321,7 +1325,7 @@ function Store() {
                         fontWeight: '600',
                         zIndex: 2,
                       }}>
-                        ∞ Stock
+                        <FontAwesomeIcon icon={faInfinity} /> Stock
                       </div>
                     )}
                     {extra.image ? (
@@ -1345,7 +1349,7 @@ function Store() {
                         justifyContent: 'center',
                         borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
                       }}>
-                        <span style={{ color: 'var(--store-accent)', fontSize: '56px' }}>️</span>
+                        <FontAwesomeIcon icon={faUtensils} style={{ fontSize: '48px', color: 'var(--store-accent)' }} />
                       </div>
                     )}
                     <div className="text-center" style={{ padding: '8px' }}>
@@ -1383,7 +1387,7 @@ function Store() {
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}>
-                        <span style={{ color: 'var(--store-accent)', fontSize: '12px', fontWeight: 'bold' }}>✓</span>
+                        <FontAwesomeIcon icon={faCheck} style={{ fontSize: '12px', color: 'var(--store-accent)' }} />
                       </div>
                     )}
                   </div>
@@ -1416,7 +1420,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  {addingToCart ? '✓ ¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`}
+                  {addingToCart ? '¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`}
                 </button>
               )}
             </div>
@@ -1734,7 +1738,7 @@ function Store() {
       {paymentConfirmed && (
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
-            <div style={{ fontSize: '60px', marginBottom: '20px' }}>✅</div>
+            <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--success)' }} />
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
               Muchas gracias por su compra
             </h2>
@@ -1776,7 +1780,7 @@ function Store() {
       {paymentCancelled && (
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
-            <div style={{ fontSize: '60px', marginBottom: '20px' }}>❌</div>
+            <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--danger)' }} />
             <h2 style={{ color: '#DC3545', marginBottom: '10px', fontSize: '24px' }}>
               Pago No Completado
             </h2>
@@ -1851,7 +1855,7 @@ function Store() {
       {cashPaymentSuccess && (
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
-            <div style={{ fontSize: '60px', marginBottom: '20px' }}>✅</div>
+            <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--success)' }} />
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
               Muchas gracias por su compra
             </h2>

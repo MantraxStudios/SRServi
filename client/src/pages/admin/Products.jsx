@@ -556,7 +556,7 @@ function Products() {
                     </span>
                   </label>
                   <span className="stock-toggle-status">
-                    {formData.unlimited_stock ? '∞ Sin limite de ventas' : 'Con limite de stock'}
+                    {formData.unlimited_stock ? 'Stock Ilimitado' : 'Con limite de stock'}
                   </span>
                 </div>
 

@@ -2,22 +2,22 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useNavigate } from 'react-router-dom';
-import { faPlus, faEdit, faTrash, faCopy, faStore, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faCopy, faStore, faExclamationTriangle, faImage, faChevronDown, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { getImageUrl } from '../../config.js';
 
 const API = 'https://srservi2.srautomatic.com';
 
 const CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'Dólar Estadounidense', flag: '🇺🇸' },
-  { code: 'EUR', symbol: '€', name: 'Euro', flag: '🇪🇺' },
-  { code: 'GBP', symbol: '£', name: 'Libra Esterlina', flag: '🇬🇧' },
-  { code: 'JPY', symbol: '¥', name: 'Yen Japonés', flag: '🇯🇵' },
-  { code: 'MXN', symbol: '$', name: 'Peso Mexicano', flag: '🇲🇽' },
-  { code: 'COP', symbol: '$', name: 'Peso Colombiano', flag: '🇨🇴' },
-  { code: 'ARS', symbol: '$', name: 'Peso Argentino', flag: '🇦🇷' },
-  { code: 'PEN', symbol: 'S/', name: 'Sol Peruano', flag: '🇵🇪' },
-  { code: 'BRL', symbol: 'R$', name: 'Real Brasileño', flag: '🇧🇷' },
-  { code: 'CLP', symbol: '$', name: 'Peso Chileno', flag: '🇨🇱' }
+  { code: 'USD', symbol: '$', name: 'Dólar Estadounidense' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'Libra Esterlina' },
+  { code: 'JPY', symbol: '¥', name: 'Yen Japonés' },
+  { code: 'MXN', symbol: '$', name: 'Peso Mexicano' },
+  { code: 'COP', symbol: '$', name: 'Peso Colombiano' },
+  { code: 'ARS', symbol: '$', name: 'Peso Argentino' },
+  { code: 'PEN', symbol: 'S/', name: 'Sol Peruano' },
+  { code: 'BRL', symbol: 'R$', name: 'Real Brasileño' },
+  { code: 'CLP', symbol: '$', name: 'Peso Chileno' }
 ];
 
 function Stores() {
@@ -418,7 +418,7 @@ function Stores() {
                         {logoPreview || formData.logo_url ? (
                           <img src={logoPreview || getImageUrl(formData.logo_url)} alt="Logo" />
                         ) : (
-                          <span className="logo-placeholder">{'🖼️'}</span>
+                          <span className="logo-placeholder"><FontAwesomeIcon icon={faImage} /></span>
                         )}
                       </div>
                       <div className="flex-1">
@@ -549,11 +549,9 @@ function Stores() {
                     className="currency-dropdown-btn"
                   >
                     <span>
-                      {CURRENCIES.find(c => c.code === formData.currency_code)?.flag || '🏳️'}
-                      {' '}
                       <strong>{formData.currency_symbol}</strong> {formData.currency_code} - {formData.currency_name}
                     </span>
-                    <span className="text-xs">▼</span>
+                    <span className="text-xs"><FontAwesomeIcon icon={faChevronDown} /></span>
                   </button>
                   {currencyDropdownOpen && (
                     <div className="currency-dropdown-list">
@@ -563,12 +561,11 @@ function Stores() {
                           onClick={() => selectCurrency(currency)}
                           className={`currency-option${formData.currency_code === currency.code ? ' selected' : ''}`}
                         >
-                          <span className="text-lg">{currency.flag}</span>
                           <strong>{currency.symbol}</strong>
                           <span className="font-semibold">{currency.code}</span>
                           <span className="text-sm text-muted">{currency.name}</span>
                           {formData.currency_code === currency.code && (
-                            <span className="text-muted">{'✓'}</span>
+                            <span className="text-muted"><FontAwesomeIcon icon={faCheck} /></span>
                           )}
                         </div>
                       ))}

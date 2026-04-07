@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faInfinity } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 function Ingredients() {
@@ -196,7 +196,7 @@ function Ingredients() {
                         </td>
                         <td>
                           {ingredient.unlimited_stock ? (
-                            <span className="stock-unlimited">∞</span>
+                            <span className="stock-unlimited"><FontAwesomeIcon icon={faInfinity} /></span>
                           ) : (
                             <span className={`stock-value ${ingredient.stock === 0 ? 'stock-danger' : ingredient.stock < 10 ? 'stock-warning' : 'stock-ok'}`}>
                               {ingredient.stock}
@@ -297,7 +297,7 @@ function Ingredients() {
                   </span>
                 </label>
                 <span className="toggle-status">
-                  {formData.unlimited_stock ? '∞ Stock Ilimitado' : 'Completo'}
+                  {formData.unlimited_stock ? <><FontAwesomeIcon icon={faInfinity} /> Stock Ilimitado</> : 'Completo'}
                 </span>
               </div>
               <div className="form-group">

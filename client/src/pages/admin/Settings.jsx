@@ -1,21 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPalette, faCoins } from '@fortawesome/free-solid-svg-icons';
+import { faPalette, faCoins, faChevronDown, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useNavigate, Link } from 'react-router-dom';
 
 const CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'Dolar Estadounidense', flag: '🇺🇸' },
-  { code: 'EUR', symbol: '€', name: 'Euro', flag: '🇪🇺' },
-  { code: 'GBP', symbol: '£', name: 'Libra Esterlina', flag: '🇬🇧' },
-  { code: 'JPY', symbol: '¥', name: 'Yen Japonés', flag: '🇯🇵' },
-  { code: 'MXN', symbol: '$', name: 'Peso Mexicano', flag: '🇲🇽' },
-  { code: 'COP', symbol: '$', name: 'Peso Colombiano', flag: '🇨🇴' },
-  { code: 'ARS', symbol: '$', name: 'Peso Argentino', flag: '🇦🇷' },
-  { code: 'PEN', symbol: 'S/', name: 'Sol Peruano', flag: '🇵🇪' },
-  { code: 'BRL', symbol: 'R$', name: 'Real Brasileño', flag: '🇧🇷' },
-  { code: 'CLP', symbol: '$', name: 'Peso Chileno', flag: '🇨🇱' }
+  { code: 'USD', symbol: '$', name: 'Dolar Estadounidense' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'Libra Esterlina' },
+  { code: 'JPY', symbol: '¥', name: 'Yen Japonés' },
+  { code: 'MXN', symbol: '$', name: 'Peso Mexicano' },
+  { code: 'COP', symbol: '$', name: 'Peso Colombiano' },
+  { code: 'ARS', symbol: '$', name: 'Peso Argentino' },
+  { code: 'PEN', symbol: 'S/', name: 'Sol Peruano' },
+  { code: 'BRL', symbol: 'R$', name: 'Real Brasileño' },
+  { code: 'CLP', symbol: '$', name: 'Peso Chileno' }
 ];
 
 function Settings() {
@@ -140,7 +140,7 @@ function Settings() {
                 <span>
                   <strong>{formData.currency_symbol}</strong> - {formData.currency_name} ({formData.currency_code})
                 </span>
-                <span className="text-xs">{'▼'}</span>
+                <span className="text-xs"><FontAwesomeIcon icon={faChevronDown} /></span>
               </button>
 
               {currencyDropdownOpen && (
@@ -156,7 +156,7 @@ function Settings() {
                         <strong>{currency.symbol}</strong> {currency.code} - {currency.name}
                       </span>
                       {formData.currency_code === currency.code && (
-                        <span className="icon-success">{'✓'}</span>
+                        <span className="icon-success"><FontAwesomeIcon icon={faCheck} /></span>
                       )}
                     </button>
                   ))}

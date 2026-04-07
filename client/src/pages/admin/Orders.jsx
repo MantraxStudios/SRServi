@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faShoppingBag } from '@fortawesome/free-solid-svg-icons';
+import { faShoppingBag, faUtensils } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 function Orders() {
@@ -79,7 +79,7 @@ function Orders() {
                     </p>
                     <div className={`order-type-badge ${order.order_type === 'takeout' ? 'takeout' : 'serve'}`}>
                       <span>
-                        {order.order_type === 'takeout' ? '🥡' : '🍽️'}
+                        <FontAwesomeIcon icon={order.order_type === 'takeout' ? faShoppingBag : faUtensils} />
                       </span>
                       {order.order_type === 'takeout' ? 'Para Llevar' : 'Para Comer Aqui'}
                     </div>

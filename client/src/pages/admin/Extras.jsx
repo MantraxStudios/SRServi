@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faInfinity } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 function Extras() {
@@ -196,7 +196,7 @@ function Extras() {
                         </td>
                         <td>
                           {extra.unlimited_stock ? (
-                            <span className="stock-unlimited">∞</span>
+                            <span className="stock-unlimited"><FontAwesomeIcon icon={faInfinity} /></span>
                           ) : (
                             <span className={`stock-value ${extra.stock === 0 ? 'stock-danger' : extra.stock < 10 ? 'stock-warning' : 'stock-ok'}`}>
                               {extra.stock}
@@ -297,7 +297,7 @@ function Extras() {
                   </span>
                 </label>
                 <span className="toggle-status">
-                  {formData.unlimited_stock ? '∞ Stock Ilimitado' : 'Completo'}
+                  {formData.unlimited_stock ? <><FontAwesomeIcon icon={faInfinity} /> Stock Ilimitado</> : 'Completo'}
                 </span>
               </div>
               <div className="form-group">

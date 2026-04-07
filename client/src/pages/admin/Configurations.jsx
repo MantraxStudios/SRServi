@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 function Configurations() {
@@ -308,7 +308,7 @@ function Configurations() {
                       checked={formData.allow_serve}
                       onChange={(e) => setFormData({ ...formData, allow_serve: e.target.checked })}
                     />
-                    <span className="checkbox-card-icon">{'️'}</span>
+                    <span className="checkbox-card-icon"><FontAwesomeIcon icon={faUtensils} /></span>
                     <div>
                       <span className="font-semibold">Comer aquí</span>
                       <span className="text-muted text-xs">Para servir en mesa</span>
@@ -321,7 +321,7 @@ function Configurations() {
                       checked={formData.allow_takeout}
                       onChange={(e) => setFormData({ ...formData, allow_takeout: e.target.checked })}
                     />
-                    <span className="checkbox-card-icon">{''}</span>
+                    <span className="checkbox-card-icon"><FontAwesomeIcon icon={faShoppingBag} /></span>
                     <div>
                       <span className="font-semibold">Para llevar</span>
                       <span className="text-muted text-xs">Servicio para llevar</span>
@@ -330,7 +330,7 @@ function Configurations() {
                 </div>
                 {!formData.allow_serve && !formData.allow_takeout && (
                   <p className="validation-warning">
-                    {'⚠️'} Al menos una opción de pedido debe estar habilitada
+                    <FontAwesomeIcon icon={faExclamationTriangle} /> Al menos una opción de pedido debe estar habilitada
                   </p>
                 )}
               </div>

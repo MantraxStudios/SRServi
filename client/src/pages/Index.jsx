@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faQrcode, faCreditCard, faMoneyBillWave } from '@fortawesome/free-solid-svg-icons';
+import { faQrcode, faCreditCard, faMoneyBillWave, faCheck } from '@fortawesome/free-solid-svg-icons';
 
 function Index() {
   const [code, setCode] = useState('');
@@ -154,7 +154,7 @@ function Index() {
                     >
                       <div className="totem-radio">
                         {selectedConfigId === String(config.id) && (
-                          <span className="totem-radio-check">✓</span>
+                          <span className="totem-radio-check"><FontAwesomeIcon icon={faCheck} /></span>
                         )}
                       </div>
                       <div className="totem-option-info">
