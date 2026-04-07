@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faLock, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faLock, faArrowLeft, faUserCog } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -48,31 +48,37 @@ function WorkerLogin() {
           <FontAwesomeIcon icon={faArrowLeft} /> Volver
         </button>
 
-        <h1 className="worker-login-title">Panel de Trabajadores</h1>
-        <p className="worker-login-subtitle">Ingresa tus credenciales</p>
+        <div className="worker-login-header">
+          <div className="worker-login-icon">
+            <FontAwesomeIcon icon={faUserCog} />
+          </div>
+          <h1 className="worker-login-title">Panel de Trabajadores</h1>
+          <p className="worker-login-subtitle">Ingresa tus credenciales para acceder</p>
+        </div>
 
-        {error && <div className="error">{error}</div>}
+        {error && <div className="worker-login-error">{error}</div>}
 
         <form onSubmit={handleSubmit} className="worker-login-form">
-          <div className="input-icon-wrapper">
-            <FontAwesomeIcon icon={faUser} className="input-icon" />
+          <div className="worker-input-group">
+            <FontAwesomeIcon icon={faUser} className="worker-input-icon" />
             <input
               type="text"
               placeholder="Usuario"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="form-group input"
+              className="worker-input"
               required
             />
           </div>
 
-          <div className="input-icon-wrapper">
-            <FontAwesomeIcon icon={faLock} className="input-icon" />
+          <div className="worker-input-group">
+            <FontAwesomeIcon icon={faLock} className="worker-input-icon" />
             <input
               type="password"
               placeholder="Contraseña"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="worker-input"
               required
             />
           </div>
