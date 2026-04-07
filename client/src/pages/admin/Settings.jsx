@@ -6,16 +6,16 @@ import { useStore } from '../../components/Layout';
 import { useNavigate, Link } from 'react-router-dom';
 
 const CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'Dolar Estadounidense', flag: '\🇺\🇸' },
-  { code: 'EUR', symbol: '\€', name: 'Euro', flag: '\🇪\🇺' },
-  { code: 'GBP', symbol: '\£', name: 'Libra Esterlina', flag: '\🇬\🇧' },
-  { code: 'JPY', symbol: '\¥', name: 'Yen Japon\és', flag: '\🇯\🇵' },
-  { code: 'MXN', symbol: '$', name: 'Peso Mexicano', flag: '\🇲\🇽' },
-  { code: 'COP', symbol: '$', name: 'Peso Colombiano', flag: '\🇨\🇴' },
-  { code: 'ARS', symbol: '$', name: 'Peso Argentino', flag: '\🇦\🇷' },
-  { code: 'PEN', symbol: 'S/', name: 'Sol Peruano', flag: '\🇵\🇪' },
-  { code: 'BRL', symbol: 'R$', name: 'Real Brasile\ño', flag: '\🇧\🇷' },
-  { code: 'CLP', symbol: '$', name: 'Peso Chileno', flag: '\🇨\🇱' }
+  { code: 'USD', symbol: '$', name: 'Dolar Estadounidense', flag: '🇺🇸' },
+  { code: 'EUR', symbol: '€', name: 'Euro', flag: '🇪🇺' },
+  { code: 'GBP', symbol: '£', name: 'Libra Esterlina', flag: '🇬🇧' },
+  { code: 'JPY', symbol: '¥', name: 'Yen Japonés', flag: '🇯🇵' },
+  { code: 'MXN', symbol: '$', name: 'Peso Mexicano', flag: '🇲🇽' },
+  { code: 'COP', symbol: '$', name: 'Peso Colombiano', flag: '🇨🇴' },
+  { code: 'ARS', symbol: '$', name: 'Peso Argentino', flag: '🇦🇷' },
+  { code: 'PEN', symbol: 'S/', name: 'Sol Peruano', flag: '🇵🇪' },
+  { code: 'BRL', symbol: 'R$', name: 'Real Brasileño', flag: '🇧🇷' },
+  { code: 'CLP', symbol: '$', name: 'Peso Chileno', flag: '🇨🇱' }
 ];
 
 function Settings() {
@@ -29,7 +29,7 @@ function Settings() {
     header_color: '#000000',
     currency_code: 'USD',
     currency_symbol: '$',
-    currency_name: 'D\ólar Estadounidense'
+    currency_name: 'Dólar Estadounidense'
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -45,7 +45,7 @@ function Settings() {
         header_color: selectedStore.header_color || '#000000',
         currency_code: selectedStore.currency_code || 'USD',
         currency_symbol: selectedStore.currency_symbol || '$',
-        currency_name: selectedStore.currency_name || 'D\ólar Estadounidense'
+        currency_name: selectedStore.currency_name || 'Dólar Estadounidense'
       });
     }
   }, [selectedStore]);
@@ -85,7 +85,7 @@ function Settings() {
       });
 
       if (!response.ok) {
-        throw new Error('Error al guardar la configuraci\ón');
+        throw new Error('Error al guardar la configuración');
       }
 
       setSuccess(true);
@@ -103,7 +103,7 @@ function Settings() {
       <div className="no-store-message">
         <h2>Selecciona una tienda</h2>
         <p>
-          Debes seleccionar una tienda desde el men\ú lateral para ver su configuraci\ón
+          Debes seleccionar una tienda desde el menú lateral para ver su configuración
         </p>
         <Link to="/admin/stores" className="btn btn-primary">
           Ir a Tiendas
@@ -115,11 +115,11 @@ function Settings() {
   return (
     <>
       <header className="admin-header">
-        <h1>Configuraci\ón</h1>
+        <h1>Configuración</h1>
       </header>
       <div className="admin-main">
         {error && <div className="error">{error}</div>}
-        {success && <div className="success">Configuraci\ón guardada exitosamente</div>}
+        {success && <div className="success">Configuración guardada exitosamente</div>}
 
         <div className="card">
           <div className="card-header">
@@ -130,7 +130,7 @@ function Settings() {
           </div>
 
           <div className="form-group">
-            <label>Selecciona la moneda que usar\ás en tu tienda</label>
+            <label>Selecciona la moneda que usarás en tu tienda</label>
             <div className="currency-dropdown">
               <button
                 type="button"
@@ -140,7 +140,7 @@ function Settings() {
                 <span>
                   <strong>{formData.currency_symbol}</strong> - {formData.currency_name} ({formData.currency_code})
                 </span>
-                <span className="text-xs">{'\▼'}</span>
+                <span className="text-xs">{'▼'}</span>
               </button>
 
               {currencyDropdownOpen && (
@@ -156,7 +156,7 @@ function Settings() {
                         <strong>{currency.symbol}</strong> {currency.code} - {currency.name}
                       </span>
                       {formData.currency_code === currency.code && (
-                        <span className="icon-success">{'\✓'}</span>
+                        <span className="icon-success">{'✓'}</span>
                       )}
                     </button>
                   ))}
@@ -164,7 +164,7 @@ function Settings() {
               )}
             </div>
             <small className="currency-hint">
-              Los precios en tu tienda se mostrar\án con esta moneda
+              Los precios en tu tienda se mostrarán con esta moneda
             </small>
           </div>
         </div>
@@ -311,7 +311,7 @@ function Settings() {
                     fontWeight: '600',
                     cursor: 'pointer'
                   }}>
-                    Bot\ón Secundario
+                    Botón Secundario
                   </button>
                 </div>
 
@@ -333,7 +333,7 @@ function Settings() {
               className="btn btn-primary btn-full btn-lg"
               disabled={loading}
             >
-              {loading ? 'Guardando...' : 'Guardar Configuraci\ón'}
+              {loading ? 'Guardando...' : 'Guardar Configuración'}
             </button>
           </form>
         </div>

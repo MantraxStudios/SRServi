@@ -104,7 +104,7 @@ function Coupons() {
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error || 'No se pudo guardar el cup\ón');
+        throw new Error(errData.error || 'No se pudo guardar el cupón');
       }
 
       setShowModal(false);
@@ -116,7 +116,7 @@ function Coupons() {
   };
 
   const handleDelete = async (couponId) => {
-    if (!confirm('\¿Eliminar este cup\ón?')) return;
+    if (!confirm('¿Eliminar este cupón?')) return;
 
     try {
       const token = localStorage.getItem('token');
@@ -147,7 +147,7 @@ function Coupons() {
         </h1>
         <button className="btn btn-primary" onClick={() => openModal()}>
           <FontAwesomeIcon icon={faPlus} />
-          Nuevo Cup\ón
+          Nuevo Cupón
         </button>
       </header>
 
@@ -158,7 +158,7 @@ function Coupons() {
           {coupons.length === 0 ? (
             <div className="empty-state">
               <p className="empty-state-text">
-                No hay cupones. Crea tu primer cup\ón.
+                No hay cupones. Crea tu primer cupón.
               </p>
             </div>
           ) : (
@@ -166,10 +166,10 @@ function Coupons() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>C\ódigo</th>
+                    <th>Código</th>
                     <th>Nombre</th>
                     <th>Descuento</th>
-                    <th>L\ímite</th>
+                    <th>Límite</th>
                     <th>Usados</th>
                     <th>Estado</th>
                     <th>Acciones</th>
@@ -185,7 +185,7 @@ function Coupons() {
                         ? `${Number(coupon.discount_value).toFixed(2)}%`
                         : `$${Number(coupon.discount_value).toFixed(2)}`}
                     </td>
-                    <td>{coupon.usage_limit === null ? 'Sin l\ímite' : coupon.usage_limit}</td>
+                    <td>{coupon.usage_limit === null ? 'Sin límite' : coupon.usage_limit}</td>
                     <td>{coupon.usage_count}</td>
                     <td>
                       <span className={coupon.is_active ? 'badge badge-success' : 'badge badge-danger'}>
@@ -214,10 +214,10 @@ function Coupons() {
       {showModal && (
         <div className="modal-overlay">
           <div className="modal">
-            <h2>{editingCoupon ? 'Editar Cup\ón' : 'Nuevo Cup\ón'}</h2>
+            <h2>{editingCoupon ? 'Editar Cupón' : 'Nuevo Cupón'}</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>C\ódigo</label>
+                <label>Código</label>
                 <input
                   type="text"
                   value={formData.code}
@@ -256,7 +256,7 @@ function Coupons() {
                 />
               </div>
               <div className="form-group">
-                <label>Monto m\ínimo de pedido</label>
+                <label>Monto mínimo de pedido</label>
                 <input
                   type="number"
                   min="0"
@@ -266,13 +266,13 @@ function Coupons() {
                 />
               </div>
               <div className="form-group">
-                <label>L\ímite de usos</label>
+                <label>Límite de usos</label>
                 <input
                   type="number"
                   min="1"
                   value={formData.usage_limit}
                   onChange={(e) => setFormData(prev => ({ ...prev, usage_limit: e.target.value }))}
-                  placeholder="Vac\ío = sin l\ímite"
+                  placeholder="Vacío = sin límite"
                 />
               </div>
               <div className="form-group">

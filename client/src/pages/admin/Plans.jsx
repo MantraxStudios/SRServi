@@ -94,20 +94,20 @@ function Plans() {
         const data = await response.json();
 
         if (data.success && data.activated) {
-          setMessage({ type: 'success', text: '\¡Pago exitoso! Tu suscripci\ón ha sido activada.' });
+          setMessage({ type: 'success', text: '¡Pago exitoso! Tu suscripción ha sido activada.' });
         } else if (data.success) {
-          setMessage({ type: 'info', text: 'Pago recibido. Procesando tu suscripci\ón...' });
+          setMessage({ type: 'info', text: 'Pago recibido. Procesando tu suscripción...' });
         }
       } catch (err) {
-        setMessage({ type: 'success', text: '\¡Pago exitoso! Tu suscripci\ón ha sido activada.' });
+        setMessage({ type: 'success', text: '¡Pago exitoso! Tu suscripción ha sido activada.' });
       }
       fetchMyPlan();
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (paymentStatus === 'failure') {
-      setMessage({ type: 'error', text: 'El pago fall\ó. Por favor intenta nuevamente.' });
+      setMessage({ type: 'error', text: 'El pago falló. Por favor intenta nuevamente.' });
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (paymentStatus === 'pending') {
-      setMessage({ type: 'warning', text: 'El pago est\á pendiente. Te notificaremos cuando se confirme.' });
+      setMessage({ type: 'warning', text: 'El pago está pendiente. Te notificaremos cuando se confirme.' });
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   };
@@ -269,12 +269,12 @@ function Plans() {
                 </span>
                 {price > 0 && (
                   <span className="plan-card-period">
-                    /{billingCycle === 'yearly' ? 'a\ño' : 'mes'}
+                    /{billingCycle === 'yearly' ? 'año' : 'mes'}
                   </span>
                 )}
                 {plan.price_yearly > 0 && billingCycle === 'yearly' && (
                   <div className="plan-card-savings">
-                    Ahorra ${(plan.price_monthly * 12 - plan.price_yearly).toFixed(2)}/a\ño
+                    Ahorra ${(plan.price_monthly * 12 - plan.price_yearly).toFixed(2)}/año
                   </div>
                 )}
               </div>

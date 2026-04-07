@@ -223,7 +223,7 @@ function Store() {
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error('C\ódigo no encontrado');
+          throw new Error('Código no encontrado');
         }
         if (response.status === 403) {
           const data = await response.json();
@@ -305,7 +305,7 @@ function Store() {
     currency: {
       symbol: store.store.currency_symbol || '$',
       code: store.store.currency_code || 'USD',
-      name: store.store.currency_name || 'D\ólar Estadounidense'
+      name: store.store.currency_name || 'Dólar Estadounidense'
     }
   } : {
     primary: '#000000',
@@ -315,7 +315,7 @@ function Store() {
     currency: {
       symbol: '$',
       code: 'USD',
-      name: 'D\ólar Estadounidense'
+      name: 'Dólar Estadounidense'
     }
   };
 
@@ -380,6 +380,7 @@ function Store() {
         id: Date.now(),
         product_id: found.id,
         product_name: found.name,
+        product_image: found.image,
         unit_price: unitPrice,
         quantity: 1,
         total: unitPrice
@@ -407,7 +408,7 @@ function Store() {
         const ingredientConfig = selectedProduct.ingredients.find(i => i.id === ingredient.id);
         const maxSelections = ingredientConfig?.max_selections || 1;
         if (prev.selectedIngredients.length >= maxSelections) {
-          alert(`Solo puedes seleccionar m\áximo ${maxSelections} ingrediente(s) de "${ingredientConfig.name}"`);
+          alert(`Solo puedes seleccionar máximo ${maxSelections} ingrediente(s) de "${ingredientConfig.name}"`);
           return prev;
         }
         return {
@@ -468,6 +469,7 @@ function Store() {
         id: Date.now(),
         product_id: selectedProduct.id,
         product_name: selectedProduct.name,
+        product_image: selectedProduct.image,
         unit_price: unitPrice,
         quantity: productConfig.quantity,
         total: unitPrice * productConfig.quantity,
@@ -493,7 +495,7 @@ function Store() {
     );
 
     if (missingRequired.length > 0) {
-      alert(`Por favor selecciona los siguientes ingredientes obligatorios:\n${missingRequired.map(i => '\• ' + i.name).join('\n')}`);
+      alert(`Por favor selecciona los siguientes ingredientes obligatorios:\n${missingRequired.map(i => '• ' + i.name).join('\n')}`);
       return;
     }
     setIngredientsModalOpen(false);
@@ -554,11 +556,12 @@ function Store() {
 
   const copyCode = () => {
     navigator.clipboard.writeText(code);
-    alert('C\ódigo copiado: ' + code);
+    alert('Código copiado: ' + code);
   };
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
+    setCartOpen(false);
     setPaymentModalOpen(true);
   };
 
@@ -576,7 +579,7 @@ function Store() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'No se pudo aplicar el cup\ón');
+        throw new Error(data.error || 'No se pudo aplicar el cupón');
       }
       setAppliedCoupon(data);
       setCouponCodeInput(data.coupon_code || couponCodeInput.trim().toUpperCase());
@@ -596,7 +599,7 @@ function Store() {
   const processPayment = async (selectedMethod = paymentMethod) => {
     if (cart.length === 0) return;
     if (selectedMethod === 'card' && !selectedTerminalId) {
-      alert('No hay m\áquina Point asignada para esta sesi\ón');
+      alert('No hay máquina Point asignada para esta sesión');
       return;
     }
 
@@ -910,10 +913,10 @@ function Store() {
             <FontAwesomeIcon icon={faBox} style={{ color: colors.accent }} />
           </div>
           <h2>
-            Esta tienda a\ún no tiene productos
+            Esta tienda aún no tiene productos
           </h2>
           <p>
-            El propietario a\ún no ha agregado productos a su cat\álogo. \¡Vuelve pronto!
+            El propietario aún no ha agregado productos a su catálogo. ¡Vuelve pronto!
           </p>
         </div>
       )}
@@ -993,7 +996,7 @@ function Store() {
             {notification.agotado ? (
               <div className="toast-status-soldout">Agotado</div>
             ) : (
-              <div className="toast-status-added">Agregado \✓</div>
+              <div className="toast-status-added">Agregado ✓</div>
             )}
           </div>
         </div>
@@ -1119,7 +1122,7 @@ function Store() {
                         fontWeight: '600',
                         zIndex: 2,
                       }}>
-                        \∞ Stock
+                        ∞ Stock
                       </div>
                     )}
                     {ingredient.image ? (
@@ -1143,7 +1146,7 @@ function Store() {
                         justifyContent: 'center',
                         borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
                       }}>
-                        <span style={{ color: 'var(--store-accent)', fontSize: '56px' }}>\�\�\️</span>
+                        <span style={{ color: 'var(--store-accent)', fontSize: '56px' }}>️</span>
                       </div>
                     )}
                     <div className="text-center" style={{ padding: '8px' }}>
@@ -1181,7 +1184,7 @@ function Store() {
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}>
-                        <span style={{ color: 'var(--store-accent)', fontSize: '12px', fontWeight: 'bold' }}>\✓</span>
+                        <span style={{ color: 'var(--store-accent)', fontSize: '12px', fontWeight: 'bold' }}>✓</span>
                       </div>
                     )}
                   </div>
@@ -1214,7 +1217,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  {selectedProduct.extras?.length > 0 ? 'Siguiente \›' : (addingToCart ? '\✓ \¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`)}
+                  {selectedProduct.extras?.length > 0 ? 'Siguiente ›' : (addingToCart ? '✓ ¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`)}
                 </button>
               )}
             </div>
@@ -1318,7 +1321,7 @@ function Store() {
                         fontWeight: '600',
                         zIndex: 2,
                       }}>
-                        \∞ Stock
+                        ∞ Stock
                       </div>
                     )}
                     {extra.image ? (
@@ -1342,7 +1345,7 @@ function Store() {
                         justifyContent: 'center',
                         borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
                       }}>
-                        <span style={{ color: 'var(--store-accent)', fontSize: '56px' }}>\�\�\️</span>
+                        <span style={{ color: 'var(--store-accent)', fontSize: '56px' }}>️</span>
                       </div>
                     )}
                     <div className="text-center" style={{ padding: '8px' }}>
@@ -1380,7 +1383,7 @@ function Store() {
                         alignItems: 'center',
                         justifyContent: 'center'
                       }}>
-                        <span style={{ color: 'var(--store-accent)', fontSize: '12px', fontWeight: 'bold' }}>\✓</span>
+                        <span style={{ color: 'var(--store-accent)', fontSize: '12px', fontWeight: 'bold' }}>✓</span>
                       </div>
                     )}
                   </div>
@@ -1413,7 +1416,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  {addingToCart ? '\✓ \¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`}
+                  {addingToCart ? '✓ ¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`}
                 </button>
               )}
             </div>
@@ -1452,8 +1455,12 @@ function Store() {
             <>
               {cart.map(item => (
                 <div className="store-cart-item" key={item.id}>
-                  <div className="store-cart-item-icon">
-                    <FontAwesomeIcon icon={faBox} />
+                  <div className="store-cart-item-thumb">
+                    {item.product_image ? (
+                      <img src={getImageUrl(item.product_image)} alt={item.product_name} />
+                    ) : (
+                      <FontAwesomeIcon icon={faBox} className="store-cart-item-thumb-icon" />
+                    )}
                   </div>
                   <div className="store-cart-item-content">
                     <div className="store-cart-item-top">
@@ -1727,7 +1734,7 @@ function Store() {
       {paymentConfirmed && (
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
-            <div style={{ fontSize: '60px', marginBottom: '20px' }}>\✅</div>
+            <div style={{ fontSize: '60px', marginBottom: '20px' }}>✅</div>
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
               Muchas gracias por su compra
             </h2>
@@ -1769,7 +1776,7 @@ function Store() {
       {paymentCancelled && (
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
-            <div style={{ fontSize: '60px', marginBottom: '20px' }}>\❌</div>
+            <div style={{ fontSize: '60px', marginBottom: '20px' }}>❌</div>
             <h2 style={{ color: '#DC3545', marginBottom: '10px', fontSize: '24px' }}>
               Pago No Completado
             </h2>
@@ -1844,7 +1851,7 @@ function Store() {
       {cashPaymentSuccess && (
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
-            <div style={{ fontSize: '60px', marginBottom: '20px' }}>\✅</div>
+            <div style={{ fontSize: '60px', marginBottom: '20px' }}>✅</div>
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
               Muchas gracias por su compra
             </h2>

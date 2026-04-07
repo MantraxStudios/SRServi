@@ -78,12 +78,12 @@ function Configurations() {
     }
 
     if (!formData.accept_cash && !formData.accept_card) {
-      setError('Debes aceptar al menos un m\étodo de pago');
+      setError('Debes aceptar al menos un método de pago');
       return;
     }
 
     if (!formData.allow_serve && !formData.allow_takeout) {
-      setError('Debes habilitar al menos una opci\ón de pedido (comer aqu\í o llevar)');
+      setError('Debes habilitar al menos una opción de pedido (comer aquí o llevar)');
       return;
     }
 
@@ -104,7 +104,7 @@ function Configurations() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Error al guardar la configuraci\ón');
+        throw new Error(data.error || 'Error al guardar la configuración');
       }
 
       setShowModal(false);
@@ -146,7 +146,7 @@ function Configurations() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('\¿Est\ás seguro de eliminar esta configuraci\ón?')) return;
+    if (!confirm('¿Estás seguro de eliminar esta configuración?')) return;
 
     try {
       const token = localStorage.getItem('token');
@@ -156,7 +156,7 @@ function Configurations() {
       });
 
       if (!response.ok) {
-        throw new Error('Error al eliminar la configuraci\ón');
+        throw new Error('Error al eliminar la configuración');
       }
 
       fetchConfigurations();
@@ -308,9 +308,9 @@ function Configurations() {
                       checked={formData.allow_serve}
                       onChange={(e) => setFormData({ ...formData, allow_serve: e.target.checked })}
                     />
-                    <span className="checkbox-card-icon">{'\�\�\️'}</span>
+                    <span className="checkbox-card-icon">{'️'}</span>
                     <div>
-                      <span className="font-semibold">Comer aqu\í</span>
+                      <span className="font-semibold">Comer aquí</span>
                       <span className="text-muted text-xs">Para servir en mesa</span>
                     </div>
                   </div>
@@ -321,7 +321,7 @@ function Configurations() {
                       checked={formData.allow_takeout}
                       onChange={(e) => setFormData({ ...formData, allow_takeout: e.target.checked })}
                     />
-                    <span className="checkbox-card-icon">{'\�\�'}</span>
+                    <span className="checkbox-card-icon">{''}</span>
                     <div>
                       <span className="font-semibold">Para llevar</span>
                       <span className="text-muted text-xs">Servicio para llevar</span>
@@ -330,7 +330,7 @@ function Configurations() {
                 </div>
                 {!formData.allow_serve && !formData.allow_takeout && (
                   <p className="validation-warning">
-                    {'\⚠\️'} Al menos una opci\ón de pedido debe estar habilitada
+                    {'⚠️'} Al menos una opción de pedido debe estar habilitada
                   </p>
                 )}
               </div>

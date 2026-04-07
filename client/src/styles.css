@@ -2277,18 +2277,28 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 10px;
 }
 
-.store-cart-item-icon {
-  width: 48px;
-  height: 48px;
+.store-cart-item-thumb {
+  width: 56px;
+  height: 56px;
   border-radius: var(--radius-md);
-  background: var(--card);
+  background: var(--muted);
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--store-accent, var(--gold));
-  font-size: 18px;
+  overflow: hidden;
   flex-shrink: 0;
+}
+
+.store-cart-item-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.store-cart-item-thumb-icon {
+  font-size: 20px;
+  color: var(--muted-foreground);
 }
 
 .store-cart-item-content {
