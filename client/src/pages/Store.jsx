@@ -19,8 +19,7 @@ import {
   faChevronRight,
   faCheckCircle,
   faGripVertical,
-  faLock,
-  faPen
+  faLock
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -84,6 +83,7 @@ function Store() {
   const [pinError, setPinError] = useState('');
   const [editDragActiveId, setEditDragActiveId] = useState(null);
   const [sessionPin, setSessionPin] = useState(null);
+  const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
 
   useEffect(() => {
@@ -381,16 +381,17 @@ function Store() {
   };
 
   useEffect(() => {
-    if (barcodeInputRef.current) {
+    if (barcodeInputRef.current && !pinModalOpen) {
       barcodeInputRef.current.focus();
     }
     const interval = setInterval(() => {
+      if (pinModalOpen) return;
       if (barcodeInputRef.current && document.activeElement !== barcodeInputRef.current) {
         barcodeInputRef.current.focus();
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [pinModalOpen]);
 
   const handleBarcodeScan = (barcodeValue) => {
     if (!store?.products) return;
@@ -794,36 +795,45 @@ function Store() {
     return grouped;
   };
 
-  const handleEditModeToggle = () => {
-    if (editMode) {
-      setEditMode(false);
-      return;
-    }
-    setPinInput('');
-    setPinError('');
-    setPinModalOpen(true);
+  const handleLongPressStart = () => {
+    if (editMode) return;
+    longPressTimerRef.current = setTimeout(() => {
+      setPinInput('');
+      setPinError('');
+      setPinModalOpen(true);
+    }, 10000);
   };
 
-  const handlePinSubmit = async () => {
-    if (!pinInput) return;
+  const handleLongPressEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handlePinSubmit = async (pinValue) => {
+    const pin = pinValue || pinInput;
+    if (!pin || pin.length < 4) return;
     try {
       const response = await fetch(`/api/public/${code}/verify-edit-pin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: pinInput })
+        body: JSON.stringify({ pin })
       });
       const data = await response.json();
       if (data.valid) {
-        setSessionPin(pinInput);
+        setSessionPin(pin);
         setEditMode(true);
         setPinModalOpen(false);
         setPinInput('');
         setPinError('');
       } else {
         setPinError('PIN incorrecto');
+        setPinInput('');
       }
     } catch {
       setPinError('Error al verificar PIN');
+      setPinInput('');
     }
   };
 
@@ -987,7 +997,16 @@ function Store() {
   }
 
   return (
-    <div className="store-container" style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary }}>
+    <div
+      className="store-container"
+      style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary }}
+      onTouchStart={handleLongPressStart}
+      onTouchEnd={handleLongPressEnd}
+      onTouchMove={handleLongPressEnd}
+      onMouseDown={handleLongPressStart}
+      onMouseUp={handleLongPressEnd}
+      onMouseLeave={handleLongPressEnd}
+    >
       <header className="store-header">
         {store?.store?.is_premium ? (
           <div className="store-header-content">
@@ -1035,13 +1054,6 @@ function Store() {
       )}
 
       <div className="category-tabs">
-        <button
-          className="store-edit-toggle-btn"
-          onClick={handleEditModeToggle}
-          title={editMode ? 'Salir del modo edición' : 'Reordenar productos'}
-        >
-          <FontAwesomeIcon icon={editMode ? faTimes : faPen} />
-        </button>
         <div
           ref={categoryRef}
           className="category-tabs-list"
@@ -2110,61 +2122,74 @@ function Store() {
       {pinModalOpen && (
         <div className="store-modal-overlay" onClick={() => setPinModalOpen(false)}>
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()}>
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <FontAwesomeIcon icon={faLock} style={{ fontSize: '32px', color: 'var(--store-accent)', marginBottom: '10px' }} />
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <FontAwesomeIcon icon={faLock} style={{ fontSize: '28px', color: 'var(--store-accent)', marginBottom: '8px' }} />
               <h3 style={{ margin: 0, color: 'var(--store-primary)' }}>Ingresa el PIN</h3>
-              <p style={{ margin: '5px 0 0', fontSize: '14px', color: '#666' }}>
-                Para reordenar productos
-              </p>
             </div>
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={4}
-              value={pinInput}
-              onChange={(e) => {
-                setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4));
-                setPinError('');
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handlePinSubmit();
-              }}
-              placeholder="****"
-              autoFocus
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '24px',
-                textAlign: 'center',
-                letterSpacing: '12px',
-                border: `2px solid ${pinError ? '#dc3545' : 'var(--store-primary)'}`,
-                borderRadius: '8px',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
+
+            <div className="pin-dots">
+              {[0, 1, 2, 3].map(i => (
+                <div
+                  key={i}
+                  className={`pin-dot${pinInput.length > i ? ' filled' : ''}`}
+                  style={{
+                    borderColor: pinError ? '#dc3545' : 'var(--store-primary)'
+                  }}
+                />
+              ))}
+            </div>
+
             {pinError && (
               <p style={{ color: '#dc3545', textAlign: 'center', margin: '8px 0 0', fontSize: '14px' }}>
                 {pinError}
               </p>
             )}
+
+            <div className="pin-numpad">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, null, 0, 'del'].map((key, idx) => (
+                <button
+                  key={idx}
+                  className={`pin-numpad-btn${key === null ? ' pin-numpad-empty' : ''}${key === 'del' ? ' pin-numpad-del' : ''}`}
+                  onClick={() => {
+                    if (key === null) return;
+                    if (key === 'del') {
+                      setPinInput(prev => prev.slice(0, -1));
+                      setPinError('');
+                      return;
+                    }
+                    if (pinInput.length >= 4) return;
+                    const newPin = pinInput + key;
+                    setPinInput(newPin);
+                    setPinError('');
+                    if (newPin.length === 4) {
+                      setTimeout(() => {
+                        handlePinSubmit(newPin);
+                      }, 200);
+                    }
+                  }}
+                  disabled={key === null}
+                >
+                  {key === 'del' ? (
+                    <FontAwesomeIcon icon={faArrowLeft} />
+                  ) : key !== null ? key : ''}
+                </button>
+              ))}
+            </div>
+
             <button
-              onClick={handlePinSubmit}
-              disabled={pinInput.length < 4}
+              onClick={() => setPinModalOpen(false)}
               style={{
                 width: '100%',
-                padding: '12px',
-                marginTop: '15px',
-                backgroundColor: pinInput.length >= 4 ? 'var(--store-accent)' : '#ccc',
-                color: pinInput.length >= 4 ? 'var(--store-primary)' : '#666',
+                padding: '10px',
+                marginTop: '12px',
+                backgroundColor: 'transparent',
+                color: '#999',
                 border: 'none',
-                borderRadius: '8px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: pinInput.length >= 4 ? 'pointer' : 'default'
+                fontSize: '14px',
+                cursor: 'pointer'
               }}
             >
-              Confirmar
+              Cancelar
             </button>
           </div>
         </div>
