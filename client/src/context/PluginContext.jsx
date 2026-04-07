@@ -29,8 +29,11 @@ export function PluginProvider({ children, mode = 'admin' }) {
       const response = await fetch('/api/plugins/client-manifest');
       if (response.ok) {
         const data = await response.json();
+        console.log(`[Plugins][${mode}] Manifest:`, data);
         setManifest(data);
         loadPluginScripts(data);
+      } else {
+        console.warn(`[Plugins][${mode}] Manifest fetch failed:`, response.status);
       }
     } catch (err) {
       console.error('Error loading plugin manifest:', err);
@@ -44,8 +47,9 @@ export function PluginProvider({ children, mode = 'admin' }) {
 
     const checkDone = () => {
       if (pending <= 0) {
-        // Read all registered plugins
-        setRegistry({ ...window.__SRSERVI_PLUGINS__ });
+        const reg = { ...window.__SRSERVI_PLUGINS__ };
+        console.log(`[Plugins][${mode}] Registry:`, Object.keys(reg), reg);
+        setRegistry(reg);
       }
     };
 

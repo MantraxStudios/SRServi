@@ -29,20 +29,6 @@ class PluginManager {
     // Mount parent router for plugin sub-routes (per-plugin API routes)
     app.use('/api/plugins/run', this.parentRouter);
 
-    // Serve plugin static files (admin.js, store.js, assets)
-    app.use('/api/plugins/static', (req, res, next) => {
-      const reqPath = req.path;
-      const fullPath = path.join(PLUGINS_DIR, reqPath);
-      const resolved = path.resolve(fullPath);
-      if (!resolved.startsWith(path.resolve(PLUGINS_DIR))) {
-        return res.status(403).json({ error: 'Forbidden' });
-      }
-      if (fs.existsSync(resolved)) {
-        return res.sendFile(resolved);
-      }
-      next();
-    });
-
     // Ensure plugins directory exists
     if (!fs.existsSync(PLUGINS_DIR)) {
       fs.mkdirSync(PLUGINS_DIR, { recursive: true });
