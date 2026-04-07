@@ -6130,6 +6130,7 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: center;
   gap: 8px;
   transition: all var(--transition);
+  min-height: 48px;
 }
 
 .worker-pos-pay-btn:disabled {
@@ -6150,6 +6151,7 @@ h1, h2, h3, h4, h5, h6 {
 .worker-pos-pay-btn.delivery-btn {
   background: linear-gradient(135deg, #a855f7, #7c3aed);
   color: #fff;
+  grid-column: 1 / -1;
 }
 
 .worker-pos-pay-btn:hover:not(:disabled) {
