@@ -128,7 +128,13 @@ class PluginManager {
     }
 
     // Extract files
-    fs.mkdirSync(pluginDir, { recursive: true });
+    const resolvedPluginDir = path.resolve(pluginDir);
+    fs.mkdirSync(resolvedPluginDir, { recursive: true });
+    console.log(`🔌 Extracting to: ${resolvedPluginDir}`);
+    console.log(`🔌 ZIP entries: ${entries.map(e => e.entryName).join(', ')}`);
+    console.log(`🔌 Root prefix: "${rootPrefix}"`);
+
+    let extractedCount = 0;
     for (const entry of entries) {
       if (entry.isDirectory) continue;
       let entryPath = entry.entryName;
@@ -138,8 +144,9 @@ class PluginManager {
       if (!entryPath) continue;
 
       // Security: prevent zip slip
-      const targetPath = path.join(pluginDir, entryPath);
-      if (!targetPath.startsWith(path.resolve(pluginDir))) {
+      const targetPath = path.resolve(resolvedPluginDir, entryPath);
+      if (!targetPath.startsWith(resolvedPluginDir)) {
+        console.log(`🔌 SKIP (zip slip): ${entryPath} -> ${targetPath}`);
         continue;
       }
 
@@ -148,7 +155,10 @@ class PluginManager {
         fs.mkdirSync(dir, { recursive: true });
       }
       fs.writeFileSync(targetPath, entry.getData());
+      extractedCount++;
+      console.log(`🔌 Extracted: ${entryPath} -> ${targetPath}`);
     }
+    console.log(`🔌 Extracted ${extractedCount} files to ${resolvedPluginDir}`);
 
     // Save to database
     if (existing.length > 0) {
