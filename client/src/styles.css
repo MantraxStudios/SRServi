@@ -1662,6 +1662,9 @@ h1, h2, h3, h4, h5, h6 {
 .category-tabs {
   padding: var(--space-4) var(--space-4) var(--space-2);
   background-color: var(--store-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .category-tabs-list {
@@ -1669,6 +1672,7 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: center;
   flex-wrap: wrap;
   gap: 10px;
+  flex: 1;
 }
 
 .category-tab {
