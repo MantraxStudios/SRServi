@@ -66,7 +66,7 @@ function App() {
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/store/:code" element={<PluginProvider mode="store"><Store /></PluginProvider>} />
+          <Route path="/store/:code" element={<Store />} />
           <Route path="/market/:code" element={<Minimarket />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />

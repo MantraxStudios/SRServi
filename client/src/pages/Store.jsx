@@ -39,6 +39,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import PluginSlot from '../components/PluginSlot';
+import { PluginProvider } from '../context/PluginContext';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -999,6 +1000,7 @@ function Store() {
   }
 
   return (
+    <PluginProvider mode="store">
     <div
       className="store-container"
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary }}
@@ -2200,6 +2202,7 @@ function Store() {
         </div>
       )}
     </div>
+    </PluginProvider>
   );
 }
 
