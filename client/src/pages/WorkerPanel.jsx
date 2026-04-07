@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
+import WorkerNewOrder from '../components/WorkerNewOrder';
 
 function WorkerPanel() {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ function WorkerPanel() {
   const [showWorkerSwitch, setShowWorkerSwitch] = useState(false);
   const [switchingWorker, setSwitchingWorker] = useState(null);
   const [activeTab, setActiveTab] = useState('active');
+  const [showNewOrder, setShowNewOrder] = useState(false);
 
   const colors = storeColors || {
     primary: '#0a0a0a',
@@ -41,10 +43,19 @@ function WorkerPanel() {
     fetchOrders(parsedWorker.store_id);
     fetchWorkers(parsedWorker.store_id);
 
-    const socket = io(SOCKET_URL);
+    // Socket con reconexion automatica
+    const socket = io(SOCKET_URL, {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000
+    });
 
     socket.on('connect', () => {
+      console.log('Socket conectado - recargando pedidos');
       socket.emit('register_store', parsedWorker.store_id);
+      // Recargar pedidos al reconectar
+      fetchOrders(parsedWorker.store_id);
     });
 
     socket.on('new_order', (order) => {
@@ -62,7 +73,30 @@ function WorkerPanel() {
       }
     });
 
-    return () => socket.disconnect();
+    socket.on('order_updated', () => {
+      fetchOrders(parsedWorker.store_id);
+    });
+
+    socket.on('order_deleted', () => {
+      fetchOrders(parsedWorker.store_id);
+    });
+
+    // Polling de respaldo cada 30 segundos
+    const pollInterval = setInterval(() => {
+      fetchOrders(parsedWorker.store_id);
+    }, 30000);
+
+    // Recargar cuando la ventana recupera el foco
+    const handleFocus = () => {
+      fetchOrders(parsedWorker.store_id);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      socket.disconnect();
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [navigate]);
 
   const fetchStoreColors = async (storeId) => {
@@ -289,6 +323,10 @@ function WorkerPanel() {
           <p className="worker-header-subtitle">{worker?.store_name || 'Tienda'}</p>
         </div>
         <div className="worker-header-buttons">
+          <button className="worker-new-order-btn" onClick={() => setShowNewOrder(true)}>
+            <FontAwesomeIcon icon={faPlus} />
+            Nuevo Pedido
+          </button>
           <button className="worker-switch-btn" onClick={() => setShowWorkerSwitch(true)}>
             <FontAwesomeIcon icon={faUserCog} />
             Cambiar Usuario
@@ -636,6 +674,15 @@ function WorkerPanel() {
             </div>
           </div>
         </div>
+      )}
+
+      {showNewOrder && (
+        <WorkerNewOrder
+          worker={worker}
+          storeId={worker.store_id}
+          onClose={() => setShowNewOrder(false)}
+          onOrderCreated={() => fetchOrders(worker.store_id)}
+        />
       )}
     </div>
   );
