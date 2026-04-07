@@ -69,7 +69,7 @@ function SuperadminDashboard() {
         const data = await res.json();
         setStores(data);
       } else if (activeTab === 'subscriptions') {
-        const res = await fetch(API_URL + '/api/superadmin/subscriptions', {
+        const res = await fetch(API + '/api/superadmin/subscriptions', {
           headers: { 'Authorization': 'Bearer ' + token }
         });
         const data = await res.json();
@@ -98,7 +98,7 @@ function SuperadminDashboard() {
   const handleSaveUser = async () => {
     const token = localStorage.getItem('superadminToken');
     try {
-      const res = await fetch(API_URL + '/api/superadmin/users/' + editingUser.id, {
+      const res = await fetch(API + '/api/superadmin/users/' + editingUser.id, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -119,7 +119,7 @@ function SuperadminDashboard() {
   const handleToggleBanUser = async (user) => {
     const token = localStorage.getItem('superadminToken');
     try {
-      const res = await fetch(API_URL + '/api/superadmin/users/' + user.id, {
+      const res = await fetch(API + '/api/superadmin/users/' + user.id, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -142,7 +142,7 @@ function SuperadminDashboard() {
   const handleDeleteUser = async (userId) => {
     const token = localStorage.getItem('superadminToken');
     try {
-      const res = await fetch(API_URL + '/api/superadmin/users/' + userId, {
+      const res = await fetch(API + '/api/superadmin/users/' + userId, {
         method: 'DELETE',
         headers: { 'Authorization': 'Bearer ' + token }
       });

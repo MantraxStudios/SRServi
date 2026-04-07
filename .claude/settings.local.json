@@ -7,7 +7,8 @@
       "Bash(grep -rn '\\\\\\\\[^n\\\\\\\\/\"{}\\(\\)usrtfb0-9a-zA-Z ]' Store.jsx)",
       "Bash(node fix-chars.js)",
       "Bash(mv fix-chars.js fix-chars.cjs)",
-      "Bash(node fix-chars.cjs)"
+      "Bash(node fix-chars.cjs)",
+      "Bash(curl:*)"
     ]
   }
 }
