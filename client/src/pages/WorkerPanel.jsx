@@ -142,13 +142,18 @@ function WorkerPanel() {
       }
 
       const data = await response.json();
-      console.log('Orders fetched:', data.length);
-      if (data.length > 0) {
-        console.log('First order order_type:', data[0].order_type);
-      }
-      const activeOrders = data.filter(o => o.status !== 'completed' && o.payment_process === 1);
-      const completed = data.filter(o => o.status === 'completed');
-      const pendingCash = data.filter(o => o.payment_method === 'cash' && !o.cash_approved && o.payment_process === 0);
+
+      // Only show today's orders
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayOrders = data.filter(o => {
+        const orderDate = new Date(o.created_at);
+        return orderDate >= today;
+      });
+
+      const activeOrders = todayOrders.filter(o => o.status !== 'completed' && o.payment_process === 1);
+      const completed = todayOrders.filter(o => o.status === 'completed');
+      const pendingCash = todayOrders.filter(o => o.payment_method === 'cash' && !o.cash_approved && o.payment_process === 0);
       setOrders(activeOrders);
       setCompletedOrders(completed);
       setPendingCashOrders(pendingCash);

@@ -50,6 +50,8 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const [modalStep, setModalStep] = useState('ingredients'); // 'ingredients' | 'extras'
 
   const [selectedTerminalId, setSelectedTerminalId] = useState('');
+  const [configurations, setConfigurations] = useState([]);
+  const [selectedConfig, setSelectedConfig] = useState(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
@@ -82,15 +84,17 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       if (!storeCode) throw new Error('No se encontro el codigo de tienda');
 
       // Use public API that returns everything together (products with ingredients/extras)
-      const [storeRes, terminalsRes] = await Promise.all([
+      const [storeRes, terminalsRes, configsRes] = await Promise.all([
         fetch(API + `/api/public/${storeCode}`),
-        fetch(API + `/api/public/${storeCode}/mercado-pago-terminals`)
+        fetch(API + `/api/public/${storeCode}/mercado-pago-terminals`),
+        fetch(API + `/api/public/store-configurations/${storeId}`)
       ]);
 
       if (!storeRes.ok) throw new Error('Error al cargar la tienda');
 
       const storeData = await storeRes.json();
       const terminalsData = terminalsRes.ok ? await terminalsRes.json() : [];
+      const configsData = configsRes.ok ? await configsRes.json() : [];
 
       // Products come with ingredients/extras already attached
       const rawProducts = (storeData.products || []).filter((product, index, self) =>
@@ -104,6 +108,12 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       setProducts(rawProducts);
       setCategories(safeCategories);
       setTerminals(safeTerminals);
+      const safeConfigs = Array.isArray(configsData) ? configsData : [];
+      setConfigurations(safeConfigs);
+      if (safeConfigs.length > 0) {
+        const defaultConfig = safeConfigs.find(c => c.is_default) || safeConfigs[0];
+        setSelectedConfig(defaultConfig);
+      }
 
       if (safeTerminals.length > 0) {
         setSelectedTerminalId(String(safeTerminals[0].id));
@@ -677,8 +687,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
               <div className="worker-pos-order-type-grid">
                 {[
                   { value: 'serve', label: 'Servir aqui', icon: faUtensils },
-                  { value: 'takeout', label: 'Para llevar', icon: faShoppingBag },
-                  { value: 'delivery', label: 'Delivery', icon: faMotorcycle }
+                  { value: 'takeout', label: 'Para llevar', icon: faShoppingBag }
                 ].map(type => (
                   <button
                     key={type.value}
@@ -691,19 +700,34 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 ))}
               </div>
 
+              {/* Payment config selector */}
+              {configurations.length > 0 && (
+                <div className="worker-pos-config-select">
+                  <label>Metodo de pago</label>
+                  <select
+                    value={selectedConfig?.id || ''}
+                    onChange={(e) => {
+                      const config = configurations.find(c => String(c.id) === e.target.value);
+                      setSelectedConfig(config || null);
+                    }}
+                    className="worker-pos-terminal-select"
+                  >
+                    {configurations.map(config => (
+                      <option key={config.id} value={String(config.id)}>
+                        {config.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <button
                 disabled={cart.length === 0}
                 className="worker-pos-checkout-btn"
-                onClick={() => {
-                  if (orderType === 'delivery') {
-                    processPayment('cash');
-                  } else {
-                    setShowPayModal(true);
-                  }
-                }}
+                onClick={() => setShowPayModal(true)}
               >
-                <FontAwesomeIcon icon={orderType === 'delivery' ? faMotorcycle : faShoppingCart} />
-                {orderType === 'delivery' ? 'Confirmar Delivery' : 'Cobrar'} - {currencySymbol}{getCartTotal().toFixed(2)}
+                <FontAwesomeIcon icon={faShoppingCart} />
+                Cobrar - {currencySymbol}{getCartTotal().toFixed(2)}
               </button>
             </div>
           </div>
@@ -893,46 +917,56 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 <span className="worker-pos-pay-modal-amount">{currencySymbol}{getCartTotal().toFixed(2)}</span>
               </div>
 
-              <div className="worker-pos-pay-modal-options">
-                <button
-                  className="worker-pos-pay-modal-option cash"
-                  disabled={processingPayment}
-                  onClick={() => { setShowPayModal(false); processPayment('cash'); }}
-                >
-                  <div className="worker-pos-pay-modal-option-icon cash">
-                    <FontAwesomeIcon icon={faMoneyBillWave} />
-                  </div>
-                  <div className="worker-pos-pay-modal-option-info">
-                    <span className="worker-pos-pay-modal-option-title">Efectivo</span>
-                    <span className="worker-pos-pay-modal-option-desc">Pago en efectivo</span>
-                  </div>
-                  <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
-                </button>
+              {selectedConfig && (
+                <div className="worker-pos-pay-modal-config">
+                  {selectedConfig.name}
+                </div>
+              )}
 
-                <button
-                  className="worker-pos-pay-modal-option card"
-                  disabled={processingPayment || terminals.length === 0}
-                  onClick={() => {
-                    if (terminals.length > 0 && selectedTerminalId) {
-                      setShowPayModal(false);
-                      processPayment('card');
-                    }
-                  }}
-                >
-                  <div className="worker-pos-pay-modal-option-icon card">
-                    <FontAwesomeIcon icon={faCreditCard} />
-                  </div>
-                  <div className="worker-pos-pay-modal-option-info">
-                    <span className="worker-pos-pay-modal-option-title">Tarjeta</span>
-                    <span className="worker-pos-pay-modal-option-desc">
-                      {terminals.length === 0 ? 'Sin terminal disponible' : 'Pago con Point'}
-                    </span>
-                  </div>
-                  <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
-                </button>
+              <div className="worker-pos-pay-modal-options">
+                {(!selectedConfig || selectedConfig.accept_cash) && (
+                  <button
+                    className="worker-pos-pay-modal-option cash"
+                    disabled={processingPayment}
+                    onClick={() => { setShowPayModal(false); processPayment('cash'); }}
+                  >
+                    <div className="worker-pos-pay-modal-option-icon cash">
+                      <FontAwesomeIcon icon={faMoneyBillWave} />
+                    </div>
+                    <div className="worker-pos-pay-modal-option-info">
+                      <span className="worker-pos-pay-modal-option-title">Efectivo</span>
+                      <span className="worker-pos-pay-modal-option-desc">Pago en efectivo</span>
+                    </div>
+                    <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
+                  </button>
+                )}
+
+                {(!selectedConfig || selectedConfig.accept_card) && (
+                  <button
+                    className="worker-pos-pay-modal-option card"
+                    disabled={processingPayment || terminals.length === 0}
+                    onClick={() => {
+                      if (terminals.length > 0 && selectedTerminalId) {
+                        setShowPayModal(false);
+                        processPayment('card');
+                      }
+                    }}
+                  >
+                    <div className="worker-pos-pay-modal-option-icon card">
+                      <FontAwesomeIcon icon={faCreditCard} />
+                    </div>
+                    <div className="worker-pos-pay-modal-option-info">
+                      <span className="worker-pos-pay-modal-option-title">Tarjeta</span>
+                      <span className="worker-pos-pay-modal-option-desc">
+                        {terminals.length === 0 ? 'Sin terminal disponible' : 'Pago con Point'}
+                      </span>
+                    </div>
+                    <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
+                  </button>
+                )}
               </div>
 
-              {terminals.length > 0 && (
+              {(!selectedConfig || selectedConfig.accept_card) && terminals.length > 0 && (
                 <div className="worker-pos-pay-modal-terminal">
                   <label>Terminal Point</label>
                   <select
