@@ -20,6 +20,7 @@ import Configurations from './pages/admin/Configurations';
 import Market from './pages/admin/Market';
 import Plans from './pages/admin/Plans';
 import Analytics from './pages/admin/Analytics';
+import WorkerConfig from './pages/admin/WorkerConfig';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import Store from './pages/Store';
@@ -79,6 +80,7 @@ function App() {
             <Route path="market" element={<Market />} />
             <Route path="plans" element={<Plans />} />
             <Route path="analytics" element={<Analytics />} />
+            <Route path="worker-config" element={<WorkerConfig />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="/worker-login" element={<WorkerLogin />} />

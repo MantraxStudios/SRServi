@@ -308,6 +308,10 @@ function Layout() {
                     <FontAwesomeIcon icon={faPalette} />
                     <span>Colores</span>
                   </NavLink>
+                  <NavLink to="/admin/worker-config" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faUsers} />
+                    <span>Config. Worker</span>
+                  </NavLink>
                 </div>
               )}
             </li>

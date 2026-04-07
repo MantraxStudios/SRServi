@@ -434,7 +434,7 @@ app.post('/api/stores', authenticateToken, upload.single('logo'), async (req, re
 
 app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
-    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo } = req.body;
+    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
@@ -444,16 +444,18 @@ app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req,
     } else if (req.file) {
       logo_url = `/uploads/${req.file.filename}`;
     }
-    const store = await updateStore(req.params.id, req.user.id, { 
-      name, 
-      primary_color, 
-      secondary_color, 
-      accent_color, 
-      header_color, 
-      currency_code, 
-      currency_symbol, 
+    const store = await updateStore(req.params.id, req.user.id, {
+      name,
+      primary_color,
+      secondary_color,
+      accent_color,
+      header_color,
+      currency_code,
+      currency_symbol,
       currency_name,
-      logo_url
+      logo_url,
+      worker_accept_cash,
+      worker_accept_card
     });
     res.json(store);
   } catch (error) {

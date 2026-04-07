@@ -550,9 +550,15 @@ async function migrateTables() {
       } else {
         console.log('ℹ️ Tabla stores ya tiene columna logo_url');
       }
+      const [wcashCheck] = await pool.execute("SHOW COLUMNS FROM stores LIKE 'worker_accept_cash'");
+      if (wcashCheck.length === 0) {
+        await pool.execute('ALTER TABLE stores ADD COLUMN worker_accept_cash BOOLEAN NOT NULL DEFAULT TRUE');
+        await pool.execute('ALTER TABLE stores ADD COLUMN worker_accept_card BOOLEAN NOT NULL DEFAULT TRUE');
+        console.log('✅ Columnas worker_accept_cash/card agregadas a stores');
+      }
     } catch (err) {
       if (err.message.includes('Duplicate column')) {
-        console.log('ℹ️ Columna is_banned ya existe en stores');
+        console.log('ℹ️ Columnas worker ya existen en stores');
       } else {
         console.error('❌ Error migrando stores:', err.message);
       }
@@ -781,16 +787,26 @@ export async function createStore(userId, data) {
 }
 
 export async function updateStore(storeId, userId, data) {
-  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url } = data;
-  
+  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card } = data;
+
   let query = `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ?`;
   let params = [name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name];
-  
+
   if (logo_url !== undefined) {
     query += `, logo_url = ?`;
     params.push(logo_url);
   }
-  
+
+  if (worker_accept_cash !== undefined) {
+    query += `, worker_accept_cash = ?`;
+    params.push(worker_accept_cash ? 1 : 0);
+  }
+
+  if (worker_accept_card !== undefined) {
+    query += `, worker_accept_card = ?`;
+    params.push(worker_accept_card ? 1 : 0);
+  }
+
   query += ` WHERE id = ? AND user_id = ?`;
   params.push(storeId, userId);
   
