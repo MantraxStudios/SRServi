@@ -8,6 +8,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import PluginManager from './plugins/PluginManager.js';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
@@ -2625,6 +2626,219 @@ app.get('/api/plugins/client-manifest', async (req, res) => {
   } catch (error) {
     console.error('❌ Error in GET /api/plugins/client-manifest:', error);
     res.json([]);
+  }
+});
+
+// ==================== Plugin Workshop API ====================
+
+const workshopDir = path.join(__serverDir, 'plugins', 'workshop-uploads');
+if (!fs.existsSync(workshopDir)) fs.mkdirSync(workshopDir, { recursive: true });
+
+const workshopUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, workshopDir),
+    filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_'))
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
+
+// Serve workshop files (logos, zips for download)
+app.use('/api/workshop/files', express.static(workshopDir));
+
+// Publish a plugin to the workshop
+app.post('/api/workshop/publish', authenticateToken, workshopUpload.fields([
+  { name: 'plugin', maxCount: 1 },
+  { name: 'logo', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const { description, contact_email } = req.body;
+    if (!req.files?.plugin?.[0]) return res.status(400).json({ error: 'Se requiere un archivo .zip' });
+    if (!contact_email) return res.status(400).json({ error: 'Se requiere email de contacto' });
+
+    const zipFile = req.files.plugin[0];
+    const logoFile = req.files?.logo?.[0] || null;
+
+    // Read plugin.json from ZIP to get metadata
+    const AdmZip = (await import('adm-zip')).default;
+    const zip = new AdmZip(zipFile.path);
+    const entries = zip.getEntries();
+
+    let pluginJsonEntry = null;
+    for (const entry of entries) {
+      const normalized = entry.entryName.replace(/\\/g, '/');
+      if (normalized.endsWith('plugin.json') && !entry.isDirectory) {
+        const parts = normalized.split('/').filter(Boolean);
+        if (parts.length <= 2) { pluginJsonEntry = entry; break; }
+      }
+    }
+    if (!pluginJsonEntry) {
+      fs.unlinkSync(zipFile.path);
+      if (logoFile) fs.unlinkSync(logoFile.path);
+      return res.status(400).json({ error: 'plugin.json no encontrado en el ZIP' });
+    }
+
+    let pluginJson;
+    try { pluginJson = JSON.parse(pluginJsonEntry.getData().toString('utf8')); } catch {
+      fs.unlinkSync(zipFile.path);
+      if (logoFile) fs.unlinkSync(logoFile.path);
+      return res.status(400).json({ error: 'plugin.json inválido' });
+    }
+
+    if (!pluginJson.id || !pluginJson.name || !pluginJson.version) {
+      fs.unlinkSync(zipFile.path);
+      if (logoFile) fs.unlinkSync(logoFile.path);
+      return res.status(400).json({ error: 'plugin.json debe tener id, name y version' });
+    }
+
+    // Get author from user's business_name
+    const user = await getUserById(req.user.id);
+    const author = user?.business_name || user?.username || 'Anónimo';
+
+    // Check if already published
+    const [existing] = await pool.execute('SELECT id FROM plugin_workshop WHERE plugin_id = ?', [pluginJson.id]);
+
+    const logoPath = logoFile ? `/api/workshop/files/${logoFile.filename}` : null;
+    const zipPath = `/api/workshop/files/${zipFile.filename}`;
+
+    if (existing.length > 0) {
+      // Update
+      const oldRow = (await pool.execute('SELECT zip_path, logo, user_id FROM plugin_workshop WHERE plugin_id = ?', [pluginJson.id]))[0][0];
+      if (oldRow.user_id !== req.user.id) {
+        fs.unlinkSync(zipFile.path);
+        if (logoFile) fs.unlinkSync(logoFile.path);
+        return res.status(403).json({ error: 'No eres el autor de este plugin' });
+      }
+      await pool.execute(
+        `UPDATE plugin_workshop SET name = ?, version = ?, description = ?, author = ?, contact_email = ?,
+         zip_path = ?, hooks = ?, admin_slots = ?, store_slots = ?, status = 'pending', updated_at = NOW()
+         ${logoFile ? ', logo = ?' : ''} WHERE plugin_id = ?`,
+        logoFile
+          ? [pluginJson.name, pluginJson.version, description || pluginJson.description || '', author, contact_email,
+             zipPath, JSON.stringify(pluginJson.hooks || []), JSON.stringify(pluginJson.adminSlots || []),
+             JSON.stringify(pluginJson.storeSlots || []), logoPath, pluginJson.id]
+          : [pluginJson.name, pluginJson.version, description || pluginJson.description || '', author, contact_email,
+             zipPath, JSON.stringify(pluginJson.hooks || []), JSON.stringify(pluginJson.adminSlots || []),
+             JSON.stringify(pluginJson.storeSlots || []), pluginJson.id]
+      );
+    } else {
+      await pool.execute(
+        `INSERT INTO plugin_workshop (plugin_id, user_id, name, version, description, author, contact_email, logo, zip_path, hooks, admin_slots, store_slots)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [pluginJson.id, req.user.id, pluginJson.name, pluginJson.version,
+         description || pluginJson.description || '', author, contact_email,
+         logoPath, zipPath, JSON.stringify(pluginJson.hooks || []),
+         JSON.stringify(pluginJson.adminSlots || []), JSON.stringify(pluginJson.storeSlots || [])]
+      );
+    }
+
+    res.json({ success: true, plugin_id: pluginJson.id, name: pluginJson.name });
+  } catch (error) {
+    console.error('❌ Error publishing plugin:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Browse workshop - public listing of approved plugins
+app.get('/api/workshop/plugins', async (req, res) => {
+  try {
+    const search = req.query.search || '';
+    let query = `SELECT plugin_id, name, version, description, author, contact_email, logo, downloads, hooks, admin_slots, store_slots, created_at, updated_at
+                 FROM plugin_workshop WHERE status = 'approved'`;
+    const params = [];
+
+    if (search) {
+      query += ' AND (name LIKE ? OR description LIKE ? OR author LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+    query += ' ORDER BY downloads DESC, created_at DESC';
+
+    const [rows] = await pool.execute(query, params);
+    res.json(rows);
+  } catch (error) {
+    if (error.message && error.message.includes("doesn't exist")) return res.json([]);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Download & install from workshop
+app.post('/api/workshop/install/:pluginId', authenticateToken, async (req, res) => {
+  try {
+    const { pluginId } = req.params;
+    const [rows] = await pool.execute(
+      'SELECT * FROM plugin_workshop WHERE plugin_id = ? AND status = ?', [pluginId, 'approved']
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Plugin no encontrado' });
+
+    const workshopPlugin = rows[0];
+    const zipFilePath = path.join(workshopDir, path.basename(workshopPlugin.zip_path));
+
+    if (!fs.existsSync(zipFilePath)) {
+      return res.status(404).json({ error: 'Archivo del plugin no encontrado' });
+    }
+
+    if (!pluginManager) return res.status(500).json({ error: 'Plugin system not ready' });
+
+    const zipBuffer = fs.readFileSync(zipFilePath);
+    const result = await pluginManager.install(zipBuffer);
+
+    // Increment download count
+    await pool.execute('UPDATE plugin_workshop SET downloads = downloads + 1 WHERE plugin_id = ?', [pluginId]);
+
+    res.json({ success: true, plugin: result });
+  } catch (error) {
+    console.error('❌ Error installing from workshop:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// My published plugins
+app.get('/api/workshop/my-plugins', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT * FROM plugin_workshop WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]
+    );
+    res.json(rows);
+  } catch (error) {
+    if (error.message && error.message.includes("doesn't exist")) return res.json([]);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete my published plugin
+app.delete('/api/workshop/my-plugins/:pluginId', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT * FROM plugin_workshop WHERE plugin_id = ? AND user_id = ?', [req.params.pluginId, req.user.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'No encontrado' });
+    await pool.execute('DELETE FROM plugin_workshop WHERE plugin_id = ? AND user_id = ?', [req.params.pluginId, req.user.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Superadmin: approve/reject plugins
+app.get('/api/superadmin/workshop', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM plugin_workshop ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (error) {
+    if (error.message && error.message.includes("doesn't exist")) return res.json([]);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/superadmin/workshop/:pluginId/status', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['approved', 'rejected', 'pending'].includes(status)) {
+      return res.status(400).json({ error: 'Estado inválido' });
+    }
+    await pool.execute('UPDATE plugin_workshop SET status = ? WHERE plugin_id = ?', [status, req.params.pluginId]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

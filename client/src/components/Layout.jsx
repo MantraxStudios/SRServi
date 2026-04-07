@@ -28,7 +28,8 @@ import {
   faCrown,
   faChartLine,
   faLock,
-  faPuzzlePiece
+  faPuzzlePiece,
+  faGlobe
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -318,6 +319,12 @@ function Layout() {
               <NavLink to="/admin/plugins" onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faPuzzlePiece} />
                 <span>Plugins</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/workshop" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faGlobe} />
+                <span>Workshop</span>
               </NavLink>
             </li>
 

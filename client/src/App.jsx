@@ -26,6 +26,7 @@ import WorkerConfig from './pages/admin/WorkerConfig';
 import StorePin from './pages/admin/StorePin';
 import Plugins from './pages/admin/Plugins';
 import PluginPage from './pages/admin/PluginPage';
+import Workshop from './pages/admin/Workshop';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import Store from './pages/Store';
@@ -90,6 +91,7 @@ function App() {
             <Route path="store-pin" element={<StorePin />} />
             <Route path="plugins" element={<Plugins />} />
             <Route path="plugins/:pluginId" element={<PluginPage />} />
+            <Route path="workshop" element={<Workshop />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="/worker-login" element={<WorkerLogin />} />
