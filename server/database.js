@@ -262,6 +262,36 @@ async function createTables() {
 
   await pool.execute(createInventoryTable);
 
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS plugins (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      plugin_id VARCHAR(100) UNIQUE NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      version VARCHAR(50) NOT NULL,
+      description TEXT,
+      author VARCHAR(255),
+      is_active BOOLEAN DEFAULT FALSE,
+      hooks JSON,
+      admin_slots JSON,
+      store_slots JSON,
+      settings_schema JSON,
+      has_routes BOOLEAN DEFAULT FALSE,
+      installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS plugin_settings (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      plugin_id VARCHAR(100) NOT NULL,
+      store_id INT NOT NULL,
+      settings JSON NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_plugin_store (plugin_id, store_id),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
   await migrateTables();
 
   console.log('✅ Tablas creadas/verificadas correctamente');

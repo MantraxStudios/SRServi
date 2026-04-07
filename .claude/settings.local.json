@@ -8,7 +8,11 @@
       "Bash(node fix-chars.js)",
       "Bash(mv fix-chars.js fix-chars.cjs)",
       "Bash(node fix-chars.cjs)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm install:*)",
+      "Bash(zip -r \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\webhook-notifier.zip\" webhook-notifier/)",
+      "Bash(powershell -Command \"Compress-Archive -Path 'webhook-notifier\\\\*' -DestinationPath '..\\\\..\\\\webhook-notifier.zip' -Force\")",
+      "Bash(powershell -Command \"Compress-Archive -Path 'webhook-notifier' -DestinationPath 'C:/Users/tupap/OneDrive/Escritorio/SRServi/webhook-notifier.zip' -Force\")"
     ]
   }
 }

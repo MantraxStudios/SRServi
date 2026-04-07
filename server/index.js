@@ -7,6 +7,7 @@ import path from 'path';
 import http from 'http';
 import { Server } from 'socket.io';
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
+import PluginManager from './plugins/PluginManager.js';
 import {
   initDatabase,
   createUser,
@@ -1892,6 +1893,7 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
     });
     
     emitProductUpdate(parseInt(store_id), 'product_created', product);
+    if (pluginManager) pluginManager.hooks.emit('product_created', { store_id: parseInt(store_id), product });
     res.json(product);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1931,6 +1933,7 @@ app.put('/api/products/:id', authenticateToken, upload.single('image'), async (r
     });
     
     emitProductUpdate(parseInt(store_id), 'product_updated', product);
+    if (pluginManager) pluginManager.hooks.emit('product_updated', { store_id: parseInt(store_id), product });
     res.json(product);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1950,6 +1953,7 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
     const productId = req.params.id;
     await deleteProduct(parseInt(productId), parseInt(store_id));
     emitProductUpdate(parseInt(store_id), 'product_deleted', { id: productId });
+    if (pluginManager) pluginManager.hooks.emit('product_deleted', { store_id: parseInt(store_id), product_id: parseInt(productId) });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1970,6 +1974,13 @@ app.post('/api/orders', async (req, res) => {
     const socketId = userSockets.get(parseInt(store_id));
     if (socketId) {
       io.to(socketId).emit('new_order', order);
+    }
+
+    if (pluginManager) {
+      pluginManager.hooks.emit('order_created', { store_id: parseInt(store_id), order });
+      if (payment_method === 'cash') {
+        pluginManager.hooks.emit('payment_completed', { store_id: parseInt(store_id), order, payment_method: 'cash' });
+      }
     }
 
     res.json(order);
@@ -2013,7 +2024,12 @@ app.post('/api/orders/process-payment', async (req, res) => {
       if (socketId) {
         io.to(socketId).emit('new_order', order);
       }
-      
+
+      if (pluginManager) {
+        pluginManager.hooks.emit('order_created', { store_id: parseInt(store_id), order });
+        pluginManager.hooks.emit('payment_started', { store_id: parseInt(store_id), order, payment_method: 'card' });
+      }
+
       res.json({
         success: true,
         order,
@@ -2190,6 +2206,10 @@ app.post('/api/orders/:orderId/confirm-payment', async (req, res) => {
       io.to(socketId).emit('payment_confirmed', { ...updatedOrder, items });
     }
 
+    if (pluginManager && updatedOrder) {
+      pluginManager.hooks.emit('payment_completed', { store_id: parseInt(storeId), order: updatedOrder, payment_method: 'card' });
+    }
+
     res.json({ success: true, order: updatedOrder });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -2237,6 +2257,10 @@ app.post('/api/orders/:orderId/cancel-payment', async (req, res) => {
       'UPDATE orders SET status = ? WHERE id = ? AND store_id = ?',
       ['canceled', parseInt(orderId), parseInt(storeId)]
     );
+
+    if (pluginManager) {
+      pluginManager.hooks.emit('payment_failed', { store_id: parseInt(storeId), order_id: parseInt(orderId), reason: 'canceled' });
+    }
 
     res.json({ success: true, message: 'Pago cancelado' });
   } catch (error) {
@@ -2508,13 +2532,105 @@ app.delete('/api/mercado-pago-terminals/:id', authenticateToken, async (req, res
   }
 });
 
+// ==================== Plugin Management API ====================
+
+const pluginUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+app.get('/api/admin/plugins', authenticateToken, async (req, res) => {
+  try {
+    if (!pluginManager) return res.json([]);
+    const plugins = await pluginManager.getAllPlugins();
+    res.json(plugins);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/plugins/upload', authenticateToken, pluginUpload.single('plugin'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No se envió archivo' });
+    if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
+    const result = await pluginManager.install(req.file.buffer);
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/plugins/:id/activate', authenticateToken, async (req, res) => {
+  try {
+    if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
+    await pluginManager.activate(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/plugins/:id/deactivate', authenticateToken, async (req, res) => {
+  try {
+    if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
+    await pluginManager.deactivate(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete('/api/admin/plugins/:id', authenticateToken, async (req, res) => {
+  try {
+    if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
+    await pluginManager.uninstall(req.params.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/admin/plugins/:id/settings/:storeId', authenticateToken, async (req, res) => {
+  try {
+    if (!pluginManager) return res.json({});
+    const settings = await pluginManager.getPluginSettings(req.params.id, parseInt(req.params.storeId));
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/admin/plugins/:id/settings/:storeId', authenticateToken, async (req, res) => {
+  try {
+    if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
+    await pluginManager.savePluginSettings(req.params.id, parseInt(req.params.storeId), req.body);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Public: client manifest for frontend plugin loading
+app.get('/api/plugins/client-manifest', async (req, res) => {
+  try {
+    if (!pluginManager) return res.json([]);
+    const manifest = await pluginManager.getClientManifest();
+    res.json(manifest);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+let pluginManager = null;
+
 async function startServer() {
   try {
     await initDatabase();
     console.log('Base de datos inicializada');
-    
+
     app.set('io', io);
-    
+
+    // Initialize plugin system
+    pluginManager = new PluginManager(app, pool, io);
+    await pluginManager.loadAllActive();
+
     server.listen(PORT, HOST, () => {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
     });

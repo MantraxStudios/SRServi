@@ -1,6 +1,8 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { usePlugins } from '../context/PluginContext';
+import PluginSlot from './PluginSlot';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -25,7 +27,8 @@ import {
   faBarcode,
   faCrown,
   faChartLine,
-  faLock
+  faLock,
+  faPuzzlePiece
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -34,6 +37,7 @@ export const useStore = () => useContext(StoreContext);
 
 function Layout() {
   const { user, token, logout } = useAuth();
+  const { getSidebarItems } = usePlugins();
   const navigate = useNavigate();
   const [stores, setStores] = useState([]);
   const [selectedStore, setSelectedStore] = useState(null);
@@ -309,6 +313,24 @@ function Layout() {
                 </div>
               )}
             </li>
+
+            <li>
+              <NavLink to="/admin/plugins" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faPuzzlePiece} />
+                <span>Plugins</span>
+              </NavLink>
+            </li>
+
+            {getSidebarItems().map(item => (
+              <li key={item.pluginId}>
+                <NavLink to={item.path || `/admin/plugins/${item.pluginId}`} onClick={() => setMenuOpen(false)}>
+                  <FontAwesomeIcon icon={faPuzzlePiece} />
+                  <span>{item.label || item.pluginId}</span>
+                </NavLink>
+              </li>
+            ))}
+
+            <PluginSlot name="sidebar" context={{ storeId: selectedStore?.id }} />
 
             <li>
               <button onClick={handleLogout} className="btn btn-secondary btn-full">

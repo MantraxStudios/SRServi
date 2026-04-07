@@ -1,0 +1,34 @@
+{
+  "id": "webhook-notifier",
+  "name": "Webhook Notifier",
+  "version": "1.0.0",
+  "description": "Envía notificaciones webhook cuando se crean pedidos o se completan pagos",
+  "author": "SRServi",
+  "hooks": ["order_created", "payment_completed", "payment_failed"],
+  "adminSlots": ["sidebar"],
+  "storeSlots": [],
+  "settings": {
+    "webhook_url": {
+      "type": "string",
+      "label": "URL del Webhook",
+      "placeholder": "https://tu-servidor.com/webhook",
+      "default": ""
+    },
+    "notify_orders": {
+      "type": "boolean",
+      "label": "Notificar pedidos nuevos",
+      "default": true
+    },
+    "notify_payments": {
+      "type": "boolean",
+      "label": "Notificar pagos completados",
+      "default": true
+    },
+    "notify_failures": {
+      "type": "boolean",
+      "label": "Notificar pagos fallidos",
+      "default": false
+    }
+  },
+  "routes": true
+}

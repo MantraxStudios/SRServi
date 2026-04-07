@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { PluginProvider } from './context/PluginContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -23,6 +24,8 @@ import Plans from './pages/admin/Plans';
 import Analytics from './pages/admin/Analytics';
 import WorkerConfig from './pages/admin/WorkerConfig';
 import StorePin from './pages/admin/StorePin';
+import Plugins from './pages/admin/Plugins';
+import PluginPage from './pages/admin/PluginPage';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import Store from './pages/Store';
@@ -63,11 +66,11 @@ function App() {
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/store/:code" element={<Store />} />
+          <Route path="/store/:code" element={<PluginProvider mode="store"><Store /></PluginProvider>} />
           <Route path="/market/:code" element={<Minimarket />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+          <Route path="/admin" element={<ProtectedRoute><PluginProvider mode="admin"><Layout /></PluginProvider></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="stores" element={<Stores />} />
             <Route path="categories" element={<Categories />} />
@@ -85,6 +88,8 @@ function App() {
             <Route path="analytics" element={<Analytics />} />
             <Route path="worker-config" element={<WorkerConfig />} />
             <Route path="store-pin" element={<StorePin />} />
+            <Route path="plugins" element={<Plugins />} />
+            <Route path="plugins/:pluginId" element={<PluginPage />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="/worker-login" element={<WorkerLogin />} />

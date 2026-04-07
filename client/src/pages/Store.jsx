@@ -38,6 +38,7 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import PluginSlot from '../components/PluginSlot';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -1035,6 +1036,8 @@ function Store() {
         )}
       </header>
 
+      <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
+
       {!configFromUrl && configurations.length > 1 && (
         <div className="config-selector">
           <div className="config-selector-list">
@@ -1179,6 +1182,8 @@ function Store() {
             )}
         </div>
       )}
+
+      <PluginSlot name="store-footer" context={{ storeId: store?.store?.id, code }} />
 
       {hasProducts && (
       <div className="cart-bar">
