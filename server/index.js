@@ -184,6 +184,7 @@ const upload = multer({
 });
 
 app.use('/uploads', express.static('uploads'));
+app.use('/api/plugins/static', express.static('plugins/installed'));
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
