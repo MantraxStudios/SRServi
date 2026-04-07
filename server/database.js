@@ -550,12 +550,19 @@ async function migrateTables() {
       } else {
         console.log('ℹ️ Tabla stores ya tiene columna logo_url');
       }
-      const [wcashCheck] = await pool.execute("SHOW COLUMNS FROM stores LIKE 'worker_accept_cash'");
-      if (wcashCheck.length === 0) {
-        await pool.execute('ALTER TABLE stores ADD COLUMN worker_accept_cash BOOLEAN NOT NULL DEFAULT TRUE');
-        await pool.execute('ALTER TABLE stores ADD COLUMN worker_accept_card BOOLEAN NOT NULL DEFAULT TRUE');
-        console.log('✅ Columnas worker_accept_cash/card agregadas a stores');
-      }
+      // Worker payment methods table
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS worker_payment_methods (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          store_id INT NOT NULL,
+          name VARCHAR(100) NOT NULL,
+          color VARCHAR(20) NOT NULL DEFAULT '#D4AF37',
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+        )
+      `);
+      console.log('✅ Tabla worker_payment_methods verificada');
     } catch (err) {
       if (err.message.includes('Duplicate column')) {
         console.log('ℹ️ Columnas worker ya existen en stores');
@@ -2074,6 +2081,33 @@ export async function updateStoreBySuperadmin(storeId, data) {
 
 export async function deleteStoreBySuperadmin(storeId) {
   await pool.execute('DELETE FROM stores WHERE id = ?', [storeId]);
+  return { success: true };
+}
+
+// Worker Payment Methods
+export async function getWorkerPaymentMethods(storeId) {
+  const [rows] = await pool.execute('SELECT * FROM worker_payment_methods WHERE store_id = ? ORDER BY created_at ASC', [storeId]);
+  return rows;
+}
+
+export async function createWorkerPaymentMethod(storeId, data) {
+  const [result] = await pool.execute(
+    'INSERT INTO worker_payment_methods (store_id, name, color, is_active) VALUES (?, ?, ?, ?)',
+    [storeId, data.name, data.color || '#D4AF37', data.is_active !== false]
+  );
+  return { id: result.insertId, store_id: storeId, name: data.name, color: data.color || '#D4AF37', is_active: true };
+}
+
+export async function updateWorkerPaymentMethod(id, storeId, data) {
+  await pool.execute(
+    'UPDATE worker_payment_methods SET name = ?, color = ?, is_active = ? WHERE id = ? AND store_id = ?',
+    [data.name, data.color, data.is_active !== false, id, storeId]
+  );
+  return { id, store_id: storeId, ...data };
+}
+
+export async function deleteWorkerPaymentMethod(id, storeId) {
+  await pool.execute('DELETE FROM worker_payment_methods WHERE id = ? AND store_id = ?', [id, storeId]);
   return { success: true };
 }
 

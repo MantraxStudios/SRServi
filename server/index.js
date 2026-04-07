@@ -94,6 +94,10 @@ import {
   getTopProducts,
   getOrdersByHour,
   getRecentOrders,
+  getWorkerPaymentMethods,
+  createWorkerPaymentMethod,
+  updateWorkerPaymentMethod,
+  deleteWorkerPaymentMethod,
   pool
 } from './database.js';
 
@@ -1306,6 +1310,61 @@ app.delete('/api/store-configurations/:id', authenticateToken, async (req, res) 
     const configId = req.params.id;
     await deleteStoreConfiguration(parseInt(configId), parseInt(store_id));
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Worker Payment Methods
+app.get('/api/worker-payment-methods', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const methods = await getWorkerPaymentMethods(parseInt(storeId));
+    res.json(methods);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/worker-payment-methods', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, name, color } = req.body;
+    if (!store_id || !name) return res.status(400).json({ error: 'store_id y name requeridos' });
+    const method = await createWorkerPaymentMethod(parseInt(store_id), { name, color });
+    res.json(method);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/worker-payment-methods/:id', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, name, color, is_active } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    const method = await updateWorkerPaymentMethod(parseInt(req.params.id), parseInt(store_id), { name, color, is_active });
+    res.json(method);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/worker-payment-methods/:id', authenticateToken, async (req, res) => {
+  try {
+    const store_id = req.query.store_id;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    await deleteWorkerPaymentMethod(parseInt(req.params.id), parseInt(store_id));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Public endpoint for workers to see payment methods
+app.get('/api/public/worker-payment-methods/:storeId', async (req, res) => {
+  try {
+    const methods = await getWorkerPaymentMethods(parseInt(req.params.storeId));
+    res.json(methods.filter(m => m.is_active));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -50,8 +50,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const [modalStep, setModalStep] = useState('ingredients'); // 'ingredients' | 'extras'
 
   const [selectedTerminalId, setSelectedTerminalId] = useState('');
-  const [workerAcceptCash, setWorkerAcceptCash] = useState(true);
-  const [workerAcceptCard, setWorkerAcceptCard] = useState(true);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
@@ -84,15 +83,17 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       if (!storeCode) throw new Error('No se encontro el codigo de tienda');
 
       // Use public API that returns everything together (products with ingredients/extras)
-      const [storeRes, terminalsRes] = await Promise.all([
+      const [storeRes, terminalsRes, payMethodsRes] = await Promise.all([
         fetch(API + `/api/public/${storeCode}`),
-        fetch(API + `/api/public/${storeCode}/mercado-pago-terminals`)
+        fetch(API + `/api/public/${storeCode}/mercado-pago-terminals`),
+        fetch(API + `/api/public/worker-payment-methods/${storeId}`)
       ]);
 
       if (!storeRes.ok) throw new Error('Error al cargar la tienda');
 
       const storeData = await storeRes.json();
       const terminalsData = terminalsRes.ok ? await terminalsRes.json() : [];
+      const payMethodsData = payMethodsRes.ok ? await payMethodsRes.json() : [];
 
       // Products come with ingredients/extras already attached
       const rawProducts = (storeData.products || []).filter((product, index, self) =>
@@ -111,12 +112,12 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
         setSelectedTerminalId(String(safeTerminals[0].id));
       }
 
+      setPaymentMethods(Array.isArray(payMethodsData) ? payMethodsData : []);
+
       const store = storeData.store || storeData;
       if (store.currency_symbol) {
         setCurrencySymbol(store.currency_symbol);
       }
-      setWorkerAcceptCash(store.worker_accept_cash !== false && store.worker_accept_cash !== 0);
-      setWorkerAcceptCard(store.worker_accept_card !== false && store.worker_accept_card !== 0);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -892,7 +893,25 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
               </div>
 
               <div className="worker-pos-pay-modal-options">
-                {workerAcceptCash && (
+                {paymentMethods.length > 0 ? (
+                  paymentMethods.map((method, idx) => (
+                    <button
+                      key={method.id}
+                      className="worker-pos-pay-modal-option"
+                      style={{ animationDelay: `${0.1 + idx * 0.08}s` }}
+                      disabled={processingPayment}
+                      onClick={() => { setShowPayModal(false); processPayment(method.name.toLowerCase()); }}
+                    >
+                      <div className="worker-pos-pay-modal-option-icon" style={{ backgroundColor: `${method.color}20`, color: method.color }}>
+                        <FontAwesomeIcon icon={faMoneyBillWave} />
+                      </div>
+                      <div className="worker-pos-pay-modal-option-info">
+                        <span className="worker-pos-pay-modal-option-title">{method.name}</span>
+                      </div>
+                      <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
+                    </button>
+                  ))
+                ) : (
                   <button
                     className="worker-pos-pay-modal-option"
                     disabled={processingPayment}
@@ -903,53 +922,11 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                     </div>
                     <div className="worker-pos-pay-modal-option-info">
                       <span className="worker-pos-pay-modal-option-title">Efectivo</span>
-                      <span className="worker-pos-pay-modal-option-desc">Pago en efectivo</span>
-                    </div>
-                    <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
-                  </button>
-                )}
-
-                {workerAcceptCard && (
-                  <button
-                    className="worker-pos-pay-modal-option"
-                    disabled={processingPayment || terminals.length === 0}
-                    onClick={() => {
-                      if (terminals.length > 0 && selectedTerminalId) {
-                        setShowPayModal(false);
-                        processPayment('card');
-                      }
-                    }}
-                  >
-                    <div className="worker-pos-pay-modal-option-icon card">
-                      <FontAwesomeIcon icon={faCreditCard} />
-                    </div>
-                    <div className="worker-pos-pay-modal-option-info">
-                      <span className="worker-pos-pay-modal-option-title">Tarjeta</span>
-                      <span className="worker-pos-pay-modal-option-desc">
-                        {terminals.length === 0 ? 'Sin terminal disponible' : 'Pago con Point'}
-                      </span>
                     </div>
                     <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
                   </button>
                 )}
               </div>
-
-              {workerAcceptCard && terminals.length > 0 && (
-                <div className="worker-pos-pay-modal-terminal">
-                  <label>Terminal Point</label>
-                  <select
-                    value={selectedTerminalId}
-                    onChange={(e) => setSelectedTerminalId(e.target.value)}
-                    className="worker-pos-terminal-select"
-                  >
-                    {terminals.map(t => (
-                      <option key={t.id} value={String(t.id)}>
-                        {t.name || `Terminal ${t.id}`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </div>
           </div>
         )}

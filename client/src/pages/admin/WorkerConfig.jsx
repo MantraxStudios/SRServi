@@ -1,78 +1,118 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserCog, faMoneyBillWave, faCreditCard, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faUserCog, faPlus, faTrash, faEdit, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../components/Layout';
 
+const PRESET_COLORS = ['#22c55e', '#D4AF37', '#3b82f6', '#ef4444', '#a855f7', '#f59e0b', '#06b6d4', '#ec4899', '#0a0a0a', '#6b7280'];
+
 function WorkerConfig() {
   const { token } = useAuth();
-  const { selectedStore, fetchStores } = useStore();
-  const [acceptCash, setAcceptCash] = useState(true);
-  const [acceptCard, setAcceptCard] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const { selectedStore } = useStore();
+  const [methods, setMethods] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingMethod, setEditingMethod] = useState(null);
+  const [formName, setFormName] = useState('');
+  const [formColor, setFormColor] = useState('#D4AF37');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     if (selectedStore) {
-      setAcceptCash(selectedStore.worker_accept_cash !== false && selectedStore.worker_accept_cash !== 0);
-      setAcceptCard(selectedStore.worker_accept_card !== false && selectedStore.worker_accept_card !== 0);
+      fetchMethods();
+    } else {
+      setLoading(false);
+      setMethods([]);
     }
   }, [selectedStore]);
 
-  const handleSave = async () => {
-    if (!selectedStore) return;
-    if (!acceptCash && !acceptCard) {
-      setError('Debes habilitar al menos un metodo de pago');
+  const fetchMethods = async () => {
+    try {
+      const response = await fetch(`/api/worker-payment-methods?store_id=${selectedStore.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setMethods(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error('Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openForm = (method = null) => {
+    if (method) {
+      setEditingMethod(method);
+      setFormName(method.name);
+      setFormColor(method.color);
+    } else {
+      setEditingMethod(null);
+      setFormName('');
+      setFormColor('#D4AF37');
+    }
+    setShowForm(true);
+    setError('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formName.trim()) {
+      setError('El nombre es requerido');
       return;
     }
 
-    setLoading(true);
-    setError('');
-    setSuccess(false);
-
     try {
-      const response = await fetch(`/api/stores/${selectedStore.id}`, {
-        method: 'PUT',
+      const url = editingMethod
+        ? `/api/worker-payment-methods/${editingMethod.id}`
+        : '/api/worker-payment-methods';
+
+      const response = await fetch(url, {
+        method: editingMethod ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          name: selectedStore.name,
-          primary_color: selectedStore.primary_color,
-          secondary_color: selectedStore.secondary_color,
-          accent_color: selectedStore.accent_color,
-          header_color: selectedStore.header_color,
-          currency_code: selectedStore.currency_code,
-          currency_symbol: selectedStore.currency_symbol,
-          currency_name: selectedStore.currency_name,
-          worker_accept_cash: acceptCash,
-          worker_accept_card: acceptCard
+          store_id: selectedStore.id,
+          name: formName.trim(),
+          color: formColor
         })
       });
 
       if (!response.ok) throw new Error('Error al guardar');
 
-      setSuccess(true);
-      fetchStores();
-      setTimeout(() => setSuccess(false), 3000);
+      setShowForm(false);
+      setSuccess(editingMethod ? 'Metodo actualizado' : 'Metodo creado');
+      setTimeout(() => setSuccess(''), 3000);
+      fetchMethods();
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Eliminar este metodo de pago?')) return;
+    try {
+      await fetch(`/api/worker-payment-methods/${id}?store_id=${selectedStore.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      fetchMethods();
+    } catch (err) {
+      console.error('Error:', err);
     }
   };
 
   if (!selectedStore) {
     return (
       <>
-        <header className="admin-header">
-          <h1>Config. Worker</h1>
-        </header>
+        <header className="admin-header"><h1>Config. Worker</h1></header>
         <div className="admin-main">
           <div className="card empty-state">
-            <p className="empty-state-text">Selecciona una tienda para configurar el panel de trabajadores</p>
+            <p className="empty-state-text">Selecciona una tienda</p>
           </div>
         </div>
       </>
@@ -83,10 +123,13 @@ function WorkerConfig() {
     <>
       <header className="admin-header">
         <h1>Config. Worker</h1>
+        <button className="btn btn-primary" onClick={() => openForm()}>
+          <FontAwesomeIcon icon={faPlus} /> Nuevo metodo
+        </button>
       </header>
       <div className="admin-main">
         {error && <div className="error">{error}</div>}
-        {success && <div className="success">Configuracion guardada</div>}
+        {success && <div className="success">{success}</div>}
 
         <div className="card">
           <div className="card-header">
@@ -94,53 +137,104 @@ function WorkerConfig() {
               <FontAwesomeIcon icon={faUserCog} /> Metodos de pago del Worker Panel
             </h3>
           </div>
-          <p className="text-muted text-sm" style={{ marginBottom: '24px' }}>
-            Selecciona los metodos de pago que los trabajadores podran usar al crear pedidos desde el panel.
+          <p className="text-muted text-sm" style={{ marginBottom: '20px' }}>
+            Crea los metodos de pago que los trabajadores veran al cobrar un pedido.
           </p>
 
-          <div className="flex flex-col gap-4">
-            <label
-              className={`worker-config-option ${acceptCash ? 'active' : ''}`}
-              onClick={() => setAcceptCash(!acceptCash)}
-            >
-              <div className={`worker-config-check ${acceptCash ? 'checked' : ''}`}>
-                {acceptCash && <FontAwesomeIcon icon={faCheck} />}
-              </div>
-              <div className="worker-config-icon cash">
-                <FontAwesomeIcon icon={faMoneyBillWave} />
-              </div>
-              <div className="worker-config-info">
-                <span className="worker-config-name">Efectivo</span>
-                <span className="worker-config-desc">Permitir cobro en efectivo</span>
-              </div>
-            </label>
-
-            <label
-              className={`worker-config-option ${acceptCard ? 'active' : ''}`}
-              onClick={() => setAcceptCard(!acceptCard)}
-            >
-              <div className={`worker-config-check ${acceptCard ? 'checked' : ''}`}>
-                {acceptCard && <FontAwesomeIcon icon={faCheck} />}
-              </div>
-              <div className="worker-config-icon card-icon">
-                <FontAwesomeIcon icon={faCreditCard} />
-              </div>
-              <div className="worker-config-info">
-                <span className="worker-config-name">Tarjeta (Point)</span>
-                <span className="worker-config-desc">Permitir cobro con MercadoPago Point</span>
-              </div>
-            </label>
-          </div>
-
-          <button
-            className="btn btn-primary btn-lg btn-full"
-            style={{ marginTop: '24px' }}
-            onClick={handleSave}
-            disabled={loading}
-          >
-            {loading ? 'Guardando...' : 'Guardar configuracion'}
-          </button>
+          {loading ? (
+            <div className="empty-state"><p>Cargando...</p></div>
+          ) : methods.length === 0 ? (
+            <div className="empty-state">
+              <p className="empty-state-text">No hay metodos de pago. Crea el primero.</p>
+            </div>
+          ) : (
+            <div className="worker-config-methods-grid">
+              {methods.map(method => (
+                <div key={method.id} className="worker-config-method-card">
+                  <div className="worker-config-method-color" style={{ backgroundColor: method.color }} />
+                  <div className="worker-config-method-info">
+                    <span className="worker-config-method-name">{method.name}</span>
+                  </div>
+                  <div className="worker-config-method-actions">
+                    <button className="btn btn-ghost btn-sm" onClick={() => openForm(method)}>
+                      <FontAwesomeIcon icon={faEdit} />
+                    </button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => handleDelete(method.id)}>
+                      <FontAwesomeIcon icon={faTrash} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+
+        {showForm && (
+          <div className="modal-overlay" onClick={() => setShowForm(false)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3 className="modal-title">{editingMethod ? 'Editar metodo' : 'Nuevo metodo de pago'}</h3>
+                <button className="modal-close" onClick={() => setShowForm(false)}>
+                  <FontAwesomeIcon icon={faPlus} style={{ transform: 'rotate(45deg)' }} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit}>
+                <div className="form-group">
+                  <label>Nombre</label>
+                  <input
+                    type="text"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    placeholder="Ej: Efectivo, Tarjeta, Transferencia, Nequi..."
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Color</label>
+                  <div className="worker-config-color-picker">
+                    {PRESET_COLORS.map(color => (
+                      <button
+                        key={color}
+                        type="button"
+                        className={`worker-config-color-dot${formColor === color ? ' active' : ''}`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => setFormColor(color)}
+                      >
+                        {formColor === color && <FontAwesomeIcon icon={faCheck} />}
+                      </button>
+                    ))}
+                    <input
+                      type="color"
+                      value={formColor}
+                      onChange={(e) => setFormColor(e.target.value)}
+                      className="worker-config-color-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Vista previa</label>
+                  <div className="worker-config-preview">
+                    <div className="worker-config-preview-btn" style={{ backgroundColor: formColor }}>
+                      {formName || 'Metodo de pago'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3" style={{ marginTop: '20px' }}>
+                  <button type="button" className="btn btn-secondary flex-1" onClick={() => setShowForm(false)}>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn btn-primary flex-1">
+                    {editingMethod ? 'Guardar' : 'Crear'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

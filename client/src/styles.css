@@ -6246,6 +6246,104 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 2px;
 }
 
+/* Worker config - methods grid */
+.worker-config-methods-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.worker-config-method-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition);
+}
+
+.worker-config-method-card:hover {
+  border-color: var(--gold);
+}
+
+.worker-config-method-color {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.worker-config-method-info {
+  flex: 1;
+}
+
+.worker-config-method-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.worker-config-method-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* Color picker */
+.worker-config-color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.worker-config-color-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #fff;
+  transition: all var(--transition);
+}
+
+.worker-config-color-dot.active {
+  border-color: var(--foreground);
+  transform: scale(1.15);
+}
+
+.worker-config-color-input {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 0;
+  background: none;
+}
+
+.worker-config-preview {
+  padding: 12px;
+  background: var(--muted);
+  border-radius: var(--radius-md);
+  display: flex;
+  justify-content: center;
+}
+
+.worker-config-preview-btn {
+  padding: 12px 32px;
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  text-align: center;
+}
+
 /* Checkout button */
 .worker-pos-checkout-btn {
   width: 100%;
