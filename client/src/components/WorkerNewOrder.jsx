@@ -680,10 +680,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 {[
                   { value: 'serve', label: 'Servir aqui', icon: faUtensils },
                   { value: 'takeout', label: 'Para llevar', icon: faShoppingBag },
-                  { value: 'delivery', label: 'Delivery', icon: faMotorcycle },
-                  { value: 'pedidosya', label: 'PedidosYa', icon: faMotorcycle },
-                  { value: 'rappi', label: 'Rappi', icon: faMotorcycle },
-                  { value: 'mostrador', label: 'Mostrador', icon: faConciergeBell }
+                  { value: 'delivery', label: 'Delivery', icon: faMotorcycle }
                 ].map(type => (
                   <button
                     key={type.value}

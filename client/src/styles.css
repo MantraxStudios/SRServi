@@ -5890,7 +5890,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Cart panel */
 .worker-pos-cart {
-  width: 320px;
+  width: 420px;
   background: rgba(255,255,255,0.02);
   border-left: 1px solid rgba(255,255,255,0.06);
   display: flex;
@@ -6073,11 +6073,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .worker-pos-type-btn {
-  padding: 10px;
+  padding: 8px 6px;
   border: 1px solid rgba(255,255,255,0.1);
   background: rgba(255,255,255,0.04);
   color: rgba(255,255,255,0.5);
   border-radius: var(--radius-md);
+  min-height: 42px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
