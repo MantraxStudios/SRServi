@@ -11,6 +11,7 @@ import Categories from './pages/admin/Categories';
 import Products from './pages/admin/Products';
 import Ingredients from './pages/admin/Ingredients';
 import Extras from './pages/admin/Extras';
+import Complements from './pages/admin/Complements';
 import Orders from './pages/admin/Orders';
 import Workers from './pages/admin/Workers';
 import Settings from './pages/admin/Settings';
@@ -70,8 +71,9 @@ function App() {
             <Route path="stores" element={<Stores />} />
             <Route path="categories" element={<Categories />} />
             <Route path="products" element={<Products />} />
-            <Route path="ingredients" element={<Ingredients />} />
-            <Route path="extras" element={<Extras />} />
+            <Route path="ingredients" element={<Complements />} />
+            <Route path="extras" element={<Complements />} />
+            <Route path="complements" element={<Complements />} />
             <Route path="orders" element={<Orders />} />
             <Route path="workers" element={<Workers />} />
             <Route path="mercado-pago-points" element={<MercadoPagoPoints />} />

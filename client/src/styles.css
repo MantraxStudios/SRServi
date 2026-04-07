@@ -1741,6 +1741,7 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;
   align-items: center;
   cursor: pointer;
+  position: relative;
 }
 
 .store-product-wrapper.out-of-stock {
@@ -6855,4 +6856,143 @@ h1, h2, h3, h4, h5, h6 {
   .worker-new-order-btn span {
     display: none;
   }
+}
+
+/* ========== Complements Tabs (Admin) ========== */
+.complements-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid var(--store-primary, #000);
+}
+
+.complement-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: var(--store-primary, #000);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.complement-tab.active {
+  background: var(--store-primary, #000);
+  color: var(--store-secondary, #fff);
+}
+
+.complement-tab:hover:not(.active) {
+  background: rgba(0,0,0,0.05);
+}
+
+.complement-tab-count {
+  background: rgba(0,0,0,0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.complement-tab.active .complement-tab-count {
+  background: rgba(255,255,255,0.2);
+}
+
+.complements-type-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.type-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.type-btn.active {
+  border-color: var(--store-primary, #000);
+  background: var(--store-primary, #000);
+  color: var(--store-secondary, #fff);
+}
+
+.type-btn:hover:not(.active) {
+  border-color: var(--store-primary, #000);
+}
+
+/* ========== Store Edit Mode ========== */
+.store-edit-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border: none;
+  border-radius: 50%;
+  background: var(--store-primary);
+  color: var(--store-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  margin-right: 4px;
+}
+
+.store-edit-toggle-btn:hover {
+  opacity: 0.85;
+  transform: scale(1.05);
+}
+
+.store-edit-mode-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px;
+  margin: 0 16px 12px;
+  background: var(--store-accent);
+  color: var(--store-primary);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.store-edit-drag-handle {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 10;
+  background: var(--store-accent);
+  color: var(--store-primary);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.store-pin-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 30px 24px;
+  max-width: 320px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
 }

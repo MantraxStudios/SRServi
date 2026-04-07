@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useNavigate } from 'react-router-dom';
-import { faPlus, faEdit, faTrash, faCopy, faStore, faExclamationTriangle, faImage, faChevronDown, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faCopy, faStore, faExclamationTriangle, faImage, faChevronDown, faCheck, faLock, faUnlock } from '@fortawesome/free-solid-svg-icons';
 import { getImageUrl } from '../../config.js';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -32,6 +32,9 @@ function Stores() {
   const [storeLimitError, setStoreLimitError] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
+  const [editPin, setEditPin] = useState('');
+  const [pinSaving, setPinSaving] = useState(false);
+  const [pinMessage, setPinMessage] = useState('');
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -97,6 +100,44 @@ function Stores() {
     setLogoPreview(null);
   };
 
+  const fetchEditPin = async (storeId) => {
+    try {
+      const response = await fetch(API + `/api/stores/${storeId}/edit-pin`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setEditPin(data.pin || '');
+      }
+    } catch (err) {
+      console.error('Error fetching edit pin:', err);
+    }
+  };
+
+  const saveEditPin = async () => {
+    if (!editingStore) return;
+    setPinSaving(true);
+    setPinMessage('');
+    try {
+      const response = await fetch(API + `/api/stores/${editingStore.id}/edit-pin`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ pin: editPin || null })
+      });
+      if (response.ok) {
+        setPinMessage(editPin ? 'PIN guardado' : 'PIN eliminado');
+        setTimeout(() => setPinMessage(''), 2000);
+      }
+    } catch (err) {
+      setPinMessage('Error al guardar');
+    } finally {
+      setPinSaving(false);
+    }
+  };
+
   const openModal = (store = null) => {
     if (store) {
       setEditingStore(store);
@@ -113,9 +154,12 @@ function Stores() {
       });
       setLogoFile(null);
       setLogoPreview(store.logo_url ? getImageUrl(store.logo_url) : null);
+      fetchEditPin(store.id);
     } else {
       resetForm();
+      setEditPin('');
     }
+    setPinMessage('');
     setShowModal(true);
   };
 
@@ -573,6 +617,41 @@ function Stores() {
                   )}
                 </div>
               </div>
+
+              {editingStore && (
+                <div className="form-group">
+                  <label>
+                    <FontAwesomeIcon icon={editPin ? faLock : faUnlock} />
+                    {' '}PIN de Edición en Tienda
+                  </label>
+                  <p className="text-sm text-muted" style={{ margin: '0 0 8px 0' }}>
+                    Configura un PIN para permitir reordenar productos desde la vista de la tienda.
+                  </p>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={editPin}
+                      onChange={(e) => setEditPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      placeholder="PIN de 4 dígitos"
+                      maxLength={4}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={saveEditPin}
+                      disabled={pinSaving}
+                      className="btn btn-secondary"
+                    >
+                      {pinSaving ? '...' : (editPin ? 'Guardar PIN' : 'Quitar PIN')}
+                    </button>
+                  </div>
+                  {pinMessage && (
+                    <span className="text-sm" style={{ color: pinMessage.includes('Error') ? '#DC3545' : '#28a745', marginTop: '4px', display: 'block' }}>
+                      {pinMessage}
+                    </span>
+                  )}
+                </div>
+              )}
 
               <div className="store-form-actions">
                 <button

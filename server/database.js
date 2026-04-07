@@ -550,6 +550,14 @@ async function migrateTables() {
       } else {
         console.log('ℹ️ Tabla stores ya tiene columna logo_url');
       }
+      if (!storeColNames.includes('store_edit_pin')) {
+        console.log('⚠️ Agregando columna store_edit_pin a tabla stores...');
+        await pool.execute('ALTER TABLE stores ADD COLUMN store_edit_pin VARCHAR(10) DEFAULT NULL');
+        console.log('✅ Columna store_edit_pin agregada a stores');
+      } else {
+        console.log('ℹ️ Tabla stores ya tiene columna store_edit_pin');
+      }
+
       // Worker payment methods table
       await pool.execute(`
         CREATE TABLE IF NOT EXISTS worker_payment_methods (
@@ -855,6 +863,32 @@ export async function getStoreByCode(code) {
     WHERE s.code = ?
   `, [code]);
   return rows.length > 0 ? rows[0] : null;
+}
+
+export async function setStoreEditPin(storeId, userId, pin) {
+  await pool.execute(
+    'UPDATE stores SET store_edit_pin = ? WHERE id = ? AND user_id = ?',
+    [pin || null, storeId, userId]
+  );
+  return true;
+}
+
+export async function verifyStoreEditPin(storeId, pin) {
+  const [rows] = await pool.execute(
+    'SELECT store_edit_pin FROM stores WHERE id = ?',
+    [storeId]
+  );
+  if (rows.length === 0) return false;
+  if (!rows[0].store_edit_pin) return false;
+  return rows[0].store_edit_pin === pin;
+}
+
+export async function getStoreEditPin(storeId) {
+  const [rows] = await pool.execute(
+    'SELECT store_edit_pin FROM stores WHERE id = ?',
+    [storeId]
+  );
+  return rows.length > 0 ? rows[0].store_edit_pin : null;
 }
 
 export async function getCategories(storeId) {

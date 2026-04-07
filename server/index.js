@@ -98,6 +98,9 @@ import {
   createWorkerPaymentMethod,
   updateWorkerPaymentMethod,
   deleteWorkerPaymentMethod,
+  setStoreEditPin,
+  verifyStoreEditPin,
+  getStoreEditPin,
   pool
 } from './database.js';
 
@@ -470,6 +473,74 @@ app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req,
 app.delete('/api/stores/:id', authenticateToken, async (req, res) => {
   try {
     await deleteStore(req.params.id, req.user.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Store Edit PIN endpoints
+app.put('/api/stores/:id/edit-pin', authenticateToken, async (req, res) => {
+  try {
+    const { pin } = req.body;
+    const storeId = parseInt(req.params.id);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
+    await setStoreEditPin(storeId, req.user.id, pin);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/stores/:id/edit-pin', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
+    const pin = await getStoreEditPin(storeId);
+    res.json({ pin });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/public/:code/verify-edit-pin', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const { pin } = req.body;
+    const store = await getStoreByCode(code.toUpperCase());
+    if (!store) {
+      return res.status(404).json({ error: 'Tienda no encontrada' });
+    }
+    const valid = await verifyStoreEditPin(store.id, pin);
+    res.json({ valid });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/public/:code/products/order', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const { pin, products } = req.body;
+    const store = await getStoreByCode(code.toUpperCase());
+    if (!store) {
+      return res.status(404).json({ error: 'Tienda no encontrada' });
+    }
+    const valid = await verifyStoreEditPin(store.id, pin);
+    if (!valid) {
+      return res.status(403).json({ error: 'PIN incorrecto' });
+    }
+    if (!products) {
+      return res.status(400).json({ error: 'products es requerido' });
+    }
+    await updateProductsOrder(store.id, products);
+    emitProductUpdate(store.id, 'products_reordered', { products });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -244,13 +244,9 @@ function Layout() {
                     <FontAwesomeIcon icon={faBox} />
                     <span>Productos</span>
                   </NavLink>
-                  <NavLink to="/admin/ingredients" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  <NavLink to="/admin/complements" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faFlask} />
                     <span>Complementos</span>
-                  </NavLink>
-                  <NavLink to="/admin/extras" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faPlus} />
-                    <span>Extras</span>
                   </NavLink>
                 </div>
               )}

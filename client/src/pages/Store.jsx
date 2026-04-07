@@ -17,10 +17,28 @@ import {
   faInfinity,
   faUtensils,
   faChevronRight,
-  faCheckCircle
+  faCheckCircle,
+  faGripVertical,
+  faLock,
+  faPen
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -60,6 +78,12 @@ function Store() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [configurations, setConfigurations] = useState([]);
   const [selectedConfiguration, setSelectedConfiguration] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [editDragActiveId, setEditDragActiveId] = useState(null);
+  const [sessionPin, setSessionPin] = useState(null);
   const categoryRef = useRef(null);
 
   useEffect(() => {
@@ -770,6 +794,76 @@ function Store() {
     return grouped;
   };
 
+  const handleEditModeToggle = () => {
+    if (editMode) {
+      setEditMode(false);
+      return;
+    }
+    setPinInput('');
+    setPinError('');
+    setPinModalOpen(true);
+  };
+
+  const handlePinSubmit = async () => {
+    if (!pinInput) return;
+    try {
+      const response = await fetch(`/api/public/${code}/verify-edit-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: pinInput })
+      });
+      const data = await response.json();
+      if (data.valid) {
+        setSessionPin(pinInput);
+        setEditMode(true);
+        setPinModalOpen(false);
+        setPinInput('');
+        setPinError('');
+      } else {
+        setPinError('PIN incorrecto');
+      }
+    } catch {
+      setPinError('Error al verificar PIN');
+    }
+  };
+
+  const editSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const handleEditDragStart = (event) => {
+    setEditDragActiveId(event.active.id);
+  };
+
+  const handleEditDragEnd = async (event) => {
+    const { active, over } = event;
+    setEditDragActiveId(null);
+
+    if (!over || active.id === over.id || !store?.products) return;
+
+    const allProducts = [...store.products];
+    const oldIndex = allProducts.findIndex(p => p.id === active.id);
+    const newIndex = allProducts.findIndex(p => p.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newProducts = arrayMove(allProducts, oldIndex, newIndex);
+    setStore(prev => ({ ...prev, products: newProducts }));
+
+    try {
+      await fetch(`/api/public/${code}/products/order`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pin: sessionPin,
+          products: newProducts.map(p => ({ id: p.id }))
+        })
+      });
+    } catch (error) {
+      console.error('Error saving order:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -809,7 +903,7 @@ function Store() {
       >
         <div
           className={`store-product-card${isOutOfStock ? ' out-of-stock' : ''}`}
-          onClick={() => openProductModal(product)}
+          onClick={() => !editMode && openProductModal(product)}
         >
           {isOutOfStock && (
             <div className="out-of-stock-badge">
@@ -837,6 +931,60 @@ function Store() {
       </div>
     );
   };
+
+  function SortableProductCard({ product }) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: product.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+      zIndex: isDragging ? 1000 : 1,
+      position: 'relative',
+    };
+
+    const isUnlimited = product.unlimited_stock === true || product.unlimited_stock === 1 || product.unlimited_stock === '1';
+    const isOutOfStock = !isUnlimited && product.stock === 0;
+
+    return (
+      <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+        <div className={`store-product-wrapper${isOutOfStock ? ' out-of-stock' : ''}`}>
+          <div className="store-edit-drag-handle">
+            <FontAwesomeIcon icon={faGripVertical} />
+          </div>
+          <div className={`store-product-card${isOutOfStock ? ' out-of-stock' : ''}`}>
+            {isOutOfStock && (
+              <div className="out-of-stock-badge">Agotado</div>
+            )}
+            <div className="store-product-image">
+              {product.image ? (
+                <img
+                  src={getImageUrl(product.image)}
+                  alt={product.name}
+                  className={isOutOfStock ? 'grayscale' : ''}
+                />
+              ) : (
+                <FontAwesomeIcon icon={faBox} className="placeholder-icon" />
+              )}
+            </div>
+          </div>
+          <div className="store-product-info">
+            <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`}>
+              <span className="store-product-name">{product.name}:</span>
+              <span className="store-product-price">{colors.currency.symbol}{Number(product.price).toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="store-container" style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary }}>
@@ -887,6 +1035,13 @@ function Store() {
       )}
 
       <div className="category-tabs">
+        <button
+          className="store-edit-toggle-btn"
+          onClick={handleEditModeToggle}
+          title={editMode ? 'Salir del modo edición' : 'Reordenar productos'}
+        >
+          <FontAwesomeIcon icon={editMode ? faTimes : faPen} />
+        </button>
         <div
           ref={categoryRef}
           className="category-tabs-list"
@@ -925,7 +1080,61 @@ function Store() {
         </div>
       )}
 
-      {hasProducts && activeCategory === 'all' && (
+      {hasProducts && editMode && (
+        <div className="store-edit-mode-banner">
+          <FontAwesomeIcon icon={faGripVertical} />
+          <span>Arrastra los productos para reordenar</span>
+          <button className="btn btn-sm btn-secondary" onClick={() => setEditMode(false)}>
+            Listo
+          </button>
+        </div>
+      )}
+
+      {hasProducts && editMode && (
+        <DndContext
+          sensors={editSensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleEditDragStart}
+          onDragEnd={handleEditDragEnd}
+        >
+          <SortableContext
+            items={(store?.products || []).map(p => p.id)}
+            strategy={rectSortingStrategy}
+          >
+            <div className="products-grid">
+              {(store?.products || []).map(product => (
+                <SortableProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </SortableContext>
+          <DragOverlay>
+            {editDragActiveId ? (() => {
+              const product = store?.products?.find(p => p.id === editDragActiveId);
+              if (!product) return null;
+              return (
+                <div className="store-product-wrapper" style={{ opacity: 0.8 }}>
+                  <div className="store-product-card">
+                    <div className="store-product-image">
+                      {product.image ? (
+                        <img src={getImageUrl(product.image)} alt={product.name} />
+                      ) : (
+                        <FontAwesomeIcon icon={faBox} className="placeholder-icon" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="store-product-info">
+                    <div className="store-product-details">
+                      <span className="store-product-name">{product.name}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })() : null}
+          </DragOverlay>
+        </DndContext>
+      )}
+
+      {hasProducts && !editMode && activeCategory === 'all' && (
         <div className="category-sections">
           {Object.entries(groupedProducts).map(([category, products], catIndex) => (
             <div key={category} className="category-section">
@@ -949,7 +1158,7 @@ function Store() {
         </div>
       )}
 
-      {hasProducts && activeCategory !== 'all' && (
+      {hasProducts && !editMode && activeCategory !== 'all' && (
         <div className="products-grid">
           {Object.entries(groupedProducts)
             .filter(([category]) => activeCategory === category)
@@ -1894,6 +2103,68 @@ function Store() {
               }}
             >
               Entendido
+            </button>
+          </div>
+        </div>
+      )}
+      {pinModalOpen && (
+        <div className="store-modal-overlay" onClick={() => setPinModalOpen(false)}>
+          <div className="store-pin-modal" onClick={(e) => e.stopPropagation()}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <FontAwesomeIcon icon={faLock} style={{ fontSize: '32px', color: 'var(--store-accent)', marginBottom: '10px' }} />
+              <h3 style={{ margin: 0, color: 'var(--store-primary)' }}>Ingresa el PIN</h3>
+              <p style={{ margin: '5px 0 0', fontSize: '14px', color: '#666' }}>
+                Para reordenar productos
+              </p>
+            </div>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              value={pinInput}
+              onChange={(e) => {
+                setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4));
+                setPinError('');
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handlePinSubmit();
+              }}
+              placeholder="****"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '24px',
+                textAlign: 'center',
+                letterSpacing: '12px',
+                border: `2px solid ${pinError ? '#dc3545' : 'var(--store-primary)'}`,
+                borderRadius: '8px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+            {pinError && (
+              <p style={{ color: '#dc3545', textAlign: 'center', margin: '8px 0 0', fontSize: '14px' }}>
+                {pinError}
+              </p>
+            )}
+            <button
+              onClick={handlePinSubmit}
+              disabled={pinInput.length < 4}
+              style={{
+                width: '100%',
+                padding: '12px',
+                marginTop: '15px',
+                backgroundColor: pinInput.length >= 4 ? 'var(--store-accent)' : '#ccc',
+                color: pinInput.length >= 4 ? 'var(--store-primary)' : '#666',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: pinInput.length >= 4 ? 'pointer' : 'default'
+              }}
+            >
+              Confirmar
             </button>
           </div>
         </div>
