@@ -6113,12 +6113,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .worker-pos-pay-buttons {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 
 .worker-pos-pay-btn {
-  flex: 1;
   padding: 12px;
   border: none;
   border-radius: var(--radius-md);
