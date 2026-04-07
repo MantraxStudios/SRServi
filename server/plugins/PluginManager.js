@@ -9,6 +9,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PLUGINS_DIR = path.join(__dirname, 'installed');
 
+// MySQL JSON columns return objects already parsed; plain strings need JSON.parse
+function safeParse(value, fallback) {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'object') return value;
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
 class PluginManager {
   constructor(app, pool, io) {
     this.app = app;
@@ -355,10 +362,10 @@ class PluginManager {
     const [rows] = await this.pool.execute('SELECT * FROM plugins ORDER BY name');
     return rows.map(row => ({
       ...row,
-      hooks: JSON.parse(row.hooks || '[]'),
-      admin_slots: JSON.parse(row.admin_slots || '[]'),
-      store_slots: JSON.parse(row.store_slots || '[]'),
-      settings_schema: JSON.parse(row.settings_schema || '{}')
+      hooks: safeParse(row.hooks, []),
+      admin_slots: safeParse(row.admin_slots, []),
+      store_slots: safeParse(row.store_slots, []),
+      settings_schema: safeParse(row.settings_schema, {})
     }));
   }
 
@@ -374,9 +381,9 @@ class PluginManager {
       id: row.plugin_id,
       name: row.name,
       version: row.version,
-      adminSlots: JSON.parse(row.admin_slots || '[]'),
-      storeSlots: JSON.parse(row.store_slots || '[]'),
-      hasSettings: Object.keys(JSON.parse(row.settings_schema || '{}')).length > 0,
+      adminSlots: safeParse(row.admin_slots, []),
+      storeSlots: safeParse(row.store_slots, []),
+      hasSettings: Object.keys(safeParse(row.settings_schema, {})).length > 0,
       adminJs: fs.existsSync(path.join(PLUGINS_DIR, row.plugin_id, 'admin.js'))
         ? `/api/plugins/static/${row.plugin_id}/admin.js` : null,
       storeJs: fs.existsSync(path.join(PLUGINS_DIR, row.plugin_id, 'store.js'))
@@ -393,14 +400,14 @@ class PluginManager {
       [pluginId, storeId]
     );
     if (rows.length > 0) {
-      return JSON.parse(rows[0].settings || '{}');
+      return safeParse(rows[0].settings, {});
     }
     // Return defaults from schema
     const [pluginRows] = await this.pool.execute(
       'SELECT settings_schema FROM plugins WHERE plugin_id = ?', [pluginId]
     );
     if (pluginRows.length > 0) {
-      const schema = JSON.parse(pluginRows[0].settings_schema || '{}');
+      const schema = safeParse(pluginRows[0].settings_schema, {});
       const defaults = {};
       for (const [key, config] of Object.entries(schema)) {
         defaults[key] = config.default !== undefined ? config.default : '';
