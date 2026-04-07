@@ -454,7 +454,19 @@ function WorkerPanel() {
                       {order.items.map((item, idx) => (
                         <div key={idx} className="worker-order-item-line">
                           <span className="worker-order-item-qty">{item.quantity}x</span>
-                          <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                          <div className="worker-order-item-detail">
+                            <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                            {item.selected_ingredients && item.selected_ingredients.length > 0 && (
+                              <span className="worker-order-item-addons">
+                                {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients.map(i => i.name || i).join(', ') : item.selected_ingredients)}
+                              </span>
+                            )}
+                            {item.selected_extras && item.selected_extras.length > 0 && (
+                              <span className="worker-order-item-addons">
+                                + {(Array.isArray(item.selected_extras) ? item.selected_extras.map(e => e.name || e).join(', ') : item.selected_extras)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -500,7 +512,19 @@ function WorkerPanel() {
                       {order.items.map((item, idx) => (
                         <div key={idx} className="worker-order-item-line">
                           <span className="worker-order-item-qty">{item.quantity}x</span>
-                          <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                          <div className="worker-order-item-detail">
+                            <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                            {item.selected_ingredients && item.selected_ingredients.length > 0 && (
+                              <span className="worker-order-item-addons">
+                                {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients.map(i => i.name || i).join(', ') : item.selected_ingredients)}
+                              </span>
+                            )}
+                            {item.selected_extras && item.selected_extras.length > 0 && (
+                              <span className="worker-order-item-addons">
+                                + {(Array.isArray(item.selected_extras) ? item.selected_extras.map(e => e.name || e).join(', ') : item.selected_extras)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -554,7 +578,19 @@ function WorkerPanel() {
                       {order.items.map((item, idx) => (
                         <div key={idx} className="worker-order-item-line">
                           <span className="worker-order-item-qty">{item.quantity}x</span>
-                          <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                          <div className="worker-order-item-detail">
+                            <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                            {item.selected_ingredients && item.selected_ingredients.length > 0 && (
+                              <span className="worker-order-item-addons">
+                                {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients.map(i => i.name || i).join(', ') : item.selected_ingredients)}
+                              </span>
+                            )}
+                            {item.selected_extras && item.selected_extras.length > 0 && (
+                              <span className="worker-order-item-addons">
+                                + {(Array.isArray(item.selected_extras) ? item.selected_extras.map(e => e.name || e).join(', ') : item.selected_extras)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

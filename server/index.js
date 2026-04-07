@@ -1826,20 +1826,20 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { store_id, items, order_type, payment_method, coupon_code } = req.body;
-    
+    const { store_id, items, order_type, payment_method, coupon_code, from_worker } = req.body;
+
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
     }
-    
-    console.log('Creating order:', { store_id, order_type, payment_method, items });
-    const order = await createOrder(parseInt(store_id), { order_type, payment_method, items, coupon_code });
-    
+
+    console.log('Creating order:', { store_id, order_type, payment_method, items, from_worker });
+    const order = await createOrder(parseInt(store_id), { order_type, payment_method, items, coupon_code, from_worker });
+
     const socketId = userSockets.get(parseInt(store_id));
     if (socketId) {
       io.to(socketId).emit('new_order', order);
     }
-    
+
     res.json(order);
   } catch (error) {
     console.error('❌ Error creando orden:', error);

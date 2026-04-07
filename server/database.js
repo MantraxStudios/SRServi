@@ -1504,12 +1504,14 @@ export async function createOrder(storeId, orderData) {
   const couponData = await resolveCouponForOrder(storeId, coupon_code, subtotal);
   const total = couponData.total;
 
-  const cashApproved = payment_method === 'card' ? true : false;
-  
+  const fromWorker = orderData.from_worker === true;
+  const cashApproved = payment_method === 'card' ? true : fromWorker;
+  const paymentProcess = fromWorker ? 1 : 0;
+
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
     'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, payment_process) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, 0]
+    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, paymentProcess]
   );
   const orderId = result.insertId;
 

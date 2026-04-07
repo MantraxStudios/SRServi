@@ -3241,9 +3241,8 @@ h1, h2, h3, h4, h5, h6 {
 
 .worker-order-item-line {
   display: flex;
-  align-items: center;
   gap: 6px;
-  padding: 2px 0;
+  padding: 3px 0;
   font-size: 13px;
   color: #333;
 }
@@ -3252,10 +3251,27 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
   color: #0a0a0a;
   min-width: 22px;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.worker-order-item-detail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .worker-order-item-name {
-  color: #555;
+  color: #333;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.worker-order-item-addons {
+  font-size: 11px;
+  color: #999;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
