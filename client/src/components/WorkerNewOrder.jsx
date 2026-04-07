@@ -81,7 +81,7 @@ function WorkerNewOrder({ worker, storeId, onClose, onOrderCreated }) {
         fetch(API + `/api/ingredients?store_id=${storeId}`, { headers: authHeaders }),
         fetch(API + `/api/extras?store_id=${storeId}`, { headers: authHeaders }),
         fetch(API + `/api/mercado-pago-terminals?store_id=${storeId}`, { headers: authHeaders }),
-        fetch(API + `/api/stores/${storeId}`)
+        fetch(API + `/api/stores/${storeId}`, { headers: authHeaders })
       ]);
 
       if (!productsRes.ok) throw new Error('Error al cargar productos');
@@ -95,11 +95,16 @@ function WorkerNewOrder({ worker, storeId, onClose, onOrderCreated }) {
         storeRes.ok ? storeRes.json() : {}
       ]);
 
-      const safeProducts = Array.isArray(productsData) ? productsData : productsData.products || [];
+      const rawProducts = Array.isArray(productsData) ? productsData : productsData.products || [];
       const safeCategories = Array.isArray(categoriesData) ? categoriesData : categoriesData.categories || [];
       const safeIngredients = Array.isArray(ingredientsData) ? ingredientsData : ingredientsData.ingredients || [];
       const safeExtras = Array.isArray(extrasData) ? extrasData : extrasData.extras || [];
       const safeTerminals = Array.isArray(terminalsData) ? terminalsData : [];
+
+      // Deduplicate products by id
+      const safeProducts = rawProducts.filter((product, index, self) =>
+        index === self.findIndex((p) => p.id === product.id)
+      );
 
       // Attach ingredients/extras to products
       const enrichedProducts = safeProducts.map(product => {

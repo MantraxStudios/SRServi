@@ -105,9 +105,9 @@ function WorkerPanel() {
       if (!response.ok) throw new Error('Store not found');
       const data = await response.json();
       setStoreColors({
-        primary: data.primary_color || '#1a1a2e',
+        primary: data.primary_color || '#0a0a0a',
         secondary: data.secondary_color || '#ffffff',
-        accent: data.accent_color || '#e94560'
+        accent: data.accent_color || '#D4AF37'
       });
     } catch (error) {
       console.error('Error fetching store colors:', error);
