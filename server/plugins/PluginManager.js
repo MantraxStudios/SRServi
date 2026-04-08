@@ -450,13 +450,26 @@ class PluginManager {
   async getAllPlugins() {
     await this.ensureTables();
     const [rows] = await this.pool.execute('SELECT * FROM plugins ORDER BY name');
-    return rows.map(row => ({
-      ...row,
-      hooks: safeParse(row.hooks, []),
-      admin_slots: safeParse(row.admin_slots, []),
-      store_slots: safeParse(row.store_slots, []),
-      settings_schema: safeParse(row.settings_schema, {})
-    }));
+    return rows.map(row => {
+      // Check for logo file in plugin directory
+      let logo = null;
+      const pluginDir = path.join(PLUGINS_DIR, row.plugin_id);
+      for (const ext of ['png', 'jpg', 'jpeg', 'svg', 'webp']) {
+        const logoPath = path.join(pluginDir, `logo.${ext}`);
+        if (fs.existsSync(logoPath)) {
+          logo = `/api/plugins/static/${row.plugin_id}/logo.${ext}`;
+          break;
+        }
+      }
+      return {
+        ...row,
+        logo,
+        hooks: safeParse(row.hooks, []),
+        admin_slots: safeParse(row.admin_slots, []),
+        store_slots: safeParse(row.store_slots, []),
+        settings_schema: safeParse(row.settings_schema, {})
+      };
+    });
   }
 
   /**

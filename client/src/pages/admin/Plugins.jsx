@@ -271,9 +271,18 @@ function Plugins() {
             {plugins.map(plugin => (
               <div key={plugin.plugin_id} className={`plugin-card${plugin.is_active ? ' active' : ''}`}>
                 <div className="plugin-card-header">
-                  <div>
-                    <h3 className="plugin-card-name">{plugin.name}</h3>
-                    <span className="plugin-card-version">v{plugin.version}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {plugin.logo ? (
+                      <img src={API + plugin.logo} alt="" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e0e0e0' }} />
+                    ) : (
+                      <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <FontAwesomeIcon icon={faPuzzlePiece} style={{ fontSize: '18px', color: '#bbb' }} />
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="plugin-card-name">{plugin.name}</h3>
+                      <span className="plugin-card-version">v{plugin.version}</span>
+                    </div>
                   </div>
                   <button
                     className={`plugin-toggle-btn${plugin.is_active ? ' active' : ''}`}
