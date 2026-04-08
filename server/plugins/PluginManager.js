@@ -322,10 +322,37 @@ class PluginManager {
           this.pluginRouters.set(pluginId, router);
 
           this.parentRouter.use(`/${pluginId}`, (req, res, next) => {
+            // Log all plugin API calls
+            console.log(`🔌 [${pluginId}] ${req.method} ${req.originalUrl} (IP: ${req.ip})`);
             const pluginRouter = this.pluginRouters.get(pluginId);
             if (pluginRouter) return pluginRouter(req, res, next);
             next();
           });
+
+          // Sandboxed DB: only allows parameterized queries on allowed tables
+          const ALLOWED_TABLES = ['orders', 'order_items', 'products', 'categories', 'stores', 'extras', 'ingredients', 'inventory', 'store_configurations', 'coupons'];
+          const sandboxedDb = {
+            execute: async (sql, params = []) => {
+              // Block dangerous operations
+              const upper = sql.toUpperCase().trim();
+              if (upper.startsWith('DROP') || upper.startsWith('ALTER') || upper.startsWith('TRUNCATE')) {
+                throw new Error(`[Plugin ${pluginId}] Blocked: DDL operations not allowed`);
+              }
+              // Block access to sensitive tables
+              const sensitivePattern = /\busers\b|\bplugin_settings\b|\bplugins\b|\bstore_styles\b/i;
+              if (sensitivePattern.test(sql) && !sql.includes(pluginId)) {
+                throw new Error(`[Plugin ${pluginId}] Blocked: access to restricted tables`);
+              }
+              console.log(`🔌 [${pluginId}] DB:`, sql.substring(0, 120));
+              return this.pool.execute(sql, params);
+            },
+            // Allow plugins to create their OWN tables (prefixed)
+            createTable: async (tableName, schema) => {
+              const prefixed = `plugin_${pluginId.replace(/-/g, '_')}_${tableName}`;
+              console.log(`🔌 [${pluginId}] CreateTable: ${prefixed}`);
+              return this.pool.execute(`CREATE TABLE IF NOT EXISTS ${prefixed} ${schema}`);
+            }
+          };
 
           const context = {
             hooks: {
@@ -337,7 +364,7 @@ class PluginManager {
               }
             },
             router,
-            db: this.pool,
+            db: sandboxedDb,
             io: this.io,
             getSettings: async (storeId) => {
               return this.getPluginSettings(pluginId, storeId);

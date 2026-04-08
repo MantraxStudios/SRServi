@@ -189,7 +189,20 @@ const upload = multer({
 });
 
 app.use('/uploads', express.static('uploads'));
-app.use('/api/plugins/static', express.static(path.join(__serverDir, 'plugins', 'installed')));
+// Serve plugin static files with path traversal protection
+app.use('/api/plugins/static', (req, res, next) => {
+  // Block path traversal attempts
+  if (req.path.includes('..') || req.path.includes('server.js') || req.path.includes('.env')) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  // Only allow specific file extensions
+  const allowed = ['.js', '.css', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.gif', '.woff', '.woff2', '.ttf', '.json'];
+  const ext = path.extname(req.path).toLowerCase();
+  if (ext && !allowed.includes(ext)) {
+    return res.status(403).json({ error: 'File type not allowed' });
+  }
+  next();
+}, express.static(path.join(__serverDir, 'plugins', 'installed')));
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -3465,6 +3478,56 @@ app.get('/api/superadmin/workshop', authenticateSuperadminToken, async (req, res
     if (error.message?.includes("doesn't exist")) return res.json([]);
     res.status(500).json({ error: error.message });
   }
+});
+
+// Superadmin: review plugin source code before approving
+app.get('/api/superadmin/workshop/:pluginId/version/:version/review', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const [versions] = await pool.execute(
+      'SELECT zip_path FROM plugin_workshop_versions WHERE plugin_id = ? AND version = ?',
+      [req.params.pluginId, req.params.version]
+    );
+    if (versions.length === 0) return res.status(404).json({ error: 'Version no encontrada' });
+    const workshopDir = path.join(__serverDir, 'plugins', 'workshop-uploads');
+    const zipFilePath = path.join(workshopDir, path.basename(versions[0].zip_path));
+    if (!fs.existsSync(zipFilePath)) return res.status(404).json({ error: 'ZIP no encontrado' });
+
+    const AdmZip = (await import('adm-zip')).default;
+    const zip = new AdmZip(zipFilePath);
+    const entries = zip.getEntries();
+    const files = {};
+    const dangerousPatterns = [
+      /require\s*\(\s*['"]child_process['"]\s*\)/,
+      /require\s*\(\s*['"]fs['"]\s*\)/,
+      /import\s+.*from\s+['"]fs['"]/,
+      /import\s+.*from\s+['"]child_process['"]/,
+      /process\.env/,
+      /eval\s*\(/,
+      /Function\s*\(/,
+      /localStorage/,
+      /document\.cookie/,
+    ];
+
+    const warnings = [];
+    for (const entry of entries) {
+      if (entry.isDirectory) continue;
+      const name = entry.entryName.replace(/\\/g, '/');
+      const ext = path.extname(name).toLowerCase();
+      if (['.js', '.json', '.css', '.html', '.md', '.txt'].includes(ext)) {
+        const content = entry.getData().toString('utf8');
+        files[name] = content;
+        // Scan for dangerous patterns
+        for (const pattern of dangerousPatterns) {
+          if (pattern.test(content)) {
+            warnings.push({ file: name, pattern: pattern.source, message: `Uso sospechoso detectado: ${pattern.source}` });
+          }
+        }
+      } else {
+        files[name] = `[Archivo binario: ${entry.header.size} bytes]`;
+      }
+    }
+    res.json({ files, warnings });
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // Superadmin: approve/reject a specific version
