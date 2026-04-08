@@ -41,7 +41,7 @@ function MercadoPagoPoints() {
     setLoadingDevices(prev => ({ ...prev, [terminalId]: true }));
     try {
       const response = await fetch(API + `/api/mercado-pago-terminals/${terminalId}/devices`, { headers: { Authorization: 'Bearer ' + token } });
-      if (response.ok) setMpDevices(prev => ({ ...prev, [terminalId]: await response.json() }));
+      if (response.ok) { const data = await response.json(); setMpDevices(prev => ({ ...prev, [terminalId]: data })); }
     } catch {}
     finally { setLoadingDevices(prev => ({ ...prev, [terminalId]: false })); }
   };
