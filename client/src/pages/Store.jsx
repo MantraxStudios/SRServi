@@ -184,6 +184,7 @@ function Store() {
   const [selectedIngredientIds, setSelectedIngredientIds] = useState([]);
   const [selectedExtraIds, setSelectedExtraIds] = useState([]);
   const [complementsTab, setComplementsTab] = useState('complements');
+  const [editingComplement, setEditingComplement] = useState(null);
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
   const storeIdRef = useRef(null);
@@ -1048,6 +1049,35 @@ function Store() {
     });
     fetchComplements();
     fetchStore();
+  };
+
+  const deleteComplementFromModal = async (type, id) => {
+    if (!confirm('¿Eliminar?')) return;
+    await fetch(`/api/public/${code}/${type === 'extra' ? 'extras' : 'ingredients'}/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: adminToken })
+    });
+    if (type === 'extra') setSelectedExtraIds(prev => prev.filter(eid => eid !== id));
+    else setSelectedIngredientIds(prev => prev.filter(iid => iid !== id));
+    fetchComplements();
+  };
+
+  const saveEditComplement = async () => {
+    if (!editingComplement || !editingComplement.name.trim()) return;
+    const { id, type, name, price, imageFile } = editingComplement;
+    const formData = new FormData();
+    formData.append('token', adminToken);
+    formData.append('name', name.trim());
+    formData.append('price', parseFloat(price) || 0);
+    formData.append('category_id', '');
+    if (imageFile) formData.append('image', imageFile);
+    await fetch(`/api/public/${code}/${type === 'extra' ? 'extras' : 'ingredients'}/${id}`, {
+      method: 'PUT',
+      body: formData
+    });
+    setEditingComplement(null);
+    fetchComplements();
   };
 
   const updateProductStock = async (productId, stock, unlimitedStock) => {
@@ -2790,16 +2820,21 @@ function Store() {
                   {ingredients.map(ing => {
                     const active = selectedIngredientIds.includes(ing.id);
                     return (
-                      <div key={ing.id} onClick={() => setSelectedIngredientIds(active ? selectedIngredientIds.filter(id => id !== ing.id) : [...selectedIngredientIds, ing.id])}
-                        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', marginBottom: '4px', cursor: 'pointer', background: active ? 'rgba(0,128,0,0.08)' : '#fafafa', border: active ? '2px solid #2ecc71' : '2px solid transparent' }}>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {ing.image ? <img src={getImageUrl(ing.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FontAwesomeIcon icon={faBox} style={{ color: '#ccc' }} />}
+                      <div key={ing.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', marginBottom: '4px', background: active ? 'rgba(0,128,0,0.08)' : '#fafafa', border: active ? '2px solid #2ecc71' : '2px solid transparent' }}>
+                        <div onClick={() => setSelectedIngredientIds(active ? selectedIngredientIds.filter(id => id !== ing.id) : [...selectedIngredientIds, ing.id])} style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, cursor: 'pointer' }}>
+                          <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {ing.image ? <img src={getImageUrl(ing.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FontAwesomeIcon icon={faBox} style={{ color: '#ccc' }} />}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '14px', fontWeight: '600' }}>{ing.name}</div>
+                            {Number(ing.price) > 0 && <div style={{ fontSize: '12px', color: '#888' }}>+${Number(ing.price).toFixed(0)}</div>}
+                          </div>
+                          <FontAwesomeIcon icon={active ? faCheckCircle : faTimesCircle} style={{ fontSize: '20px', color: active ? '#2ecc71' : '#ddd' }} />
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '14px', fontWeight: '600' }}>{ing.name}</div>
-                          {Number(ing.price) > 0 && <div style={{ fontSize: '12px', color: '#888' }}>+${Number(ing.price).toFixed(0)}</div>}
+                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                          <button onClick={(ev) => { ev.stopPropagation(); setEditingComplement({ id: ing.id, type: 'ingredient', name: ing.name, price: ing.price?.toString() || '', imageFile: null }); }} style={{ background: 'none', border: 'none', color: 'var(--store-primary)', cursor: 'pointer', padding: '4px', fontSize: '13px' }}><FontAwesomeIcon icon={faEdit} /></button>
+                          <button onClick={(ev) => { ev.stopPropagation(); deleteComplementFromModal('ingredient', ing.id); }} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', padding: '4px', fontSize: '13px' }}><FontAwesomeIcon icon={faTrash} /></button>
                         </div>
-                        <FontAwesomeIcon icon={active ? faCheckCircle : faTimesCircle} style={{ fontSize: '20px', color: active ? '#2ecc71' : '#ddd' }} />
                       </div>
                     );
                   })}
@@ -2828,16 +2863,21 @@ function Store() {
                   {extras.map(e => {
                     const active = selectedExtraIds.includes(e.id);
                     return (
-                      <div key={e.id} onClick={() => setSelectedExtraIds(active ? selectedExtraIds.filter(id => id !== e.id) : [...selectedExtraIds, e.id])}
-                        style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', marginBottom: '4px', cursor: 'pointer', background: active ? 'rgba(0,128,0,0.08)' : '#fafafa', border: active ? '2px solid #2ecc71' : '2px solid transparent' }}>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {e.image ? <img src={getImageUrl(e.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FontAwesomeIcon icon={faBox} style={{ color: '#ccc' }} />}
+                      <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', marginBottom: '4px', background: active ? 'rgba(0,128,0,0.08)' : '#fafafa', border: active ? '2px solid #2ecc71' : '2px solid transparent' }}>
+                        <div onClick={() => setSelectedExtraIds(active ? selectedExtraIds.filter(id => id !== e.id) : [...selectedExtraIds, e.id])} style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, cursor: 'pointer' }}>
+                          <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {e.image ? <img src={getImageUrl(e.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FontAwesomeIcon icon={faBox} style={{ color: '#ccc' }} />}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '14px', fontWeight: '600' }}>{e.name}</div>
+                            {Number(e.price) > 0 && <div style={{ fontSize: '12px', color: '#888' }}>+${Number(e.price).toFixed(0)}</div>}
+                          </div>
+                          <FontAwesomeIcon icon={active ? faCheckCircle : faTimesCircle} style={{ fontSize: '20px', color: active ? '#2ecc71' : '#ddd' }} />
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '14px', fontWeight: '600' }}>{e.name}</div>
-                          {Number(e.price) > 0 && <div style={{ fontSize: '12px', color: '#888' }}>+${Number(e.price).toFixed(0)}</div>}
+                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                          <button onClick={(ev) => { ev.stopPropagation(); setEditingComplement({ id: e.id, type: 'extra', name: e.name, price: e.price?.toString() || '', imageFile: null }); }} style={{ background: 'none', border: 'none', color: 'var(--store-primary)', cursor: 'pointer', padding: '4px', fontSize: '13px' }}><FontAwesomeIcon icon={faEdit} /></button>
+                          <button onClick={(ev) => { ev.stopPropagation(); deleteComplementFromModal('extra', e.id); }} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', padding: '4px', fontSize: '13px' }}><FontAwesomeIcon icon={faTrash} /></button>
                         </div>
-                        <FontAwesomeIcon icon={active ? faCheckCircle : faTimesCircle} style={{ fontSize: '20px', color: active ? '#2ecc71' : '#ddd' }} />
                       </div>
                     );
                   })}
@@ -2859,8 +2899,26 @@ function Store() {
               )}
             </div>
 
+            {editingComplement && (
+              <div style={{ marginTop: '10px', padding: '12px', background: '#fffbe6', borderRadius: '8px', border: '2px solid #e6c200' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: '#333', marginBottom: '8px' }}>Editando: {editingComplement.name}</div>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <label style={{ width: '32px', height: '32px', borderRadius: '6px', background: editingComplement.imageFile ? 'transparent' : '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '1px solid #ddd' }}>
+                    {editingComplement.imageFile ? <img src={URL.createObjectURL(editingComplement.imageFile)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FontAwesomeIcon icon={faBox} style={{ fontSize: '12px', color: '#bbb' }} />}
+                    <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setEditingComplement({ ...editingComplement, imageFile: e.target.files[0] }); }} style={{ display: 'none' }} />
+                  </label>
+                  <input type="text" value={editingComplement.name} onChange={(e) => setEditingComplement({ ...editingComplement, name: e.target.value })} placeholder="Nombre" className="store-prod-modal-input" style={{ flex: 2, padding: '8px', fontSize: '13px' }} />
+                  <input type="number" step="0.01" value={editingComplement.price} onChange={(e) => setEditingComplement({ ...editingComplement, price: e.target.value })} placeholder="$" className="store-prod-modal-input" style={{ flex: 1, padding: '8px', fontSize: '13px' }} />
+                </div>
+                <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                  <button onClick={() => setEditingComplement(null)} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ccc', background: '#fff', fontSize: '13px', cursor: 'pointer' }}>Cancelar</button>
+                  <button onClick={saveEditComplement} disabled={!editingComplement.name.trim()} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: 'none', background: 'var(--store-primary)', color: 'var(--store-secondary)', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>Guardar</button>
+                </div>
+              </div>
+            )}
+
             <button
-              onClick={() => setShowComplementsModal(false)}
+              onClick={() => { setShowComplementsModal(false); setEditingComplement(null); }}
               style={{ marginTop: '14px', padding: '12px', borderRadius: '8px', border: 'none', background: 'var(--store-primary)', color: 'var(--store-secondary)', fontSize: '14px', fontWeight: '700', cursor: 'pointer', width: '100%' }}
             >
               Listo

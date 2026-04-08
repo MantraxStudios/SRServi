@@ -739,6 +739,46 @@ app.post('/api/public/:code/ingredients', upload.single('image'), async (req, re
   } catch (error) { console.error('Error creating ingredient:', error); res.status(500).json({ error: error.message }); }
 });
 
+app.put('/api/public/:code/extras/:id', upload.single('image'), async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || 'your-secret-key');
+    if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
+    const catId = req.body.category_id && req.body.category_id !== '' && req.body.category_id !== 'null' ? parseInt(req.body.category_id) : null;
+    let imageUpdate = '';
+    let params = [req.body.name, parseFloat(req.body.price) || 0, catId];
+    if (req.file) {
+      imageUpdate = ', image = ?';
+      params.push(`/uploads/${req.file.filename}`);
+    }
+    params.push(parseInt(req.params.id), store.id);
+    await pool.execute(`UPDATE extras SET name = ?, price = ?, category_id = ?${imageUpdate} WHERE id = ? AND store_id = ?`, params);
+    emitProductUpdate(store.id, 'extra_updated', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { console.error('Error updating extra:', error); res.status(500).json({ error: error.message }); }
+});
+
+app.put('/api/public/:code/ingredients/:id', upload.single('image'), async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || 'your-secret-key');
+    if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
+    const catId = req.body.category_id && req.body.category_id !== '' && req.body.category_id !== 'null' ? parseInt(req.body.category_id) : null;
+    let imageUpdate = '';
+    let params = [req.body.name, parseFloat(req.body.price) || 0, catId];
+    if (req.file) {
+      imageUpdate = ', image = ?';
+      params.push(`/uploads/${req.file.filename}`);
+    }
+    params.push(parseInt(req.params.id), store.id);
+    await pool.execute(`UPDATE ingredients SET name = ?, price = ?, category_id = ?${imageUpdate} WHERE id = ? AND store_id = ?`, params);
+    emitProductUpdate(store.id, 'ingredient_updated', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { console.error('Error updating ingredient:', error); res.status(500).json({ error: error.message }); }
+});
+
 app.delete('/api/public/:code/extras/:id', async (req, res) => {
   try {
     const store = await getStoreByCode(req.params.code.toUpperCase());
