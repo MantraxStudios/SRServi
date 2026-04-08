@@ -3107,6 +3107,172 @@ app.patch('/api/mercado-pago-terminals/:id/mode', authenticateToken, async (req,
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// ==================== Support Tickets API ====================
+
+// Ensure tickets tables
+async function ensureTicketTables() {
+  await pool.execute(`CREATE TABLE IF NOT EXISTS support_tickets (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    priority ENUM('low','normal','important','urgent') DEFAULT 'normal',
+    status ENUM('open','closed','resolved') DEFAULT 'open',
+    support_pin VARCHAR(6) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`);
+  await pool.execute(`CREATE TABLE IF NOT EXISTS ticket_messages (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    ticket_id INT NOT NULL,
+    sender_type ENUM('user','admin') NOT NULL,
+    sender_name VARCHAR(255),
+    message TEXT NOT NULL,
+    image TEXT DEFAULT NULL,
+    image_admin_only BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
+  )`);
+}
+ensureTicketTables().catch(e => console.error('Ticket tables error:', e.message));
+
+// User: create ticket
+app.post('/api/tickets', authenticateToken, async (req, res) => {
+  try {
+    const { subject, priority, message } = req.body;
+    if (!subject || !message) return res.status(400).json({ error: 'Asunto y mensaje requeridos' });
+    const pin = String(Math.floor(100000 + Math.random() * 900000));
+    const [result] = await pool.execute(
+      'INSERT INTO support_tickets (user_id, subject, priority, support_pin) VALUES (?, ?, ?, ?)',
+      [req.user.id, subject, priority || 'normal', pin]
+    );
+    await pool.execute(
+      'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, message) VALUES (?, ?, ?, ?)',
+      [result.insertId, 'user', req.user.username || 'Usuario', message]
+    );
+    io.emit('ticket_created', { ticket_id: result.insertId });
+    res.json({ id: result.insertId, support_pin: pin });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// User: list my tickets
+app.get('/api/tickets', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT id, subject, priority, status, support_pin, created_at, updated_at FROM support_tickets WHERE user_id = ? ORDER BY updated_at DESC',
+      [req.user.id]
+    );
+    res.json(rows);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// User: get ticket messages (filter admin-only images)
+app.get('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
+  try {
+    const [ticket] = await pool.execute('SELECT * FROM support_tickets WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (ticket.length === 0) return res.status(404).json({ error: 'Ticket no encontrado' });
+    const [msgs] = await pool.execute('SELECT * FROM ticket_messages WHERE ticket_id = ? ORDER BY created_at ASC', [req.params.id]);
+    // Hide admin-only images from user
+    const filtered = msgs.map(m => ({ ...m, image: m.image_admin_only ? null : m.image }));
+    res.json({ ticket: ticket[0], messages: filtered });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// User: send message
+app.post('/api/tickets/:id/messages', authenticateToken, upload.single('image'), async (req, res) => {
+  try {
+    const [ticket] = await pool.execute('SELECT * FROM support_tickets WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (ticket.length === 0) return res.status(404).json({ error: 'Ticket no encontrado' });
+    if (ticket[0].status === 'resolved') return res.status(400).json({ error: 'Ticket resuelto, no se pueden enviar mensajes' });
+    const image = req.file ? `/uploads/${req.file.filename}` : null;
+    const [result] = await pool.execute(
+      'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.params.id, 'user', req.user.username || 'Usuario', req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
+    );
+    await pool.execute('UPDATE support_tickets SET status = "open", updated_at = NOW() WHERE id = ?', [req.params.id]);
+    io.emit('ticket_message', { ticket_id: parseInt(req.params.id), message_id: result.insertId });
+    res.json({ id: result.insertId });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// User: close ticket
+app.put('/api/tickets/:id/close', authenticateToken, async (req, res) => {
+  try {
+    await pool.execute('UPDATE support_tickets SET status = "closed" WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    io.emit('ticket_updated', { ticket_id: parseInt(req.params.id) });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// User: reopen ticket
+app.put('/api/tickets/:id/reopen', authenticateToken, async (req, res) => {
+  try {
+    const [ticket] = await pool.execute('SELECT * FROM support_tickets WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (ticket.length === 0) return res.status(404).json({ error: 'Ticket no encontrado' });
+    if (ticket[0].status === 'resolved') return res.status(400).json({ error: 'No se puede reabrir un ticket resuelto' });
+    await pool.execute('UPDATE support_tickets SET status = "open" WHERE id = ?', [req.params.id]);
+    io.emit('ticket_updated', { ticket_id: parseInt(req.params.id) });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Superadmin: list all tickets
+app.get('/api/superadmin/tickets', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT t.*, u.username, u.email, u.business_name
+       FROM support_tickets t JOIN users u ON t.user_id = u.id
+       ORDER BY FIELD(t.priority, 'urgent','important','normal','low'), t.updated_at DESC`
+    );
+    res.json(rows);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Superadmin: get ticket messages (full, including admin-only images)
+app.get('/api/superadmin/tickets/:id/messages', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const [ticket] = await pool.execute(
+      `SELECT t.*, u.username, u.email, u.business_name FROM support_tickets t JOIN users u ON t.user_id = u.id WHERE t.id = ?`,
+      [req.params.id]
+    );
+    if (ticket.length === 0) return res.status(404).json({ error: 'Ticket no encontrado' });
+    const [msgs] = await pool.execute('SELECT * FROM ticket_messages WHERE ticket_id = ? ORDER BY created_at ASC', [req.params.id]);
+    res.json({ ticket: ticket[0], messages: msgs });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Superadmin: send message
+app.post('/api/superadmin/tickets/:id/messages', authenticateSuperadminToken, upload.single('image'), async (req, res) => {
+  try {
+    const image = req.file ? `/uploads/${req.file.filename}` : null;
+    const [result] = await pool.execute(
+      'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.params.id, 'admin', 'Soporte SRServi', req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
+    );
+    await pool.execute('UPDATE support_tickets SET updated_at = NOW() WHERE id = ?', [req.params.id]);
+    io.emit('ticket_message', { ticket_id: parseInt(req.params.id), message_id: result.insertId });
+    res.json({ id: result.insertId });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Superadmin: resolve ticket
+app.put('/api/superadmin/tickets/:id/resolve', authenticateSuperadminToken, async (req, res) => {
+  try {
+    await pool.execute('UPDATE support_tickets SET status = "resolved" WHERE id = ?', [req.params.id]);
+    io.emit('ticket_updated', { ticket_id: parseInt(req.params.id) });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Superadmin: verify support pin
+app.post('/api/superadmin/tickets/:id/verify-pin', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT support_pin FROM support_tickets WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Ticket no encontrado' });
+    res.json({ valid: rows[0].support_pin === req.body.pin });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // ==================== Plugin Management API ====================
 
 const requirePremium = async (req, res, next) => {

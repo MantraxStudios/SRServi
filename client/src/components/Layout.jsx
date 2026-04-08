@@ -31,7 +31,8 @@ import {
   faPuzzlePiece,
   faGlobe,
   faEye,
-  faTabletAlt
+  faTabletAlt,
+  faTicketAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -355,6 +356,13 @@ function Layout() {
                 <PluginSlot name="sidebar" context={{ storeId: selectedStore?.id }} />
               </li>
             )}
+
+            <li>
+              <NavLink to="/admin/tickets" className={({isActive}) => isActive ? 'active' : ''} onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faTicketAlt} />
+                <span>Soporte</span>
+              </NavLink>
+            </li>
 
             <li>
               <button onClick={handleLogout} className="btn btn-secondary btn-full">

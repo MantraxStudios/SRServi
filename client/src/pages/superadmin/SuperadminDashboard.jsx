@@ -25,7 +25,12 @@ import {
   faClock,
   faEnvelope,
   faDownload,
-  faEye
+  faEye,
+  faTicketAlt,
+  faPaperPlane,
+  faImage,
+  faLock,
+  faCircle
 } from '@fortawesome/free-solid-svg-icons';
 
 function SuperadminDashboard() {
@@ -44,6 +49,14 @@ function SuperadminDashboard() {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [workshopPlugins, setWorkshopPlugins] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [selectedTicketId, setSelectedTicketId] = useState(null);
+  const [ticketMessages, setTicketMessages] = useState([]);
+  const [ticketDetail, setTicketDetail] = useState(null);
+  const [ticketMsg, setTicketMsg] = useState('');
+  const [ticketImg, setTicketImg] = useState(null);
+  const [ticketAdminOnly, setTicketAdminOnly] = useState(false);
+  const [ticketSending, setTicketSending] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -92,6 +105,10 @@ function SuperadminDashboard() {
         const data = await res.json();
         console.log('Datos de suscripciones:', data);
         setSubscriptions(Array.isArray(data) ? data : []);
+      } else if (activeTab === 'tickets') {
+        const res = await fetch(API + '/api/superadmin/tickets', { headers: { 'Authorization': 'Bearer ' + token } });
+        const data = await res.json();
+        setTickets(Array.isArray(data) ? data : []);
       } else if (activeTab === 'workshop') {
         const res = await fetch(API + '/api/superadmin/workshop', {
           headers: { 'Authorization': 'Bearer ' + token }
@@ -354,6 +371,24 @@ function SuperadminDashboard() {
               </span>
             )}
           </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'tickets' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('tickets'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faTicketAlt} />
+            {sidebarOpen && <span>Tickets</span>}
+            {tickets.filter(t => t.status === 'open').length > 0 && (
+              <span style={{
+                background: '#e74c3c', color: '#fff', borderRadius: '50%',
+                width: '20px', height: '20px', display: 'inline-flex',
+                alignItems: 'center', justifyContent: 'center', fontSize: '11px',
+                fontWeight: '700', marginLeft: 'auto'
+              }}>
+                {tickets.filter(t => t.status === 'open').length}
+              </span>
+            )}
+          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -378,7 +413,7 @@ function SuperadminDashboard() {
             </button>
             <div>
               <h1 className="admin-header-title">
-                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : 'Suscripciones'}
+                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : 'Suscripciones'}
               </h1>
               <p className="admin-header-subtitle text-muted text-sm">
                 {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : activeTab === 'workshop' ? 'Revisa y aprueba plugins del workshop' : 'Ver todas las suscripciones'}
@@ -723,6 +758,123 @@ function SuperadminDashboard() {
                     ))}
                   </div>
                 )}
+              </div>
+            ) : activeTab === 'tickets' ? (
+              <div style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 200px)' }}>
+                {/* Ticket list */}
+                <div style={{ width: '320px', flexShrink: 0, overflowY: 'auto' }}>
+                  {tickets.map(t => {
+                    const prColors = { low: '#95a5a6', normal: '#3498db', important: '#f39c12', urgent: '#e74c3c' };
+                    const prLabels = { low: 'Leve', normal: 'Normal', important: 'Importante', urgent: 'Urgente' };
+                    return (
+                      <div key={t.id} onClick={async () => {
+                        setSelectedTicketId(t.id);
+                        const token = localStorage.getItem('superadminToken');
+                        const res = await fetch(API + `/api/superadmin/tickets/${t.id}/messages`, { headers: { Authorization: 'Bearer ' + token } });
+                        if (res.ok) { const d = await res.json(); setTicketDetail(d.ticket); setTicketMessages(d.messages); }
+                      }} style={{ padding: '12px', borderRadius: '10px', marginBottom: '6px', cursor: 'pointer', border: selectedTicketId === t.id ? '2px solid #333' : '2px solid transparent', background: selectedTicketId === t.id ? '#f0f4ff' : '#fafafa' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: '700', fontSize: '13px' }}>#{t.id} - {t.username}</span>
+                          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: '700', background: (prColors[t.priority] || '#3498db') + '22', color: prColors[t.priority] || '#3498db' }}>{prLabels[t.priority] || t.priority}</span>
+                        </div>
+                        <div style={{ fontSize: '13px', fontWeight: '600' }}>{t.subject}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginTop: '4px' }}>
+                          <span style={{ color: t.status === 'open' ? '#2ecc71' : t.status === 'resolved' ? '#9b59b6' : '#95a5a6' }}>
+                            <FontAwesomeIcon icon={faCircle} style={{ fontSize: '6px', marginRight: '3px' }} />
+                            {t.status === 'open' ? 'Abierto' : t.status === 'resolved' ? 'Resuelto' : 'Cerrado'}
+                          </span>
+                          <span>{t.business_name || t.email}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {tickets.length === 0 && <p style={{ textAlign: 'center', color: '#999' }}>Sin tickets</p>}
+                </div>
+
+                {/* Chat */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '12px', border: '1px solid #e0e0e0', overflow: 'hidden' }}>
+                  {!selectedTicketId ? (
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc' }}>
+                      <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: '48px' }} />
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #e0e0e0', background: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: '700' }}>#{ticketDetail?.id} - {ticketDetail?.subject}</div>
+                          <div style={{ fontSize: '11px', color: '#888' }}>{ticketDetail?.username} ({ticketDetail?.email}) | <FontAwesomeIcon icon={faLock} /> PIN: {ticketDetail?.support_pin}</div>
+                        </div>
+                        {ticketDetail?.status !== 'resolved' && (
+                          <button onClick={async () => {
+                            const token = localStorage.getItem('superadminToken');
+                            await fetch(API + `/api/superadmin/tickets/${selectedTicketId}/resolve`, { method: 'PUT', headers: { Authorization: 'Bearer ' + token } });
+                            fetchData();
+                            const res = await fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } });
+                            if (res.ok) { const d = await res.json(); setTicketDetail(d.ticket); }
+                          }} className="btn btn-sm" style={{ background: '#9b59b6', color: '#fff', border: 'none' }}>
+                            <FontAwesomeIcon icon={faCheck} /> Resolver
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {ticketMessages.map(m => (
+                          <div key={m.id} style={{ alignSelf: m.sender_type === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
+                            <div style={{ padding: '10px 14px', borderRadius: m.sender_type === 'admin' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: m.sender_type === 'admin' ? '#333' : '#f0f0f0', color: m.sender_type === 'admin' ? '#fff' : '#333', fontSize: '14px' }}>
+                              {m.message}
+                              {m.image && (
+                                <div>
+                                  <img src={API + m.image} alt="" style={{ maxWidth: '200px', borderRadius: '8px', marginTop: '6px' }} />
+                                  {m.image_admin_only ? <span style={{ fontSize: '10px', color: '#ff6b6b' }}> (solo admin)</span> : null}
+                                </div>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px', textAlign: m.sender_type === 'admin' ? 'right' : 'left' }}>
+                              {m.sender_name} - {new Date(m.created_at).toLocaleTimeString()}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {ticketDetail?.status !== 'resolved' && (
+                        <div style={{ padding: '12px', borderTop: '1px solid #e0e0e0', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <label style={{ cursor: 'pointer', color: '#888', fontSize: '18px' }}>
+                            <FontAwesomeIcon icon={faImage} />
+                            <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setTicketImg(e.target.files[0]); }} style={{ display: 'none' }} />
+                          </label>
+                          <label style={{ fontSize: '11px', color: ticketAdminOnly ? '#e74c3c' : '#aaa', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={ticketAdminOnly} onChange={(e) => setTicketAdminOnly(e.target.checked)} style={{ marginRight: '4px' }} />
+                            Img solo admin
+                          </label>
+                          <input type="text" value={ticketMsg} onChange={(e) => setTicketMsg(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') {
+                            const token = localStorage.getItem('superadminToken');
+                            const fd = new FormData();
+                            fd.append('message', ticketMsg.trim());
+                            if (ticketImg) fd.append('image', ticketImg);
+                            fd.append('admin_only', ticketAdminOnly ? 'true' : 'false');
+                            setTicketSending(true);
+                            fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd })
+                              .then(() => fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } }))
+                              .then(r => r.json()).then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); })
+                              .finally(() => setTicketSending(false));
+                          }}} placeholder="Responder..." style={{ flex: 1, padding: '10px', border: '2px solid #e0e0e0', borderRadius: '10px', outline: 'none' }} />
+                          <button disabled={ticketSending || (!ticketMsg.trim() && !ticketImg)} onClick={() => {
+                            const token = localStorage.getItem('superadminToken');
+                            const fd = new FormData();
+                            fd.append('message', ticketMsg.trim());
+                            if (ticketImg) fd.append('image', ticketImg);
+                            fd.append('admin_only', ticketAdminOnly ? 'true' : 'false');
+                            setTicketSending(true);
+                            fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd })
+                              .then(() => fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } }))
+                              .then(r => r.json()).then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); })
+                              .finally(() => setTicketSending(false));
+                          }} style={{ background: '#333', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 16px', cursor: 'pointer' }}>
+                            <FontAwesomeIcon icon={faPaperPlane} />
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             ) : null}
           </div>
