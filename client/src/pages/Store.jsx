@@ -108,6 +108,8 @@ function Store() {
   const [extras, setExtras] = useState([]);
   const [ingredients, setIngredients] = useState([]);
   const [complementModal, setComplementModal] = useState(null);
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false);
+  const [restartingSending, setRestartingSending] = useState(false);
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
@@ -262,6 +264,13 @@ function Store() {
         });
         return { ...prev, products: updatedProducts };
       });
+    });
+
+    socket.on('totem_restart', (data) => {
+      // Only restart if this is not the admin editor and matches our store
+      if (!adminEditToken && store?.store?.id && data.store_id === store.store.id) {
+        showRestartNotification(5);
+      }
     });
 
     return () => {
@@ -464,18 +473,21 @@ function Store() {
     setExtrasModalOpen(false);
   };
 
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen;
+
   useEffect(() => {
-    if (barcodeInputRef.current && !pinModalOpen) {
+    if (anyModalOpen) return;
+    if (barcodeInputRef.current) {
       barcodeInputRef.current.focus({ preventScroll: true });
     }
     const interval = setInterval(() => {
-      if (pinModalOpen) return;
+      if (anyModalOpen) return;
       if (barcodeInputRef.current && document.activeElement !== barcodeInputRef.current) {
         barcodeInputRef.current.focus({ preventScroll: true });
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [pinModalOpen]);
+  }, [anyModalOpen]);
 
   const handleBarcodeScan = (barcodeValue) => {
     if (!store?.products) return;
@@ -968,6 +980,8 @@ function Store() {
     fetchStore();
   };
 
+  const getAuthBody = () => adminToken ? { token: adminToken } : { pin: sessionPin };
+
   const showRestartNotification = (delaySec) => {
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);color:#fff;font-family:sans-serif;';
@@ -998,11 +1012,11 @@ function Store() {
 
     const grouped = {};
     store.products.forEach(product => {
-      const category = product.category_name || 'Sin Categoria';
-      if (!grouped[category]) {
-        grouped[category] = [];
+      if (!product.category_name) return; // sin categoría solo aparece en "Todo"
+      if (!grouped[product.category_name]) {
+        grouped[product.category_name] = [];
       }
-      grouped[category].push(product);
+      grouped[product.category_name].push(product);
     });
 
     return grouped;
@@ -1078,7 +1092,7 @@ function Store() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pin: sessionPin,
+          ...getAuthBody(),
           products: newProducts.map(p => ({ id: p.id }))
         })
       });
@@ -1102,7 +1116,7 @@ function Store() {
       await fetch(url, {
         method: editingCat ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: sessionPin, name: catName.trim() })
+        body: JSON.stringify({ ...getAuthBody(), name: catName.trim() })
       });
       setCatModalOpen(false);
       setCatName('');
@@ -1119,7 +1133,7 @@ function Store() {
       await fetch(`/api/public/${code}/categories/${cat.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: sessionPin })
+        body: JSON.stringify(getAuthBody())
       });
       fetchStore();
     } catch (err) {
@@ -1146,7 +1160,8 @@ function Store() {
     setProdSaving(true);
     try {
       const formData = new FormData();
-      formData.append('pin', sessionPin);
+      if (adminToken) formData.append('token', adminToken);
+      else formData.append('pin', sessionPin);
       formData.append('name', prodForm.name.trim());
       formData.append('price', parseFloat(prodForm.price));
       formData.append('category_id', prodForm.category_id || '');
@@ -1192,7 +1207,7 @@ function Store() {
       await fetch(`/api/public/${code}/products/${product.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: sessionPin })
+        body: JSON.stringify(getAuthBody())
       });
       fetchStore();
     } catch (err) {
@@ -1227,7 +1242,7 @@ function Store() {
   }
 
   const groupedProducts = groupProductsByCategory();
-  const hasProducts = Object.keys(groupedProducts).length > 0;
+  const hasProducts = (store?.products || []).length > 0;
 
   const renderProductCard = (product) => {
     const isUnlimited = product.unlimited_stock === true || product.unlimited_stock === 1 || product.unlimited_stock === '1';
@@ -1460,7 +1475,7 @@ function Store() {
               </button>
             )}
           </div>
-          <button className="store-editor-done" onClick={() => { setEditMode(false); if (adminToken) window.close(); }}>
+          <button className="store-editor-done" onClick={() => { if (adminToken) { setShowRestartConfirm(true); } else { setEditMode(false); } }}>
             Listo
           </button>
         </div>
@@ -1517,7 +1532,15 @@ function Store() {
 
       {!editMode && activeCategory === 'all' && hasProducts && (
         <div className="category-sections">
-          {Object.entries(groupedProducts).map(([category, products], catIndex) => (
+          {(() => {
+            const uncategorized = (store?.products || []).filter(p => !p.category_name);
+            return uncategorized.length > 0 ? (
+              <div className="products-grid">
+                {uncategorized.map(product => renderProductCard(product))}
+              </div>
+            ) : null;
+          })()}
+          {Object.entries(groupedProducts).map(([category, products]) => (
             <div key={category} className="category-section">
               <div className="category-section-header">
                 <div className="flex items-center gap-3">
@@ -2711,6 +2734,46 @@ function Store() {
                 }}
               >
                 {editingCat ? 'Guardar' : 'Crear'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRestartConfirm && (
+        <div className="store-modal-overlay" onClick={() => {}}>
+          <div className="store-pin-modal" style={{ maxWidth: '340px', textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}>&#x1F504;</div>
+            <h3 style={{ margin: '0 0 8px', color: 'var(--store-primary)' }}>Edición completada</h3>
+            <p style={{ margin: '0 0 20px', fontSize: '14px', color: '#666' }}>
+              ¿Deseas reiniciar todos los totems para que apliquen los cambios?
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => { setShowRestartConfirm(false); setEditMode(false); window.close(); }}
+                style={{ flex: 1, padding: '12px', border: '2px solid #e0e0e0', borderRadius: '8px', background: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
+              >
+                No, solo salir
+              </button>
+              <button
+                onClick={async () => {
+                  setRestartingSending(true);
+                  try {
+                    await fetch(`/api/public/${code}/restart-all`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ token: adminToken })
+                    });
+                  } catch {}
+                  setRestartingSending(false);
+                  setShowRestartConfirm(false);
+                  setEditMode(false);
+                  window.close();
+                }}
+                disabled={restartingSending}
+                style={{ flex: 1, padding: '12px', border: 'none', borderRadius: '8px', background: 'var(--store-accent)', color: 'var(--store-primary)', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                {restartingSending ? 'Enviando...' : 'Reiniciar totems'}
               </button>
             </div>
           </div>

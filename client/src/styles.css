@@ -7255,6 +7255,164 @@ h1, h2, h3, h4, h5, h6 {
   cursor: default;
 }
 
+/* ========== Editor Responsive ========== */
+@media (max-width: 768px) {
+  .store-editor-bar {
+    padding: 0 8px;
+  }
+
+  .store-editor-tab {
+    padding: 10px 10px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .store-editor-done {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+
+  .store-editor-complements {
+    padding: 10px 12px;
+  }
+
+  .store-editor-comp-header {
+    font-size: 13px;
+  }
+
+  .store-prod-modal {
+    max-width: 95vw;
+    width: 95vw;
+    padding: 16px 14px;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+
+  .store-prod-modal-image-area {
+    padding: 8px;
+    gap: 10px;
+  }
+
+  .store-prod-modal-preview,
+  .store-prod-modal-no-image {
+    width: 56px;
+    height: 56px;
+  }
+
+  .store-prod-modal-image-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .store-prod-modal-input {
+    padding: 9px 10px;
+    font-size: 14px;
+  }
+
+  .store-prod-modal-btn {
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  .store-pin-modal {
+    max-width: 92vw;
+    padding: 20px 16px;
+  }
+
+  .cat-tab-edit-icons {
+    gap: 4px;
+    margin-left: 4px;
+  }
+
+  .cat-tab-edit-icons span {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+
+  .store-prod-edit-overlay {
+    top: 3px;
+    right: 3px;
+    gap: 3px;
+  }
+
+  .store-prod-edit-btn {
+    width: 26px;
+    height: 26px;
+    font-size: 11px;
+  }
+
+  .store-add-card {
+    min-height: 100px;
+  }
+
+  .store-add-icon {
+    font-size: 24px;
+  }
+
+  .store-edit-drag-handle {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+    top: 4px;
+    left: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .store-editor-bar {
+    padding: 0 6px;
+  }
+
+  .store-editor-tab {
+    padding: 8px 6px;
+    font-size: 11px;
+  }
+
+  .store-prod-modal {
+    width: 100vw;
+    max-width: 100vw;
+    border-radius: 12px 12px 0 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    max-height: 85vh;
+    margin: 0;
+  }
+
+  .store-prod-modal h3 {
+    font-size: 16px;
+  }
+
+  .store-prod-modal-preview,
+  .store-prod-modal-no-image {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+  }
+
+  .store-editor-comp-item {
+    padding: 3px 6px;
+    font-size: 12px;
+  }
+
+  .store-editor-comp-img {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+  }
+
+  .category-tab {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+
+  .cat-tab-add {
+    min-width: 36px;
+    font-size: 14px !important;
+  }
+}
+
 .store-edit-categories {
   margin: 0 16px 12px;
   background: #fff;

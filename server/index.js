@@ -534,25 +534,13 @@ app.post('/api/public/:code/verify-edit-pin', async (req, res) => {
 
 app.put('/api/public/:code/products/order', async (req, res) => {
   try {
-    const { code } = req.params;
-    const { pin, products } = req.body;
-    const store = await getStoreByCode(code.toUpperCase());
-    if (!store) {
-      return res.status(404).json({ error: 'Tienda no encontrada' });
-    }
-    const valid = await verifyStoreEditPin(store.id, pin);
-    if (!valid) {
-      return res.status(403).json({ error: 'PIN incorrecto' });
-    }
-    if (!products) {
-      return res.status(400).json({ error: 'products es requerido' });
-    }
-    await updateProductsOrder(store.id, products);
-    emitProductUpdate(store.id, 'products_reordered', { products });
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    if (!req.body.products) return res.status(400).json({ error: 'products es requerido' });
+    await updateProductsOrder(auth.store.id, req.body.products);
+    emitProductUpdate(auth.store.id, 'products_reordered', { products: req.body.products });
     res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // ---- Store Devices (unique device IDs) ----
@@ -782,43 +770,80 @@ app.put('/api/public/:code/products/:id/stock', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Public product management with PIN
-app.post('/api/public/:code/products', upload.single('image'), async (req, res) => {
+// Helper: verify PIN or admin token for public store routes
+async function verifyStoreAccess(code, body) {
+  const store = await getStoreByCode(code.toUpperCase());
+  if (!store) return { error: 'Tienda no encontrada', status: 404 };
+
+  // Try admin token first
+  if (body.token) {
+    try {
+      const decoded = jwt.verify(body.token, process.env.JWT_SECRET || 'your-secret-key');
+      if (decoded.id === store.user_id) return { store, authorized: true };
+    } catch {}
+  }
+
+  // Try PIN
+  if (body.pin) {
+    const valid = await verifyStoreEditPin(store.id, body.pin);
+    if (valid) return { store, authorized: true };
+  }
+
+  return { error: 'No autorizado', status: 403 };
+}
+
+// Global restart all totems for a store
+app.post('/api/public/:code/restart-all', async (req, res) => {
   try {
     const store = await getStoreByCode(req.params.code.toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
-    const valid = await verifyStoreEditPin(store.id, req.body.pin);
-    if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
-    if (!req.body.name || !req.body.price) return res.status(400).json({ error: 'Nombre y precio requeridos' });
+    const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || 'your-secret-key');
+    if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
 
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-    const product = await createProduct(store.id, {
-      name: req.body.name,
-      description: req.body.description || '',
-      price: parseFloat(req.body.price) || 0,
-      category_id: req.body.category_id || null,
-      image: imageUrl
-    });
+    // Mark all devices for this store as pending restart
+    try {
+      await pool.execute('SHOW COLUMNS FROM store_devices LIKE ?', ['pending_restart']);
+    } catch {
+      try { await pool.execute('ALTER TABLE store_devices ADD COLUMN pending_restart BOOLEAN DEFAULT FALSE'); } catch {}
+    }
+    await pool.execute('UPDATE store_devices SET pending_restart = TRUE WHERE store_id = ?', [store.id]);
 
-    // Create inventory entry
-    await pool.execute(
-      'INSERT INTO inventory (product_id, stock, unlimited_stock) VALUES (?, 0, TRUE) ON DUPLICATE KEY UPDATE unlimited_stock = TRUE',
-      [product.id]
-    );
+    // Also emit socket event for instant restart
+    io.emit('totem_restart', { store_id: store.id });
 
-    emitProductUpdate(store.id, 'product_created', product);
-    res.json(product);
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
+// Public product management with PIN or admin token
+app.post('/api/public/:code/products', upload.single('image'), async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    if (!req.body.name || !req.body.price) return res.status(400).json({ error: 'Nombre y precio requeridos' });
+
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const product = await createProduct(auth.store.id, {
+      name: req.body.name, description: req.body.description || '',
+      price: parseFloat(req.body.price) || 0, category_id: req.body.category_id || null, image: imageUrl
+    });
+
+    await pool.execute(
+      'INSERT INTO inventory (product_id, stock, unlimited_stock) VALUES (?, 0, TRUE) ON DUPLICATE KEY UPDATE unlimited_stock = TRUE',
+      [product.id]
+    );
+
+    emitProductUpdate(auth.store.id, 'product_created', product);
+    res.json(product);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 app.put('/api/public/:code/products/:id', upload.single('image'), async (req, res) => {
   try {
-    const store = await getStoreByCode(req.params.code.toUpperCase());
-    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
-    const valid = await verifyStoreEditPin(store.id, req.body.pin);
-    if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
     if (!req.body.name) return res.status(400).json({ error: 'Nombre requerido' });
 
     let imageUrl;
@@ -831,77 +856,56 @@ app.put('/api/public/:code/products/:id', upload.single('image'), async (req, re
       imageUrl = null;
     }
 
-    const product = await updateProduct(parseInt(req.params.id), store.id, {
-      name: req.body.name,
-      description: req.body.description || '',
-      price: parseFloat(req.body.price) || 0,
-      category_id: req.body.category_id || null,
-      image: imageUrl
+    const product = await updateProduct(parseInt(req.params.id), auth.store.id, {
+      name: req.body.name, description: req.body.description || '',
+      price: parseFloat(req.body.price) || 0, category_id: req.body.category_id || null, image: imageUrl
     });
-    emitProductUpdate(store.id, 'product_updated', product);
+    emitProductUpdate(auth.store.id, 'product_updated', product);
     res.json(product);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.delete('/api/public/:code/products/:id', async (req, res) => {
   try {
-    const store = await getStoreByCode(req.params.code.toUpperCase());
-    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
-    const valid = await verifyStoreEditPin(store.id, req.body.pin);
-    if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
-    await deleteProduct(parseInt(req.params.id), store.id);
-    emitProductUpdate(store.id, 'product_deleted', { id: req.params.id });
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    await deleteProduct(parseInt(req.params.id), auth.store.id);
+    emitProductUpdate(auth.store.id, 'product_deleted', { id: req.params.id });
     res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Public category management with PIN
+// Public category management with PIN or admin token
 app.post('/api/public/:code/categories', async (req, res) => {
   try {
-    const store = await getStoreByCode(req.params.code.toUpperCase());
-    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
-    const valid = await verifyStoreEditPin(store.id, req.body.pin);
-    if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
     if (!req.body.name) return res.status(400).json({ error: 'Nombre es requerido' });
-    const category = await createCategory(store.id, { name: req.body.name, description: req.body.description || '' });
-    emitProductUpdate(store.id, 'category_created', category);
+    const category = await createCategory(auth.store.id, { name: req.body.name, description: req.body.description || '' });
+    emitProductUpdate(auth.store.id, 'category_created', category);
     res.json(category);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.put('/api/public/:code/categories/:id', async (req, res) => {
   try {
-    const store = await getStoreByCode(req.params.code.toUpperCase());
-    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
-    const valid = await verifyStoreEditPin(store.id, req.body.pin);
-    if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
     if (!req.body.name) return res.status(400).json({ error: 'Nombre es requerido' });
-    const category = await updateCategory(parseInt(req.params.id), store.id, { name: req.body.name, description: req.body.description || '' });
-    emitProductUpdate(store.id, 'category_updated', category);
+    const category = await updateCategory(parseInt(req.params.id), auth.store.id, { name: req.body.name, description: req.body.description || '' });
+    emitProductUpdate(auth.store.id, 'category_updated', category);
     res.json(category);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.delete('/api/public/:code/categories/:id', async (req, res) => {
   try {
-    const store = await getStoreByCode(req.params.code.toUpperCase());
-    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
-    const valid = await verifyStoreEditPin(store.id, req.body.pin);
-    if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
-    await deleteCategory(parseInt(req.params.id), store.id);
-    emitProductUpdate(store.id, 'category_deleted', { id: req.params.id });
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    await deleteCategory(parseInt(req.params.id), auth.store.id);
+    emitProductUpdate(auth.store.id, 'category_deleted', { id: req.params.id });
     res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/plans', async (req, res) => {
