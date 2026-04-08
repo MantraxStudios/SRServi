@@ -18,7 +18,10 @@
       "Bash(powershell -Command \"Compress-Archive -Path 'welcome-animation' -DestinationPath 'C:/Users/tupap/OneDrive/Escritorio/SRServi/welcome-animation.zip' -Force\")",
       "Bash(powershell -Command \"Expand-Archive -Path 'welcome-animation.zip' -DestinationPath 'temp-check' -Force; Get-ChildItem -Recurse 'temp-check' | Select-Object FullName; Remove-Item -Recurse 'temp-check'\")",
       "WebFetch(domain:developers.tuu.cl)",
-      "Bash(powershell -Command \"Compress-Archive -Path 'tuu-payments' -DestinationPath 'C:/Users/tupap/OneDrive/Escritorio/SRServi/tuu-payments.zip' -Force\")"
+      "Bash(powershell -Command \"Compress-Archive -Path 'tuu-payments' -DestinationPath 'C:/Users/tupap/OneDrive/Escritorio/SRServi/tuu-payments.zip' -Force\")",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)"
     ]
   }
 }
