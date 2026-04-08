@@ -1464,7 +1464,7 @@ function Store() {
         >
           Todo
         </button>
-        {(editMode ? (store?.categories || []).map(c => c.name) : Object.keys(groupedProducts)).map(cat => {
+        {(store?.categories || []).map(c => c.name).map(cat => {
           const catObj = (store?.categories || []).find(c => c.name === cat);
           return (
             <button
@@ -1606,11 +1606,9 @@ function Store() {
 
       {!editMode && activeCategory !== 'all' && hasProducts && (
         <div className="products-grid">
-          {Object.entries(groupedProducts)
-            .filter(([category]) => activeCategory === category)
-            .flatMap(([category, products]) =>
-              products.map(product => renderProductCard(product))
-            )}
+          {(store?.products || [])
+            .filter(product => product.category_name === activeCategory)
+            .map(product => renderProductCard(product))}
         </div>
       )}
 
