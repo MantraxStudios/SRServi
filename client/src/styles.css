@@ -1779,6 +1779,39 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-lg);
 }
 
+/* ===== Smart Mode: Top Selling ===== */
+@keyframes top-selling-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 107, 53, 0.4), 0 0 16px rgba(255, 107, 53, 0.1); }
+  50% { box-shadow: 0 0 16px rgba(255, 107, 53, 0.6), 0 0 32px rgba(255, 107, 53, 0.2); }
+}
+
+@keyframes top-selling-badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.top-selling-card {
+  animation: top-selling-glow 2s ease-in-out infinite;
+  border: 2px solid #ff6b35 !important;
+}
+
+.top-selling-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #ff6b35, #ff4500);
+  color: #fff;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  z-index: 3;
+  letter-spacing: 0.5px;
+  animation: top-selling-badge-pulse 2s ease-in-out infinite;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
 .out-of-stock-badge {
   position: absolute;
   top: 12px;

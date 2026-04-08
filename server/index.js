@@ -304,6 +304,24 @@ app.get('/api/public/:code', async (req, res) => {
     const products = await getPublicProducts(store.id);
     const categories = await getCategories(store.id);
 
+    // Smart mode: get top selling product IDs (last 30 days)
+    let topSellingIds = [];
+    if (isPremium) {
+      try {
+        const [topRows] = await pool.execute(
+          `SELECT oi.product_id, SUM(oi.quantity) as total_sold
+           FROM order_items oi
+           JOIN orders o ON oi.order_id = o.id
+           WHERE o.store_id = ? AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+           GROUP BY oi.product_id
+           ORDER BY total_sold DESC
+           LIMIT 5`,
+          [store.id]
+        );
+        topSellingIds = topRows.map(r => r.product_id);
+      } catch { /* ignore if table doesn't exist */ }
+    }
+
     res.json({
       store: {
         id: store.id,
@@ -320,7 +338,8 @@ app.get('/api/public/:code', async (req, res) => {
         is_premium: isPremium
       },
       products,
-      categories
+      categories,
+      top_selling: topSellingIds
     });
   } catch (error) {
     console.error('❌ Error en /api/public:', error);

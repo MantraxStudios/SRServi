@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { detectLanguage, t, LANGUAGES } from '../i18n';
 import {
   faShoppingCart,
   faPlus,
@@ -25,7 +26,9 @@ import {
   faFolder,
   faFolderPlus,
   faPalette,
-  faCode
+  faCode,
+  faFire,
+  faGlobe
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -197,6 +200,9 @@ function Store() {
   });
   const [customCss, setCustomCss] = useState('');
   const [styleSaving, setStyleSaving] = useState(false);
+  const [topSellingIds, setTopSellingIds] = useState([]);
+  const [lang, setLang] = useState(detectLanguage);
+  const [showLangPicker, setShowLangPicker] = useState(false);
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
   const storeIdRef = useRef(null);
@@ -417,6 +423,7 @@ function Store() {
       console.log('Store data received:', deduplicatedData);
       console.log('Number of products:', deduplicatedData.products?.length || 0);
       setStore(deduplicatedData);
+      if (data.top_selling) setTopSellingIds(data.top_selling);
 
       const terminalsResponse = await fetch(`/api/public/${code}/mercado-pago-terminals`);
       if (terminalsResponse.ok) {
@@ -1495,21 +1502,42 @@ function Store() {
   const groupedProducts = groupProductsByCategory();
   const hasProducts = (store?.products || []).length > 0;
 
+  // Smart mode: reorder products putting top sellers first
+  const getSmartProducts = () => {
+    const prods = store?.products || [];
+    if (topSellingIds.length === 0) return prods;
+    const top = [];
+    const rest = [];
+    for (const p of prods) {
+      if (topSellingIds.includes(p.id)) top.push(p);
+      else rest.push(p);
+    }
+    // Sort top by their position in topSellingIds (most sold first)
+    top.sort((a, b) => topSellingIds.indexOf(a.id) - topSellingIds.indexOf(b.id));
+    return [...top, ...rest];
+  };
+
   const renderProductCard = (product) => {
     const isUnlimited = product.unlimited_stock === true || product.unlimited_stock === 1 || product.unlimited_stock === '1';
     const isOutOfStock = !isUnlimited && product.stock === 0;
+    const isTopSelling = topSellingIds.includes(product.id);
     return (
       <div
         key={product.id}
-        className={`store-product-wrapper${isOutOfStock ? ' out-of-stock' : ''}`}
+        className={`store-product-wrapper${isOutOfStock ? ' out-of-stock' : ''}${isTopSelling ? ' top-selling' : ''}`}
       >
         <div
-          className={`store-product-card${isOutOfStock ? ' out-of-stock' : ''}`}
+          className={`store-product-card${isOutOfStock ? ' out-of-stock' : ''}${isTopSelling ? ' top-selling-card' : ''}`}
           onClick={() => !editMode && openProductModal(product)}
         >
+          {isTopSelling && !isOutOfStock && (
+            <div className="top-selling-badge">
+              <FontAwesomeIcon icon={faFire} /> {t('topSelling', lang)}
+            </div>
+          )}
           {isOutOfStock && (
             <div className="out-of-stock-badge">
-              Agotado
+              {t('soldOut', lang)}
             </div>
           )}
           {editMode && (
@@ -1598,6 +1626,23 @@ function Store() {
       </header>
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
+
+      {/* Language selector */}
+      <div style={{ position: 'fixed', top: '8px', right: '8px', zIndex: 200 }}>
+        <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: '14px' }}>
+          <FontAwesomeIcon icon={faGlobe} />
+        </button>
+        {showLangPicker && (
+          <div style={{ position: 'absolute', top: '36px', right: 0, background: '#fff', borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', overflow: 'hidden', minWidth: '130px' }}>
+            {LANGUAGES.map(l => (
+              <button key={l.code} onClick={() => { setLang(l.code); localStorage.setItem('srservi_lang', l.code); setShowLangPicker(false); }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', background: lang === l.code ? '#f0f0f0' : '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: lang === l.code ? '700' : '400' }}>
+                <span>{l.flag}</span> {l.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="category-tabs">
         <div
@@ -1727,7 +1772,7 @@ function Store() {
       {!editMode && activeCategory === 'all' && hasProducts && (
         <div className="category-sections">
           {(() => {
-            const uncategorized = (store?.products || []).filter(p => !p.category_name);
+            const uncategorized = getSmartProducts().filter(p => !p.category_name);
             return uncategorized.length > 0 ? (
               <div className="products-grid">
                 {uncategorized.map(product => renderProductCard(product))}
