@@ -47,6 +47,68 @@ import { PluginProvider } from '../context/PluginContext';
 
 const API = 'https://srservi2.srautomatic.com';
 
+function SortableProductCard({ product, onEdit, onDelete, currencySymbol }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: product.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 1,
+    position: 'relative',
+  };
+
+  const isUnlimited = product.unlimited_stock === true || product.unlimited_stock === 1 || product.unlimited_stock === '1';
+  const isOutOfStock = !isUnlimited && product.stock === 0;
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <div className={`store-product-wrapper${isOutOfStock ? ' out-of-stock' : ''}`}>
+        <div className="store-edit-drag-handle" {...attributes} {...listeners}>
+          <FontAwesomeIcon icon={faGripVertical} />
+        </div>
+        <div className={`store-product-card${isOutOfStock ? ' out-of-stock' : ''}`}>
+          {isOutOfStock && (
+            <div className="out-of-stock-badge">Agotado</div>
+          )}
+          <div className="store-prod-edit-overlay">
+            <button onClick={() => onEdit(product)} className="store-prod-edit-btn">
+              <FontAwesomeIcon icon={faEdit} />
+            </button>
+            <button onClick={() => onDelete(product)} className="store-prod-edit-btn danger">
+              <FontAwesomeIcon icon={faTrash} />
+            </button>
+          </div>
+          <div className="store-product-image">
+            {product.image ? (
+              <img
+                src={getImageUrl(product.image)}
+                alt={product.name}
+                className={isOutOfStock ? 'grayscale' : ''}
+              />
+            ) : (
+              <FontAwesomeIcon icon={faBox} className="placeholder-icon" />
+            )}
+          </div>
+        </div>
+        <div className="store-product-info">
+          <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`}>
+            <span className="store-product-name">{product.name}:</span>
+            <span className="store-product-price">{currencySymbol}{Number(product.price).toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Store() {
   const { code } = useParams();
   const navigate = useNavigate();
@@ -1306,68 +1368,6 @@ function Store() {
     </div>
   );
 
-  function SortableProductCard({ product }) {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({ id: product.id });
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.5 : 1,
-      zIndex: isDragging ? 1000 : 1,
-      position: 'relative',
-    };
-
-    const isUnlimited = product.unlimited_stock === true || product.unlimited_stock === 1 || product.unlimited_stock === '1';
-    const isOutOfStock = !isUnlimited && product.stock === 0;
-
-    return (
-      <div ref={setNodeRef} style={style}>
-        <div className={`store-product-wrapper${isOutOfStock ? ' out-of-stock' : ''}`}>
-          <div className="store-edit-drag-handle" {...attributes} {...listeners}>
-            <FontAwesomeIcon icon={faGripVertical} />
-          </div>
-          <div className={`store-product-card${isOutOfStock ? ' out-of-stock' : ''}`}>
-            {isOutOfStock && (
-              <div className="out-of-stock-badge">Agotado</div>
-            )}
-            <div className="store-prod-edit-overlay">
-              <button onClick={() => openProdModal(product)} className="store-prod-edit-btn">
-                <FontAwesomeIcon icon={faEdit} />
-              </button>
-              <button onClick={() => deleteProd(product)} className="store-prod-edit-btn danger">
-                <FontAwesomeIcon icon={faTrash} />
-              </button>
-            </div>
-            <div className="store-product-image">
-              {product.image ? (
-                <img
-                  src={getImageUrl(product.image)}
-                  alt={product.name}
-                  className={isOutOfStock ? 'grayscale' : ''}
-                />
-              ) : (
-                <FontAwesomeIcon icon={faBox} className="placeholder-icon" />
-              )}
-            </div>
-          </div>
-          <div className="store-product-info">
-            <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`}>
-              <span className="store-product-name">{product.name}:</span>
-              <span className="store-product-price">{colors.currency.symbol}{Number(product.price).toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <PluginProvider mode="store" isPremium={!!store?.store?.is_premium}>
     <div
@@ -1585,7 +1585,7 @@ function Store() {
           >
             <div className="products-grid" style={{ padding: '0 16px' }}>
               {(store?.products || []).map(product => (
-                <SortableProductCard key={product.id} product={product} />
+                <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} currencySymbol={colors.currency.symbol} />
               ))}
               {renderAddProductCard()}
             </div>
@@ -2553,7 +2553,7 @@ function Store() {
         </div>
       )}
       {prodModalOpen && (
-        <div className="store-modal-overlay" onClick={() => setProdModalOpen(false)}>
+        <div className="store-modal-overlay" onClick={() => setProdModalOpen(false)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
           <div className="store-prod-modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ margin: '0 0 14px', color: 'var(--store-primary)', textAlign: 'center' }}>
               {editingProd ? 'Editar Producto' : 'Nuevo Producto'}
@@ -2656,7 +2656,7 @@ function Store() {
       )}
 
       {complementModal && (
-        <div className="store-modal-overlay" onClick={() => setComplementModal(null)}>
+        <div className="store-modal-overlay" onClick={() => setComplementModal(null)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
           <div className="store-prod-modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ margin: '0 0 14px', color: 'var(--store-primary)', textAlign: 'center' }}>
               Nuevo {complementModal === 'extra' ? 'Extra' : 'Ingrediente'}
@@ -2691,7 +2691,7 @@ function Store() {
       )}
 
       {catModalOpen && (
-        <div className="store-modal-overlay" onClick={() => setCatModalOpen(false)}>
+        <div className="store-modal-overlay" onClick={() => setCatModalOpen(false)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ margin: '0 0 16px', color: 'var(--store-primary)', textAlign: 'center' }}>
               {editingCat ? 'Editar Categoría' : 'Nueva Categoría'}
