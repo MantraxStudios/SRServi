@@ -475,11 +475,9 @@ function Store() {
       setStore(deduplicatedData);
       if (data.top_selling) setTopSellingIds(data.top_selling);
 
-      // Show welcome/language modal on first visit per session
-      const sessionKey = 'srservi_welcomed_' + code;
-      if (!sessionStorage.getItem(sessionKey) && !adminEditToken) {
+      // Show welcome/language modal on every page load (not in edit mode)
+      if (!adminEditToken) {
         setTimeout(() => setWelcomeModalOpen(true), 800);
-        sessionStorage.setItem(sessionKey, '1');
       }
 
       const terminalsResponse = await fetch(`/api/public/${code}/mercado-pago-terminals`);
