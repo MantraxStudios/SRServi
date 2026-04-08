@@ -7058,6 +7058,106 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(0,0,0,0.03) !important;
 }
 
+/* Product edit modal */
+.store-prod-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px 20px;
+  max-width: 380px;
+  width: 92%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.store-prod-modal-image-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px;
+  background: #f8f8f8;
+  border-radius: 10px;
+}
+
+.store-prod-modal-preview {
+  width: 70px;
+  height: 70px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid #e0e0e0;
+}
+
+.store-prod-modal-no-image {
+  width: 70px;
+  height: 70px;
+  border-radius: 10px;
+  background: #e8e8e8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #bbb;
+}
+
+.store-prod-modal-image-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--store-primary, #000);
+  color: var(--store-secondary, #fff);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.store-prod-modal-input {
+  padding: 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.store-prod-modal-input:focus {
+  border-color: var(--store-primary, #000);
+}
+
+.store-prod-modal-input.main {
+  border-color: var(--store-primary, #000);
+}
+
+.store-prod-modal-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+}
+
+.store-prod-modal-btn.cancel {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.store-prod-modal-btn.confirm {
+  background: var(--store-accent, #D4AF37);
+  color: var(--store-primary, #000);
+}
+
+.store-prod-modal-btn.disabled {
+  background: #ccc;
+  color: #666;
+  cursor: default;
+}
+
 .store-edit-categories {
   margin: 0 16px 12px;
   background: #fff;

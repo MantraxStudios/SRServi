@@ -556,7 +556,7 @@ app.put('/api/public/:code/products/order', async (req, res) => {
 });
 
 // Public product management with PIN
-app.post('/api/public/:code/products', workshopUpload.single('image'), async (req, res) => {
+app.post('/api/public/:code/products', upload.single('image'), async (req, res) => {
   try {
     const store = await getStoreByCode(req.params.code.toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
@@ -586,7 +586,7 @@ app.post('/api/public/:code/products', workshopUpload.single('image'), async (re
   }
 });
 
-app.put('/api/public/:code/products/:id', async (req, res) => {
+app.put('/api/public/:code/products/:id', upload.single('image'), async (req, res) => {
   try {
     const store = await getStoreByCode(req.params.code.toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
@@ -594,12 +594,22 @@ app.put('/api/public/:code/products/:id', async (req, res) => {
     if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
     if (!req.body.name) return res.status(400).json({ error: 'Nombre requerido' });
 
+    let imageUrl;
+    if (req.file) {
+      imageUrl = `/uploads/${req.file.filename}`;
+    } else if (req.body.keep_image === 'true') {
+      const existing = await getProductById(req.params.id);
+      imageUrl = existing?.image || null;
+    } else {
+      imageUrl = null;
+    }
+
     const product = await updateProduct(parseInt(req.params.id), store.id, {
       name: req.body.name,
       description: req.body.description || '',
       price: parseFloat(req.body.price) || 0,
       category_id: req.body.category_id || null,
-      image: req.body.image || null
+      image: imageUrl
     });
     emitProductUpdate(store.id, 'product_updated', product);
     res.json(product);
