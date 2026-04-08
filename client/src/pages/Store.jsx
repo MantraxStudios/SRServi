@@ -94,6 +94,14 @@ function Store() {
   const [catName, setCatName] = useState('');
   const [pluginPaymentProvider, setPluginPaymentProvider] = useState(null);
   const [pluginPaymentKey, setPluginPaymentKey] = useState(null);
+  const [deviceUid] = useState(() => {
+    let uid = localStorage.getItem('srservi_device_uid');
+    if (!uid) {
+      uid = 'dev_' + crypto.randomUUID();
+      localStorage.setItem('srservi_device_uid', uid);
+    }
+    return uid;
+  });
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
   const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '' });
@@ -336,9 +344,16 @@ function Store() {
         setSelectedConfiguration(null);
       }
 
+      // Register this device
+      fetch(`/api/public/${code}/register-device`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_uid: deviceUid })
+      }).catch(() => {});
+
       // Check if a plugin payment provider is available
       try {
-        const ppRes = await fetch(`/api/plugins/payments/provider?store_id=${data.store.id}`);
+        const ppRes = await fetch(`/api/plugins/payments/provider?store_id=${data.store.id}&device_uid=${deviceUid}`);
         if (ppRes.ok) {
           const ppData = await ppRes.json();
           if (ppData.available) setPluginPaymentProvider(ppData);
@@ -693,7 +708,8 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_id: order.id,
             amount: Math.round(Number(finalTotal)),
-            description: `Pedido #${order.order_number || order.id}`
+            description: `Pedido #${order.order_number || order.id}`,
+            device_uid: deviceUid
           })
         });
         const chargeData = await chargeRes.json();

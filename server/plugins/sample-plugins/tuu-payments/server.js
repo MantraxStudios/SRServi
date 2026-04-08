@@ -26,12 +26,14 @@ async function ensureTables() {
     )
   `);
   await ctx.db.execute(`
-    CREATE TABLE IF NOT EXISTS tuu_store_device (
+    CREATE TABLE IF NOT EXISTS tuu_device_pos (
       id INT PRIMARY KEY AUTO_INCREMENT,
-      store_id INT NOT NULL UNIQUE,
-      device_id INT NOT NULL,
-      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
-      FOREIGN KEY (device_id) REFERENCES tuu_devices(id) ON DELETE CASCADE
+      device_uid VARCHAR(100) NOT NULL,
+      tuu_device_id INT NOT NULL,
+      store_id INT NOT NULL,
+      UNIQUE KEY unique_uid_store (device_uid, store_id),
+      FOREIGN KEY (tuu_device_id) REFERENCES tuu_devices(id) ON DELETE CASCADE,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )
   `);
   await ctx.db.execute(`
@@ -60,12 +62,19 @@ async function getConfig(userId) {
   return rows[0] || null;
 }
 
-async function getDeviceForStore(storeId) {
+async function getDeviceForUid(deviceUid, storeId) {
+  if (!deviceUid) return null;
   const [rows] = await ctx.db.execute(
     `SELECT d.* FROM tuu_devices d
-     JOIN tuu_store_device sd ON d.id = sd.device_id
-     WHERE sd.store_id = ?`, [storeId]
+     JOIN tuu_device_pos dp ON d.id = dp.tuu_device_id
+     WHERE dp.device_uid = ? AND dp.store_id = ?`, [deviceUid, storeId]
   );
+  return rows[0] || null;
+}
+
+async function getAnyDeviceForStore(storeId) {
+  const userId = await getUserIdFromStore(storeId);
+  const [rows] = await ctx.db.execute('SELECT * FROM tuu_devices WHERE user_id = ? LIMIT 1', [userId]);
   return rows[0] || null;
 }
 
@@ -179,14 +188,28 @@ export async function init(context) {
   });
 
   // --- Device routes ---
+  // List POS devices + registered store devices (tablets etc)
   ctx.router.get('/devices', async (req, res) => {
     try {
       const storeId = parseInt(req.query.store_id);
       const userId = await getUserIdFromStore(storeId);
-      const [devices] = await ctx.db.execute('SELECT * FROM tuu_devices WHERE user_id = ? ORDER BY name', [userId]);
-      // Also get which device this store uses
-      const [storeDevice] = await ctx.db.execute('SELECT device_id FROM tuu_store_device WHERE store_id = ?', [storeId]);
-      res.json({ devices, selectedDeviceId: storeDevice[0]?.device_id || null });
+      const [posDevices] = await ctx.db.execute('SELECT * FROM tuu_devices WHERE user_id = ? ORDER BY name', [userId]);
+
+      // Get registered store devices (tablets/phones)
+      let storeDevices = [];
+      try {
+        const [rows] = await ctx.db.execute('SELECT * FROM store_devices WHERE store_id = ? ORDER BY last_seen DESC', [storeId]);
+        storeDevices = rows;
+      } catch { /* table might not exist */ }
+
+      // Get assignments
+      let assignments = [];
+      try {
+        const [rows] = await ctx.db.execute('SELECT * FROM tuu_device_pos WHERE store_id = ?', [storeId]);
+        assignments = rows;
+      } catch { /* table might not exist */ }
+
+      res.json({ posDevices, storeDevices, assignments });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
@@ -205,18 +228,20 @@ export async function init(context) {
 
   ctx.router.delete('/devices/:id', async (req, res) => {
     try {
+      await ctx.db.execute('DELETE FROM tuu_device_pos WHERE tuu_device_id = ?', [req.params.id]);
       await ctx.db.execute('DELETE FROM tuu_devices WHERE id = ?', [req.params.id]);
       res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  // Assign device to store
+  // Assign a POS to a specific device_uid for this store
   ctx.router.post('/devices/assign', async (req, res) => {
     try {
-      const { store_id, device_id } = req.body;
+      const { store_id, device_uid, tuu_device_id } = req.body;
+      if (!device_uid || !tuu_device_id) return res.status(400).json({ error: 'device_uid y tuu_device_id requeridos' });
       await ctx.db.execute(
-        'INSERT INTO tuu_store_device (store_id, device_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE device_id = ?',
-        [parseInt(store_id), parseInt(device_id), parseInt(device_id)]
+        'INSERT INTO tuu_device_pos (device_uid, tuu_device_id, store_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE tuu_device_id = ?',
+        [device_uid, parseInt(tuu_device_id), parseInt(store_id), parseInt(tuu_device_id)]
       );
       res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -226,10 +251,13 @@ export async function init(context) {
   ctx.router.get('/available', async (req, res) => {
     try {
       const storeId = parseInt(req.query.store_id);
+      const deviceUid = req.query.device_uid;
       const userId = await getUserIdFromStore(storeId);
       const config = await getConfig(userId);
-      const device = await getDeviceForStore(storeId);
-      res.json({ available: !!(config?.api_key && device?.serial), deviceName: device?.name || null });
+      if (!config?.api_key) return res.json({ available: false });
+      // Check if this device has a POS assigned, or fallback to any POS
+      const device = deviceUid ? await getDeviceForUid(deviceUid, storeId) : await getAnyDeviceForStore(storeId);
+      res.json({ available: !!device?.serial, deviceName: device?.name || null });
     } catch (e) { res.json({ available: false }); }
   });
 
@@ -317,16 +345,21 @@ export async function init(context) {
     isAvailable: async (storeId) => {
       const userId = await getUserIdFromStore(storeId);
       const config = await getConfig(userId);
-      const device = await getDeviceForStore(storeId);
-      return !!(config?.api_key && device?.serial);
+      if (!config?.api_key) return false;
+      // Has at least one POS device
+      const [devs] = await ctx.db.execute('SELECT id FROM tuu_devices WHERE user_id = ? LIMIT 1', [userId]);
+      return devs.length > 0;
     },
 
-    charge: async (storeId, amount, orderId, description) => {
+    charge: async (storeId, amount, orderId, description, deviceUid) => {
       const userId = await getUserIdFromStore(storeId);
       const config = await getConfig(userId);
       if (!config?.api_key) throw new Error('API Key de Tuu no configurada');
-      const device = await getDeviceForStore(storeId);
-      if (!device) throw new Error('No hay POS asignado a esta tienda');
+
+      // Find POS: first try assigned to this device_uid, then fallback to any
+      let device = deviceUid ? await getDeviceForUid(deviceUid, storeId) : null;
+      if (!device) device = await getAnyDeviceForStore(storeId);
+      if (!device) throw new Error('No hay POS asignado. Configura un POS en Tuu POS del admin.');
 
       const payment = await createPayment(config.api_key, amount, device.serial, description, config.dte_type);
 

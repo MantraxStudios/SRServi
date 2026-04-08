@@ -29,7 +29,8 @@ import {
   faChartLine,
   faLock,
   faPuzzlePiece,
-  faGlobe
+  faGlobe,
+  faEye
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -229,16 +230,10 @@ function Layout() {
                 <span>Inicio</span>
               </NavLink>
             </li>
-            <li>
-              <NavLink to="/admin/market" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faBarcode} />
-                <span>Market</span>
-              </NavLink>
-            </li>
             <li className="dropdown-container">
               <button className="dropdown-header" onClick={() => toggleDropdown('productos')}>
                 <FontAwesomeIcon icon={faBox} />
-                <span>Productos</span>
+                <span>Editor Totem</span>
                 <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['productos'] ? 180 : 0} />
               </button>
               {openDropdowns['productos'] && (
@@ -283,6 +278,10 @@ function Layout() {
                     <FontAwesomeIcon icon={faPercent} />
                     <span>Cupones</span>
                   </NavLink>
+                  <NavLink to="/admin/market" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faBarcode} />
+                    <span>Market</span>
+                  </NavLink>
                 </div>
               )}
             </li>
@@ -322,6 +321,15 @@ function Layout() {
                 </div>
               )}
             </li>
+
+            {selectedStore && (
+              <li>
+                <a href={`/store/${selectedStore.code}`} target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
+                  <FontAwesomeIcon icon={faEye} />
+                  <span>Preview Tienda</span>
+                </a>
+              </li>
+            )}
 
             {isPremiumUser && (
               <>

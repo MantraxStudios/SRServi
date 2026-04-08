@@ -293,6 +293,19 @@ async function createTables() {
   `);
 
   await pool.execute(`
+    CREATE TABLE IF NOT EXISTS store_devices (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      device_uid VARCHAR(100) NOT NULL,
+      store_id INT NOT NULL,
+      label VARCHAR(255) DEFAULT NULL,
+      last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_device_store (device_uid, store_id),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.execute(`
     CREATE TABLE IF NOT EXISTS plugin_workshop (
       id INT PRIMARY KEY AUTO_INCREMENT,
       plugin_id VARCHAR(100) UNIQUE NOT NULL,

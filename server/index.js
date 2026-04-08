@@ -555,6 +555,54 @@ app.put('/api/public/:code/products/order', async (req, res) => {
   }
 });
 
+// ---- Store Devices (unique device IDs) ----
+
+// Register/update a device (called by store on load)
+app.post('/api/public/:code/register-device', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const { device_uid } = req.body;
+    if (!device_uid) return res.status(400).json({ error: 'device_uid requerido' });
+    await pool.execute(
+      `INSERT INTO store_devices (device_uid, store_id) VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE last_seen = NOW()`,
+      [device_uid, store.id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// List devices for a store (admin)
+app.get('/api/store-devices', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.json([]);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso' });
+    const [rows] = await pool.execute(
+      'SELECT * FROM store_devices WHERE store_id = ? ORDER BY last_seen DESC', [storeId]
+    );
+    res.json(rows);
+  } catch (error) {
+    if (error.message?.includes("doesn't exist")) return res.json([]);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update device label (admin)
+app.put('/api/store-devices/:id/label', authenticateToken, async (req, res) => {
+  try {
+    const { label } = req.body;
+    await pool.execute('UPDATE store_devices SET label = ? WHERE id = ?', [label || null, parseInt(req.params.id)]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Public product management with PIN
 app.post('/api/public/:code/products', upload.single('image'), async (req, res) => {
   try {

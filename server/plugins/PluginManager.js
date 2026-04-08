@@ -75,7 +75,7 @@ class PluginManager {
           return res.status(400).json({ error: 'No hay proveedor de pago disponible' });
         }
 
-        const result = await activeProvider.charge(parseInt(store_id), amount, order_id, description);
+        const result = await activeProvider.charge(parseInt(store_id), amount, order_id, description, req.body.device_uid);
         res.json({ ...result, provider: activePluginId });
       } catch (error) {
         res.status(500).json({ error: error.message });
