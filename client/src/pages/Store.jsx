@@ -503,33 +503,27 @@ function Store() {
   const addToCart = () => {
     if (!selectedProduct) return;
 
-    setAddingToCart(true);
     setIngredientsModalOpen(false);
     setExtrasModalOpen(false);
 
-    setTimeout(() => {
-      const unitPrice = calculateProductPrice();
-      const cartItem = {
-        id: Date.now(),
-        product_id: selectedProduct.id,
-        product_name: selectedProduct.name,
-        product_image: selectedProduct.image,
-        unit_price: unitPrice,
-        quantity: productConfig.quantity,
-        total: unitPrice * productConfig.quantity,
-        selected_ingredients: productConfig.selectedIngredients.map(i => i.name),
-        selected_extras: productConfig.selectedExtras.map(e => e.name)
-      };
+    const unitPrice = calculateProductPrice();
+    const cartItem = {
+      id: Date.now(),
+      product_id: selectedProduct.id,
+      product_name: selectedProduct.name,
+      product_image: selectedProduct.image,
+      unit_price: unitPrice,
+      quantity: productConfig.quantity,
+      total: unitPrice * productConfig.quantity,
+      selected_ingredients: productConfig.selectedIngredients.map(i => i.name),
+      selected_extras: productConfig.selectedExtras.map(e => e.name)
+    };
 
-      setCart([...cart, cartItem]);
-      setNotification({ name: selectedProduct.name, image: selectedProduct.image });
-      setAddingToCart(false);
-      setProductModalStep('main');
-      setTimeout(() => {
-        setNotification(null);
-        closeProductModal();
-      }, 1500);
-    }, 800);
+    setCart([...cart, cartItem]);
+    setNotification({ name: selectedProduct.name, image: selectedProduct.image });
+    setProductModalStep('main');
+    closeProductModal();
+    setTimeout(() => setNotification(null), 1500);
   };
 
   const handleNextToExtras = () => {
