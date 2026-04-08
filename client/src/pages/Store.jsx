@@ -180,6 +180,8 @@ function Store() {
   const [prodSaving, setProdSaving] = useState(false);
   const [prodNewExtras, setProdNewExtras] = useState([]);
   const [prodNewComplements, setProdNewComplements] = useState([]);
+  const [showExistingComplements, setShowExistingComplements] = useState(false);
+  const [showExistingExtras, setShowExistingExtras] = useState(false);
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
   const storeIdRef = useRef(null);
@@ -2678,11 +2680,21 @@ function Store() {
 
               {adminToken && (
                 <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px', marginTop: '4px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-primary)', marginBottom: '8px' }}>Complementos</div>
-                  {ingredients.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-primary)' }}>Complementos</div>
+                    {ingredients.length > 0 && (
+                      <button
+                        onClick={() => setShowExistingComplements(!showExistingComplements)}
+                        style={{ fontSize: '11px', color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
+                      >
+                        {showExistingComplements ? 'Ocultar' : `Ver existentes (${ingredients.length})`} <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: '9px', transform: showExistingComplements ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                      </button>
+                    )}
+                  </div>
+                  {showExistingComplements && ingredients.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px', padding: '8px', background: '#fafafa', borderRadius: '8px' }}>
                       {ingredients.map(ing => (
-                        <span key={ing.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '3px 8px', background: '#f0f0f0', borderRadius: '12px', color: '#555' }}>
+                        <span key={ing.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '3px 8px', background: '#fff', borderRadius: '12px', color: '#555', border: '1px solid #e8e8e8' }}>
                           {ing.image && <img src={getImageUrl(ing.image)} alt="" style={{ width: '16px', height: '16px', borderRadius: '4px', objectFit: 'cover' }} />}
                           {ing.name}{Number(ing.price) > 0 ? ` +$${Number(ing.price).toFixed(0)}` : ''}
                         </span>
@@ -2731,11 +2743,21 @@ function Store() {
                     <FontAwesomeIcon icon={faPlus} /> Agregar complemento
                   </button>
 
-                  <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-primary)', marginBottom: '8px', marginTop: '12px' }}>Extras</div>
-                  {extras.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', marginTop: '12px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-primary)' }}>Extras</div>
+                    {extras.length > 0 && (
+                      <button
+                        onClick={() => setShowExistingExtras(!showExistingExtras)}
+                        style={{ fontSize: '11px', color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
+                      >
+                        {showExistingExtras ? 'Ocultar' : `Ver existentes (${extras.length})`} <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: '9px', transform: showExistingExtras ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                      </button>
+                    )}
+                  </div>
+                  {showExistingExtras && extras.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px', padding: '8px', background: '#fafafa', borderRadius: '8px' }}>
                       {extras.map(e => (
-                        <span key={e.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '3px 8px', background: '#f0f0f0', borderRadius: '12px', color: '#555' }}>
+                        <span key={e.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '3px 8px', background: '#fff', borderRadius: '12px', color: '#555', border: '1px solid #e8e8e8' }}>
                           {e.image && <img src={getImageUrl(e.image)} alt="" style={{ width: '16px', height: '16px', borderRadius: '4px', objectFit: 'cover' }} />}
                           {e.name}{Number(e.price) > 0 ? ` +$${Number(e.price).toFixed(0)}` : ''}
                         </span>
