@@ -31,6 +31,7 @@ import Devices from './pages/admin/Devices';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import Store from './pages/Store';
+import Docs from './pages/Docs';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 
@@ -70,6 +71,7 @@ function App() {
           <Route path="/" element={<Index />} />
           <Route path="/store/:code" element={<Store />} />
           <Route path="/market/:code" element={<Minimarket />} />
+          <Route path="/docs" element={<Docs />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/admin" element={<ProtectedRoute><PluginProvider mode="admin"><Layout /></PluginProvider></ProtectedRoute>}>

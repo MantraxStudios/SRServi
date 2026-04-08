@@ -3021,6 +3021,42 @@ app.delete('/api/mercado-pago-terminals/:id', authenticateToken, async (req, res
   }
 });
 
+// List MP devices from API
+app.get('/api/mercado-pago-terminals/:id/devices', authenticateToken, async (req, res) => {
+  try {
+    const terminal = await getMercadoPagoTerminalById(parseInt(req.params.id));
+    if (!terminal || terminal.user_id !== req.user.id) return res.status(404).json({ error: 'Terminal no encontrada' });
+    const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/list?limit=50', {
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.mercadopago_access_token}` }
+    });
+    if (!mpRes.ok) return res.status(mpRes.status).json({ error: 'Error al consultar MercadoPago' });
+    const data = await mpRes.json();
+    res.json(data.data?.terminals || []);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Change MP terminal operating mode
+app.patch('/api/mercado-pago-terminals/:id/mode', authenticateToken, async (req, res) => {
+  try {
+    const terminal = await getMercadoPagoTerminalById(parseInt(req.params.id));
+    if (!terminal || terminal.user_id !== req.user.id) return res.status(404).json({ error: 'Terminal no encontrada' });
+    const { device_id, operating_mode } = req.body;
+    if (!device_id || !operating_mode) return res.status(400).json({ error: 'device_id y operating_mode requeridos' });
+    if (!['PDV', 'STANDALONE'].includes(operating_mode)) return res.status(400).json({ error: 'Modo debe ser PDV o STANDALONE' });
+    const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/setup', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.mercadopago_access_token}` },
+      body: JSON.stringify({ terminals: [{ id: device_id, operating_mode }] })
+    });
+    if (!mpRes.ok) {
+      const err = await mpRes.text();
+      return res.status(mpRes.status).json({ error: 'Error MercadoPago: ' + err });
+    }
+    const data = await mpRes.json();
+    res.json(data);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // ==================== Plugin Management API ====================
 
 const requirePremium = async (req, res, next) => {
