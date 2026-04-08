@@ -803,6 +803,49 @@ app.delete('/api/public/:code/ingredients/:id', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// Store custom styles (premium)
+app.get('/api/public/:code/styles', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    try {
+      const [rows] = await pool.execute('SELECT visual_settings, custom_css FROM store_styles WHERE store_id = ?', [store.id]);
+      if (rows.length > 0) {
+        return res.json({ visual_settings: rows[0].visual_settings || '{}', custom_css: rows[0].custom_css || '' });
+      }
+    } catch { /* table may not exist */ }
+    res.json({ visual_settings: '{}', custom_css: '' });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.put('/api/public/:code/styles', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    const userPlan = await getUserPlan(auth.store.user_id);
+    const isPremium = userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis';
+    if (!isPremium) return res.status(403).json({ error: 'Requiere plan Premium' });
+
+    // Ensure table
+    await pool.execute(`CREATE TABLE IF NOT EXISTS store_styles (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT UNIQUE NOT NULL,
+      visual_settings JSON,
+      custom_css TEXT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )`);
+
+    const { visual_settings, custom_css } = req.body;
+    await pool.execute(
+      `INSERT INTO store_styles (store_id, visual_settings, custom_css) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE visual_settings = VALUES(visual_settings), custom_css = VALUES(custom_css)`,
+      [auth.store.id, JSON.stringify(visual_settings || {}), custom_css || '']
+    );
+    res.json({ success: true });
+  } catch (error) { console.error('Error saving styles:', error); res.status(500).json({ error: error.message }); }
+});
+
 // Update product stock from editor
 app.put('/api/public/:code/products/:id/stock', async (req, res) => {
   try {

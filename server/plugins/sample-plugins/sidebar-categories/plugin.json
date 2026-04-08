@@ -1,0 +1,15 @@
+{
+  "id": "sidebar-categories",
+  "name": "Categorias Lateral",
+  "version": "1.0.0",
+  "description": "Mueve las categorias a un panel lateral izquierdo en pantallas grandes. En movil se mantienen como tabs horizontales.",
+  "author": "SRAutomatic",
+  "hooks": [],
+  "adminSlots": [],
+  "storeSlots": ["store-header"],
+  "settings": {
+    "sidebar_width": { "type": "number", "label": "Ancho del sidebar (px)", "default": 180 },
+    "min_screen": { "type": "number", "label": "Pantalla minima para sidebar (px)", "default": 768 },
+    "show_icons": { "type": "boolean", "label": "Mostrar iconos de categoria", "default": false }
+  }
+}

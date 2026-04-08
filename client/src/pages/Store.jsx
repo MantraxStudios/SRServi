@@ -23,7 +23,9 @@ import {
   faEdit,
   faTrash,
   faFolder,
-  faFolderPlus
+  faFolderPlus,
+  faPalette,
+  faCode
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -185,6 +187,16 @@ function Store() {
   const [selectedExtraIds, setSelectedExtraIds] = useState([]);
   const [complementsTab, setComplementsTab] = useState('complements');
   const [editingComplement, setEditingComplement] = useState(null);
+  const [styleEditorOpen, setStyleEditorOpen] = useState(false);
+  const [styleTab, setStyleTab] = useState('visual');
+  const [visualSettings, setVisualSettings] = useState({
+    fontFamily: '', fontSize: '', titleSize: '', priceSize: '',
+    fontWeight: '', textShadow: '', cardShadow: '', cardRadius: '',
+    productNameColor: '', productPriceColor: '', cardBg: '', cardBorder: '',
+    headerBg: '', headerTextColor: '', categoryBg: '', categoryActiveColor: ''
+  });
+  const [customCss, setCustomCss] = useState('');
+  const [styleSaving, setStyleSaving] = useState(false);
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
   const storeIdRef = useRef(null);
@@ -244,6 +256,7 @@ function Store() {
   useEffect(() => {
     window.scrollTo(0, 0);
     fetchStore();
+    loadStoreStyles();
 
     const socket = io(SOCKET_URL);
     socketRef.current = socket;
@@ -1051,6 +1064,61 @@ function Store() {
     fetchStore();
   };
 
+  const loadStoreStyles = async () => {
+    try {
+      const res = await fetch(`/api/public/${code}/styles`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        const vs = typeof data.visual_settings === 'string' ? JSON.parse(data.visual_settings) : (data.visual_settings || {});
+        setVisualSettings(prev => ({ ...prev, ...vs }));
+        setCustomCss(data.custom_css || '');
+        applyStyles(vs, data.custom_css || '');
+      }
+    } catch { /* ignore */ }
+  };
+
+  const applyStyles = (vs, css) => {
+    let old = document.getElementById('store-custom-styles');
+    if (old) old.remove();
+    const parts = [];
+    if (vs.fontFamily) parts.push('.store-container { font-family: ' + vs.fontFamily + ' !important; }');
+    if (vs.fontSize) parts.push('.store-container { font-size: ' + vs.fontSize + ' !important; }');
+    if (vs.titleSize) parts.push('.store-product-name { font-size: ' + vs.titleSize + ' !important; }');
+    if (vs.priceSize) parts.push('.store-product-price { font-size: ' + vs.priceSize + ' !important; }');
+    if (vs.fontWeight) parts.push('.store-container { font-weight: ' + vs.fontWeight + ' !important; }');
+    if (vs.textShadow) parts.push('.store-product-name, .store-product-price { text-shadow: ' + vs.textShadow + ' !important; }');
+    if (vs.cardShadow) parts.push('.store-product-card { box-shadow: ' + vs.cardShadow + ' !important; }');
+    if (vs.cardRadius) parts.push('.store-product-card { border-radius: ' + vs.cardRadius + ' !important; }');
+    if (vs.productNameColor) parts.push('.store-product-name { color: ' + vs.productNameColor + ' !important; }');
+    if (vs.productPriceColor) parts.push('.store-product-price { color: ' + vs.productPriceColor + ' !important; }');
+    if (vs.cardBg) parts.push('.store-product-card { background: ' + vs.cardBg + ' !important; }');
+    if (vs.cardBorder) parts.push('.store-product-card { border: ' + vs.cardBorder + ' !important; }');
+    if (vs.headerBg) parts.push('.store-header { background: ' + vs.headerBg + ' !important; }');
+    if (vs.headerTextColor) parts.push('.store-header, .store-header * { color: ' + vs.headerTextColor + ' !important; }');
+    if (vs.categoryBg) parts.push('.category-tab { background: ' + vs.categoryBg + ' !important; }');
+    if (vs.categoryActiveColor) parts.push('.category-tab.active { background: ' + vs.categoryActiveColor + ' !important; }');
+    if (css) parts.push(css);
+    if (parts.length > 0) {
+      const el = document.createElement('style');
+      el.id = 'store-custom-styles';
+      el.textContent = parts.join('\n');
+      document.head.appendChild(el);
+    }
+  };
+
+  const saveStoreStyles = async () => {
+    setStyleSaving(true);
+    try {
+      await fetch(`/api/public/${code}/styles`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...getAuthBody(), visual_settings: visualSettings, custom_css: customCss })
+      });
+      applyStyles(visualSettings, customCss);
+    } catch (err) { console.error('Error saving styles:', err); }
+    finally { setStyleSaving(false); }
+  };
+
   const deleteComplementFromModal = async (type, id) => {
     if (!confirm('¿Eliminar?')) return;
     await fetch(`/api/public/${code}/${type === 'extra' ? 'extras' : 'ingredients'}/${id}`, {
@@ -1593,6 +1661,11 @@ function Store() {
             {adminToken && (
               <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => setEditorTab('complements')}>
                 <FontAwesomeIcon icon={faPlus} /> Complementos
+              </button>
+            )}
+            {adminToken && store?.store?.is_premium && (
+              <button className="store-editor-tab" onClick={() => { loadStoreStyles(); setStyleEditorOpen(true); }}>
+                <FontAwesomeIcon icon={faPalette} /> Estilos
               </button>
             )}
           </div>
@@ -2923,6 +2996,178 @@ function Store() {
             >
               Listo
             </button>
+          </div>
+        </div>
+      )}
+
+      {styleEditorOpen && (
+        <div className="store-modal-overlay" onClick={() => setStyleEditorOpen(false)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+          <div className="store-prod-modal" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column', maxWidth: '420px' }}>
+            <h3 style={{ margin: '0 0 12px', color: 'var(--store-primary)', textAlign: 'center' }}>
+              <FontAwesomeIcon icon={faPalette} /> Editor de Estilos
+              <span style={{ fontSize: '10px', display: 'block', color: '#999', marginTop: '2px' }}>PREMIUM</span>
+            </h3>
+
+            <div style={{ display: 'flex', gap: '0', marginBottom: '12px', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--store-primary)' }}>
+              <button onClick={() => setStyleTab('visual')} style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', border: 'none', cursor: 'pointer', background: styleTab === 'visual' ? 'var(--store-primary)' : 'var(--store-secondary)', color: styleTab === 'visual' ? 'var(--store-secondary)' : 'var(--store-primary)' }}>
+                <FontAwesomeIcon icon={faPalette} /> Visual
+              </button>
+              <button onClick={() => setStyleTab('css')} style={{ flex: 1, padding: '8px', fontSize: '12px', fontWeight: '700', border: 'none', cursor: 'pointer', background: styleTab === 'css' ? 'var(--store-primary)' : 'var(--store-secondary)', color: styleTab === 'css' ? 'var(--store-secondary)' : 'var(--store-primary)' }}>
+                <FontAwesomeIcon icon={faCode} /> CSS Pro
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {styleTab === 'visual' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#555', borderBottom: '1px solid #eee', paddingBottom: '4px' }}>Tipografia</div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Fuente</label>
+                      <select value={visualSettings.fontFamily} onChange={(e) => { const v = { ...visualSettings, fontFamily: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%' }}>
+                        <option value="">Por defecto</option>
+                        <option value="'Inter', sans-serif">Inter</option>
+                        <option value="'Roboto', sans-serif">Roboto</option>
+                        <option value="'Poppins', sans-serif">Poppins</option>
+                        <option value="'Montserrat', sans-serif">Montserrat</option>
+                        <option value="'Playfair Display', serif">Playfair Display</option>
+                        <option value="'Lato', sans-serif">Lato</option>
+                        <option value="'Oswald', sans-serif">Oswald</option>
+                        <option value="'Raleway', sans-serif">Raleway</option>
+                        <option value="monospace">Monospace</option>
+                      </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Peso</label>
+                      <select value={visualSettings.fontWeight} onChange={(e) => { const v = { ...visualSettings, fontWeight: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%' }}>
+                        <option value="">Normal</option>
+                        <option value="300">Light (300)</option>
+                        <option value="400">Regular (400)</option>
+                        <option value="500">Medium (500)</option>
+                        <option value="600">Semi Bold (600)</option>
+                        <option value="700">Bold (700)</option>
+                        <option value="800">Extra Bold (800)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Tamaño general</label>
+                      <input type="text" value={visualSettings.fontSize} onChange={(e) => { const v = { ...visualSettings, fontSize: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} placeholder="ej: 14px" className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Tamaño titulo</label>
+                      <input type="text" value={visualSettings.titleSize} onChange={(e) => { const v = { ...visualSettings, titleSize: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} placeholder="ej: 16px" className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Tamaño precio</label>
+                      <input type="text" value={visualSettings.priceSize} onChange={(e) => { const v = { ...visualSettings, priceSize: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} placeholder="ej: 18px" className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', color: '#888' }}>Sombra de texto</label>
+                    <select value={visualSettings.textShadow} onChange={(e) => { const v = { ...visualSettings, textShadow: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%' }}>
+                      <option value="">Sin sombra</option>
+                      <option value="1px 1px 2px rgba(0,0,0,0.3)">Suave</option>
+                      <option value="2px 2px 4px rgba(0,0,0,0.5)">Media</option>
+                      <option value="3px 3px 6px rgba(0,0,0,0.7)">Fuerte</option>
+                      <option value="0 0 10px rgba(255,255,255,0.8)">Glow claro</option>
+                      <option value="0 0 10px rgba(0,0,0,0.8)">Glow oscuro</option>
+                    </select>
+                  </div>
+
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#555', borderBottom: '1px solid #eee', paddingBottom: '4px', marginTop: '6px' }}>Colores</div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Nombre producto</label>
+                      <input type="color" value={visualSettings.productNameColor || '#000000'} onChange={(e) => { const v = { ...visualSettings, productNameColor: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Precio producto</label>
+                      <input type="color" value={visualSettings.productPriceColor || '#000000'} onChange={(e) => { const v = { ...visualSettings, productPriceColor: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Header fondo</label>
+                      <input type="color" value={visualSettings.headerBg || '#000000'} onChange={(e) => { const v = { ...visualSettings, headerBg: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Header texto</label>
+                      <input type="color" value={visualSettings.headerTextColor || '#ffffff'} onChange={(e) => { const v = { ...visualSettings, headerTextColor: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#555', borderBottom: '1px solid #eee', paddingBottom: '4px', marginTop: '6px' }}>Tarjetas de producto</div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Fondo tarjeta</label>
+                      <input type="color" value={visualSettings.cardBg || '#ffffff'} onChange={(e) => { const v = { ...visualSettings, cardBg: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Borde tarjeta</label>
+                      <input type="text" value={visualSettings.cardBorder} onChange={(e) => { const v = { ...visualSettings, cardBorder: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} placeholder="ej: 2px solid gold" className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Sombra tarjeta</label>
+                      <select value={visualSettings.cardShadow} onChange={(e) => { const v = { ...visualSettings, cardShadow: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%' }}>
+                        <option value="">Sin sombra</option>
+                        <option value="0 2px 8px rgba(0,0,0,0.1)">Suave</option>
+                        <option value="0 4px 16px rgba(0,0,0,0.15)">Media</option>
+                        <option value="0 8px 32px rgba(0,0,0,0.2)">Grande</option>
+                        <option value="0 0 20px rgba(212,175,55,0.3)">Glow dorado</option>
+                        <option value="0 0 20px rgba(0,0,0,0.4)">Glow oscuro</option>
+                      </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Radio bordes</label>
+                      <select value={visualSettings.cardRadius} onChange={(e) => { const v = { ...visualSettings, cardRadius: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} className="store-prod-modal-input" style={{ padding: '8px', fontSize: '12px', width: '100%' }}>
+                        <option value="">Por defecto</option>
+                        <option value="0">Sin bordes (0)</option>
+                        <option value="4px">Poco (4px)</option>
+                        <option value="8px">Normal (8px)</option>
+                        <option value="16px">Redondeado (16px)</option>
+                        <option value="24px">Muy redondeado (24px)</option>
+                        <option value="50%">Circular</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#555', borderBottom: '1px solid #eee', paddingBottom: '4px', marginTop: '6px' }}>Categorias</div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Fondo tab</label>
+                      <input type="color" value={visualSettings.categoryBg || '#ffffff'} onChange={(e) => { const v = { ...visualSettings, categoryBg: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Tab activo</label>
+                      <input type="color" value={visualSettings.categoryActiveColor || '#000000'} onChange={(e) => { const v = { ...visualSettings, categoryActiveColor: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {styleTab === 'css' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <p style={{ fontSize: '11px', color: '#888', margin: 0 }}>CSS personalizado. Usa selectores como <code>.store-container</code>, <code>.store-product-card</code>, <code>.store-header</code>, etc.</p>
+                  <textarea
+                    value={customCss}
+                    onChange={(e) => { setCustomCss(e.target.value); applyStyles(visualSettings, e.target.value); }}
+                    placeholder={`.store-product-card {\n  border: 2px solid gold;\n  transform: scale(1.02);\n}\n\n.store-header {\n  background: linear-gradient(135deg, #1a1a2e, #16213e);\n}`}
+                    style={{ width: '100%', minHeight: '250px', padding: '12px', fontSize: '12px', fontFamily: 'monospace', border: '2px solid #e0e0e0', borderRadius: '8px', resize: 'vertical', boxSizing: 'border-box', lineHeight: '1.5', background: '#1e1e1e', color: '#d4d4d4' }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+              <button onClick={() => setStyleEditorOpen(false)} className="store-prod-modal-btn cancel">Cerrar</button>
+              <button onClick={saveStoreStyles} disabled={styleSaving} className="store-prod-modal-btn confirm" style={{ background: 'var(--store-accent)', color: 'var(--store-primary)' }}>
+                {styleSaving ? 'Guardando...' : 'Guardar estilos'}
+              </button>
+            </div>
           </div>
         </div>
       )}
