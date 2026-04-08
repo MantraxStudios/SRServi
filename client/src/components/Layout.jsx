@@ -61,7 +61,8 @@ function Layout() {
       fetch(API + '/api/my-plan', { headers: { 'Authorization': 'Bearer ' + token } })
         .then(r => r.json())
         .then(data => {
-          setIsPremiumUser(data?.plan?.name && data.plan.name !== 'Gratis');
+          const planName = data?.plan?.plan_name || data?.plan?.name || '';
+          setIsPremiumUser(!!planName && planName !== 'Gratis');
         })
         .catch(() => {});
     }

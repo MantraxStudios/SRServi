@@ -1749,6 +1749,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .store-product-card {
+  position: relative;
   background-color: #fff;
   border: none;
   border-radius: var(--radius-2xl);
@@ -6967,6 +6968,94 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   justify-content: center;
   font-size: 12px;
+}
+
+/* Category tab inline edit */
+.cat-tab-edit-icons {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 8px;
+  font-size: 11px;
+}
+
+.cat-tab-edit-icons span {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.3);
+  cursor: pointer;
+}
+
+.cat-tab-edit-icons span:active {
+  background: rgba(255,255,255,0.6);
+}
+
+.cat-tab-edit-icons .cat-tab-del:active {
+  background: #dc3545;
+  color: #fff;
+}
+
+.cat-tab-add {
+  border: 2px dashed var(--store-accent) !important;
+  background: transparent !important;
+  color: var(--store-accent) !important;
+  font-size: 16px !important;
+  min-width: 44px;
+}
+
+/* Product card edit overlay */
+.store-prod-edit-overlay {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 4px;
+  z-index: 10;
+}
+
+.store-prod-edit-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.store-prod-edit-btn.danger {
+  background: rgba(220,53,69,0.85);
+}
+
+.store-prod-edit-btn:active {
+  transform: scale(0.9);
+}
+
+/* Add product card */
+.store-add-card {
+  border: 2px dashed var(--store-accent) !important;
+  background: transparent !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  min-height: 120px;
+}
+
+.store-add-icon {
+  font-size: 32px;
+  color: var(--store-accent);
+}
+
+.store-add-card:active {
+  background: rgba(0,0,0,0.03) !important;
 }
 
 .store-edit-categories {

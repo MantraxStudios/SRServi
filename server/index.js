@@ -555,6 +555,73 @@ app.put('/api/public/:code/products/order', async (req, res) => {
   }
 });
 
+// Public product management with PIN
+app.post('/api/public/:code/products', workshopUpload.single('image'), async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const valid = await verifyStoreEditPin(store.id, req.body.pin);
+    if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
+    if (!req.body.name || !req.body.price) return res.status(400).json({ error: 'Nombre y precio requeridos' });
+
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const product = await createProduct(store.id, {
+      name: req.body.name,
+      description: req.body.description || '',
+      price: parseFloat(req.body.price) || 0,
+      category_id: req.body.category_id || null,
+      image: imageUrl
+    });
+
+    // Create inventory entry
+    await pool.execute(
+      'INSERT INTO inventory (product_id, stock, unlimited_stock) VALUES (?, 0, TRUE) ON DUPLICATE KEY UPDATE unlimited_stock = TRUE',
+      [product.id]
+    );
+
+    emitProductUpdate(store.id, 'product_created', product);
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/public/:code/products/:id', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const valid = await verifyStoreEditPin(store.id, req.body.pin);
+    if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
+    if (!req.body.name) return res.status(400).json({ error: 'Nombre requerido' });
+
+    const product = await updateProduct(parseInt(req.params.id), store.id, {
+      name: req.body.name,
+      description: req.body.description || '',
+      price: parseFloat(req.body.price) || 0,
+      category_id: req.body.category_id || null,
+      image: req.body.image || null
+    });
+    emitProductUpdate(store.id, 'product_updated', product);
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/public/:code/products/:id', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const valid = await verifyStoreEditPin(store.id, req.body.pin);
+    if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
+    await deleteProduct(parseInt(req.params.id), store.id);
+    emitProductUpdate(store.id, 'product_deleted', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Public category management with PIN
 app.post('/api/public/:code/categories', async (req, res) => {
   try {

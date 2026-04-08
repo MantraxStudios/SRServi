@@ -92,6 +92,9 @@ function Store() {
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [editingCat, setEditingCat] = useState(null);
   const [catName, setCatName] = useState('');
+  const [prodModalOpen, setProdModalOpen] = useState(false);
+  const [editingProd, setEditingProd] = useState(null);
+  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '' });
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
 
@@ -924,6 +927,60 @@ function Store() {
     }
   };
 
+  const openProdModal = (product = null) => {
+    setEditingProd(product);
+    setProdForm({
+      name: product?.name || '',
+      price: product?.price?.toString() || '',
+      category_id: product?.category_id?.toString() || '',
+      description: product?.description || ''
+    });
+    setProdModalOpen(true);
+  };
+
+  const saveProd = async () => {
+    if (!prodForm.name.trim() || !prodForm.price) return;
+    try {
+      if (editingProd) {
+        await fetch(`/api/public/${code}/products/${editingProd.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: sessionPin, ...prodForm, price: parseFloat(prodForm.price) })
+        });
+      } else {
+        const formData = new FormData();
+        formData.append('pin', sessionPin);
+        formData.append('name', prodForm.name.trim());
+        formData.append('price', parseFloat(prodForm.price));
+        formData.append('category_id', prodForm.category_id || '');
+        formData.append('description', prodForm.description || '');
+        await fetch(`/api/public/${code}/products`, {
+          method: 'POST',
+          body: formData
+        });
+      }
+      setProdModalOpen(false);
+      setEditingProd(null);
+      fetchStore();
+    } catch (err) {
+      console.error('Error saving product:', err);
+    }
+  };
+
+  const deleteProd = async (product) => {
+    if (!confirm(`¿Eliminar "${product.name}"?`)) return;
+    try {
+      await fetch(`/api/public/${code}/products/${product.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: sessionPin })
+      });
+      fetchStore();
+    } catch (err) {
+      console.error('Error deleting product:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -970,6 +1027,16 @@ function Store() {
               Agotado
             </div>
           )}
+          {editMode && (
+            <div className="store-prod-edit-overlay">
+              <button onClick={(e) => { e.stopPropagation(); openProdModal(product); }} className="store-prod-edit-btn">
+                <FontAwesomeIcon icon={faEdit} />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); deleteProd(product); }} className="store-prod-edit-btn danger">
+                <FontAwesomeIcon icon={faTrash} />
+              </button>
+            </div>
+          )}
           <div className="store-product-image">
             {product.image ? (
               <img
@@ -991,6 +1058,19 @@ function Store() {
       </div>
     );
   };
+
+  const renderAddProductCard = () => (
+    <div className="store-product-wrapper" key="add-product">
+      <div className="store-product-card store-add-card" onClick={() => openProdModal()}>
+        <FontAwesomeIcon icon={faPlus} className="store-add-icon" />
+      </div>
+      <div className="store-product-info">
+        <div className="store-product-details">
+          <span className="store-product-name">Nuevo producto</span>
+        </div>
+      </div>
+    </div>
+  );
 
   function SortableProductCard({ product }) {
     const {
@@ -1118,16 +1198,30 @@ function Store() {
         >
           Todo
         </button>
-        {Object.keys(groupedProducts).map(cat => (
-          <button
-            key={cat}
-            className={`category-tab${activeCategory === cat ? ' active' : ''}`}
-            data-category={cat}
-            onClick={() => setActiveCategory(cat)}
-          >
-            {cat}
+        {(editMode ? (store?.categories || []).map(c => c.name) : Object.keys(groupedProducts)).map(cat => {
+          const catObj = (store?.categories || []).find(c => c.name === cat);
+          return (
+            <button
+              key={cat}
+              className={`category-tab${activeCategory === cat ? ' active' : ''}`}
+              data-category={cat}
+              onClick={() => !editMode && setActiveCategory(cat)}
+            >
+              {cat}
+              {editMode && catObj && (
+                <span className="cat-tab-edit-icons">
+                  <span onClick={(e) => { e.stopPropagation(); openCatModal(catObj); }}><FontAwesomeIcon icon={faEdit} /></span>
+                  <span onClick={(e) => { e.stopPropagation(); deleteCat(catObj); }} className="cat-tab-del"><FontAwesomeIcon icon={faTrash} /></span>
+                </span>
+              )}
+            </button>
+          );
+        })}
+        {editMode && (
+          <button className="category-tab cat-tab-add" onClick={() => openCatModal()}>
+            <FontAwesomeIcon icon={faFolderPlus} />
           </button>
-        ))}
+        )}
         </div>
       </div>
 
@@ -1155,81 +1249,8 @@ function Store() {
         </div>
       )}
 
-      {editMode && (
-        <div className="store-edit-categories">
-          <div className="store-edit-categories-header">
-            <span><FontAwesomeIcon icon={faFolder} /> Categorías</span>
-            <button className="store-edit-cat-add-btn" onClick={() => openCatModal()}>
-              <FontAwesomeIcon icon={faFolderPlus} /> Nueva
-            </button>
-          </div>
-          <div className="store-edit-categories-list">
-            {(store?.categories || []).length === 0 ? (
-              <span className="store-edit-cat-empty">Sin categorías</span>
-            ) : (
-              (store?.categories || []).map(cat => (
-                <div key={cat.id} className="store-edit-cat-item">
-                  <span className="store-edit-cat-name">{cat.name}</span>
-                  <div className="store-edit-cat-actions">
-                    <button onClick={() => openCatModal(cat)} className="store-edit-cat-btn">
-                      <FontAwesomeIcon icon={faEdit} />
-                    </button>
-                    <button onClick={() => deleteCat(cat)} className="store-edit-cat-btn danger">
-                      <FontAwesomeIcon icon={faTrash} />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
 
-      {editMode && hasProducts && (
-        <DndContext
-          sensors={editSensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleEditDragStart}
-          onDragEnd={handleEditDragEnd}
-        >
-          <SortableContext
-            items={(store?.products || []).map(p => p.id)}
-            strategy={rectSortingStrategy}
-          >
-            <div className="products-grid">
-              {(store?.products || []).map(product => (
-                <SortableProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          </SortableContext>
-          <DragOverlay>
-            {editDragActiveId ? (() => {
-              const product = store?.products?.find(p => p.id === editDragActiveId);
-              if (!product) return null;
-              return (
-                <div className="store-product-wrapper" style={{ opacity: 0.8 }}>
-                  <div className="store-product-card">
-                    <div className="store-product-image">
-                      {product.image ? (
-                        <img src={getImageUrl(product.image)} alt={product.name} />
-                      ) : (
-                        <FontAwesomeIcon icon={faBox} className="placeholder-icon" />
-                      )}
-                    </div>
-                  </div>
-                  <div className="store-product-info">
-                    <div className="store-product-details">
-                      <span className="store-product-name">{product.name}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })() : null}
-          </DragOverlay>
-        </DndContext>
-      )}
-
-      {hasProducts && !editMode && activeCategory === 'all' && (
+      {!editMode && activeCategory === 'all' && hasProducts && (
         <div className="category-sections">
           {Object.entries(groupedProducts).map(([category, products], catIndex) => (
             <div key={category} className="category-section">
@@ -1253,13 +1274,20 @@ function Store() {
         </div>
       )}
 
-      {hasProducts && !editMode && activeCategory !== 'all' && (
+      {!editMode && activeCategory !== 'all' && hasProducts && (
         <div className="products-grid">
           {Object.entries(groupedProducts)
             .filter(([category]) => activeCategory === category)
             .flatMap(([category, products]) =>
               products.map(product => renderProductCard(product))
             )}
+        </div>
+      )}
+
+      {editMode && !editDragActiveId && (
+        <div className="products-grid" style={{ padding: '0 16px' }}>
+          {(store?.products || []).map(product => renderProductCard(product))}
+          {renderAddProductCard()}
         </div>
       )}
 
@@ -2203,6 +2231,70 @@ function Store() {
           </div>
         </div>
       )}
+      {prodModalOpen && (
+        <div className="store-modal-overlay" onClick={() => setProdModalOpen(false)}>
+          <div className="store-pin-modal" style={{ maxWidth: '360px' }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 16px', color: 'var(--store-primary)', textAlign: 'center' }}>
+              {editingProd ? 'Editar Producto' : 'Nuevo Producto'}
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <input
+                type="text"
+                value={prodForm.name}
+                onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })}
+                placeholder="Nombre del producto"
+                autoFocus
+                style={{ padding: '10px', border: '2px solid var(--store-primary)', borderRadius: '8px', fontSize: '15px', outline: 'none' }}
+              />
+              <input
+                type="number"
+                step="0.01"
+                value={prodForm.price}
+                onChange={(e) => setProdForm({ ...prodForm, price: e.target.value })}
+                placeholder="Precio"
+                style={{ padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '15px', outline: 'none' }}
+              />
+              <select
+                value={prodForm.category_id}
+                onChange={(e) => setProdForm({ ...prodForm, category_id: e.target.value })}
+                style={{ padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '15px', outline: 'none', background: '#fff' }}
+              >
+                <option value="">Sin categoría</option>
+                {(store?.categories || []).map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={prodForm.description}
+                onChange={(e) => setProdForm({ ...prodForm, description: e.target.value })}
+                placeholder="Descripción (opcional)"
+                style={{ padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '15px', outline: 'none' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+              <button
+                onClick={() => setProdModalOpen(false)}
+                style={{ flex: 1, padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px', background: '#fff', fontSize: '14px', cursor: 'pointer', fontWeight: '600' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveProd}
+                disabled={!prodForm.name.trim() || !prodForm.price}
+                style={{
+                  flex: 1, padding: '10px', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '700', cursor: 'pointer',
+                  background: prodForm.name.trim() && prodForm.price ? 'var(--store-accent)' : '#ccc',
+                  color: prodForm.name.trim() && prodForm.price ? 'var(--store-primary)' : '#666'
+                }}
+              >
+                {editingProd ? 'Guardar' : 'Crear'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {catModalOpen && (
         <div className="store-modal-overlay" onClick={() => setCatModalOpen(false)}>
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()}>
