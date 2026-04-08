@@ -231,29 +231,20 @@ function Layout() {
                 <span>Inicio</span>
               </NavLink>
             </li>
-            <li className="dropdown-container">
-              <button className="dropdown-header" onClick={() => toggleDropdown('productos')}>
-                <FontAwesomeIcon icon={faBox} />
-                <span>Editor Totem</span>
-                <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['productos'] ? 180 : 0} />
-              </button>
-              {openDropdowns['productos'] && (
-                <div className="dropdown-content">
-                  <NavLink to="/admin/categories" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faList} />
-                    <span>Categorias</span>
-                  </NavLink>
-                  <NavLink to="/admin/products" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faBox} />
-                    <span>Productos</span>
-                  </NavLink>
-                  <NavLink to="/admin/complements" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faFlask} />
-                    <span>Complementos</span>
-                  </NavLink>
-                </div>
-              )}
-            </li>
+            {selectedStore && (
+              <li>
+                <a
+                  href={`/store/${selectedStore.code}?admin_edit=${token}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMenuOpen(false)}
+                  style={{ textDecoration: 'none' }}
+                >
+                  <FontAwesomeIcon icon={faBox} />
+                  <span>Editor Totem</span>
+                </a>
+              </li>
+            )}
 
             <li className="dropdown-container">
               <button className="dropdown-header" onClick={() => toggleDropdown('gestion')}>

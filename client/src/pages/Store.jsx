@@ -53,6 +53,7 @@ function Store() {
   const [searchParams] = useSearchParams();
   const terminalFromUrl = searchParams.get('terminal');
   const configFromUrl = searchParams.get('config');
+  const adminEditToken = searchParams.get('admin_edit');
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -102,9 +103,15 @@ function Store() {
     }
     return uid;
   });
+  const [adminToken, setAdminToken] = useState(null);
+  const [editorTab, setEditorTab] = useState('products');
+  const [extras, setExtras] = useState([]);
+  const [ingredients, setIngredients] = useState([]);
+  const [complementModal, setComplementModal] = useState(null);
+  const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
-  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '' });
+  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', stock: '0', unlimited_stock: true });
   const [prodImageFile, setProdImageFile] = useState(null);
   const [prodSaving, setProdSaving] = useState(false);
   const longPressTimerRef = useRef(null);
@@ -343,6 +350,23 @@ function Store() {
       } else {
         setConfigurations([]);
         setSelectedConfiguration(null);
+      }
+
+      // Auto-enter edit mode if admin token
+      if (adminEditToken) {
+        try {
+          const vRes = await fetch(`/api/public/${code}/validate-admin`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: adminEditToken })
+          });
+          const vData = await vRes.json();
+          if (vData.valid) {
+            setAdminToken(adminEditToken);
+            setEditMode(true);
+            setSessionPin('admin');
+          }
+        } catch { /* ignore */ }
       }
 
       // Register this device
@@ -887,6 +911,63 @@ function Store() {
     setAppliedCoupon(null);
   }, [cart]);
 
+  const fetchComplements = async () => {
+    try {
+      const [exRes, inRes] = await Promise.all([
+        fetch(`/api/public/${code}/extras`),
+        fetch(`/api/public/${code}/ingredients`)
+      ]);
+      if (exRes.ok) setExtras(await exRes.json());
+      if (inRes.ok) setIngredients(await inRes.json());
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => {
+    if (editMode && adminToken) fetchComplements();
+  }, [editMode, adminToken]);
+
+  const saveComplement = async () => {
+    if (!complementForm.name.trim()) return;
+    const type = complementForm.type;
+    const formData = new FormData();
+    formData.append('token', adminToken);
+    formData.append('name', complementForm.name.trim());
+    formData.append('price', parseFloat(complementForm.price) || 0);
+    formData.append('category_id', complementForm.category_id || '');
+    formData.append('stock', parseInt(complementForm.stock) || 0);
+    formData.append('unlimited_stock', complementForm.unlimited_stock);
+    if (complementForm.imageFile) formData.append('image', complementForm.imageFile);
+
+    await fetch(`/api/public/${code}/${type === 'extra' ? 'extras' : 'ingredients'}`, {
+      method: 'POST',
+      body: formData
+    });
+    setComplementModal(null);
+    setComplementForm({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
+    fetchComplements();
+    fetchStore();
+  };
+
+  const deleteComplement = async (type, id) => {
+    if (!confirm('¿Eliminar?')) return;
+    await fetch(`/api/public/${code}/${type === 'extra' ? 'extras' : 'ingredients'}/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: adminToken })
+    });
+    fetchComplements();
+    fetchStore();
+  };
+
+  const updateProductStock = async (productId, stock, unlimitedStock) => {
+    await fetch(`/api/public/${code}/products/${productId}/stock`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: adminToken, stock, unlimited_stock: unlimitedStock })
+    });
+    fetchStore();
+  };
+
   const showRestartNotification = (delaySec) => {
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);color:#fff;font-family:sans-serif;';
@@ -1052,7 +1133,9 @@ function Store() {
       name: product?.name || '',
       price: product?.price?.toString() || '',
       category_id: product?.category_id?.toString() || '',
-      description: product?.description || ''
+      description: product?.description || '',
+      stock: product?.stock?.toString() || '0',
+      unlimited_stock: product?.unlimited_stock ?? true
     });
     setProdImageFile(null);
     setProdModalOpen(true);
@@ -1082,6 +1165,15 @@ function Store() {
         method: editingProd ? 'PUT' : 'POST',
         body: formData
       });
+
+      // Update stock if admin editor
+      if (adminToken) {
+        const prodData = await (await fetch(`/api/public/${code}`)).json();
+        const lastProd = editingProd ? editingProd : prodData.products?.[prodData.products.length - 1];
+        if (lastProd?.id) {
+          await updateProductStock(lastProd.id, parseInt(prodForm.stock) || 0, prodForm.unlimited_stock);
+        }
+      }
 
       setProdModalOpen(false);
       setEditingProd(null);
@@ -1357,12 +1449,68 @@ function Store() {
       )}
 
       {editMode && (
-        <div className="store-edit-mode-banner">
-          <FontAwesomeIcon icon={faGripVertical} />
-          <span>Modo edición</span>
-          <button className="btn btn-sm btn-secondary" onClick={() => setEditMode(false)}>
+        <div className="store-editor-bar">
+          <div className="store-editor-tabs">
+            <button className={`store-editor-tab${editorTab === 'products' ? ' active' : ''}`} onClick={() => setEditorTab('products')}>
+              <FontAwesomeIcon icon={faBox} /> Productos
+            </button>
+            {adminToken && (
+              <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => setEditorTab('complements')}>
+                <FontAwesomeIcon icon={faPlus} /> Complementos
+              </button>
+            )}
+          </div>
+          <button className="store-editor-done" onClick={() => { setEditMode(false); if (adminToken) window.close(); }}>
             Listo
           </button>
+        </div>
+      )}
+
+      {editMode && editorTab === 'complements' && adminToken && (
+        <div className="store-editor-complements">
+          <div className="store-editor-comp-header">
+            <span>Extras ({extras.length})</span>
+            <button className="store-edit-cat-add-btn" onClick={() => { setComplementForm({ ...complementForm, type: 'extra' }); setComplementModal('extra'); }}>
+              <FontAwesomeIcon icon={faPlus} /> Nuevo
+            </button>
+          </div>
+          <div className="store-editor-comp-list">
+            {extras.map(e => (
+              <div key={e.id} className="store-editor-comp-item">
+                {e.image && <img src={getImageUrl(e.image)} alt="" className="store-editor-comp-img" />}
+                <div className="store-editor-comp-info">
+                  <strong>{e.name}</strong>
+                  {Number(e.price) > 0 && <span className="store-editor-comp-price">+${Number(e.price).toFixed(0)}</span>}
+                </div>
+                <button onClick={() => deleteComplement('extra', e.id)} className="store-prod-edit-btn danger" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                  <FontAwesomeIcon icon={faTrash} />
+                </button>
+              </div>
+            ))}
+            {extras.length === 0 && <span style={{ color: '#999', fontSize: '13px', padding: '8px' }}>Sin extras</span>}
+          </div>
+
+          <div className="store-editor-comp-header" style={{ marginTop: '12px' }}>
+            <span>Ingredientes ({ingredients.length})</span>
+            <button className="store-edit-cat-add-btn" onClick={() => { setComplementForm({ ...complementForm, type: 'ingredient' }); setComplementModal('ingredient'); }}>
+              <FontAwesomeIcon icon={faPlus} /> Nuevo
+            </button>
+          </div>
+          <div className="store-editor-comp-list">
+            {ingredients.map(i => (
+              <div key={i.id} className="store-editor-comp-item">
+                {i.image && <img src={getImageUrl(i.image)} alt="" className="store-editor-comp-img" />}
+                <div className="store-editor-comp-info">
+                  <strong>{i.name}</strong>
+                  {Number(i.price) > 0 && <span className="store-editor-comp-price">+${Number(i.price).toFixed(0)}</span>}
+                </div>
+                <button onClick={() => deleteComplement('ingredient', i.id)} className="store-prod-edit-btn danger" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                  <FontAwesomeIcon icon={faTrash} />
+                </button>
+              </div>
+            ))}
+            {ingredients.length === 0 && <span style={{ color: '#999', fontSize: '13px', padding: '8px' }}>Sin ingredientes</span>}
+          </div>
         </div>
       )}
 
@@ -1401,7 +1549,7 @@ function Store() {
         </div>
       )}
 
-      {editMode && (
+      {editMode && editorTab === 'products' && (
         <DndContext
           sensors={editSensors}
           collisionDetection={closestCenter}
@@ -2447,6 +2595,23 @@ function Store() {
                 placeholder="Descripción (opcional)"
                 className="store-prod-modal-input"
               />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer', flex: 1 }}>
+                  <input type="checkbox" checked={prodForm.unlimited_stock} onChange={(e) => setProdForm({ ...prodForm, unlimited_stock: e.target.checked })} />
+                  Stock ilimitado
+                </label>
+                {!prodForm.unlimited_stock && (
+                  <input
+                    type="number"
+                    min="0"
+                    value={prodForm.stock}
+                    onChange={(e) => setProdForm({ ...prodForm, stock: e.target.value })}
+                    placeholder="Stock"
+                    className="store-prod-modal-input"
+                    style={{ width: '80px' }}
+                  />
+                )}
+              </div>
             </div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
               <button
@@ -2462,6 +2627,41 @@ function Store() {
               >
                 {prodSaving ? 'Guardando...' : editingProd ? 'Guardar' : 'Crear'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {complementModal && (
+        <div className="store-modal-overlay" onClick={() => setComplementModal(null)}>
+          <div className="store-prod-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 14px', color: 'var(--store-primary)', textAlign: 'center' }}>
+              Nuevo {complementModal === 'extra' ? 'Extra' : 'Ingrediente'}
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <input type="text" value={complementForm.name} onChange={(e) => setComplementForm({ ...complementForm, name: e.target.value })} placeholder="Nombre" autoFocus className="store-prod-modal-input main" />
+              <input type="number" step="0.01" value={complementForm.price} onChange={(e) => setComplementForm({ ...complementForm, price: e.target.value })} placeholder="Precio adicional" className="store-prod-modal-input" />
+              <select value={complementForm.category_id} onChange={(e) => setComplementForm({ ...complementForm, category_id: e.target.value })} className="store-prod-modal-input">
+                <option value="">Sin categoría</option>
+                {(store?.categories || []).map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
+              </select>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer', flex: 1 }}>
+                  <input type="checkbox" checked={complementForm.unlimited_stock} onChange={(e) => setComplementForm({ ...complementForm, unlimited_stock: e.target.checked })} />
+                  Stock ilimitado
+                </label>
+                {!complementForm.unlimited_stock && (
+                  <input type="number" min="0" value={complementForm.stock} onChange={(e) => setComplementForm({ ...complementForm, stock: e.target.value })} placeholder="Stock" className="store-prod-modal-input" style={{ width: '80px' }} />
+                )}
+              </div>
+              <label className="store-prod-modal-image-btn" style={{ alignSelf: 'flex-start' }}>
+                <FontAwesomeIcon icon={faEdit} /> {complementForm.imageFile ? complementForm.imageFile.name : 'Imagen'}
+                <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setComplementForm({ ...complementForm, imageFile: e.target.files[0] }); }} style={{ display: 'none' }} />
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+              <button onClick={() => setComplementModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
+              <button onClick={saveComplement} disabled={!complementForm.name.trim()} className={`store-prod-modal-btn confirm${!complementForm.name.trim() ? ' disabled' : ''}`}>Crear</button>
             </div>
           </div>
         </div>

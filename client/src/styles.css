@@ -6939,7 +6939,104 @@ h1, h2, h3, h4, h5, h6 {
   border-color: var(--store-primary, #000);
 }
 
-/* ========== Store Edit Mode ========== */
+/* ========== Store Editor ========== */
+.store-editor-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  background: var(--store-primary);
+  color: var(--store-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.store-editor-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.store-editor-tab {
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: var(--store-secondary);
+  opacity: 0.6;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.store-editor-tab.active {
+  opacity: 1;
+  border-bottom: 2px solid var(--store-accent);
+}
+
+.store-editor-done {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--store-accent);
+  color: var(--store-primary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.store-editor-complements {
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.store-editor-comp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.store-editor-comp-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.store-editor-comp-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.store-editor-comp-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.store-editor-comp-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.store-editor-comp-price {
+  color: #28a745;
+  font-size: 12px;
+}
+
 .store-edit-mode-banner {
   display: flex;
   align-items: center;

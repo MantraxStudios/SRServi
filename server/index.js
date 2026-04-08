@@ -668,6 +668,120 @@ app.get('/api/public/device-config/:deviceUid/:storeId', async (req, res) => {
   }
 });
 
+// Validate admin token for store editor
+app.post('/api/public/:code/validate-admin', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.json({ valid: false });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.json({ valid: false });
+    if (store.user_id !== decoded.id) return res.json({ valid: false });
+    res.json({ valid: true });
+  } catch {
+    res.json({ valid: false });
+  }
+});
+
+// Public extras/ingredients CRUD with admin token
+app.get('/api/public/:code/extras', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const [rows] = await pool.execute(
+      `SELECT e.*, c.name as category_name FROM extras e LEFT JOIN categories c ON e.category_id = c.id WHERE e.store_id = ? ORDER BY e.name`,
+      [store.id]
+    );
+    res.json(rows);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.get('/api/public/:code/ingredients', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const [rows] = await pool.execute(
+      `SELECT i.*, c.name as category_name FROM ingredients i LEFT JOIN categories c ON i.category_id = c.id WHERE i.store_id = ? ORDER BY i.name`,
+      [store.id]
+    );
+    res.json(rows);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/public/:code/extras', upload.single('image'), async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || 'your-secret-key');
+    if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
+    const image = req.file ? `/uploads/${req.file.filename}` : null;
+    const [result] = await pool.execute(
+      'INSERT INTO extras (store_id, name, price, category_id, image, stock, unlimited_stock) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [store.id, req.body.name, parseFloat(req.body.price) || 0, req.body.category_id || null, image, parseInt(req.body.stock) || 0, req.body.unlimited_stock === 'true' ? 1 : 0]
+    );
+    emitProductUpdate(store.id, 'extra_created', { id: result.insertId });
+    res.json({ id: result.insertId, name: req.body.name });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/public/:code/ingredients', upload.single('image'), async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || 'your-secret-key');
+    if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
+    const image = req.file ? `/uploads/${req.file.filename}` : null;
+    const [result] = await pool.execute(
+      'INSERT INTO ingredients (store_id, name, price, category_id, image, stock, unlimited_stock) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [store.id, req.body.name, parseFloat(req.body.price) || 0, req.body.category_id || null, image, parseInt(req.body.stock) || 0, req.body.unlimited_stock === 'true' ? 1 : 0]
+    );
+    emitProductUpdate(store.id, 'ingredient_created', { id: result.insertId });
+    res.json({ id: result.insertId, name: req.body.name });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.delete('/api/public/:code/extras/:id', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || 'your-secret-key');
+    if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
+    await pool.execute('DELETE FROM extras WHERE id = ? AND store_id = ?', [parseInt(req.params.id), store.id]);
+    emitProductUpdate(store.id, 'extra_deleted', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.delete('/api/public/:code/ingredients/:id', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || 'your-secret-key');
+    if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
+    await pool.execute('DELETE FROM ingredients WHERE id = ? AND store_id = ?', [parseInt(req.params.id), store.id]);
+    emitProductUpdate(store.id, 'ingredient_deleted', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Update product stock from editor
+app.put('/api/public/:code/products/:id/stock', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || 'your-secret-key');
+    if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
+    const productId = parseInt(req.params.id);
+    const { stock, unlimited_stock } = req.body;
+    await pool.execute(
+      'INSERT INTO inventory (product_id, stock, unlimited_stock) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE stock = ?, unlimited_stock = ?',
+      [productId, parseInt(stock) || 0, unlimited_stock ? 1 : 0, parseInt(stock) || 0, unlimited_stock ? 1 : 0]
+    );
+    emitProductUpdate(store.id, 'inventory_updated', { product_id: productId, stock: parseInt(stock) || 0, unlimited_stock: !!unlimited_stock });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // Public product management with PIN
 app.post('/api/public/:code/products', upload.single('image'), async (req, res) => {
   try {
