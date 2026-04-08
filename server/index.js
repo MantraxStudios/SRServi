@@ -2911,6 +2911,18 @@ app.post('/api/workshop/publish', authenticateToken, workshopUpload.fields([
 // Browse workshop
 app.get('/api/workshop/plugins', async (req, res) => {
   try {
+    // Migrate old column name if needed
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM plugin_workshop');
+      const colNames = cols.map(c => c.Field);
+      if (colNames.includes('version') && !colNames.includes('latest_version')) {
+        await pool.execute('ALTER TABLE plugin_workshop CHANGE version latest_version VARCHAR(50) NOT NULL');
+      }
+      if (colNames.includes('zip_path') && !colNames.includes('latest_version')) {
+        // Old schema had zip_path on main table; just ignore it
+      }
+    } catch (migErr) { /* ignore migration errors */ }
+
     const search = req.query.search || '';
     let query = `SELECT plugin_id, name, latest_version, description, author, contact_email, logo, downloads, hooks, admin_slots, store_slots, created_at, updated_at
                  FROM plugin_workshop WHERE status = 'approved'`;
@@ -2923,7 +2935,7 @@ app.get('/api/workshop/plugins', async (req, res) => {
     const [rows] = await pool.execute(query, params);
     res.json(rows);
   } catch (error) {
-    if (error.message?.includes("doesn't exist")) return res.json([]);
+    if (error.message?.includes("doesn't exist") || error.message?.includes("Unknown column")) return res.json([]);
     res.status(500).json({ error: error.message });
   }
 });

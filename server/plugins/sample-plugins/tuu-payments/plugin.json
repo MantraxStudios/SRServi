@@ -1,0 +1,12 @@
+{
+  "id": "tuu-payments",
+  "name": "Tuu Payments",
+  "version": "1.1.0",
+  "description": "Acepta pagos con tarjeta a través de terminales POS de Tuu. Configura tu API Key, agrega tus POS y selecciona cuál usar en cada tienda.",
+  "author": "SRServi",
+  "hooks": [],
+  "adminSlots": ["sidebar"],
+  "storeSlots": [],
+  "settings": {},
+  "routes": true
+}
