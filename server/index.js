@@ -703,13 +703,19 @@ app.post('/api/public/:code/extras', upload.single('image'), async (req, res) =>
     const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || 'your-secret-key');
     if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
     const image = req.file ? `/uploads/${req.file.filename}` : null;
+    const catId = req.body.category_id && req.body.category_id !== '' && req.body.category_id !== 'null' ? parseInt(req.body.category_id) : null;
     const [result] = await pool.execute(
-      'INSERT INTO extras (store_id, name, price, category_id, image, stock, unlimited_stock) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [store.id, req.body.name, parseFloat(req.body.price) || 0, req.body.category_id || null, image, parseInt(req.body.stock) || 0, req.body.unlimited_stock === 'true' ? 1 : 0]
+      'INSERT INTO extras (store_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?)',
+      [store.id, req.body.name, parseFloat(req.body.price) || 0, catId, image]
     );
+    // Update stock in inventory-style columns if they exist
+    try {
+      await pool.execute('UPDATE extras SET stock = ?, unlimited_stock = ? WHERE id = ?',
+        [parseInt(req.body.stock) || 0, req.body.unlimited_stock === 'true' ? 1 : 0, result.insertId]);
+    } catch { /* stock columns may not exist yet */ }
     emitProductUpdate(store.id, 'extra_created', { id: result.insertId });
     res.json({ id: result.insertId, name: req.body.name });
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) { console.error('Error creating extra:', error); res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/public/:code/ingredients', upload.single('image'), async (req, res) => {
@@ -719,13 +725,18 @@ app.post('/api/public/:code/ingredients', upload.single('image'), async (req, re
     const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || 'your-secret-key');
     if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
     const image = req.file ? `/uploads/${req.file.filename}` : null;
+    const catId = req.body.category_id && req.body.category_id !== '' && req.body.category_id !== 'null' ? parseInt(req.body.category_id) : null;
     const [result] = await pool.execute(
-      'INSERT INTO ingredients (store_id, name, price, category_id, image, stock, unlimited_stock) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [store.id, req.body.name, parseFloat(req.body.price) || 0, req.body.category_id || null, image, parseInt(req.body.stock) || 0, req.body.unlimited_stock === 'true' ? 1 : 0]
+      'INSERT INTO ingredients (store_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?)',
+      [store.id, req.body.name, parseFloat(req.body.price) || 0, catId, image]
     );
+    try {
+      await pool.execute('UPDATE ingredients SET stock = ?, unlimited_stock = ? WHERE id = ?',
+        [parseInt(req.body.stock) || 0, req.body.unlimited_stock === 'true' ? 1 : 0, result.insertId]);
+    } catch { /* stock columns may not exist yet */ }
     emitProductUpdate(store.id, 'ingredient_created', { id: result.insertId });
     res.json({ id: result.insertId, name: req.body.name });
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) { console.error('Error creating ingredient:', error); res.status(500).json({ error: error.message }); }
 });
 
 app.delete('/api/public/:code/extras/:id', async (req, res) => {
