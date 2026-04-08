@@ -39,6 +39,7 @@ export const useStore = () => useContext(StoreContext);
 function Layout() {
   const { user, token, logout } = useAuth();
   const { getSidebarItems } = usePlugins();
+  const [isPremiumUser, setIsPremiumUser] = useState(false);
   const navigate = useNavigate();
   const [stores, setStores] = useState([]);
   const [selectedStore, setSelectedStore] = useState(null);
@@ -57,6 +58,12 @@ function Layout() {
   useEffect(() => {
     if (token) {
       fetchStores();
+      fetch(API + '/api/my-plan', { headers: { 'Authorization': 'Bearer ' + token } })
+        .then(r => r.json())
+        .then(data => {
+          setIsPremiumUser(data?.plan?.name && data.plan.name !== 'Gratis');
+        })
+        .catch(() => {});
     }
   }, [token]);
 
@@ -315,29 +322,33 @@ function Layout() {
               )}
             </li>
 
-            <li>
-              <NavLink to="/admin/plugins" end onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faPuzzlePiece} />
-                <span>Plugins</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/workshop" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faGlobe} />
-                <span>Workshop</span>
-              </NavLink>
-            </li>
+            {isPremiumUser && (
+              <>
+                <li>
+                  <NavLink to="/admin/plugins" end onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faPuzzlePiece} />
+                    <span>Plugins</span>
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/admin/workshop" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faGlobe} />
+                    <span>Workshop</span>
+                  </NavLink>
+                </li>
 
-            {getSidebarItems().map(item => (
-              <li key={item.pluginId}>
-                <NavLink to={item.path || `/admin/plugins/${item.pluginId}`} onClick={() => setMenuOpen(false)}>
-                  <FontAwesomeIcon icon={faPuzzlePiece} />
-                  <span>{item.label || item.pluginId}</span>
-                </NavLink>
-              </li>
-            ))}
+                {getSidebarItems().map(item => (
+                  <li key={item.pluginId}>
+                    <NavLink to={item.path || `/admin/plugins/${item.pluginId}`} onClick={() => setMenuOpen(false)}>
+                      <FontAwesomeIcon icon={faPuzzlePiece} />
+                      <span>{item.label || item.pluginId}</span>
+                    </NavLink>
+                  </li>
+                ))}
 
-            <PluginSlot name="sidebar" context={{ storeId: selectedStore?.id }} />
+                <PluginSlot name="sidebar" context={{ storeId: selectedStore?.id }} />
+              </>
+            )}
 
             <li>
               <button onClick={handleLogout} className="btn btn-secondary btn-full">

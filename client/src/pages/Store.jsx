@@ -19,7 +19,11 @@ import {
   faChevronRight,
   faCheckCircle,
   faGripVertical,
-  faLock
+  faLock,
+  faEdit,
+  faTrash,
+  faFolder,
+  faFolderPlus
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -85,6 +89,9 @@ function Store() {
   const [pinError, setPinError] = useState('');
   const [editDragActiveId, setEditDragActiveId] = useState(null);
   const [sessionPin, setSessionPin] = useState(null);
+  const [catModalOpen, setCatModalOpen] = useState(false);
+  const [editingCat, setEditingCat] = useState(null);
+  const [catName, setCatName] = useState('');
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
 
@@ -877,6 +884,46 @@ function Store() {
     }
   };
 
+  const openCatModal = (cat = null) => {
+    setEditingCat(cat);
+    setCatName(cat ? cat.name : '');
+    setCatModalOpen(true);
+  };
+
+  const saveCat = async () => {
+    if (!catName.trim()) return;
+    try {
+      const url = editingCat
+        ? `/api/public/${code}/categories/${editingCat.id}`
+        : `/api/public/${code}/categories`;
+      await fetch(url, {
+        method: editingCat ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: sessionPin, name: catName.trim() })
+      });
+      setCatModalOpen(false);
+      setCatName('');
+      setEditingCat(null);
+      fetchStore();
+    } catch (err) {
+      console.error('Error saving category:', err);
+    }
+  };
+
+  const deleteCat = async (cat) => {
+    if (!confirm(`¿Eliminar "${cat.name}"? Los productos quedarán sin categoría.`)) return;
+    try {
+      await fetch(`/api/public/${code}/categories/${cat.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: sessionPin })
+      });
+      fetchStore();
+    } catch (err) {
+      console.error('Error deleting category:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -1000,7 +1047,7 @@ function Store() {
   }
 
   return (
-    <PluginProvider mode="store">
+    <PluginProvider mode="store" isPremium={!!store?.store?.is_premium}>
     <div
       className="store-container"
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary }}
@@ -1098,17 +1145,47 @@ function Store() {
         </div>
       )}
 
-      {hasProducts && editMode && (
+      {editMode && (
         <div className="store-edit-mode-banner">
           <FontAwesomeIcon icon={faGripVertical} />
-          <span>Arrastra los productos para reordenar</span>
+          <span>Modo edición</span>
           <button className="btn btn-sm btn-secondary" onClick={() => setEditMode(false)}>
             Listo
           </button>
         </div>
       )}
 
-      {hasProducts && editMode && (
+      {editMode && (
+        <div className="store-edit-categories">
+          <div className="store-edit-categories-header">
+            <span><FontAwesomeIcon icon={faFolder} /> Categorías</span>
+            <button className="store-edit-cat-add-btn" onClick={() => openCatModal()}>
+              <FontAwesomeIcon icon={faFolderPlus} /> Nueva
+            </button>
+          </div>
+          <div className="store-edit-categories-list">
+            {(store?.categories || []).length === 0 ? (
+              <span className="store-edit-cat-empty">Sin categorías</span>
+            ) : (
+              (store?.categories || []).map(cat => (
+                <div key={cat.id} className="store-edit-cat-item">
+                  <span className="store-edit-cat-name">{cat.name}</span>
+                  <div className="store-edit-cat-actions">
+                    <button onClick={() => openCatModal(cat)} className="store-edit-cat-btn">
+                      <FontAwesomeIcon icon={faEdit} />
+                    </button>
+                    <button onClick={() => deleteCat(cat)} className="store-edit-cat-btn danger">
+                      <FontAwesomeIcon icon={faTrash} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {editMode && hasProducts && (
         <DndContext
           sensors={editSensors}
           collisionDetection={closestCenter}
@@ -2126,6 +2203,56 @@ function Store() {
           </div>
         </div>
       )}
+      {catModalOpen && (
+        <div className="store-modal-overlay" onClick={() => setCatModalOpen(false)}>
+          <div className="store-pin-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 16px', color: 'var(--store-primary)', textAlign: 'center' }}>
+              {editingCat ? 'Editar Categoría' : 'Nueva Categoría'}
+            </h3>
+            <input
+              type="text"
+              value={catName}
+              onChange={(e) => setCatName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveCat(); }}
+              placeholder="Nombre de la categoría"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '16px',
+                border: '2px solid var(--store-primary)',
+                borderRadius: '8px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+              <button
+                onClick={() => setCatModalOpen(false)}
+                style={{
+                  flex: 1, padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px',
+                  background: '#fff', fontSize: '14px', cursor: 'pointer', fontWeight: '600'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveCat}
+                disabled={!catName.trim()}
+                style={{
+                  flex: 1, padding: '10px', border: 'none', borderRadius: '8px',
+                  background: catName.trim() ? 'var(--store-accent)' : '#ccc',
+                  color: catName.trim() ? 'var(--store-primary)' : '#666',
+                  fontSize: '14px', cursor: catName.trim() ? 'pointer' : 'default', fontWeight: '700'
+                }}
+              >
+                {editingCat ? 'Guardar' : 'Crear'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {pinModalOpen && (
         <div className="store-modal-overlay" onClick={() => setPinModalOpen(false)}>
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()}>

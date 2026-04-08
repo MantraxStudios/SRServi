@@ -6969,6 +6969,99 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 12px;
 }
 
+.store-edit-categories {
+  margin: 0 16px 12px;
+  background: #fff;
+  border-radius: 10px;
+  border: 2px solid var(--store-primary);
+  overflow: hidden;
+}
+
+.store-edit-categories-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--store-primary);
+  color: var(--store-secondary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.store-edit-cat-add-btn {
+  border: none;
+  background: var(--store-accent);
+  color: var(--store-primary);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.store-edit-categories-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.store-edit-cat-empty {
+  display: block;
+  padding: 14px;
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+}
+
+.store-edit-cat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.store-edit-cat-item:last-child {
+  border-bottom: none;
+}
+
+.store-edit-cat-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.store-edit-cat-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.store-edit-cat-btn {
+  border: none;
+  background: #f0f0f0;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #555;
+  transition: all 0.15s;
+}
+
+.store-edit-cat-btn:active {
+  background: var(--store-primary);
+  color: var(--store-secondary);
+}
+
+.store-edit-cat-btn.danger:active {
+  background: #dc3545;
+  color: #fff;
+}
+
 .store-pin-modal {
   background: #fff;
   border-radius: 16px;

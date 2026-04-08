@@ -288,7 +288,8 @@ app.get('/api/public/:code', async (req, res) => {
     const isPremium = userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis';
     
     const products = await getPublicProducts(store.id);
-    
+    const categories = await getCategories(store.id);
+
     res.json({
       store: {
         id: store.id,
@@ -304,7 +305,8 @@ app.get('/api/public/:code', async (req, res) => {
         currency_name: store.currency_name || 'Dólar Estadounidense',
         is_premium: isPremium
       },
-      products
+      products,
+      categories
     });
   } catch (error) {
     console.error('❌ Error en /api/public:', error);
@@ -547,6 +549,51 @@ app.put('/api/public/:code/products/order', async (req, res) => {
     }
     await updateProductsOrder(store.id, products);
     emitProductUpdate(store.id, 'products_reordered', { products });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Public category management with PIN
+app.post('/api/public/:code/categories', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const valid = await verifyStoreEditPin(store.id, req.body.pin);
+    if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
+    if (!req.body.name) return res.status(400).json({ error: 'Nombre es requerido' });
+    const category = await createCategory(store.id, { name: req.body.name, description: req.body.description || '' });
+    emitProductUpdate(store.id, 'category_created', category);
+    res.json(category);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/public/:code/categories/:id', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const valid = await verifyStoreEditPin(store.id, req.body.pin);
+    if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
+    if (!req.body.name) return res.status(400).json({ error: 'Nombre es requerido' });
+    const category = await updateCategory(parseInt(req.params.id), store.id, { name: req.body.name, description: req.body.description || '' });
+    emitProductUpdate(store.id, 'category_updated', category);
+    res.json(category);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/public/:code/categories/:id', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const valid = await verifyStoreEditPin(store.id, req.body.pin);
+    if (!valid) return res.status(403).json({ error: 'PIN incorrecto' });
+    await deleteCategory(parseInt(req.params.id), store.id);
+    emitProductUpdate(store.id, 'category_deleted', { id: req.params.id });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -2539,9 +2586,22 @@ app.delete('/api/mercado-pago-terminals/:id', authenticateToken, async (req, res
 
 // ==================== Plugin Management API ====================
 
+const requirePremium = async (req, res, next) => {
+  try {
+    const plan = await getUserPlan(req.user.id);
+    const isPremium = plan && plan.plan_name && plan.plan_name !== 'Gratis';
+    if (!isPremium) {
+      return res.status(403).json({ error: 'Necesitas un plan Premium para usar plugins' });
+    }
+    next();
+  } catch {
+    res.status(403).json({ error: 'Error verificando plan' });
+  }
+};
+
 const pluginUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
-app.get('/api/admin/plugins', authenticateToken, async (req, res) => {
+app.get('/api/admin/plugins', authenticateToken, requirePremium, async (req, res) => {
   try {
     if (!pluginManager) return res.json([]);
     const plugins = await pluginManager.getAllPlugins();
@@ -2556,7 +2616,7 @@ app.get('/api/admin/plugins', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/admin/plugins/upload', authenticateToken, pluginUpload.single('plugin'), async (req, res) => {
+app.post('/api/admin/plugins/upload', authenticateToken, requirePremium, pluginUpload.single('plugin'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No se envió archivo' });
     if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
@@ -2567,7 +2627,7 @@ app.post('/api/admin/plugins/upload', authenticateToken, pluginUpload.single('pl
   }
 });
 
-app.post('/api/admin/plugins/:id/activate', authenticateToken, async (req, res) => {
+app.post('/api/admin/plugins/:id/activate', authenticateToken, requirePremium, async (req, res) => {
   try {
     if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
     await pluginManager.activate(req.params.id);
@@ -2577,7 +2637,7 @@ app.post('/api/admin/plugins/:id/activate', authenticateToken, async (req, res) 
   }
 });
 
-app.post('/api/admin/plugins/:id/deactivate', authenticateToken, async (req, res) => {
+app.post('/api/admin/plugins/:id/deactivate', authenticateToken, requirePremium, async (req, res) => {
   try {
     if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
     await pluginManager.deactivate(req.params.id);
@@ -2587,7 +2647,7 @@ app.post('/api/admin/plugins/:id/deactivate', authenticateToken, async (req, res
   }
 });
 
-app.delete('/api/admin/plugins/:id', authenticateToken, async (req, res) => {
+app.delete('/api/admin/plugins/:id', authenticateToken, requirePremium, async (req, res) => {
   try {
     if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
     await pluginManager.uninstall(req.params.id);
@@ -2597,7 +2657,7 @@ app.delete('/api/admin/plugins/:id', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/api/admin/plugins/:id/settings/:storeId', authenticateToken, async (req, res) => {
+app.get('/api/admin/plugins/:id/settings/:storeId', authenticateToken, requirePremium, async (req, res) => {
   try {
     if (!pluginManager) return res.json({});
     const settings = await pluginManager.getPluginSettings(req.params.id, parseInt(req.params.storeId));
@@ -2607,7 +2667,7 @@ app.get('/api/admin/plugins/:id/settings/:storeId', authenticateToken, async (re
   }
 });
 
-app.put('/api/admin/plugins/:id/settings/:storeId', authenticateToken, async (req, res) => {
+app.put('/api/admin/plugins/:id/settings/:storeId', authenticateToken, requirePremium, async (req, res) => {
   try {
     if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
     await pluginManager.savePluginSettings(req.params.id, parseInt(req.params.storeId), req.body);
@@ -2617,10 +2677,25 @@ app.put('/api/admin/plugins/:id/settings/:storeId', authenticateToken, async (re
   }
 });
 
-// Public: client manifest for frontend plugin loading
+// Client manifest - checks premium via token if provided
 app.get('/api/plugins/client-manifest', async (req, res) => {
   try {
     if (!pluginManager) return res.json([]);
+
+    // Check premium if token provided (admin mode)
+    const authHeader = req.headers['authorization'];
+    if (authHeader) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        const plan = await getUserPlan(decoded.id);
+        const isPremium = plan && plan.plan_name && plan.plan_name !== 'Gratis';
+        if (!isPremium) return res.json([]);
+      } catch {
+        return res.json([]);
+      }
+    }
+
     const manifest = await pluginManager.getClientManifest();
     res.json(manifest);
   } catch (error) {
@@ -2650,6 +2725,13 @@ app.post('/api/workshop/publish', authenticateToken, workshopUpload.fields([
   { name: 'logo', maxCount: 1 }
 ]), async (req, res) => {
   try {
+    // Solo premium puede publicar
+    const userPlan = await getUserPlan(req.user.id);
+    const isPremium = userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis';
+    if (!isPremium) {
+      return res.status(403).json({ error: 'Necesitas un plan Premium para publicar plugins en el Workshop' });
+    }
+
     const { description, contact_email, changelog } = req.body;
     if (!req.files?.plugin?.[0]) return res.status(400).json({ error: 'Se requiere un archivo .zip' });
     if (!contact_email) return res.status(400).json({ error: 'Se requiere email de contacto' });
@@ -2784,7 +2866,7 @@ app.get('/api/workshop/plugins/:pluginId/versions', async (req, res) => {
 });
 
 // Install a specific version from workshop
-app.post('/api/workshop/install/:pluginId', authenticateToken, async (req, res) => {
+app.post('/api/workshop/install/:pluginId', authenticateToken, requirePremium, async (req, res) => {
   try {
     const { pluginId } = req.params;
     const { version } = req.body || {};
@@ -2858,7 +2940,7 @@ app.delete('/api/workshop/my-plugins/:pluginId', authenticateToken, async (req, 
 });
 
 // Check installed plugins for current user
-app.get('/api/workshop/installed-ids', authenticateToken, async (req, res) => {
+app.get('/api/workshop/installed-ids', authenticateToken, requirePremium, async (req, res) => {
   try {
     if (!pluginManager) return res.json([]);
     const plugins = await pluginManager.getAllPlugins();

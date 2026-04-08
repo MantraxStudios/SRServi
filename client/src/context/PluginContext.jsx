@@ -14,19 +14,26 @@ export const usePlugins = () => useContext(PluginContext);
  * - admin-page: { render(container, ctx) } - renders in a plugin page
  * - store-header, store-footer, cart-summary, dashboard-widgets: { render(container, ctx) }
  */
-export function PluginProvider({ children, mode = 'admin' }) {
+export function PluginProvider({ children, mode = 'admin', isPremium = true }) {
   const [manifest, setManifest] = useState([]);
   const [registry, setRegistry] = useState({});
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     window.__SRSERVI_PLUGINS__ = window.__SRSERVI_PLUGINS__ || {};
-    fetchManifest();
-  }, []);
+    if (isPremium) {
+      fetchManifest();
+    } else {
+      setLoaded(true);
+    }
+  }, [isPremium]);
 
   const fetchManifest = async () => {
     try {
-      const response = await fetch('/api/plugins/client-manifest');
+      const headers = {};
+      const token = localStorage.getItem('token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const response = await fetch('/api/plugins/client-manifest', { headers });
       if (response.ok) {
         const data = await response.json();
         console.log(`[Plugins][${mode}] Manifest:`, data);
