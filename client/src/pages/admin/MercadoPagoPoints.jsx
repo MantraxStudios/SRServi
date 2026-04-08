@@ -153,6 +153,20 @@ function MercadoPagoPoints() {
       </header>
 
       <div className="admin-main">
+        <div className="card" style={{ marginBottom: '20px', padding: '16px', background: '#fffbe6', border: '2px solid #e6c200', borderRadius: '12px' }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: '15px' }}><FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#e6a800' }} /> Configuracion inicial de MercadoPago Point</h3>
+          <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', lineHeight: '1.8', color: '#555' }}>
+            <li>En la <strong>app de Mercado Pago</strong> del celular, ve a <strong>Tu negocio &gt; Sucursales y cajas</strong></li>
+            <li>Crea una <strong>Sucursal</strong> (si no tienes una)</li>
+            <li>Dentro de la sucursal, crea una <strong>Caja</strong></li>
+            <li>En la app, vincula tu <strong>dispositivo Point</strong> a esa caja (Bluetooth/USB)</li>
+            <li>Obtener tu <strong>Access Token</strong> desde <a href="https://www.mercadopago.com/developers/panel/app" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>mercadopago.com/developers</a> &gt; Tu aplicacion &gt; Credenciales de produccion</li>
+            <li>Aqui en SRServi, crea una <strong>Nueva Maquina</strong> con el Access Token y el Terminal ID</li>
+            <li>El Terminal ID lo encuentras abajo en <strong>Dispositivos MercadoPago</strong> al crear la maquina</li>
+            <li>Asegurate de que el modo sea <strong>PDV</strong> para cobrar desde SRServi</li>
+          </ol>
+        </div>
+
         {terminals.length === 0 ? (
           <div className="empty-state">
             <h3 className="empty-state-title">Sin máquinas configuradas</h3>
