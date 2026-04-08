@@ -28,7 +28,8 @@ import {
   faPalette,
   faCode,
   faFire,
-  faGlobe
+  faGlobe,
+  faClock
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -204,6 +205,8 @@ function Store() {
   const [lang, setLang] = useState(detectLanguage);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [welcomeModalOpen, setWelcomeModalOpen] = useState(false);
+  const [welcomeClosing, setWelcomeClosing] = useState(false);
+  const [welcomeSelectedLang, setWelcomeSelectedLang] = useState(null);
   const [inactivityModalOpen, setInactivityModalOpen] = useState(false);
   const [inactivityCountdown, setInactivityCountdown] = useState(10);
   const inactivityTimerRef = useRef(null);
@@ -3479,24 +3482,76 @@ function Store() {
           </div>
         </div>
       )}
-      {/* Welcome modal after purchase - language selection */}
+      {/* Welcome modal - language selection with explosion animation */}
       {welcomeModalOpen && (
-        <div className="store-modal-overlay" style={{ zIndex: 99999 }}>
-          <div style={{ background: 'var(--store-primary)', borderRadius: '20px', padding: '32px 24px', maxWidth: '360px', width: '90%', textAlign: 'center', color: 'var(--store-secondary)' }}>
-            <div style={{ fontSize: '56px', marginBottom: '12px' }}>👋</div>
-            <h2 style={{ margin: '0 0 6px', fontSize: '24px' }}>
+        <div className="store-modal-overlay" style={{ zIndex: 99999, transition: 'opacity 0.4s', opacity: welcomeClosing ? 0 : 1 }}>
+          <style>{`
+            @keyframes welcome-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+            @keyframes welcome-card-in { from{opacity:0;transform:scale(0.8) translateY(30px)} to{opacity:1;transform:scale(1) translateY(0)} }
+            @keyframes welcome-btn-in { from{opacity:0;transform:translateX(-20px)} to{opacity:1;transform:translateX(0)} }
+            @keyframes welcome-pulse { 0%,100%{box-shadow:0 0 0 0 var(--store-accent)} 50%{box-shadow:0 0 0 12px transparent} }
+            @keyframes welcome-selected-zoom { 0%{transform:scale(1)} 40%{transform:scale(1.15)} 100%{transform:scale(30);opacity:0} }
+            @keyframes welcome-check-pop { 0%{transform:scale(0) rotate(-45deg);opacity:0} 50%{transform:scale(1.3) rotate(10deg);opacity:1} 100%{transform:scale(1) rotate(0deg);opacity:1} }
+            @keyframes welcome-particles { 0%{transform:translate(0,0) scale(1);opacity:1} 100%{opacity:0} }
+            @keyframes welcome-shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
+          `}</style>
+          <div style={{ background: 'var(--store-primary)', borderRadius: '24px', padding: '36px 28px', maxWidth: '380px', width: '92%', textAlign: 'center', color: 'var(--store-secondary)', animation: 'welcome-card-in 0.6s cubic-bezier(0.34,1.56,0.64,1) both', position: 'relative', overflow: 'hidden' }}>
+
+            {/* Particles on selection */}
+            {welcomeSelectedLang && (
+              <>
+                {Array.from({ length: 12 }).map((_, i) => {
+                  const angle = (i / 12) * 360;
+                  const dist = 80 + Math.random() * 60;
+                  const dx = Math.cos(angle * Math.PI / 180) * dist;
+                  const dy = Math.sin(angle * Math.PI / 180) * dist;
+                  return <div key={i} style={{ position: 'absolute', top: '50%', left: '50%', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--store-accent)', animation: `welcome-particles 0.7s ease-out ${i * 0.03}s both`, transform: `translate(${dx}px, ${dy}px)`, zIndex: 10 }} />;
+                })}
+              </>
+            )}
+
+            <div style={{ fontSize: '42px', marginBottom: '12px', animation: 'welcome-float 2s ease-in-out infinite', color: 'var(--store-accent)' }}>
+              <FontAwesomeIcon icon={faGlobe} />
+            </div>
+            <h2 style={{ margin: '0 0 4px', fontSize: '26px', fontWeight: '800', background: `linear-gradient(90deg, var(--store-secondary), var(--store-accent), var(--store-secondary))`, backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'welcome-shimmer 3s linear infinite' }}>
               {lang === 'en' ? 'Welcome!' : lang === 'pt' ? 'Bem-vindo!' : 'Bienvenido!'}
             </h2>
-            <p style={{ margin: '0 0 20px', fontSize: '14px', opacity: 0.8 }}>
+            <p style={{ margin: '0 0 24px', fontSize: '14px', opacity: 0.7 }}>
               {lang === 'en' ? 'Select your language' : lang === 'pt' ? 'Selecione seu idioma' : 'Selecciona tu idioma'}
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {LANGUAGES.map(l => (
-                <button key={l.code} onClick={() => { setLang(l.code); localStorage.setItem('srservi_lang', l.code); setWelcomeModalOpen(false); }}
-                  style={{ padding: '14px', borderRadius: '12px', border: lang === l.code ? '3px solid var(--store-accent)' : '2px solid rgba(255,255,255,0.2)', background: lang === l.code ? 'var(--store-accent)' : 'rgba(255,255,255,0.1)', color: lang === l.code ? 'var(--store-primary)' : 'var(--store-secondary)', fontSize: '16px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '24px' }}>{l.flag}</span> {l.label}
-                </button>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {LANGUAGES.map((l, idx) => {
+                const isSelected = welcomeSelectedLang === l.code;
+                return (
+                  <button
+                    key={l.code}
+                    disabled={!!welcomeSelectedLang}
+                    onClick={() => {
+                      setWelcomeSelectedLang(l.code);
+                      setLang(l.code);
+                      localStorage.setItem('srservi_lang', l.code);
+                      setTimeout(() => setWelcomeClosing(true), 600);
+                      setTimeout(() => { setWelcomeModalOpen(false); setWelcomeClosing(false); setWelcomeSelectedLang(null); }, 1000);
+                    }}
+                    style={{
+                      padding: '16px', borderRadius: '14px', border: 'none', fontSize: '17px', fontWeight: '700', cursor: welcomeSelectedLang ? 'default' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
+                      background: isSelected ? 'var(--store-accent)' : 'rgba(255,255,255,0.1)',
+                      color: isSelected ? 'var(--store-primary)' : 'var(--store-secondary)',
+                      animation: isSelected ? 'welcome-selected-zoom 0.8s cubic-bezier(0.22,1,0.36,1) 0.2s both' : `welcome-btn-in 0.4s ease ${0.2 + idx * 0.1}s both`,
+                      transition: 'background 0.2s, transform 0.2s, box-shadow 0.2s',
+                      position: 'relative', zIndex: isSelected ? 5 : 1,
+                      ...(welcomeSelectedLang && !isSelected ? { opacity: 0, transform: 'scale(0.8)', transition: 'all 0.3s ease' } : {})
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faGlobe} style={{ fontSize: '20px' }} />
+                    {l.label}
+                    {isSelected && (
+                      <FontAwesomeIcon icon={faCheck} style={{ fontSize: '20px', animation: 'welcome-check-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both' }} />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -3506,7 +3561,6 @@ function Store() {
       {inactivityModalOpen && (
         <div className="store-modal-overlay" style={{ zIndex: 99998 }}>
           <div style={{ background: '#fff', borderRadius: '20px', padding: '32px 24px', maxWidth: '360px', width: '90%', textAlign: 'center' }}>
-            <div style={{ fontSize: '56px', marginBottom: '12px' }}>⏳</div>
             <h2 style={{ margin: '0 0 8px', fontSize: '22px', color: '#333' }}>
               {lang === 'en' ? 'Are you still there?' : lang === 'pt' ? 'Voce ainda esta ai?' : 'Sigues ahi?'}
             </h2>
