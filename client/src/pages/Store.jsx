@@ -327,9 +327,10 @@ function Store() {
         setSelectedTerminalId('');
       }
 
+      let configsData = [];
       const configsResponse = await fetch(`/api/public/store-configurations/${data.store.id}`);
       if (configsResponse.ok) {
-        const configsData = await configsResponse.json();
+        configsData = await configsResponse.json();
         setConfigurations(configsData);
 
         if (configFromUrl) {
@@ -350,6 +351,36 @@ function Store() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ device_uid: deviceUid })
       }).catch(() => {});
+
+      // Load device-specific config
+      try {
+        const dcRes = await fetch(`/api/public/device-config/${deviceUid}/${data.store.id}`);
+        if (dcRes.ok) {
+          const dc = await dcRes.json();
+          // Apply assigned configuration
+          if (dc.config_id && configsData) {
+            const assigned = configsData.find(c => c.id === dc.config_id);
+            if (assigned) setSelectedConfiguration(assigned);
+          }
+          // Setup restart timer
+          if (dc.restart_time) {
+            const [h, m] = dc.restart_time.split(':').map(Number);
+            const checkRestart = () => {
+              const now = new Date();
+              if (now.getHours() === h && now.getMinutes() === m) {
+                window.location.reload();
+              }
+            };
+            const restartInterval = setInterval(checkRestart, 30000);
+            // Store for cleanup
+            window.__srservi_restart_interval = restartInterval;
+          }
+          // Pending restart (config was changed from admin)
+          if (dc.pending_restart) {
+            window.location.reload();
+          }
+        }
+      } catch { /* ignore */ }
 
       // Check if a plugin payment provider is available
       try {
@@ -1258,24 +1289,6 @@ function Store() {
       </header>
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
-
-      {!configFromUrl && configurations.length > 1 && (
-        <div className="config-selector">
-          <div className="config-selector-list">
-            {configurations.map(config => (
-              <button
-                key={config.id}
-                onClick={() => setSelectedConfiguration(config)}
-                className={`config-btn${selectedConfiguration?.id === config.id ? ' active' : ''}`}
-              >
-                {config.accept_cash && <FontAwesomeIcon icon={faMoneyBillWave} />}
-                {config.accept_card && <FontAwesomeIcon icon={faCreditCard} />}
-                {config.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="category-tabs">
         <div

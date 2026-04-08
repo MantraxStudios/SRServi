@@ -592,7 +592,40 @@ app.get('/api/store-devices', authenticateToken, async (req, res) => {
   }
 });
 
-// Update device label (admin)
+// Update device (label, config, restart time)
+app.put('/api/store-devices/:id', authenticateToken, async (req, res) => {
+  try {
+    const { label, config_id, restart_time } = req.body;
+    // Add columns if missing
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM store_devices');
+      const names = cols.map(c => c.Field);
+      if (!names.includes('config_id')) await pool.execute('ALTER TABLE store_devices ADD COLUMN config_id INT DEFAULT NULL');
+      if (!names.includes('restart_time')) await pool.execute('ALTER TABLE store_devices ADD COLUMN restart_time VARCHAR(10) DEFAULT NULL');
+      if (!names.includes('pending_restart')) await pool.execute('ALTER TABLE store_devices ADD COLUMN pending_restart BOOLEAN DEFAULT FALSE');
+    } catch { /* ignore */ }
+
+    const fields = [];
+    const values = [];
+    if (label !== undefined) { fields.push('label = ?'); values.push(label || null); }
+    if (config_id !== undefined) { fields.push('config_id = ?'); values.push(config_id || null); }
+    if (restart_time !== undefined) { fields.push('restart_time = ?'); values.push(restart_time || null); }
+    if (fields.length === 0) return res.json({ success: true });
+
+    // Mark pending_restart when config changes
+    if (config_id !== undefined || restart_time !== undefined) {
+      fields.push('pending_restart = TRUE');
+    }
+
+    values.push(parseInt(req.params.id));
+    await pool.execute(`UPDATE store_devices SET ${fields.join(', ')} WHERE id = ?`, values);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Legacy label endpoint
 app.put('/api/store-devices/:id/label', authenticateToken, async (req, res) => {
   try {
     const { label } = req.body;
@@ -600,6 +633,38 @@ app.put('/api/store-devices/:id/label', authenticateToken, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Public: get device config (called by Store on load)
+app.get('/api/public/device-config/:deviceUid/:storeId', async (req, res) => {
+  try {
+    // Add columns if missing
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM store_devices');
+      const names = cols.map(c => c.Field);
+      if (!names.includes('config_id')) await pool.execute('ALTER TABLE store_devices ADD COLUMN config_id INT DEFAULT NULL');
+      if (!names.includes('restart_time')) await pool.execute('ALTER TABLE store_devices ADD COLUMN restart_time VARCHAR(10) DEFAULT NULL');
+      if (!names.includes('pending_restart')) await pool.execute('ALTER TABLE store_devices ADD COLUMN pending_restart BOOLEAN DEFAULT FALSE');
+    } catch { /* ignore */ }
+
+    const [rows] = await pool.execute(
+      'SELECT config_id, restart_time, pending_restart FROM store_devices WHERE device_uid = ? AND store_id = ?',
+      [req.params.deviceUid, parseInt(req.params.storeId)]
+    );
+    if (rows.length === 0) return res.json({ config_id: null, restart_time: null, pending_restart: false });
+
+    // Clear pending restart flag after reading
+    if (rows[0].pending_restart) {
+      await pool.execute(
+        'UPDATE store_devices SET pending_restart = FALSE WHERE device_uid = ? AND store_id = ?',
+        [req.params.deviceUid, parseInt(req.params.storeId)]
+      );
+    }
+
+    res.json(rows[0]);
+  } catch (error) {
+    res.json({ config_id: null, restart_time: null, pending_restart: false });
   }
 });
 

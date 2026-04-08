@@ -30,7 +30,8 @@ import {
   faLock,
   faPuzzlePiece,
   faGlobe,
-  faEye
+  faEye,
+  faTabletAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -317,6 +318,10 @@ function Layout() {
                   <NavLink to="/admin/store-pin" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faLock} />
                     <span>PIN Tienda</span>
+                  </NavLink>
+                  <NavLink to="/admin/devices" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faTabletAlt} />
+                    <span>Dispositivos</span>
                   </NavLink>
                 </div>
               )}
