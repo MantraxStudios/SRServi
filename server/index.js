@@ -335,11 +335,13 @@ app.get('/api/public/:code', async (req, res) => {
         currency_code: store.currency_code || 'USD',
         currency_symbol: store.currency_symbol || '$',
         currency_name: store.currency_name || 'Dólar Estadounidense',
-        is_premium: isPremium
+        is_premium: isPremium,
+        smart_mode: store.smart_mode ?? true,
+        inactivity_timeout: store.inactivity_timeout ?? 120
       },
       products,
       categories,
-      top_selling: topSellingIds
+      top_selling: (store.smart_mode !== false && store.smart_mode !== 0) ? topSellingIds : []
     });
   } catch (error) {
     console.error('❌ Error en /api/public:', error);
@@ -482,7 +484,7 @@ app.post('/api/stores', authenticateToken, upload.single('logo'), async (req, re
 
 app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
-    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card } = req.body;
+    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
@@ -503,7 +505,9 @@ app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req,
       currency_name,
       logo_url,
       worker_accept_cash,
-      worker_accept_card
+      worker_accept_card,
+      smart_mode,
+      inactivity_timeout
     });
     res.json(store);
   } catch (error) {

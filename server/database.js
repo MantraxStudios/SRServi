@@ -880,7 +880,15 @@ export async function createStore(userId, data) {
 }
 
 export async function updateStore(storeId, userId, data) {
-  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card } = data;
+  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout } = data;
+
+  // Ensure columns exist
+  try {
+    const [cols] = await pool.execute('SHOW COLUMNS FROM stores');
+    const names = cols.map(c => c.Field);
+    if (!names.includes('smart_mode')) await pool.execute('ALTER TABLE stores ADD COLUMN smart_mode BOOLEAN DEFAULT TRUE');
+    if (!names.includes('inactivity_timeout')) await pool.execute('ALTER TABLE stores ADD COLUMN inactivity_timeout INT DEFAULT 120');
+  } catch { /* ignore */ }
 
   let query = `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ?`;
   let params = [name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name];
@@ -898,6 +906,16 @@ export async function updateStore(storeId, userId, data) {
   if (worker_accept_card !== undefined) {
     query += `, worker_accept_card = ?`;
     params.push(worker_accept_card ? 1 : 0);
+  }
+
+  if (smart_mode !== undefined) {
+    query += `, smart_mode = ?`;
+    params.push(smart_mode === true || smart_mode === 'true' || smart_mode === '1' ? 1 : 0);
+  }
+
+  if (inactivity_timeout !== undefined) {
+    query += `, inactivity_timeout = ?`;
+    params.push(parseInt(inactivity_timeout) || 120);
   }
 
   query += ` WHERE id = ? AND user_id = ?`;

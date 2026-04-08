@@ -226,6 +226,7 @@ function Store() {
       if (inactivityCountdownRef.current) clearInterval(inactivityCountdownRef.current);
       setInactivityModalOpen(false);
       setInactivityCountdown(10);
+      const timeout = (store?.store?.inactivity_timeout || 120) * 1000;
       inactivityTimerRef.current = setTimeout(() => {
         setInactivityModalOpen(true);
         setInactivityCountdown(10);
@@ -238,7 +239,7 @@ function Store() {
             window.location.reload();
           }
         }, 1000);
-      }, 120000); // 2 minutes
+      }, timeout);
     };
     const events = ['touchstart', 'mousedown', 'keydown', 'scroll'];
     events.forEach(e => document.addEventListener(e, resetInactivity, { passive: true }));
@@ -470,6 +471,13 @@ function Store() {
       console.log('Number of products:', deduplicatedData.products?.length || 0);
       setStore(deduplicatedData);
       if (data.top_selling) setTopSellingIds(data.top_selling);
+
+      // Show welcome/language modal on first visit per session
+      const sessionKey = 'srservi_welcomed_' + code;
+      if (!sessionStorage.getItem(sessionKey) && !adminEditToken) {
+        setTimeout(() => setWelcomeModalOpen(true), 800);
+        sessionStorage.setItem(sessionKey, '1');
+      }
 
       const terminalsResponse = await fetch(`/api/public/${code}/mercado-pago-terminals`);
       if (terminalsResponse.ok) {

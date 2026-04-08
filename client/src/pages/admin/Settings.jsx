@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPalette, faCoins, faChevronDown, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faPalette, faCoins, faChevronDown, faCheck, faFire, faClock } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useNavigate, Link } from 'react-router-dom';
 
@@ -29,7 +29,9 @@ function Settings() {
     header_color: '#000000',
     currency_code: 'USD',
     currency_symbol: '$',
-    currency_name: 'Dólar Estadounidense'
+    currency_name: 'Dólar Estadounidense',
+    smart_mode: true,
+    inactivity_timeout: 120
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -45,7 +47,9 @@ function Settings() {
         header_color: selectedStore.header_color || '#000000',
         currency_code: selectedStore.currency_code || 'USD',
         currency_symbol: selectedStore.currency_symbol || '$',
-        currency_name: selectedStore.currency_name || 'Dólar Estadounidense'
+        currency_name: selectedStore.currency_name || 'Dólar Estadounidense',
+        smart_mode: selectedStore.smart_mode ?? true,
+        inactivity_timeout: selectedStore.inactivity_timeout ?? 120
       });
     }
   }, [selectedStore]);
@@ -166,6 +170,51 @@ function Settings() {
             <small className="currency-hint">
               Los precios en tu tienda se mostrarán con esta moneda
             </small>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">
+              <FontAwesomeIcon icon={faFire} className="gap-2" />
+              Modo Smart e Inactividad
+            </div>
+          </div>
+          <div style={{ padding: '0 20px 20px' }}>
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '15px' }}>
+                <input
+                  type="checkbox"
+                  checked={!!formData.smart_mode}
+                  onChange={(e) => setFormData(prev => ({ ...prev, smart_mode: e.target.checked }))}
+                  style={{ width: '20px', height: '20px' }}
+                />
+                <div>
+                  <strong>Modo Smart</strong>
+                  <div style={{ fontSize: '12px', color: '#888', fontWeight: '400' }}>
+                    Los productos mas vendidos aparecen primero con un badge brillante (solo Premium)
+                  </div>
+                </div>
+              </label>
+            </div>
+            <div className="form-group">
+              <label>
+                <FontAwesomeIcon icon={faClock} /> Tiempo de inactividad (segundos)
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input
+                  type="number"
+                  min="30"
+                  max="600"
+                  value={formData.inactivity_timeout}
+                  onChange={(e) => setFormData(prev => ({ ...prev, inactivity_timeout: parseInt(e.target.value) || 120 }))}
+                  style={{ width: '100px' }}
+                />
+                <span style={{ fontSize: '13px', color: '#888' }}>
+                  {Math.floor((formData.inactivity_timeout || 120) / 60)}m {(formData.inactivity_timeout || 120) % 60}s — despues de este tiempo sin uso aparece el modal "¿Sigues ahi?"
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
