@@ -910,6 +910,40 @@ app.put('/api/public/:code/categories/:id', async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// Sync product complements (ingredients + extras)
+app.put('/api/public/:code/products/:id/complements', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    const productId = parseInt(req.params.id);
+    const { ingredient_ids = [], extra_ids = [] } = req.body;
+
+    // Sync ingredients
+    await pool.execute('DELETE FROM product_ingredients WHERE product_id = ?', [productId]);
+    for (const ingId of ingredient_ids) {
+      await pool.execute('INSERT INTO product_ingredients (product_id, ingredient_id) VALUES (?, ?)', [productId, parseInt(ingId)]);
+    }
+
+    // Sync extras
+    await pool.execute('DELETE FROM product_extras WHERE product_id = ?', [productId]);
+    for (const extId of extra_ids) {
+      await pool.execute('INSERT INTO product_extras (product_id, extra_id) VALUES (?, ?)', [productId, parseInt(extId)]);
+    }
+
+    res.json({ success: true });
+  } catch (error) { console.error('Error syncing complements:', error); res.status(500).json({ error: error.message }); }
+});
+
+// Get product complement associations
+app.get('/api/public/:code/products/:id/complements', async (req, res) => {
+  try {
+    const productId = parseInt(req.params.id);
+    const [ings] = await pool.execute('SELECT ingredient_id FROM product_ingredients WHERE product_id = ?', [productId]);
+    const [exts] = await pool.execute('SELECT extra_id FROM product_extras WHERE product_id = ?', [productId]);
+    res.json({ ingredient_ids: ings.map(r => r.ingredient_id), extra_ids: exts.map(r => r.extra_id) });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 app.delete('/api/public/:code/categories/:id', async (req, res) => {
   try {
     const auth = await verifyStoreAccess(req.params.code, req.body);
@@ -3128,11 +3162,11 @@ app.post('/api/workshop/publish', authenticateToken, workshopUpload.fields([
       await pool.execute(updateQuery, updateParams);
     } else {
       await pool.execute(
-        `INSERT INTO plugin_workshop (plugin_id, user_id, name, latest_version, description, author, contact_email, logo, downloads, hooks, admin_slots, store_slots)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+        `INSERT INTO plugin_workshop (plugin_id, user_id, name, latest_version, description, author, contact_email, logo, downloads, zip_path, hooks, admin_slots, store_slots)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
         [pluginJson.id, req.user.id, pluginJson.name, pluginJson.version,
          description || pluginJson.description || '', author, contact_email,
-         logoPath, JSON.stringify(pluginJson.hooks || []),
+         logoPath, zipPath, JSON.stringify(pluginJson.hooks || []),
          JSON.stringify(pluginJson.adminSlots || []), JSON.stringify(pluginJson.storeSlots || [])]
       );
     }
