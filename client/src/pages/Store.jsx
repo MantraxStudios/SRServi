@@ -178,12 +178,17 @@ function Store() {
   const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', stock: '0', unlimited_stock: true });
   const [prodImageFile, setProdImageFile] = useState(null);
   const [prodSaving, setProdSaving] = useState(false);
+  const [prodNewExtras, setProdNewExtras] = useState([]);
+  const [prodNewIngredients, setProdNewIngredients] = useState([]);
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
+  const storeIdRef = useRef(null);
+  const socketRef = useRef(null);
 
   useEffect(() => {
     setActiveCategory('all');
-  }, [store?.id]);
+    storeIdRef.current = store?.store?.id || null;
+  }, [store?.store?.id]);
 
   useEffect(() => {
     if (selectedConfiguration?.is_minimarket && store?.store?.code) {
@@ -236,11 +241,12 @@ function Store() {
     fetchStore();
 
     const socket = io(SOCKET_URL);
+    socketRef.current = socket;
 
     socket.on('connect', () => {
       console.log('Conectado al servidor WebSocket');
-      if (store?.store?.id) {
-        socket.emit('register_store', store.store.id);
+      if (storeIdRef.current) {
+        socket.emit('register_store', storeIdRef.current);
       }
     });
 
@@ -330,27 +336,26 @@ function Store() {
 
     socket.on('totem_restart', (data) => {
       // Only restart if this is not the admin editor and matches our store
-      if (!adminEditToken && store?.store?.id && data.store_id === store.store.id) {
+      if (!adminEditToken && storeIdRef.current && data.store_id === storeIdRef.current) {
         showRestartNotification(5);
       }
     });
 
     return () => {
       socket.disconnect();
+      socketRef.current = null;
     };
   }, [code, terminalFromUrl]);
 
   useEffect(() => {
-    if (store?.store?.id) {
-      const socket = io(SOCKET_URL);
-      socket.emit('register_store', store.store.id);
-      socket.disconnect();
+    if (store?.store?.id && socketRef.current?.connected) {
+      socketRef.current.emit('register_store', store.store.id);
     }
   }, [store?.store?.id]);
 
   const fetchStore = async () => {
     try {
-      const response = await fetch(`/api/public/${code}`);
+      const response = await fetch(`/api/public/${code}`, { cache: 'no-store' });
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -1214,6 +1219,8 @@ function Store() {
       unlimited_stock: product?.unlimited_stock ?? true
     });
     setProdImageFile(null);
+    setProdNewExtras([]);
+    setProdNewIngredients([]);
     setProdModalOpen(true);
   };
 
@@ -1245,16 +1252,48 @@ function Store() {
 
       // Update stock if admin editor
       if (adminToken) {
-        const prodData = await (await fetch(`/api/public/${code}`)).json();
+        const prodData = await (await fetch(`/api/public/${code}`, { cache: 'no-store' })).json();
         const lastProd = editingProd ? editingProd : prodData.products?.[prodData.products.length - 1];
         if (lastProd?.id) {
           await updateProductStock(lastProd.id, parseInt(prodForm.stock) || 0, prodForm.unlimited_stock);
         }
       }
 
+      // Create new complements (extras & ingredients) if any
+      if (adminToken) {
+        const categoryId = prodForm.category_id || '';
+        for (const ext of prodNewExtras) {
+          if (!ext.name.trim()) continue;
+          const extData = new FormData();
+          extData.append('token', adminToken);
+          extData.append('name', ext.name.trim());
+          extData.append('price', parseFloat(ext.price) || 0);
+          extData.append('category_id', categoryId);
+          extData.append('stock', 0);
+          extData.append('unlimited_stock', true);
+          await fetch(`/api/public/${code}/extras`, { method: 'POST', body: extData });
+        }
+        for (const ing of prodNewIngredients) {
+          if (!ing.name.trim()) continue;
+          const ingData = new FormData();
+          ingData.append('token', adminToken);
+          ingData.append('name', ing.name.trim());
+          ingData.append('price', parseFloat(ing.price) || 0);
+          ingData.append('category_id', categoryId);
+          ingData.append('stock', 0);
+          ingData.append('unlimited_stock', true);
+          await fetch(`/api/public/${code}/ingredients`, { method: 'POST', body: ingData });
+        }
+        if (prodNewExtras.length > 0 || prodNewIngredients.length > 0) {
+          fetchComplements();
+        }
+      }
+
       setProdModalOpen(false);
       setEditingProd(null);
       setProdImageFile(null);
+      setProdNewExtras([]);
+      setProdNewIngredients([]);
       fetchStore();
     } catch (err) {
       console.error('Error saving product:', err);
@@ -2635,10 +2674,102 @@ function Store() {
                   />
                 )}
               </div>
+
+              {adminToken && (
+                <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px', marginTop: '4px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-primary)', marginBottom: '8px' }}>Extras</div>
+                  {extras.filter(e => !prodForm.category_id || String(e.category_id) === String(prodForm.category_id) || !e.category_id).length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                      {extras.filter(e => !prodForm.category_id || String(e.category_id) === String(prodForm.category_id) || !e.category_id).map(e => (
+                        <span key={e.id} style={{ fontSize: '11px', padding: '3px 8px', background: '#f0f0f0', borderRadius: '12px', color: '#555' }}>
+                          {e.name}{Number(e.price) > 0 ? ` +${Number(e.price).toFixed(0)}` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {prodNewExtras.map((ext, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        value={ext.name}
+                        onChange={(e) => { const arr = [...prodNewExtras]; arr[i] = { ...arr[i], name: e.target.value }; setProdNewExtras(arr); }}
+                        placeholder="Nombre"
+                        className="store-prod-modal-input"
+                        style={{ flex: 2, padding: '8px', fontSize: '13px' }}
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={ext.price}
+                        onChange={(e) => { const arr = [...prodNewExtras]; arr[i] = { ...arr[i], price: e.target.value }; setProdNewExtras(arr); }}
+                        placeholder="$"
+                        className="store-prod-modal-input"
+                        style={{ flex: 1, padding: '8px', fontSize: '13px' }}
+                      />
+                      <button
+                        onClick={() => setProdNewExtras(prodNewExtras.filter((_, j) => j !== i))}
+                        style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '14px', padding: '4px' }}
+                      >
+                        <FontAwesomeIcon icon={faTimes} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setProdNewExtras([...prodNewExtras, { name: '', price: '' }])}
+                    style={{ fontSize: '12px', color: 'var(--store-primary)', background: 'none', border: '1px dashed #ccc', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', width: '100%' }}
+                  >
+                    <FontAwesomeIcon icon={faPlus} /> Agregar extra
+                  </button>
+
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-primary)', marginBottom: '8px', marginTop: '12px' }}>Ingredientes</div>
+                  {ingredients.filter(ing => !prodForm.category_id || String(ing.category_id) === String(prodForm.category_id) || !ing.category_id).length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                      {ingredients.filter(ing => !prodForm.category_id || String(ing.category_id) === String(prodForm.category_id) || !ing.category_id).map(ing => (
+                        <span key={ing.id} style={{ fontSize: '11px', padding: '3px 8px', background: '#f0f0f0', borderRadius: '12px', color: '#555' }}>
+                          {ing.name}{Number(ing.price) > 0 ? ` +${Number(ing.price).toFixed(0)}` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {prodNewIngredients.map((ing, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        value={ing.name}
+                        onChange={(e) => { const arr = [...prodNewIngredients]; arr[i] = { ...arr[i], name: e.target.value }; setProdNewIngredients(arr); }}
+                        placeholder="Nombre"
+                        className="store-prod-modal-input"
+                        style={{ flex: 2, padding: '8px', fontSize: '13px' }}
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={ing.price}
+                        onChange={(e) => { const arr = [...prodNewIngredients]; arr[i] = { ...arr[i], price: e.target.value }; setProdNewIngredients(arr); }}
+                        placeholder="$"
+                        className="store-prod-modal-input"
+                        style={{ flex: 1, padding: '8px', fontSize: '13px' }}
+                      />
+                      <button
+                        onClick={() => setProdNewIngredients(prodNewIngredients.filter((_, j) => j !== i))}
+                        style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '14px', padding: '4px' }}
+                      >
+                        <FontAwesomeIcon icon={faTimes} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setProdNewIngredients([...prodNewIngredients, { name: '', price: '' }])}
+                    style={{ fontSize: '12px', color: 'var(--store-primary)', background: 'none', border: '1px dashed #ccc', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', width: '100%' }}
+                  >
+                    <FontAwesomeIcon icon={faPlus} /> Agregar ingrediente
+                  </button>
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
               <button
-                onClick={() => { setProdModalOpen(false); setProdImageFile(null); }}
+                onClick={() => { setProdModalOpen(false); setProdImageFile(null); setProdNewExtras([]); setProdNewIngredients([]); }}
                 className="store-prod-modal-btn cancel"
               >
                 Cancelar
