@@ -139,7 +139,8 @@ io.on('connection', (socket) => {
   socket.on('register_store', (storeId) => {
     userSockets.set(storeId, socket.id);
     socket.storeId = storeId;
-    console.log(`Socket ${socket.id} registrado para tienda ${storeId}`);
+    socket.join(`store_${storeId}`);
+    console.log(`Socket ${socket.id} registrado para tienda ${storeId} (room: store_${storeId})`);
   });
   
   socket.on('disconnect', () => {
@@ -818,7 +819,8 @@ app.post('/api/public/:code/restart-all', async (req, res) => {
     }
     await pool.execute('UPDATE store_devices SET pending_restart = TRUE WHERE store_id = ?', [store.id]);
 
-    // Also emit socket event for instant restart
+    // Emit to store room + global fallback
+    io.to(`store_${store.id}`).emit('totem_restart', { store_id: store.id });
     io.emit('totem_restart', { store_id: store.id });
 
     res.json({ success: true });

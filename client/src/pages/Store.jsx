@@ -246,7 +246,14 @@ function Store() {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('Conectado al servidor WebSocket');
+      console.log('Conectado al servidor WebSocket:', socket.id);
+      if (storeIdRef.current) {
+        socket.emit('register_store', storeIdRef.current);
+      }
+    });
+
+    socket.on('reconnect', () => {
+      console.log('Reconectado al servidor WebSocket:', socket.id);
       if (storeIdRef.current) {
         socket.emit('register_store', storeIdRef.current);
       }
@@ -337,8 +344,9 @@ function Store() {
     });
 
     socket.on('totem_restart', (data) => {
+      console.log('totem_restart received:', data, 'myStore:', storeIdRef.current, 'isAdmin:', !!adminEditToken);
       // Only restart if this is not the admin editor and matches our store
-      if (!adminEditToken && storeIdRef.current && data.store_id === storeIdRef.current) {
+      if (!adminEditToken && storeIdRef.current && String(data.store_id) === String(storeIdRef.current)) {
         showRestartNotification(5);
       }
     });
