@@ -705,10 +705,9 @@ app.post('/api/public/:code/extras', upload.single('image'), async (req, res) =>
     const image = req.file ? `/uploads/${req.file.filename}` : null;
     const catId = req.body.category_id && req.body.category_id !== '' && req.body.category_id !== 'null' ? parseInt(req.body.category_id) : null;
     const [result] = await pool.execute(
-      'INSERT INTO extras (store_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?)',
-      [store.id, req.body.name, parseFloat(req.body.price) || 0, catId, image]
+      'INSERT INTO extras (store_id, user_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?, ?)',
+      [store.id, store.user_id, req.body.name, parseFloat(req.body.price) || 0, catId, image]
     );
-    // Update stock in inventory-style columns if they exist
     try {
       await pool.execute('UPDATE extras SET stock = ?, unlimited_stock = ? WHERE id = ?',
         [parseInt(req.body.stock) || 0, req.body.unlimited_stock === 'true' ? 1 : 0, result.insertId]);
@@ -727,8 +726,8 @@ app.post('/api/public/:code/ingredients', upload.single('image'), async (req, re
     const image = req.file ? `/uploads/${req.file.filename}` : null;
     const catId = req.body.category_id && req.body.category_id !== '' && req.body.category_id !== 'null' ? parseInt(req.body.category_id) : null;
     const [result] = await pool.execute(
-      'INSERT INTO ingredients (store_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?)',
-      [store.id, req.body.name, parseFloat(req.body.price) || 0, catId, image]
+      'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?, ?)',
+      [store.id, store.user_id, req.body.name, parseFloat(req.body.price) || 0, catId, image]
     );
     try {
       await pool.execute('UPDATE ingredients SET stock = ?, unlimited_stock = ? WHERE id = ?',
