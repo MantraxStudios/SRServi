@@ -2690,129 +2690,87 @@ function Store() {
                 <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px', marginTop: '4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-primary)' }}>Complementos</div>
-                    {ingredients.length > 0 && (
-                      <button
-                        onClick={() => setShowExistingComplements(!showExistingComplements)}
-                        style={{ fontSize: '11px', color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
-                      >
-                        {showExistingComplements ? 'Ocultar' : `Ver existentes (${ingredients.length})`} <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: '9px', transform: showExistingComplements ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setShowExistingComplements(!showExistingComplements)}
+                      style={{ fontSize: '11px', color: 'var(--store-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', fontWeight: '600' }}
+                    >
+                      <FontAwesomeIcon icon={faPlus} style={{ fontSize: '9px' }} /> {showExistingComplements ? 'Ocultar' : 'Crear nuevo'} <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: '9px', transform: showExistingComplements ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                    </button>
                   </div>
-                  {showExistingComplements && ingredients.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px', padding: '8px', background: '#fafafa', borderRadius: '8px' }}>
+                  {ingredients.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
                       {ingredients.map(ing => (
-                        <span key={ing.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '3px 8px', background: '#fff', borderRadius: '12px', color: '#555', border: '1px solid #e8e8e8' }}>
+                        <span key={ing.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '3px 8px', background: '#f0f0f0', borderRadius: '12px', color: '#555' }}>
                           {ing.image && <img src={getImageUrl(ing.image)} alt="" style={{ width: '16px', height: '16px', borderRadius: '4px', objectFit: 'cover' }} />}
                           {ing.name}{Number(ing.price) > 0 ? ` +$${Number(ing.price).toFixed(0)}` : ''}
                         </span>
                       ))}
                     </div>
                   )}
-                  {prodNewComplements.map((comp, i) => (
-                    <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
-                      <label style={{ width: '32px', height: '32px', borderRadius: '6px', background: comp.imageFile ? 'transparent' : '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '1px solid #ddd' }}>
-                        {comp.imageFile ? (
-                          <img src={URL.createObjectURL(comp.imageFile)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <FontAwesomeIcon icon={faBox} style={{ fontSize: '12px', color: '#bbb' }} />
-                        )}
-                        <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) { const arr = [...prodNewComplements]; arr[i] = { ...arr[i], imageFile: e.target.files[0] }; setProdNewComplements(arr); } }} style={{ display: 'none' }} />
-                      </label>
-                      <input
-                        type="text"
-                        value={comp.name}
-                        onChange={(e) => { const arr = [...prodNewComplements]; arr[i] = { ...arr[i], name: e.target.value }; setProdNewComplements(arr); }}
-                        placeholder="Nombre"
-                        className="store-prod-modal-input"
-                        style={{ flex: 2, padding: '8px', fontSize: '13px' }}
-                      />
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={comp.price}
-                        onChange={(e) => { const arr = [...prodNewComplements]; arr[i] = { ...arr[i], price: e.target.value }; setProdNewComplements(arr); }}
-                        placeholder="$"
-                        className="store-prod-modal-input"
-                        style={{ flex: 1, padding: '8px', fontSize: '13px' }}
-                      />
-                      <button
-                        onClick={() => setProdNewComplements(prodNewComplements.filter((_, j) => j !== i))}
-                        style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '14px', padding: '4px' }}
-                      >
-                        <FontAwesomeIcon icon={faTimes} />
+                  {showExistingComplements && (
+                    <div style={{ padding: '8px', background: '#fafafa', borderRadius: '8px', marginBottom: '8px' }}>
+                      {prodNewComplements.map((comp, i) => (
+                        <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+                          <label style={{ width: '32px', height: '32px', borderRadius: '6px', background: comp.imageFile ? 'transparent' : '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '1px solid #ddd' }}>
+                            {comp.imageFile ? (
+                              <img src={URL.createObjectURL(comp.imageFile)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <FontAwesomeIcon icon={faBox} style={{ fontSize: '12px', color: '#bbb' }} />
+                            )}
+                            <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) { const arr = [...prodNewComplements]; arr[i] = { ...arr[i], imageFile: e.target.files[0] }; setProdNewComplements(arr); } }} style={{ display: 'none' }} />
+                          </label>
+                          <input type="text" value={comp.name} onChange={(e) => { const arr = [...prodNewComplements]; arr[i] = { ...arr[i], name: e.target.value }; setProdNewComplements(arr); }} placeholder="Nombre" className="store-prod-modal-input" style={{ flex: 2, padding: '8px', fontSize: '13px' }} />
+                          <input type="number" step="0.01" value={comp.price} onChange={(e) => { const arr = [...prodNewComplements]; arr[i] = { ...arr[i], price: e.target.value }; setProdNewComplements(arr); }} placeholder="$" className="store-prod-modal-input" style={{ flex: 1, padding: '8px', fontSize: '13px' }} />
+                          <button onClick={() => setProdNewComplements(prodNewComplements.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '14px', padding: '4px' }}><FontAwesomeIcon icon={faTimes} /></button>
+                        </div>
+                      ))}
+                      <button onClick={() => setProdNewComplements([...prodNewComplements, { name: '', price: '', imageFile: null }])} style={{ fontSize: '12px', color: 'var(--store-primary)', background: '#fff', border: '1px dashed #ccc', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', width: '100%' }}>
+                        <FontAwesomeIcon icon={faPlus} /> Agregar complemento
                       </button>
                     </div>
-                  ))}
-                  <button
-                    onClick={() => setProdNewComplements([...prodNewComplements, { name: '', price: '', imageFile: null }])}
-                    style={{ fontSize: '12px', color: 'var(--store-primary)', background: 'none', border: '1px dashed #ccc', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', width: '100%' }}
-                  >
-                    <FontAwesomeIcon icon={faPlus} /> Agregar complemento
-                  </button>
+                  )}
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', marginTop: '12px' }}>
                     <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-primary)' }}>Extras</div>
-                    {extras.length > 0 && (
-                      <button
-                        onClick={() => setShowExistingExtras(!showExistingExtras)}
-                        style={{ fontSize: '11px', color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}
-                      >
-                        {showExistingExtras ? 'Ocultar' : `Ver existentes (${extras.length})`} <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: '9px', transform: showExistingExtras ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setShowExistingExtras(!showExistingExtras)}
+                      style={{ fontSize: '11px', color: 'var(--store-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', fontWeight: '600' }}
+                    >
+                      <FontAwesomeIcon icon={faPlus} style={{ fontSize: '9px' }} /> {showExistingExtras ? 'Ocultar' : 'Crear nuevo'} <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: '9px', transform: showExistingExtras ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+                    </button>
                   </div>
-                  {showExistingExtras && extras.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px', padding: '8px', background: '#fafafa', borderRadius: '8px' }}>
+                  {extras.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
                       {extras.map(e => (
-                        <span key={e.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '3px 8px', background: '#fff', borderRadius: '12px', color: '#555', border: '1px solid #e8e8e8' }}>
+                        <span key={e.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '3px 8px', background: '#f0f0f0', borderRadius: '12px', color: '#555' }}>
                           {e.image && <img src={getImageUrl(e.image)} alt="" style={{ width: '16px', height: '16px', borderRadius: '4px', objectFit: 'cover' }} />}
                           {e.name}{Number(e.price) > 0 ? ` +$${Number(e.price).toFixed(0)}` : ''}
                         </span>
                       ))}
                     </div>
                   )}
-                  {prodNewExtras.map((ext, i) => (
-                    <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
-                      <label style={{ width: '32px', height: '32px', borderRadius: '6px', background: ext.imageFile ? 'transparent' : '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '1px solid #ddd' }}>
-                        {ext.imageFile ? (
-                          <img src={URL.createObjectURL(ext.imageFile)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <FontAwesomeIcon icon={faBox} style={{ fontSize: '12px', color: '#bbb' }} />
-                        )}
-                        <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) { const arr = [...prodNewExtras]; arr[i] = { ...arr[i], imageFile: e.target.files[0] }; setProdNewExtras(arr); } }} style={{ display: 'none' }} />
-                      </label>
-                      <input
-                        type="text"
-                        value={ext.name}
-                        onChange={(e) => { const arr = [...prodNewExtras]; arr[i] = { ...arr[i], name: e.target.value }; setProdNewExtras(arr); }}
-                        placeholder="Nombre"
-                        className="store-prod-modal-input"
-                        style={{ flex: 2, padding: '8px', fontSize: '13px' }}
-                      />
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={ext.price}
-                        onChange={(e) => { const arr = [...prodNewExtras]; arr[i] = { ...arr[i], price: e.target.value }; setProdNewExtras(arr); }}
-                        placeholder="$"
-                        className="store-prod-modal-input"
-                        style={{ flex: 1, padding: '8px', fontSize: '13px' }}
-                      />
-                      <button
-                        onClick={() => setProdNewExtras(prodNewExtras.filter((_, j) => j !== i))}
-                        style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '14px', padding: '4px' }}
-                      >
-                        <FontAwesomeIcon icon={faTimes} />
+                  {showExistingExtras && (
+                    <div style={{ padding: '8px', background: '#fafafa', borderRadius: '8px', marginBottom: '8px' }}>
+                      {prodNewExtras.map((ext, i) => (
+                        <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+                          <label style={{ width: '32px', height: '32px', borderRadius: '6px', background: ext.imageFile ? 'transparent' : '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '1px solid #ddd' }}>
+                            {ext.imageFile ? (
+                              <img src={URL.createObjectURL(ext.imageFile)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <FontAwesomeIcon icon={faBox} style={{ fontSize: '12px', color: '#bbb' }} />
+                            )}
+                            <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) { const arr = [...prodNewExtras]; arr[i] = { ...arr[i], imageFile: e.target.files[0] }; setProdNewExtras(arr); } }} style={{ display: 'none' }} />
+                          </label>
+                          <input type="text" value={ext.name} onChange={(e) => { const arr = [...prodNewExtras]; arr[i] = { ...arr[i], name: e.target.value }; setProdNewExtras(arr); }} placeholder="Nombre" className="store-prod-modal-input" style={{ flex: 2, padding: '8px', fontSize: '13px' }} />
+                          <input type="number" step="0.01" value={ext.price} onChange={(e) => { const arr = [...prodNewExtras]; arr[i] = { ...arr[i], price: e.target.value }; setProdNewExtras(arr); }} placeholder="$" className="store-prod-modal-input" style={{ flex: 1, padding: '8px', fontSize: '13px' }} />
+                          <button onClick={() => setProdNewExtras(prodNewExtras.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '14px', padding: '4px' }}><FontAwesomeIcon icon={faTimes} /></button>
+                        </div>
+                      ))}
+                      <button onClick={() => setProdNewExtras([...prodNewExtras, { name: '', price: '', imageFile: null }])} style={{ fontSize: '12px', color: 'var(--store-primary)', background: '#fff', border: '1px dashed #ccc', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', width: '100%' }}>
+                        <FontAwesomeIcon icon={faPlus} /> Agregar extra
                       </button>
                     </div>
-                  ))}
-                  <button
-                    onClick={() => setProdNewExtras([...prodNewExtras, { name: '', price: '', imageFile: null }])}
-                    style={{ fontSize: '12px', color: 'var(--store-primary)', background: 'none', border: '1px dashed #ccc', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', width: '100%' }}
-                  >
-                    <FontAwesomeIcon icon={faPlus} /> Agregar extra
-                  </button>
+                  )}
                 </div>
               )}
             </div>
