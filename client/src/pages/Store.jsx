@@ -362,22 +362,10 @@ function Store() {
             const assigned = configsData.find(c => c.id === dc.config_id);
             if (assigned) setSelectedConfiguration(assigned);
           }
-          // Setup restart timer
-          if (dc.restart_time) {
-            const [h, m] = dc.restart_time.split(':').map(Number);
-            const checkRestart = () => {
-              const now = new Date();
-              if (now.getHours() === h && now.getMinutes() === m) {
-                window.location.reload();
-              }
-            };
-            const restartInterval = setInterval(checkRestart, 30000);
-            // Store for cleanup
-            window.__srservi_restart_interval = restartInterval;
-          }
-          // Pending restart (config was changed from admin)
+          // Pending restart (admin changed config)
           if (dc.pending_restart) {
-            window.location.reload();
+            const delay = parseInt(dc.restart_time) || 10;
+            showRestartNotification(delay);
           }
         }
       } catch { /* ignore */ }
@@ -898,6 +886,31 @@ function Store() {
   useEffect(() => {
     setAppliedCoupon(null);
   }, [cart]);
+
+  const showRestartNotification = (delaySec) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);color:#fff;font-family:sans-serif;';
+    const countdownEl = document.createElement('div');
+    overlay.innerHTML = `
+      <div style="font-size:48px;margin-bottom:16px;">&#x1F504;</div>
+      <h2 style="margin:0 0 8px;font-size:22px;text-align:center;">El administrador realizó cambios</h2>
+      <p style="margin:0 0 20px;font-size:16px;color:#ccc;text-align:center;">Este totem será reiniciado</p>
+    `;
+    countdownEl.style.cssText = 'font-size:36px;font-weight:bold;color:#D4AF37;';
+    countdownEl.textContent = delaySec;
+    overlay.appendChild(countdownEl);
+    document.body.appendChild(overlay);
+
+    let remaining = delaySec;
+    const interval = setInterval(() => {
+      remaining--;
+      countdownEl.textContent = remaining;
+      if (remaining <= 0) {
+        clearInterval(interval);
+        window.location.reload();
+      }
+    }, 1000);
+  };
 
   const groupProductsByCategory = () => {
     if (!store?.products) return {};

@@ -145,7 +145,13 @@ function Devices() {
                       }</strong>
                     </span>
                     <span>
-                      <FontAwesomeIcon icon={faClock} /> Reinicio: <strong>{device.restart_time || 'No programado'}</strong>
+                      <FontAwesomeIcon icon={faClock} /> Reinicio: <strong>{
+                        device.restart_time
+                          ? (parseInt(device.restart_time) >= 60
+                            ? Math.floor(parseInt(device.restart_time) / 60) + 'm ' + (parseInt(device.restart_time) % 60) + 's'
+                            : device.restart_time + 's')
+                          : 'No programado'
+                      }</strong>
                     </span>
                   </div>
 
@@ -178,14 +184,17 @@ function Devices() {
                         </div>
                         <div>
                           <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>
-                            <FontAwesomeIcon icon={faSync} /> Reinicio diario
+                            <FontAwesomeIcon icon={faSync} /> Reinicio en (segundos)
                           </label>
                           <input
                             id={`dev-restart-${device.id}`}
-                            type="time"
+                            type="number"
+                            min="0"
                             defaultValue={device.restart_time || ''}
+                            placeholder="Ej: 30"
                             style={{ width: '100%', padding: '8px', border: '2px solid #e0e0e0', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' }}
                           />
+                          <span style={{ fontSize: '11px', color: '#999' }}>0 = sin reinicio</span>
                         </div>
                         <button
                           onClick={() => {
