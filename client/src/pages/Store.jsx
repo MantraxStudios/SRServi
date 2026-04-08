@@ -203,6 +203,11 @@ function Store() {
   const [topSellingIds, setTopSellingIds] = useState([]);
   const [lang, setLang] = useState(detectLanguage);
   const [showLangPicker, setShowLangPicker] = useState(false);
+  const [welcomeModalOpen, setWelcomeModalOpen] = useState(false);
+  const [inactivityModalOpen, setInactivityModalOpen] = useState(false);
+  const [inactivityCountdown, setInactivityCountdown] = useState(10);
+  const inactivityTimerRef = useRef(null);
+  const inactivityCountdownRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
   const storeIdRef = useRef(null);
@@ -212,6 +217,47 @@ function Store() {
     setActiveCategory('all');
     storeIdRef.current = store?.store?.id || null;
   }, [store?.store?.id]);
+
+  // Inactivity timer: 2 min no touch → show modal with 10s countdown → reload
+  useEffect(() => {
+    if (editMode) return; // Don't run in edit mode
+    const resetInactivity = () => {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      if (inactivityCountdownRef.current) clearInterval(inactivityCountdownRef.current);
+      setInactivityModalOpen(false);
+      setInactivityCountdown(10);
+      inactivityTimerRef.current = setTimeout(() => {
+        setInactivityModalOpen(true);
+        setInactivityCountdown(10);
+        let count = 10;
+        inactivityCountdownRef.current = setInterval(() => {
+          count--;
+          setInactivityCountdown(count);
+          if (count <= 0) {
+            clearInterval(inactivityCountdownRef.current);
+            window.location.reload();
+          }
+        }, 1000);
+      }, 120000); // 2 minutes
+    };
+    const events = ['touchstart', 'mousedown', 'keydown', 'scroll'];
+    events.forEach(e => document.addEventListener(e, resetInactivity, { passive: true }));
+    resetInactivity();
+    return () => {
+      events.forEach(e => document.removeEventListener(e, resetInactivity));
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      if (inactivityCountdownRef.current) clearInterval(inactivityCountdownRef.current);
+    };
+  }, [editMode]);
+
+  // Show welcome modal after order completion (when lastOrderNumber clears)
+  const showWelcomeAfterOrder = () => {
+    setCart([]);
+    setCartOpen(false);
+    setPaymentModalOpen(false);
+    setCashPaymentSuccess(false);
+    setTimeout(() => setWelcomeModalOpen(true), 500);
+  };
 
   useEffect(() => {
     if (selectedConfiguration?.is_minimarket && store?.store?.code) {
@@ -2653,7 +2699,7 @@ function Store() {
                 setPaymentConfirmed(false);
                 setPendingOrderData(null);
                 setLastOrderNumber(null);
-                setPaymentModalOpen(false);
+                showWelcomeAfterOrder();
               }}
               className="btn btn-lg btn-full"
               style={{
@@ -2662,7 +2708,7 @@ function Store() {
                 color: 'var(--store-primary)'
               }}
             >
-              Entendido
+              {t('confirm', lang)}
             </button>
           </div>
         </div>
@@ -2774,8 +2820,8 @@ function Store() {
             </p>
             <button
               onClick={() => {
-                setCashPaymentSuccess(false);
                 setLastOrderNumber(null);
+                showWelcomeAfterOrder();
               }}
               className="btn btn-lg btn-full"
               style={{
@@ -2784,7 +2830,7 @@ function Store() {
                 color: 'var(--store-primary)'
               }}
             >
-              Entendido
+              {t('confirm', lang)}
             </button>
           </div>
         </div>
@@ -3421,6 +3467,53 @@ function Store() {
               }}
             >
               Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Welcome modal after purchase - language selection */}
+      {welcomeModalOpen && (
+        <div className="store-modal-overlay" style={{ zIndex: 99999 }}>
+          <div style={{ background: 'var(--store-primary)', borderRadius: '20px', padding: '32px 24px', maxWidth: '360px', width: '90%', textAlign: 'center', color: 'var(--store-secondary)' }}>
+            <div style={{ fontSize: '56px', marginBottom: '12px' }}>👋</div>
+            <h2 style={{ margin: '0 0 6px', fontSize: '24px' }}>
+              {lang === 'en' ? 'Welcome!' : lang === 'pt' ? 'Bem-vindo!' : 'Bienvenido!'}
+            </h2>
+            <p style={{ margin: '0 0 20px', fontSize: '14px', opacity: 0.8 }}>
+              {lang === 'en' ? 'Select your language' : lang === 'pt' ? 'Selecione seu idioma' : 'Selecciona tu idioma'}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {LANGUAGES.map(l => (
+                <button key={l.code} onClick={() => { setLang(l.code); localStorage.setItem('srservi_lang', l.code); setWelcomeModalOpen(false); }}
+                  style={{ padding: '14px', borderRadius: '12px', border: lang === l.code ? '3px solid var(--store-accent)' : '2px solid rgba(255,255,255,0.2)', background: lang === l.code ? 'var(--store-accent)' : 'rgba(255,255,255,0.1)', color: lang === l.code ? 'var(--store-primary)' : 'var(--store-secondary)', fontSize: '16px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '24px' }}>{l.flag}</span> {l.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inactivity modal - auto restart */}
+      {inactivityModalOpen && (
+        <div className="store-modal-overlay" style={{ zIndex: 99998 }}>
+          <div style={{ background: '#fff', borderRadius: '20px', padding: '32px 24px', maxWidth: '360px', width: '90%', textAlign: 'center' }}>
+            <div style={{ fontSize: '56px', marginBottom: '12px' }}>⏳</div>
+            <h2 style={{ margin: '0 0 8px', fontSize: '22px', color: '#333' }}>
+              {lang === 'en' ? 'Are you still there?' : lang === 'pt' ? 'Voce ainda esta ai?' : 'Sigues ahi?'}
+            </h2>
+            <p style={{ margin: '0 0 4px', fontSize: '14px', color: '#888' }}>
+              {lang === 'en' ? 'The screen will restart in' : lang === 'pt' ? 'A tela sera reiniciada em' : 'La pantalla se reiniciara en'}
+            </p>
+            <div style={{ fontSize: '48px', fontWeight: '800', color: inactivityCountdown <= 3 ? '#e74c3c' : 'var(--store-primary)', margin: '8px 0 16px' }}>
+              {inactivityCountdown}
+            </div>
+            <button onClick={() => {
+              setInactivityModalOpen(false);
+              setInactivityCountdown(10);
+              if (inactivityCountdownRef.current) clearInterval(inactivityCountdownRef.current);
+            }} style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', background: '#2ecc71', color: '#fff', fontSize: '18px', fontWeight: '700', cursor: 'pointer' }}>
+              {lang === 'en' ? 'Yes, I\'m here!' : lang === 'pt' ? 'Sim, estou aqui!' : 'Si, estoy aqui!'}
             </button>
           </div>
         </div>
