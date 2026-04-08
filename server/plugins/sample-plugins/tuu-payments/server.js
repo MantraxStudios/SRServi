@@ -310,6 +310,51 @@ export async function init(context) {
     } catch (e) { res.json({ success: false, error: e.message }); }
   });
 
+  // --- Register as payment provider ---
+  ctx.hooks.registerPaymentProvider({
+    name: 'Tuu POS',
+
+    isAvailable: async (storeId) => {
+      const userId = await getUserIdFromStore(storeId);
+      const config = await getConfig(userId);
+      const device = await getDeviceForStore(storeId);
+      return !!(config?.api_key && device?.serial);
+    },
+
+    charge: async (storeId, amount, orderId, description) => {
+      const userId = await getUserIdFromStore(storeId);
+      const config = await getConfig(userId);
+      if (!config?.api_key) throw new Error('API Key de Tuu no configurada');
+      const device = await getDeviceForStore(storeId);
+      if (!device) throw new Error('No hay POS asignado a esta tienda');
+
+      const payment = await createPayment(config.api_key, amount, device.serial, description, config.dte_type);
+
+      await ctx.db.execute(
+        'INSERT INTO tuu_transactions (store_id, order_id, idempotency_key, amount, status, device_serial) VALUES (?, ?, ?, ?, ?, ?)',
+        [storeId, orderId || null, payment.idempotencyKey, Math.round(amount), 'Pending', device.serial]
+      );
+
+      startPolling(config.api_key, payment.idempotencyKey, storeId, orderId);
+
+      return { success: true, paymentKey: payment.idempotencyKey, deviceName: device.name };
+    },
+
+    status: async (paymentKey) => {
+      const [rows] = await ctx.db.execute(
+        'SELECT * FROM tuu_transactions WHERE idempotency_key = ?', [paymentKey]
+      );
+      return rows[0] || null;
+    },
+
+    cancel: async (paymentKey) => {
+      const intervalId = activePolls.get(paymentKey);
+      if (intervalId) { clearInterval(intervalId); activePolls.delete(paymentKey); }
+      await ctx.db.execute('UPDATE tuu_transactions SET status = ?, updated_at = NOW() WHERE idempotency_key = ?', ['Canceled', paymentKey]);
+      return { success: true };
+    }
+  });
+
   ctx.logger.log('Tuu Payments v1.1 initialized');
 }
 

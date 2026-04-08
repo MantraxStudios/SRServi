@@ -3083,6 +3083,14 @@ app.put('/api/superadmin/workshop/:pluginId/version/:version/status', authentica
 
 let pluginManager = null;
 
+// Prevent plugin errors from crashing the server
+process.on('uncaughtException', (err) => {
+  console.error('🔌 Uncaught exception (server kept running):', err.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('🔌 Unhandled rejection (server kept running):', reason?.message || reason);
+});
+
 async function startServer() {
   try {
     await initDatabase();
@@ -3092,7 +3100,11 @@ async function startServer() {
 
     // Initialize plugin system
     pluginManager = new PluginManager(app, pool, io);
-    await pluginManager.loadAllActive();
+    try {
+      await pluginManager.loadAllActive();
+    } catch (pluginError) {
+      console.error('🔌 Error loading plugins (server continues):', pluginError.message);
+    }
 
     server.listen(PORT, HOST, () => {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);

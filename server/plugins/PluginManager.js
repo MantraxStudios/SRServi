@@ -29,6 +29,92 @@ class PluginManager {
     // Mount parent router for plugin sub-routes (per-plugin API routes)
     app.use('/api/plugins/run', this.parentRouter);
 
+    // ---- Generic Payment Provider API ----
+    const self = this;
+
+    // Get available payment provider for a store
+    app.get('/api/plugins/payments/provider', async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        if (!storeId) return res.json({ available: false });
+
+        for (const [pluginId, provider] of self.hooks.getPaymentProviders()) {
+          try {
+            const available = await provider.isAvailable(storeId);
+            if (available) {
+              return res.json({ available: true, provider: pluginId, name: provider.name });
+            }
+          } catch { /* skip */ }
+        }
+        res.json({ available: false });
+      } catch {
+        res.json({ available: false });
+      }
+    });
+
+    // Charge via the available provider
+    app.post('/api/plugins/payments/charge', async (req, res) => {
+      try {
+        const { store_id, order_id, amount, description } = req.body;
+        if (!store_id || !amount) return res.status(400).json({ error: 'store_id y amount requeridos' });
+
+        // Find available provider
+        let activeProvider = null;
+        let activePluginId = null;
+        for (const [pluginId, provider] of self.hooks.getPaymentProviders()) {
+          try {
+            if (await provider.isAvailable(parseInt(store_id))) {
+              activeProvider = provider;
+              activePluginId = pluginId;
+              break;
+            }
+          } catch { /* skip */ }
+        }
+
+        if (!activeProvider) {
+          return res.status(400).json({ error: 'No hay proveedor de pago disponible' });
+        }
+
+        const result = await activeProvider.charge(parseInt(store_id), amount, order_id, description);
+        res.json({ ...result, provider: activePluginId });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Check payment status
+    app.get('/api/plugins/payments/status/:paymentKey', async (req, res) => {
+      try {
+        const { paymentKey } = req.params;
+        // Try all providers
+        for (const [, provider] of self.hooks.getPaymentProviders()) {
+          try {
+            const result = await provider.status(paymentKey);
+            if (result) return res.json(result);
+          } catch { /* try next */ }
+        }
+        res.status(404).json({ error: 'Pago no encontrado' });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Cancel payment
+    app.post('/api/plugins/payments/cancel/:paymentKey', async (req, res) => {
+      try {
+        const { paymentKey } = req.params;
+        for (const [, provider] of self.hooks.getPaymentProviders()) {
+          try {
+            const result = await provider.cancel(paymentKey);
+            if (result) return res.json(result);
+          } catch { /* try next */ }
+        }
+        res.status(404).json({ error: 'Pago no encontrado' });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
     // Ensure plugins directory exists
     if (!fs.existsSync(PLUGINS_DIR)) {
       fs.mkdirSync(PLUGINS_DIR, { recursive: true });
@@ -229,19 +315,15 @@ class PluginManager {
     // Load server.js if exists
     if (fs.existsSync(serverFile)) {
       try {
-        // Add cache buster for re-activation
         const serverModule = await import(`file://${serverFile.replace(/\\/g, '/')}?t=${Date.now()}`);
 
         if (typeof serverModule.init === 'function') {
           const router = Router();
           this.pluginRouters.set(pluginId, router);
 
-          // Route delegation under /api/plugins/run/<pluginId>/
           this.parentRouter.use(`/${pluginId}`, (req, res, next) => {
             const pluginRouter = this.pluginRouters.get(pluginId);
-            if (pluginRouter) {
-              return pluginRouter(req, res, next);
-            }
+            if (pluginRouter) return pluginRouter(req, res, next);
             next();
           });
 
@@ -249,6 +331,9 @@ class PluginManager {
             hooks: {
               on: (hookName, handler) => {
                 this.hooks.register(hookName, pluginId, handler);
+              },
+              registerPaymentProvider: (provider) => {
+                this.hooks.registerPaymentProvider(pluginId, provider);
               }
             },
             router,
@@ -269,7 +354,12 @@ class PluginManager {
           pluginInstance.router = router;
         }
       } catch (error) {
-        console.error(`🔌 Error loading server.js for "${pluginId}":`, error);
+        console.error(`🔌 Error loading server.js for "${pluginId}":`, error.message || error);
+        // Deactivate broken plugin so it doesn't crash on next restart
+        await this.pool.execute('UPDATE plugins SET is_active = FALSE WHERE plugin_id = ?', [pluginId]).catch(() => {});
+        this.pluginRouters.delete(pluginId);
+        this.hooks.unregister(pluginId);
+        console.error(`🔌 Plugin "${pluginId}" desactivado por error`);
       }
     }
 

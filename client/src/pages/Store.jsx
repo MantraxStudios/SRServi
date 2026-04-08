@@ -92,6 +92,8 @@ function Store() {
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [editingCat, setEditingCat] = useState(null);
   const [catName, setCatName] = useState('');
+  const [pluginPaymentProvider, setPluginPaymentProvider] = useState(null);
+  const [pluginPaymentKey, setPluginPaymentKey] = useState(null);
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
   const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '' });
@@ -333,6 +335,15 @@ function Store() {
         setConfigurations([]);
         setSelectedConfiguration(null);
       }
+
+      // Check if a plugin payment provider is available
+      try {
+        const ppRes = await fetch(`/api/plugins/payments/provider?store_id=${data.store.id}`);
+        if (ppRes.ok) {
+          const ppData = await ppRes.json();
+          if (ppData.available) setPluginPaymentProvider(ppData);
+        }
+      } catch { /* no payment plugin, ignore */ }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -636,8 +647,9 @@ function Store() {
 
   const processPayment = async (selectedMethod = paymentMethod) => {
     if (cart.length === 0) return;
-    if (selectedMethod === 'card' && !selectedTerminalId) {
-      alert('No hay máquina Point asignada para esta sesión');
+    const hasPluginProvider = selectedMethod === 'card' && pluginPaymentProvider;
+    if (selectedMethod === 'card' && !hasPluginProvider && !selectedTerminalId) {
+      alert('No hay máquina de pago asignada para esta sesión');
       return;
     }
 
@@ -648,58 +660,80 @@ function Store() {
     setPaymentCancelled(false);
 
     const finalTotal = getFinalTotal();
-    const orderData = {
-      store_id: store.store.id,
-      order_type: orderType,
-      payment_method: selectedMethod,
-      items: cart.map(item => ({
-        product_id: item.product_id,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        selected_ingredients: item.selected_ingredients,
-        selected_extras: item.selected_extras
-      })),
-      selected_terminal_id: selectedMethod === 'card' && selectedTerminalId ? parseInt(selectedTerminalId) : null,
-      coupon_code: appliedCoupon?.coupon_code || null,
-      total: Number(finalTotal).toFixed(2)
-    };
+    const storeId = store.store.id;
+    const cartItems = cart.map(item => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      selected_ingredients: item.selected_ingredients,
+      selected_extras: item.selected_extras
+    }));
 
     try {
-      let response;
-
-      if (selectedMethod === 'card') {
-        response = await fetch(API + '/api/orders/process-payment', {
+      // --- Plugin payment provider (Tuu, etc.) ---
+      if (hasPluginProvider) {
+        // Create order first
+        const orderRes = await fetch(API + '/api/orders', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(orderData)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId, order_type: orderType, payment_method: 'card',
+            items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
+            total: Number(finalTotal).toFixed(2)
+          })
         });
-      } else {
-        response = await fetch(API + '/api/orders', {
+        if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
+        const order = await orderRes.json();
+        setPendingOrderData({ order, storeId });
+
+        // Charge via generic payment API
+        const chargeRes = await fetch('/api/plugins/payments/charge', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(orderData)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId, order_id: order.id,
+            amount: Math.round(Number(finalTotal)),
+            description: `Pedido #${order.order_number || order.id}`
+          })
         });
-      }
+        const chargeData = await chargeRes.json();
+        if (!chargeData.success) throw new Error(chargeData.error || 'Error al enviar cobro');
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al procesar el pedido');
-      }
+        setPluginPaymentKey(chargeData.paymentKey);
+        setPaymentWaiting(true);
+        setPaymentTimeLeft(300);
 
-      const result = await response.json();
-      const order = result.order || result;
-      const storeId = store.store.id;
-
-      setPendingOrderData({ order, storeId });
-
-      if (selectedMethod === 'card') {
+      // --- MercadoPago card ---
+      } else if (selectedMethod === 'card') {
+        const response = await fetch(API + '/api/orders/process-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId, order_type: orderType, payment_method: selectedMethod,
+            items: cartItems, selected_terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
+            coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2)
+          })
+        });
+        if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
+        const result = await response.json();
+        setPendingOrderData({ order: result.order || result, storeId });
         setPaymentWaiting(true);
         setPaymentTimeLeft(90);
+
+      // --- Cash ---
       } else {
+        const response = await fetch(API + '/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId, order_type: orderType, payment_method: selectedMethod,
+            items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
+            total: Number(finalTotal).toFixed(2)
+          })
+        });
+        if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
+        const order = await response.json();
+        setPendingOrderData({ order, storeId });
         setLastOrderNumber(order.order_number);
         setCashPaymentSuccess(true);
         setPaymentModalOpen(false);
@@ -719,47 +753,74 @@ function Store() {
 
     const orderId = pendingOrderData.order.id;
     const storeId = pendingOrderData.storeId;
+    const isPluginPayment = !!pluginPaymentKey;
+
+    const onPaymentSuccess = () => {
+      setPaymentConfirmed(true);
+      setLastOrderNumber(pendingOrderData.order.order_number);
+      setCart([]);
+      setCartOpen(false);
+      setPaymentModalOpen(false);
+      setPaymentWaiting(false);
+      setPluginPaymentKey(null);
+    };
+
+    const onPaymentFail = () => {
+      setPaymentWaiting(false);
+      setPaymentCancelled(true);
+      setPluginPaymentKey(null);
+    };
 
     const pollInterval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/orders/${orderId}/payment-status?store_id=${storeId}`);
-        if (!res.ok) return;
-        const data = await res.json();
+        if (isPluginPayment) {
+          // --- Generic plugin payment polling ---
+          const res = await fetch(`/api/plugins/payments/status/${pluginPaymentKey}`);
+          if (!res.ok) return;
+          const data = await res.json();
 
-        const mpStatus = data.mp_status || data.status;
-        const payStatus = data.payment_status || data.status;
-        const paidAmount = data.paid_amount || '0';
+          if (data.status === 'Completed') {
+            clearInterval(pollInterval);
+            clearInterval(timerInterval);
+            onPaymentSuccess();
+          } else if (['Canceled', 'Failed', 'Timeout'].includes(data.status)) {
+            clearInterval(pollInterval);
+            clearInterval(timerInterval);
+            onPaymentFail();
+          }
+        } else {
+          // --- MercadoPago polling ---
+          const res = await fetch(`/api/orders/${orderId}/payment-status?store_id=${storeId}`);
+          if (!res.ok) return;
+          const data = await res.json();
 
-        // La nueva API de MP Point usa 'processed' para pagos exitosos.
-        // El backend ya mapea 'processed' -> 'approved', pero cubrimos ambos por seguridad.
-        const isApproved =
-          (payStatus === 'approved' || payStatus === 'paid' || payStatus === 'processed' ||
-           mpStatus === 'processed') &&
-          (parseFloat(paidAmount) > 0 || payStatus === 'processed' || mpStatus === 'processed');
-        const isCancelled = mpStatus === 'canceled' || mpStatus === 'refunded' ||
-          mpStatus === 'expired' || mpStatus === 'failed' ||
-          payStatus === 'canceled' || payStatus === 'refunded' ||
-          data.order_status === 'canceled' || data.order_status === 'refunded';
+          const mpStatus = data.mp_status || data.status;
+          const payStatus = data.payment_status || data.status;
+          const paidAmount = data.paid_amount || '0';
 
-        if (isApproved) {
-          clearInterval(pollInterval);
-          clearInterval(timerInterval);
-          await fetch(`/api/orders/${orderId}/confirm-payment`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ store_id: storeId })
-          });
-          setPaymentConfirmed(true);
-          setLastOrderNumber(pendingOrderData.order.order_number);
-          setCart([]);
-          setCartOpen(false);
-          setPaymentModalOpen(false);
-          setPaymentWaiting(false);
-        } else if (isCancelled) {
-          clearInterval(pollInterval);
-          clearInterval(timerInterval);
-          setPaymentWaiting(false);
-          setPaymentCancelled(true);
+          const isApproved =
+            (payStatus === 'approved' || payStatus === 'paid' || payStatus === 'processed' ||
+             mpStatus === 'processed') &&
+            (parseFloat(paidAmount) > 0 || payStatus === 'processed' || mpStatus === 'processed');
+          const isCancelled = mpStatus === 'canceled' || mpStatus === 'refunded' ||
+            mpStatus === 'expired' || mpStatus === 'failed' ||
+            payStatus === 'canceled' || payStatus === 'refunded' ||
+            data.order_status === 'canceled' || data.order_status === 'refunded';
+
+          if (isApproved) {
+            clearInterval(pollInterval);
+            clearInterval(timerInterval);
+            await fetch(`/api/orders/${orderId}/confirm-payment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ store_id: storeId })
+            });
+            onPaymentSuccess();
+          } else if (isCancelled) {
+            clearInterval(pollInterval);
+            clearInterval(timerInterval);
+            onPaymentFail();
+          }
         }
       } catch (err) {
         console.error('Error polling payment status:', err);
@@ -771,8 +832,10 @@ function Store() {
         if (prev <= 1) {
           clearInterval(timerInterval);
           clearInterval(pollInterval);
-          setPaymentWaiting(false);
-          setPaymentCancelled(true);
+          if (isPluginPayment && pluginPaymentKey) {
+            fetch(`/api/plugins/payments/cancel/${pluginPaymentKey}`, { method: 'POST' });
+          }
+          onPaymentFail();
           return 0;
         }
         return prev - 1;
@@ -783,7 +846,7 @@ function Store() {
       clearInterval(pollInterval);
       clearInterval(timerInterval);
     };
-  }, [paymentWaiting, pendingOrderData, pendingOrderData?.order?.id]);
+  }, [paymentWaiting, pendingOrderData, pluginPaymentKey]);
 
   useEffect(() => {
     setAppliedCoupon(null);
