@@ -3021,6 +3021,20 @@ app.delete('/api/mercado-pago-terminals/:id', authenticateToken, async (req, res
   }
 });
 
+// Detect MP devices from access token (for setup wizard)
+app.post('/api/mercado-pago-detect-devices', authenticateToken, async (req, res) => {
+  try {
+    const { access_token } = req.body;
+    if (!access_token) return res.status(400).json({ error: 'Access token requerido' });
+    const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/list?limit=50', {
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${access_token}` }
+    });
+    if (!mpRes.ok) return res.status(mpRes.status).json({ error: 'Token invalido o error de MercadoPago' });
+    const data = await mpRes.json();
+    res.json(data.data?.terminals || []);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // List MP devices from API
 app.get('/api/mercado-pago-terminals/:id/devices', authenticateToken, async (req, res) => {
   try {
