@@ -21,7 +21,8 @@
       "Bash(powershell -Command \"Compress-Archive -Path 'tuu-payments' -DestinationPath 'C:/Users/tupap/OneDrive/Escritorio/SRServi/tuu-payments.zip' -Force\")",
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(powershell -Command \"Compress-Archive -Path 'sidebar-categories/*' -DestinationPath '../../sidebar-categories.zip' -Force\")"
     ]
   }
 }
