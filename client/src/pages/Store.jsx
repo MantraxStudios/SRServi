@@ -29,7 +29,8 @@ import {
   faCode,
   faFire,
   faGlobe,
-  faClock
+  faClock,
+  faQrcode
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -162,6 +163,8 @@ function Store() {
   const [editingCat, setEditingCat] = useState(null);
   const [catName, setCatName] = useState('');
   const [pluginPaymentProvider, setPluginPaymentProvider] = useState(null);
+  const [haulmerAvailable, setHaulmerAvailable] = useState(false);
+  const [haulmerPaymentUrl, setHaulmerPaymentUrl] = useState(null);
   const [pluginPaymentKey, setPluginPaymentKey] = useState(null);
   const [deviceUid] = useState(() => {
     let uid = localStorage.getItem('srservi_device_uid');
@@ -216,11 +219,16 @@ function Store() {
   const categoryRef = useRef(null);
   const storeIdRef = useRef(null);
   const socketRef = useRef(null);
+  const pendingOrderDataRef = useRef(null);
 
   useEffect(() => {
     setActiveCategory('all');
     storeIdRef.current = store?.store?.id || null;
   }, [store?.store?.id]);
+
+  useEffect(() => {
+    pendingOrderDataRef.current = pendingOrderData;
+  }, [pendingOrderData]);
 
   // Inactivity timer: only starts AFTER user interacts, then if idle → modal → reload
   useEffect(() => {
@@ -425,6 +433,26 @@ function Store() {
       });
     });
 
+    socket.on('haulmer_payment_completed', (data) => {
+      if (data.order_id && pendingOrderDataRef?.current?.order?.id === data.order_id) {
+        setPaymentWaiting(false); setHaulmerPaymentUrl(null);
+        setPaymentConfirmed(true);
+        setLastOrderNumber(pendingOrderDataRef.current.order.order_number);
+        setCart([]);
+        setCartOpen(false);
+      }
+    });
+
+    socket.on('qr_payment_completed', (data) => {
+      if (data.order_id && pendingOrderDataRef?.current?.order?.id === data.order_id) {
+        setPaymentWaiting(false); setHaulmerPaymentUrl(null);
+        setPaymentConfirmed(true);
+        setLastOrderNumber(pendingOrderDataRef.current.order.order_number);
+        setCart([]);
+        setCartOpen(false);
+      }
+    });
+
     socket.on('totem_restart', (data) => {
       console.log('totem_restart received:', data, 'myStore:', storeIdRef.current, 'isAdmin:', !!adminEditToken);
       // Only restart if this is not the admin editor and matches our store
@@ -576,6 +604,15 @@ function Store() {
           if (ppData.available) setPluginPaymentProvider(ppData);
         }
       } catch { /* no payment plugin, ignore */ }
+
+      // Check Haulmer QR availability
+      try {
+        const hRes = await fetch(`/api/plugins/run/tuu-payments/haulmer-available?store_id=${data.store.id}`);
+        if (hRes.ok) {
+          const hData = await hRes.json();
+          if (hData.available) setHaulmerAvailable(true);
+        }
+      } catch { /* no haulmer, ignore */ }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -964,6 +1001,37 @@ function Store() {
         setPaymentWaiting(true);
         setPaymentTimeLeft(90);
 
+      // --- Haulmer QR ---
+      } else if (selectedMethod === 'qr') {
+        const orderRes = await fetch(API + '/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId, order_type: orderType, payment_method: 'card',
+            items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
+            total: Number(finalTotal).toFixed(2)
+          })
+        });
+        if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
+        const order = await orderRes.json();
+        setPendingOrderData({ order, storeId });
+
+        const qrRes = await fetch('/api/plugins/run/tuu-payments/haulmer-pay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId, order_id: order.id,
+            amount: Math.round(Number(finalTotal)),
+            description: `Pedido #${order.order_number || order.id}`
+          })
+        });
+        const qrData = await qrRes.json();
+        if (!qrData.success) throw new Error(qrData.error || 'Error generando QR');
+
+        setHaulmerPaymentUrl(qrData.paymentUrl);
+        setPaymentWaiting(true);
+        setPaymentTimeLeft(300);
+
       // --- Cash ---
       } else {
         const response = await fetch(API + '/api/orders', {
@@ -1005,12 +1073,12 @@ function Store() {
       setCart([]);
       setCartOpen(false);
       setPaymentModalOpen(false);
-      setPaymentWaiting(false);
+      setPaymentWaiting(false); setHaulmerPaymentUrl(null);
       setPluginPaymentKey(null);
     };
 
     const onPaymentFail = () => {
-      setPaymentWaiting(false);
+      setPaymentWaiting(false); setHaulmerPaymentUrl(null);
       setPaymentCancelled(true);
       setPluginPaymentKey(null);
     };
@@ -2608,7 +2676,23 @@ function Store() {
                     </button>
                   )}
 
-                  {!selectedConfiguration?.accept_cash && !selectedConfiguration?.accept_card && (
+                  {haulmerAvailable && (
+                    <button
+                      onClick={() => processPayment('qr')}
+                      className="btn btn-lg btn-full"
+                      style={{
+                        backgroundColor: 'var(--store-secondary)',
+                        color: 'var(--store-primary)',
+                        border: '3px solid #D4AF37',
+                        borderRadius: '15px'
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faQrcode} style={{ fontSize: '28px' }} />
+                      <span className="font-bold" style={{ fontSize: '18px' }}>Pagar con QR</span>
+                    </button>
+                  )}
+
+                  {!selectedConfiguration?.accept_cash && !selectedConfiguration?.accept_card && !haulmerAvailable && (
                     <p className="text-muted">No hay metodos de pago disponibles</p>
                   )}
                 </div>
@@ -2655,20 +2739,47 @@ function Store() {
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
-              Esperando Pago
+              {haulmerPaymentUrl ? 'Escanea el QR para pagar' : 'Esperando Pago'}
             </h2>
-            <p className="text-muted" style={{ marginBottom: '20px', fontSize: '14px' }}>
-              Acerque o pase la tarjeta en el terminal Point
-            </p>
-            <div style={{
-              width: '80px',
-              height: '80px',
-              border: '6px solid var(--store-accent)',
-              borderTop: '6px solid var(--store-primary)',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-              margin: '0 auto 20px'
-            }} />
+
+            {haulmerPaymentUrl ? (
+              <>
+                <p className="text-muted" style={{ marginBottom: '15px', fontSize: '14px' }}>
+                  Escanea con tu celular o toca el botón para pagar
+                </p>
+                <div style={{ margin: '0 auto 15px', display: 'flex', justifyContent: 'center' }}>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(haulmerPaymentUrl)}`}
+                    alt="QR Pago"
+                    style={{ width: '200px', height: '200px', borderRadius: '12px', border: '2px solid #e0e0e0' }}
+                  />
+                </div>
+                <a
+                  href={haulmerPaymentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                  style={{ display: 'inline-block', marginBottom: '15px', padding: '12px 24px', borderRadius: '10px', textDecoration: 'none', background: 'var(--store-accent)', color: 'var(--store-primary)', fontWeight: '700' }}
+                >
+                  Abrir link de pago
+                </a>
+              </>
+            ) : (
+              <>
+                <p className="text-muted" style={{ marginBottom: '20px', fontSize: '14px' }}>
+                  Acerque o pase la tarjeta en el terminal Point
+                </p>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  border: '6px solid var(--store-accent)',
+                  borderTop: '6px solid var(--store-primary)',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 20px'
+                }} />
+              </>
+            )}
             <p className="text-muted" style={{ fontSize: '14px', marginBottom: '10px' }}>
               Esperando confirmacion del pago...
             </p>
@@ -2689,7 +2800,7 @@ function Store() {
                     body: JSON.stringify({ store_id: pendingOrderData.storeId })
                   });
                 } catch (e) { console.error(e); }
-                setPaymentWaiting(false);
+                setPaymentWaiting(false); setHaulmerPaymentUrl(null);
                 setPaymentCancelled(true);
               }}
               className="btn btn-danger"
@@ -2802,7 +2913,7 @@ function Store() {
                   } catch (e) { console.error(e); }
                   setPaymentCancelled(false);
                   setPendingOrderData(null);
-                  setPaymentWaiting(false);
+                  setPaymentWaiting(false); setHaulmerPaymentUrl(null);
                   setCart([]);
                   setCartOpen(false);
                   setPaymentModalOpen(false);

@@ -289,6 +289,18 @@ class PluginManager {
     }
 
     console.log(`🔌 Plugin "${pluginJson.name}" v${pluginJson.version} instalado`);
+
+    // If plugin was active, reactivate with new code
+    if (existing.length > 0 && this.loadedPlugins.has(pluginId)) {
+      console.log(`🔌 Reactivando plugin "${pluginId}" con código actualizado...`);
+      try {
+        await this.deactivateInternal(pluginId);
+        await this.activate(pluginId);
+      } catch (err) {
+        console.error(`🔌 Error reactivando plugin "${pluginId}":`, err.message);
+      }
+    }
+
     return pluginJson;
   }
 

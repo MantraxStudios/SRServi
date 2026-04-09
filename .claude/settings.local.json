@@ -30,7 +30,11 @@
       "Bash(git commit -m 'fix: ALTER TABLE without AFTER clause for sender_avatar column:*)",
       "Bash(tar -tzf nodeapps.tar.gz)",
       "Bash(tar -xzf nodeapps.tar.gz -C /tmp/)",
-      "Read(//tmp/nodeapps/server/src/**)"
+      "Read(//tmp/nodeapps/server/src/**)",
+      "Bash(zip -r \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\tuu-payments.zip\" tuu-payments/)",
+      "Bash(powershell -Command \"Compress-Archive -Path 'tuu-payments\\\\*' -DestinationPath '..\\\\..\\\\..\\\\..\\\\tuu-payments.zip' -Force\")",
+      "Bash(rm \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\tuu-payments.zip\")",
+      "Bash(powershell -Command \"Compress-Archive -Path 'tuu-payments\\\\*' -DestinationPath 'C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\tuu-payments.zip'\")"
     ]
   }
 }
