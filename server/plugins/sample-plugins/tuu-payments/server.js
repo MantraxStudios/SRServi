@@ -600,7 +600,7 @@ export async function init(context) {
             "UPDATE orders SET payment_process = 1, cash_approved = TRUE, reference_id = ?, sequence_id = ? WHERE id = ?",
             [data.x_authorization_code || reference, reference, order.id]
           );
-          emitToStore(order.store_id, 'haulmer_payment_completed', { order_id: order.id, reference });
+          emitToStore(order.store_id, 'qr_payment_completed', { order_id: order.id, reference });
         }
       } else if (result === 'failed') {
         await ctx.db.execute(
@@ -625,6 +625,47 @@ export async function init(context) {
       );
       res.json(rows);
     } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // --- Register as QR provider ---
+  ctx.hooks.registerQrProvider({
+    name: 'Haulmer QR',
+
+    isAvailable: async (storeId) => {
+      const userId = await getUserIdFromStore(storeId);
+      const config = await getHaulmerConfig(userId);
+      return !!(config?.account_id && config?.secret_key);
+    },
+
+    createPayment: async (storeId, amount, orderId, description) => {
+      const userId = await getUserIdFromStore(storeId);
+      const config = await getHaulmerConfig(userId);
+      if (!config) throw new Error('Haulmer no configurado');
+
+      const [stores] = await ctx.db.execute('SELECT code FROM stores WHERE id = ?', [storeId]);
+      const storeCode = stores[0]?.code || '';
+      const reference = `SRS-${storeId}-${orderId || 'x'}-${Date.now()}`;
+      const serverUrl = 'https://srservi2.srautomatic.com';
+
+      const result = await createHaulmerPayment(
+        config, Math.round(amount),
+        description || 'Pago SRServi',
+        reference, storeCode,
+        `${serverUrl}/store/${storeCode}?qr_paid=1&ref=${reference}`,
+        `${serverUrl}/store/${storeCode}?qr_failed=1`
+      );
+
+      await ctx.db.execute(
+        'INSERT INTO haulmer_transactions (store_id, order_id, reference, amount, status) VALUES (?, ?, ?, ?, ?)',
+        [storeId, orderId || null, reference, Math.round(amount), 'pending']
+      );
+
+      if (orderId) {
+        await ctx.db.execute('UPDATE orders SET external_reference = ? WHERE id = ?', [reference, orderId]).catch(() => {});
+      }
+
+      return { success: true, paymentUrl: result.url, reference };
+    }
   });
 
   ctx.logger.log('Tuu Payments + Haulmer QR v1.2 initialized');

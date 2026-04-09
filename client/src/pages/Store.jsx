@@ -163,8 +163,8 @@ function Store() {
   const [editingCat, setEditingCat] = useState(null);
   const [catName, setCatName] = useState('');
   const [pluginPaymentProvider, setPluginPaymentProvider] = useState(null);
-  const [haulmerAvailable, setHaulmerAvailable] = useState(false);
-  const [haulmerPaymentUrl, setHaulmerPaymentUrl] = useState(null);
+  const [qrProvider, setQrProvider] = useState(null);
+  const [qrPaymentUrl, setQrPaymentUrl] = useState(null);
   const [pluginPaymentKey, setPluginPaymentKey] = useState(null);
   const [deviceUid] = useState(() => {
     let uid = localStorage.getItem('srservi_device_uid');
@@ -433,19 +433,9 @@ function Store() {
       });
     });
 
-    socket.on('haulmer_payment_completed', (data) => {
-      if (data.order_id && pendingOrderDataRef?.current?.order?.id === data.order_id) {
-        setPaymentWaiting(false); setHaulmerPaymentUrl(null);
-        setPaymentConfirmed(true);
-        setLastOrderNumber(pendingOrderDataRef.current.order.order_number);
-        setCart([]);
-        setCartOpen(false);
-      }
-    });
-
     socket.on('qr_payment_completed', (data) => {
       if (data.order_id && pendingOrderDataRef?.current?.order?.id === data.order_id) {
-        setPaymentWaiting(false); setHaulmerPaymentUrl(null);
+        setPaymentWaiting(false); setQrPaymentUrl(null);
         setPaymentConfirmed(true);
         setLastOrderNumber(pendingOrderDataRef.current.order.order_number);
         setCart([]);
@@ -605,14 +595,14 @@ function Store() {
         }
       } catch { /* no payment plugin, ignore */ }
 
-      // Check Haulmer QR availability
+      // Check QR provider availability
       try {
-        const hRes = await fetch(`/api/plugins/run/tuu-payments/haulmer-available?store_id=${data.store.id}`);
-        if (hRes.ok) {
-          const hData = await hRes.json();
-          if (hData.available) setHaulmerAvailable(true);
+        const qrRes = await fetch(`/api/plugins/qr/provider?store_id=${data.store.id}`);
+        if (qrRes.ok) {
+          const qrData = await qrRes.json();
+          if (qrData.available) setQrProvider(qrData);
         }
-      } catch { /* no haulmer, ignore */ }
+      } catch { /* no qr provider, ignore */ }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -1001,7 +991,7 @@ function Store() {
         setPaymentWaiting(true);
         setPaymentTimeLeft(90);
 
-      // --- Haulmer QR ---
+      // --- QR Provider ---
       } else if (selectedMethod === 'qr') {
         const orderRes = await fetch(API + '/api/orders', {
           method: 'POST',
@@ -1016,7 +1006,7 @@ function Store() {
         const order = await orderRes.json();
         setPendingOrderData({ order, storeId });
 
-        const qrRes = await fetch('/api/plugins/run/tuu-payments/haulmer-pay', {
+        const qrRes = await fetch('/api/plugins/qr/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1028,7 +1018,7 @@ function Store() {
         const qrData = await qrRes.json();
         if (!qrData.success) throw new Error(qrData.error || 'Error generando QR');
 
-        setHaulmerPaymentUrl(qrData.paymentUrl);
+        setQrPaymentUrl(qrData.paymentUrl);
         setPaymentWaiting(true);
         setPaymentTimeLeft(300);
 
@@ -1073,12 +1063,12 @@ function Store() {
       setCart([]);
       setCartOpen(false);
       setPaymentModalOpen(false);
-      setPaymentWaiting(false); setHaulmerPaymentUrl(null);
+      setPaymentWaiting(false); setQrPaymentUrl(null);
       setPluginPaymentKey(null);
     };
 
     const onPaymentFail = () => {
-      setPaymentWaiting(false); setHaulmerPaymentUrl(null);
+      setPaymentWaiting(false); setQrPaymentUrl(null);
       setPaymentCancelled(true);
       setPluginPaymentKey(null);
     };
@@ -2676,7 +2666,7 @@ function Store() {
                     </button>
                   )}
 
-                  {haulmerAvailable && (
+                  {qrProvider && (
                     <button
                       onClick={() => processPayment('qr')}
                       className="btn btn-lg btn-full"
@@ -2692,7 +2682,7 @@ function Store() {
                     </button>
                   )}
 
-                  {!selectedConfiguration?.accept_cash && !selectedConfiguration?.accept_card && !haulmerAvailable && (
+                  {!selectedConfiguration?.accept_cash && !selectedConfiguration?.accept_card && !qrProvider && (
                     <p className="text-muted">No hay metodos de pago disponibles</p>
                   )}
                 </div>
@@ -2739,23 +2729,23 @@ function Store() {
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
-              {haulmerPaymentUrl ? 'Escanea el QR para pagar' : 'Esperando Pago'}
+              {qrPaymentUrl ? 'Escanea el QR para pagar' : 'Esperando Pago'}
             </h2>
 
-            {haulmerPaymentUrl ? (
+            {qrPaymentUrl ? (
               <>
                 <p className="text-muted" style={{ marginBottom: '15px', fontSize: '14px' }}>
                   Escanea con tu celular o toca el botón para pagar
                 </p>
                 <div style={{ margin: '0 auto 15px', display: 'flex', justifyContent: 'center' }}>
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(haulmerPaymentUrl)}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrPaymentUrl)}`}
                     alt="QR Pago"
                     style={{ width: '200px', height: '200px', borderRadius: '12px', border: '2px solid #e0e0e0' }}
                   />
                 </div>
                 <a
-                  href={haulmerPaymentUrl}
+                  href={qrPaymentUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-primary"
@@ -2800,7 +2790,7 @@ function Store() {
                     body: JSON.stringify({ store_id: pendingOrderData.storeId })
                   });
                 } catch (e) { console.error(e); }
-                setPaymentWaiting(false); setHaulmerPaymentUrl(null);
+                setPaymentWaiting(false); setQrPaymentUrl(null);
                 setPaymentCancelled(true);
               }}
               className="btn btn-danger"
@@ -2913,7 +2903,7 @@ function Store() {
                   } catch (e) { console.error(e); }
                   setPaymentCancelled(false);
                   setPendingOrderData(null);
-                  setPaymentWaiting(false); setHaulmerPaymentUrl(null);
+                  setPaymentWaiting(false); setQrPaymentUrl(null);
                   setCart([]);
                   setCartOpen(false);
                   setPaymentModalOpen(false);

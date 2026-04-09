@@ -5,6 +5,7 @@ class HookSystem {
   constructor() {
     this.hooks = new Map();
     this.paymentProviders = new Map(); // pluginId -> { name, charge, status, cancel, isAvailable }
+    this.qrProviders = new Map(); // pluginId -> { name, isAvailable, createPayment }
   }
 
   register(hookName, pluginId, handler) {
@@ -25,6 +26,7 @@ class HookSystem {
       }
     }
     this.paymentProviders.delete(pluginId);
+    this.qrProviders.delete(pluginId);
     console.log(`🔌 [HookSystem] Unregistered all hooks for "${pluginId}"`);
   }
 
@@ -62,6 +64,15 @@ class HookSystem {
 
   getPaymentProviders() {
     return this.paymentProviders;
+  }
+
+  registerQrProvider(pluginId, provider) {
+    this.qrProviders.set(pluginId, provider);
+    console.log(`🔌 [HookSystem] ${pluginId} registered as QR provider "${provider.name}"`);
+  }
+
+  getQrProviders() {
+    return this.qrProviders;
   }
 
   getRegisteredHooks() {

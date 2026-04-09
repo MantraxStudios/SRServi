@@ -115,6 +115,44 @@ class PluginManager {
       }
     });
 
+    // ---- Generic QR Provider API ----
+
+    app.get('/api/plugins/qr/provider', async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        if (!storeId) return res.json({ available: false });
+        for (const [pluginId, provider] of self.hooks.getQrProviders()) {
+          try {
+            if (await provider.isAvailable(storeId)) {
+              return res.json({ available: true, provider: pluginId, name: provider.name });
+            }
+          } catch { /* skip */ }
+        }
+        res.json({ available: false });
+      } catch { res.json({ available: false }); }
+    });
+
+    app.post('/api/plugins/qr/create', async (req, res) => {
+      try {
+        const { store_id, order_id, amount, description } = req.body;
+        if (!store_id || !amount) return res.status(400).json({ error: 'store_id y amount requeridos' });
+        let activeProvider = null;
+        for (const [pluginId, provider] of self.hooks.getQrProviders()) {
+          try {
+            if (await provider.isAvailable(parseInt(store_id))) {
+              activeProvider = provider;
+              break;
+            }
+          } catch { /* skip */ }
+        }
+        if (!activeProvider) return res.status(400).json({ error: 'No hay proveedor QR disponible' });
+        const result = await activeProvider.createPayment(parseInt(store_id), amount, order_id, description);
+        res.json(result);
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
     // Ensure plugins directory exists
     if (!fs.existsSync(PLUGINS_DIR)) {
       fs.mkdirSync(PLUGINS_DIR, { recursive: true });
@@ -373,6 +411,9 @@ class PluginManager {
               },
               registerPaymentProvider: (provider) => {
                 this.hooks.registerPaymentProvider(pluginId, provider);
+              },
+              registerQrProvider: (provider) => {
+                this.hooks.registerQrProvider(pluginId, provider);
               }
             },
             router,
