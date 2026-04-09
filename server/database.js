@@ -760,6 +760,24 @@ async function migrateTables() {
       }
     }
 
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS apk_releases (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          name VARCHAR(255) NOT NULL,
+          description TEXT,
+          version VARCHAR(50) NOT NULL,
+          version_code INT NOT NULL DEFAULT 1,
+          logo TEXT,
+          apk_url TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('ℹ️ Tabla apk_releases verificada/creada');
+    } catch (err) {
+      console.error('❌ Error creando tabla apk_releases:', err.message);
+    }
+
     console.log('✅ Migración de tablas completada');
   } catch (error) {
     console.error('❌ Error en migración:', error.message);

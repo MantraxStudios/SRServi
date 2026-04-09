@@ -46,7 +46,10 @@ import {
   faImage,
   faLock,
   faCircle,
-  faArrowLeft
+  faArrowLeft,
+  faMobileAlt,
+  faUpload,
+  faPlus
 } from '@fortawesome/free-solid-svg-icons';
 
 function SuperadminDashboard() {
@@ -77,6 +80,12 @@ function SuperadminDashboard() {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminPass, setNewAdminPass] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
+  const [apkReleases, setApkReleases] = useState([]);
+  const [showApkModal, setShowApkModal] = useState(false);
+  const [apkForm, setApkForm] = useState({ name: '', description: '', version: '' });
+  const [apkFile, setApkFile] = useState(null);
+  const [apkLogo, setApkLogo] = useState(null);
+  const [apkUploading, setApkUploading] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumTarget, setPremiumTarget] = useState(null);
   const [premiumForever, setPremiumForever] = useState(true);
@@ -186,6 +195,10 @@ function SuperadminDashboard() {
         });
         const data = await res.json();
         setWorkshopPlugins(Array.isArray(data) ? data : []);
+      } else if (activeTab === 'apks') {
+        const res = await fetch(API + '/api/superadmin/apks', { headers: { 'Authorization': 'Bearer ' + token } });
+        const data = await res.json();
+        setApkReleases(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -346,6 +359,53 @@ function SuperadminDashboard() {
       }
     } catch (error) {
       console.error('Error asignando premium:', error);
+    }
+  };
+
+  const handleUploadApk = async () => {
+    if (!apkForm.name || !apkForm.version || !apkFile) return;
+    setApkUploading(true);
+    const token = localStorage.getItem('superadminToken');
+    try {
+      const fd = new FormData();
+      fd.append('name', apkForm.name);
+      fd.append('description', apkForm.description);
+      fd.append('version', apkForm.version);
+      fd.append('apk', apkFile);
+      if (apkLogo) fd.append('logo', apkLogo);
+      const res = await fetch(API + '/api/superadmin/apks', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token },
+        body: fd
+      });
+      if (res.ok) {
+        setShowApkModal(false);
+        setApkForm({ name: '', description: '', version: '' });
+        setApkFile(null);
+        setApkLogo(null);
+        fetchData();
+      } else {
+        const d = await res.json();
+        alert(d.error || 'Error al subir APK');
+      }
+    } catch (error) {
+      console.error('Error subiendo APK:', error);
+    } finally {
+      setApkUploading(false);
+    }
+  };
+
+  const handleDeleteApk = async (id) => {
+    if (!confirm('Eliminar esta versión?')) return;
+    const token = localStorage.getItem('superadminToken');
+    try {
+      await fetch(API + `/api/superadmin/apks/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Error eliminando APK:', error);
     }
   };
 
@@ -513,6 +573,14 @@ function SuperadminDashboard() {
             <FontAwesomeIcon icon={faShieldAlt} />
             {sidebarOpen && <span>Superadmins</span>}
           </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'apks' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('apks'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faMobileAlt} />
+            {sidebarOpen && <span>APK Releases</span>}
+          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -550,7 +618,7 @@ function SuperadminDashboard() {
             </button>
             <div>
               <h1 className="admin-header-title">
-                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : 'Suscripciones'}
+                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : 'Suscripciones'}
               </h1>
               <p className="admin-header-subtitle text-muted text-sm">
                 {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : activeTab === 'workshop' ? 'Revisa y aprueba plugins del workshop' : 'Ver todas las suscripciones'}
@@ -1089,6 +1157,61 @@ function SuperadminDashboard() {
                 </div>
               </div>
               </>
+            ) : activeTab === 'apks' ? (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                  <button className="btn btn-primary" onClick={() => { setApkForm({ name: '', description: '', version: '' }); setApkFile(null); setApkLogo(null); setShowApkModal(true); }}>
+                    <FontAwesomeIcon icon={faPlus} /> Nueva Versión
+                  </button>
+                </div>
+                {apkReleases.length === 0 ? (
+                  <div className="empty-state">
+                    <FontAwesomeIcon icon={faMobileAlt} className="empty-state-icon" />
+                    <div>No hay versiones de APK</div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
+                    {apkReleases.map((apk, idx) => (
+                      <div key={apk.id} style={{
+                        background: '#fff', border: '2px solid #e0e0e0', borderRadius: '12px', padding: '16px',
+                        borderColor: idx === 0 ? '#22c55e' : '#e0e0e0'
+                      }}>
+                        <div style={{ display: 'flex', gap: '12px', marginBottom: '10px' }}>
+                          {apk.logo ? (
+                            <img src={API + apk.logo} alt="" style={{ width: '50px', height: '50px', borderRadius: '10px', objectFit: 'cover' }} />
+                          ) : (
+                            <div style={{ width: '50px', height: '50px', borderRadius: '10px', background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', color: '#ccc' }}>
+                              <FontAwesomeIcon icon={faMobileAlt} />
+                            </div>
+                          )}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: '700', fontSize: '16px' }}>{apk.name}</div>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
+                              <span style={{ padding: '2px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', background: idx === 0 ? '#dcfce7' : '#f0f0f0', color: idx === 0 ? '#166534' : '#666' }}>
+                                v{apk.version}
+                              </span>
+                              <span style={{ fontSize: '12px', color: '#999' }}>Code: {apk.version_code}</span>
+                              {idx === 0 && <span style={{ fontSize: '10px', fontWeight: '700', color: '#22c55e' }}>ÚLTIMA</span>}
+                            </div>
+                          </div>
+                        </div>
+                        {apk.description && <p style={{ fontSize: '14px', color: '#555', margin: '0 0 10px' }}>{apk.description}</p>}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#999' }}>
+                          <span>{new Date(apk.created_at).toLocaleDateString('es-ES')}</span>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <a href={API + apk.apk_url} download style={{ padding: '4px 10px', borderRadius: '6px', background: '#333', color: '#fff', textDecoration: 'none', fontSize: '11px', fontWeight: '600' }}>
+                              <FontAwesomeIcon icon={faDownload} /> APK
+                            </a>
+                            <button onClick={() => handleDeleteApk(apk.id)} className="btn btn-sm btn-danger" style={{ padding: '4px 8px', fontSize: '11px' }}>
+                              <FontAwesomeIcon icon={faTrash} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : null}
           </div>
         </div>
@@ -1363,6 +1486,50 @@ function SuperadminDashboard() {
                 disabled={!premiumForever && !premiumDate}
               >
                 Asignar Premium
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showApkModal && (
+        <div className="modal-overlay" onClick={() => setShowApkModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Subir Nueva Versión APK</h3>
+              <button className="modal-close" onClick={() => setShowApkModal(false)}>&times;</button>
+            </div>
+
+            <div className="form-group">
+              <label>Nombre de la App</label>
+              <input type="text" value={apkForm.name} onChange={(e) => setApkForm({ ...apkForm, name: e.target.value })} placeholder="Ej: SRServi Totem" style={{ width: '100%', padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '16px', boxSizing: 'border-box' }} />
+            </div>
+
+            <div className="form-group">
+              <label>Versión</label>
+              <input type="text" value={apkForm.version} onChange={(e) => setApkForm({ ...apkForm, version: e.target.value })} placeholder="Ej: 1.0.0" style={{ width: '100%', padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '16px', boxSizing: 'border-box' }} />
+            </div>
+
+            <div className="form-group">
+              <label>Descripción (cambios de esta versión)</label>
+              <textarea value={apkForm.description} onChange={(e) => setApkForm({ ...apkForm, description: e.target.value })} rows="3" placeholder="Novedades de esta versión..." style={{ width: '100%', padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '16px', resize: 'vertical', boxSizing: 'border-box' }} />
+            </div>
+
+            <div className="form-group">
+              <label>Logo de la App</label>
+              <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setApkLogo(e.target.files[0]); }} style={{ width: '100%', padding: '10px', border: '2px dashed #e0e0e0', borderRadius: '8px', boxSizing: 'border-box' }} />
+              {apkLogo && <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>{apkLogo.name}</div>}
+            </div>
+
+            <div className="form-group">
+              <label>Archivo APK *</label>
+              <input type="file" accept=".apk,.aab" onChange={(e) => { if (e.target.files[0]) setApkFile(e.target.files[0]); }} style={{ width: '100%', padding: '10px', border: '2px dashed #e0e0e0', borderRadius: '8px', boxSizing: 'border-box' }} />
+              {apkFile && <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>{apkFile.name} ({(apkFile.size / 1024 / 1024).toFixed(1)} MB)</div>}
+            </div>
+
+            <div className="flex gap-3 justify-end modal-actions">
+              <button className="btn btn-secondary flex-1" onClick={() => setShowApkModal(false)}>Cancelar</button>
+              <button className="btn btn-primary flex-1" onClick={handleUploadApk} disabled={apkUploading || !apkForm.name || !apkForm.version || !apkFile}>
+                {apkUploading ? 'Subiendo...' : 'Subir APK'}
               </button>
             </div>
           </div>

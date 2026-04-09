@@ -181,7 +181,7 @@ function Store() {
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
-  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', stock: '0', unlimited_stock: true });
+  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '' });
   const [prodImageFile, setProdImageFile] = useState(null);
   const [prodSaving, setProdSaving] = useState(false);
   const [prodNewExtras, setProdNewExtras] = useState([]);
@@ -1400,7 +1400,11 @@ function Store() {
       category_id: product?.category_id?.toString() || '',
       description: product?.description || '',
       stock: product?.stock?.toString() || '0',
-      unlimited_stock: product?.unlimited_stock ?? true
+      unlimited_stock: product?.unlimited_stock ?? true,
+      has_extras: product?.has_extras || false,
+      has_ingredients: product?.has_ingredients || false,
+      max_extras: product?.max_extras?.toString() || '',
+      max_ingredients: product?.max_ingredients?.toString() || ''
     });
     setProdImageFile(null);
     setProdNewExtras([]);
@@ -1438,6 +1442,10 @@ function Store() {
       formData.append('price', parseFloat(prodForm.price));
       formData.append('category_id', prodForm.category_id || '');
       formData.append('description', prodForm.description || '');
+      formData.append('has_extras', prodForm.has_extras);
+      formData.append('has_ingredients', prodForm.has_ingredients);
+      formData.append('max_extras', prodForm.has_extras ? (parseInt(prodForm.max_extras) || 0) : 0);
+      formData.append('max_ingredients', prodForm.has_ingredients ? (parseInt(prodForm.max_ingredients) || 0) : 0);
       if (prodImageFile) {
         formData.append('image', prodImageFile);
       } else if (editingProd) {
@@ -2882,7 +2890,7 @@ function Store() {
                 value={prodForm.name}
                 onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })}
                 placeholder="Nombre del producto"
-                autoFocus
+                autoFocus={false}
                 className="store-prod-modal-input main"
               />
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -2934,6 +2942,26 @@ function Store() {
 
               {adminToken && (
                 <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '8px', border: '2px solid', borderColor: prodForm.has_extras ? '#22c55e' : '#e0e0e0', background: prodForm.has_extras ? '#dcfce7' : '#fafafa' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', margin: 0 }}>
+                        <input type="checkbox" checked={prodForm.has_extras} onChange={(e) => setProdForm({ ...prodForm, has_extras: e.target.checked })} style={{ width: '18px', height: '18px' }} />
+                        Lleva Extras
+                      </label>
+                      {prodForm.has_extras && (
+                        <input type="number" min="0" value={prodForm.max_extras} onChange={(e) => setProdForm({ ...prodForm, max_extras: e.target.value })} placeholder="Max (0=ilim)" className="store-prod-modal-input" style={{ width: '100px', padding: '5px 8px', fontSize: '13px' }} />
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '8px', border: '2px solid', borderColor: prodForm.has_ingredients ? '#22c55e' : '#e0e0e0', background: prodForm.has_ingredients ? '#dcfce7' : '#fafafa' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', margin: 0 }}>
+                        <input type="checkbox" checked={prodForm.has_ingredients} onChange={(e) => setProdForm({ ...prodForm, has_ingredients: e.target.checked })} style={{ width: '18px', height: '18px' }} />
+                        Lleva Complementos
+                      </label>
+                      {prodForm.has_ingredients && (
+                        <input type="number" min="0" value={prodForm.max_ingredients} onChange={(e) => setProdForm({ ...prodForm, max_ingredients: e.target.value })} placeholder="Max (0=ilim)" className="store-prod-modal-input" style={{ width: '100px', padding: '5px 8px', fontSize: '13px' }} />
+                      )}
+                    </div>
+                  </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button
                       onClick={() => { setComplementsTab('complements'); setShowComplementsModal(true); }}

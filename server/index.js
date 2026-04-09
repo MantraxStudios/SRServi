@@ -189,6 +189,19 @@ const upload = multer({
   }
 });
 
+const apkStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = 'uploads/apks';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const apkUpload = multer({ storage: apkStorage, limits: { fileSize: 500 * 1024 * 1024 } });
+
 app.use('/uploads', express.static('uploads'));
 // Serve plugin static files with path traversal protection
 app.use('/api/plugins/static', (req, res, next) => {
@@ -960,7 +973,11 @@ app.post('/api/public/:code/products', upload.single('image'), async (req, res) 
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
     const product = await createProduct(auth.store.id, {
       name: req.body.name, description: req.body.description || '',
-      price: parseFloat(req.body.price) || 0, category_id: req.body.category_id || null, image: imageUrl
+      price: parseFloat(req.body.price) || 0, category_id: req.body.category_id || null, image: imageUrl,
+      has_extras: req.body.has_extras === 'true' || req.body.has_extras === true,
+      has_ingredients: req.body.has_ingredients === 'true' || req.body.has_ingredients === true,
+      max_extras: parseInt(req.body.max_extras) || 0,
+      max_ingredients: parseInt(req.body.max_ingredients) || 0
     });
 
     await pool.execute(
@@ -991,7 +1008,11 @@ app.put('/api/public/:code/products/:id', upload.single('image'), async (req, re
 
     const product = await updateProduct(parseInt(req.params.id), auth.store.id, {
       name: req.body.name, description: req.body.description || '',
-      price: parseFloat(req.body.price) || 0, category_id: req.body.category_id || null, image: imageUrl
+      price: parseFloat(req.body.price) || 0, category_id: req.body.category_id || null, image: imageUrl,
+      has_extras: req.body.has_extras === 'true' || req.body.has_extras === true,
+      has_ingredients: req.body.has_ingredients === 'true' || req.body.has_ingredients === true,
+      max_extras: parseInt(req.body.max_extras) || 0,
+      max_ingredients: parseInt(req.body.max_ingredients) || 0
     });
     emitProductUpdate(auth.store.id, 'product_updated', product);
     res.json(product);
@@ -3945,6 +3966,83 @@ app.put('/api/superadmin/workshop/:pluginId/version/:version/status', authentica
     const mainStatus = approved.length > 0 ? 'approved' : status;
     await pool.execute('UPDATE plugin_workshop SET status = ? WHERE plugin_id = ?', [mainStatus, req.params.pluginId]);
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== APK Releases ====================
+
+app.get('/api/superadmin/apks', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM apk_releases ORDER BY version_code DESC');
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/superadmin/apks', authenticateSuperadminToken, apkUpload.fields([
+  { name: 'apk', maxCount: 1 },
+  { name: 'logo', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const { name, description, version } = req.body;
+    if (!name || !version) return res.status(400).json({ error: 'Nombre y versión son requeridos' });
+    if (!req.files?.apk?.[0]) return res.status(400).json({ error: 'Archivo APK es requerido' });
+
+    const apkUrl = `/uploads/apks/${req.files.apk[0].filename}`;
+    const logoUrl = req.files?.logo?.[0] ? `/uploads/apks/${req.files.logo[0].filename}` : null;
+
+    // Auto-increment version_code
+    const [last] = await pool.execute('SELECT MAX(version_code) as max_code FROM apk_releases');
+    const versionCode = (last[0].max_code || 0) + 1;
+
+    const [result] = await pool.execute(
+      'INSERT INTO apk_releases (name, description, version, version_code, logo, apk_url) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, description || '', version, versionCode, logoUrl, apkUrl]
+    );
+
+    res.json({ id: result.insertId, name, version, version_code: versionCode, apk_url: apkUrl, logo: logoUrl });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/superadmin/apks/:id', authenticateSuperadminToken, async (req, res) => {
+  try {
+    await pool.execute('DELETE FROM apk_releases WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint público para obtener la última versión
+app.get('/api/apk/latest', async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM apk_releases ORDER BY version_code DESC LIMIT 1');
+    if (rows.length === 0) return res.status(404).json({ error: 'No hay versiones disponibles' });
+    const release = rows[0];
+    res.json({
+      name: release.name,
+      description: release.description,
+      version: release.version,
+      version_code: release.version_code,
+      logo: release.logo,
+      apk_url: release.apk_url,
+      created_at: release.created_at
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint público para obtener todas las versiones
+app.get('/api/apk/releases', async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM apk_releases ORDER BY version_code DESC');
+    res.json(rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
