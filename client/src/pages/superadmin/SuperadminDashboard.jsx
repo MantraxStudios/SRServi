@@ -1,8 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { io } from 'socket.io-client';
 
 const API = 'https://srservi2.srautomatic.com';
+
+// Notification sound
+let _saNotifAudio = null;
+function saPlaySound() {
+  try {
+    if (!_saNotifAudio) { _saNotifAudio = new Audio('/notification.mp3'); _saNotifAudio.volume = 1; }
+    _saNotifAudio.currentTime = 0;
+    _saNotifAudio.play().catch(() => {});
+  } catch {}
+}
+if (typeof document !== 'undefined') {
+  const u = () => { if (!_saNotifAudio) { _saNotifAudio = new Audio('/notification.mp3'); } _saNotifAudio.play().then(() => { _saNotifAudio.pause(); _saNotifAudio.currentTime = 0; }).catch(() => {}); document.removeEventListener('click', u); };
+  document.addEventListener('click', u, { once: true });
+}
 
 import {
   faUsers,
@@ -66,6 +81,10 @@ function SuperadminDashboard() {
   const [profileName, setProfileName] = useState('');
   const [profileAvatar, setProfileAvatar] = useState(null);
   const navigate = useNavigate();
+  const selectedTicketRef = useRef(null);
+  const saMsgEndRef = useRef(null);
+
+  useEffect(() => { selectedTicketRef.current = selectedTicketId; }, [selectedTicketId]);
 
   useEffect(() => {
     const token = localStorage.getItem('superadminToken');
@@ -80,6 +99,36 @@ function SuperadminDashboard() {
   useEffect(() => {
     fetchData();
   }, [activeTab]);
+
+  // Socket.io for realtime ticket messages
+  useEffect(() => {
+    const socket = io(API);
+    const tk = localStorage.getItem('superadminToken');
+    const reloadTicketMsgs = async (ticketId) => {
+      if (!tk) return;
+      try {
+        const res = await fetch(API + `/api/superadmin/tickets/${ticketId}/messages`, { headers: { Authorization: 'Bearer ' + tk } });
+        if (res.ok) { const d = await res.json(); setTicketDetail(d.ticket); setTicketMessages(d.messages); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); }
+      } catch {}
+    };
+    socket.on('ticket_message', (data) => {
+      if (data.sender_type === 'user') saPlaySound();
+      const current = selectedTicketRef.current;
+      if (current && data.ticket_id === current) reloadTicketMsgs(current);
+      // Refresh ticket list
+      if (tk) fetch(API + '/api/superadmin/tickets', { headers: { Authorization: 'Bearer ' + tk } }).then(r => r.json()).then(d => { if (Array.isArray(d)) setTickets(d); }).catch(() => {});
+    });
+    socket.on('ticket_created', () => {
+      saPlaySound();
+      if (tk) fetch(API + '/api/superadmin/tickets', { headers: { Authorization: 'Bearer ' + tk } }).then(r => r.json()).then(d => { if (Array.isArray(d)) setTickets(d); }).catch(() => {});
+    });
+    socket.on('ticket_updated', () => {
+      if (tk) fetch(API + '/api/superadmin/tickets', { headers: { Authorization: 'Bearer ' + tk } }).then(r => r.json()).then(d => { if (Array.isArray(d)) setTickets(d); }).catch(() => {});
+      const current = selectedTicketRef.current;
+      if (current) reloadTicketMsgs(current);
+    });
+    return () => socket.disconnect();
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('superadminToken');
@@ -850,7 +899,7 @@ function SuperadminDashboard() {
                         setSelectedTicketId(t.id);
                         const token = localStorage.getItem('superadminToken');
                         const res = await fetch(API + `/api/superadmin/tickets/${t.id}/messages`, { headers: { Authorization: 'Bearer ' + token } });
-                        if (res.ok) { const d = await res.json(); setTicketDetail(d.ticket); setTicketMessages(d.messages); }
+                        if (res.ok) { const d = await res.json(); setTicketDetail(d.ticket); setTicketMessages(d.messages); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); }
                       }} style={{ padding: '12px', borderRadius: '10px', marginBottom: '6px', cursor: 'pointer', border: selectedTicketId === t.id ? '2px solid #333' : '2px solid transparent', background: selectedTicketId === t.id ? '#f0f4ff' : '#fafafa' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                           <span style={{ fontWeight: '700', fontSize: '13px' }}>#{t.id} - {t.username}</span>
@@ -924,6 +973,7 @@ function SuperadminDashboard() {
                             </div>
                           </div>
                         ))}
+                        <div ref={saMsgEndRef} />
                       </div>
                       {ticketDetail?.status !== 'resolved' && (
                         <div style={{ padding: '12px', borderTop: '1px solid #e0e0e0', display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -944,7 +994,7 @@ function SuperadminDashboard() {
                             setTicketSending(true);
                             fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd })
                               .then(() => fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } }))
-                              .then(r => r.json()).then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); })
+                              .then(r => r.json()).then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); })
                               .finally(() => setTicketSending(false));
                           }}} placeholder="Responder..." style={{ flex: 1, padding: '10px', border: '2px solid #e0e0e0', borderRadius: '10px', outline: 'none' }} />
                           <button disabled={ticketSending || (!ticketMsg.trim() && !ticketImg)} onClick={() => {
@@ -956,7 +1006,7 @@ function SuperadminDashboard() {
                             setTicketSending(true);
                             fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd })
                               .then(() => fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } }))
-                              .then(r => r.json()).then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); })
+                              .then(r => r.json()).then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); })
                               .finally(() => setTicketSending(false));
                           }} style={{ background: '#333', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 16px', cursor: 'pointer' }}>
                             <FontAwesomeIcon icon={faPaperPlane} />
