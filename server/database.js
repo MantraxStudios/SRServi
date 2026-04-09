@@ -416,6 +416,14 @@ async function migrateTables() {
       if (!orderColumnNames.includes('payment_process')) {
         await pool.execute('ALTER TABLE orders ADD COLUMN payment_process TINYINT(1) NOT NULL DEFAULT 0');
       }
+      if (!orderColumnNames.includes('sequence_id')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN sequence_id VARCHAR(100) DEFAULT NULL');
+        console.log('✅ Columna sequence_id agregada a orders');
+      }
+      if (!orderColumnNames.includes('reference_id')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN reference_id VARCHAR(100) DEFAULT NULL');
+        console.log('✅ Columna reference_id agregada a orders');
+      }
     } catch (orderMigrationError) {
       console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
     }

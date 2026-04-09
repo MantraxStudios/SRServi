@@ -126,9 +126,12 @@ function startPolling(apiKey, idempotencyKey, storeId, orderId) {
           ['Completed', data.transactionReference || null, idempotencyKey]
         );
         if (orderId) {
-          await ctx.db.execute("UPDATE orders SET status = 'paid', payment_process = 1 WHERE id = ?", [orderId]).catch(() => {});
+          await ctx.db.execute(
+            "UPDATE orders SET status = 'paid', payment_process = 1, sequence_id = ?, reference_id = ? WHERE id = ?",
+            [data.sequenceNumber || null, data.transactionReference || null, orderId]
+          ).catch(() => {});
         }
-        emitToStore(storeId, 'tuu_payment_update', { idempotencyKey, orderId, status: 'Completed', transactionRef: data.transactionReference });
+        emitToStore(storeId, 'tuu_payment_update', { idempotencyKey, orderId, status: 'Completed', transactionRef: data.transactionReference, sequenceNumber: data.sequenceNumber });
       } else if (data.status === 'Canceled' || data.status === 'Failed') {
         clearInterval(intervalId);
         activePolls.delete(idempotencyKey);

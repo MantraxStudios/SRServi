@@ -2950,6 +2950,8 @@ app.get('/api/store/:code/orders', async (req, res) => {
       orders.push({
         id: order.id,
         external_reference: order.external_reference,
+        sequence_id: order.sequence_id,
+        reference_id: order.reference_id,
         order_number: order.order_number,
         order_type: order.order_type,
         status: order.status,
