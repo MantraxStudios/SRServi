@@ -398,6 +398,17 @@ app.get('/api/user', authenticateToken, async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
+    // Ensure support_pin exists
+    if (!user.support_pin) {
+      const pin = String(Math.floor(100000 + Math.random() * 900000));
+      try {
+        await pool.execute('SHOW COLUMNS FROM users LIKE ?', ['support_pin']).then(async ([cols]) => {
+          if (cols.length === 0) await pool.execute('ALTER TABLE users ADD COLUMN support_pin VARCHAR(6) DEFAULT NULL');
+        });
+        await pool.execute('UPDATE users SET support_pin = ? WHERE id = ?', [pin, req.user.id]);
+        user.support_pin = pin;
+      } catch {}
+    }
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });

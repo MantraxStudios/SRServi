@@ -175,6 +175,11 @@ function Layout() {
             <div>
               <h1>SRServi</h1>
               <small>Panel Admin</small>
+              {user?.support_pin && (
+                <div style={{ marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(155,89,182,0.1)', padding: '2px 8px', borderRadius: '6px', fontSize: '10px', color: '#9b59b6' }}>
+                  <FontAwesomeIcon icon={faLock} /> PIN: <strong style={{ letterSpacing: '1px' }}>{user.support_pin}</strong>
+                </div>
+              )}
             </div>
             {isMobile && (
               <button className="sidebar-close-btn" onClick={() => setMenuOpen(false)}>
@@ -378,6 +383,12 @@ function Layout() {
               <FontAwesomeIcon icon={faBars} />
             </button>
             <h1>SRServi</h1>
+            {user?.support_pin && (
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', background: '#f0f0f0', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', color: '#666' }}>
+                <FontAwesomeIcon icon={faLock} style={{ color: '#9b59b6' }} />
+                <span>PIN: <strong style={{ letterSpacing: '2px', color: '#333' }}>{user.support_pin}</strong></span>
+              </div>
+            )}
           </div>
           <Outlet />
         </main>
