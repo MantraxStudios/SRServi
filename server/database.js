@@ -1327,34 +1327,13 @@ export async function deleteCoupon(couponId, storeId) {
 }
 
 async function getProductIngredients(productId, categoryId = null) {
-  // First check if product has explicit ingredient links
-  const [linked] = await pool.execute(`
-    SELECT i.*, pi.is_required, pi.max_selections,
-           COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
+  // Return all store ingredients for this product
+  const [rows] = await pool.execute(`
+    SELECT i.*, COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
     FROM ingredients i
-    JOIN product_ingredients pi ON i.id = pi.ingredient_id
-    WHERE pi.product_id = ?
+    WHERE i.store_id = (SELECT store_id FROM products WHERE id = ?)
+    ORDER BY i.name
   `, [productId]);
-  if (linked.length > 0) {
-    return linked.map(row => ({
-      id: row.id, name: row.name, price: parseFloat(row.price), image: row.image,
-      stock: parseInt(row.stock) || 0, unlimited_stock: row.unlimited_stock || false,
-      is_required: row.is_required, max_selections: row.max_selections
-    }));
-  }
-  // Fallback: return ingredients by category match, or all store ingredients if no category
-  const query = categoryId
-    ? `SELECT i.*, COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
-       FROM ingredients i
-       WHERE i.store_id = (SELECT store_id FROM products WHERE id = ?)
-         AND (i.category_id = ? OR i.category_id IS NULL)
-       ORDER BY i.name`
-    : `SELECT i.*, COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
-       FROM ingredients i
-       WHERE i.store_id = (SELECT store_id FROM products WHERE id = ?)
-       ORDER BY i.name`;
-  const params = categoryId ? [productId, categoryId] : [productId];
-  const [rows] = await pool.execute(query, params);
   return rows.map(row => ({
     id: row.id, name: row.name, price: parseFloat(row.price), category_id: row.category_id, image: row.image,
     stock: parseInt(row.stock) || 0, unlimited_stock: row.unlimited_stock || false,
@@ -1363,32 +1342,13 @@ async function getProductIngredients(productId, categoryId = null) {
 }
 
 async function getProductExtras(productId, categoryId = null) {
-  // First check if product has explicit extra links
-  const [linked] = await pool.execute(`
+  // Return all store extras for this product
+  const [rows] = await pool.execute(`
     SELECT e.*, COALESCE(e.stock, 0) as stock, COALESCE(e.unlimited_stock, FALSE) as unlimited_stock
     FROM extras e
-    JOIN product_extras pe ON e.id = pe.extra_id
-    WHERE pe.product_id = ?
+    WHERE e.store_id = (SELECT store_id FROM products WHERE id = ?)
+    ORDER BY e.name
   `, [productId]);
-  if (linked.length > 0) {
-    return linked.map(row => ({
-      id: row.id, name: row.name, price: parseFloat(row.price), image: row.image,
-      stock: parseInt(row.stock) || 0, unlimited_stock: row.unlimited_stock || false
-    }));
-  }
-  // Fallback: return extras by category match, or all store extras if no category
-  const query = categoryId
-    ? `SELECT e.*, COALESCE(e.stock, 0) as stock, COALESCE(e.unlimited_stock, FALSE) as unlimited_stock
-       FROM extras e
-       WHERE e.store_id = (SELECT store_id FROM products WHERE id = ?)
-         AND (e.category_id = ? OR e.category_id IS NULL)
-       ORDER BY e.name`
-    : `SELECT e.*, COALESCE(e.stock, 0) as stock, COALESCE(e.unlimited_stock, FALSE) as unlimited_stock
-       FROM extras e
-       WHERE e.store_id = (SELECT store_id FROM products WHERE id = ?)
-       ORDER BY e.name`;
-  const params = categoryId ? [productId, categoryId] : [productId];
-  const [rows] = await pool.execute(query, params);
   return rows.map(row => ({
     id: row.id, name: row.name, price: parseFloat(row.price), category_id: row.category_id, image: row.image,
     stock: parseInt(row.stock) || 0, unlimited_stock: row.unlimited_stock || false

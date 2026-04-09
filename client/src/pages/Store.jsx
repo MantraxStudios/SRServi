@@ -1782,7 +1782,7 @@ function Store() {
             )}
           </div>
           <button className="store-editor-done" onClick={() => { if (adminToken) { setShowRestartConfirm(true); } else { setEditMode(false); } }}>
-            Listo
+            Guardar
           </button>
         </div>
       )}
@@ -3308,6 +3308,15 @@ function Store() {
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
               <button onClick={() => setStyleEditorOpen(false)} className="store-prod-modal-btn cancel">Cerrar</button>
+              <button onClick={() => {
+                if (!confirm('Reiniciar todos los estilos a los valores por defecto?')) return;
+                const defaults = { fontFamily: '', fontSize: '', titleSize: '', priceSize: '', fontWeight: '', textShadow: '', cardShadow: '', cardRadius: '', productNameColor: '', productPriceColor: '', cardBg: '', cardBorder: '', headerBg: '', headerTextColor: '', categoryBg: '', categoryActiveColor: '', cartBg: '', cartTextColor: '' };
+                setVisualSettings(defaults);
+                setCustomCss('');
+                applyStyles(defaults, '');
+              }} className="store-prod-modal-btn cancel" style={{ flex: 'none', padding: '10px', fontSize: '12px' }}>
+                Reiniciar
+              </button>
               <button onClick={saveStoreStyles} disabled={styleSaving} className="store-prod-modal-btn confirm" style={{ background: 'var(--store-accent)', color: 'var(--store-primary)' }}>
                 {styleSaving ? 'Guardando...' : 'Guardar estilos'}
               </button>
