@@ -306,7 +306,7 @@ function Layout() {
                   </NavLink>
                   <NavLink to="/admin/settings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faPalette} />
-                    <span>Colores</span>
+                    <span>Colores y QR</span>
                   </NavLink>
                   <NavLink to="/admin/worker-config" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faUsers} />
