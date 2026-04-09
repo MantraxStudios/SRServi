@@ -197,7 +197,8 @@ function Store() {
     fontFamily: '', fontSize: '', titleSize: '', priceSize: '',
     fontWeight: '', textShadow: '', cardShadow: '', cardRadius: '',
     productNameColor: '', productPriceColor: '', cardBg: '', cardBorder: '',
-    headerBg: '', headerTextColor: '', categoryBg: '', categoryActiveColor: ''
+    headerBg: '', headerTextColor: '', categoryBg: '', categoryActiveColor: '',
+    cartBg: '', cartTextColor: ''
   });
   const [customCss, setCustomCss] = useState('');
   const [styleSaving, setStyleSaving] = useState(false);
@@ -1168,6 +1169,8 @@ function Store() {
     if (vs.headerTextColor) parts.push('.store-header, .store-header * { color: ' + vs.headerTextColor + ' !important; }');
     if (vs.categoryBg) parts.push('.category-tab { background: ' + vs.categoryBg + ' !important; }');
     if (vs.categoryActiveColor) parts.push('.category-tab.active { background: ' + vs.categoryActiveColor + ' !important; }');
+    if (vs.cartBg) parts.push('.cart-bar { background: ' + vs.cartBg + ' !important; }');
+    if (vs.cartTextColor) parts.push('.cart-bar, .cart-bar *, .cart-bar-text, .cart-bar-total, .cart-bar-pay-btn { color: ' + vs.cartTextColor + ' !important; }');
     if (css) parts.push(css);
     if (parts.length > 0) {
       const el = document.createElement('style');
@@ -3253,6 +3256,18 @@ function Store() {
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: '11px', color: '#888' }}>Tab activo</label>
                       <input type="color" value={visualSettings.categoryActiveColor || '#000000'} onChange={(e) => { const v = { ...visualSettings, categoryActiveColor: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#555', borderBottom: '1px solid #eee', paddingBottom: '4px', marginTop: '6px' }}>Barra del carrito</div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Fondo carrito</label>
+                      <input type="color" value={visualSettings.cartBg || '#000000'} onChange={(e) => { const v = { ...visualSettings, cartBg: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '11px', color: '#888' }}>Texto carrito</label>
+                      <input type="color" value={visualSettings.cartTextColor || '#ffffff'} onChange={(e) => { const v = { ...visualSettings, cartTextColor: e.target.value }; setVisualSettings(v); applyStyles(v, customCss); }} style={{ width: '100%', height: '32px', border: 'none', cursor: 'pointer', borderRadius: '6px' }} />
                     </div>
                   </div>
                 </div>
