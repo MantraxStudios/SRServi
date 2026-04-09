@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPalette, faCoins, faChevronDown, faCheck, faFire, faClock, faQrcode, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+import { faPalette, faCoins, faChevronDown, faCheck, faFire, faClock, faQrcode, faEye, faEyeSlash, faDownload } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useNavigate, Link } from 'react-router-dom';
+import { QRCodeCanvas } from 'qrcode.react';
 
 const CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'Dolar Estadounidense' },
@@ -44,6 +45,29 @@ function Settings() {
   const [mpSuccess, setMpSuccess] = useState('');
   const [mpError, setMpError] = useState('');
   const [showMpToken, setShowMpToken] = useState(false);
+  const qrRef = useRef(null);
+
+  const downloadQR = () => {
+    const canvas = qrRef.current?.querySelector('canvas');
+    if (!canvas) return;
+    const padding = 40;
+    const size = canvas.width + padding * 2;
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = size;
+    tmpCanvas.height = size + 60;
+    const ctx = tmpCanvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+    ctx.drawImage(canvas, padding, padding);
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(selectedStore?.name || 'Tienda', tmpCanvas.width / 2, size + 35);
+    const link = document.createElement('a');
+    link.download = `QR-${selectedStore?.name || 'tienda'}.png`;
+    link.href = tmpCanvas.toDataURL('image/png');
+    link.click();
+  };
 
   useEffect(() => {
     if (selectedStore) {
@@ -516,6 +540,34 @@ function Settings() {
                 </button>
               )}
             </div>
+
+            {mpConfigured && selectedStore && (
+              <div style={{ marginTop: '20px', borderTop: '2px solid #e0e0e0', paddingTop: '20px' }}>
+                <h4 style={{ margin: '0 0 12px', fontSize: '15px', fontWeight: '700' }}>QR de tu tienda</h4>
+                <p style={{ fontSize: '13px', color: '#666', marginBottom: '16px' }}>
+                  Los clientes escanean este código para pagar. El QR dirige al checkout de MercadoPago de tu tienda.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                  <div ref={qrRef} style={{ padding: '20px', background: '#fff', borderRadius: '12px', border: '2px solid #e0e0e0' }}>
+                    <QRCodeCanvas
+                      value={`https://srservi2.srautomatic.com/store/${selectedStore.code}`}
+                      size={220}
+                      level="H"
+                      includeMargin={false}
+                      bgColor="#ffffff"
+                      fgColor="#000000"
+                    />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontWeight: '700', fontSize: '16px' }}>{selectedStore.name}</div>
+                    <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Código: {selectedStore.code}</div>
+                  </div>
+                  <button type="button" className="btn btn-primary" onClick={downloadQR}>
+                    <FontAwesomeIcon icon={faDownload} /> Descargar QR
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
