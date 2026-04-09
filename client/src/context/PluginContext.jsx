@@ -14,19 +14,15 @@ export const usePlugins = () => useContext(PluginContext);
  * - admin-page: { render(container, ctx) } - renders in a plugin page
  * - store-header, store-footer, cart-summary, dashboard-widgets: { render(container, ctx) }
  */
-export function PluginProvider({ children, mode = 'admin', isPremium = true }) {
+export function PluginProvider({ children, mode = 'admin' }) {
   const [manifest, setManifest] = useState([]);
   const [registry, setRegistry] = useState({});
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     window.__SRSERVI_PLUGINS__ = window.__SRSERVI_PLUGINS__ || {};
-    if (isPremium) {
-      fetchManifest();
-    } else {
-      setLoaded(true);
-    }
-  }, [isPremium]);
+    fetchManifest();
+  }, []);
 
   const fetchManifest = async () => {
     try {

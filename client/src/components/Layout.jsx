@@ -333,34 +333,32 @@ function Layout() {
               </li>
             )}
 
-            {isPremiumUser && (
-              <li className="dropdown-container">
-                <button className="dropdown-header" onClick={() => toggleDropdown('componentes')}>
-                  <FontAwesomeIcon icon={faPuzzlePiece} />
-                  <span>Componentes</span>
-                  <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['componentes'] ? 180 : 0} />
-                </button>
-                {openDropdowns['componentes'] && (
-                  <div className="dropdown-content">
-                    <NavLink to="/admin/plugins" end className="dropdown-item" onClick={() => setMenuOpen(false)}>
+            <li className="dropdown-container">
+              <button className="dropdown-header" onClick={() => toggleDropdown('componentes')}>
+                <FontAwesomeIcon icon={faPuzzlePiece} />
+                <span>Componentes</span>
+                <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['componentes'] ? 180 : 0} />
+              </button>
+              {openDropdowns['componentes'] && (
+                <div className="dropdown-content">
+                  <NavLink to="/admin/plugins" end className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faPuzzlePiece} />
+                    <span>Plugins</span>
+                  </NavLink>
+                  <NavLink to="/admin/workshop" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faGlobe} />
+                    <span>Workshop</span>
+                  </NavLink>
+                  {getSidebarItems().map(item => (
+                    <NavLink key={item.pluginId} to={item.path || `/admin/plugins/${item.pluginId}`} className="dropdown-item" onClick={() => setMenuOpen(false)}>
                       <FontAwesomeIcon icon={faPuzzlePiece} />
-                      <span>Plugins</span>
+                      <span>{item.label || item.pluginId}</span>
                     </NavLink>
-                    <NavLink to="/admin/workshop" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                      <FontAwesomeIcon icon={faGlobe} />
-                      <span>Workshop</span>
-                    </NavLink>
-                    {getSidebarItems().map(item => (
-                      <NavLink key={item.pluginId} to={item.path || `/admin/plugins/${item.pluginId}`} className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                        <FontAwesomeIcon icon={faPuzzlePiece} />
-                        <span>{item.label || item.pluginId}</span>
-                      </NavLink>
-                    ))}
-                  </div>
-                )}
-                <PluginSlot name="sidebar" context={{ storeId: selectedStore?.id }} />
-              </li>
-            )}
+                  ))}
+                </div>
+              )}
+              <PluginSlot name="sidebar" context={{ storeId: selectedStore?.id }} />
+            </li>
 
             <li>
               <NavLink to="/admin/tickets" className={({isActive}) => isActive ? 'active' : ''} onClick={() => setMenuOpen(false)}>

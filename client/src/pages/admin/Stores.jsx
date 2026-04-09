@@ -148,8 +148,6 @@ function Stores() {
         : API + '/api/stores';
 
       const method = editingStore ? 'PUT' : 'POST';
-      const isPremium = planInfo && planInfo.plan && planInfo.plan.name !== 'Gratis';
-
       const formDataToSend = new FormData();
       Object.keys(formData).forEach(key => {
         if (key !== 'logo_url' && key !== 'logo') {
@@ -157,10 +155,8 @@ function Stores() {
         }
       });
 
-      if (logoFile && isPremium) {
+      if (logoFile) {
         formDataToSend.append('logo', logoFile);
-      } else if (!isPremium && editingStore) {
-        formDataToSend.append('remove_logo', 'true');
       }
 
       const response = await fetch(url, {
@@ -396,16 +392,10 @@ function Stores() {
               </div>
 
               {(() => {
-                const isPremium = planInfo && planInfo.plan && planInfo.plan.name !== 'Gratis';
-
-                if (!isPremium) {
-                  return null;
-                }
-
                 return (
                   <div className="form-group">
                     <label>
-                      Logo de la Tienda <span className="badge badge-warning">PREMIUM</span>
+                      Logo de la Tienda
                     </label>
                     <div className="logo-upload-area">
                       <div

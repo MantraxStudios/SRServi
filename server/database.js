@@ -2455,7 +2455,7 @@ export async function assignPremiumByAdmin(userId, planId, forever, endsAtDate) 
   let endsAt;
 
   if (forever) {
-    endsAt = new Date('2099-12-31T23:59:59');
+    endsAt = new Date('2037-12-31T23:59:59');
   } else if (endsAtDate) {
     endsAt = new Date(endsAtDate);
   } else {

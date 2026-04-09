@@ -299,29 +299,24 @@ app.get('/api/public/:code', async (req, res) => {
       });
     }
     
-    const userPlan = await getUserPlan(store.user_id);
-    const isPremium = userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis';
-    
     const products = await getPublicProducts(store.id);
     const categories = await getCategories(store.id);
 
     // Smart mode: get top selling product IDs (last 30 days)
     let topSellingIds = [];
-    if (isPremium) {
-      try {
-        const [topRows] = await pool.execute(
-          `SELECT oi.product_id, SUM(oi.quantity) as total_sold
-           FROM order_items oi
-           JOIN orders o ON oi.order_id = o.id
-           WHERE o.store_id = ? AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-           GROUP BY oi.product_id
-           ORDER BY total_sold DESC
-           LIMIT 5`,
-          [store.id]
-        );
-        topSellingIds = topRows.map(r => r.product_id);
-      } catch { /* ignore if table doesn't exist */ }
-    }
+    try {
+      const [topRows] = await pool.execute(
+        `SELECT oi.product_id, SUM(oi.quantity) as total_sold
+         FROM order_items oi
+         JOIN orders o ON oi.order_id = o.id
+         WHERE o.store_id = ? AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+         GROUP BY oi.product_id
+         ORDER BY total_sold DESC
+         LIMIT 5`,
+        [store.id]
+      );
+      topSellingIds = topRows.map(r => r.product_id);
+    } catch { /* ignore if table doesn't exist */ }
 
     res.json({
       store: {
@@ -332,11 +327,10 @@ app.get('/api/public/:code', async (req, res) => {
         secondary_color: store.secondary_color || '#FFFFFF',
         accent_color: store.accent_color || '#D4AF37',
         header_color: store.header_color || '#000000',
-        logo_url: isPremium ? (store.logo_url || null) : null,
+        logo_url: store.logo_url || null,
         currency_code: store.currency_code || 'USD',
         currency_symbol: store.currency_symbol || '$',
         currency_name: store.currency_name || 'Dólar Estadounidense',
-        is_premium: isPremium,
         smart_mode: store.smart_mode ?? true,
         inactivity_timeout: store.inactivity_timeout ?? 120
       },
@@ -870,10 +864,6 @@ app.put('/api/public/:code/styles', async (req, res) => {
   try {
     const auth = await verifyStoreAccess(req.params.code, req.body);
     if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
-    const userPlan = await getUserPlan(auth.store.user_id);
-    const isPremium = userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis';
-    if (!isPremium) return res.status(403).json({ error: 'Requiere plan Premium' });
-
     // Ensure table
     await pool.execute(`CREATE TABLE IF NOT EXISTS store_styles (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -2913,6 +2903,63 @@ app.post('/api/orders/:orderId/cancel-payment', async (req, res) => {
   }
 });
 
+app.get('/api/store/:code/orders', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+
+    const [rows] = await pool.execute(
+      `SELECT o.*, w.name as completed_by_name
+       FROM orders o
+       LEFT JOIN workers w ON o.completed_by = w.id
+       WHERE o.store_id = ?
+       ORDER BY o.created_at DESC`,
+      [store.id]
+    );
+
+    const orders = [];
+    for (const order of rows) {
+      const [items] = await pool.execute(
+        `SELECT oi.*, COALESCE(p.name, 'Producto eliminado') as product_name
+         FROM order_items oi
+         LEFT JOIN products p ON oi.product_id = p.id
+         WHERE oi.order_id = ?`,
+        [order.id]
+      );
+      orders.push({
+        id: order.id,
+        order_number: order.order_number,
+        order_type: order.order_type,
+        status: order.status,
+        total: parseFloat(order.total),
+        subtotal: parseFloat(order.subtotal || 0),
+        discount_total: parseFloat(order.discount_total || 0),
+        payment_method: order.payment_method,
+        coupon_code: order.coupon_code,
+        completed_by_name: order.completed_by_name,
+        created_at: order.created_at,
+        items: items.map(item => ({
+          id: item.id,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price: parseFloat(item.unit_price),
+          selected_ingredients: JSON.parse(item.selected_ingredients || '[]'),
+          selected_extras: JSON.parse(item.selected_extras || '[]')
+        }))
+      });
+    }
+
+    res.json({
+      store: { code: store.code, name: store.name },
+      total_orders: orders.length,
+      orders
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/orders', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id;
@@ -3471,7 +3518,7 @@ const requirePremium = async (req, res, next) => {
 
 const pluginUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
-app.get('/api/admin/plugins', authenticateToken, requirePremium, async (req, res) => {
+app.get('/api/admin/plugins', authenticateToken, async (req, res) => {
   try {
     if (!pluginManager) return res.json([]);
     const plugins = await pluginManager.getAllPlugins();
@@ -3486,7 +3533,7 @@ app.get('/api/admin/plugins', authenticateToken, requirePremium, async (req, res
   }
 });
 
-app.post('/api/admin/plugins/upload', authenticateToken, requirePremium, pluginUpload.single('plugin'), async (req, res) => {
+app.post('/api/admin/plugins/upload', authenticateToken, pluginUpload.single('plugin'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No se envió archivo' });
     if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
@@ -3497,7 +3544,7 @@ app.post('/api/admin/plugins/upload', authenticateToken, requirePremium, pluginU
   }
 });
 
-app.post('/api/admin/plugins/:id/activate', authenticateToken, requirePremium, async (req, res) => {
+app.post('/api/admin/plugins/:id/activate', authenticateToken, async (req, res) => {
   try {
     if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
     await pluginManager.activate(req.params.id);
@@ -3507,7 +3554,7 @@ app.post('/api/admin/plugins/:id/activate', authenticateToken, requirePremium, a
   }
 });
 
-app.post('/api/admin/plugins/:id/deactivate', authenticateToken, requirePremium, async (req, res) => {
+app.post('/api/admin/plugins/:id/deactivate', authenticateToken, async (req, res) => {
   try {
     if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
     await pluginManager.deactivate(req.params.id);
@@ -3517,7 +3564,7 @@ app.post('/api/admin/plugins/:id/deactivate', authenticateToken, requirePremium,
   }
 });
 
-app.delete('/api/admin/plugins/:id', authenticateToken, requirePremium, async (req, res) => {
+app.delete('/api/admin/plugins/:id', authenticateToken, async (req, res) => {
   try {
     if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
     await pluginManager.uninstall(req.params.id);
@@ -3527,7 +3574,7 @@ app.delete('/api/admin/plugins/:id', authenticateToken, requirePremium, async (r
   }
 });
 
-app.get('/api/admin/plugins/:id/settings/:storeId', authenticateToken, requirePremium, async (req, res) => {
+app.get('/api/admin/plugins/:id/settings/:storeId', authenticateToken, async (req, res) => {
   try {
     if (!pluginManager) return res.json({});
     const settings = await pluginManager.getPluginSettings(req.params.id, parseInt(req.params.storeId));
@@ -3537,7 +3584,7 @@ app.get('/api/admin/plugins/:id/settings/:storeId', authenticateToken, requirePr
   }
 });
 
-app.put('/api/admin/plugins/:id/settings/:storeId', authenticateToken, requirePremium, async (req, res) => {
+app.put('/api/admin/plugins/:id/settings/:storeId', authenticateToken, async (req, res) => {
   try {
     if (!pluginManager) return res.status(500).json({ error: 'Plugin system not initialized' });
     await pluginManager.savePluginSettings(req.params.id, parseInt(req.params.storeId), req.body);
@@ -3551,20 +3598,6 @@ app.put('/api/admin/plugins/:id/settings/:storeId', authenticateToken, requirePr
 app.get('/api/plugins/client-manifest', async (req, res) => {
   try {
     if (!pluginManager) return res.json([]);
-
-    // Check premium if token provided (admin mode)
-    const authHeader = req.headers['authorization'];
-    if (authHeader) {
-      try {
-        const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-        const plan = await getUserPlan(decoded.id);
-        const isPremium = plan && plan.plan_name && plan.plan_name !== 'Gratis';
-        if (!isPremium) return res.json([]);
-      } catch {
-        return res.json([]);
-      }
-    }
 
     const manifest = await pluginManager.getClientManifest();
     res.json(manifest);
@@ -3595,13 +3628,6 @@ app.post('/api/workshop/publish', authenticateToken, workshopUpload.fields([
   { name: 'logo', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    // Solo premium puede publicar
-    const userPlan = await getUserPlan(req.user.id);
-    const isPremium = userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis';
-    if (!isPremium) {
-      return res.status(403).json({ error: 'Necesitas un plan Premium para publicar plugins en el Workshop' });
-    }
-
     const { description, contact_email, changelog } = req.body;
     if (!req.files?.plugin?.[0]) return res.status(400).json({ error: 'Se requiere un archivo .zip' });
     if (!contact_email) return res.status(400).json({ error: 'Se requiere email de contacto' });
@@ -3748,7 +3774,7 @@ app.get('/api/workshop/plugins/:pluginId/versions', async (req, res) => {
 });
 
 // Install a specific version from workshop
-app.post('/api/workshop/install/:pluginId', authenticateToken, requirePremium, async (req, res) => {
+app.post('/api/workshop/install/:pluginId', authenticateToken, async (req, res) => {
   try {
     const { pluginId } = req.params;
     const { version } = req.body || {};
@@ -3822,7 +3848,7 @@ app.delete('/api/workshop/my-plugins/:pluginId', authenticateToken, async (req, 
 });
 
 // Check installed plugins for current user
-app.get('/api/workshop/installed-ids', authenticateToken, requirePremium, async (req, res) => {
+app.get('/api/workshop/installed-ids', authenticateToken, async (req, res) => {
   try {
     if (!pluginManager) return res.json([]);
     const plugins = await pluginManager.getAllPlugins();

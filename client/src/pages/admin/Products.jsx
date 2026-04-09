@@ -458,7 +458,7 @@ function Products() {
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} ref={(el) => { if (el) setTimeout(() => { if (document.activeElement) document.activeElement.blur(); }, 50); }}>
             <div className="modal-header">
               <h2 className="modal-title">
                 {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
@@ -475,6 +475,7 @@ function Products() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
+                  autoFocus={false}
                   placeholder="Nombre del producto"
                 />
               </div>

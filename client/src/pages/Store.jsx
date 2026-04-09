@@ -1653,7 +1653,7 @@ function Store() {
   );
 
   return (
-    <PluginProvider mode="store" isPremium={!!store?.store?.is_premium}>
+    <PluginProvider mode="store">
     <div
       className="store-container"
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary }}
@@ -1665,31 +1665,23 @@ function Store() {
       onMouseLeave={handleLongPressEnd}
     >
       <header className="store-header">
-        {store?.store?.is_premium ? (
-          <div className="store-header-content">
-            <div className="store-header-brand">
-              {store?.store?.logo_url && (
-                <img
-                  src={store.store.logo_url}
-                  alt={store?.store?.name}
-                  className="store-header-logo"
-                />
-              )}
-              <h1 className="store-header-name">
-                {store?.store?.name}
-              </h1>
-            </div>
-            <p className="store-header-powered">
-              AutoServicio By SRAutomatic
-            </p>
+        <div className="store-header-content">
+          <div className="store-header-brand">
+            {store?.store?.logo_url && (
+              <img
+                src={store.store.logo_url}
+                alt={store?.store?.name}
+                className="store-header-logo"
+              />
+            )}
+            <h1 className="store-header-name">
+              {store?.store?.name}
+            </h1>
           </div>
-        ) : (
-          <div className="flex" style={{ justifyContent: 'flex-end' }}>
-            <p className="store-header-powered">
-              AutoServicio By SRAutomatic
-            </p>
-          </div>
-        )}
+          <p className="store-header-powered">
+            AutoServicio By SRAutomatic
+          </p>
+        </div>
       </header>
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
@@ -1775,7 +1767,7 @@ function Store() {
                 <FontAwesomeIcon icon={faPlus} /> Complementos
               </button>
             )}
-            {adminToken && store?.store?.is_premium && (
+            {adminToken && (
               <button className="store-editor-tab" onClick={() => { loadStoreStyles(); setStyleEditorOpen(true); }}>
                 <FontAwesomeIcon icon={faPalette} /> Estilos
               </button>
