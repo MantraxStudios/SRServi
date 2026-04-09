@@ -22,7 +22,12 @@
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
       "Bash(git push:*)",
-      "Bash(powershell -Command \"Compress-Archive -Path 'sidebar-categories/*' -DestinationPath '../../sidebar-categories.zip' -Force\")"
+      "Bash(powershell -Command \"Compress-Archive -Path 'sidebar-categories/*' -DestinationPath '../../sidebar-categories.zip' -Force\")",
+      "Bash(git commit -m 'security: images in tickets are admin-only by default:*)",
+      "Bash(git commit -m 'fix: fallback INSERT without sender_avatar if column missing:*)",
+      "Bash(git commit -m 'debug: log admin profile when sending ticket message + ensure avatar column:*)",
+      "Bash(git commit -m 'fix: force sender_avatar column creation before INSERT + debug log:*)",
+      "Bash(git commit -m 'fix: ALTER TABLE without AFTER clause for sender_avatar column:*)"
     ]
   }
 }
