@@ -2094,7 +2094,10 @@ export async function processMercadoPagoPayment(storeId, orderData) {
 
 export async function confirmCardPayment(orderId, storeId) {
   await pool.execute(
-    'UPDATE orders SET cash_approved = TRUE, payment_process = 1 WHERE id = ? AND store_id = ?',
+    `UPDATE orders SET cash_approved = TRUE, payment_process = 1,
+     reference_id = COALESCE(reference_id, mp_order_id),
+     sequence_id = COALESCE(sequence_id, external_reference)
+     WHERE id = ? AND store_id = ?`,
     [orderId, storeId]
   );
   const [rows] = await pool.execute(
