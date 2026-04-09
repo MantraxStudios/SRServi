@@ -1680,10 +1680,11 @@ export async function createOrder(storeId, orderData) {
     );
   }
   
-  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const randomLetter = letters[Math.floor(Math.random() * letters.length)];
-  const randomNumber = Math.floor(Math.random() * 99) + 1;
-  const orderNumber = `${randomLetter}${randomNumber.toString().padStart(2, '0')}`;
+  const [todayOrders] = await pool.execute(
+    'SELECT COUNT(*) as count FROM orders WHERE store_id = ? AND DATE(created_at) = CURDATE()',
+    [storeId]
+  );
+  const orderNumber = (todayOrders[0].count).toString();
   await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [orderNumber, orderId]);
   const finalOrder = { 
     id: orderId, 
