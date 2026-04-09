@@ -38,6 +38,20 @@
           '<p style="font-size:13px;color:#666;margin:0 0 10px;">Cada tablet/celular que accede a tu tienda se registra automáticamente. Asigna qué POS usa cada uno.</p>' +
           '<div id="t-assign-list"></div></div>' +
 
+          // Haulmer QR
+          '<div class="ts" style="border-color:#D4AF37;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+          '<h3 class="tl" style="margin:0;"><span style="color:#D4AF37;">QR</span> Pasarela Haulmer</h3>' +
+          '<span id="h-status" style="font-size:12px;padding:3px 10px;border-radius:6px;"></span></div>' +
+          '<p style="font-size:13px;color:#666;margin:0 0 12px;">Configura las credenciales de Haulmer para pagos con QR.</p>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;">' +
+          '<input id="h-account" type="text" placeholder="Account ID" class="ti" />' +
+          '<input id="h-secret" type="password" placeholder="Secret Key" class="ti" />' +
+          '<input id="h-name" type="text" placeholder="Nombre del comercio" class="ti" />' +
+          '<div style="display:flex;gap:8px;">' +
+          '<button id="h-save" class="tb" style="background:#D4AF37;color:#000;flex:1;">Guardar Haulmer</button>' +
+          '<button id="h-remove" class="tb" style="background:#dc3545;color:#fff;display:none;">Desvincular</button></div>' +
+          '<div id="h-msg" style="font-size:13px;"></div></div></div>' +
+
           // Transactions
           '<div class="ts"><h3 class="tl">Últimas transacciones</h3>' +
           '<div id="t-txs" style="background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:8px;font-family:monospace;font-size:12px;max-height:300px;overflow:auto;">Cargando...</div></div>' +
@@ -178,6 +192,58 @@
             document.getElementById('t-ds').value = '';
             document.getElementById('t-add').style.display = 'none';
             loadDevices();
+          });
+        });
+
+        // --- Haulmer Config ---
+        function loadHaulmer() {
+          fetch(API + '/haulmer-config?store_id=' + storeId).then(function(r){return r.json()}).then(function(c) {
+            var st = document.getElementById('h-status');
+            var rm = document.getElementById('h-remove');
+            if (c.configured) {
+              st.textContent = 'Configurado';
+              st.style.background = '#dcfce7';
+              st.style.color = '#166534';
+              document.getElementById('h-account').value = c.account_id || '';
+              document.getElementById('h-secret').placeholder = 'Secret Key (' + (c.secret_key || '') + ')';
+              document.getElementById('h-name').value = c.commerce_name || '';
+              rm.style.display = 'block';
+            } else {
+              st.textContent = 'No configurado';
+              st.style.background = '#fef3c7';
+              st.style.color = '#92400e';
+              rm.style.display = 'none';
+            }
+          });
+        }
+        loadHaulmer();
+
+        document.getElementById('h-save').addEventListener('click', function() {
+          var acc = document.getElementById('h-account').value;
+          var sec = document.getElementById('h-secret').value;
+          var nam = document.getElementById('h-name').value;
+          if (!acc || !sec) { document.getElementById('h-msg').innerHTML = '<span style="color:#dc3545;">Account ID y Secret Key requeridos</span>'; return; }
+          fetch(API + '/haulmer-config', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ store_id: storeId, account_id: acc, secret_key: sec, commerce_name: nam })
+          }).then(function(r){return r.json()}).then(function(d) {
+            if (d.success) {
+              document.getElementById('h-msg').innerHTML = '<span style="color:#166534;">Haulmer configurado</span>';
+              loadHaulmer();
+            } else {
+              document.getElementById('h-msg').innerHTML = '<span style="color:#dc3545;">' + (d.error||'Error') + '</span>';
+            }
+            setTimeout(function(){ document.getElementById('h-msg').innerHTML=''; }, 3000);
+          });
+        });
+
+        document.getElementById('h-remove').addEventListener('click', function() {
+          if (!confirm('Desvincular Haulmer?')) return;
+          fetch(API + '/haulmer-config?store_id=' + storeId, { method: 'DELETE' }).then(function() {
+            document.getElementById('h-account').value = '';
+            document.getElementById('h-secret').value = '';
+            document.getElementById('h-name').value = '';
+            loadHaulmer();
           });
         });
 

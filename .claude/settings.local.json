@@ -27,7 +27,10 @@
       "Bash(git commit -m 'fix: fallback INSERT without sender_avatar if column missing:*)",
       "Bash(git commit -m 'debug: log admin profile when sending ticket message + ensure avatar column:*)",
       "Bash(git commit -m 'fix: force sender_avatar column creation before INSERT + debug log:*)",
-      "Bash(git commit -m 'fix: ALTER TABLE without AFTER clause for sender_avatar column:*)"
+      "Bash(git commit -m 'fix: ALTER TABLE without AFTER clause for sender_avatar column:*)",
+      "Bash(tar -tzf nodeapps.tar.gz)",
+      "Bash(tar -xzf nodeapps.tar.gz -C /tmp/)",
+      "Read(//tmp/nodeapps/server/src/**)"
     ]
   }
 }

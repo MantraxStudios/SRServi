@@ -1,8 +1,8 @@
 {
   "id": "tuu-payments",
   "name": "Tuu Payments",
-  "version": "1.1.0",
-  "description": "Acepta pagos con tarjeta a través de terminales POS de Tuu. Configura tu API Key, agrega tus POS y selecciona cuál usar en cada tienda.",
+  "version": "1.2.0",
+  "description": "Acepta pagos con tarjeta vía POS Tuu y pagos QR vía pasarela Haulmer. Configura API Keys, POS y credenciales de Haulmer.",
   "author": "SRServi",
   "hooks": [],
   "adminSlots": ["sidebar"],

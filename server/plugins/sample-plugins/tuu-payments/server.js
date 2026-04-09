@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 
 const TUU_API = 'https://integrations.payment.haulmer.com/RemotePayment/v2';
+const HAULMER_API = 'https://core.payment.haulmer.com/api/v1/payment';
 let ctx = null;
 let activePolls = new Map();
 
@@ -50,6 +51,92 @@ async function ensureTables() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
+  await ctx.db.execute(`
+    CREATE TABLE IF NOT EXISTS haulmer_config (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL UNIQUE,
+      account_id VARCHAR(255) NOT NULL,
+      secret_key VARCHAR(500) NOT NULL,
+      commerce_name VARCHAR(255) DEFAULT 'Mi Tienda',
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+  await ctx.db.execute(`
+    CREATE TABLE IF NOT EXISTS haulmer_transactions (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      order_id INT DEFAULT NULL,
+      reference VARCHAR(100) NOT NULL,
+      amount INT NOT NULL,
+      status VARCHAR(50) DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+}
+
+// ---- Haulmer helpers ----
+
+async function getHaulmerConfig(userId) {
+  const [rows] = await ctx.db.execute('SELECT * FROM haulmer_config WHERE user_id = ?', [userId]);
+  return rows[0] || null;
+}
+
+function generateHaulmerSignature(data, secretKey) {
+  const sortedKeys = Object.keys(data).filter(k => k.startsWith('x_')).sort();
+  let str = '';
+  for (const key of sortedKeys) {
+    if (data[key] !== undefined && data[key] !== null && data[key] !== '') {
+      str += key + data[key];
+    }
+  }
+  return crypto.createHmac('sha256', secretKey).update(str).digest('hex');
+}
+
+async function createHaulmerPayment(config, amount, description, reference, storeCode, urlSuccess, urlFailed) {
+  const serverUrl = ctx.serverUrl || 'https://srservi2.srautomatic.com';
+  const payload = {
+    x_account_id: config.account_id,
+    x_amount: amount,
+    x_currency: 'CLP',
+    x_customer_email: 'cliente@srservi.com',
+    x_customer_first_name: 'Cliente',
+    x_customer_last_name: 'SRServi',
+    x_customer_phone: '+56900000000',
+    x_description: description || 'Pago SRServi',
+    x_reference: reference,
+    x_shop_name: config.commerce_name || 'SRServi',
+    x_url_callback: `${serverUrl}/api/plugins/tuu-payments/haulmer-webhook`,
+    x_url_cancel: urlFailed || `${serverUrl}/store/${storeCode}`,
+    x_url_complete: urlSuccess || `${serverUrl}/store/${storeCode}`
+  };
+  const signature = generateHaulmerSignature(payload, config.secret_key);
+  const fullPayload = { ...payload, x_signature: signature };
+
+  const response = await fetch(HAULMER_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-REDIRECT': 'false' },
+    body: JSON.stringify(fullPayload)
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Haulmer error (${response.status}): ${errText}`);
+  }
+
+  const responseText = await response.text();
+  try {
+    const data = JSON.parse(responseText);
+    const url = data.url || data.redirectUrl || data.x_redirect_url || data.processUrl || data.payment_url;
+    if (url) return { success: true, url, reference };
+    if (data.token) return { success: true, url: responseText, token: data.token, reference };
+  } catch {}
+
+  if (responseText.startsWith('http')) {
+    return { success: true, url: responseText.trim(), reference };
+  }
+
+  throw new Error('Respuesta inesperada de Haulmer');
 }
 
 async function getUserIdFromStore(storeId) {
@@ -391,7 +478,156 @@ export async function init(context) {
     }
   });
 
-  ctx.logger.log('Tuu Payments v1.1 initialized');
+  // ==================== Haulmer QR Payment Gateway ====================
+
+  // Get/Save Haulmer config
+  ctx.router.get('/haulmer-config', async (req, res) => {
+    try {
+      const storeId = parseInt(req.query.store_id);
+      const userId = await getUserIdFromStore(storeId);
+      const config = await getHaulmerConfig(userId);
+      res.json(config ? { account_id: config.account_id, secret_key: '****' + config.secret_key.slice(-4), commerce_name: config.commerce_name, configured: true } : { configured: false });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  ctx.router.post('/haulmer-config', async (req, res) => {
+    try {
+      const { store_id, account_id, secret_key, commerce_name } = req.body;
+      if (!account_id || !secret_key) return res.status(400).json({ error: 'Account ID y Secret Key son requeridos' });
+      const userId = await getUserIdFromStore(parseInt(store_id));
+      await ctx.db.execute(
+        'INSERT INTO haulmer_config (user_id, account_id, secret_key, commerce_name) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE account_id = ?, secret_key = ?, commerce_name = ?',
+        [userId, account_id, secret_key, commerce_name || 'SRServi', account_id, secret_key, commerce_name || 'SRServi']
+      );
+      res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  ctx.router.delete('/haulmer-config', async (req, res) => {
+    try {
+      const storeId = parseInt(req.query.store_id);
+      const userId = await getUserIdFromStore(storeId);
+      await ctx.db.execute('DELETE FROM haulmer_config WHERE user_id = ?', [userId]);
+      res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Check if Haulmer is available for a store
+  ctx.router.get('/haulmer-available', async (req, res) => {
+    try {
+      const storeId = parseInt(req.query.store_id);
+      const userId = await getUserIdFromStore(storeId);
+      const config = await getHaulmerConfig(userId);
+      res.json({ available: !!(config?.account_id && config?.secret_key) });
+    } catch (e) { res.json({ available: false }); }
+  });
+
+  // Create Haulmer payment (generates QR redirect URL)
+  ctx.router.post('/haulmer-pay', async (req, res) => {
+    try {
+      const { store_id, order_id, amount, description } = req.body;
+      if (!store_id || !amount) return res.status(400).json({ error: 'store_id y amount requeridos' });
+
+      const userId = await getUserIdFromStore(parseInt(store_id));
+      const config = await getHaulmerConfig(userId);
+      if (!config) return res.status(400).json({ error: 'Haulmer no configurado' });
+
+      // Get store code for URLs
+      const [stores] = await ctx.db.execute('SELECT code FROM stores WHERE id = ?', [store_id]);
+      const storeCode = stores[0]?.code || '';
+
+      const reference = `SRS-${store_id}-${order_id || 'x'}-${Date.now()}`;
+      const serverUrl = ctx.serverUrl || 'https://srservi2.srautomatic.com';
+
+      const result = await createHaulmerPayment(
+        config, Math.round(amount),
+        description || 'Pago SRServi',
+        reference, storeCode,
+        `${serverUrl}/store/${storeCode}?haulmer_paid=1&ref=${reference}`,
+        `${serverUrl}/store/${storeCode}?haulmer_failed=1`
+      );
+
+      await ctx.db.execute(
+        'INSERT INTO haulmer_transactions (store_id, order_id, reference, amount, status) VALUES (?, ?, ?, ?, ?)',
+        [parseInt(store_id), order_id || null, reference, Math.round(amount), 'pending']
+      );
+
+      if (order_id) {
+        await ctx.db.execute('UPDATE orders SET external_reference = ? WHERE id = ?', [reference, order_id]).catch(() => {});
+      }
+
+      res.json({ success: true, paymentUrl: result.url, reference });
+    } catch (e) {
+      ctx.logger.error('Haulmer pay error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Haulmer webhook callback
+  ctx.router.all('/haulmer-webhook', async (req, res) => {
+    try {
+      const data = req.method === 'GET' ? req.query : req.body;
+      ctx.logger.log('Haulmer webhook:', JSON.stringify(data));
+
+      const reference = data.x_reference || data.reference;
+      const result = data.x_result || data.result;
+
+      if (!reference) return res.status(200).json({ success: true });
+
+      if (result === 'completed') {
+        // Verify signature
+        const [configs] = await ctx.db.execute('SELECT hc.* FROM haulmer_config hc');
+        let signatureValid = false;
+        if (configs.length > 0 && data.x_signature) {
+          const checkData = { ...data };
+          delete checkData.x_signature;
+          const expected = generateHaulmerSignature(checkData, configs[0].secret_key);
+          signatureValid = (expected === data.x_signature);
+        }
+
+        await ctx.db.execute(
+          'UPDATE haulmer_transactions SET status = ?, updated_at = NOW() WHERE reference = ?',
+          ['completed', reference]
+        );
+
+        // Find and complete the order
+        const [orders] = await ctx.db.execute(
+          'SELECT id, store_id FROM orders WHERE external_reference = ?', [reference]
+        );
+        if (orders.length > 0) {
+          const order = orders[0];
+          await ctx.db.execute(
+            "UPDATE orders SET payment_process = 1, cash_approved = TRUE, reference_id = ?, sequence_id = ? WHERE id = ?",
+            [data.x_authorization_code || reference, reference, order.id]
+          );
+          emitToStore(order.store_id, 'haulmer_payment_completed', { order_id: order.id, reference });
+        }
+      } else if (result === 'failed') {
+        await ctx.db.execute(
+          'UPDATE haulmer_transactions SET status = ?, updated_at = NOW() WHERE reference = ?',
+          ['failed', reference]
+        );
+      }
+
+      res.status(200).json({ success: true });
+    } catch (e) {
+      ctx.logger.error('Haulmer webhook error:', e.message);
+      res.status(200).json({ success: true });
+    }
+  });
+
+  // Haulmer transaction history
+  ctx.router.get('/haulmer-transactions', async (req, res) => {
+    try {
+      const storeId = parseInt(req.query.store_id);
+      const [rows] = await ctx.db.execute(
+        'SELECT * FROM haulmer_transactions WHERE store_id = ? ORDER BY created_at DESC LIMIT 50', [storeId]
+      );
+      res.json(rows);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  ctx.logger.log('Tuu Payments + Haulmer QR v1.2 initialized');
 }
 
 export function destroy() {
