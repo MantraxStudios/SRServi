@@ -153,6 +153,24 @@ class PluginManager {
       }
     });
 
+    app.post('/api/plugins/qr/verify', async (req, res) => {
+      try {
+        const params = req.body;
+        if (!params.x_reference) return res.status(400).json({ error: 'Referencia no encontrada' });
+        for (const [pluginId, provider] of self.hooks.getQrProviders()) {
+          try {
+            if (typeof provider.verifyReturn === 'function') {
+              const result = await provider.verifyReturn(params);
+              if (result) return res.json(result);
+            }
+          } catch { /* skip */ }
+        }
+        res.status(400).json({ error: 'No se pudo verificar el pago' });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
     // Ensure plugins directory exists
     if (!fs.existsSync(PLUGINS_DIR)) {
       fs.mkdirSync(PLUGINS_DIR, { recursive: true });

@@ -124,6 +124,9 @@ function Store() {
   const configFromUrl = searchParams.get('config');
   const adminEditToken = searchParams.get('admin_edit');
   const deliveryMode = searchParams.get('delivery') === 'true';
+  const qrReturnResult = searchParams.get('x_result');
+  const qrReturnRef = searchParams.get('x_reference');
+  const [qrPaymentResult, setQrPaymentResult] = useState(null);
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -230,6 +233,21 @@ function Store() {
   useEffect(() => {
     pendingOrderDataRef.current = pendingOrderData;
   }, [pendingOrderData]);
+
+  useEffect(() => {
+    if (!qrReturnRef) return;
+    const allParams = {};
+    searchParams.forEach((v, k) => { allParams[k] = v; });
+    fetch('/api/plugins/qr/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(allParams)
+    }).then(r => r.json()).then(data => {
+      setQrPaymentResult(data);
+    }).catch(() => {
+      setQrPaymentResult({ success: false, message: 'Error verificando pago' });
+    });
+  }, [qrReturnRef]);
 
   // Inactivity timer: only starts AFTER user interacts, then if idle → modal → reload
   useEffect(() => {
@@ -1023,13 +1041,10 @@ function Store() {
         const qrData = await qrRes.json();
         if (!qrData.success) throw new Error(qrData.error || 'Error generando QR');
 
-        if (deliveryMode) {
-          window.location.href = qrData.paymentUrl;
-          return;
-        }
         setQrPaymentUrl(qrData.paymentUrl);
         setPaymentWaiting(true);
         setPaymentTimeLeft(300);
+        window.open(qrData.paymentUrl, '_blank');
 
       // --- Cash ---
       } else {
@@ -2806,6 +2821,60 @@ function Store() {
               style={{ padding: '12px 24px', borderRadius: '10px' }}
             >
               Cancelar pago
+            </button>
+          </div>
+        </div>
+      )}
+
+      {qrPaymentResult && (
+        <div className="modal-overlay">
+          <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
+            {qrPaymentResult.success ? (
+              <>
+                <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--success)' }} />
+                <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
+                  Pago Exitoso
+                </h2>
+                <p className="text-muted" style={{ marginBottom: '15px', fontSize: '14px' }}>
+                  {qrPaymentResult.message}
+                </p>
+                <div style={{ background: '#f8f8f8', borderRadius: '12px', padding: '16px', marginBottom: '15px', textAlign: 'left' }}>
+                  {qrPaymentResult.order?.order_number && (
+                    <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+                      <p style={{ fontSize: '12px', color: '#888', margin: '0 0 4px' }}>Numero de Orden</p>
+                      <p style={{ fontSize: '36px', fontWeight: '900', margin: 0, color: 'var(--store-primary)' }}>{qrPaymentResult.order.order_number}</p>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid #eee' }}>
+                    <span style={{ fontSize: '13px', color: '#888' }}>Monto</span>
+                    <span style={{ fontSize: '15px', fontWeight: '700' }}>${qrPaymentResult.amount}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid #eee' }}>
+                    <span style={{ fontSize: '13px', color: '#888' }}>Referencia</span>
+                    <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#555' }}>{qrPaymentResult.reference}</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '60px', marginBottom: '20px', color: '#dc3545' }} />
+                <h2 style={{ color: '#dc3545', marginBottom: '10px', fontSize: '24px' }}>
+                  Pago no completado
+                </h2>
+                <p className="text-muted" style={{ marginBottom: '15px', fontSize: '14px' }}>
+                  {qrPaymentResult.message || 'El pago no pudo ser procesado'}
+                </p>
+              </>
+            )}
+            <button
+              onClick={() => {
+                setQrPaymentResult(null);
+                window.history.replaceState({}, '', `/store/${code}${deliveryMode ? '?delivery=true' : ''}`);
+              }}
+              className="btn btn-primary btn-lg"
+              style={{ borderRadius: '10px', padding: '12px 30px' }}
+            >
+              Continuar
             </button>
           </div>
         </div>

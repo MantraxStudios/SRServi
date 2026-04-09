@@ -665,10 +665,61 @@ export async function init(context) {
       }
 
       return { success: true, paymentUrl: result.url, reference };
+    },
+
+    verifyReturn: async (params) => {
+      const reference = params.x_reference;
+      const result = params.x_result;
+      if (!reference) return null;
+
+      // Find the transaction
+      const [txs] = await ctx.db.execute('SELECT * FROM haulmer_transactions WHERE reference = ?', [reference]);
+      if (txs.length === 0) return null;
+
+      const tx = txs[0];
+
+      if (result === 'completed' && tx.status !== 'completed') {
+        // Verify signature if config available
+        const userId = await getUserIdFromStore(tx.store_id);
+        const config = await getHaulmerConfig(userId);
+        if (config && params.x_signature) {
+          const checkData = { ...params };
+          delete checkData.x_signature;
+          const expected = generateHaulmerSignature(checkData, config.secret_key);
+          if (expected !== params.x_signature) {
+            return { success: false, error: 'Firma inválida' };
+          }
+        }
+
+        await ctx.db.execute('UPDATE haulmer_transactions SET status = ?, updated_at = NOW() WHERE reference = ?', ['completed', reference]);
+
+        if (tx.order_id) {
+          await ctx.db.execute(
+            "UPDATE orders SET payment_process = 1, cash_approved = TRUE, reference_id = ?, sequence_id = ? WHERE id = ?",
+            [params.x_authorization_code || reference, reference, tx.order_id]
+          ).catch(() => {});
+        }
+      }
+
+      // Get order info
+      let orderInfo = null;
+      if (tx.order_id) {
+        const [orders] = await ctx.db.execute('SELECT id, order_number, total, status, created_at FROM orders WHERE id = ?', [tx.order_id]);
+        if (orders.length > 0) orderInfo = orders[0];
+      }
+
+      return {
+        success: result === 'completed',
+        status: result,
+        reference,
+        amount: parseFloat(params.x_amount) || tx.amount,
+        message: params.x_message || (result === 'completed' ? 'Pago aprobado' : 'Pago no completado'),
+        order: orderInfo
+      };
     }
   });
 
-  ctx.logger.log('Tuu Payments + Haulmer QR v1.2 initialized');
+  ctx.logger.log('Tuu Payments + Haulmer QR v1.3 initialized');
 }
 
 export function destroy() {

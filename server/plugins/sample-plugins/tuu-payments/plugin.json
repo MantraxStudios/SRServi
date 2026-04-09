@@ -1,7 +1,7 @@
 {
   "id": "tuu-payments",
   "name": "Tuu Payments",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Acepta pagos con tarjeta vía POS Tuu y pagos QR vía pasarela Haulmer. Configura API Keys, POS y credenciales de Haulmer.",
   "author": "SRServi",
   "hooks": [],
