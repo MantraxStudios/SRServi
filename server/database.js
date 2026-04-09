@@ -464,6 +464,22 @@ async function migrateTables() {
       } else {
         console.log('ℹ️ Tabla products ya tiene columna sort_order');
       }
+      if (!productColNames.includes('has_extras')) {
+        await pool.execute('ALTER TABLE products ADD COLUMN has_extras BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna has_extras agregada a products');
+      }
+      if (!productColNames.includes('has_ingredients')) {
+        await pool.execute('ALTER TABLE products ADD COLUMN has_ingredients BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna has_ingredients agregada a products');
+      }
+      if (!productColNames.includes('max_extras')) {
+        await pool.execute('ALTER TABLE products ADD COLUMN max_extras INT NOT NULL DEFAULT 0');
+        console.log('✅ Columna max_extras agregada a products');
+      }
+      if (!productColNames.includes('max_ingredients')) {
+        await pool.execute('ALTER TABLE products ADD COLUMN max_ingredients INT NOT NULL DEFAULT 0');
+        console.log('✅ Columna max_ingredients agregada a products');
+      }
     } catch (migErr) {
       console.error('❌ Error migrando products:', migErr.message);
     }
@@ -734,7 +750,16 @@ async function migrateTables() {
     } catch (err) {
       console.error('❌ Error en user_plans:', err.message);
     }
-    
+
+    try {
+      await pool.execute("ALTER TABLE user_plans MODIFY COLUMN billing_cycle ENUM('monthly', 'yearly', 'forever') DEFAULT 'monthly'");
+      console.log('ℹ️ billing_cycle ENUM actualizado con forever');
+    } catch (err) {
+      if (!err.message.includes('Duplicate')) {
+        console.error('❌ Error actualizando billing_cycle ENUM:', err.message);
+      }
+    }
+
     console.log('✅ Migración de tablas completada');
   } catch (error) {
     console.error('❌ Error en migración:', error.message);
@@ -1380,12 +1405,12 @@ export async function getProducts(storeId) {
 }
 
 export async function createProduct(storeId, data) {
-  const { name, barcode, description, price, category_id, image } = data;
-  
+  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients } = data;
+
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO products (store_id, user_id, category_id, name, barcode, description, price, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, category_id || null, name, barcode || null, description || null, price, image || null]
+    'INSERT INTO products (store_id, user_id, category_id, name, barcode, description, price, image, has_extras, has_ingredients, max_extras, max_ingredients) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, category_id || null, name, barcode || null, description || null, price, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0]
   );
   const productId = result.insertId;
 
@@ -1397,16 +1422,20 @@ export async function createProduct(storeId, data) {
     barcode,
     description,
     price,
-    image
+    image,
+    has_extras: !!has_extras,
+    has_ingredients: !!has_ingredients,
+    max_extras: parseInt(max_extras) || 0,
+    max_ingredients: parseInt(max_ingredients) || 0
   };
 }
 
 export async function updateProduct(productId, storeId, data) {
-  const { name, barcode, description, price, category_id, image } = data;
+  const { name, barcode, description, price, category_id, image, has_extras, has_ingredients, max_extras, max_ingredients } = data;
 
   await pool.execute(
-    'UPDATE products SET name = ?, barcode = ?, description = ?, price = ?, category_id = ?, image = ? WHERE id = ? AND store_id = ?',
-    [name, barcode || null, description || null, price, category_id || null, image || null, productId, storeId]
+    'UPDATE products SET name = ?, barcode = ?, description = ?, price = ?, category_id = ?, image = ?, has_extras = ?, has_ingredients = ?, max_extras = ?, max_ingredients = ? WHERE id = ? AND store_id = ?',
+    [name, barcode || null, description || null, price, category_id || null, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, productId, storeId]
   );
 
   return {
@@ -1417,7 +1446,11 @@ export async function updateProduct(productId, storeId, data) {
     barcode,
     description,
     price,
-    image
+    image,
+    has_extras: !!has_extras,
+    has_ingredients: !!has_ingredients,
+    max_extras: parseInt(max_extras) || 0,
+    max_ingredients: parseInt(max_ingredients) || 0
   };
 }
 
@@ -2410,6 +2443,36 @@ export async function assignPlanToUser(userId, planId, billingCycle = 'monthly')
 export async function getPlanById(planId) {
   const [rows] = await pool.execute('SELECT * FROM plans WHERE id = ?', [planId]);
   return rows[0] || null;
+}
+
+export async function assignPremiumByAdmin(userId, planId, forever, endsAtDate) {
+  const [plans] = await pool.execute('SELECT * FROM plans WHERE id = ?', [planId]);
+  if (plans.length === 0) {
+    throw new Error('Plan no encontrado');
+  }
+
+  const plan = plans[0];
+  let endsAt;
+
+  if (forever) {
+    endsAt = new Date('2099-12-31T23:59:59');
+  } else if (endsAtDate) {
+    endsAt = new Date(endsAtDate);
+  } else {
+    throw new Error('Debe especificar fecha o para siempre');
+  }
+
+  await pool.execute(
+    'UPDATE user_plans SET is_active = FALSE WHERE user_id = ?',
+    [userId]
+  );
+
+  await pool.execute(
+    'INSERT INTO user_plans (user_id, plan_id, billing_cycle, ends_at) VALUES (?, ?, ?, ?)',
+    [userId, planId, 'forever', endsAt]
+  );
+
+  return { success: true, plan: plan.name, ends_at: endsAt };
 }
 
 export async function getAnalytics(storeId, dateRange = 'week') {

@@ -77,6 +77,12 @@ function SuperadminDashboard() {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminPass, setNewAdminPass] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [premiumTarget, setPremiumTarget] = useState(null);
+  const [premiumForever, setPremiumForever] = useState(true);
+  const [premiumDate, setPremiumDate] = useState('');
+  const [premiumPlans, setPremiumPlans] = useState([]);
+  const [premiumPlanId, setPremiumPlanId] = useState('');
   const [myProfile, setMyProfile] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileName, setProfileName] = useState('');
@@ -295,6 +301,51 @@ function SuperadminDashboard() {
       }
     } catch (error) {
       console.error('Error deleting store:', error);
+    }
+  };
+
+  const openPremiumModal = async (sub) => {
+    setPremiumTarget(sub);
+    setPremiumForever(true);
+    setPremiumDate('');
+    setPremiumPlanId('');
+    try {
+      const token = localStorage.getItem('superadminToken');
+      const res = await fetch(API + '/api/plans');
+      if (res.ok) {
+        const plans = await res.json();
+        setPremiumPlans(plans.filter(p => p.name !== 'Gratis'));
+        if (plans.filter(p => p.name !== 'Gratis').length > 0) {
+          setPremiumPlanId(plans.filter(p => p.name !== 'Gratis')[0].id);
+        }
+      }
+    } catch {}
+    setShowPremiumModal(true);
+  };
+
+  const handleAssignPremium = async () => {
+    if (!premiumTarget || !premiumPlanId) return;
+    const token = localStorage.getItem('superadminToken');
+    try {
+      const res = await fetch(API + '/api/superadmin/assign-premium', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({
+          user_id: premiumTarget.user_id,
+          plan_id: premiumPlanId,
+          forever: premiumForever,
+          ends_at: premiumForever ? null : premiumDate
+        })
+      });
+      if (res.ok) {
+        setShowPremiumModal(false);
+        fetchData();
+      } else {
+        const d = await res.json();
+        alert(d.error || 'Error al asignar premium');
+      }
+    } catch (error) {
+      console.error('Error asignando premium:', error);
     }
   };
 
@@ -746,8 +797,16 @@ function SuperadminDashboard() {
                           <button
                             className="btn btn-sm btn-primary"
                             onClick={(e) => { e.stopPropagation(); setSelectedSubscription(sub); setShowSubscriptionModal(true); }}
+                            style={{ marginRight: '4px' }}
                           >
                             Ver
+                          </button>
+                          <button
+                            className="btn btn-sm"
+                            style={{ background: '#D4AF37', color: '#fff', border: 'none' }}
+                            onClick={(e) => { e.stopPropagation(); openPremiumModal(sub); }}
+                          >
+                            Dar Premium
                           </button>
                         </td>
                       </tr>
@@ -1231,6 +1290,80 @@ function SuperadminDashboard() {
                   setShowProfileModal(false);
                 }
               }} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: '#333', color: '#fff', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showPremiumModal && premiumTarget && (
+        <div className="modal-overlay" onClick={() => setShowPremiumModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Asignar Premium</h3>
+              <button className="modal-close" onClick={() => setShowPremiumModal(false)}>&times;</button>
+            </div>
+
+            <div style={{ marginBottom: '12px', padding: '10px', background: '#f9f9f9', borderRadius: '8px' }}>
+              <div style={{ fontWeight: '700' }}>{premiumTarget.username}</div>
+              <div style={{ fontSize: '13px', color: '#888' }}>{premiumTarget.email}</div>
+              <div style={{ fontSize: '12px', color: '#aaa' }}>Plan actual: {premiumTarget.current_plan || 'Gratis'}</div>
+            </div>
+
+            <div className="form-group">
+              <label>Plan</label>
+              <select
+                value={premiumPlanId}
+                onChange={(e) => setPremiumPlanId(parseInt(e.target.value))}
+                style={{ width: '100%', padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px' }}
+              >
+                {premiumPlans.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '8px' }}>
+                <input
+                  type="radio"
+                  checked={premiumForever}
+                  onChange={() => setPremiumForever(true)}
+                />
+                <span style={{ fontWeight: '600' }}>Para siempre</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input
+                  type="radio"
+                  checked={!premiumForever}
+                  onChange={() => setPremiumForever(false)}
+                />
+                <span style={{ fontWeight: '600' }}>Hasta una fecha</span>
+              </label>
+            </div>
+
+            {!premiumForever && (
+              <div className="form-group">
+                <label>Fecha de vencimiento</label>
+                <input
+                  type="date"
+                  value={premiumDate}
+                  onChange={(e) => setPremiumDate(e.target.value)}
+                  style={{ width: '100%', padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px' }}
+                />
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-end modal-actions">
+              <button className="btn btn-secondary flex-1" onClick={() => setShowPremiumModal(false)}>
+                Cancelar
+              </button>
+              <button
+                className="btn flex-1"
+                style={{ background: '#D4AF37', color: '#fff', border: 'none' }}
+                onClick={handleAssignPremium}
+                disabled={!premiumForever && !premiumDate}
+              >
+                Asignar Premium
+              </button>
             </div>
           </div>
         </div>

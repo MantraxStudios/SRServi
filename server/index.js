@@ -93,6 +93,7 @@ import {
   getUserPlan,
   canUserCreateStore,
   assignPlanToUser,
+  assignPremiumByAdmin,
   getPlanById,
   getAnalytics,
   getSalesByDay,
@@ -1664,6 +1665,20 @@ app.get('/api/superadmin/subscriptions', authenticateSuperadminToken, async (req
   }
 });
 
+app.post('/api/superadmin/assign-premium', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { user_id, plan_id, forever, ends_at } = req.body;
+    if (!user_id || !plan_id) {
+      return res.status(400).json({ error: 'user_id y plan_id son requeridos' });
+    }
+    const result = await assignPremiumByAdmin(user_id, plan_id, forever, ends_at);
+    res.json(result);
+  } catch (error) {
+    console.error('Error asignando premium:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/categories', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id;
@@ -2490,8 +2505,8 @@ app.put('/api/products/order', authenticateToken, async (req, res) => {
 
 app.post('/api/products', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, barcode, description, price, category_id } = req.body;
-    
+    const { store_id, name, barcode, description, price, category_id, has_extras, has_ingredients, max_extras, max_ingredients } = req.body;
+
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
@@ -2502,18 +2517,22 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
     if (!name || price === undefined) {
       return res.status(400).json({ error: 'Nombre y precio son requeridos' });
     }
-    
+
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-    
+
     const product = await createProduct(parseInt(store_id), {
       name,
       barcode,
       description,
       price,
       category_id,
-      image: imageUrl
+      image: imageUrl,
+      has_extras: has_extras === 'true' || has_extras === true,
+      has_ingredients: has_ingredients === 'true' || has_ingredients === true,
+      max_extras: parseInt(max_extras) || 0,
+      max_ingredients: parseInt(max_ingredients) || 0
     });
-    
+
     emitProductUpdate(parseInt(store_id), 'product_created', product);
     if (pluginManager) pluginManager.hooks.emit('product_created', { store_id: parseInt(store_id), product });
     res.json(product);
@@ -2524,8 +2543,8 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
 
 app.put('/api/products/:id', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, barcode, description, price, category_id } = req.body;
-    
+    const { store_id, name, barcode, description, price, category_id, has_extras, has_ingredients, max_extras, max_ingredients } = req.body;
+
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
@@ -2536,7 +2555,7 @@ app.put('/api/products/:id', authenticateToken, upload.single('image'), async (r
     if (!name || price === undefined) {
       return res.status(400).json({ error: 'Nombre y precio son requeridos' });
     }
-    
+
     let imageUrl;
     if (req.file) {
       imageUrl = `/uploads/${req.file.filename}`;
@@ -2544,16 +2563,20 @@ app.put('/api/products/:id', authenticateToken, upload.single('image'), async (r
       const existingProduct = await getProductById(req.params.id);
       imageUrl = existingProduct?.image || null;
     }
-    
+
     const product = await updateProduct(parseInt(req.params.id), parseInt(store_id), {
       name,
       barcode,
       description,
       price,
       category_id,
-      image: imageUrl
+      image: imageUrl,
+      has_extras: has_extras === 'true' || has_extras === true,
+      has_ingredients: has_ingredients === 'true' || has_ingredients === true,
+      max_extras: parseInt(max_extras) || 0,
+      max_ingredients: parseInt(max_ingredients) || 0
     });
-    
+
     emitProductUpdate(parseInt(store_id), 'product_updated', product);
     if (pluginManager) pluginManager.hooks.emit('product_updated', { store_id: parseInt(store_id), product });
     res.json(product);

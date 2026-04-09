@@ -39,7 +39,11 @@ function Products() {
     category_id: '',
     image: '',
     stock: '',
-    unlimited_stock: false
+    unlimited_stock: false,
+    has_extras: false,
+    has_ingredients: false,
+    max_extras: '',
+    max_ingredients: ''
   });
   const [error, setError] = useState('');
   const [activeId, setActiveId] = useState(null);
@@ -124,6 +128,10 @@ function Products() {
       formDataToSend.append('description', formData.description);
       formDataToSend.append('price', parseFloat(formData.price) || 0);
       formDataToSend.append('category_id', formData.category_id || '');
+      formDataToSend.append('has_extras', formData.has_extras);
+      formDataToSend.append('has_ingredients', formData.has_ingredients);
+      formDataToSend.append('max_extras', formData.has_extras ? (parseInt(formData.max_extras) || 0) : 0);
+      formDataToSend.append('max_ingredients', formData.has_ingredients ? (parseInt(formData.max_ingredients) || 0) : 0);
 
       if (formData.imageFile) {
         formDataToSend.append('image', formData.imageFile);
@@ -183,7 +191,11 @@ function Products() {
       category_id: product.category_id || '',
       image: product.image || '',
       stock: product.stock?.toString() || '0',
-      unlimited_stock: product.unlimited_stock || false
+      unlimited_stock: product.unlimited_stock || false,
+      has_extras: product.has_extras || false,
+      has_ingredients: product.has_ingredients || false,
+      max_extras: product.max_extras?.toString() || '',
+      max_ingredients: product.max_ingredients?.toString() || ''
     });
     setShowModal(true);
   };
@@ -217,7 +229,11 @@ function Products() {
       category_id: '',
       image: '',
       stock: '',
-      unlimited_stock: false
+      unlimited_stock: false,
+      has_extras: false,
+      has_ingredients: false,
+      max_extras: '',
+      max_ingredients: ''
     });
   };
 
@@ -572,6 +588,62 @@ function Products() {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div style={{ border: '2px solid #e0e0e0', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
+                <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: '700' }}>Complementos del producto</h4>
+
+                <div className={`stock-toggle ${formData.has_extras ? 'active' : 'inactive'}`} style={{ marginBottom: '8px' }}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={formData.has_extras}
+                      onChange={(e) => setFormData({ ...formData, has_extras: e.target.checked })}
+                    />
+                    <span className="stock-toggle-label">Lleva Extras</span>
+                  </label>
+                  <span className="stock-toggle-status">
+                    {formData.has_extras ? 'Activado' : 'Desactivado'}
+                  </span>
+                </div>
+                {formData.has_extras && (
+                  <div className="form-group" style={{ marginBottom: '12px' }}>
+                    <label>Max. extras por cliente (0 = ilimitado)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.max_extras}
+                      onChange={(e) => setFormData({ ...formData, max_extras: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+
+                <div className={`stock-toggle ${formData.has_ingredients ? 'active' : 'inactive'}`} style={{ marginBottom: '8px' }}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={formData.has_ingredients}
+                      onChange={(e) => setFormData({ ...formData, has_ingredients: e.target.checked })}
+                    />
+                    <span className="stock-toggle-label">Lleva Complementos</span>
+                  </label>
+                  <span className="stock-toggle-status">
+                    {formData.has_ingredients ? 'Activado' : 'Desactivado'}
+                  </span>
+                </div>
+                {formData.has_ingredients && (
+                  <div className="form-group" style={{ marginBottom: '0' }}>
+                    <label>Max. complementos por cliente (0 = ilimitado)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.max_ingredients}
+                      onChange={(e) => setFormData({ ...formData, max_ingredients: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                )}
               </div>
 
               <button type="submit" className="btn btn-primary btn-full">
