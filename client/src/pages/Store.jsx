@@ -619,11 +619,15 @@ function Store() {
       notes: ''
     });
 
-    const hasIngredients = product.ingredients && product.ingredients.length > 0;
+    const hasIngredients = product.has_ingredients && product.ingredients && product.ingredients.length > 0;
+    const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
 
     if (hasIngredients) {
       setProductModalStep('complements');
       setTimeout(() => setIngredientsModalOpen(true), 100);
+    } else if (hasExtras) {
+      setProductModalStep('extras');
+      setTimeout(() => setExtrasModalOpen(true), 100);
     } else {
       setProductModalStep('main');
       setTimeout(() => addToCart(), 100);
@@ -695,10 +699,9 @@ function Store() {
           selectedIngredients: prev.selectedIngredients.filter(i => i.id !== ingredient.id)
         };
       } else {
-        const ingredientConfig = selectedProduct.ingredients.find(i => i.id === ingredient.id);
-        const maxSelections = ingredientConfig?.max_selections || 1;
-        if (prev.selectedIngredients.length >= maxSelections) {
-          alert(`Solo puedes seleccionar máximo ${maxSelections} ingrediente(s) de "${ingredientConfig.name}"`);
+        const maxIngredients = parseInt(selectedProduct.max_ingredients) || 0;
+        if (maxIngredients > 0 && prev.selectedIngredients.length >= maxIngredients) {
+          alert(`Solo puedes seleccionar máximo ${maxIngredients} complemento(s)`);
           return prev;
         }
         return {
@@ -722,6 +725,11 @@ function Store() {
           selectedExtras: prev.selectedExtras.filter(e => e.id !== extra.id)
         };
       } else {
+        const maxExtras = parseInt(selectedProduct.max_extras) || 0;
+        if (maxExtras > 0 && prev.selectedExtras.length >= maxExtras) {
+          alert(`Solo puedes seleccionar máximo ${maxExtras} extra(s)`);
+          return prev;
+        }
         return {
           ...prev,
           selectedExtras: [...prev.selectedExtras, extra]
@@ -784,7 +792,7 @@ function Store() {
     }
     setIngredientsModalOpen(false);
 
-    if (selectedProduct.extras && selectedProduct.extras.length > 0) {
+    if (selectedProduct.has_extras && selectedProduct.extras && selectedProduct.extras.length > 0) {
       setProductModalStep('extras');
       setTimeout(() => setExtrasModalOpen(true), 100);
     } else {
