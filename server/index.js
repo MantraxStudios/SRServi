@@ -3121,10 +3121,16 @@ async function ensureTicketTables() {
       priority ENUM('low','normal','important','urgent') DEFAULT 'normal',
       status ENUM('open','closed','resolved') DEFAULT 'open',
       support_pin VARCHAR(6) NOT NULL,
+      assigned_to VARCHAR(255) DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`);
+    // Add assigned_to if missing
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM support_tickets LIKE ?', ['assigned_to']);
+      if (cols.length === 0) await pool.execute('ALTER TABLE support_tickets ADD COLUMN assigned_to VARCHAR(255) DEFAULT NULL');
+    } catch {}
     await pool.execute(`CREATE TABLE IF NOT EXISTS ticket_messages (
       id INT PRIMARY KEY AUTO_INCREMENT,
       ticket_id INT NOT NULL,
@@ -3165,7 +3171,7 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
   try {
     await ensureTicketTables();
     const [rows] = await pool.execute(
-      'SELECT id, subject, priority, status, support_pin, created_at, updated_at FROM support_tickets WHERE user_id = ? ORDER BY updated_at DESC',
+      'SELECT id, subject, priority, status, support_pin, assigned_to, created_at, updated_at FROM support_tickets WHERE user_id = ? ORDER BY updated_at DESC',
       [req.user.id]
     );
     res.json(rows);
@@ -3199,7 +3205,7 @@ app.post('/api/tickets/:id/messages', authenticateToken, upload.single('image'),
       [req.params.id, 'user', req.user.username || 'Usuario', msg, image, 0]
     );
     await pool.execute('UPDATE support_tickets SET status = "open", updated_at = NOW() WHERE id = ?', [req.params.id]);
-    io.emit('ticket_message', { ticket_id: parseInt(req.params.id), message_id: result.insertId });
+    io.emit('ticket_message', { ticket_id: parseInt(req.params.id), message_id: result.insertId, sender_type: 'user', sender_name: req.user.username || 'Usuario', message: msg });
     res.json({ id: result.insertId });
   } catch (error) { console.error('Error sending ticket message:', error); res.status(500).json({ error: error.message }); }
 });
@@ -3251,18 +3257,20 @@ app.get('/api/superadmin/tickets/:id/messages', authenticateSuperadminToken, asy
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Superadmin: send message
+// Superadmin: send message (assigns admin to ticket on first reply)
 app.post('/api/superadmin/tickets/:id/messages', authenticateSuperadminToken, upload.single('image'), async (req, res) => {
   try {
+    const adminName = req.body.admin_name || req.superadmin.username || 'Soporte';
     const image = req.file ? `/uploads/${req.file.filename}` : null;
     const [result] = await pool.execute(
       'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.params.id, 'admin', 'Soporte SRServi', req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
+      [req.params.id, 'admin', adminName, req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
     );
-    await pool.execute('UPDATE support_tickets SET updated_at = NOW() WHERE id = ?', [req.params.id]);
-    io.emit('ticket_message', { ticket_id: parseInt(req.params.id), message_id: result.insertId });
+    // Assign admin to ticket if not yet assigned
+    await pool.execute('UPDATE support_tickets SET assigned_to = COALESCE(assigned_to, ?), updated_at = NOW() WHERE id = ?', [adminName, req.params.id]);
+    io.emit('ticket_message', { ticket_id: parseInt(req.params.id), message_id: result.insertId, sender_type: 'admin', sender_name: adminName, message: req.body.message || '' });
     res.json({ id: result.insertId });
-  } catch (error) { res.status(500).json({ error: error.message }); }
+  } catch (error) { console.error('Error sending admin message:', error); res.status(500).json({ error: error.message }); }
 });
 
 // Superadmin: resolve ticket

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faTicketAlt, faPaperPlane, faImage, faTimes, faLock, faRedo, faCheckCircle, faExclamationTriangle, faCircle } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faTicketAlt, faPaperPlane, faImage, faTimes, faLock, faRedo, faCheckCircle, faExclamationTriangle, faCircle, faUserShield, faVolumeUp } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -11,6 +11,34 @@ const PRIORITIES = [
   { value: 'important', label: 'Importante', color: '#f39c12' },
   { value: 'urgent', label: 'Urgente', color: '#e74c3c' },
 ];
+
+// Notification sound using Web Audio API
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.3);
+    // Second beep
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.frequency.value = 1100;
+    osc2.type = 'sine';
+    gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.15);
+    gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+    osc2.start(ctx.currentTime + 0.15);
+    osc2.stop(ctx.currentTime + 0.45);
+  } catch {}
+}
 
 function Tickets() {
   const { token } = useAuth();
@@ -28,17 +56,28 @@ function Tickets() {
   const [newMessage, setNewMessage] = useState('');
   const [createdPin, setCreatedPin] = useState(null);
   const msgEndRef = useRef(null);
+  const selectedTicketRef = useRef(null);
+
+  useEffect(() => { selectedTicketRef.current = selectedTicket; }, [selectedTicket]);
 
   useEffect(() => {
     fetchTickets();
     const socket = io(API);
     socket.on('ticket_message', (data) => {
-      if (selectedTicket && data.ticket_id === selectedTicket) loadMessages(selectedTicket);
+      // Play sound for admin replies
+      if (data.sender_type === 'admin') {
+        playNotificationSound();
+      }
+      // Reload messages if viewing this ticket
+      if (selectedTicketRef.current && data.ticket_id === selectedTicketRef.current) {
+        loadMessages(selectedTicketRef.current);
+      }
+      fetchTickets();
     });
     socket.on('ticket_updated', () => fetchTickets());
     socket.on('ticket_created', () => fetchTickets());
     return () => socket.disconnect();
-  }, [selectedTicket]);
+  }, []);
 
   useEffect(() => {
     msgEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -138,6 +177,11 @@ function Tickets() {
                   </span>
                   <span>{new Date(t.updated_at).toLocaleDateString()}</span>
                 </div>
+                {t.assigned_to && (
+                  <div style={{ fontSize: '10px', color: '#9b59b6', marginTop: '4px' }}>
+                    <FontAwesomeIcon icon={faUserShield} /> {t.assigned_to}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -154,13 +198,17 @@ function Tickets() {
             </div>
           ) : (
             <>
-              {/* Header */}
               <div style={{ padding: '14px 16px', borderBottom: '1px solid #e0e0e0', background: '#fafafa' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <span style={{ fontWeight: '700', fontSize: '15px' }}>#{ticketData?.id} - {ticketData?.subject}</span>
                     <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>
                       <FontAwesomeIcon icon={faLock} /> PIN: {ticketData?.support_pin}
+                      {ticketData?.assigned_to && (
+                        <span style={{ marginLeft: '12px', color: '#9b59b6' }}>
+                          <FontAwesomeIcon icon={faUserShield} /> Atendido por: <strong>{ticketData.assigned_to}</strong>
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
@@ -176,7 +224,6 @@ function Tickets() {
                   </div>
                 </div>
               </div>
-              {/* Messages */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {messages.map(m => (
                   <div key={m.id} style={{ alignSelf: m.sender_type === 'user' ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
@@ -184,14 +231,14 @@ function Tickets() {
                       {m.message}
                       {m.image && <img src={API + m.image} alt="" style={{ maxWidth: '200px', borderRadius: '8px', marginTop: '6px', display: 'block' }} />}
                     </div>
-                    <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px', textAlign: m.sender_type === 'user' ? 'right' : 'left' }}>
+                    <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px', textAlign: m.sender_type === 'user' ? 'right' : 'left', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: m.sender_type === 'user' ? 'flex-end' : 'flex-start' }}>
+                      {m.sender_type === 'admin' && <FontAwesomeIcon icon={faUserShield} style={{ color: '#9b59b6' }} />}
                       {m.sender_name} - {new Date(m.created_at).toLocaleTimeString()}
                     </div>
                   </div>
                 ))}
                 <div ref={msgEndRef} />
               </div>
-              {/* Input */}
               {ticketData?.status !== 'resolved' && (
                 <div style={{ padding: '12px', borderTop: '1px solid #e0e0e0', display: 'flex', gap: '8px', alignItems: 'center' }}>
                   {msgImage && (
@@ -215,7 +262,6 @@ function Tickets() {
         </div>
       </div>
 
-      {/* New ticket modal */}
       {showNew && (
         <div className="modal-overlay" onClick={() => { setShowNew(false); setCreatedPin(null); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -230,7 +276,7 @@ function Tickets() {
                 <p style={{ color: '#888', fontSize: '14px' }}>Tu PIN de soporte es:</p>
                 <div style={{ fontSize: '32px', fontWeight: '800', letterSpacing: '8px', color: 'var(--primary)', margin: '12px 0' }}>{createdPin}</div>
                 <p style={{ fontSize: '12px', color: '#aaa' }}>
-                  <FontAwesomeIcon icon={faExclamationTriangle} /> Guarda este PIN. El equipo de soporte podria pedirtelo para verificar tu identidad.
+                  <FontAwesomeIcon icon={faExclamationTriangle} /> Guarda este PIN. El equipo de soporte podria pedirtelo.
                 </p>
                 <button onClick={() => { setShowNew(false); setCreatedPin(null); }} className="btn btn-primary btn-full" style={{ marginTop: '12px' }}>Entendido</button>
               </div>
@@ -255,9 +301,7 @@ function Tickets() {
                   <label>Mensaje *</label>
                   <textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Describe tu problema en detalle..." rows={4} style={{ width: '100%', resize: 'vertical' }} />
                 </div>
-                <button onClick={createTicket} disabled={!newSubject.trim() || !newMessage.trim()} className="btn btn-primary btn-full">
-                  Enviar Ticket
-                </button>
+                <button onClick={createTicket} disabled={!newSubject.trim() || !newMessage.trim()} className="btn btn-primary btn-full">Enviar Ticket</button>
               </div>
             )}
           </div>
