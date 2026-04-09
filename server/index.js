@@ -3213,7 +3213,7 @@ app.post('/api/tickets/:id/messages', authenticateToken, upload.single('image'),
     if (!msg && !image) return res.status(400).json({ error: 'Mensaje o imagen requeridos' });
     const [result] = await pool.execute(
       'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.params.id, 'user', req.user.username || 'Usuario', msg, image, 0]
+      [req.params.id, 'user', req.user.username || 'Usuario', msg, image, image ? 1 : 0]
     );
     await pool.execute('UPDATE support_tickets SET status = "open", updated_at = NOW() WHERE id = ?', [req.params.id]);
     io.emit('ticket_message', { ticket_id: parseInt(req.params.id), message_id: result.insertId, sender_type: 'user', sender_name: req.user.username || 'Usuario', message: msg });
