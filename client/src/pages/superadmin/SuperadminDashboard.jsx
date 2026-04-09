@@ -45,7 +45,8 @@ import {
   faPaperPlane,
   faImage,
   faLock,
-  faCircle
+  faCircle,
+  faArrowLeft
 } from '@fortawesome/free-solid-svg-icons';
 
 function SuperadminDashboard() {
@@ -83,6 +84,7 @@ function SuperadminDashboard() {
   const navigate = useNavigate();
   const selectedTicketRef = useRef(null);
   const saMsgEndRef = useRef(null);
+  const [saMobileChat, setSaMobileChat] = useState(false);
 
   useEffect(() => { selectedTicketRef.current = selectedTicketId; }, [selectedTicketId]);
 
@@ -888,15 +890,25 @@ function SuperadminDashboard() {
                 </div>
               </div>
             ) : activeTab === 'tickets' ? (
-              <div style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 200px)' }}>
-                {/* Ticket list */}
-                <div style={{ width: '320px', flexShrink: 0, overflowY: 'auto' }}>
+              <>
+              <style>{`
+                @media (max-width: 768px) {
+                  .sa-ticket-layout { height: calc(100vh - 60px) !important; }
+                  .sa-ticket-list { ${saMobileChat ? 'display: none !important;' : 'width: 100% !important; flex: 1 !important;'} }
+                  .sa-ticket-chat { ${saMobileChat ? 'display: flex !important; flex: 1 !important; width: 100% !important;' : 'display: none !important;'} }
+                  .sa-ticket-back { display: inline-flex !important; }
+                  .sa-ticket-input-row { flex-wrap: wrap; }
+                  .sa-ticket-input-row label { font-size: 9px !important; }
+                }
+              `}</style>
+              <div className="sa-ticket-layout" style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 200px)' }}>
+                <div className="sa-ticket-list" style={{ width: '320px', flexShrink: 0, overflowY: 'auto' }}>
                   {tickets.map(t => {
                     const prColors = { low: '#95a5a6', normal: '#3498db', important: '#f39c12', urgent: '#e74c3c' };
                     const prLabels = { low: 'Leve', normal: 'Normal', important: 'Importante', urgent: 'Urgente' };
                     return (
                       <div key={t.id} onClick={async () => {
-                        setSelectedTicketId(t.id);
+                        setSelectedTicketId(t.id); setSaMobileChat(true);
                         const token = localStorage.getItem('superadminToken');
                         const res = await fetch(API + `/api/superadmin/tickets/${t.id}/messages`, { headers: { Authorization: 'Bearer ' + token } });
                         if (res.ok) { const d = await res.json(); setTicketDetail(d.ticket); setTicketMessages(d.messages); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); }
@@ -919,16 +931,16 @@ function SuperadminDashboard() {
                   {tickets.length === 0 && <p style={{ textAlign: 'center', color: '#999' }}>Sin tickets</p>}
                 </div>
 
-                {/* Chat */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '12px', border: '1px solid #e0e0e0', overflow: 'hidden' }}>
+                <div className="sa-ticket-chat" style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '12px', border: '1px solid #e0e0e0', overflow: 'hidden' }}>
                   {!selectedTicketId ? (
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc' }}>
                       <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: '48px' }} />
                     </div>
                   ) : (
                     <>
-                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #e0e0e0', background: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #e0e0e0', background: '#fafafa', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <button className="sa-ticket-back" onClick={() => { setSaMobileChat(false); setSelectedTicketId(null); }} style={{ display: 'none', background: '#eee', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer' }}><FontAwesomeIcon icon={faArrowLeft} /></button>
+                        <div style={{ flex: 1 }}>
                           <div style={{ fontWeight: '700' }}>#{ticketDetail?.id} - {ticketDetail?.subject}</div>
                           <div style={{ fontSize: '11px', color: '#888' }}>{ticketDetail?.username} ({ticketDetail?.email}) | <FontAwesomeIcon icon={faLock} /> PIN: {ticketDetail?.support_pin}</div>
                         </div>
@@ -939,7 +951,7 @@ function SuperadminDashboard() {
                             fetchData();
                             const res = await fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } });
                             if (res.ok) { const d = await res.json(); setTicketDetail(d.ticket); }
-                          }} className="btn btn-sm" style={{ background: '#9b59b6', color: '#fff', border: 'none' }}>
+                          }} className="btn btn-sm" style={{ background: '#9b59b6', color: '#fff', border: 'none', whiteSpace: 'nowrap' }}>
                             <FontAwesomeIcon icon={faCheck} /> Resolver
                           </button>
                         )}
@@ -976,14 +988,14 @@ function SuperadminDashboard() {
                         <div ref={saMsgEndRef} />
                       </div>
                       {ticketDetail?.status !== 'resolved' && (
-                        <div style={{ padding: '12px', borderTop: '1px solid #e0e0e0', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <div className="sa-ticket-input-row" style={{ padding: '12px', borderTop: '1px solid #e0e0e0', display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <label style={{ cursor: 'pointer', color: '#888', fontSize: '18px' }}>
                             <FontAwesomeIcon icon={faImage} />
                             <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setTicketImg(e.target.files[0]); }} style={{ display: 'none' }} />
                           </label>
-                          <label style={{ fontSize: '11px', color: ticketAdminOnly ? '#e74c3c' : '#aaa', cursor: 'pointer' }}>
-                            <input type="checkbox" checked={ticketAdminOnly} onChange={(e) => setTicketAdminOnly(e.target.checked)} style={{ marginRight: '4px' }} />
-                            Img solo admin
+                          <label style={{ fontSize: '11px', color: ticketAdminOnly ? '#e74c3c' : '#aaa', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            <input type="checkbox" checked={ticketAdminOnly} onChange={(e) => setTicketAdminOnly(e.target.checked)} style={{ marginRight: '3px' }} />
+                            Solo admin
                           </label>
                           <input type="text" value={ticketMsg} onChange={(e) => setTicketMsg(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') {
                             const token = localStorage.getItem('superadminToken');
@@ -996,7 +1008,7 @@ function SuperadminDashboard() {
                               .then(() => fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } }))
                               .then(r => r.json()).then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); })
                               .finally(() => setTicketSending(false));
-                          }}} placeholder="Responder..." style={{ flex: 1, padding: '10px', border: '2px solid #e0e0e0', borderRadius: '10px', outline: 'none' }} />
+                          }}} placeholder="Responder..." style={{ flex: 1, padding: '10px', border: '2px solid #e0e0e0', borderRadius: '10px', outline: 'none', minWidth: 0 }} />
                           <button disabled={ticketSending || (!ticketMsg.trim() && !ticketImg)} onClick={() => {
                             const token = localStorage.getItem('superadminToken');
                             const fd = new FormData();
@@ -1017,6 +1029,7 @@ function SuperadminDashboard() {
                   )}
                 </div>
               </div>
+              </>
             ) : null}
           </div>
         </div>

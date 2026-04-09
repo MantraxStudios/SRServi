@@ -290,9 +290,9 @@ function Tickets() {
     <>
       <style>{`
         @media (max-width: 768px) {
-          .ticket-layout { flex-direction: column !important; height: auto !important; }
-          .ticket-sidebar { width: 100% !important; max-height: ${mobileChat ? '0' : 'none'} !important; overflow: ${mobileChat ? 'hidden' : 'auto'} !important; padding: ${mobileChat ? '0' : '0'} !important; }
-          .ticket-chat { display: ${mobileChat ? 'flex' : 'none'} !important; height: calc(100vh - 120px) !important; }
+          .ticket-layout { height: calc(100vh - 60px) !important; }
+          .ticket-sidebar { ${mobileChat ? 'display: none !important;' : 'width: 100% !important; flex: 1 !important;'} }
+          .ticket-chat { ${mobileChat ? 'display: flex !important; flex: 1 !important; width: 100% !important;' : 'display: none !important;'} }
           #ticket-back-btn { display: inline-flex !important; }
         }
       `}</style>
