@@ -3235,12 +3235,17 @@ async function ensureTicketTables() {
       ticket_id INT NOT NULL,
       sender_type ENUM('user','admin') NOT NULL,
       sender_name VARCHAR(255),
+      sender_avatar TEXT DEFAULT NULL,
       message TEXT,
       image TEXT DEFAULT NULL,
       image_admin_only BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
     )`);
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM ticket_messages LIKE ?', ['sender_avatar']);
+      if (cols.length === 0) await pool.execute('ALTER TABLE ticket_messages ADD COLUMN sender_avatar TEXT DEFAULT NULL AFTER sender_name');
+    } catch {}
     _ticketTablesReady = true;
   } catch (e) { console.error('Ticket tables error:', e.message); }
 }
@@ -3365,15 +3370,22 @@ app.get('/api/superadmin/tickets/:id/messages', authenticateSuperadminToken, asy
 // Superadmin: send message (assigns admin to ticket on first reply)
 app.post('/api/superadmin/tickets/:id/messages', authenticateSuperadminToken, upload.single('image'), async (req, res) => {
   try {
-    const adminName = req.body.admin_name || req.superadmin.username || 'Soporte';
+    await ensureTicketTables();
+    // Get admin profile
+    let adminName = req.superadmin.username || 'Soporte';
+    let adminAvatar = null;
+    try {
+      const [rows] = await pool.execute('SELECT username, avatar FROM superadmin WHERE id = ?', [req.superadmin.id]);
+      if (rows[0]?.username) adminName = rows[0].username;
+      if (rows[0]?.avatar) adminAvatar = rows[0].avatar;
+    } catch {}
     const image = req.file ? `/uploads/${req.file.filename}` : null;
     const [result] = await pool.execute(
-      'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.params.id, 'admin', adminName, req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
+      'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, sender_avatar, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [req.params.id, 'admin', adminName, adminAvatar, req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
     );
-    // Assign admin to ticket if not yet assigned
     await pool.execute('UPDATE support_tickets SET assigned_to = COALESCE(assigned_to, ?), updated_at = NOW() WHERE id = ?', [adminName, req.params.id]);
-    io.emit('ticket_message', { ticket_id: parseInt(req.params.id), message_id: result.insertId, sender_type: 'admin', sender_name: adminName, message: req.body.message || '' });
+    io.emit('ticket_message', { ticket_id: parseInt(req.params.id), message_id: result.insertId, sender_type: 'admin', sender_name: adminName, sender_avatar: adminAvatar, message: req.body.message || '' });
     res.json({ id: result.insertId });
   } catch (error) { console.error('Error sending admin message:', error); res.status(500).json({ error: error.message }); }
 });

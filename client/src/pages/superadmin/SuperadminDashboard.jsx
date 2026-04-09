@@ -897,18 +897,30 @@ function SuperadminDashboard() {
                       </div>
                       <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {ticketMessages.map(m => (
-                          <div key={m.id} style={{ alignSelf: m.sender_type === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '75%' }}>
-                            <div style={{ padding: '10px 14px', borderRadius: m.sender_type === 'admin' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: m.sender_type === 'admin' ? '#333' : '#f0f0f0', color: m.sender_type === 'admin' ? '#fff' : '#333', fontSize: '14px' }}>
-                              {m.message}
-                              {m.image && (
-                                <div>
-                                  <img src={API + m.image} alt="" style={{ maxWidth: '200px', borderRadius: '8px', marginTop: '6px' }} />
-                                  {m.image_admin_only ? <span style={{ fontSize: '10px', color: '#ff6b6b' }}> (solo admin)</span> : null}
-                                </div>
-                              )}
-                            </div>
-                            <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px', textAlign: m.sender_type === 'admin' ? 'right' : 'left' }}>
-                              {m.sender_name} - {new Date(m.created_at).toLocaleTimeString()}
+                          <div key={m.id} style={{ alignSelf: m.sender_type === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '80%', display: 'flex', gap: '8px', flexDirection: m.sender_type === 'admin' ? 'row-reverse' : 'row' }}>
+                            {m.sender_avatar && (
+                              <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                                <img src={API + m.sender_avatar} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                              </div>
+                            )}
+                            {!m.sender_avatar && m.sender_type === 'admin' && (
+                              <div style={{ flexShrink: 0, marginTop: '2px', width: '28px', height: '28px', borderRadius: '50%', background: m.sender_name === 'SRServi Bot' ? '#e8f5e9' : '#f3e5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: m.sender_name === 'SRServi Bot' ? '#4caf50' : '#9b59b6' }}>
+                                <FontAwesomeIcon icon={faShieldAlt} />
+                              </div>
+                            )}
+                            <div style={{ flex: 1 }}>
+                              <div style={{ padding: '10px 14px', borderRadius: m.sender_type === 'admin' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: m.sender_type === 'admin' ? '#333' : m.sender_name === 'SRServi Bot' ? '#e8f5e9' : '#f0f0f0', color: m.sender_type === 'admin' ? '#fff' : '#333', fontSize: '14px' }}>
+                                {m.message}
+                                {m.image && (
+                                  <div>
+                                    <img src={API + m.image} alt="" style={{ maxWidth: '200px', borderRadius: '8px', marginTop: '6px' }} />
+                                    {m.image_admin_only ? <span style={{ fontSize: '10px', color: '#ff6b6b' }}> (solo admin)</span> : null}
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px', textAlign: m.sender_type === 'admin' ? 'right' : 'left' }}>
+                                {m.sender_name} - {new Date(m.created_at).toLocaleTimeString()}
+                              </div>
                             </div>
                           </div>
                         ))}
