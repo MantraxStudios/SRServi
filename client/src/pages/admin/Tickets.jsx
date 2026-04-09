@@ -249,6 +249,11 @@ function Tickets() {
                   <div style={{ padding: '10px 14px', borderRadius: m.sender_type === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: m.sender_type === 'user' ? 'var(--primary, #000)' : m.sender_name === 'SRServi Bot' ? '#e8f5e9' : '#f0f0f0', color: m.sender_type === 'user' ? '#fff' : '#333', fontSize: '14px' }}>
                     {m.message}
                     {m.image && <img src={API + m.image} alt="" style={{ maxWidth: '200px', borderRadius: '8px', marginTop: '6px', display: 'block' }} />}
+                    {!m.message && !m.image && m.sender_type === 'user' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', opacity: 0.8 }}>
+                        <FontAwesomeIcon icon={faLock} /> Imagen enviada — solo el soporte de SRServi puede acceder a las imagenes por seguridad
+                      </div>
+                    )}
                   </div>
                   <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px', textAlign: m.sender_type === 'user' ? 'right' : 'left', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: m.sender_type === 'user' ? 'flex-end' : 'flex-start' }}>
                     {m.sender_name} - {new Date(m.created_at).toLocaleTimeString()}
