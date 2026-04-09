@@ -3394,11 +3394,14 @@ app.post('/api/superadmin/tickets/:id/messages', authenticateSuperadminToken, up
       }
     } catch (e) { console.error('Error getting admin profile:', e.message); }
     const image = req.file ? `/uploads/${req.file.filename}` : null;
-    // Force ensure sender_avatar column exists
+    // Add sender_avatar column if missing
     try {
-      const [mc] = await pool.execute('SHOW COLUMNS FROM ticket_messages LIKE ?', ['sender_avatar']);
-      if (mc.length === 0) await pool.execute('ALTER TABLE ticket_messages ADD COLUMN sender_avatar TEXT DEFAULT NULL AFTER sender_name');
-    } catch {}
+      await pool.execute('ALTER TABLE ticket_messages ADD COLUMN sender_avatar TEXT DEFAULT NULL');
+      console.log('Added sender_avatar column');
+    } catch (alterErr) {
+      // Column already exists or other error - that's fine
+      if (!alterErr.message.includes('Duplicate')) console.log('sender_avatar column:', alterErr.message);
+    }
     const [result] = await pool.execute(
       'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, sender_avatar, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [req.params.id, 'admin', adminName, adminAvatar, req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
