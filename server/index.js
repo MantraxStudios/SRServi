@@ -3375,14 +3375,24 @@ app.get('/api/superadmin/tickets/:id/messages', authenticateSuperadminToken, asy
 app.post('/api/superadmin/tickets/:id/messages', authenticateSuperadminToken, upload.single('image'), async (req, res) => {
   try {
     await ensureTicketTables();
+    // Ensure superadmin columns
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM superadmin');
+      const names = cols.map(c => c.Field);
+      if (!names.includes('username')) await pool.execute('ALTER TABLE superadmin ADD COLUMN username VARCHAR(255) DEFAULT NULL');
+      if (!names.includes('avatar')) await pool.execute('ALTER TABLE superadmin ADD COLUMN avatar TEXT DEFAULT NULL');
+    } catch {}
     // Get admin profile
-    let adminName = req.superadmin.username || 'Soporte';
+    let adminName = 'Soporte';
     let adminAvatar = null;
     try {
-      const [rows] = await pool.execute('SELECT * FROM superadmin WHERE id = ?', [req.superadmin.id]);
-      if (rows[0]?.username) adminName = rows[0].username;
-      if (rows[0]?.avatar) adminAvatar = rows[0].avatar;
-    } catch {}
+      const [rows] = await pool.execute('SELECT id, email, username, avatar FROM superadmin WHERE id = ?', [req.superadmin.id]);
+      console.log('Admin profile for ticket:', req.superadmin.id, rows[0]);
+      if (rows[0]) {
+        adminName = rows[0].username || rows[0].email || 'Soporte';
+        adminAvatar = rows[0].avatar || null;
+      }
+    } catch (e) { console.error('Error getting admin profile:', e.message); }
     const image = req.file ? `/uploads/${req.file.filename}` : null;
     let result;
     try {
