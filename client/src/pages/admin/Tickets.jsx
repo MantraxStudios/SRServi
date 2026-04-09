@@ -12,12 +12,42 @@ const PRIORITIES = [
   { value: 'urgent', label: 'Urgente', color: '#e74c3c' },
 ];
 
-const notificationAudio = new Audio('/notification.mp3');
+let notificationAudio = null;
+function ensureAudio() {
+  if (!notificationAudio) {
+    notificationAudio = new Audio('/notification.mp3');
+    notificationAudio.volume = 1;
+    notificationAudio.load();
+  }
+}
 function playNotificationSound() {
   try {
+    ensureAudio();
     notificationAudio.currentTime = 0;
-    notificationAudio.play().catch(() => {});
+    const p = notificationAudio.play();
+    if (p && p.catch) p.catch(() => {
+      // Fallback: Web Audio API beep
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [880, 1100].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.frequency.value = freq; osc.type = 'sine';
+          const t = ctx.currentTime + i * 0.15;
+          gain.gain.setValueAtTime(0.3, t);
+          gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+          osc.start(t); osc.stop(t + 0.3);
+        });
+      } catch {}
+    });
   } catch {}
+}
+// Unlock audio on first user interaction
+if (typeof document !== 'undefined') {
+  const unlock = () => { ensureAudio(); notificationAudio.play().then(() => { notificationAudio.pause(); notificationAudio.currentTime = 0; }).catch(() => {}); document.removeEventListener('click', unlock); document.removeEventListener('touchstart', unlock); };
+  document.addEventListener('click', unlock, { once: true });
+  document.addEventListener('touchstart', unlock, { once: true });
 }
 
 function Tickets() {
