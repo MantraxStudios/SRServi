@@ -221,10 +221,11 @@ function Store() {
     storeIdRef.current = store?.store?.id || null;
   }, [store?.store?.id]);
 
-  // Inactivity timer: 2 min no touch → show modal with 10s countdown → reload
+  // Inactivity timer: only starts AFTER user interacts, then if idle → modal → reload
   useEffect(() => {
-    if (editMode) return; // Don't run in edit mode
-    const resetInactivity = () => {
+    if (editMode) return;
+    let userHasInteracted = false;
+    const startInactivityTimer = () => {
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       if (inactivityCountdownRef.current) clearInterval(inactivityCountdownRef.current);
       setInactivityModalOpen(false);
@@ -244,11 +245,19 @@ function Store() {
         }, 1000);
       }, timeout);
     };
+    const onUserActivity = () => {
+      if (!userHasInteracted) {
+        userHasInteracted = true;
+      }
+      if (userHasInteracted) {
+        startInactivityTimer();
+      }
+    };
     const events = ['touchstart', 'mousedown', 'keydown', 'scroll'];
-    events.forEach(e => document.addEventListener(e, resetInactivity, { passive: true }));
-    resetInactivity();
+    events.forEach(e => document.addEventListener(e, onUserActivity, { passive: true }));
+    // Don't start timer until user interacts
     return () => {
-      events.forEach(e => document.removeEventListener(e, resetInactivity));
+      events.forEach(e => document.removeEventListener(e, onUserActivity));
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       if (inactivityCountdownRef.current) clearInterval(inactivityCountdownRef.current);
     };
