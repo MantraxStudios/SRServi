@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPalette, faCoins, faChevronDown, faCheck, faFire, faClock } from '@fortawesome/free-solid-svg-icons';
+import { faPalette, faCoins, faChevronDown, faCheck, faFire, faClock, faQrcode, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useNavigate, Link } from 'react-router-dom';
 
@@ -37,6 +37,13 @@ function Settings() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
+  const [mpToken, setMpToken] = useState('');
+  const [mpConfigured, setMpConfigured] = useState(false);
+  const [mpPreview, setMpPreview] = useState('');
+  const [mpSaving, setMpSaving] = useState(false);
+  const [mpSuccess, setMpSuccess] = useState('');
+  const [mpError, setMpError] = useState('');
+  const [showMpToken, setShowMpToken] = useState(false);
 
   useEffect(() => {
     if (selectedStore) {
@@ -53,6 +60,44 @@ function Settings() {
       });
     }
   }, [selectedStore]);
+
+  useEffect(() => {
+    if (selectedStore && token) {
+      fetch(`/api/stores/${selectedStore.id}/mp-config`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(r => r.json()).then(data => {
+        setMpConfigured(data.configured);
+        setMpPreview(data.token_preview || '');
+      }).catch(() => {});
+    }
+  }, [selectedStore, token]);
+
+  const saveMpConfig = async () => {
+    setMpSaving(true);
+    setMpError('');
+    setMpSuccess('');
+    try {
+      const res = await fetch(`/api/stores/${selectedStore.id}/mp-config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ mp_access_token: mpToken })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMpSuccess(mpToken ? 'MercadoPago QR configurado correctamente' : 'MercadoPago QR desvinculado');
+        setMpConfigured(!!mpToken);
+        setMpPreview(mpToken ? '****' + mpToken.slice(-6) : '');
+        setMpToken('');
+        setTimeout(() => setMpSuccess(''), 3000);
+      } else {
+        setMpError(data.error || 'Error al guardar');
+      }
+    } catch {
+      setMpError('Error de conexión');
+    } finally {
+      setMpSaving(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -385,6 +430,93 @@ function Settings() {
               {loading ? 'Guardando...' : 'Guardar Configuración'}
             </button>
           </form>
+        </div>
+
+        <div className="card" style={{ marginTop: '20px' }}>
+          <div className="card-header">
+            <div className="card-title">
+              <FontAwesomeIcon icon={faQrcode} className="gap-2" />
+              Pagos con QR - MercadoPago
+            </div>
+          </div>
+
+          <div style={{ padding: '0 20px 20px' }}>
+            {mpSuccess && <div className="success" style={{ marginBottom: '12px' }}>{mpSuccess}</div>}
+            {mpError && <div className="error" style={{ marginBottom: '12px' }}>{mpError}</div>}
+
+            <div style={{ padding: '12px', borderRadius: '8px', background: mpConfigured ? '#dcfce7' : '#fef3c7', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <FontAwesomeIcon icon={faQrcode} style={{ fontSize: '20px', color: mpConfigured ? '#166534' : '#92400e' }} />
+              <div>
+                <div style={{ fontWeight: '600', fontSize: '14px', color: mpConfigured ? '#166534' : '#92400e' }}>
+                  {mpConfigured ? 'QR Configurado' : 'QR No Configurado'}
+                </div>
+                {mpConfigured && <div style={{ fontSize: '12px', color: '#666' }}>Token: {mpPreview}</div>}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Access Token de MercadoPago</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <input
+                    type={showMpToken ? 'text' : 'password'}
+                    value={mpToken}
+                    onChange={(e) => setMpToken(e.target.value)}
+                    placeholder={mpConfigured ? 'Ingresa nuevo token para cambiar' : 'APP_USR-...'}
+                    style={{ width: '100%', paddingRight: '40px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowMpToken(!showMpToken)}
+                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}
+                  >
+                    <FontAwesomeIcon icon={showMpToken ? faEyeSlash : faEye} />
+                  </button>
+                </div>
+              </div>
+              <p style={{ fontSize: '12px', color: '#888', marginTop: '6px' }}>
+                Obtén tu Access Token en <a href="https://www.mercadopago.cl/developers/panel/app" target="_blank" rel="noopener noreferrer" style={{ color: '#0066cc' }}>MercadoPago Developers</a>
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={saveMpConfig}
+                disabled={mpSaving || !mpToken}
+              >
+                {mpSaving ? 'Guardando...' : mpConfigured ? 'Actualizar Token' : 'Configurar QR'}
+              </button>
+              {mpConfigured && (
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={async () => {
+                    if (!confirm('Desvincular MercadoPago QR de esta tienda?')) return;
+                    setMpSaving(true);
+                    setMpError('');
+                    try {
+                      const res = await fetch(`/api/stores/${selectedStore.id}/mp-config`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ mp_access_token: null })
+                      });
+                      if (res.ok) {
+                        setMpConfigured(false);
+                        setMpPreview('');
+                        setMpSuccess('MercadoPago QR desvinculado');
+                        setTimeout(() => setMpSuccess(''), 3000);
+                      }
+                    } catch {} finally { setMpSaving(false); }
+                  }}
+                  disabled={mpSaving}
+                >
+                  Desvincular
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </>

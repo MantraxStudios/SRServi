@@ -769,6 +769,17 @@ async function migrateTables() {
     }
 
     try {
+      const [storeCols] = await pool.execute('SHOW COLUMNS FROM stores');
+      const storeColNames = storeCols.map(c => c.Field);
+      if (!storeColNames.includes('mp_access_token')) {
+        await pool.execute('ALTER TABLE stores ADD COLUMN mp_access_token VARCHAR(500) DEFAULT NULL');
+        console.log('✅ Columna mp_access_token agregada a stores');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando stores mp_access_token:', err.message);
+    }
+
+    try {
       await pool.execute(`
         CREATE TABLE IF NOT EXISTS apk_releases (
           id INT PRIMARY KEY AUTO_INCREMENT,
@@ -1382,6 +1393,10 @@ export async function getProducts(storeId) {
       price: parseFloat(product.price),
       stock: parseInt(product.stock) || 0,
       unlimited_stock: product.unlimited_stock || false,
+      has_extras: !!product.has_extras,
+      has_ingredients: !!product.has_ingredients,
+      max_extras: parseInt(product.max_extras) || 0,
+      max_ingredients: parseInt(product.max_ingredients) || 0,
       ingredients: await getProductIngredients(product.id, product.category_id),
       extras: await getProductExtras(product.id, product.category_id)
     };
@@ -1571,6 +1586,10 @@ export async function getPublicProducts(storeId) {
       price: parseFloat(product.price),
       stock: parseInt(product.stock) || 0,
       unlimited_stock: product.unlimited_stock || false,
+      has_extras: !!product.has_extras,
+      has_ingredients: !!product.has_ingredients,
+      max_extras: parseInt(product.max_extras) || 0,
+      max_ingredients: parseInt(product.max_ingredients) || 0,
       ingredients: await getProductIngredients(product.id, product.category_id),
       extras: await getProductExtras(product.id, product.category_id)
     };

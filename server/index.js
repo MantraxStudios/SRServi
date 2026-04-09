@@ -1375,6 +1375,135 @@ app.get('/api/verify-mp-credentials', authenticateToken, async (req, res) => {
   }
 });
 
+// ==================== QR MercadoPago por tienda ====================
+
+// Guardar/obtener token MP de la tienda
+app.get('/api/stores/:id/mp-config', authenticateToken, async (req, res) => {
+  try {
+    const isOwner = await verifyStoreOwnership(parseInt(req.params.id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso' });
+    const [rows] = await pool.execute('SELECT mp_access_token FROM stores WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const hasToken = !!rows[0].mp_access_token;
+    res.json({ configured: hasToken, token_preview: hasToken ? '****' + rows[0].mp_access_token.slice(-6) : null });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/stores/:id/mp-config', authenticateToken, async (req, res) => {
+  try {
+    const isOwner = await verifyStoreOwnership(parseInt(req.params.id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso' });
+    const { mp_access_token } = req.body;
+
+    if (mp_access_token) {
+      // Verificar que el token sea válido
+      const verifyRes = await fetch('https://api.mercadopago.com/users/me', {
+        headers: { 'Authorization': `Bearer ${mp_access_token}` }
+      });
+      if (!verifyRes.ok) return res.status(400).json({ error: 'Token de MercadoPago inválido' });
+    }
+
+    await pool.execute('UPDATE stores SET mp_access_token = ? WHERE id = ?', [mp_access_token || null, req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Crear preferencia QR para una orden
+app.post('/api/store/:code/qr-payment', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    if (!store.mp_access_token) return res.status(400).json({ error: 'MercadoPago no configurado para esta tienda' });
+
+    const { order_id, amount, description } = req.body;
+    if (!amount) return res.status(400).json({ error: 'Monto requerido' });
+
+    const externalRef = `qr-${store.code}-${order_id || Date.now()}`;
+
+    const prefResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${store.mp_access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        items: [{
+          title: description || `Pedido ${store.name}`,
+          quantity: 1,
+          currency_id: store.currency_code || 'CLP',
+          unit_price: Number(amount)
+        }],
+        external_reference: externalRef,
+        notification_url: `${process.env.SERVER_URL || 'https://srservi2.srautomatic.com'}/api/store/${store.code}/qr-webhook`
+      })
+    });
+
+    if (!prefResponse.ok) {
+      const err = await prefResponse.json();
+      return res.status(400).json({ error: 'Error creando preferencia', details: err });
+    }
+
+    const pref = await prefResponse.json();
+
+    // Actualizar la orden con la referencia si existe
+    if (order_id) {
+      await pool.execute('UPDATE orders SET external_reference = ?, mp_order_id = ? WHERE id = ?', [externalRef, pref.id, order_id]);
+    }
+
+    res.json({
+      preference_id: pref.id,
+      init_point: pref.init_point,
+      sandbox_init_point: pref.sandbox_init_point,
+      qr_data: pref.init_point,
+      external_reference: externalRef
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Webhook para confirmar pago QR
+app.post('/api/store/:code/qr-webhook', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code);
+    if (!store || !store.mp_access_token) return res.status(200).send('OK');
+
+    const { type, data } = req.body;
+    if (type === 'payment') {
+      const paymentRes = await fetch(`https://api.mercadopago.com/v1/payments/${data.id}`, {
+        headers: { 'Authorization': `Bearer ${store.mp_access_token}` }
+      });
+      if (paymentRes.ok) {
+        const payment = await paymentRes.json();
+        if (payment.status === 'approved' && payment.external_reference) {
+          const [orders] = await pool.execute(
+            'SELECT id FROM orders WHERE external_reference = ? AND store_id = ?',
+            [payment.external_reference, store.id]
+          );
+          if (orders.length > 0) {
+            await pool.execute(
+              'UPDATE orders SET payment_process = 1, cash_approved = TRUE, reference_id = ?, sequence_id = ? WHERE id = ?',
+              [payment.id?.toString(), payment.external_reference, orders[0].id]
+            );
+            const socketId = userSockets.get(store.id);
+            if (socketId) {
+              io.to(socketId).emit('qr_payment_completed', { order_id: orders[0].id, payment_id: payment.id });
+            }
+          }
+        }
+      }
+    }
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('QR Webhook error:', error);
+    res.status(200).send('OK');
+  }
+});
+
 app.get('/api/analytics/summary', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id;
