@@ -3208,8 +3208,9 @@ app.patch('/api/mercado-pago-terminals/:id/mode', authenticateToken, async (req,
 
 // Ensure tickets tables
 let _ticketTablesReady = false;
+let _ticketAvatarReady = false;
 async function ensureTicketTables() {
-  if (_ticketTablesReady) return;
+  if (_ticketTablesReady && _ticketAvatarReady) return;
   try {
     await pool.execute(`CREATE TABLE IF NOT EXISTS support_tickets (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -3242,10 +3243,13 @@ async function ensureTicketTables() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
     )`);
-    try {
-      const [cols] = await pool.execute('SHOW COLUMNS FROM ticket_messages LIKE ?', ['sender_avatar']);
-      if (cols.length === 0) await pool.execute('ALTER TABLE ticket_messages ADD COLUMN sender_avatar TEXT DEFAULT NULL AFTER sender_name');
-    } catch {}
+    if (!_ticketAvatarReady) {
+      try {
+        const [cols] = await pool.execute('SHOW COLUMNS FROM ticket_messages LIKE ?', ['sender_avatar']);
+        if (cols.length === 0) await pool.execute('ALTER TABLE ticket_messages ADD COLUMN sender_avatar TEXT DEFAULT NULL AFTER sender_name');
+        _ticketAvatarReady = true;
+      } catch {}
+    }
     _ticketTablesReady = true;
   } catch (e) { console.error('Ticket tables error:', e.message); }
 }
@@ -3375,15 +3379,24 @@ app.post('/api/superadmin/tickets/:id/messages', authenticateSuperadminToken, up
     let adminName = req.superadmin.username || 'Soporte';
     let adminAvatar = null;
     try {
-      const [rows] = await pool.execute('SELECT username, avatar FROM superadmin WHERE id = ?', [req.superadmin.id]);
+      const [rows] = await pool.execute('SELECT * FROM superadmin WHERE id = ?', [req.superadmin.id]);
       if (rows[0]?.username) adminName = rows[0].username;
       if (rows[0]?.avatar) adminAvatar = rows[0].avatar;
     } catch {}
     const image = req.file ? `/uploads/${req.file.filename}` : null;
-    const [result] = await pool.execute(
-      'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, sender_avatar, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [req.params.id, 'admin', adminName, adminAvatar, req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
-    );
+    let result;
+    try {
+      [result] = await pool.execute(
+        'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, sender_avatar, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [req.params.id, 'admin', adminName, adminAvatar, req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
+      );
+    } catch {
+      // Fallback without sender_avatar if column doesn't exist
+      [result] = await pool.execute(
+        'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?)',
+        [req.params.id, 'admin', adminName, req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
+      );
+    }
     await pool.execute('UPDATE support_tickets SET assigned_to = COALESCE(assigned_to, ?), updated_at = NOW() WHERE id = ?', [adminName, req.params.id]);
     io.emit('ticket_message', { ticket_id: parseInt(req.params.id), message_id: result.insertId, sender_type: 'admin', sender_name: adminName, sender_avatar: adminAvatar, message: req.body.message || '' });
     res.json({ id: result.insertId });
