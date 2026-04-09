@@ -3260,6 +3260,12 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
       'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, message) VALUES (?, ?, ?, ?)',
       [result.insertId, 'user', req.user.username || 'Usuario', message]
     );
+    // Auto-reply from bot
+    const botMsg = 'Bienvenido al soporte de SRServi. En cuanto haya un agente disponible su solicitud sera atendida. Esto puede demorar desde 1 hora hasta 24 horas, o puede ser atendida al instante.\n\nPor seguridad, nunca le pediremos datos personales, contrasenas o informacion sensible a traves de nuestra plataforma de soporte ni por correo electronico.';
+    await pool.execute(
+      'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, message) VALUES (?, ?, ?, ?)',
+      [result.insertId, 'admin', 'SRServi Bot', botMsg]
+    );
     io.emit('ticket_created', { ticket_id: result.insertId });
     res.json({ id: result.insertId, support_pin: pin });
   } catch (error) { console.error('Error creating ticket:', error); res.status(500).json({ error: error.message }); }
