@@ -123,6 +123,7 @@ function Store() {
   const terminalFromUrl = searchParams.get('terminal');
   const configFromUrl = searchParams.get('config');
   const adminEditToken = searchParams.get('admin_edit');
+  const deliveryMode = searchParams.get('delivery') === 'true';
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -232,7 +233,7 @@ function Store() {
 
   // Inactivity timer: only starts AFTER user interacts, then if idle → modal → reload
   useEffect(() => {
-    if (editMode) return;
+    if (editMode || deliveryMode) return;
     let userHasInteracted = false;
     const startInactivityTimer = () => {
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
@@ -881,7 +882,11 @@ function Store() {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     setCartOpen(false);
-    setPaymentModalOpen(true);
+    if (deliveryMode && qrProvider) {
+      processPayment('qr');
+    } else {
+      setPaymentModalOpen(true);
+    }
   };
 
   const applyCoupon = async () => {
@@ -949,7 +954,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2)
+            total: Number(finalTotal).toFixed(2), delivery: deliveryMode
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -982,7 +987,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: selectedMethod,
             items: cartItems, selected_terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
-            coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2)
+            coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), delivery: deliveryMode
           })
         });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
@@ -999,7 +1004,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2)
+            total: Number(finalTotal).toFixed(2), delivery: deliveryMode
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -1018,6 +1023,10 @@ function Store() {
         const qrData = await qrRes.json();
         if (!qrData.success) throw new Error(qrData.error || 'Error generando QR');
 
+        if (deliveryMode) {
+          window.location.href = qrData.paymentUrl;
+          return;
+        }
         setQrPaymentUrl(qrData.paymentUrl);
         setPaymentWaiting(true);
         setPaymentTimeLeft(300);
@@ -1030,7 +1039,7 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: selectedMethod,
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2)
+            total: Number(finalTotal).toFixed(2), delivery: deliveryMode
           })
         });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');

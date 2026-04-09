@@ -550,7 +550,7 @@ function Settings() {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
                   <div ref={qrRef} style={{ padding: '20px', background: '#fff', borderRadius: '12px', border: '2px solid #e0e0e0' }}>
                     <QRCodeCanvas
-                      value={`https://srservi2.srautomatic.com/store/${selectedStore.code}`}
+                      value={`https://srservi2.srautomatic.com/store/${selectedStore.code}?delivery=true`}
                       size={220}
                       level="H"
                       includeMargin={false}

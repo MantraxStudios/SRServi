@@ -1707,15 +1707,18 @@ export async function createOrder(storeId, orderData) {
     );
   }
   
-  const [todayOrders] = await pool.execute(
-    'SELECT COUNT(*) as count FROM orders WHERE store_id = ? AND DATE(created_at) = CURDATE()',
-    [storeId]
-  );
-  const orderNumber = (todayOrders[0].count).toString();
-  await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [orderNumber, orderId]);
-  const finalOrder = { 
-    id: orderId, 
-    order_number: orderNumber, 
+  let orderNumber = null;
+  if (!orderData.delivery) {
+    const [todayOrders] = await pool.execute(
+      'SELECT COUNT(*) as count FROM orders WHERE store_id = ? AND DATE(created_at) = CURDATE()',
+      [storeId]
+    );
+    orderNumber = (todayOrders[0].count).toString();
+    await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [orderNumber, orderId]);
+  }
+  const finalOrder = {
+    id: orderId,
+    order_number: orderNumber,
     store_id: storeId, 
     order_type, 
     subtotal: couponData.subtotal,
