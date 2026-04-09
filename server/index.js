@@ -3394,19 +3394,16 @@ app.post('/api/superadmin/tickets/:id/messages', authenticateSuperadminToken, up
       }
     } catch (e) { console.error('Error getting admin profile:', e.message); }
     const image = req.file ? `/uploads/${req.file.filename}` : null;
-    let result;
+    // Force ensure sender_avatar column exists
     try {
-      [result] = await pool.execute(
-        'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, sender_avatar, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [req.params.id, 'admin', adminName, adminAvatar, req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
-      );
-    } catch {
-      // Fallback without sender_avatar if column doesn't exist
-      [result] = await pool.execute(
-        'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?)',
-        [req.params.id, 'admin', adminName, req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
-      );
-    }
+      const [mc] = await pool.execute('SHOW COLUMNS FROM ticket_messages LIKE ?', ['sender_avatar']);
+      if (mc.length === 0) await pool.execute('ALTER TABLE ticket_messages ADD COLUMN sender_avatar TEXT DEFAULT NULL AFTER sender_name');
+    } catch {}
+    const [result] = await pool.execute(
+      'INSERT INTO ticket_messages (ticket_id, sender_type, sender_name, sender_avatar, message, image, image_admin_only) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [req.params.id, 'admin', adminName, adminAvatar, req.body.message || '', image, req.body.admin_only === 'true' ? 1 : 0]
+    );
+    console.log('Message saved with avatar:', adminAvatar, 'insertId:', result.insertId);
     await pool.execute('UPDATE support_tickets SET assigned_to = COALESCE(assigned_to, ?), updated_at = NOW() WHERE id = ?', [adminName, req.params.id]);
     io.emit('ticket_message', { ticket_id: parseInt(req.params.id), message_id: result.insertId, sender_type: 'admin', sender_name: adminName, sender_avatar: adminAvatar, message: req.body.message || '' });
     res.json({ id: result.insertId });
