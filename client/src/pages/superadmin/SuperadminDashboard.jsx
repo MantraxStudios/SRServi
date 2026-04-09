@@ -61,12 +61,19 @@ function SuperadminDashboard() {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminPass, setNewAdminPass] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
+  const [myProfile, setMyProfile] = useState(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileAvatar, setProfileAvatar] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const token = localStorage.getItem('superadminToken');
     if (!token) {
       navigate('/superadmin/login');
+    } else {
+      fetch(API + '/api/superadmin/profile', { headers: { Authorization: 'Bearer ' + token } })
+        .then(r => r.json()).then(d => { if (d.id) setMyProfile(d); }).catch(() => {});
     }
   }, [navigate]);
 
@@ -407,10 +414,23 @@ function SuperadminDashboard() {
         </nav>
 
         <div className="sidebar-footer">
-          <div
-            className="sidebar-nav-item logout"
-            onClick={handleLogout}
-          >
+          {myProfile && sidebarOpen && (
+            <div onClick={() => { setProfileName(myProfile.username || ''); setProfileAvatar(null); setShowProfileModal(true); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', cursor: 'pointer', borderRadius: '8px', marginBottom: '4px', background: 'rgba(255,255,255,0.05)' }}>
+              {myProfile.avatar ? (
+                <img src={API + myProfile.avatar} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#aaa' }}>
+                  <FontAwesomeIcon icon={faShieldAlt} />
+                </div>
+              )}
+              <div style={{ fontSize: '12px', lineHeight: '1.3' }}>
+                <div style={{ fontWeight: '700', color: '#fff' }}>{myProfile.username || myProfile.email}</div>
+                <div style={{ color: '#888', fontSize: '10px' }}>Editar perfil</div>
+              </div>
+            </div>
+          )}
+          <div className="sidebar-nav-item logout" onClick={handleLogout}>
             <FontAwesomeIcon icon={faSignOutAlt} />
             {sidebarOpen && <span>Cerrar Sesion</span>}
           </div>
@@ -1093,6 +1113,49 @@ function SuperadminDashboard() {
               >
                 Eliminar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showProfileModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowProfileModal(false)}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', maxWidth: '360px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 16px', textAlign: 'center' }}>Mi Perfil</h3>
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <label style={{ cursor: 'pointer', display: 'inline-block', position: 'relative' }}>
+                {profileAvatar ? (
+                  <img src={URL.createObjectURL(profileAvatar)} alt="" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #333' }} />
+                ) : myProfile?.avatar ? (
+                  <img src={API + myProfile.avatar} alt="" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #333' }} />
+                ) : (
+                  <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', color: '#bbb', border: '3px solid #333' }}>
+                    <FontAwesomeIcon icon={faShieldAlt} />
+                  </div>
+                )}
+                <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#333', color: '#fff', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>
+                  <FontAwesomeIcon icon={faEdit} />
+                </div>
+                <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setProfileAvatar(e.target.files[0]); }} style={{ display: 'none' }} />
+              </label>
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '600', marginBottom: '4px', display: 'block' }}>Nombre</label>
+              <input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} placeholder="Tu nombre" style={{ width: '100%', padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', fontSize: '14px' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setShowProfileModal(false)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '2px solid #e0e0e0', background: '#fff', fontSize: '14px', cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={async () => {
+                const tk = localStorage.getItem('superadminToken');
+                const fd = new FormData();
+                if (profileName) fd.append('username', profileName);
+                if (profileAvatar) fd.append('avatar', profileAvatar);
+                const res = await fetch(API + '/api/superadmin/profile', { method: 'PUT', headers: { Authorization: 'Bearer ' + tk }, body: fd });
+                if (res.ok) {
+                  const data = await res.json();
+                  setMyProfile(data);
+                  setShowProfileModal(false);
+                }
+              }} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: '#333', color: '#fff', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}>Guardar</button>
             </div>
           </div>
         </div>

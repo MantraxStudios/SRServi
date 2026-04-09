@@ -1464,14 +1464,22 @@ app.post('/api/superadmin/login', async (req, res) => {
     if (!superadmin) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
-    // Get username if exists
-    let username = superadmin.email;
+    // Ensure columns exist
     try {
-      const [rows] = await pool.execute('SELECT username FROM superadmin WHERE id = ?', [superadmin.id]);
+      const [cols] = await pool.execute('SHOW COLUMNS FROM superadmin');
+      const names = cols.map(c => c.Field);
+      if (!names.includes('username')) await pool.execute('ALTER TABLE superadmin ADD COLUMN username VARCHAR(255) DEFAULT NULL');
+      if (!names.includes('avatar')) await pool.execute('ALTER TABLE superadmin ADD COLUMN avatar TEXT DEFAULT NULL');
+    } catch {}
+    let username = superadmin.email;
+    let avatar = null;
+    try {
+      const [rows] = await pool.execute('SELECT username, avatar FROM superadmin WHERE id = ?', [superadmin.id]);
       if (rows[0]?.username) username = rows[0].username;
+      if (rows[0]?.avatar) avatar = rows[0].avatar;
     } catch {}
     const token = jwt.sign({ id: superadmin.id, isSuperadmin: true, username }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, superadmin: { id: superadmin.id, email: superadmin.email, username } });
+    res.json({ token, superadmin: { id: superadmin.id, email: superadmin.email, username, avatar } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1510,6 +1518,42 @@ const authenticateSuperadminToken = (req, res, next) => {
   });
 };
 
+// Superadmin: update my profile (name + avatar)
+app.put('/api/superadmin/profile', authenticateSuperadminToken, upload.single('avatar'), async (req, res) => {
+  try {
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM superadmin');
+      const names = cols.map(c => c.Field);
+      if (!names.includes('username')) await pool.execute('ALTER TABLE superadmin ADD COLUMN username VARCHAR(255) DEFAULT NULL');
+      if (!names.includes('avatar')) await pool.execute('ALTER TABLE superadmin ADD COLUMN avatar TEXT DEFAULT NULL');
+    } catch {}
+    const updates = [];
+    const params = [];
+    if (req.body.username) { updates.push('username = ?'); params.push(req.body.username); }
+    if (req.file) { updates.push('avatar = ?'); params.push(`/uploads/${req.file.filename}`); }
+    if (updates.length > 0) {
+      params.push(req.superadmin.id);
+      await pool.execute(`UPDATE superadmin SET ${updates.join(', ')} WHERE id = ?`, params);
+    }
+    const [rows] = await pool.execute('SELECT id, email, username, avatar FROM superadmin WHERE id = ?', [req.superadmin.id]);
+    res.json(rows[0] || {});
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Superadmin: get my profile
+app.get('/api/superadmin/profile', authenticateSuperadminToken, async (req, res) => {
+  try {
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM superadmin');
+      const names = cols.map(c => c.Field);
+      if (!names.includes('username')) await pool.execute('ALTER TABLE superadmin ADD COLUMN username VARCHAR(255) DEFAULT NULL');
+      if (!names.includes('avatar')) await pool.execute('ALTER TABLE superadmin ADD COLUMN avatar TEXT DEFAULT NULL');
+    } catch {}
+    const [rows] = await pool.execute('SELECT id, email, username, avatar FROM superadmin WHERE id = ?', [req.superadmin.id]);
+    res.json(rows[0] || {});
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // Superadmin: create new superadmin account
 app.post('/api/superadmin/create', authenticateSuperadminToken, async (req, res) => {
   try {
@@ -1532,7 +1576,7 @@ app.get('/api/superadmin/list', authenticateSuperadminToken, async (req, res) =>
       const [cols] = await pool.execute('SHOW COLUMNS FROM superadmin LIKE ?', ['username']);
       if (cols.length === 0) await pool.execute('ALTER TABLE superadmin ADD COLUMN username VARCHAR(255) DEFAULT NULL');
     } catch {}
-    const [rows] = await pool.execute('SELECT id, email, username, created_at FROM superadmin ORDER BY id');
+    const [rows] = await pool.execute('SELECT id, email, username, avatar, created_at FROM superadmin ORDER BY id');
     res.json(rows);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
