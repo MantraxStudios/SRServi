@@ -2933,7 +2933,7 @@ app.get('/api/store/:code/orders', async (req, res) => {
       `SELECT o.*, w.name as completed_by_name
        FROM orders o
        LEFT JOIN workers w ON o.completed_by = w.id
-       WHERE o.store_id = ?
+       WHERE o.store_id = ? AND o.payment_process = 1 AND DATE(o.created_at) = CURDATE()
        ORDER BY o.created_at DESC`,
       [store.id]
     );
