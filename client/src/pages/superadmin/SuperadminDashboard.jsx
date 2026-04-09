@@ -57,6 +57,10 @@ function SuperadminDashboard() {
   const [ticketImg, setTicketImg] = useState(null);
   const [ticketAdminOnly, setTicketAdminOnly] = useState(false);
   const [ticketSending, setTicketSending] = useState(false);
+  const [superadmins, setSuperadmins] = useState([]);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminPass, setNewAdminPass] = useState('');
+  const [newAdminName, setNewAdminName] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -105,6 +109,9 @@ function SuperadminDashboard() {
         const data = await res.json();
         console.log('Datos de suscripciones:', data);
         setSubscriptions(Array.isArray(data) ? data : []);
+      } else if (activeTab === 'admins') {
+        const res = await fetch(API + '/api/superadmin/list', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (res.ok) setSuperadmins(await res.json());
       } else if (activeTab === 'tickets') {
         const res = await fetch(API + '/api/superadmin/tickets', { headers: { 'Authorization': 'Bearer ' + token } });
         const data = await res.json();
@@ -389,6 +396,14 @@ function SuperadminDashboard() {
               </span>
             )}
           </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'admins' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('admins'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faShieldAlt} />
+            {sidebarOpen && <span>Superadmins</span>}
+          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -413,7 +428,7 @@ function SuperadminDashboard() {
             </button>
             <div>
               <h1 className="admin-header-title">
-                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : 'Suscripciones'}
+                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : 'Suscripciones'}
               </h1>
               <p className="admin-header-subtitle text-muted text-sm">
                 {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : activeTab === 'workshop' ? 'Revisa y aprueba plugins del workshop' : 'Ver todas las suscripciones'}
@@ -758,6 +773,50 @@ function SuperadminDashboard() {
                     ))}
                   </div>
                 )}
+              </div>
+            ) : activeTab === 'admins' ? (
+              <div>
+                <div className="card" style={{ padding: '16px', marginBottom: '16px' }}>
+                  <h3 style={{ margin: '0 0 12px' }}>Crear Superadmin</h3>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <input type="text" value={newAdminName} onChange={(e) => setNewAdminName(e.target.value)} placeholder="Nombre" style={{ flex: 1, padding: '8px', border: '2px solid #e0e0e0', borderRadius: '8px', minWidth: '120px' }} />
+                    <input type="email" value={newAdminEmail} onChange={(e) => setNewAdminEmail(e.target.value)} placeholder="Email" style={{ flex: 1, padding: '8px', border: '2px solid #e0e0e0', borderRadius: '8px', minWidth: '150px' }} />
+                    <input type="password" value={newAdminPass} onChange={(e) => setNewAdminPass(e.target.value)} placeholder="Contraseña" style={{ flex: 1, padding: '8px', border: '2px solid #e0e0e0', borderRadius: '8px', minWidth: '120px' }} />
+                    <button onClick={async () => {
+                      if (!newAdminEmail || !newAdminPass) return alert('Email y contraseña requeridos');
+                      const tk = localStorage.getItem('superadminToken');
+                      const res = await fetch(API + '/api/superadmin/create', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, body: JSON.stringify({ email: newAdminEmail, password: newAdminPass, username: newAdminName }) });
+                      if (res.ok) { setNewAdminEmail(''); setNewAdminPass(''); setNewAdminName(''); fetchData(); }
+                      else { const d = await res.json(); alert(d.error || 'Error'); }
+                    }} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
+                      <FontAwesomeIcon icon={faShieldAlt} /> Crear
+                    </button>
+                  </div>
+                </div>
+                <div className="admin-table-wrapper">
+                  <table className="table">
+                    <thead><tr><th>ID</th><th>Nombre</th><th>Email</th><th>Creado</th><th></th></tr></thead>
+                    <tbody>
+                      {superadmins.map(sa => (
+                        <tr key={sa.id}>
+                          <td>{sa.id}</td>
+                          <td style={{ fontWeight: '600' }}>{sa.username || '-'}</td>
+                          <td>{sa.email}</td>
+                          <td>{new Date(sa.created_at).toLocaleDateString()}</td>
+                          <td>
+                            <button onClick={async () => {
+                              if (!confirm(`Eliminar superadmin ${sa.email}?`)) return;
+                              const tk = localStorage.getItem('superadminToken');
+                              const res = await fetch(API + `/api/superadmin/account/${sa.id}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + tk } });
+                              if (res.ok) fetchData();
+                              else { const d = await res.json(); alert(d.error); }
+                            }} className="btn btn-sm btn-danger"><FontAwesomeIcon icon={faTrash} /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : activeTab === 'tickets' ? (
               <div style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 200px)' }}>

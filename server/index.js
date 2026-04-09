@@ -1464,8 +1464,14 @@ app.post('/api/superadmin/login', async (req, res) => {
     if (!superadmin) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
-    const token = jwt.sign({ id: superadmin.id, isSuperadmin: true }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, superadmin: { id: superadmin.id, email: superadmin.email } });
+    // Get username if exists
+    let username = superadmin.email;
+    try {
+      const [rows] = await pool.execute('SELECT username FROM superadmin WHERE id = ?', [superadmin.id]);
+      if (rows[0]?.username) username = rows[0].username;
+    } catch {}
+    const token = jwt.sign({ id: superadmin.id, isSuperadmin: true, username }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ token, superadmin: { id: superadmin.id, email: superadmin.email, username } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1503,6 +1509,42 @@ const authenticateSuperadminToken = (req, res, next) => {
     next();
   });
 };
+
+// Superadmin: create new superadmin account
+app.post('/api/superadmin/create', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { email, password, username } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email y contraseña requeridos' });
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM superadmin LIKE ?', ['username']);
+      if (cols.length === 0) await pool.execute('ALTER TABLE superadmin ADD COLUMN username VARCHAR(255) DEFAULT NULL');
+    } catch {}
+    await createSuperadmin(email, password);
+    if (username) await pool.execute('UPDATE superadmin SET username = ? WHERE email = ?', [username, email]);
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Superadmin: list all superadmins
+app.get('/api/superadmin/list', authenticateSuperadminToken, async (req, res) => {
+  try {
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM superadmin LIKE ?', ['username']);
+      if (cols.length === 0) await pool.execute('ALTER TABLE superadmin ADD COLUMN username VARCHAR(255) DEFAULT NULL');
+    } catch {}
+    const [rows] = await pool.execute('SELECT id, email, username, created_at FROM superadmin ORDER BY id');
+    res.json(rows);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Superadmin: delete superadmin (can't delete yourself)
+app.delete('/api/superadmin/account/:id', authenticateSuperadminToken, async (req, res) => {
+  try {
+    if (parseInt(req.params.id) === req.superadmin.id) return res.status(400).json({ error: 'No puedes eliminarte a ti mismo' });
+    await pool.execute('DELETE FROM superadmin WHERE id = ?', [parseInt(req.params.id)]);
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
 
 app.get('/api/superadmin/users', authenticateSuperadminToken, async (req, res) => {
   try {
@@ -3131,16 +3173,18 @@ async function ensureTicketTables() {
       subject VARCHAR(255) NOT NULL,
       priority ENUM('low','normal','important','urgent') DEFAULT 'normal',
       status ENUM('open','closed','resolved') DEFAULT 'open',
-      support_pin VARCHAR(6) NOT NULL,
+      support_pin VARCHAR(6) DEFAULT '000000',
       assigned_to VARCHAR(255) DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`);
-    // Add assigned_to if missing
+    // Add missing columns
     try {
-      const [cols] = await pool.execute('SHOW COLUMNS FROM support_tickets LIKE ?', ['assigned_to']);
-      if (cols.length === 0) await pool.execute('ALTER TABLE support_tickets ADD COLUMN assigned_to VARCHAR(255) DEFAULT NULL');
+      const [cols] = await pool.execute('SHOW COLUMNS FROM support_tickets');
+      const names = cols.map(c => c.Field);
+      if (!names.includes('assigned_to')) await pool.execute('ALTER TABLE support_tickets ADD COLUMN assigned_to VARCHAR(255) DEFAULT NULL');
+      if (!names.includes('support_pin')) await pool.execute('ALTER TABLE support_tickets ADD COLUMN support_pin VARCHAR(6) DEFAULT "000000"');
     } catch {}
     await pool.execute(`CREATE TABLE IF NOT EXISTS ticket_messages (
       id INT PRIMARY KEY AUTO_INCREMENT,
