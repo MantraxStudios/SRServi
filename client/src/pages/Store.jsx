@@ -1787,8 +1787,9 @@ function Store() {
             </h1>
           </div>
           <p className="store-header-powered">
-            AutoServicio By SRAutomatic
+            Totem Gratis Creado Por SRAutomatic.cl
           </p>
+          <div className="store-header-spacer" />
         </div>
       </header>
 

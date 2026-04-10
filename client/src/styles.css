@@ -1837,14 +1837,21 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--space-2);
+  position: relative;
 }
 
 .store-header-brand {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.store-header-spacer {
+  flex: 1;
 }
 
 .store-header-logo {
@@ -1862,10 +1869,18 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .store-header-powered {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   font-size: 11px;
   font-weight: 600;
-  color: #999;
+  color: #D4AF37;
   opacity: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  margin: 0;
+  letter-spacing: 0.3px;
 }
 
 /* Config selector */
