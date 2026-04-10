@@ -297,11 +297,75 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Lookup a code: returns whether it's a store code or a client (user) code.
+// If it's a client code, returns the list of stores for that user so the
+// customer can pick one without memorizing every store code.
+app.get('/api/public/lookup/:code', async (req, res) => {
+  try {
+    const code = (req.params.code || '').toUpperCase();
+    if (!code) return res.status(400).json({ error: 'Código requerido' });
+
+    // First, try to match it against a store code (most common case)
+    const store = await getStoreByCode(code);
+    if (store) {
+      if (store.is_banned) {
+        return res.status(403).json({
+          error: 'Esta tienda ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación.'
+        });
+      }
+      return res.json({ type: 'store', code: store.code });
+    }
+
+    // Otherwise, try to match it against a client (user) code
+    const [userRows] = await pool.execute(
+      'SELECT id, business_name, username, is_banned FROM users WHERE code = ?',
+      [code]
+    );
+    if (userRows.length === 0) {
+      return res.status(404).json({ error: 'Código no encontrado' });
+    }
+    const user = userRows[0];
+    if (user.is_banned) {
+      return res.status(403).json({
+        error: 'Esta cuenta ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación.'
+      });
+    }
+
+    const stores = await getStores(user.id);
+    const visibleStores = stores
+      .filter(s => !s.is_banned)
+      .map(s => ({
+        id: s.id,
+        code: s.code,
+        name: s.name,
+        primary_color: s.primary_color || '#000000',
+        secondary_color: s.secondary_color || '#FFFFFF',
+        accent_color: s.accent_color || '#D4AF37',
+        logo_url: s.logo_url || null
+      }));
+
+    if (visibleStores.length === 0) {
+      return res.status(404).json({ error: 'Este cliente aún no tiene tiendas disponibles' });
+    }
+
+    return res.json({
+      type: 'client',
+      client: {
+        name: user.business_name || user.username
+      },
+      stores: visibleStores
+    });
+  } catch (error) {
+    console.error('❌ Error en /api/public/lookup:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/public/:code', async (req, res) => {
   try {
     const { code } = req.params;
     const store = await getStoreByCode(code.toUpperCase());
-    
+
     if (!store) {
       return res.status(404).json({ error: 'Código no encontrado' });
     }

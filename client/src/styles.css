@@ -597,6 +597,135 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid var(--border);
 }
 
+/* Client store picker */
+.client-store-picker {
+  max-width: 540px;
+  text-align: center;
+}
+
+.client-picker-back {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #666;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.client-picker-back:hover {
+  background: rgba(212, 175, 55, 0.1);
+  border-color: rgba(212, 175, 55, 0.4);
+  color: #D4AF37;
+}
+
+.client-store-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 24px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.client-store-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 2px solid;
+  border-radius: 18px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-align: left;
+  font-family: inherit;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  position: relative;
+  overflow: hidden;
+}
+
+.client-store-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.8), transparent);
+  opacity: 0.6;
+}
+
+.client-store-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+.client-store-item:active {
+  transform: translateY(-1px);
+}
+
+.client-store-item-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 22px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.client-store-item-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 4px;
+}
+
+.client-store-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.client-store-item-name {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.2px;
+}
+
+.client-store-item-code {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.client-store-item-arrow {
+  font-size: 18px;
+  flex-shrink: 0;
+  transition: transform 0.25s;
+}
+
+.client-store-item:hover .client-store-item-arrow {
+  transform: translateX(4px);
+}
+
 .index-title {
   font-size: 36px;
   font-weight: 800;
@@ -1991,7 +2120,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Product grid (store) */
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-6);
   padding: var(--space-5);
   justify-items: center;
@@ -2004,6 +2133,7 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   cursor: pointer;
   position: relative;
+  width: 100%;
 }
 
 .store-product-wrapper.out-of-stock {
@@ -2018,8 +2148,9 @@ h1, h2, h3, h4, h5, h6 {
   overflow: hidden;
   transition: all var(--transition-slow);
   box-shadow: var(--shadow-lg);
-  width: 300px;
-  height: 300px;
+  width: 100%;
+  max-width: 300px;
+  aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2089,8 +2220,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .store-product-image {
-  width: 260px;
-  height: 260px;
+  width: 88%;
+  height: 88%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4722,19 +4853,20 @@ h1, h2, h3, h4, h5, h6 {
 
   /* Products grid */
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: var(--space-4);
     padding: var(--space-4);
   }
 
   .store-product-card {
-    width: 260px;
-    height: 260px;
+    width: 100%;
+    max-width: 260px;
+    height: auto;
   }
 
   .store-product-image {
-    width: 220px;
-    height: 220px;
+    width: 88%;
+    height: 88%;
   }
 
   .modal {
@@ -4813,19 +4945,20 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (max-width: 480px) {
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: var(--space-3);
     padding: var(--space-3);
   }
 
   .store-product-card {
-    width: 240px;
-    height: 240px;
+    width: 100%;
+    max-width: 240px;
+    height: auto;
   }
 
   .store-product-image {
-    width: 200px;
-    height: 200px;
+    width: 88%;
+    height: 88%;
   }
 
   .stats-grid {

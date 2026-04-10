@@ -1,13 +1,65 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faQrcode } from '@fortawesome/free-solid-svg-icons';
+import { faQrcode, faStore, faChevronRight, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+
+const STORAGE_KEYS = {
+  lastStoreCode: 'srservi_last_store_code',
+  lastClientCode: 'srservi_last_client_code',
+  lastClientStores: 'srservi_last_client_stores',
+  lastClientName: 'srservi_last_client_name',
+};
 
 function Index() {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [clientStores, setClientStores] = useState(null);
+  const [clientName, setClientName] = useState('');
   const navigate = useNavigate();
+
+  // On mount: auto-resume the last session so workers don't have to re-enter
+  // the code every time the totem reboots.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reset') === '1') {
+      localStorage.removeItem(STORAGE_KEYS.lastStoreCode);
+      localStorage.removeItem(STORAGE_KEYS.lastClientCode);
+      localStorage.removeItem(STORAGE_KEYS.lastClientStores);
+      localStorage.removeItem(STORAGE_KEYS.lastClientName);
+      window.history.replaceState({}, '', '/');
+      return;
+    }
+
+    const savedStoreCode = localStorage.getItem(STORAGE_KEYS.lastStoreCode);
+    if (savedStoreCode) {
+      navigate(`/store/${savedStoreCode}`, { replace: true });
+      return;
+    }
+
+    // No saved store but a client code with stores → show the picker again
+    const savedClientStores = localStorage.getItem(STORAGE_KEYS.lastClientStores);
+    if (savedClientStores) {
+      try {
+        const parsed = JSON.parse(savedClientStores);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setClientStores(parsed);
+          setClientName(localStorage.getItem(STORAGE_KEYS.lastClientName) || '');
+          setCode(localStorage.getItem(STORAGE_KEYS.lastClientCode) || '');
+        }
+      } catch { /* ignore */ }
+    }
+  }, [navigate]);
+
+  const persistStoreSelection = (storeCode) => {
+    localStorage.setItem(STORAGE_KEYS.lastStoreCode, storeCode);
+  };
+
+  const persistClientLookup = (clientCode, name, stores) => {
+    localStorage.setItem(STORAGE_KEYS.lastClientCode, clientCode);
+    localStorage.setItem(STORAGE_KEYS.lastClientName, name || '');
+    localStorage.setItem(STORAGE_KEYS.lastClientStores, JSON.stringify(stores));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,12 +72,40 @@ function Index() {
         throw new Error('El codigo debe tener 6 caracteres');
       }
 
-      const response = await fetch(`/api/public/${cleanCode}`);
+      const response = await fetch(`/api/public/lookup/${cleanCode}`);
       if (!response.ok) {
-        throw new Error('Codigo no encontrado');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Codigo no encontrado');
       }
 
-      navigate(`/store/${cleanCode}`);
+      const data = await response.json();
+
+      if (data.type === 'store') {
+        // Direct store code → remember it and go in
+        persistStoreSelection(data.code);
+        // Clear any client picker state since this is a direct store login
+        localStorage.removeItem(STORAGE_KEYS.lastClientCode);
+        localStorage.removeItem(STORAGE_KEYS.lastClientStores);
+        localStorage.removeItem(STORAGE_KEYS.lastClientName);
+        navigate(`/store/${data.code}`);
+        return;
+      }
+
+      if (data.type === 'client') {
+        const name = data.client?.name || '';
+        if (data.stores.length === 1) {
+          // Only one store — skip the picker and go straight in,
+          // but still remember the client code for future quick swaps
+          persistClientLookup(cleanCode, name, data.stores);
+          persistStoreSelection(data.stores[0].code);
+          navigate(`/store/${data.stores[0].code}`);
+          return;
+        }
+        // Multiple stores — remember and show picker
+        persistClientLookup(cleanCode, name, data.stores);
+        setClientName(name);
+        setClientStores(data.stores);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -40,11 +120,75 @@ function Index() {
     }
   };
 
+  const pickStoreFromList = (storeCode) => {
+    persistStoreSelection(storeCode);
+    navigate(`/store/${storeCode}`);
+  };
+
+  const resetAll = () => {
+    localStorage.removeItem(STORAGE_KEYS.lastStoreCode);
+    localStorage.removeItem(STORAGE_KEYS.lastClientCode);
+    localStorage.removeItem(STORAGE_KEYS.lastClientStores);
+    localStorage.removeItem(STORAGE_KEYS.lastClientName);
+    setClientStores(null);
+    setClientName('');
+    setCode('');
+    setError('');
+  };
+
+  if (clientStores) {
+    return (
+      <div className="index-container">
+        <div className="index-card client-store-picker">
+          <button onClick={resetAll} className="client-picker-back">
+            <FontAwesomeIcon icon={faArrowLeft} /> Cambiar código
+          </button>
+          <h1 className="index-title">{clientName || 'Tiendas disponibles'}</h1>
+          <p className="index-subtitle">Elige la tienda a la que quieres entrar</p>
+          <div className="client-store-list">
+            {clientStores.map(store => (
+              <button
+                key={store.id}
+                onClick={() => pickStoreFromList(store.code)}
+                className="client-store-item"
+                style={{
+                  borderColor: store.accent_color || '#D4AF37',
+                  background: `linear-gradient(135deg, ${store.primary_color || '#0a0a0a'} 0%, #1a1a1a 100%)`
+                }}
+              >
+                <div className="client-store-item-logo" style={{ background: store.secondary_color || '#fff' }}>
+                  {store.logo_url ? (
+                    <img src={store.logo_url} alt={store.name} />
+                  ) : (
+                    <FontAwesomeIcon icon={faStore} style={{ color: store.primary_color || '#000' }} />
+                  )}
+                </div>
+                <div className="client-store-item-info">
+                  <div className="client-store-item-name" style={{ color: store.secondary_color || '#fff' }}>
+                    {store.name}
+                  </div>
+                  <div className="client-store-item-code" style={{ color: store.accent_color || '#D4AF37' }}>
+                    {store.code}
+                  </div>
+                </div>
+                <FontAwesomeIcon
+                  icon={faChevronRight}
+                  className="client-store-item-arrow"
+                  style={{ color: store.accent_color || '#D4AF37' }}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="index-container">
       <div className="index-card">
         <h1 className="index-title">SRServi</h1>
-        <p className="index-subtitle">Ingresa el codigo de tu negocio para hacer tu pedido</p>
+        <p className="index-subtitle">Ingresa el codigo de tu negocio o cliente para hacer tu pedido</p>
 
         {error && <div className="error">{error}</div>}
 
