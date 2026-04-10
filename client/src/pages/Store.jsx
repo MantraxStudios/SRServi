@@ -2899,10 +2899,16 @@ function Store() {
                       ctx.textAlign = 'center';
                       ctx.fillText('TU PEDIDO', 300, 130);
 
-                      // Big order number
+                      // Big order number (auto-fit)
                       ctx.fillStyle = '#D4AF37';
-                      ctx.font = 'bold 320px Arial';
-                      ctx.fillText('#' + orderNum, 300, 480);
+                      const orderText = '#' + orderNum;
+                      let fontSize = 220;
+                      ctx.font = `bold ${fontSize}px Arial`;
+                      while (ctx.measureText(orderText).width > 480 && fontSize > 60) {
+                        fontSize -= 10;
+                        ctx.font = `bold ${fontSize}px Arial`;
+                      }
+                      ctx.fillText(orderText, 300, 420);
 
                       // Store name
                       ctx.fillStyle = '#FFFFFF';

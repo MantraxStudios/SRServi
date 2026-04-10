@@ -1427,7 +1427,11 @@ export async function createProduct(storeId, data) {
     has_extras: !!has_extras,
     has_ingredients: !!has_ingredients,
     max_extras: parseInt(max_extras) || 0,
-    max_ingredients: parseInt(max_ingredients) || 0
+    max_ingredients: parseInt(max_ingredients) || 0,
+    stock: 0,
+    unlimited_stock: true,
+    ingredients: await getProductIngredients(productId, category_id),
+    extras: await getProductExtras(productId, category_id)
   };
 }
 
@@ -1438,6 +1442,13 @@ export async function updateProduct(productId, storeId, data) {
     'UPDATE products SET name = ?, barcode = ?, description = ?, price = ?, category_id = ?, image = ?, has_extras = ?, has_ingredients = ?, max_extras = ?, max_ingredients = ? WHERE id = ? AND store_id = ?',
     [name, barcode || null, description || null, price, category_id || null, image || null, has_extras ? 1 : 0, has_ingredients ? 1 : 0, parseInt(max_extras) || 0, parseInt(max_ingredients) || 0, productId, storeId]
   );
+
+  // Get current stock from inventory
+  const [invRows] = await pool.execute(
+    'SELECT stock, unlimited_stock FROM inventory WHERE product_id = ?', [productId]
+  );
+  const stock = invRows[0]?.stock || 0;
+  const unlimited_stock = invRows[0]?.unlimited_stock || false;
 
   return {
     id: productId,
@@ -1451,7 +1462,11 @@ export async function updateProduct(productId, storeId, data) {
     has_extras: !!has_extras,
     has_ingredients: !!has_ingredients,
     max_extras: parseInt(max_extras) || 0,
-    max_ingredients: parseInt(max_ingredients) || 0
+    max_ingredients: parseInt(max_ingredients) || 0,
+    stock: parseInt(stock) || 0,
+    unlimited_stock: !!unlimited_stock,
+    ingredients: await getProductIngredients(productId, category_id),
+    extras: await getProductExtras(productId, category_id)
   };
 }
 
