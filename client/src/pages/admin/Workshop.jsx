@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faSearch, faDownload, faPlug, faUser, faEnvelope,
   faUpload, faSpinner, faCheck, faClock, faTimes, faTrash, faGlobe,
-  faCodeBranch, faChevronDown, faChevronUp
+  faCodeBranch, faChevronDown, faChevronUp, faEye
 } from '@fortawesome/free-solid-svg-icons';
 import { usePlugins } from '../../context/PluginContext';
 
@@ -22,6 +22,9 @@ function Workshop() {
   const [expandedVersions, setExpandedVersions] = useState(null);
   const [versions, setVersions] = useState([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
+
+  const [mineSubTab, setMineSubTab] = useState('pending');
+  const [selectedMyPlugin, setSelectedMyPlugin] = useState(null);
 
   // Publish form
   const [showPublish, setShowPublish] = useState(false);
@@ -333,61 +336,197 @@ function Workshop() {
                   <p className="empty-state-text">No has publicado plugins aún</p>
                 </div>
               </div>
-            ) : (
-              <div className="workshop-grid">
-                {myPlugins.map(plugin => (
-                  <div key={plugin.plugin_id} className="workshop-card">
-                    <div className="workshop-card-top">
-                      {plugin.logo ? (
-                        <img src={API + plugin.logo} alt="" className="workshop-card-logo" />
-                      ) : (
-                        <div className="workshop-card-logo-placeholder">
-                          <FontAwesomeIcon icon={faPlug} />
-                        </div>
+            ) : (() => {
+              const pendingPlugins = myPlugins.filter(p => (p.versions || []).some(v => v.status === 'pending'));
+              const reviewedPlugins = myPlugins.filter(p => !(p.versions || []).some(v => v.status === 'pending'));
+              const visiblePlugins = mineSubTab === 'pending' ? pendingPlugins : reviewedPlugins;
+
+              return (
+                <>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '2px solid #e0e0e0' }}>
+                    <button
+                      onClick={() => setMineSubTab('pending')}
+                      style={{
+                        background: 'transparent', border: 'none', padding: '12px 20px', cursor: 'pointer',
+                        fontWeight: '700', fontSize: '14px', position: 'relative',
+                        color: mineSubTab === 'pending' ? '#000' : '#888',
+                        borderBottom: mineSubTab === 'pending' ? '3px solid #D4AF37' : '3px solid transparent',
+                        marginBottom: '-2px'
+                      }}
+                    >
+                      Pendientes de Revisión
+                      {pendingPlugins.length > 0 && (
+                        <span style={{ marginLeft: '8px', background: '#ffc107', color: '#000', borderRadius: '10px', padding: '2px 8px', fontSize: '11px' }}>
+                          {pendingPlugins.length}
+                        </span>
                       )}
-                      <div className="workshop-card-info">
-                        <h3 className="workshop-card-name">{plugin.name}</h3>
-                        <span className="workshop-card-version">v{plugin.latest_version || plugin.version}</span>
-                        {statusBadge(plugin.status)}
-                      </div>
-                    </div>
-                    {plugin.description && <p className="workshop-card-desc">{plugin.description}</p>}
-
-                    {plugin.versions && plugin.versions.length > 0 && (
-                      <div style={{ marginBottom: '12px' }}>
-                        <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '6px' }}>
-                          <FontAwesomeIcon icon={faCodeBranch} /> Versiones ({plugin.versions.length})
-                        </div>
-                        {plugin.versions.map(v => (
-                          <div key={v.version} style={{
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            padding: '4px 0', fontSize: '13px', borderBottom: '1px solid #f0f0f0'
-                          }}>
-                            <span>
-                              <strong>v{v.version}</strong>
-                              {v.changelog && <span style={{ color: '#666' }}> — {v.changelog}</span>}
-                            </span>
-                            {statusBadge(v.status)}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="workshop-card-footer">
-                      <span className="workshop-card-downloads">
-                        <FontAwesomeIcon icon={faDownload} /> {plugin.downloads || 0}
+                    </button>
+                    <button
+                      onClick={() => setMineSubTab('reviewed')}
+                      style={{
+                        background: 'transparent', border: 'none', padding: '12px 20px', cursor: 'pointer',
+                        fontWeight: '700', fontSize: '14px',
+                        color: mineSubTab === 'reviewed' ? '#000' : '#888',
+                        borderBottom: mineSubTab === 'reviewed' ? '3px solid #D4AF37' : '3px solid transparent',
+                        marginBottom: '-2px'
+                      }}
+                    >
+                      Revisados
+                      <span style={{ marginLeft: '8px', background: '#e0e0e0', color: '#666', borderRadius: '10px', padding: '2px 8px', fontSize: '11px' }}>
+                        {reviewedPlugins.length}
                       </span>
-                      <button className="btn btn-sm btn-danger" onClick={() => deleteMyPlugin(plugin.plugin_id)}>
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    </div>
+                    </button>
                   </div>
-                ))}
-              </div>
-            )}
+
+                  {visiblePlugins.length === 0 ? (
+                    <div className="card">
+                      <div className="empty-state">
+                        <p className="empty-state-text">
+                          {mineSubTab === 'pending' ? 'No hay plugins pendientes de revisión' : 'No hay plugins revisados'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="workshop-grid">
+                      {visiblePlugins.map(plugin => {
+                        const pendingCount = (plugin.versions || []).filter(v => v.status === 'pending').length;
+                        const latestVersion = (plugin.versions || [])[0];
+                        return (
+                          <div key={plugin.plugin_id} className="workshop-card">
+                            <div className="workshop-card-top">
+                              {plugin.logo ? (
+                                <img src={API + plugin.logo} alt="" className="workshop-card-logo" />
+                              ) : (
+                                <div className="workshop-card-logo-placeholder">
+                                  <FontAwesomeIcon icon={faPlug} />
+                                </div>
+                              )}
+                              <div className="workshop-card-info">
+                                <h3 className="workshop-card-name">{plugin.name}</h3>
+                                <span className="workshop-card-version">v{plugin.latest_version || plugin.version}</span>
+                                {statusBadge(plugin.status)}
+                              </div>
+                            </div>
+                            {plugin.description && <p className="workshop-card-desc">{plugin.description}</p>}
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#666', marginBottom: '12px', padding: '8px', background: '#fafafa', borderRadius: '6px' }}>
+                              <span>
+                                <FontAwesomeIcon icon={faCodeBranch} /> {(plugin.versions || []).length} versiones
+                                {pendingCount > 0 && <span style={{ marginLeft: '6px', color: '#856404', fontWeight: '700' }}>({pendingCount} pendiente{pendingCount > 1 ? 's' : ''})</span>}
+                              </span>
+                              <span>
+                                <FontAwesomeIcon icon={faDownload} /> {plugin.downloads || 0}
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button
+                                className="btn btn-primary btn-sm"
+                                style={{ flex: 1 }}
+                                onClick={() => setSelectedMyPlugin(plugin)}
+                              >
+                                <FontAwesomeIcon icon={faEye} /> Ver detalles
+                              </button>
+                              <button className="btn btn-sm btn-danger" onClick={() => deleteMyPlugin(plugin.plugin_id)}>
+                                <FontAwesomeIcon icon={faTrash} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </>
         )}
       </div>
+
+      {selectedMyPlugin && (
+        <div className="modal-overlay" onClick={() => setSelectedMyPlugin(null)}>
+          <div className="modal modal-lg" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Detalles del Plugin</h2>
+              <button className="modal-close" onClick={() => setSelectedMyPlugin(null)}>&times;</button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', padding: '16px', background: '#fafafa', borderRadius: '12px' }}>
+              {selectedMyPlugin.logo ? (
+                <img src={API + selectedMyPlugin.logo} alt="" style={{ width: '70px', height: '70px', borderRadius: '12px', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '70px', height: '70px', borderRadius: '12px', background: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', color: '#999' }}>
+                  <FontAwesomeIcon icon={faPlug} />
+                </div>
+              )}
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: '0 0 4px', fontSize: '20px' }}>{selectedMyPlugin.name}</h3>
+                <div style={{ fontSize: '12px', color: '#999', marginBottom: '6px' }}>{selectedMyPlugin.plugin_id}</div>
+                <div style={{ fontSize: '13px', color: '#666' }}>
+                  {selectedMyPlugin.contact_email && (
+                    <span><FontAwesomeIcon icon={faEnvelope} /> {selectedMyPlugin.contact_email}</span>
+                  )}
+                </div>
+                <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
+                  <FontAwesomeIcon icon={faDownload} /> {selectedMyPlugin.downloads || 0} descargas totales
+                </div>
+              </div>
+            </div>
+
+            {selectedMyPlugin.description && (
+              <div style={{ marginBottom: '20px', padding: '14px', background: '#fff8e1', borderLeft: '4px solid #D4AF37', borderRadius: '6px' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: '#555', lineHeight: '1.6' }}>{selectedMyPlugin.description}</p>
+              </div>
+            )}
+
+            <h4 style={{ margin: '0 0 12px', fontSize: '15px' }}>Versiones ({(selectedMyPlugin.versions || []).length})</h4>
+            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              {(selectedMyPlugin.versions || []).map(v => {
+                const sc = { pending: { bg: '#fff3cd', c: '#856404', border: '#ffc107' }, approved: { bg: '#d4edda', c: '#155724', border: '#28a745' }, rejected: { bg: '#f8d7da', c: '#721c24', border: '#dc3545' } }[v.status] || { bg: '#fff3cd', c: '#856404', border: '#ffc107' };
+                return (
+                  <div key={v.version} style={{
+                    padding: '14px', marginBottom: '10px', borderRadius: '10px',
+                    background: '#fff', border: '2px solid', borderColor: sc.border
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                      <div>
+                        <div style={{ fontSize: '16px', fontWeight: '700' }}>v{v.version}</div>
+                        <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
+                          <FontAwesomeIcon icon={faClock} /> {new Date(v.created_at).toLocaleString('es-ES')}
+                        </div>
+                      </div>
+                      <span style={{ padding: '4px 12px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', background: sc.bg, color: sc.c }}>
+                        {v.status === 'pending' ? 'Pendiente' : v.status === 'approved' ? 'Aprobado' : 'Rechazado'}
+                      </span>
+                    </div>
+
+                    {v.changelog && (
+                      <div style={{ marginBottom: '10px', padding: '10px', background: '#fafafa', borderRadius: '6px', fontSize: '13px', color: '#555' }}>
+                        <div style={{ fontSize: '11px', color: '#888', marginBottom: '4px', fontWeight: '700' }}>CAMBIOS:</div>
+                        {v.changelog}
+                      </div>
+                    )}
+
+                    {v.zip_path && (
+                      <a
+                        href={API + v.zip_path}
+                        download
+                        style={{
+                          padding: '8px 14px', background: '#000', color: '#fff', textDecoration: 'none',
+                          borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+                          display: 'inline-flex', alignItems: 'center', gap: '6px'
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faDownload} /> Descargar ZIP
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showPublish && (
         <div className="modal-overlay" onClick={() => setShowPublish(false)}>

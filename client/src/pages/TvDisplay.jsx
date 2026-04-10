@@ -95,16 +95,8 @@ function TvDisplay() {
       <audio ref={audioRef} src="/notification.mp3" preload="auto" />
 
       <header className="tv-header">
-        <div className="tv-header-left">
-          {store?.logo_url && <img src={store.logo_url} alt="" className="tv-logo" />}
-          <div>
-            <h1 className="tv-store-name">{store?.name}</h1>
-            <p className="tv-store-date">{formatDate(time)}</p>
-          </div>
-        </div>
-        <div className="tv-header-right">
-          <div className="tv-time">{formatTime(time)}</div>
-        </div>
+        {store?.logo_url && <img src={store.logo_url} alt="" className="tv-logo" />}
+        <h1 className="tv-store-name">{store?.name}</h1>
       </header>
 
       <main className="tv-main">
@@ -213,7 +205,7 @@ function TvDisplay() {
         .tv-container {
           width: 100vw;
           height: 100vh;
-          background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+          background: #0a0a0a;
           color: #fff;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           display: flex;
@@ -227,7 +219,7 @@ function TvDisplay() {
         .tv-loading, .tv-error {
           width: 100vw;
           height: 100vh;
-          background: #000;
+          background: #0a0a0a;
           color: #fff;
           display: flex;
           flex-direction: column;
@@ -239,7 +231,7 @@ function TvDisplay() {
         .tv-spinner {
           width: 80px;
           height: 80px;
-          border: 6px solid #333;
+          border: 6px solid #222;
           border-top-color: var(--tv-accent, #D4AF37);
           border-radius: 50%;
           animation: tv-spin 1s linear infinite;
@@ -247,139 +239,130 @@ function TvDisplay() {
 
         .tv-header {
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          padding: 24px 40px;
-          background: rgba(0, 0, 0, 0.4);
-          border-bottom: 3px solid var(--tv-accent);
-          backdrop-filter: blur(10px);
-        }
-
-        .tv-header-left {
-          display: flex;
-          align-items: center;
-          gap: 20px;
+          justify-content: center;
+          gap: 24px;
+          padding: 32px 40px;
+          background: #000;
+          border-bottom: 4px solid var(--tv-accent);
         }
 
         .tv-logo {
-          width: 70px;
-          height: 70px;
-          border-radius: 14px;
+          width: 80px;
+          height: 80px;
+          border-radius: 16px;
           object-fit: cover;
           border: 3px solid var(--tv-accent);
         }
 
         .tv-store-name {
-          font-size: 36px;
+          font-size: 48px;
           font-weight: 900;
           margin: 0;
-          letter-spacing: 1px;
+          letter-spacing: 2px;
           color: #fff;
-        }
-
-        .tv-store-date {
-          font-size: 16px;
-          color: #999;
-          margin: 4px 0 0;
-          text-transform: capitalize;
-        }
-
-        .tv-time {
-          font-size: 56px;
-          font-weight: 900;
-          color: var(--tv-accent);
-          font-variant-numeric: tabular-nums;
-          letter-spacing: -1px;
+          text-transform: uppercase;
         }
 
         .tv-main {
           flex: 1;
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 30px;
-          padding: 30px 40px;
+          gap: 0;
           overflow: hidden;
         }
 
         .tv-column {
-          background: rgba(255, 255, 255, 0.03);
-          border-radius: 24px;
-          padding: 24px;
           display: flex;
           flex-direction: column;
-          border: 2px solid rgba(255, 255, 255, 0.08);
           overflow: hidden;
+          padding: 40px 48px;
         }
 
         .tv-column-preparing {
-          border-top: 6px solid #f59e0b;
+          background: #1a1410;
+          border-right: 2px solid #000;
         }
 
         .tv-column-ready {
-          border-top: 6px solid #22c55e;
+          background: #0f1a12;
         }
 
         .tv-column-header {
           display: flex;
           align-items: center;
-          gap: 16px;
-          padding-bottom: 20px;
-          margin-bottom: 20px;
-          border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+          gap: 20px;
+          padding-bottom: 24px;
+          margin-bottom: 32px;
+          border-bottom: 3px solid;
+        }
+
+        .tv-column-preparing .tv-column-header {
+          border-color: #f59e0b;
+        }
+
+        .tv-column-ready .tv-column-header {
+          border-color: #22c55e;
         }
 
         .tv-column-header h2 {
-          font-size: 26px;
+          font-size: 32px;
           font-weight: 900;
           margin: 0;
-          letter-spacing: 2px;
+          letter-spacing: 3px;
           flex: 1;
           color: #fff;
         }
 
         .tv-column-icon {
-          font-size: 32px;
+          font-size: 40px;
+          width: 70px;
+          height: 70px;
+          border-radius: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
         }
 
         .tv-icon-preparing {
+          background: rgba(245, 158, 11, 0.15);
           color: #f59e0b;
           animation: tv-bounce 2s infinite;
         }
 
         .tv-icon-ready {
+          background: rgba(34, 197, 94, 0.15);
           color: #22c55e;
           animation: tv-bell-shake 1.5s ease-in-out infinite;
         }
 
         .tv-column-count {
-          background: rgba(255, 255, 255, 0.1);
-          color: #fff;
-          padding: 6px 18px;
-          border-radius: 20px;
-          font-size: 22px;
+          padding: 10px 24px;
+          border-radius: 14px;
+          font-size: 28px;
           font-weight: 900;
-          min-width: 50px;
+          min-width: 70px;
           text-align: center;
         }
 
         .tv-column-preparing .tv-column-count {
-          background: rgba(245, 158, 11, 0.2);
-          color: #f59e0b;
+          background: #f59e0b;
+          color: #000;
         }
 
         .tv-column-ready .tv-column-count {
-          background: rgba(34, 197, 94, 0.2);
-          color: #22c55e;
+          background: #22c55e;
+          color: #000;
         }
 
         .tv-orders-grid {
           flex: 1;
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-          gap: 20px;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 24px;
           overflow-y: auto;
           align-content: start;
-          padding: 4px;
         }
 
         .tv-orders-grid::-webkit-scrollbar { width: 0; }
@@ -390,17 +373,18 @@ function TvDisplay() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 60px 20px;
-          color: #444;
-          font-size: 18px;
-          gap: 16px;
+          padding: 80px 20px;
+          color: #333;
+          font-size: 22px;
+          font-weight: 700;
+          gap: 20px;
         }
 
-        .tv-empty svg { font-size: 80px; }
+        .tv-empty svg { font-size: 100px; opacity: 0.3; }
 
         .tv-order-card {
           aspect-ratio: 1;
-          border-radius: 18px;
+          border-radius: 20px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -411,21 +395,22 @@ function TvDisplay() {
         }
 
         .tv-order-preparing {
-          background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+          background: #f59e0b;
           color: #000;
+          box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
           animation: tv-fade-in 0.5s ease-out backwards, tv-pulse 2s infinite;
         }
 
         .tv-order-ready {
-          background: linear-gradient(135deg, #34d399 0%, #22c55e 100%);
+          background: #22c55e;
           color: #000;
+          box-shadow: 0 0 40px rgba(34, 197, 94, 0.4);
         }
 
         .tv-order-number {
-          font-size: 70px;
+          font-size: 80px;
           letter-spacing: -2px;
           z-index: 2;
-          text-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .tv-order-pulse {
