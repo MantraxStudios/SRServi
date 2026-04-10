@@ -32,6 +32,7 @@ import Tickets from './pages/admin/Tickets';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import Store from './pages/Store';
+import TvDisplay from './pages/TvDisplay';
 import Docs from './pages/Docs';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
@@ -71,6 +72,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/store/:code" element={<Store />} />
+          <Route path="/tv/:code" element={<TvDisplay />} />
           <Route path="/market/:code" element={<Minimarket />} />
           <Route path="/docs" element={<Docs />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />

@@ -30,7 +30,8 @@ import {
   faFire,
   faGlobe,
   faClock,
-  faQrcode
+  faQrcode,
+  faDownload
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -900,8 +901,12 @@ function Store() {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     setCartOpen(false);
-    if (deliveryMode && qrProvider) {
-      processPayment('qr');
+    if (deliveryMode) {
+      if (qrProvider) {
+        processPayment('qr');
+      } else {
+        alert('No hay método de pago QR configurado para esta tienda');
+      }
     } else {
       setPaymentModalOpen(true);
     }
@@ -2690,7 +2695,7 @@ function Store() {
                     </button>
                   )}
 
-                  {qrProvider && (
+                  {qrProvider && deliveryMode && (
                     <button
                       onClick={() => processPayment('qr')}
                       className="btn btn-lg btn-full"
@@ -2828,32 +2833,107 @@ function Store() {
 
       {qrPaymentResult && (
         <div className="modal-overlay">
-          <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
+          <div className="modal text-center" style={{ maxWidth: '400px', padding: '30px 24px' }}>
             {qrPaymentResult.success ? (
               <>
-                <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--success)' }} />
-                <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
-                  Pago Exitoso
+                <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '50px', marginBottom: '12px', color: 'var(--success)' }} />
+                <h2 style={{ color: 'var(--store-primary)', marginBottom: '4px', fontSize: '22px' }}>
+                  ¡Pago Exitoso!
                 </h2>
-                <p className="text-muted" style={{ marginBottom: '15px', fontSize: '14px' }}>
+                <p className="text-muted" style={{ marginBottom: '16px', fontSize: '13px' }}>
                   {qrPaymentResult.message}
                 </p>
-                <div style={{ background: '#f8f8f8', borderRadius: '12px', padding: '16px', marginBottom: '15px', textAlign: 'left' }}>
-                  {qrPaymentResult.order?.order_number && (
-                    <div style={{ textAlign: 'center', marginBottom: '12px' }}>
-                      <p style={{ fontSize: '12px', color: '#888', margin: '0 0 4px' }}>Numero de Orden</p>
-                      <p style={{ fontSize: '36px', fontWeight: '900', margin: 0, color: 'var(--store-primary)' }}>{qrPaymentResult.order.order_number}</p>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid #eee' }}>
-                    <span style={{ fontSize: '13px', color: '#888' }}>Monto</span>
-                    <span style={{ fontSize: '15px', fontWeight: '700' }}>${qrPaymentResult.amount}</span>
+
+                {qrPaymentResult.order?.order_number && (
+                  <div id="qr-order-card" style={{
+                    background: 'var(--store-primary)',
+                    color: 'var(--store-secondary)',
+                    borderRadius: '20px',
+                    padding: '24px 20px',
+                    marginBottom: '16px',
+                    border: '4px solid var(--store-accent)'
+                  }}>
+                    <p style={{ fontSize: '13px', margin: '0 0 8px', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '2px' }}>Tu Pedido</p>
+                    <p style={{ fontSize: '90px', fontWeight: '900', margin: '0', lineHeight: '1', color: 'var(--store-accent)' }}>
+                      #{qrPaymentResult.order.order_number}
+                    </p>
+                    <p style={{ fontSize: '12px', marginTop: '12px', marginBottom: 0, opacity: 0.7 }}>
+                      {store?.store?.name}
+                    </p>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderTop: '1px solid #eee' }}>
-                    <span style={{ fontSize: '13px', color: '#888' }}>Referencia</span>
-                    <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#555' }}>{qrPaymentResult.reference}</span>
+                )}
+
+                <div style={{ background: '#f8f8f8', borderRadius: '10px', padding: '12px', marginBottom: '14px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                    <span style={{ color: '#888' }}>Monto</span>
+                    <span style={{ fontWeight: '700' }}>${qrPaymentResult.amount}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderTop: '1px solid #eee' }}>
+                    <span style={{ color: '#888' }}>Referencia</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#555' }}>{qrPaymentResult.reference}</span>
                   </div>
                 </div>
+
+                {qrPaymentResult.order?.order_number && (
+                  <button
+                    onClick={() => {
+                      const orderNum = qrPaymentResult.order.order_number;
+                      const storeName = store?.store?.name || 'Tienda';
+                      const canvas = document.createElement('canvas');
+                      canvas.width = 600;
+                      canvas.height = 800;
+                      const ctx = canvas.getContext('2d');
+
+                      // Background
+                      ctx.fillStyle = '#000000';
+                      ctx.fillRect(0, 0, 600, 800);
+
+                      // Border
+                      ctx.strokeStyle = '#D4AF37';
+                      ctx.lineWidth = 12;
+                      ctx.strokeRect(20, 20, 560, 760);
+
+                      // Title
+                      ctx.fillStyle = '#FFFFFF';
+                      ctx.font = 'bold 28px Arial';
+                      ctx.textAlign = 'center';
+                      ctx.fillText('TU PEDIDO', 300, 130);
+
+                      // Big order number
+                      ctx.fillStyle = '#D4AF37';
+                      ctx.font = 'bold 320px Arial';
+                      ctx.fillText('#' + orderNum, 300, 480);
+
+                      // Store name
+                      ctx.fillStyle = '#FFFFFF';
+                      ctx.font = '24px Arial';
+                      ctx.fillText(storeName, 300, 580);
+
+                      // Amount
+                      ctx.font = 'bold 32px Arial';
+                      ctx.fillText('$' + qrPaymentResult.amount, 300, 640);
+
+                      // Pago confirmado
+                      ctx.fillStyle = '#22c55e';
+                      ctx.font = 'bold 22px Arial';
+                      ctx.fillText('PAGO CONFIRMADO', 300, 700);
+
+                      // Reference small
+                      ctx.fillStyle = '#888';
+                      ctx.font = '12px monospace';
+                      ctx.fillText(qrPaymentResult.reference, 300, 740);
+
+                      const link = document.createElement('a');
+                      link.download = `pedido-${orderNum}.png`;
+                      link.href = canvas.toDataURL('image/png');
+                      link.click();
+                    }}
+                    className="btn"
+                    style={{ background: 'var(--store-accent)', color: 'var(--store-primary)', border: 'none', borderRadius: '10px', padding: '12px 20px', fontWeight: '700', marginBottom: '10px', width: '100%' }}
+                  >
+                    <FontAwesomeIcon icon={faDownload} /> Descargar comprobante
+                  </button>
+                )}
               </>
             ) : (
               <>

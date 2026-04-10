@@ -1678,6 +1678,31 @@ export async function validateCouponForStore(storeId, couponCode, subtotal) {
   return await resolveCouponForOrder(storeId, couponCode, Number(subtotal) || 0);
 }
 
+export async function generateUniqueOrderNumber(storeId) {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const [usedRows] = await pool.execute(
+    "SELECT order_number FROM orders WHERE store_id = ? AND DATE(created_at) = CURDATE() AND order_number IS NOT NULL",
+    [storeId]
+  );
+  const used = new Set(usedRows.map(r => r.order_number));
+  // Try random letter+2 digits up to 100 attempts
+  for (let i = 0; i < 100; i++) {
+    const letter = letters[Math.floor(Math.random() * letters.length)];
+    const num = (Math.floor(Math.random() * 99) + 1).toString().padStart(2, '0');
+    const candidate = `${letter}${num}`;
+    if (!used.has(candidate)) return candidate;
+  }
+  // Fallback: linear scan if random fails (when most are used)
+  for (const letter of letters) {
+    for (let n = 1; n <= 99; n++) {
+      const candidate = `${letter}${n.toString().padStart(2, '0')}`;
+      if (!used.has(candidate)) return candidate;
+    }
+  }
+  // All 2574 used: fallback to numeric
+  return (used.size + 1).toString();
+}
+
 export async function createOrder(storeId, orderData) {
   const { order_type, items, payment_method, coupon_code } = orderData;
   
@@ -1709,11 +1734,7 @@ export async function createOrder(storeId, orderData) {
   
   let orderNumber = null;
   if (!orderData.delivery) {
-    const [todayOrders] = await pool.execute(
-      'SELECT COUNT(*) as count FROM orders WHERE store_id = ? AND DATE(created_at) = CURDATE()',
-      [storeId]
-    );
-    orderNumber = (todayOrders[0].count).toString();
+    orderNumber = await generateUniqueOrderNumber(storeId);
     await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [orderNumber, orderId]);
   }
   const finalOrder = {

@@ -3053,6 +3053,45 @@ app.post('/api/orders/:orderId/cancel-payment', async (req, res) => {
   }
 });
 
+app.get('/api/store/:code/tv-orders', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+
+    const [rows] = await pool.execute(
+      `SELECT id, order_number, status, total, created_at
+       FROM orders
+       WHERE store_id = ? AND payment_process = 1 AND status IN ('preparing', 'ready')
+         AND DATE(created_at) = CURDATE()
+       ORDER BY created_at ASC`,
+      [store.id]
+    );
+
+    res.json({
+      store: {
+        code: store.code,
+        name: store.name,
+        primary_color: store.primary_color || '#000000',
+        secondary_color: store.secondary_color || '#FFFFFF',
+        accent_color: store.accent_color || '#D4AF37',
+        logo_url: store.logo_url || null
+      },
+      preparing: rows.filter(o => o.status === 'preparing').map(o => ({
+        id: o.id,
+        order_number: o.order_number,
+        created_at: o.created_at
+      })),
+      ready: rows.filter(o => o.status === 'ready').map(o => ({
+        id: o.id,
+        order_number: o.order_number,
+        created_at: o.created_at
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/store/:code/orders', async (req, res) => {
   try {
     const store = await getStoreByCode(req.params.code);

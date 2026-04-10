@@ -651,8 +651,8 @@ export async function init(context) {
         config, Math.round(amount),
         description || 'Pago SRServi',
         reference, storeCode,
-        `${serverUrl}/store/${storeCode}?qr_paid=1&ref=${reference}`,
-        `${serverUrl}/store/${storeCode}?qr_failed=1`
+        `${serverUrl}/store/${storeCode}`,
+        `${serverUrl}/store/${storeCode}`
       );
 
       await ctx.db.execute(
@@ -698,6 +698,35 @@ export async function init(context) {
             "UPDATE orders SET payment_process = 1, cash_approved = TRUE, reference_id = ?, sequence_id = ? WHERE id = ?",
             [params.x_authorization_code || reference, reference, tx.order_id]
           ).catch(() => {});
+
+          // Assign order_number if missing (delivery orders) - letter + 2 digits unique per day
+          const [existing] = await ctx.db.execute('SELECT order_number FROM orders WHERE id = ?', [tx.order_id]);
+          if (existing.length > 0 && !existing[0].order_number) {
+            const [usedRows] = await ctx.db.execute(
+              "SELECT order_number FROM orders WHERE store_id = ? AND DATE(created_at) = CURDATE() AND order_number IS NOT NULL",
+              [tx.store_id]
+            );
+            const used = new Set(usedRows.map(r => r.order_number));
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            let newOrderNumber = null;
+            for (let i = 0; i < 100; i++) {
+              const letter = letters[Math.floor(Math.random() * letters.length)];
+              const num = (Math.floor(Math.random() * 99) + 1).toString().padStart(2, '0');
+              const candidate = `${letter}${num}`;
+              if (!used.has(candidate)) { newOrderNumber = candidate; break; }
+            }
+            if (!newOrderNumber) {
+              for (const l of letters) {
+                for (let n = 1; n <= 99; n++) {
+                  const c = `${l}${n.toString().padStart(2, '0')}`;
+                  if (!used.has(c)) { newOrderNumber = c; break; }
+                }
+                if (newOrderNumber) break;
+              }
+            }
+            if (!newOrderNumber) newOrderNumber = (used.size + 1).toString();
+            await ctx.db.execute('UPDATE orders SET order_number = ? WHERE id = ?', [newOrderNumber, tx.order_id]);
+          }
         }
       }
 
