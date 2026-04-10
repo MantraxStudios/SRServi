@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faQrcode, faStore, faChevronRight, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faStore, faChevronRight, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
 const STORAGE_KEYS = {
   lastStoreCode: 'srservi_last_store_code',
@@ -214,14 +214,6 @@ function Index() {
             {loading ? 'Buscando...' : 'Continuar'}
           </button>
         </form>
-
-        <div className="index-divider">
-          <p>Eres dueno de un negocio?</p>
-          <Link to="/login" className="btn btn-secondary btn-full">
-            <FontAwesomeIcon icon={faQrcode} />
-            Ir al Panel de Administracion
-          </Link>
-        </div>
       </div>
     </div>
   );
