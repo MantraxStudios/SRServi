@@ -1565,17 +1565,21 @@ export async function setInventoryStock(productId, stock) {
 
 export async function getProductById(productId) {
   const [rows] = await pool.execute(`
-    SELECT p.*, c.name as category_name 
-    FROM products p 
-    LEFT JOIN categories c ON p.category_id = c.id 
+    SELECT p.*, c.name as category_name
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
     WHERE p.id = ?
   `, [productId]);
-  
+
   if (rows.length === 0) return null;
-  
+
   const product = {
     ...rows[0],
     price: parseFloat(rows[0].price),
+    has_extras: !!rows[0].has_extras,
+    has_ingredients: !!rows[0].has_ingredients,
+    max_extras: parseInt(rows[0].max_extras) || 0,
+    max_ingredients: parseInt(rows[0].max_ingredients) || 0,
     ingredients: await getProductIngredients(productId, rows[0].category_id),
     extras: await getProductExtras(productId, rows[0].category_id)
   };

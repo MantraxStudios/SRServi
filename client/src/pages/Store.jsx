@@ -2112,11 +2112,11 @@ function Store() {
               }}>
                 {productConfig.selectedIngredients.length}
               </span>
-              {selectedProduct.ingredients[0]?.max_selections && (
+              {selectedProduct.max_ingredients > 0 && (
                 <>
                   <span style={{ color: 'var(--store-primary)' }}>/</span>
                   <span className="font-bold" style={{ fontSize: '20px', color: 'var(--store-primary)' }}>
-                    {selectedProduct.ingredients[0].max_selections}
+                    {selectedProduct.max_ingredients}
                   </span>
                 </>
               )}
@@ -2319,6 +2319,14 @@ function Store() {
               }}>
                 {productConfig.selectedExtras.length}
               </span>
+              {selectedProduct.max_extras > 0 && (
+                <>
+                  <span style={{ color: 'var(--store-primary)' }}>/</span>
+                  <span className="font-bold" style={{ fontSize: '20px', color: 'var(--store-primary)' }}>
+                    {selectedProduct.max_extras}
+                  </span>
+                </>
+              )}
             </div>
 
             <div className="store-modal-body">
