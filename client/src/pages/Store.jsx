@@ -753,7 +753,7 @@ function Store() {
       } else {
         const maxIngredients = parseInt(selectedProduct.max_ingredients) || 0;
         if (maxIngredients > 0 && prev.selectedIngredients.length >= maxIngredients) {
-          alert(`Solo puedes seleccionar máximo ${maxIngredients} complemento(s)`);
+          alert(`${t('maxComplements', lang)} ${maxIngredients} ${t('complementWord', lang)}`);
           return prev;
         }
         return {
@@ -779,7 +779,7 @@ function Store() {
       } else {
         const maxExtras = parseInt(selectedProduct.max_extras) || 0;
         if (maxExtras > 0 && prev.selectedExtras.length >= maxExtras) {
-          alert(`Solo puedes seleccionar máximo ${maxExtras} extra(s)`);
+          alert(`${t('maxComplements', lang)} ${maxExtras} ${t('extraWord', lang)}`);
           return prev;
         }
         return {
@@ -839,7 +839,7 @@ function Store() {
     );
 
     if (missingRequired.length > 0) {
-      alert(`Por favor selecciona los siguientes ingredientes obligatorios:\n${missingRequired.map(i => '- ' + i.name).join('\n')}`);
+      alert(`${t('selectRequired', lang)}\n${missingRequired.map(i => '- ' + i.name).join('\n')}`);
       return;
     }
     setIngredientsModalOpen(false);
@@ -900,7 +900,7 @@ function Store() {
 
   const copyCode = () => {
     navigator.clipboard.writeText(code);
-    alert('Código copiado: ' + code);
+    alert(t('qrCodeCopied', lang) + ' ' + code);
   };
 
   const handleCheckout = async () => {
@@ -910,7 +910,7 @@ function Store() {
       if (qrProvider) {
         processPayment('qr');
       } else {
-        alert('No hay método de pago QR configurado para esta tienda');
+        alert(t('noQRConfigured', lang));
       }
     } else {
       setPaymentModalOpen(true);
@@ -952,7 +952,7 @@ function Store() {
     if (cart.length === 0) return;
     const hasPluginProvider = selectedMethod === 'card' && pluginPaymentProvider;
     if (selectedMethod === 'card' && !hasPluginProvider && !selectedTerminalId) {
-      alert('No hay máquina de pago asignada para esta sesión');
+      alert(t('noTerminalAssigned', lang));
       return;
     }
 
@@ -1651,7 +1651,7 @@ function Store() {
   if (loading) {
     return (
       <div className="loading">
-        Cargando...
+        {t('loading', lang)}
       </div>
     );
   }
@@ -1660,14 +1660,14 @@ function Store() {
     return (
       <div className="index-container">
         <div className="index-card">
-          <h1 className="index-title" style={{ color: '#DC3545' }}>Error</h1>
+          <h1 className="index-title" style={{ color: '#DC3545' }}>{t('error', lang)}</h1>
           <p className="index-subtitle">{error}</p>
           <button
             className="btn btn-secondary w-full"
             onClick={() => navigate('/')}
           >
             <FontAwesomeIcon icon={faArrowLeft} />
-            Volver al inicio
+            {t('backToHome', lang)}
           </button>
         </div>
       </div>
@@ -1857,10 +1857,10 @@ function Store() {
             <FontAwesomeIcon icon={faBox} style={{ color: colors.accent }} />
           </div>
           <h2>
-            Esta tienda aún no tiene productos
+            {t('noProducts', lang)}
           </h2>
           <p>
-            El propietario aún no ha agregado productos a su catálogo. ¡Vuelve pronto!
+            {t('noProductsDesc', lang)}
           </p>
         </div>
       )}
@@ -2026,7 +2026,7 @@ function Store() {
             <FontAwesomeIcon icon={faShoppingCart} />
             <span className="cart-bar-count">{getCartCount()}</span>
           </div>
-          <span className="cart-bar-text">Ver carrito</span>
+          <span className="cart-bar-text">{t('viewCart', lang)}</span>
         </div>
         <div className="cart-bar-right">
           <span className="cart-bar-total">
@@ -2036,7 +2036,7 @@ function Store() {
             onClick={() => setCartOpen(true)}
             className="cart-bar-pay-btn"
           >
-            PAGAR
+            {t('pay', lang)}
           </button>
         </div>
       </div>
@@ -2058,9 +2058,9 @@ function Store() {
           <div>
             <div className="toast-name">{notification.name}</div>
             {notification.agotado ? (
-              <div className="toast-status-soldout">Agotado</div>
+              <div className="toast-status-soldout">{t('soldOut', lang)}</div>
             ) : (
-              <div className="toast-status-added">Agregado <FontAwesomeIcon icon={faCheck} /></div>
+              <div className="toast-status-added">{t('added', lang)} <FontAwesomeIcon icon={faCheck} /></div>
             )}
           </div>
         </div>
@@ -2104,7 +2104,7 @@ function Store() {
                 <FontAwesomeIcon icon={faTimes} />
               </button>
               <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>
-                {productModalStep === 'main' ? 'Complementos' : '1. Complementos'}
+                {productModalStep === 'main' ? t('complements', lang) : '1. ' + t('complements', lang)}
               </h2>
             </div>
 
@@ -2113,7 +2113,7 @@ function Store() {
               borderBottom: '2px solid var(--store-primary)'
             }}>
               <span className="font-bold" style={{ fontSize: '16px', color: 'var(--store-primary)' }}>
-                Seleccionados:
+                {t('selected', lang)}:
               </span>
               <span className="font-bold" style={{
                 fontSize: '20px',
@@ -2171,7 +2171,7 @@ function Store() {
                         fontWeight: '600',
                         zIndex: 2,
                       }}>
-                        Agotado
+                        {t('soldOut', lang)}
                       </div>
                     )}
                     {ingredient.unlimited_stock && (
@@ -2188,7 +2188,7 @@ function Store() {
                         fontWeight: '600',
                         zIndex: 2,
                       }}>
-                        <FontAwesomeIcon icon={faInfinity} /> Stock
+                        <FontAwesomeIcon icon={faInfinity} /> {t('stock', lang)}
                       </div>
                     )}
                     {ingredient.image ? (
@@ -2270,7 +2270,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  Listo
+                  {t('done', lang)}
                 </button>
               ) : (
                 <button
@@ -2283,7 +2283,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  {selectedProduct.extras?.length > 0 ? <>Siguiente <FontAwesomeIcon icon={faChevronRight} /></> : (addingToCart ? '¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`)}
+                  {selectedProduct.extras?.length > 0 ? <>{t('next', lang)} <FontAwesomeIcon icon={faChevronRight} /></> : (addingToCart ? t('addedExclaim', lang) : `${t('addBtn', lang)} - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`)}
                 </button>
               )}
             </div>
@@ -2311,7 +2311,7 @@ function Store() {
                 <FontAwesomeIcon icon={faTimes} />
               </button>
               <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>
-                {productModalStep === 'main' ? 'Extras' : '2. Extras'}
+                {productModalStep === 'main' ? t('extras', lang) : '2. ' + t('extras', lang)}
               </h2>
             </div>
 
@@ -2320,7 +2320,7 @@ function Store() {
               borderBottom: '2px solid var(--store-primary)'
             }}>
               <span className="font-bold" style={{ fontSize: '16px', color: 'var(--store-primary)' }}>
-                Seleccionados:
+                {t('selected', lang)}:
               </span>
               <span className="font-bold" style={{
                 fontSize: '20px',
@@ -2378,7 +2378,7 @@ function Store() {
                         fontWeight: '600',
                         zIndex: 2,
                       }}>
-                        Agotado
+                        {t('soldOut', lang)}
                       </div>
                     )}
                     {extra.unlimited_stock && (
@@ -2395,7 +2395,7 @@ function Store() {
                         fontWeight: '600',
                         zIndex: 2,
                       }}>
-                        <FontAwesomeIcon icon={faInfinity} /> Stock
+                        <FontAwesomeIcon icon={faInfinity} /> {t('stock', lang)}
                       </div>
                     )}
                     {extra.image ? (
@@ -2477,7 +2477,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  Listo
+                  {t('done', lang)}
                 </button>
               ) : (
                 <button
@@ -2490,7 +2490,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  {addingToCart ? '¡Agregado!' : `Agregar - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`}
+                  {addingToCart ? t('addedExclaim', lang) : `${t('addBtn', lang)} - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`}
                 </button>
               )}
             </div>
@@ -2511,7 +2511,7 @@ function Store() {
         <div className="store-cart-header">
           <div className="store-cart-header-left">
             <FontAwesomeIcon icon={faShoppingCart} />
-            <h2>Mi Pedido</h2>
+            <h2>{t('myOrder', lang)}</h2>
           </div>
           <button className="store-cart-close" onClick={() => setCartOpen(false)}>
             <FontAwesomeIcon icon={faTimes} />
@@ -2522,8 +2522,8 @@ function Store() {
           {cart.length === 0 ? (
             <div className="store-cart-empty">
               <FontAwesomeIcon icon={faShoppingCart} className="store-cart-empty-icon" />
-              <p className="store-cart-empty-title">Tu carrito esta vacio</p>
-              <p className="store-cart-empty-text">Agrega productos para comenzar</p>
+              <p className="store-cart-empty-title">{t('cartEmpty', lang)}</p>
+              <p className="store-cart-empty-text">{t('cartEmptyDesc', lang)}</p>
             </div>
           ) : (
             <>
@@ -2571,17 +2571,17 @@ function Store() {
 
               <div className="store-cart-summary">
                 <div className="store-cart-summary-row">
-                  <span>Subtotal</span>
+                  <span>{t('subtotal', lang)}</span>
                   <span className="font-semibold">{colors.currency.symbol}{Number(getCartTotal()).toFixed(2)}</span>
                 </div>
                 {appliedCoupon && (
                   <div className="store-cart-summary-row store-cart-discount">
-                    <span>Descuento ({appliedCoupon.coupon_code})</span>
+                    <span>{t('discount', lang)} ({appliedCoupon.coupon_code})</span>
                     <span>-{colors.currency.symbol}{Number(appliedCoupon.discount_total || 0).toFixed(2)}</span>
                   </div>
                 )}
                 <div className="store-cart-summary-total">
-                  <span>Total</span>
+                  <span>{t('total', lang)}</span>
                   <span>{colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}</span>
                 </div>
                 <div className="store-cart-coupon">
@@ -2589,14 +2589,14 @@ function Store() {
                     type="text"
                     value={couponCodeInput}
                     onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
-                    placeholder="Codigo de cupon"
+                    placeholder={t('couponCode', lang)}
                     className="store-cart-coupon-input"
                   />
                   {appliedCoupon ? (
-                    <button onClick={removeCoupon} className="btn btn-danger btn-sm">Quitar</button>
+                    <button onClick={removeCoupon} className="btn btn-danger btn-sm">{t('quit', lang)}</button>
                   ) : (
                     <button onClick={applyCoupon} disabled={couponLoading || !couponCodeInput.trim()} className="btn btn-secondary btn-sm">
-                      {couponLoading ? '...' : 'Aplicar'}
+                      {couponLoading ? '...' : t('apply', lang)}
                     </button>
                   )}
                 </div>
@@ -2608,7 +2608,7 @@ function Store() {
         {cart.length > 0 && (
           <div className="store-cart-footer">
             <div className="store-cart-order-type">
-              <label className="store-cart-order-label">Tipo de pedido</label>
+              <label className="store-cart-order-label">{t('orderType', lang)}</label>
               <div className={`store-cart-type-grid${selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout ? '' : ' single'}`}>
                 {selectedConfiguration?.allow_serve && (
                   <button
@@ -2616,7 +2616,7 @@ function Store() {
                     className={`store-cart-type-btn${orderType === 'serve' ? ' active' : ''}`}
                   >
                     <FontAwesomeIcon icon={faBox} />
-                    <span>Comer aqui</span>
+                    <span>{t('serveHere', lang)}</span>
                   </button>
                 )}
                 {selectedConfiguration?.allow_takeout && (
@@ -2625,7 +2625,7 @@ function Store() {
                     className={`store-cart-type-btn${orderType === 'takeout' ? ' active' : ''}`}
                   >
                     <FontAwesomeIcon icon={faShoppingCart} />
-                    <span>Llevar</span>
+                    <span>{t('takeoutShort', lang)}</span>
                   </button>
                 )}
               </div>
@@ -2633,12 +2633,12 @@ function Store() {
 
             <button onClick={handleCheckout} className="store-cart-checkout-btn">
               <FontAwesomeIcon icon={faCheck} />
-              Confirmar Pedido - {colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}
+              {t('confirmOrder', lang)} - {colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}
             </button>
 
             <button onClick={() => setCart([])} className="store-cart-clear-btn">
               <FontAwesomeIcon icon={faTimesCircle} />
-              Vaciar carrito
+              {t('clearCart', lang)}
             </button>
           </div>
         )}
@@ -2652,14 +2652,14 @@ function Store() {
               marginBottom: '10px',
               fontSize: '24px'
             }}>
-              {processingPayment ? 'Procesando Pago...' : 'Metodo de Pago'}
+              {processingPayment ? t('processingPayment', lang) : t('paymentMethod', lang)}
             </h2>
             <p className="text-muted" style={{ marginBottom: '25px', fontSize: '14px' }}>
               {processingPayment
                 ? (paymentMethod === 'card'
-                    ? 'Acerque o pase la tarjeta en el terminal Point'
-                    : 'Procesando...')
-                : 'Selecciona como deseas pagar'
+                    ? t('tapCardTerminal', lang)
+                    : t('processing', lang))
+                : t('selectPaymentMethod', lang)
               }
             </p>
 
@@ -2674,7 +2674,7 @@ function Store() {
                   animation: 'spin 1s linear infinite'
                 }} />
                 <p className="text-muted" style={{ fontSize: '14px' }}>
-                  Esperando confirmacion del terminal...
+                  {t('waitingTerminal', lang)}
                 </p>
               </div>
             ) : (
@@ -2692,7 +2692,7 @@ function Store() {
                       }}
                     >
                       <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '28px' }} />
-                      <span className="font-bold" style={{ fontSize: '18px' }}>Tarjeta</span>
+                      <span className="font-bold" style={{ fontSize: '18px' }}>{t('card', lang)}</span>
                     </button>
                   )}
 
@@ -2708,7 +2708,7 @@ function Store() {
                       }}
                     >
                       <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '28px' }} />
-                      <span className="font-bold" style={{ fontSize: '18px' }}>Efectivo</span>
+                      <span className="font-bold" style={{ fontSize: '18px' }}>{t('cash', lang)}</span>
                     </button>
                   )}
 
@@ -2724,20 +2724,20 @@ function Store() {
                       }}
                     >
                       <FontAwesomeIcon icon={faQrcode} style={{ fontSize: '28px' }} />
-                      <span className="font-bold" style={{ fontSize: '18px' }}>Pagar con QR</span>
+                      <span className="font-bold" style={{ fontSize: '18px' }}>{t('payWithQR', lang)}</span>
                     </button>
                   )}
 
                   {!selectedConfiguration?.accept_cash && !selectedConfiguration?.accept_card && !qrProvider && (
-                    <p className="text-muted">No hay metodos de pago disponibles</p>
+                    <p className="text-muted">{t('noPaymentMethods', lang)}</p>
                   )}
                 </div>
 
                 {selectedConfiguration?.accept_card && availableTerminals.length > 0 && (
                   <div className="text-muted text-sm" style={{ marginTop: '14px' }}>
-                    Maquina Point asignada:{' '}
+                    {t('terminalAssigned', lang)}{' '}
                     <strong>
-                      {availableTerminals.find(terminal => String(terminal.id) === String(selectedTerminalId))?.name || 'No disponible'}
+                      {availableTerminals.find(terminal => String(terminal.id) === String(selectedTerminalId))?.name || t('notAvailable', lang)}
                     </strong>
                   </div>
                 )}
@@ -2748,7 +2748,7 @@ function Store() {
                   fontSize: '13px',
                   fontStyle: 'italic'
                 }}>
-                  Al tocar Tarjeta o Efectivo el pedido se procesa inmediatamente
+                  {t('tapPaymentInfo', lang)}
                 </p>
 
                 <button
@@ -2763,7 +2763,7 @@ function Store() {
                     border: 'none'
                   }}
                 >
-                  Cancelar
+                  {t('cancel', lang)}
                 </button>
               </>
             )}
@@ -2775,18 +2775,18 @@ function Store() {
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
-              {qrPaymentUrl ? 'Escanea el QR para pagar' : 'Esperando Pago'}
+              {qrPaymentUrl ? t('scanQRToPay', lang) : t('waitingPayment', lang)}
             </h2>
 
             {qrPaymentUrl ? (
               <>
                 <p className="text-muted" style={{ marginBottom: '15px', fontSize: '14px' }}>
-                  Escanea con tu celular o toca el botón para pagar
+                  {t('scanQRDesc', lang)}
                 </p>
                 <div style={{ margin: '0 auto 15px', display: 'flex', justifyContent: 'center' }}>
                   <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrPaymentUrl)}`}
-                    alt="QR Pago"
+                    alt="QR"
                     style={{ width: '200px', height: '200px', borderRadius: '12px', border: '2px solid #e0e0e0' }}
                   />
                 </div>
@@ -2797,13 +2797,13 @@ function Store() {
                   className="btn btn-primary"
                   style={{ display: 'inline-block', marginBottom: '15px', padding: '12px 24px', borderRadius: '10px', textDecoration: 'none', background: 'var(--store-accent)', color: 'var(--store-primary)', fontWeight: '700' }}
                 >
-                  Abrir link de pago
+                  {t('openPaymentLink', lang)}
                 </a>
               </>
             ) : (
               <>
                 <p className="text-muted" style={{ marginBottom: '20px', fontSize: '14px' }}>
-                  Acerque o pase la tarjeta en el terminal Point
+                  {t('tapCardTerminal', lang)}
                 </p>
                 <div style={{
                   width: '80px',
@@ -2817,7 +2817,7 @@ function Store() {
               </>
             )}
             <p className="text-muted" style={{ fontSize: '14px', marginBottom: '10px' }}>
-              Esperando confirmacion del pago...
+              {t('waitingPaymentConfirm', lang)}
             </p>
             <p className="font-bold" style={{
               color: paymentTimeLeft <= 30 ? '#DC3545' : 'var(--store-primary)',
@@ -2842,7 +2842,7 @@ function Store() {
               className="btn btn-danger"
               style={{ padding: '12px 24px', borderRadius: '10px' }}
             >
-              Cancelar pago
+              {t('cancelPayment', lang)}
             </button>
           </div>
         </div>
@@ -2855,7 +2855,7 @@ function Store() {
               <>
                 <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '50px', marginBottom: '12px', color: 'var(--success)' }} />
                 <h2 style={{ color: 'var(--store-primary)', marginBottom: '4px', fontSize: '22px' }}>
-                  ¡Pago Exitoso!
+                  {t('paymentSuccess', lang)}
                 </h2>
                 <p className="text-muted" style={{ marginBottom: '16px', fontSize: '13px' }}>
                   {qrPaymentResult.message}
@@ -2870,7 +2870,7 @@ function Store() {
                     marginBottom: '16px',
                     border: '4px solid var(--store-accent)'
                   }}>
-                    <p style={{ fontSize: '13px', margin: '0 0 8px', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '2px' }}>Tu Pedido</p>
+                    <p style={{ fontSize: '13px', margin: '0 0 8px', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '2px' }}>{t('yourOrder', lang)}</p>
                     <p style={{ fontSize: '90px', fontWeight: '900', margin: '0', lineHeight: '1', color: 'var(--store-accent)' }}>
                       #{qrPaymentResult.order.order_number}
                     </p>
@@ -2882,11 +2882,11 @@ function Store() {
 
                 <div style={{ background: '#f8f8f8', borderRadius: '10px', padding: '12px', marginBottom: '14px', fontSize: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                    <span style={{ color: '#888' }}>Monto</span>
+                    <span style={{ color: '#888' }}>{t('amount', lang)}</span>
                     <span style={{ fontWeight: '700' }}>${qrPaymentResult.amount}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderTop: '1px solid #eee' }}>
-                    <span style={{ color: '#888' }}>Referencia</span>
+                    <span style={{ color: '#888' }}>{t('reference', lang)}</span>
                     <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#555' }}>{qrPaymentResult.reference}</span>
                   </div>
                 </div>
@@ -2954,7 +2954,7 @@ function Store() {
                     className="btn"
                     style={{ background: 'var(--store-accent)', color: 'var(--store-primary)', border: 'none', borderRadius: '10px', padding: '12px 20px', fontWeight: '700', marginBottom: '10px', width: '100%' }}
                   >
-                    <FontAwesomeIcon icon={faDownload} /> Descargar comprobante
+                    <FontAwesomeIcon icon={faDownload} /> {t('downloadReceipt', lang)}
                   </button>
                 )}
               </>
@@ -2962,10 +2962,10 @@ function Store() {
               <>
                 <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '60px', marginBottom: '20px', color: '#dc3545' }} />
                 <h2 style={{ color: '#dc3545', marginBottom: '10px', fontSize: '24px' }}>
-                  Pago no completado
+                  {t('paymentNotCompleted', lang)}
                 </h2>
                 <p className="text-muted" style={{ marginBottom: '15px', fontSize: '14px' }}>
-                  {qrPaymentResult.message || 'El pago no pudo ser procesado'}
+                  {qrPaymentResult.message || t('paymentNotProcessed', lang)}
                 </p>
               </>
             )}
@@ -2977,7 +2977,7 @@ function Store() {
               className="btn btn-primary btn-lg"
               style={{ borderRadius: '10px', padding: '12px 30px' }}
             >
-              Continuar
+              {t('continueText', lang)}
             </button>
           </div>
         </div>
@@ -2988,10 +2988,10 @@ function Store() {
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
             <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--success)' }} />
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
-              Muchas gracias por su compra
+              {t('thankYouPurchase', lang)}
             </h2>
             <p className="text-muted" style={{ marginBottom: '20px', fontSize: '16px' }}>
-              Por favor espere su orden
+              {t('pleaseWait', lang)}
             </p>
             {lastOrderNumber && (
               <div style={{
@@ -3001,7 +3001,7 @@ function Store() {
                 borderRadius: '15px',
                 marginBottom: '20px'
               }}>
-                <p style={{ fontSize: '14px', marginBottom: '5px', opacity: 0.8 }}>Numero de Orden</p>
+                <p style={{ fontSize: '14px', marginBottom: '5px', opacity: 0.8 }}>{t('orderNumberLabel', lang)}</p>
                 <p className="font-bold" style={{ fontSize: '48px', margin: 0 }}>{lastOrderNumber}</p>
               </div>
             )}
@@ -3030,15 +3030,15 @@ function Store() {
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
             <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--danger)' }} />
             <h2 style={{ color: '#DC3545', marginBottom: '10px', fontSize: '24px' }}>
-              Pago No Completado
+              {t('paymentNotCompleted', lang)}
             </h2>
             {pendingOrderData?.order?.order_number && (
               <p className="font-bold" style={{ color: '#DC3545', marginBottom: '10px', fontSize: '18px' }}>
-                Orden #{pendingOrderData.order.order_number}
+                {t('orderNumberLabel', lang)} #{pendingOrderData.order.order_number}
               </p>
             )}
             <p className="text-muted" style={{ marginBottom: '25px', fontSize: '14px' }}>
-              El pago no fue completado o se cancelo. Como quieres pagar?
+              {t('paymentNotCompletedDesc', lang)}
             </p>
             <div className="flex flex-col" style={{ gap: '15px' }}>
               <button
@@ -3056,7 +3056,7 @@ function Store() {
                 }}
               >
                 <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '22px' }} />
-                <span className="font-bold" style={{ fontSize: '18px' }}>Reintentar con Tarjeta</span>
+                <span className="font-bold" style={{ fontSize: '18px' }}>{t('retryCard', lang)}</span>
               </button>
               <button
                 onClick={() => {
@@ -3071,7 +3071,7 @@ function Store() {
                 }}
               >
                 <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '22px' }} />
-                <span className="font-bold" style={{ fontSize: '18px' }}>Pagar en Efectivo</span>
+                <span className="font-bold" style={{ fontSize: '18px' }}>{t('payCash', lang)}</span>
               </button>
               <button
                 onClick={async () => {
@@ -3093,7 +3093,7 @@ function Store() {
                 style={{ borderRadius: '15px' }}
               >
                 <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '22px' }} />
-                <span className="font-bold" style={{ fontSize: '18px' }}>Cancelar Orden</span>
+                <span className="font-bold" style={{ fontSize: '18px' }}>{t('cancelOrder', lang)}</span>
               </button>
             </div>
           </div>
@@ -3105,10 +3105,10 @@ function Store() {
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
             <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--success)' }} />
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
-              Muchas gracias por su compra
+              {t('thankYouPurchase', lang)}
             </h2>
             <p className="text-muted" style={{ marginBottom: '20px', fontSize: '16px' }}>
-              Por favor espere su orden
+              {t('pleaseWait', lang)}
             </p>
             {lastOrderNumber && (
               <div style={{
@@ -3118,7 +3118,7 @@ function Store() {
                 borderRadius: '15px',
                 marginBottom: '20px'
               }}>
-                <p style={{ fontSize: '14px', marginBottom: '5px', opacity: 0.8 }}>Numero de Orden</p>
+                <p style={{ fontSize: '14px', marginBottom: '5px', opacity: 0.8 }}>{t('orderNumberLabel', lang)}</p>
                 <p className="font-bold" style={{ fontSize: '48px', margin: 0 }}>{lastOrderNumber}</p>
               </div>
             )}
@@ -3127,7 +3127,7 @@ function Store() {
               fontSize: '13px',
               fontStyle: 'italic'
             }}>
-              Pague con efectivo justo en caja para procesar su orden
+              {t('cashAtCounter', lang)}
             </p>
             <button
               onClick={() => {
