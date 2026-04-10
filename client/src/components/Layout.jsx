@@ -172,14 +172,14 @@ function Layout() {
 
         <nav className={`admin-sidebar ${isMobile ? (menuOpen ? 'mobile-open' : 'mobile-closed') : ''}`}>
           <div className="sidebar-header">
-            <div>
-              <h1>SRServi</h1>
-              <small>Panel Admin</small>
-              {user?.support_pin && (
-                <div style={{ marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(155,89,182,0.1)', padding: '2px 8px', borderRadius: '6px', fontSize: '10px', color: '#9b59b6' }}>
-                  <FontAwesomeIcon icon={faLock} /> PIN: <strong style={{ letterSpacing: '1px' }}>{user.support_pin}</strong>
-                </div>
-              )}
+            <div className="sidebar-brand">
+              <div className="sidebar-brand-logo">
+                <FontAwesomeIcon icon={faStore} />
+              </div>
+              <div className="sidebar-brand-text">
+                <h1>SRServi</h1>
+                <small>Panel de Administración</small>
+              </div>
             </div>
             {isMobile && (
               <button className="sidebar-close-btn" onClick={() => setMenuOpen(false)}>
@@ -187,6 +187,14 @@ function Layout() {
               </button>
             )}
           </div>
+
+          {user?.support_pin && (
+            <div className="sidebar-pin-badge">
+              <FontAwesomeIcon icon={faLock} />
+              <span>PIN Soporte</span>
+              <strong>{user.support_pin}</strong>
+            </div>
+          )}
 
           <div className="store-selector">
             <div className="relative">
@@ -231,12 +239,15 @@ function Layout() {
           </div>
 
           <ul className="sidebar-nav" onClick={(e) => { if (!e.target.closest('.dropdown-item') && !e.target.closest('.dropdown-header') && !e.target.closest('.dropdown-container')) setMenuOpen(false); }}>
+            <li className="sidebar-section-label">Principal</li>
             <li>
               <NavLink to="/admin" end onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faHome} />
                 <span>Inicio</span>
               </NavLink>
             </li>
+
+            <li className="sidebar-section-label">Tienda</li>
             {selectedStore && (
               <li>
                 <a
@@ -251,12 +262,21 @@ function Layout() {
                 </a>
               </li>
             )}
+            {selectedStore && (
+              <li>
+                <a href={`/store/${selectedStore.code}`} target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
+                  <FontAwesomeIcon icon={faEye} />
+                  <span>Vista Previa</span>
+                </a>
+              </li>
+            )}
 
+            <li className="sidebar-section-label">Gestión</li>
             <li className="dropdown-container">
-              <button className="dropdown-header" onClick={() => toggleDropdown('gestion')}>
+              <button className={`dropdown-header${openDropdowns['gestion'] ? ' open' : ''}`} onClick={() => toggleDropdown('gestion')}>
                 <FontAwesomeIcon icon={faShoppingBag} />
-                <span>Gestion</span>
-                <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['gestion'] ? 180 : 0} />
+                <span>Ventas</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['gestion'] ? 180 : 0} />
               </button>
               {openDropdowns['gestion'] && (
                 <div className="dropdown-content">
@@ -284,11 +304,12 @@ function Layout() {
               )}
             </li>
 
+            <li className="sidebar-section-label">Configuración</li>
             <li className="dropdown-container">
-              <button className="dropdown-header" onClick={() => toggleDropdown('sistema')}>
+              <button className={`dropdown-header${openDropdowns['sistema'] ? ' open' : ''}`} onClick={() => toggleDropdown('sistema')}>
                 <FontAwesomeIcon icon={faCog} />
                 <span>Sistema</span>
-                <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['sistema'] ? 180 : 0} />
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['sistema'] ? 180 : 0} />
               </button>
               {openDropdowns['sistema'] && (
                 <div className="dropdown-content">
@@ -324,20 +345,11 @@ function Layout() {
               )}
             </li>
 
-            {selectedStore && (
-              <li>
-                <a href={`/store/${selectedStore.code}`} target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
-                  <FontAwesomeIcon icon={faEye} />
-                  <span>Preview Tienda</span>
-                </a>
-              </li>
-            )}
-
             <li className="dropdown-container">
-              <button className="dropdown-header" onClick={() => toggleDropdown('componentes')}>
+              <button className={`dropdown-header${openDropdowns['componentes'] ? ' open' : ''}`} onClick={() => toggleDropdown('componentes')}>
                 <FontAwesomeIcon icon={faPuzzlePiece} />
                 <span>Componentes</span>
-                <FontAwesomeIcon icon={faChevronDown} rotation={openDropdowns['componentes'] ? 180 : 0} />
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['componentes'] ? 180 : 0} />
               </button>
               {openDropdowns['componentes'] && (
                 <div className="dropdown-content">
@@ -360,20 +372,21 @@ function Layout() {
               <PluginSlot name="sidebar" context={{ storeId: selectedStore?.id }} />
             </li>
 
+            <li className="sidebar-section-label">Ayuda</li>
             <li>
               <NavLink to="/admin/tickets" className={({isActive}) => isActive ? 'active' : ''} onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faTicketAlt} />
                 <span>Soporte</span>
               </NavLink>
             </li>
-
-            <li>
-              <button onClick={handleLogout} className="btn btn-secondary btn-full">
-                <FontAwesomeIcon icon={faSignOutAlt} />
-                <span>Cerrar Sesion</span>
-              </button>
-            </li>
           </ul>
+
+          <div className="sidebar-footer">
+            <button onClick={handleLogout} className="sidebar-logout-btn">
+              <FontAwesomeIcon icon={faSignOutAlt} />
+              <span>Cerrar Sesión</span>
+            </button>
+          </div>
         </nav>
         <main className="admin-content">
           <div className="mobile-header">
