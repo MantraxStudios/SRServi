@@ -346,6 +346,10 @@ function Store() {
   const [notification, setNotification] = useState(null);
   const [barcode, setBarcode] = useState('');
   const barcodeInputRef = useRef(null);
+  const isTouchDevice = typeof window !== 'undefined' && (
+    'ontouchstart' in window ||
+    (navigator.maxTouchPoints && navigator.maxTouchPoints > 0)
+  );
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -692,6 +696,7 @@ function Store() {
   const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen;
 
   useEffect(() => {
+    if (isTouchDevice) return;
     if (anyModalOpen) return;
     if (barcodeInputRef.current) {
       barcodeInputRef.current.focus({ preventScroll: true });
@@ -703,7 +708,7 @@ function Store() {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [anyModalOpen]);
+  }, [anyModalOpen, isTouchDevice]);
 
   const handleBarcodeScan = (barcodeValue) => {
     if (!store?.products) return;
@@ -2060,20 +2065,23 @@ function Store() {
         </div>
       )}
 
-      <input
-        ref={barcodeInputRef}
-        type="text"
-        value={barcode}
-        onChange={(e) => setBarcode(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && barcode) {
-            e.preventDefault();
-            handleBarcodeScan(barcode);
-            setBarcode('');
-          }
-        }}
-        className="barcode-input"
-      />
+      {!isTouchDevice && (
+        <input
+          ref={barcodeInputRef}
+          type="text"
+          inputMode="none"
+          value={barcode}
+          onChange={(e) => setBarcode(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && barcode) {
+              e.preventDefault();
+              handleBarcodeScan(barcode);
+              setBarcode('');
+            }
+          }}
+          className="barcode-input"
+        />
+      )}
 
       {ingredientsModalOpen && selectedProduct && (
         <div
