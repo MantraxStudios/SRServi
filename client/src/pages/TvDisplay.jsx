@@ -359,8 +359,8 @@ function TvDisplay() {
         .tv-orders-grid {
           flex: 1;
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 24px;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 16px;
           overflow-y: auto;
           align-content: start;
         }
@@ -408,8 +408,8 @@ function TvDisplay() {
         }
 
         .tv-order-number {
-          font-size: 80px;
-          letter-spacing: -2px;
+          font-size: 42px;
+          letter-spacing: -1px;
           z-index: 2;
         }
 
