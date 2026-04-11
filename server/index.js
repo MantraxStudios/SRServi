@@ -4517,7 +4517,12 @@ async function startServer() {
             [userId, api_key, api_key]
           );
         }
-        const [result] = await pool.execute('INSERT INTO tuu_devices (user_id, name, serial, device_id) VALUES (?, ?, ?, ?)', [userId, name, serial, device_id || '']);
+        let result;
+        try {
+          [result] = await pool.execute('INSERT INTO tuu_devices (user_id, name, serial, device_id) VALUES (?, ?, ?, ?)', [userId, name, serial, device_id || '']);
+        } catch {
+          [result] = await pool.execute('INSERT INTO tuu_devices (user_id, name, serial) VALUES (?, ?, ?)', [userId, name, serial]);
+        }
         res.json({ id: result.insertId, name, serial, device_id: device_id || '' });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
