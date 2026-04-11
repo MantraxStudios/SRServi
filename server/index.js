@@ -491,6 +491,17 @@ app.get('/api/public/pos-devices/:storeId', async (req, res) => {
   }
 });
 
+app.get('/api/stores/code/:code', authenticateToken, async (req, res) => {
+  try {
+    const code = (req.params.code || '').toUpperCase();
+    const store = await getStoreByCode(code);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    res.json(store);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/public/:code/coupons/validate', async (req, res) => {
   try {
     const { code } = req.params;
