@@ -11,9 +11,11 @@ const API = 'https://srservi2.srautomatic.com';
 function Plugins() {
   const navigate = useNavigate();
   const { selectedStore } = useStore();
-  const { refreshPlugins, registry } = usePlugins();
-  const [plugins, setPlugins] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { refreshPlugins, registry, installedPlugins, setPluginActive, fetchInstalledPlugins } = usePlugins();
+  // plugins derived from shared context state — always in sync with other pages
+  const plugins = installedPlugins;
+  const setPlugins = () => {}; // no-op, kept for backwards compat in other places
+  const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(null);
@@ -32,33 +34,12 @@ function Plugins() {
 
   useEffect(() => {
     setPluginCountriesMap(loadPluginCountries());
+    // Siempre refresca al entrar a la página para estar sincronizado
+    fetchInstalledPlugins();
   }, []);
 
-  useEffect(() => {
-    fetchPlugins();
-  }, []);
-
-  const fetchPlugins = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(API + '/api/admin/plugins?_=' + Date.now(), {
-        headers: { 'Authorization': `Bearer ${token}` },
-        cache: 'no-store'
-      });
-      if (response.ok) {
-        const data = await response.json();
-        // Normalizamos is_active a boolean puro
-        const normalized = Array.isArray(data)
-          ? data.map(p => ({ ...p, is_active: p.is_active === true || p.is_active === 1 || p.is_active === '1' }))
-          : [];
-        setPlugins(normalized);
-      }
-    } catch (err) {
-      console.error('Error fetching plugins:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // fetchPlugins ahora es un wrapper del fetch compartido en PluginContext
+  const fetchPlugins = fetchInstalledPlugins;
 
   const openUploadModal = () => {
     setUploadFile(null);
@@ -160,10 +141,8 @@ function Plugins() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
-        // Optimistic update — usamos boolean puro para evitar cualquier inversión
-        setPlugins(prev => prev.map(p =>
-          p.plugin_id === pluginId ? { ...p, is_active: nextActive } : p
-        ));
+        // Optimistic update en el state COMPARTIDO del contexto
+        setPluginActive(pluginId, nextActive);
         refreshPlugins();
       }
     } catch (err) {

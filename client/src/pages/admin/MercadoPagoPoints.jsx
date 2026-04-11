@@ -24,7 +24,13 @@ const GOLD = '#D4AF37';
 function MercadoPagoPoints() {
   const navigate = useNavigate();
   const { token } = useAuth();
-  const { refreshPlugins, registry } = usePlugins();
+  const {
+    refreshPlugins,
+    registry,
+    installedPlugins,
+    setPluginActive,
+    fetchInstalledPlugins
+  } = usePlugins();
   const { selectedStore } = useStore() || {};
 
   // Runtime check — puede no estar listo justo después de activar un plugin
@@ -61,7 +67,7 @@ function MercadoPagoPoints() {
 
   // ==== Workshop ====
   const [workshopPlugins, setWorkshopPlugins] = useState([]);
-  const [installedPlugins, setInstalledPlugins] = useState([]); // full objects from /api/admin/plugins
+  // installedPlugins viene del contexto — compartido entre Plugins.jsx y este componente
   const [pluginCountriesMap, setPluginCountriesMap] = useState({});
   const [loadingWorkshop, setLoadingWorkshop] = useState(true);
   const [installing, setInstalling] = useState(null);
@@ -101,7 +107,7 @@ function MercadoPagoPoints() {
   useEffect(() => {
     fetchTerminals();
     fetchWorkshopPlugins();
-    fetchInstalledPlugins();
+    fetchInstalledPlugins(); // refresca del contexto compartido
     setPluginCountriesMap(loadPluginCountries());
   }, []);
 
@@ -112,26 +118,6 @@ function MercadoPagoPoints() {
       if (response.ok) setWorkshopPlugins(await response.json());
     } catch { setWorkshopPlugins([]); }
     finally { setLoadingWorkshop(false); }
-  };
-
-  const fetchInstalledPlugins = async () => {
-    try {
-      const response = await fetch(API + '/api/admin/plugins?_=' + Date.now(), {
-        headers: { Authorization: 'Bearer ' + token },
-        cache: 'no-store'
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const normalized = Array.isArray(data)
-          ? data.map(p => {
-              const raw = p.is_active;
-              const isActive = raw === true || raw === 1 || raw === '1' || raw === 't' || raw === 'true' || raw === 'TRUE';
-              return { ...p, is_active: isActive };
-            })
-          : [];
-        setInstalledPlugins(normalized);
-      }
-    } catch {}
   };
 
   // Normaliza cualquier representación de is_active a boolean puro.
@@ -153,9 +139,8 @@ function MercadoPagoPoints() {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       if (response.ok) {
-        setInstalledPlugins(prev => prev.map(p =>
-          p.plugin_id === pluginId ? { ...p, is_active: nextActive } : p
-        ));
+        // Optimistic update en el state COMPARTIDO del contexto
+        setPluginActive(pluginId, nextActive);
         refreshPlugins();
         setInstallMessage(`Plugin ${nextActive ? 'activado' : 'desactivado'}`);
         setTimeout(() => setInstallMessage(''), 2000);

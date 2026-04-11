@@ -18,11 +18,43 @@ export function PluginProvider({ children, mode = 'admin' }) {
   const [manifest, setManifest] = useState([]);
   const [registry, setRegistry] = useState({});
   const [loaded, setLoaded] = useState(false);
+  // Shared installed plugins state — sync across ALL pages that need it
+  const [installedPlugins, setInstalledPlugins] = useState([]);
 
   useEffect(() => {
     window.__SRSERVI_PLUGINS__ = window.__SRSERVI_PLUGINS__ || {};
     fetchManifest();
+    if (mode === 'admin') fetchInstalledPlugins();
   }, []);
+
+  const fetchInstalledPlugins = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const response = await fetch('/api/admin/plugins?_=' + Date.now(), {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const normalized = Array.isArray(data)
+          ? data.map(p => {
+              const raw = p.is_active;
+              const isActive = raw === true || raw === 1 || raw === '1' || raw === 't' || raw === 'true' || raw === 'TRUE';
+              return { ...p, is_active: isActive };
+            })
+          : [];
+        setInstalledPlugins(normalized);
+      }
+    } catch {}
+  };
+
+  // Actualiza localmente el is_active de un plugin instalado (optimistic update)
+  const setPluginActive = (pluginId, isActive) => {
+    setInstalledPlugins(prev => prev.map(p =>
+      p.plugin_id === pluginId ? { ...p, is_active: !!isActive } : p
+    ));
+  };
 
   const fetchManifest = async () => {
     try {
@@ -109,6 +141,7 @@ export function PluginProvider({ children, mode = 'admin' }) {
 
   const refreshPlugins = () => {
     fetchManifest();
+    if (mode === 'admin') fetchInstalledPlugins();
   };
 
   return (
@@ -118,7 +151,10 @@ export function PluginProvider({ children, mode = 'admin' }) {
       loaded,
       getPluginsForSlot,
       getSidebarItems,
-      refreshPlugins
+      refreshPlugins,
+      installedPlugins,
+      setPluginActive,
+      fetchInstalledPlugins
     }}>
       {children}
     </PluginContext.Provider>
