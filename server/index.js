@@ -457,11 +457,10 @@ app.get('/api/public/pos-devices/:storeCode', async (req, res) => {
     let mpLinked = [];
     try {
       const [rows] = await pool.execute(
-        `SELECT m.id, m.name, m.mercadopago_terminal_id, 'mercadopago' as provider
-         FROM mercado_pago_terminals m
-         JOIN mercadopago_terminal_stores ms ON ms.mercadopago_terminal_id = m.id
-         WHERE ms.store_id = ?`,
-        [store.id]
+        `SELECT id, name, mercadopago_terminal_id, 'mercadopago' as provider
+         FROM mercado_pago_terminals
+         WHERE user_id = ?`,
+        [store.user_id]
       );
       mpLinked = rows;
     } catch (e) { console.log('[pos-devices] MP query error:', e.message); }
@@ -469,11 +468,10 @@ app.get('/api/public/pos-devices/:storeCode', async (req, res) => {
     let tuuDevices = [];
     try {
       const [tuuRows] = await pool.execute(
-        `SELECT d.id, d.name, d.serial, 'tuu' as provider
-         FROM tuu_devices d
-         JOIN tuu_device_pos dp ON d.id = dp.tuu_device_id
-         WHERE dp.store_id = ?`,
-        [store.id]
+        `SELECT id, name, serial, 'tuu' as provider
+         FROM tuu_devices
+         WHERE user_id = ?`,
+        [store.user_id]
       );
       tuuDevices = tuuRows;
     } catch (e) { console.log('[pos-devices] Tuu query error:', e.message); }
