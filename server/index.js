@@ -4536,6 +4536,26 @@ async function startServer() {
       res.json({ success: true });
     });
 
+    app.post('/api/tuu/qr', async (req, res) => {
+      try {
+        const { serial, store_id } = req.body;
+        if (!serial) return res.status(400).json({ error: 'serial requerido' });
+        const userId = await tuuGetUserIdFromStore(parseInt(store_id));
+        const config = await tuuGetConfig(userId);
+        if (!config?.api_key) return res.status(400).json({ error: 'API Key de Tuu no configurada' });
+        const response = await fetch(`${TUU_API}/GetPaymentRequest/${serial}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': config.api_key }
+        });
+        const data = await response.json();
+        if (!response.ok) return res.status(400).json({ error: data.message || 'Error al obtener QR' });
+        if (data.qrImage) return res.json({ qrImage: data.qrImage });
+        res.json({ error: 'QR no disponible' });
+      } catch (e) {
+        res.status(500).json({ error: e.message });
+      }
+    });
+
     app.get('/api/tuu/transactions', async (req, res) => {
       try {
         const storeId = parseInt(req.query.store_id);

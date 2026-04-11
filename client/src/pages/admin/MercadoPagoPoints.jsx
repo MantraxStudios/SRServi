@@ -105,11 +105,18 @@ function MercadoPagoPoints() {
   const [mpNewTerminalId, setMpNewTerminalId] = useState('');
   const [savingMp, setSavingMp] = useState(false);
   const [mpSaveMsg, setMpSaveMsg] = useState('');
+  const [mpModalStep, setMpModalStep] = useState('token');
+  const [mpModalDetected, setMpModalDetected] = useState([]);
+  const [mpModalDetecting, setMpModalDetecting] = useState(false);
+  const [mpModalError, setMpModalError] = useState('');
   const [tuuNewName, setTuuNewName] = useState('');
   const [tuuNewSerial, setTuuNewSerial] = useState('');
   const [tuuNewDteType, setTuuNewDteType] = useState(0);
   const [savingTuu, setSavingTuu] = useState(false);
   const [tuuSaveMsg2, setTuuSaveMsg2] = useState('');
+  const [tuuQrImage, setTuuQrImage] = useState(null);
+  const [tuuGettingQr, setTuuGettingQr] = useState(false);
+  const [tuuQrMsg, setTuuQrMsg] = useState('');
 
   // Settings modal
   const [settingsOpen, setSettingsOpen] = useState(null);
@@ -833,40 +840,124 @@ function MercadoPagoPoints() {
               </div>
               <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', margin: '16px 0 0', padding: '0 20px' }}>
                 {['Mercado Pago', 'Tuu POS', 'Square', 'Sumup'].map((tab, i) => (
-                  <button key={tab} onClick={() => setPosTab(i)} style={{ padding: '10px 14px', background: 'none', border: 'none', borderBottom: posTab === i ? '3px solid #D4AF37' : '3px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: posTab === i ? '800' : '500', color: posTab === i ? '#111' : '#999', whiteSpace: 'nowrap' }}>{tab}</button>
+                  <button key={tab} onClick={() => { setPosTab(i); setMpModalStep('token'); setMpModalDetected([]); setMpModalError(''); setTuuQrImage(null); setTuuQrMsg(''); }} style={{ padding: '10px 14px', background: 'none', border: 'none', borderBottom: posTab === i ? '3px solid #D4AF37' : '3px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: posTab === i ? '800' : '500', color: posTab === i ? '#111' : '#999', whiteSpace: 'nowrap' }}>{tab}</button>
                 ))}
               </div>
               <div style={{ padding: '20px' }}>
                 {posTab === 0 && (
                   <div>
-                    <div style={{ marginBottom: '12px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Nombre de la terminal</label>
-                      <input value={mpNewName} onChange={e => setMpNewName(e.target.value)} placeholder="Ej: Mostrador principal" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' }} />
-                    </div>
-                    <div style={{ marginBottom: '12px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Access Token de Mercado Pago</label>
-                      <input value={mpNewToken} onChange={e => setMpNewToken(e.target.value)} placeholder="APP_USR-xxxxxxxx-xxxx-xxxx" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
-                    </div>
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Terminal ID</label>
-                      <input value={mpNewTerminalId} onChange={e => setMpNewTerminalId(e.target.value)} placeholder="E-Terminal-xxxxx" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
-                    </div>
-                    <button onClick={saveMpPos} disabled={savingMp} className="btn btn-primary" style={{ width: '100%', background: '#009ee3', color: '#fff', fontWeight: '800', padding: '12px', borderRadius: '10px', border: 'none', fontSize: '15px' }}>
-                      {savingMp ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Guardar Mercado Pago'}
-                    </button>
+                    {mpModalStep === 'token' && (
+                      <div>
+                        <div style={{ marginBottom: '14px' }}>
+                          <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Access Token de Mercado Pago</label>
+                          <input value={mpNewToken} onChange={e => setMpNewToken(e.target.value)} placeholder="APP_USR-xxxxxxxx-xxxx-xxxx" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+                          <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#888' }}>Obténlo en <a href="https://www.mercadopago.com/developers/panel/app" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>mercadopago.com/developers</a> → Tu app → Credenciales</p>
+                        </div>
+                        <button onClick={async () => {
+                          if (!mpNewToken.trim()) { setMpModalError('Ingresa el Access Token'); return; }
+                          setMpModalDetecting(true); setMpModalError('');
+                          setMpModalDetected([]);
+                          try {
+                            const res = await fetch(API + '/api/mercado-pago-detect-devices', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                              body: JSON.stringify({ access_token: mpNewToken.trim() })
+                            });
+                            const data = await res.json();
+                            if (!res.ok) { setMpModalError(data.error || 'Error al consultar'); setMpModalDetecting(false); return; }
+                            if (data.length === 0) { setMpModalError('No se encontraron dispositivos Point. Vincula tu Point en la app de Mercado Pago → Tu negocio → Sucursales y cajas'); setMpModalDetecting(false); return; }
+                            setMpModalDetected(data);
+                            setMpModalStep('select');
+                          } catch { setMpModalError('Error de conexion'); }
+                          setMpModalDetecting(false);
+                        }} disabled={mpModalDetecting} className="btn btn-primary" style={{ width: '100%', background: '#009ee3', color: '#fff', fontWeight: '800', padding: '12px', borderRadius: '10px', border: 'none', fontSize: '15px' }}>
+                          {mpModalDetecting ? <><FontAwesomeIcon icon={faSpinner} spin /> Buscando dispositivos...</> : 'Buscar dispositivos Point'}
+                        </button>
+                        {mpModalError && <p style={{ marginTop: '8px', fontSize: '12px', color: '#dc3545' }}>{mpModalError}</p>}
+                      </div>
+                    )}
+                    {mpModalStep === 'select' && (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                          <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#111' }}>Selecciona tus dispositivos Point ({mpModalDetected.length})</p>
+                          <button onClick={() => { setMpModalStep('token'); setMpModalDetected([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#999' }}>← Cambiar token</button>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
+                          {mpModalDetected.map(d => (
+                            <div key={d.id} style={{ padding: '12px', background: '#f9fafb', border: '2px solid #e5e7eb', borderRadius: '10px', cursor: 'pointer' }}
+                              onClick={async () => {
+                                setSavingMp(true);
+                                const name = d.external_pos_id ? d.external_pos_id.split('__')[0] : ('Point ' + d.id.slice(0,8));
+                                const res = await fetch(API + '/api/mercadopago-terminal', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                                  body: JSON.stringify({ name, mercadopago_access_token: mpNewToken.trim(), mercadopago_terminal_id: d.id, store_id: selectedStore.id })
+                                });
+                                if (res.ok) {
+                                  setMpSaveMsg('✔ Guardado');
+                                  setMpNewToken('');
+                                  setMpModalStep('token');
+                                  setMpModalDetected([]);
+                                  fetchPosList();
+                                  setTimeout(() => setShowPosModal(false), 1200);
+                                } else {
+                                  const err = await res.json();
+                                  setMpModalError(err.error || 'Error al guardar');
+                                }
+                                setSavingMp(false);
+                              }}>
+                              <div style={{ fontSize: '14px', fontWeight: '800', color: '#111' }}>{d.external_pos_id ? d.external_pos_id.split('__')[0] : 'Point'}</div>
+                              <div style={{ fontSize: '11px', color: '#888', fontFamily: 'monospace' }}>{d.id}</div>
+                            </div>
+                          ))}
+                        </div>
+                        {savingMp && <p style={{ marginTop: '8px', textAlign: 'center', fontSize: '12px', color: '#666' }}><FontAwesomeIcon icon={faSpinner} spin /> Guardando...</p>}
+                        {mpModalError && <p style={{ marginTop: '8px', fontSize: '12px', color: '#dc3545' }}>{mpModalError}</p>}
+                      </div>
+                    )}
+                    {mpSaveMsg && <p style={{ marginTop: '10px', fontSize: '12px', color: mpSaveMsg.includes('Error') || mpSaveMsg.includes('error') ? '#dc3545' : '#155724' }}>{mpSaveMsg}</p>}
                   </div>
                 )}
                 {posTab === 1 && (
                   <div>
-                    <div style={{ marginBottom: '12px' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '14px', padding: '12px', background: '#f9f0ff', borderRadius: '10px', border: '1px solid #e9d5ff' }}>
+                      <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700', color: '#6a1b9a' }}>QR para escanear en la app Tuu</p>
+                      <div style={{ background: '#fff', border: '2px dashed #d0b0f0', borderRadius: '8px', padding: '12px', display: 'inline-block', minHeight: '120px', minWidth: '120px' }}>
+                        {tuuQrImage ? (
+                          <img src={tuuQrImage} alt="QR Tuu" style={{ width: '120px', height: '120px', display: 'block' }} />
+                        ) : (
+                          <div style={{ width: '120px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: '11px', textAlign: 'center' }}>Escanea el QR<br/>que genera Tuu<br/>al pagar</div>
+                        )}
+                      </div>
+                      <button onClick={async () => {
+                        if (!tuuNewSerial.trim()) { setTuuSaveMsg2('Ingresa el serial del POS primero'); return; }
+                        setTuuGettingQr(true); setTuuQrImage(null); setTuuQrMsg('');
+                        try {
+                          const res = await fetch(API + '/api/tuu/qr', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ serial: tuuNewSerial.trim(), amount: 0, store_id: selectedStore.id })
+                          });
+                          const data = await res.json();
+                          if (!res.ok) { setTuuQrMsg(data.error || 'Error'); setTuuGettingQr(false); return; }
+                          if (data.qrImage) { setTuuQrImage('data:image/png;base64,' + data.qrImage); setTuuQrMsg('✔ QR obtenido'); }
+                          else { setTuuQrMsg('QR no disponible para este dispositivo'); }
+                        } catch { setTuuQrMsg('Error de conexion'); }
+                        setTuuGettingQr(false);
+                      }} disabled={tuuGettingQr} style={{ marginTop: '8px', padding: '5px 14px', background: '#6a1b9a', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700' }}>
+                        {tuuGettingQr ? <><FontAwesomeIcon icon={faSpinner} spin /> Obteniendo...</> : 'Obtener QR'}
+                      </button>
+                      {tuuQrMsg && <p style={{ margin: '4px 0 0', fontSize: '11px', color: tuuQrMsg.includes('Error') || tuuQrMsg.includes('error') ? '#dc3545' : '#6a1b9a' }}>{tuuQrMsg}</p>}
+                    </div>
+                    <div style={{ marginBottom: '10px' }}>
                       <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Nombre del POS</label>
                       <input value={tuuNewName} onChange={e => setTuuNewName(e.target.value)} placeholder="Ej: Mostrador" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' }} />
                     </div>
-                    <div style={{ marginBottom: '12px' }}>
+                    <div style={{ marginBottom: '10px' }}>
                       <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Serial del POS</label>
                       <input value={tuuNewSerial} onChange={e => setTuuNewSerial(e.target.value)} placeholder="XXXXXXXXXX" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
                     </div>
-                    <div style={{ marginBottom: '16px' }}>
+                    <div style={{ marginBottom: '14px' }}>
                       <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Tipo de documento</label>
                       <select value={tuuNewDteType} onChange={e => setTuuNewDteType(parseInt(e.target.value))} style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px' }}>
                         <option value={0}>Sin boleta</option>
@@ -879,6 +970,7 @@ function MercadoPagoPoints() {
                     <button onClick={saveTuuPos} disabled={savingTuu} className="btn btn-primary" style={{ width: '100%', background: '#6a1b9a', color: '#fff', fontWeight: '800', padding: '12px', borderRadius: '10px', border: 'none', fontSize: '15px' }}>
                       {savingTuu ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Guardar Tuu POS'}
                     </button>
+                    {tuuSaveMsg2 && <p style={{ marginTop: '8px', fontSize: '12px', color: tuuSaveMsg2.includes('Error') ? '#dc3545' : '#155724' }}>{tuuSaveMsg2}</p>}
                   </div>
                 )}
                 {posTab === 2 && (
