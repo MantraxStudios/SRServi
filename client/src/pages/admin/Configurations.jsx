@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle, faDesktop, faSync, faSearch } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle, faDesktop } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 function Configurations() {
@@ -25,67 +25,14 @@ function Configurations() {
     allow_takeout: true
   });
   const [error, setError] = useState('');
-  const [storeCodeInput, setStoreCodeInput] = useState('');
-  const [localStore, setLocalStore] = useState(null);
-  const [localLoading, setLocalLoading] = useState(false);
-
-  const loadStoreByCode = async (e) => {
-    e.preventDefault();
-    if (!storeCodeInput.trim()) return;
-    setLocalLoading(true);
-    try {
-      const res = await fetch('/api/stores/code/' + storeCodeInput.trim().toUpperCase());
-      if (!res.ok) { alert('Tienda no encontrada'); setLocalLoading(false); return; }
-      const store = await res.json();
-      setLocalStore(store);
-      setStoreCodeInput('');
-      const [mpRes, tuuRes] = await Promise.all([
-        fetch('/api/mercado-pago-terminals?store_id=' + store.id, { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } }),
-        fetch('/api/tuu/devices?store_id=' + store.id)
-      ]);
-      const mpData = mpRes.ok ? await mpRes.json() : [];
-      const tuuData = tuuRes.ok ? await tuuRes.json() : {};
-      const mpList = (Array.isArray(mpData) ? mpData : []).map(t => ({ id: t.id, name: t.name, provider: 'mercadopago' }));
-      const tuuList = (Array.isArray(tuuData.posDevices) ? tuuData.posDevices : []).map(d => ({ id: d.id, name: d.name, provider: 'tuu' }));
-      setTerminals([...mpList, ...tuuList]);
-    } catch { alert('Error al buscar tienda'); }
-    finally { setLocalLoading(false); }
-  };
-
-  const fetchTerminals = async () => {
-    if (!selectedStore) return;
-    setLoadingTerminals(true);
-    const token = localStorage.getItem('token');
-    try {
-      const [mpRes, tuuRes] = await Promise.all([
-        fetch('/api/mercado-pago-terminals?store_id=' + selectedStore.id, { headers: { Authorization: 'Bearer ' + token } }),
-        fetch('/api/tuu/devices?store_id=' + selectedStore.id)
-      ]);
-      const mpData = mpRes.ok ? await mpRes.json() : [];
-      const tuuData = tuuRes.ok ? await tuuRes.json() : {};
-      const mpList = (Array.isArray(mpData) ? mpData : []).map(t => ({
-        id: t.id, name: t.name, provider: 'mercadopago'
-      }));
-      const tuuList = (Array.isArray(tuuData.posDevices) ? tuuData.posDevices : []).map(d => ({
-        id: d.id, name: d.name, provider: 'tuu'
-      }));
-      setTerminals([...mpList, ...tuuList]);
-    } catch (error) {
-      console.error('Error fetching terminals:', error);
-    } finally {
-      setLoadingTerminals(false);
-    }
-  };
 
   useEffect(() => {
     if (selectedStore) {
       setLoading(true);
       fetchConfigurations();
-      fetchTerminals();
     } else {
       setLoading(false);
       setConfigurations([]);
-      setTerminals([]);
     }
   }, [selectedStore]);
 
@@ -234,58 +181,11 @@ function Configurations() {
     <>
       <header className="admin-header">
         <h1>Configuraciones de Pago</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <form onSubmit={loadStoreByCode} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <input
-              type="text"
-              value={storeCodeInput}
-              onChange={(e) => setStoreCodeInput(e.target.value)}
-              placeholder="Codigo de tienda"
-              style={{ padding: '6px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px', width: '150px' }}
-            />
-            <button type="submit" disabled={localLoading} style={{ background: '#D4AF37', border: 'none', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', color: '#000', fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <FontAwesomeIcon icon={faSearch} />
-            </button>
-          </form>
-          <button className="btn btn-primary" onClick={openModal}>
-            <FontAwesomeIcon icon={faPlus} />
-            Nueva Config
-          </button>
-        </div>
+        <button className="btn btn-primary" onClick={openModal}>
+          <FontAwesomeIcon icon={faPlus} />
+          Nueva Configuracion
+        </button>
       </header>
-
-      {localStore && (
-        <div style={{ background: '#fff8e1', border: '2px solid #D4AF37', borderRadius: '12px', padding: '16px', margin: '0 24px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <div>
-              <strong style={{ fontSize: '15px' }}>{localStore.name || 'Tienda ' + localStore.id}</strong>
-              <span style={{ marginLeft: '8px', fontSize: '12px', color: '#888' }}>Codigo: {localStore.code}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '13px', color: '#555' }}>
-                {terminals.length} POS vinculado{terminals.length !== 1 ? 's' : ''}
-              </span>
-              <button onClick={fetchTerminals} disabled={loadingTerminals} style={{ background: 'none', border: '1px solid #D4AF37', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', color: '#D4AF37' }}>
-                <FontAwesomeIcon icon={faSync} spin={loadingTerminals} />
-              </button>
-            </div>
-          </div>
-          {terminals.length === 0 ? (
-            <p style={{ margin: 0, fontSize: '13px', color: '#888' }}>
-              No hay POS vinculados a esta tienda.{' '}
-              <a href="/admin/terminals" style={{ color: '#0066cc' }}>Ir a Vincular POS</a>
-            </p>
-          ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {terminals.map(t => (
-                <span key={t.id} style={{ background: t.provider === 'mercadopago' ? '#009ee310' : '#9c27b010', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '4px 10px', fontSize: '12px', fontWeight: '700' }}>
-                  {t.name} {t.provider === 'tuu' ? '(Tuu)' : '(MP)'}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="admin-main">
         {error && <div className="error">{error}</div>}
@@ -472,56 +372,6 @@ function Configurations() {
               </div>
 
               <div className="form-group">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <label style={{ margin: 0 }}>
-                    <FontAwesomeIcon icon={faDesktop} style={{ color: '#666', marginRight: '6px' }} />
-                    Terminal POS
-                  </label>
-                  <button
-                    type="button"
-                    onClick={fetchTerminals}
-                    disabled={loadingTerminals || !selectedStore}
-                    style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', color: '#666' }}
-                    title="Actualizar lista de POS"
-                  >
-                    <FontAwesomeIcon icon={faSync} spin={loadingTerminals} style={{ marginRight: '4px' }} />
-                    {loadingTerminals ? 'Buscando...' : 'Actualizar'}
-                  </button>
-                </div>
-                {selectedStore && (
-                  <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#888' }}>
-                    Tienda: <strong>{selectedStore.name || 'Tienda ' + selectedStore.id}</strong>
-                    {terminals.length > 0 && ` · ${terminals.length} POS disponible${terminals.length !== 1 ? 's' : ''}`}
-                  </p>
-                )}
-                <select
-                  value={formData.default_terminal}
-                  onChange={(e) => setFormData({ ...formData, default_terminal: e.target.value })}
-                  style={{ width: '100%', padding: '10px', border: '2px solid #e0e0e0', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box', background: '#fff' }}
-                >
-                  <option value="">Ninguna</option>
-                  {terminals.map(terminal => (
-                    <option key={`${terminal.provider}-${terminal.id}`} value={terminal.id}>
-                      {terminal.name} {terminal.provider === 'tuu' ? '(Tuu)' : '(MP)'}
-                    </option>
-                  ))}
-                </select>
-                {!selectedStore && (
-                  <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#d97706' }}>
-                    Selecciona una tienda arriba para ver los POS disponibles
-                  </p>
-                )}
-                {selectedStore && terminals.length === 0 && !loadingTerminals && (
-                  <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#888' }}>
-                    No hay POS vinculados a esta tienda.{' '}
-                    <span style={{ color: '#0066cc', cursor: 'pointer' }} onClick={() => window.location.href = '/admin/terminals'}>
-                      Ir a Vincular POS
-                    </span>
-                  </p>
-                )}
-              </div>
-
-              <div className="form-group">
                 <label>Tipo de Store</label>
                 <div>
                   <div className={`checkbox-card ${formData.is_minimarket ? 'active-gold' : ''}`}>
@@ -535,30 +385,6 @@ function Configurations() {
                     <span className="text-muted text-xs">(Interfaz simplificada con grid de productos)</span>
                   </div>
                 </div>
-                {formData.is_minimarket && (
-                  <div className="minimarket-terminal-section">
-                    <label className="font-semibold">
-                      <FontAwesomeIcon icon={faCreditCardAlt} className="icon-gold" />
-                      {' '}Terminal Point para Minimarket
-                    </label>
-                    <select
-                      value={formData.default_minimarket_terminal}
-                      onChange={(e) => setFormData({ ...formData, default_minimarket_terminal: e.target.value })}
-                    >
-                      <option value="">Seleccionar terminal...</option>
-                      {terminals.map(terminal => (
-                        <option key={terminal.id} value={terminal.id}>
-                          {terminal.name || terminal.device_id}
-                        </option>
-                      ))}
-                    </select>
-                    {terminals.length === 0 && (
-                      <p className="text-muted text-xs">
-                        No hay terminales registrados. <a href="/terminals" className="icon-blue">Crear terminal</a>
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
 
               <div className="form-group">

@@ -125,9 +125,74 @@ function Index() {
     }
   };
 
-  const pickStoreFromList = (storeCode) => {
-    persistStoreSelection(storeCode);
-    navigate(`/store/${storeCode}`);
+  const fetchStorePos = async (store, fromClientPicker = false) => {
+    setLoadingPos(true);
+    setPendingStore(store);
+    try {
+      const [mpRes, tuuRes] = await Promise.all([
+        fetch('/api/mercado-pago-terminals?store_id=' + store.id),
+        fetch('/api/tuu/devices?store_id=' + store.id)
+      ]);
+      const mpData = mpRes.ok ? await mpRes.json() : [];
+      const tuuData = tuuRes.ok ? await tuuRes.json() : {};
+      const mpList = (Array.isArray(mpData) ? mpData : []).map(t => ({ id: t.id, name: t.name, provider: 'mercadopago' }));
+      const tuuList = (Array.isArray(tuuData.posDevices) ? tuuData.posDevices : []).map(d => ({ id: d.id, name: d.name, provider: 'tuu' }));
+      const allPos = [...mpList, ...tuuList];
+      setStorePos(allPos);
+      if (allPos.length === 1) {
+        localStorage.setItem(STORAGE_KEYS.lastTerminalId, allPos[0].id);
+        localStorage.setItem(STORAGE_KEYS.lastTerminalName, allPos[0].name);
+        if (fromClientPicker) { persistStoreSelection(store.code); }
+        navigate(`/store/${store.code}`);
+      }
+    } catch { setStorePos([]); }
+    finally { setLoadingPos(false); }
+  };
+
+  const pickStoreFromList = (store) => { fetchStorePos(store, true); };
+
+  const handleCodeSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const cleanCode = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (cleanCode.length !== 6) throw new Error('El codigo debe tener 6 caracteres');
+      const response = await fetch(`/api/public/lookup/${cleanCode}`);
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Codigo no encontrado');
+      }
+      const data = await response.json();
+      if (data.type === 'store') {
+        persistStoreSelection(data.code);
+        const store = { code: data.code, id: data.id, name: data.name };
+        fetchStorePos(store, false);
+        return;
+      }
+      if (data.type === 'client') {
+        const name = data.client?.name || '';
+        if (data.stores.length === 1) {
+          persistClientLookup(cleanCode, name, data.stores);
+          persistStoreSelection(data.stores[0].code);
+          fetchStorePos(data.stores[0], false);
+          return;
+        }
+        persistClientLookup(cleanCode, name, data.stores);
+        setClientName(name);
+        setClientStores(data.stores);
+      }
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  };
+
+  const handlePickPos = (pos) => {
+    localStorage.setItem(STORAGE_KEYS.lastTerminalId, pos.id);
+    localStorage.setItem(STORAGE_KEYS.lastTerminalName, pos.name);
+    if (pendingStore) {
+      persistStoreSelection(pendingStore.code);
+      navigate(`/store/${pendingStore.code}`);
+    }
   };
 
   const resetAll = () => {
@@ -135,11 +200,64 @@ function Index() {
     localStorage.removeItem(STORAGE_KEYS.lastClientCode);
     localStorage.removeItem(STORAGE_KEYS.lastClientStores);
     localStorage.removeItem(STORAGE_KEYS.lastClientName);
+    localStorage.removeItem(STORAGE_KEYS.lastTerminalId);
+    localStorage.removeItem(STORAGE_KEYS.lastTerminalName);
     setClientStores(null);
     setClientName('');
     setCode('');
     setError('');
+    setPendingStore(null);
+    setStorePos([]);
   };
+
+  if (pendingStore) {
+    return (
+      <div className="index-container">
+        <div className="index-card client-store-picker">
+          <button onClick={() => { setPendingStore(null); setStorePos([]); }} className="client-picker-back">
+            <FontAwesomeIcon icon={faArrowLeft} /> Volver
+          </button>
+          <h1 className="index-title">{pendingStore.name || 'Tienda'}</h1>
+          <p className="index-subtitle">Elige el POS que usaras en este totem</p>
+          {loadingPos && <p style={{ textAlign: 'center', color: '#888' }}>Buscando POS...</p>}
+          {!loadingPos && storePos.length === 0 && (
+            <p style={{ textAlign: 'center', color: '#d97706', marginTop: '20px' }}>
+              No hay POS vinculados a esta tienda.{' '}
+              <a href="/admin/terminals" style={{ color: '#0066cc' }}>Vincular POS</a>
+            </p>
+          )}
+          {!loadingPos && storePos.length > 1 && (
+            <div className="client-store-list">
+              {storePos.map(pos => (
+                <button
+                  key={pos.id}
+                  onClick={() => handlePickPos(pos)}
+                  className="client-store-item"
+                  style={{ borderColor: '#D4AF37', background: '#1a1a1a' }}
+                >
+                  <div className="client-store-item-logo" style={{ background: '#fff' }}>
+                    <FontAwesomeIcon icon={faStore} style={{ color: '#000', fontSize: '20px' }} />
+                  </div>
+                  <div className="client-store-item-info">
+                    <div className="client-store-item-name" style={{ color: '#fff' }}>{pos.name}</div>
+                    <div className="client-store-item-code" style={{ color: '#D4AF37' }}>
+                      {pos.provider === 'mercadopago' ? 'MercadoPago' : 'Tuu'}
+                    </div>
+                  </div>
+                  <FontAwesomeIcon icon={faChevronRight} className="client-store-item-arrow" style={{ color: '#D4AF37' }} />
+                </button>
+              ))}
+            </div>
+          )}
+          {!loadingPos && storePos.length === 0 && (
+            <button onClick={() => { persistStoreSelection(pendingStore.code); navigate(`/store/${pendingStore.code}`); }} className="btn btn-primary btn-full" style={{ marginTop: '16px' }}>
+              Continuar sin POS
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (clientStores) {
     return (
@@ -154,7 +272,7 @@ function Index() {
             {clientStores.map(store => (
               <button
                 key={store.id}
-                onClick={() => pickStoreFromList(store.code)}
+                onClick={() => pickStoreFromList(store)}
                 className="client-store-item"
                 style={{
                   borderColor: store.accent_color || '#D4AF37',
@@ -197,7 +315,7 @@ function Index() {
 
         {error && <div className="error">{error}</div>}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleCodeSubmit}>
           <div className="form-group">
             <input
               type="text"
