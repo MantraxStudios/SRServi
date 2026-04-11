@@ -306,6 +306,15 @@ function Store() {
     }
   }, [selectedConfiguration, store]);
 
+  // If only one order type is allowed, auto-select it (don't ask the user)
+  useEffect(() => {
+    if (!selectedConfiguration) return;
+    const serveOnly = selectedConfiguration.allow_serve && !selectedConfiguration.allow_takeout;
+    const takeoutOnly = !selectedConfiguration.allow_serve && selectedConfiguration.allow_takeout;
+    if (serveOnly && orderType !== 'serve') setOrderType('serve');
+    else if (takeoutOnly && orderType !== 'takeout') setOrderType('takeout');
+  }, [selectedConfiguration]);
+
   useEffect(() => {
     const container = categoryRef.current;
     if (!container) return;
@@ -705,6 +714,42 @@ function Store() {
     }, 1000);
     return () => clearInterval(interval);
   }, [anyModalOpen, isTouchDevice]);
+
+  // Global Bluetooth / USB-HID barcode scanner listener.
+  // Works on tablets too (where the old auto-focus input path is skipped).
+  // Heuristic: rapid keyboard input (<50 ms between keys) followed by Enter
+  // is treated as a scanner read, not as the user typing. Input is ignored
+  // when the focus is already on a text field (so admin editing isn't hijacked).
+  useEffect(() => {
+    if (anyModalOpen) return;
+    let buffer = '';
+    let lastTime = 0;
+    const handleKey = (e) => {
+      const active = document.activeElement;
+      const tag = active?.tagName;
+      const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || active?.isContentEditable;
+      // Allow the dedicated hidden barcodeInput (it has a className we can detect)
+      const isDedicated = active?.classList?.contains('barcode-input');
+      if (isEditable && !isDedicated) return;
+
+      const now = Date.now();
+      const gap = now - lastTime;
+      lastTime = now;
+
+      if (e.key === 'Enter') {
+        if (buffer.length >= 3) {
+          handleBarcodeScan(buffer);
+        }
+        buffer = '';
+        return;
+      }
+      // Reset buffer if gap too long (user typing manually)
+      if (gap > 120) buffer = '';
+      if (e.key.length === 1) buffer += e.key;
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [anyModalOpen, store]);
 
   const handleBarcodeScan = (barcodeValue) => {
     if (!store?.products) return;
@@ -1785,7 +1830,7 @@ function Store() {
             </h1>
           </div>
           <p className="store-header-powered">
-            Totem Gratis Creado Por SRAutomatic.cl
+            {t('poweredBy', lang)}
           </p>
           <div className="store-header-spacer" />
         </div>
@@ -1820,7 +1865,7 @@ function Store() {
           data-category="all"
           onClick={() => setActiveCategory('all')}
         >
-          Todo
+          {t('all', lang)}
         </button>
         {(store?.categories || []).map(c => c.name).map(cat => {
           const catObj = (store?.categories || []).find(c => c.name === cat);
@@ -1870,6 +1915,11 @@ function Store() {
               <FontAwesomeIcon icon={faBox} /> Productos
             </button>
             {adminToken && (
+              <button className={`store-editor-tab${editorTab === 'payment' ? ' active' : ''}`} onClick={() => setEditorTab('payment')}>
+                <FontAwesomeIcon icon={faCreditCard} /> Config. Pago
+              </button>
+            )}
+            {adminToken && (
               <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => setEditorTab('complements')}>
                 <FontAwesomeIcon icon={faPlus} /> Complementos
               </button>
@@ -1883,6 +1933,100 @@ function Store() {
           <button className="store-editor-done" onClick={() => { if (adminToken) { setShowRestartConfirm(true); } else { setEditMode(false); } }}>
             Guardar
           </button>
+        </div>
+      )}
+
+      {editMode && editorTab === 'payment' && adminToken && (
+        <div className="store-editor-complements">
+          <div className="store-editor-comp-header">
+            <span>Config. Pago — configuraciones de la tienda</span>
+          </div>
+          {configurations.length === 0 ? (
+            <span style={{ color: '#999', fontSize: '13px', padding: '8px' }}>Sin configuraciones</span>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {configurations.map(cfg => (
+                <div key={cfg.id} style={{ border: '1px solid #333', borderRadius: '10px', padding: '12px', background: '#111' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <strong style={{ color: '#D4AF37' }}>{cfg.name}{cfg.is_default ? ' · por defecto' : ''}</strong>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '13px', color: '#eee' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!cfg.accept_cash}
+                        onChange={async (e) => {
+                          const v = e.target.checked;
+                          setConfigurations(prev => prev.map(c => c.id === cfg.id ? { ...c, accept_cash: v } : c));
+                          try {
+                            await fetch(`/api/store-configurations/${cfg.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+                              body: JSON.stringify({ ...cfg, accept_cash: v })
+                            });
+                          } catch { /* ignore */ }
+                        }}
+                      /> Efectivo
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!cfg.accept_card}
+                        onChange={async (e) => {
+                          const v = e.target.checked;
+                          setConfigurations(prev => prev.map(c => c.id === cfg.id ? { ...c, accept_card: v } : c));
+                          try {
+                            await fetch(`/api/store-configurations/${cfg.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+                              body: JSON.stringify({ ...cfg, accept_card: v })
+                            });
+                          } catch { /* ignore */ }
+                        }}
+                      /> Tarjeta
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!cfg.allow_serve}
+                        onChange={async (e) => {
+                          const v = e.target.checked;
+                          setConfigurations(prev => prev.map(c => c.id === cfg.id ? { ...c, allow_serve: v } : c));
+                          try {
+                            await fetch(`/api/store-configurations/${cfg.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+                              body: JSON.stringify({ ...cfg, allow_serve: v })
+                            });
+                          } catch { /* ignore */ }
+                        }}
+                      /> Comer aquí
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!cfg.allow_takeout}
+                        onChange={async (e) => {
+                          const v = e.target.checked;
+                          setConfigurations(prev => prev.map(c => c.id === cfg.id ? { ...c, allow_takeout: v } : c));
+                          try {
+                            await fetch(`/api/store-configurations/${cfg.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+                              body: JSON.stringify({ ...cfg, allow_takeout: v })
+                            });
+                          } catch { /* ignore */ }
+                        }}
+                      /> Para llevar
+                    </label>
+                  </div>
+                </div>
+              ))}
+              <div style={{ color: '#888', fontSize: '12px', fontStyle: 'italic', padding: '6px 2px' }}>
+                Los cambios se guardan al instante. Reinicia el tótem para aplicarlos en la pantalla del cliente.
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2568,10 +2712,6 @@ function Store() {
               ))}
 
               <div className="store-cart-summary">
-                <div className="store-cart-summary-row" style={{ display: 'none' }}>
-                  <span>{t('subtotal', lang)}</span>
-                  <span className="font-semibold">{colors.currency.symbol}{Number(getCartTotal()).toFixed(2)}</span>
-                </div>
                 {appliedCoupon && (
                   <div className="store-cart-summary-row store-cart-discount">
                     <span>{t('discount', lang)} ({appliedCoupon.coupon_code})</span>
@@ -2605,36 +2745,39 @@ function Store() {
 
         {cart.length > 0 && (
           <div className="store-cart-footer">
-            <div className="store-cart-order-type">
-              <label className="store-cart-order-label">{t('orderType', lang)}</label>
-              <div className={`store-cart-type-grid${selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout ? '' : ' single'}`}>
-                {selectedConfiguration?.allow_serve && (
+            {selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout && (
+              <div className="store-cart-order-type">
+                <label className="store-cart-order-label">{t('orderType', lang)}</label>
+                <div className="store-cart-type-grid">
                   <button
                     onClick={() => setOrderType('serve')}
-                    className={`store-cart-type-btn${orderType === 'serve' ? ' active' : ''}`}
+                    className={`store-cart-type-btn${orderType === 'serve' ? ' active store-glow-pulse' : ''}`}
                   >
                     <FontAwesomeIcon icon={faBox} />
                     <span>{t('serveHere', lang)}</span>
                   </button>
-                )}
-                {selectedConfiguration?.allow_takeout && (
                   <button
                     onClick={() => setOrderType('takeout')}
-                    className={`store-cart-type-btn${orderType === 'takeout' ? ' active' : ''}`}
+                    className={`store-cart-type-btn${orderType === 'takeout' ? ' active store-glow-pulse' : ''}`}
                   >
                     <FontAwesomeIcon icon={faShoppingCart} />
                     <span>{t('takeoutShort', lang)}</span>
                   </button>
-                )}
+                </div>
               </div>
-            </div>
+            )}
 
             <button onClick={handleCheckout} className="store-cart-checkout-btn store-glow-pulse">
               <FontAwesomeIcon icon={faCheck} />
               {t('confirmOrder', lang)} - {colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}
             </button>
 
-            <button onClick={() => setCart([])} className="store-cart-clear-btn">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleLongPressEnd(); setCart([]); setAppliedCoupon(null); setCouponCodeInput(''); }}
+              onMouseDown={(e) => { e.stopPropagation(); handleLongPressEnd(); }}
+              onTouchStart={(e) => { e.stopPropagation(); handleLongPressEnd(); }}
+              className="store-cart-clear-btn"
+            >
               <FontAwesomeIcon icon={faTimesCircle} />
               {t('clearCart', lang)}
             </button>
@@ -2681,7 +2824,7 @@ function Store() {
                   {selectedConfiguration?.accept_card && (
                     <button
                       onClick={() => processPayment('card')}
-                      className="btn btn-lg btn-full"
+                      className="btn btn-lg btn-full store-glow-pulse"
                       style={{
                         backgroundColor: 'var(--store-secondary)',
                         color: 'var(--store-primary)',
@@ -2697,7 +2840,7 @@ function Store() {
                   {selectedConfiguration?.accept_cash && (
                     <button
                       onClick={() => processPayment('cash')}
-                      className="btn btn-lg btn-full"
+                      className="btn btn-lg btn-full store-glow-pulse"
                       style={{
                         backgroundColor: 'var(--store-secondary)',
                         color: 'var(--store-primary)',
@@ -2713,7 +2856,7 @@ function Store() {
                   {qrProvider && deliveryMode && (
                     <button
                       onClick={() => processPayment('qr')}
-                      className="btn btn-lg btn-full"
+                      className="btn btn-lg btn-full store-glow-pulse"
                       style={{
                         backgroundColor: 'var(--store-secondary)',
                         color: 'var(--store-primary)',
@@ -3039,38 +3182,42 @@ function Store() {
               {t('paymentNotCompletedDesc', lang)}
             </p>
             <div className="flex flex-col" style={{ gap: '15px' }}>
-              <button
-                onClick={() => {
-                  setPaymentCancelled(false);
-                  setPendingOrderData(null);
-                  setProcessingPayment(true);
-                  processPayment('card');
-                }}
-                className="btn btn-lg btn-full"
-                style={{
-                  backgroundColor: 'var(--store-primary)',
-                  color: 'var(--store-secondary)',
-                  borderRadius: '15px'
-                }}
-              >
-                <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '22px' }} />
-                <span className="font-bold" style={{ fontSize: '18px' }}>{t('retryCard', lang)}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setPaymentCancelled(false);
-                  setPaymentModalOpen(true);
-                }}
-                className="btn btn-lg btn-full"
-                style={{
-                  backgroundColor: 'var(--store-accent)',
-                  color: 'var(--store-primary)',
-                  borderRadius: '15px'
-                }}
-              >
-                <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '22px' }} />
-                <span className="font-bold" style={{ fontSize: '18px' }}>{t('payCash', lang)}</span>
-              </button>
+              {selectedConfiguration?.accept_card && (
+                <button
+                  onClick={() => {
+                    setPaymentCancelled(false);
+                    setPendingOrderData(null);
+                    setProcessingPayment(true);
+                    processPayment('card');
+                  }}
+                  className="btn btn-lg btn-full"
+                  style={{
+                    backgroundColor: 'var(--store-primary)',
+                    color: 'var(--store-secondary)',
+                    borderRadius: '15px'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '22px' }} />
+                  <span className="font-bold" style={{ fontSize: '18px' }}>{t('retryCard', lang)}</span>
+                </button>
+              )}
+              {selectedConfiguration?.accept_cash && (
+                <button
+                  onClick={() => {
+                    setPaymentCancelled(false);
+                    setPaymentModalOpen(true);
+                  }}
+                  className="btn btn-lg btn-full"
+                  style={{
+                    backgroundColor: 'var(--store-accent)',
+                    color: 'var(--store-primary)',
+                    borderRadius: '15px'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '22px' }} />
+                  <span className="font-bold" style={{ fontSize: '18px' }}>{t('payCash', lang)}</span>
+                </button>
+              )}
               <button
                 onClick={async () => {
                   try {

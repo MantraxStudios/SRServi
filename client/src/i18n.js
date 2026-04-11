@@ -108,6 +108,8 @@ const translations = {
     complementWord: 'complemento(s)',
     extraWord: 'extra(s)',
     selectRequired: 'Por favor selecciona los siguientes ingredientes obligatorios:',
+    poweredBy: 'Tótem Gratis Creado Por SRAutomatic.cl',
+    tapToOrder: 'Toca un producto para comenzar',
   },
   en: {
     all: 'All',
@@ -218,6 +220,8 @@ const translations = {
     complementWord: 'complement(s)',
     extraWord: 'extra(s)',
     selectRequired: 'Please select the following required ingredients:',
+    poweredBy: 'Free Totem Created By SRAutomatic.cl',
+    tapToOrder: 'Tap a product to start',
   },
   pt: {
     all: 'Todos',
@@ -328,6 +332,8 @@ const translations = {
     complementWord: 'complemento(s)',
     extraWord: 'extra(s)',
     selectRequired: 'Por favor selecione os seguintes ingredientes obrigatórios:',
+    poweredBy: 'Totem Gratuito Criado Por SRAutomatic.cl',
+    tapToOrder: 'Toque em um produto para começar',
   }
 };
 

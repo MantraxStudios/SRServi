@@ -2134,6 +2134,17 @@ h1, h2, h3, h4, h5, h6 {
   cursor: pointer;
   position: relative;
   width: 100%;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  touch-action: manipulation;
+}
+
+.store-product-wrapper:focus,
+.store-product-wrapper:focus-visible,
+.store-product-wrapper:active,
+.store-product-wrapper *:focus,
+.store-product-wrapper *:focus-visible {
+  outline: none !important;
 }
 
 .store-product-wrapper.out-of-stock {
@@ -2155,11 +2166,43 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   justify-content: center;
   position: relative;
+  /* Fix double-tap requirement on touch devices */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent !important;
+  cursor: pointer;
+  outline: none !important;
 }
 
-.store-product-card:hover {
-  transform: translateY(-8px);
-  box-shadow: var(--shadow-2xl);
+.store-product-card:focus,
+.store-product-card:focus-visible,
+.store-product-card:active,
+.store-product-card *:focus,
+.store-product-card *:focus-visible,
+.store-product-card *:active {
+  outline: none !important;
+  border-color: transparent !important;
+  box-shadow: var(--shadow-lg) !important;
+  background-color: #fff !important;
+  -webkit-tap-highlight-color: rgba(0,0,0,0) !important;
+}
+
+/* Kill any residual blue/celeste tap-highlight / focus ring on
+   product cards and their children (belt-and-suspenders) */
+html body .store-container .store-product-wrapper,
+html body .store-container .store-product-wrapper *,
+html body .store-container .store-product-card,
+html body .store-container .store-product-card * {
+  -webkit-tap-highlight-color: rgba(0,0,0,0) !important;
+  -webkit-touch-callout: none !important;
+  outline: none !important;
+}
+
+/* Only apply hover effects on devices that actually support hover (not touch) */
+@media (hover: hover) {
+  .store-product-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-2xl);
+  }
 }
 
 .store-product-card.out-of-stock {
@@ -2386,22 +2429,23 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .cart-bar-pay-btn {
-  background: linear-gradient(135deg, var(--store-accent, #D4AF37) 0%, #b8941f 100%);
-  color: #ffffff;
-  border: none;
+  background: linear-gradient(135deg, #1a1a1a 0%, #000000 100%);
+  color: var(--store-accent, #D4AF37);
+  border: 2px solid var(--store-accent, #D4AF37);
   padding: 13px 28px;
   border-radius: 14px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   transition: all var(--transition);
-  box-shadow: 0 6px 18px rgba(212, 175, 55, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  letter-spacing: 0.2px;
+  box-shadow: 0 6px 18px rgba(212, 175, 55, 0.28), inset 0 1px 0 rgba(212, 175, 55, 0.18);
+  letter-spacing: 0.3px;
+  text-shadow: 0 0 8px rgba(212, 175, 55, 0.35);
 }
 
 .cart-bar-pay-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(212, 175, 55, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  box-shadow: 0 10px 24px rgba(212, 175, 55, 0.42), inset 0 1px 0 rgba(212, 175, 55, 0.25);
 }
 
 .cart-bar-pay-btn:active {
@@ -2418,21 +2462,21 @@ h1, h2, h3, h4, h5, h6 {
 @keyframes store-glow-pulse {
   0%, 100% {
     box-shadow:
-      inset 0 0 0 1.5px rgba(255, 255, 255, 0.20),
-      inset 0 0 14px rgba(255, 255, 255, 0.12),
-      0 3px 10px rgba(212, 175, 55, 0.30),
-      0 0 0 0 rgba(212, 175, 55, 0.55);
-    filter: brightness(1) saturate(1);
+      inset 0 0 0 1.5px rgba(212, 175, 55, 0.28),
+      inset 0 0 10px rgba(212, 175, 55, 0.10),
+      0 2px 8px rgba(212, 175, 55, 0.22),
+      0 0 0 0 rgba(212, 175, 55, 0.35);
+    filter: brightness(1);
     transform: scale(1);
   }
   50% {
     box-shadow:
-      inset 0 0 0 2px rgba(255, 255, 255, 0.55),
-      inset 0 0 28px rgba(255, 255, 255, 0.35),
-      0 6px 18px rgba(212, 175, 55, 0.55),
-      0 0 0 6px rgba(212, 175, 55, 0);
-    filter: brightness(1.15) saturate(1.1);
-    transform: scale(1.018);
+      inset 0 0 0 2px rgba(212, 175, 55, 0.55),
+      inset 0 0 18px rgba(212, 175, 55, 0.22),
+      0 4px 14px rgba(212, 175, 55, 0.40),
+      0 0 0 4px rgba(212, 175, 55, 0);
+    filter: brightness(1.06);
+    transform: scale(1.008);
   }
 }
 
@@ -2440,7 +2484,7 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
   transform-origin: center center;
   will-change: transform, box-shadow, filter;
-  animation: store-glow-pulse 1.8s ease-in-out infinite;
+  animation: store-glow-pulse 2.4s ease-in-out infinite;
 }
 
 .store-glow-pulse:hover {

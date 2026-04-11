@@ -300,21 +300,13 @@ function Layout() {
                     <FontAwesomeIcon icon={faCrown} />
                     <span>Planes</span>
                   </NavLink>
-                  <NavLink to="/admin/configurations" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faCog} />
-                    <span>Config. Pago</span>
-                  </NavLink>
-                  <NavLink to="/admin/mercado-pago-points" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faCreditCard} />
-                    <span>Point</span>
-                  </NavLink>
                   <NavLink to="/admin/settings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faPalette} />
                     <span>Colores y QR</span>
                   </NavLink>
                   <NavLink to="/admin/worker-config" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faUsers} />
-                    <span>Config. Worker</span>
+                    <span>Pago manual</span>
                   </NavLink>
                   <NavLink to="/admin/store-pin" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faLock} />

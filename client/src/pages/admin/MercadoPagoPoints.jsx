@@ -59,11 +59,19 @@ function MercadoPagoPoints() {
     }
   };
 
-  // País seleccionado (default: Chile)
-  const [country, setCountry] = useState(loadCountry);
-  const [showCountryModal, setShowCountryModal] = useState(() => {
-    try { return !localStorage.getItem('srservi_country'); } catch { return true; }
+  // País seleccionado (default: Chile). Si no hay guardado, persistimos Chile
+  // silenciosamente para que el modal de selección NO aparezca en cada reinicio.
+  const [country, setCountry] = useState(() => {
+    const c = loadCountry();
+    try {
+      if (!localStorage.getItem('srservi_country')) {
+        localStorage.setItem('srservi_country', c);
+      }
+    } catch {}
+    return c;
   });
+  // Solo se muestra cuando el usuario lo abre explícitamente desde el botón "cambiar país"
+  const [showCountryModal, setShowCountryModal] = useState(false);
 
   // ==== Workshop ====
   const [workshopPlugins, setWorkshopPlugins] = useState([]);

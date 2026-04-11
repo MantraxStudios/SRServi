@@ -109,7 +109,7 @@ function WorkerConfig() {
   if (!selectedStore) {
     return (
       <>
-        <header className="admin-header"><h1>Config. Worker</h1></header>
+        <header className="admin-header"><h1>Pago manual</h1></header>
         <div className="admin-main">
           <div className="card empty-state">
             <p className="empty-state-text">Selecciona una tienda</p>
@@ -122,9 +122,9 @@ function WorkerConfig() {
   return (
     <>
       <header className="admin-header">
-        <h1>Config. Worker</h1>
+        <h1>Pago manual</h1>
         <button className="btn btn-primary" onClick={() => openForm()}>
-          <FontAwesomeIcon icon={faPlus} /> Nuevo metodo
+          <FontAwesomeIcon icon={faPlus} /> Nuevo método
         </button>
       </header>
       <div className="admin-main">
@@ -134,11 +134,11 @@ function WorkerConfig() {
         <div className="card">
           <div className="card-header">
             <h3 className="card-title">
-              <FontAwesomeIcon icon={faUserCog} /> Metodos de pago del Worker Panel
+              <FontAwesomeIcon icon={faUserCog} /> Métodos de pago manual
             </h3>
           </div>
           <p className="text-muted text-sm" style={{ marginBottom: '20px' }}>
-            Crea los metodos de pago que los trabajadores veran al cobrar un pedido.
+            Configura el método de pago manual cuando el vendedor no use el tótem y necesite registrar la venta en el sistema.
           </p>
 
           {loading ? (

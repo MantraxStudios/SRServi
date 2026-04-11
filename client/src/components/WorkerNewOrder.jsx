@@ -471,7 +471,29 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
           <button
             className="btn"
             style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', padding: '0.5rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}
-            onClick={() => { setPaymentWaiting(false); setPaymentCancelled(true); }}
+            onClick={async () => {
+              // Tell backend to cancel the active payment so that the POS
+              // terminal (Tuu / Mercado Pago Point / etc.) also stops its sale
+              if (pendingOrderData?.order?.id) {
+                try {
+                  await fetch(API + `/api/orders/${pendingOrderData.order.id}/cancel-payment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ store_id: storeId })
+                  });
+                } catch (e) { console.error('Error cancelling payment:', e); }
+                // Also attempt generic plugin-payment cancel (Tuu, etc.)
+                try {
+                  await fetch(API + `/api/plugins/payments/cancel-by-order/${pendingOrderData.order.id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ store_id: storeId })
+                  });
+                } catch (e) { /* endpoint may not exist yet — ignore */ }
+              }
+              setPaymentWaiting(false);
+              setPaymentCancelled(true);
+            }}
           >
             <FontAwesomeIcon icon={faTimes} style={{ marginRight: '0.5rem' }} />
             Cancelar
@@ -912,19 +934,11 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                     </button>
                   ))
                 ) : (
-                  <button
-                    className="worker-pos-pay-modal-option"
-                    disabled={processingPayment}
-                    onClick={() => { setShowPayModal(false); processPayment('cash'); }}
-                  >
-                    <div className="worker-pos-pay-modal-option-icon cash">
-                      <FontAwesomeIcon icon={faMoneyBillWave} />
-                    </div>
-                    <div className="worker-pos-pay-modal-option-info">
-                      <span className="worker-pos-pay-modal-option-title">Efectivo</span>
-                    </div>
-                    <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
-                  </button>
+                  <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'rgba(255,255,255,0.6)' }}>
+                    <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#f59e0b' }} />
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}>No hay métodos de pago disponibles</p>
+                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', opacity: 0.7 }}>Configúralos en Pago manual desde el panel admin</p>
+                  </div>
                 )}
               </div>
             </div>

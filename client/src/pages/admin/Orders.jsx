@@ -1,12 +1,65 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faShoppingBag, faUtensils } from '@fortawesome/free-solid-svg-icons';
+import { faShoppingBag, faUtensils, faFileExcel } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 function Orders() {
   const { selectedStore } = useStore();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // CSV export — opens natively in Excel. Uses UTF-8 BOM and semicolon
+  // separator so Excel in Spanish locales parses it correctly.
+  const downloadExcel = () => {
+    if (!orders.length) return;
+    const headers = [
+      'N° Pedido', 'Fecha', 'Tipo', 'Estado', 'Total',
+      'Producto', 'Cantidad', 'Precio unitario', 'Subtotal',
+      'Ingredientes', 'Extras'
+    ];
+    const escape = (v) => {
+      const s = String(v ?? '');
+      if (/[;"\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    };
+    const rows = [headers.join(';')];
+    orders.forEach(order => {
+      const base = [
+        order.id,
+        new Date(order.created_at).toLocaleString('es-CL'),
+        order.order_type === 'takeout' ? 'Para llevar' : 'Para comer aquí',
+        order.status === 'pending' ? 'Pendiente' : 'Completado',
+        Number(order.total).toFixed(2)
+      ];
+      if (Array.isArray(order.items) && order.items.length) {
+        order.items.forEach(item => {
+          rows.push([
+            ...base,
+            item.product_name,
+            item.quantity,
+            Number(item.unit_price).toFixed(2),
+            (Number(item.unit_price) * Number(item.quantity)).toFixed(2),
+            Array.isArray(item.selected_ingredients) ? item.selected_ingredients.join(', ') : '',
+            Array.isArray(item.selected_extras) ? item.selected_extras.join(', ') : ''
+          ].map(escape).join(';'));
+        });
+      } else {
+        rows.push([...base, '', '', '', '', '', ''].map(escape).join(';'));
+      }
+    });
+    const csv = '\uFEFF' + rows.join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const storeName = (selectedStore?.name || 'tienda').replace(/[^a-z0-9]/gi, '_');
+    const dateTag = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `ventas_${storeName}_${dateTag}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     if (selectedStore) {
@@ -57,6 +110,14 @@ function Orders() {
     <>
       <header className="admin-header">
         <h1>Pedidos</h1>
+        <button
+          className="btn btn-primary"
+          onClick={downloadExcel}
+          disabled={!orders.length}
+          title="Descargar ventas en formato Excel (CSV)"
+        >
+          <FontAwesomeIcon icon={faFileExcel} /> Descargar Excel
+        </button>
       </header>
       <div className="admin-main">
         {orders.length === 0 ? (
