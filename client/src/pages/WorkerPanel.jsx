@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faFileExcel } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
 import WorkerNewOrder from '../components/WorkerNewOrder';
 
@@ -117,6 +117,83 @@ function WorkerPanel() {
     } catch (error) {
       console.error('Error fetching store colors:', error);
     }
+  };
+
+  // CSV export — descarga todos los pedidos del día en formato Excel (CSV con
+   // BOM UTF-8 y separador ";" para que Excel en español lo parsee bien).
+  const downloadTodayExcel = () => {
+    const all = [
+      ...(orders || []),
+      ...(completedOrders || []),
+      ...(pendingCashOrders || [])
+    ];
+    if (!all.length) return;
+    // Dedup por id (por si un pedido estuviera en más de una lista)
+    const seen = new Set();
+    const todayOrders = all.filter(o => {
+      if (seen.has(o.id)) return false;
+      seen.add(o.id);
+      return true;
+    });
+
+    const headers = [
+      'N° Pedido', 'Fecha', 'Tipo', 'Estado', 'Método pago', 'Total',
+      'Producto', 'Cantidad', 'Precio unitario', 'Subtotal',
+      'Ingredientes', 'Extras'
+    ];
+    const escape = (v) => {
+      const s = String(v ?? '');
+      if (/[;"\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    };
+    const statusLabel = (s) => ({
+      pending: 'Pendiente', preparing: 'En preparación',
+      ready: 'Listo', completed: 'Completado'
+    })[s] || s || '';
+    const methodLabel = (m) => ({
+      cash: 'Efectivo', card: 'Tarjeta', qr: 'QR'
+    })[m] || m || '';
+
+    const rows = [headers.join(';')];
+    todayOrders.forEach(order => {
+      const base = [
+        order.id,
+        new Date(order.created_at).toLocaleString('es-CL'),
+        order.order_type === 'takeout' ? 'Para llevar' : 'Para comer aquí',
+        statusLabel(order.status),
+        methodLabel(order.payment_method),
+        Number(order.total || 0).toFixed(2)
+      ];
+      const items = Array.isArray(order.items) ? order.items : [];
+      if (items.length) {
+        items.forEach(item => {
+          rows.push([
+            ...base,
+            item.product_name,
+            item.quantity,
+            Number(item.unit_price || 0).toFixed(2),
+            (Number(item.unit_price || 0) * Number(item.quantity || 0)).toFixed(2),
+            Array.isArray(item.selected_ingredients) ? item.selected_ingredients.join(', ') : '',
+            Array.isArray(item.selected_extras) ? item.selected_extras.join(', ') : ''
+          ].map(escape).join(';'));
+        });
+      } else {
+        rows.push([...base, '', '', '', '', '', ''].map(escape).join(';'));
+      }
+    });
+
+    const csv = '\uFEFF' + rows.join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const storeName = (worker?.store_name || 'tienda').replace(/[^a-z0-9]/gi, '_');
+    const dateTag = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `pedidos_${storeName}_${dateTag}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const fetchOrders = async (storeId) => {
@@ -348,6 +425,15 @@ function WorkerPanel() {
           <button className="worker-new-order-btn" onClick={() => setShowNewOrder(true)}>
             <FontAwesomeIcon icon={faPlus} />
             <span>Nuevo Pedido</span>
+          </button>
+          <button
+            className="worker-switch-btn"
+            onClick={downloadTodayExcel}
+            disabled={!(orders.length || completedOrders.length || pendingCashOrders.length)}
+            title="Descargar pedidos de hoy en Excel"
+          >
+            <FontAwesomeIcon icon={faFileExcel} />
+            <span>Excel del día</span>
           </button>
           {storeCode && (
             <button className="worker-switch-btn" onClick={() => window.open(`/store/${storeCode}`, '_blank')}>
