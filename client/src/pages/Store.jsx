@@ -2837,6 +2837,7 @@ function Store() {
                     </button>
                   )}
 
+
                   {selectedConfiguration?.accept_cash && (
                     <button
                       onClick={() => processPayment('cash')}
@@ -2976,6 +2977,9 @@ function Store() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ store_id: pendingOrderData.storeId })
                   });
+                  if (pluginPaymentKey) {
+                    await fetch(`/api/plugins/payments/cancel/${pluginPaymentKey}`, { method: 'POST' });
+                  }
                 } catch (e) { console.error(e); }
                 setPaymentWaiting(false); setQrPaymentUrl(null);
                 setPaymentCancelled(true);
@@ -3226,6 +3230,9 @@ function Store() {
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ store_id: pendingOrderData.storeId })
                     });
+                    if (pluginPaymentKey) {
+                      await fetch(`/api/plugins/payments/cancel/${pluginPaymentKey}`, { method: 'POST' });
+                    }
                   } catch (e) { console.error(e); }
                   setPaymentCancelled(false);
                   setPendingOrderData(null);

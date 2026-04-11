@@ -11,19 +11,8 @@
         var storeId = ctx.storeId;
 
         container.innerHTML = '<div style="padding:20px;">' +
-          '<h1 style="margin:0 0 4px;">Tuu POS</h1>' +
+          '<h1 style="margin:0 0 4px;">Tuu Payments</h1>' +
           '<p style="color:#666;font-size:14px;margin:0 0 20px;">Terminales POS - Configuración</p>' +
-
-          // Instrucciones
-          '<div class="ts" style="border-color:#9c27b0;background:#f3e5f5;">' +
-          '<h3 class="tl" style="color:#6a1b9a;margin:0 0 8px;">¿Cómo empezar?</h3>' +
-          '<ol style="margin:0;padding-left:18px;font-size:13px;color:#444;line-height:1.8;">' +
-          '<li><strong>Obtén tu API Key</strong> desde <a href="https://integrations.payment.haulmer.com" target="_blank" style="color:#6a1b9a;">integrations.payment.haulmer.com</a> y pégala arriba.</li>' +
-          '<li><strong>Agrega tus POS</strong> con el nombre y serial del equipo (lo encuentras en la etiqueta del dispositivo).</li>' +
-          '<li><strong>Asigna cada tablet/celular</strong> a un POS — cuando un trabajador abre la tienda desde su dispositivo, se registra automáticamente.</li>' +
-          '<li><strong>Activa el plugin</strong> con el botón On en Vincular POS.</li>' +
-          '<li><strong>En la caja</strong>, al cobrar elegís "Tuu" y el sistema usa el POS asignado a ese dispositivo.</li>' +
-          '</ol></div>' +
 
           // API Key
           '<div class="ts"><h3 class="tl">API Key</h3>' +

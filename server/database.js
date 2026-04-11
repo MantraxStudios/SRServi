@@ -340,6 +340,53 @@ async function createTables() {
     )
   `);
 
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS tuu_config (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL UNIQUE,
+      api_key VARCHAR(500) NOT NULL,
+      dte_type INT DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS tuu_devices (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      serial VARCHAR(100) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS tuu_device_pos (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      device_uid VARCHAR(100) NOT NULL,
+      tuu_device_id INT NOT NULL,
+      store_id INT NOT NULL,
+      UNIQUE KEY unique_uid_store (device_uid, store_id),
+      FOREIGN KEY (tuu_device_id) REFERENCES tuu_devices(id) ON DELETE CASCADE,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS tuu_transactions (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      order_id INT DEFAULT NULL,
+      idempotency_key VARCHAR(100) NOT NULL,
+      amount INT NOT NULL,
+      status VARCHAR(50) DEFAULT 'Pending',
+      transaction_ref VARCHAR(255) DEFAULT NULL,
+      device_serial VARCHAR(100),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
   await migrateTables();
 
   console.log('✅ Tablas creadas/verificadas correctamente');

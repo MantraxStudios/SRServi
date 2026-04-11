@@ -47,6 +47,17 @@ export const POS_CATALOG = [
     emoji: '💳',
   },
   {
+    id: 'tuu_pos',
+    name: 'Tuu POS',
+    provider: 'Tuu',
+    description: 'Terminal POS Tuu. Pagos con tarjeta vía integración Haulmer.',
+    countries: ['CL'],
+    action: 'tuu_pos',
+    builtin: true,
+    color: '#9c27b0',
+    emoji: '📱',
+  },
+  {
     id: 'transbank',
     name: 'Transbank Webpay POS',
     provider: 'Transbank',

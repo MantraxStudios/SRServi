@@ -51,6 +51,8 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
 
   const [selectedTerminalId, setSelectedTerminalId] = useState('');
   const [paymentMethods, setPaymentMethods] = useState([]);
+  const [tuuAvailable, setTuuAvailable] = useState(false);
+  const [tuuDeviceName, setTuuDeviceName] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
@@ -83,10 +85,11 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       if (!storeCode) throw new Error('No se encontro el codigo de tienda');
 
       // Use public API that returns everything together (products with ingredients/extras)
-      const [storeRes, terminalsRes, payMethodsRes] = await Promise.all([
+      const [storeRes, terminalsRes, payMethodsRes, tuuRes] = await Promise.all([
         fetch(API + `/api/public/${storeCode}`),
         fetch(API + `/api/public/${storeCode}/mercado-pago-terminals`),
-        fetch(API + `/api/public/worker-payment-methods/${storeId}`)
+        fetch(API + `/api/public/worker-payment-methods/${storeId}`),
+        fetch(API + `/api/tuu/available?store_id=${storeId}&device_uid=${localStorage.getItem('deviceUid') || ''}`)
       ]);
 
       if (!storeRes.ok) throw new Error('Error al cargar la tienda');
@@ -94,6 +97,11 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       const storeData = await storeRes.json();
       const terminalsData = terminalsRes.ok ? await terminalsRes.json() : [];
       const payMethodsData = payMethodsRes.ok ? await payMethodsRes.json() : [];
+      const tuuData = tuuRes.ok ? await tuuRes.json() : { available: false };
+      if (tuuData.available) {
+        setTuuAvailable(true);
+        setTuuDeviceName(tuuData.deviceName || '');
+      }
 
       // Products come with ingredients/extras already attached
       const rawProducts = (storeData.products || []).filter((product, index, self) =>
@@ -125,30 +133,48 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
     }
   };
 
-  // Poll payment status for card payments
+  // Poll payment status for card/tuu payments
   useEffect(() => {
     if (!paymentWaiting || !pendingOrderData) return;
 
     const orderId = pendingOrderData.order.id;
+    const tuuKey = pendingOrderData.tuuKey;
 
     const pollInterval = setInterval(async () => {
       try {
-        const res = await fetch(API + `/api/orders/${orderId}/payment-status?store_id=${storeId}`);
-        if (!res.ok) return;
-        const data = await res.json();
+        let isApproved = false;
+        let isCancelled = false;
 
-        const mpStatus = data.mp_status || data.status;
-        const payStatus = data.payment_status || data.status;
-        const paidAmount = data.paid_amount || '0';
+        if (tuuKey) {
+          const tuuRes = await fetch(API + `/api/tuu/status/${tuuKey}`);
+          if (tuuRes.ok) {
+            const tuuData = await tuuRes.json();
+            if (tuuData.status === 'Completed') {
+              isApproved = true;
+            } else if (['Canceled', 'Failed', 'Timeout'].includes(tuuData.status)) {
+              isCancelled = true;
+            }
+          }
+        }
 
-        const isApproved =
-          (payStatus === 'approved' || payStatus === 'paid' || payStatus === 'processed' ||
-           mpStatus === 'processed') &&
-          (parseFloat(paidAmount) > 0 || payStatus === 'processed' || mpStatus === 'processed');
-        const isCancelled = mpStatus === 'canceled' || mpStatus === 'refunded' ||
-          mpStatus === 'expired' || mpStatus === 'failed' ||
-          payStatus === 'canceled' || payStatus === 'refunded' ||
-          data.order_status === 'canceled' || data.order_status === 'refunded';
+        if (!isApproved && !isCancelled) {
+          const res = await fetch(API + `/api/orders/${orderId}/payment-status?store_id=${storeId}`);
+          if (!res.ok) return;
+          const data = await res.json();
+
+          const mpStatus = data.mp_status || data.status;
+          const payStatus = data.payment_status || data.status;
+          const paidAmount = data.paid_amount || '0';
+
+          isApproved =
+            (payStatus === 'approved' || payStatus === 'paid' || payStatus === 'processed' ||
+             mpStatus === 'processed') &&
+            (parseFloat(paidAmount) > 0 || payStatus === 'processed' || mpStatus === 'processed');
+          isCancelled = mpStatus === 'canceled' || mpStatus === 'refunded' ||
+            mpStatus === 'expired' || mpStatus === 'failed' ||
+            payStatus === 'canceled' || payStatus === 'refunded' ||
+            data.order_status === 'canceled' || data.order_status === 'refunded';
+        }
 
         if (isApproved) {
           clearInterval(pollInterval);
@@ -171,7 +197,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       } catch (err) {
         console.error('Error polling payment status:', err);
       }
-    }, 5000);
+    }, 3000);
 
     const timerInterval = setInterval(() => {
       setPaymentTimeLeft(prev => {
@@ -340,7 +366,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
     const orderData = {
       store_id: storeId,
       order_type: orderType,
-      payment_method: method,
+      payment_method: 'card',
       items: cart.map(item => ({
         product_id: item.product_id,
         quantity: item.quantity,
@@ -354,6 +380,38 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
     };
 
     try {
+      // === TUU POS ===
+      if (method === 'tuu') {
+        const orderRes = await fetch(API + '/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderData)
+        });
+        if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
+        const order = await orderRes.json();
+        setPendingOrderData({ order, storeId });
+
+        const chargeRes = await fetch(API + '/api/tuu/pay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId,
+            order_id: order.id,
+            amount: Math.round(Number(total)),
+            description: `Pedido #${order.order_number || order.id}`,
+            device_uid: localStorage.getItem('deviceUid') || ''
+          })
+        });
+        const chargeData = await chargeRes.json();
+        if (!chargeData.success) throw new Error(chargeData.error || 'Error al enviar cobro al POS');
+
+        setPendingOrderData(prev => prev ? { ...prev, tuuKey: chargeData.idempotencyKey } : null);
+        setPaymentWaiting(true);
+        setPaymentTimeLeft(300);
+        return;
+      }
+
+      // === Mercado Pago Point ===
       const endpoint = method === 'card' ? '/api/orders/process-payment' : '/api/orders';
       const response = await fetch(API + endpoint, {
         method: 'POST',
@@ -482,14 +540,14 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                     body: JSON.stringify({ store_id: storeId })
                   });
                 } catch (e) { console.error('Error cancelling payment:', e); }
-                // Also attempt generic plugin-payment cancel (Tuu, etc.)
-                try {
-                  await fetch(API + `/api/plugins/payments/cancel-by-order/${pendingOrderData.order.id}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ store_id: storeId })
-                  });
-                } catch (e) { /* endpoint may not exist yet — ignore */ }
+                if (pendingOrderData.tuuKey) {
+                  try {
+                    await fetch(API + `/api/tuu/cancel/${pendingOrderData.tuuKey}`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' }
+                    });
+                  } catch (e) { console.error('Error cancelling tuu payment:', e); }
+                }
               }
               setPaymentWaiting(false);
               setPaymentCancelled(true);
@@ -915,24 +973,60 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
               </div>
 
               <div className="worker-pos-pay-modal-options">
-                {paymentMethods.length > 0 ? (
-                  paymentMethods.map((method, idx) => (
-                    <button
-                      key={method.id}
-                      className="worker-pos-pay-modal-option"
-                      style={{ animationDelay: `${0.1 + idx * 0.08}s` }}
-                      disabled={processingPayment}
-                      onClick={() => { setShowPayModal(false); processPayment(method.name.toLowerCase()); }}
-                    >
-                      <div className="worker-pos-pay-modal-option-icon" style={{ backgroundColor: `${method.color}20`, color: method.color }}>
-                        <FontAwesomeIcon icon={faMoneyBillWave} />
-                      </div>
-                      <div className="worker-pos-pay-modal-option-info">
-                        <span className="worker-pos-pay-modal-option-title">{method.name}</span>
-                      </div>
-                      <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
-                    </button>
-                  ))
+                {(paymentMethods.length > 0 || tuuAvailable || terminals.length > 0) ? (
+                  <div>
+                    {terminals.length > 0 && (
+                      <button
+                        className="worker-pos-pay-modal-option"
+                        style={{ animationDelay: '0.1s' }}
+                        disabled={processingPayment}
+                        onClick={() => { setShowPayModal(false); processPayment('card'); }}
+                      >
+                        <div className="worker-pos-pay-modal-option-icon" style={{ backgroundColor: '#009EE320', color: '#009EE3' }}>
+                          <FontAwesomeIcon icon={faMoneyBillWave} />
+                        </div>
+                        <div className="worker-pos-pay-modal-option-info">
+                          <span className="worker-pos-pay-modal-option-title">Mercado Pago Point</span>
+                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{terminals[0]?.name || 'Terminal'}</span>
+                        </div>
+                        <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
+                      </button>
+                    )}
+                    {tuuAvailable && (
+                      <button
+                        className="worker-pos-pay-modal-option"
+                        style={{ animationDelay: terminals.length > 0 ? '0.18s' : '0.1s' }}
+                        disabled={processingPayment}
+                        onClick={() => { setShowPayModal(false); processPayment('tuu'); }}
+                      >
+                        <div className="worker-pos-pay-modal-option-icon" style={{ backgroundColor: '#9c27b020', color: '#9c27b0' }}>
+                          <FontAwesomeIcon icon={faMoneyBillWave} />
+                        </div>
+                        <div className="worker-pos-pay-modal-option-info">
+                          <span className="worker-pos-pay-modal-option-title">Tuu POS</span>
+                          {tuuDeviceName && <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{tuuDeviceName}</span>}
+                        </div>
+                        <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
+                      </button>
+                    )}
+                    {paymentMethods.map((method, idx) => (
+                      <button
+                        key={method.id}
+                        className="worker-pos-pay-modal-option"
+                        style={{ animationDelay: `${0.26 + idx * 0.08}s` }}
+                        disabled={processingPayment}
+                        onClick={() => { setShowPayModal(false); processPayment(method.name.toLowerCase()); }}
+                      >
+                        <div className="worker-pos-pay-modal-option-icon" style={{ backgroundColor: `${method.color}20`, color: method.color }}>
+                          <FontAwesomeIcon icon={faMoneyBillWave} />
+                        </div>
+                        <div className="worker-pos-pay-modal-option-info">
+                          <span className="worker-pos-pay-modal-option-title">{method.name}</span>
+                        </div>
+                        <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
+                      </button>
+                    ))}
+                  </div>
                 ) : (
                   <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'rgba(255,255,255,0.6)' }}>
                     <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#f59e0b' }} />

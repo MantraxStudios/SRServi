@@ -8,6 +8,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 import fs from 'fs';
 import PluginManager from './plugins/PluginManager.js';
 
@@ -4309,6 +4310,250 @@ async function startServer() {
     } catch (pluginError) {
       console.error('🔌 Error loading plugins (server continues):', pluginError.message);
     }
+
+    // ==================== TUU POS NATIVO ====================
+    const TUU_API = 'https://integrations.payment.haulmer.com/RemotePayment/v2';
+
+    let tuuActivePolls = new global.Map ? new global.Map() : new Map();
+
+    async function tuuGetUserIdFromStore(storeId) {
+      const [rows] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [storeId]);
+      return rows[0]?.user_id || null;
+    }
+
+    async function tuuGetConfig(userId) {
+      const [rows] = await pool.execute('SELECT * FROM tuu_config WHERE user_id = ?', [userId]);
+      return rows[0] || null;
+    }
+
+    async function tuuGetDeviceForUid(deviceUid, storeId) {
+      if (!deviceUid) return null;
+      const [rows] = await pool.execute(
+        `SELECT d.* FROM tuu_devices d JOIN tuu_device_pos dp ON d.id = dp.tuu_device_id WHERE dp.device_uid = ? AND dp.store_id = ?`,
+        [deviceUid, storeId]
+      );
+      return rows[0] || null;
+    }
+
+    async function tuuGetAnyDeviceForStore(storeId) {
+      const userId = await tuuGetUserIdFromStore(storeId);
+      const [rows] = await pool.execute('SELECT * FROM tuu_devices WHERE user_id = ? LIMIT 1', [userId]);
+      return rows[0] || null;
+    }
+
+    async function tuuCreatePayment(apiKey, amount, deviceSerial, description, dteType) {
+      const idempotencyKey = crypto.randomUUID();
+      const response = await fetch(`${TUU_API}/Create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+        body: JSON.stringify({
+          Amount: Math.round(amount),
+          Device: deviceSerial,
+          IdempotencyKey: idempotencyKey,
+          Description: description || 'Pago SRServi',
+          DteType: dteType || 0,
+          extraData: { sourceName: 'SRServi', sourceVersion: '1.1.0' }
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || `Error ${response.status}`);
+      return { ...data, idempotencyKey: data.idempotencyKey || idempotencyKey };
+    }
+
+    async function tuuCheckStatus(apiKey, idempotencyKey) {
+      const response = await fetch(`${TUU_API}/GetPaymentRequest/${idempotencyKey}`, {
+        headers: { 'X-API-Key': apiKey }
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || `Error ${response.status}`);
+      }
+      return response.json();
+    }
+
+    function tuuStartPolling(apiKey, idempotencyKey, storeId, orderId) {
+      let attempts = 0;
+      const intervalId = setInterval(async () => {
+        attempts++;
+        try {
+          const data = await tuuCheckStatus(apiKey, idempotencyKey);
+          if (data.status === 'Completed') {
+            clearInterval(intervalId);
+            tuuActivePolls.delete(idempotencyKey);
+            await pool.execute(
+              'UPDATE tuu_transactions SET status = ?, transaction_ref = ?, updated_at = NOW() WHERE idempotency_key = ?',
+              ['Completed', data.transactionReference || null, idempotencyKey]
+            );
+            if (orderId) {
+              await pool.execute(
+                "UPDATE orders SET status = 'paid', payment_process = 1, sequence_id = ?, reference_id = ? WHERE id = ?",
+                [data.sequenceNumber || null, data.transactionReference || null, orderId]
+              ).catch(() => {});
+            }
+            const socketId = userSockets.get(parseInt(storeId));
+            if (socketId) io.to(socketId).emit('tuu_payment_update', { idempotencyKey, orderId, status: 'Completed', transactionRef: data.transactionReference, sequenceNumber: data.sequenceNumber });
+          } else if (data.status === 'Canceled' || data.status === 'Failed') {
+            clearInterval(intervalId);
+            tuuActivePolls.delete(idempotencyKey);
+            await pool.execute('UPDATE tuu_transactions SET status = ?, updated_at = NOW() WHERE idempotency_key = ?', [data.status, idempotencyKey]);
+            if (orderId) {
+              await pool.execute("UPDATE orders SET status = 'canceled' WHERE id = ?", [orderId]).catch(() => {});
+            }
+            const socketId = userSockets.get(parseInt(storeId));
+            if (socketId) io.to(socketId).emit('tuu_payment_update', { idempotencyKey, orderId, status: data.status });
+          }
+        } catch (err) {
+          console.error('Tuu poll error:', err.message);
+        }
+        if (attempts >= 60) {
+          clearInterval(intervalId);
+          tuuActivePolls.delete(idempotencyKey);
+          await pool.execute('UPDATE tuu_transactions SET status = ?, updated_at = NOW() WHERE idempotency_key = ?', ['Timeout', idempotencyKey]);
+          const socketId = userSockets.get(parseInt(storeId));
+          if (socketId) io.to(socketId).emit('tuu_payment_update', { idempotencyKey, orderId, status: 'Timeout' });
+        }
+      }, 5000);
+      tuuActivePolls.set(idempotencyKey, intervalId);
+    }
+
+    app.get('/api/tuu/config', async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        const userId = await tuuGetUserIdFromStore(storeId);
+        const config = await tuuGetConfig(userId);
+        res.json(config ? { api_key: config.api_key, dte_type: config.dte_type } : { api_key: '', dte_type: 0 });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/tuu/config', async (req, res) => {
+      try {
+        const { store_id, api_key, dte_type } = req.body;
+        const userId = await tuuGetUserIdFromStore(parseInt(store_id));
+        await pool.execute(
+          'INSERT INTO tuu_config (user_id, api_key, dte_type) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE api_key = ?, dte_type = ?',
+          [userId, api_key, dte_type || 0, api_key, dte_type || 0]
+        );
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.get('/api/tuu/devices', async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        const userId = await tuuGetUserIdFromStore(storeId);
+        const [posDevices] = await pool.execute('SELECT * FROM tuu_devices WHERE user_id = ? ORDER BY name', [userId]);
+        let storeDevices = [];
+        try {
+          const [rows] = await pool.execute('SELECT * FROM store_devices WHERE store_id = ? ORDER BY last_seen DESC', [storeId]);
+          storeDevices = rows;
+        } catch { /* table might not exist */ }
+        let assignments = [];
+        try {
+          const [rows] = await pool.execute('SELECT * FROM tuu_device_pos WHERE store_id = ?', [storeId]);
+          assignments = rows;
+        } catch { /* table might not exist */ }
+        res.json({ posDevices, storeDevices, assignments });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/tuu/devices', async (req, res) => {
+      try {
+        const { store_id, name, serial } = req.body;
+        if (!name || !serial) return res.status(400).json({ error: 'Nombre y serial requeridos' });
+        const userId = await tuuGetUserIdFromStore(parseInt(store_id));
+        const [result] = await pool.execute('INSERT INTO tuu_devices (user_id, name, serial) VALUES (?, ?, ?)', [userId, name, serial]);
+        res.json({ id: result.insertId, name, serial });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.delete('/api/tuu/devices/:id', async (req, res) => {
+      try {
+        await pool.execute('DELETE FROM tuu_device_pos WHERE tuu_device_id = ?', [req.params.id]);
+        await pool.execute('DELETE FROM tuu_devices WHERE id = ?', [req.params.id]);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/tuu/devices/assign', async (req, res) => {
+      try {
+        const { store_id, device_uid, tuu_device_id } = req.body;
+        if (!device_uid || !tuu_device_id) return res.status(400).json({ error: 'device_uid y tuu_device_id requeridos' });
+        await pool.execute(
+          'INSERT INTO tuu_device_pos (device_uid, tuu_device_id, store_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE tuu_device_id = ?',
+          [device_uid, parseInt(tuu_device_id), parseInt(store_id), parseInt(tuu_device_id)]
+        );
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.get('/api/tuu/available', async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        const deviceUid = req.query.device_uid;
+        const userId = await tuuGetUserIdFromStore(storeId);
+        const config = await tuuGetConfig(userId);
+        if (!config?.api_key) return res.json({ available: false });
+        const device = deviceUid ? await tuuGetDeviceForUid(deviceUid, storeId) : await tuuGetAnyDeviceForStore(storeId);
+        res.json({ available: !!device?.serial, deviceName: device?.name || null });
+      } catch (e) { res.json({ available: false }); }
+    });
+
+    app.post('/api/tuu/pay', async (req, res) => {
+      try {
+        const { store_id, order_id, amount, description, device_uid } = req.body;
+        if (!store_id || !amount) return res.status(400).json({ error: 'store_id y amount requeridos' });
+        const userId = await tuuGetUserIdFromStore(parseInt(store_id));
+        const config = await tuuGetConfig(userId);
+        if (!config?.api_key) return res.status(400).json({ error: 'API Key de Tuu no configurada' });
+        let device = device_uid ? await tuuGetDeviceForUid(device_uid, parseInt(store_id)) : null;
+        if (!device) device = await tuuGetAnyDeviceForStore(parseInt(store_id));
+        if (!device) return res.status(400).json({ error: 'No hay POS asignado. Configura un POS en Tuu POS del admin.' });
+        const payment = await tuuCreatePayment(config.api_key, amount, device.serial, description, config.dte_type);
+        await pool.execute(
+          'INSERT INTO tuu_transactions (store_id, order_id, idempotency_key, amount, status, device_serial) VALUES (?, ?, ?, ?, ?, ?)',
+          [parseInt(store_id), order_id || null, payment.idempotencyKey, Math.round(amount), 'Pending', device.serial]
+        );
+        tuuStartPolling(config.api_key, payment.idempotencyKey, parseInt(store_id), order_id);
+        res.json({ success: true, idempotencyKey: payment.idempotencyKey, status: payment.status, deviceName: device.name });
+      } catch (e) {
+        console.error('Tuu pay error:', e.message);
+        res.status(500).json({ error: e.message });
+      }
+    });
+
+    app.get('/api/tuu/status/:key', async (req, res) => {
+      try {
+        const [rows] = await pool.execute('SELECT * FROM tuu_transactions WHERE idempotency_key = ?', [req.params.key]);
+        if (rows.length === 0) return res.status(404).json({ error: 'No encontrado' });
+        res.json(rows[0]);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/tuu/cancel/:key', async (req, res) => {
+      const intervalId = tuuActivePolls.get(req.params.key);
+      if (intervalId) { clearInterval(intervalId); tuuActivePolls.delete(req.params.key); }
+      await pool.execute('UPDATE tuu_transactions SET status = ?, updated_at = NOW() WHERE idempotency_key = ?', ['Canceled', req.params.key]);
+      res.json({ success: true });
+    });
+
+    app.get('/api/tuu/transactions', async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        const [rows] = await pool.execute('SELECT * FROM tuu_transactions WHERE store_id = ? ORDER BY created_at DESC LIMIT 50', [storeId]);
+        res.json(rows);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.get('/api/tuu/test', async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        const userId = await tuuGetUserIdFromStore(storeId);
+        const config = await tuuGetConfig(userId);
+        if (!config?.api_key) return res.json({ success: false, error: 'API Key no configurada' });
+        const device = await tuuGetAnyDeviceForStore(storeId);
+        res.json({ success: true, device: device?.name || 'Sin POS asignado' });
+      } catch (e) { res.json({ success: false, error: e.message }); }
+    });
 
     server.listen(PORT, HOST, () => {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
