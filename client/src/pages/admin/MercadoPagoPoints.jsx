@@ -61,7 +61,8 @@ function MercadoPagoPoints() {
 
   // ==== Workshop ====
   const [workshopPlugins, setWorkshopPlugins] = useState([]);
-  const [installedPlugins, setInstalledPlugins] = useState([]); // full objects from /api/admin/plugins
+  const [installedPluginsRaw, setInstalledPluginsRaw] = useState([]); // raw from /api/admin/plugins
+  const [activeOverride, setActiveOverride] = useState({}); // { pluginId: true|false } — siempre manda
   const [pluginCountriesMap, setPluginCountriesMap] = useState({});
   const [loadingWorkshop, setLoadingWorkshop] = useState(true);
   const [installing, setInstalling] = useState(null);
@@ -70,6 +71,25 @@ function MercadoPagoPoints() {
   const [expandedVersions, setExpandedVersions] = useState(null);
   const [versions, setVersions] = useState([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
+
+  // installedPlugins = raw + override aplicado. Esto garantiza que el override SIEMPRE gana.
+  const installedPlugins = useMemo(() => {
+    return installedPluginsRaw.map(p => {
+      if (p.plugin_id in activeOverride) {
+        return { ...p, is_active: activeOverride[p.plugin_id] };
+      }
+      return p;
+    });
+  }, [installedPluginsRaw, activeOverride]);
+
+  const setInstalledPlugins = (updater) => {
+    // backwards-compat: permite que otros callers sigan pensando que existe setInstalledPlugins
+    if (typeof updater === 'function') {
+      setInstalledPluginsRaw(prev => updater(prev));
+    } else {
+      setInstalledPluginsRaw(updater);
+    }
+  };
 
   // Settings modal
   const [settingsOpen, setSettingsOpen] = useState(null);
@@ -126,7 +146,7 @@ function MercadoPagoPoints() {
         const normalized = Array.isArray(data)
           ? data.map(p => ({ ...p, is_active: p.is_active === true || p.is_active === 1 || p.is_active === '1' }))
           : [];
-        setInstalledPlugins(normalized);
+        setInstalledPluginsRaw(normalized);
       }
     } catch {}
   };
@@ -150,11 +170,9 @@ function MercadoPagoPoints() {
         headers: { Authorization: 'Bearer ' + token }
       });
       if (response.ok) {
-        // Optimistic update, confiamos 100% en esto. NO re-fetch en background
-        // porque causa flicker/race condition con datos cacheados.
-        setInstalledPlugins(prev => prev.map(p =>
-          p.plugin_id === pluginId ? { ...p, is_active: nextActive } : p
-        ));
+        // Override — esta lectura SIEMPRE gana sobre installedPluginsRaw.
+        // Nada puede pisarlo (ni refetch, ni refreshPlugins, ni data stale).
+        setActiveOverride(prev => ({ ...prev, [pluginId]: nextActive }));
         refreshPlugins && refreshPlugins();
         setInstallMessage(`Plugin ${currentlyActive ? 'desactivado' : 'activado'}`);
         setTimeout(() => setInstallMessage(''), 2000);
