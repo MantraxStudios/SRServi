@@ -40,7 +40,7 @@ function Configurations() {
     const token = localStorage.getItem('token');
     try {
       const [mpRes, tuuRes] = await Promise.all([
-        fetch('/api/mercado-pago-terminals', { headers: { Authorization: 'Bearer ' + token } }),
+        fetch('/api/mercado-pago-terminals?store_id=' + selectedStore.id, { headers: { Authorization: 'Bearer ' + token } }),
         fetch('/api/tuu/devices?store_id=' + selectedStore.id)
       ]);
       const mpData = mpRes.ok ? await mpRes.json() : [];

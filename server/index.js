@@ -3468,7 +3468,30 @@ app.get('/api/workers/orders', authenticateToken, async (req, res) => {
 
 app.get('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
   try {
-    const terminals = await getMercadoPagoTerminals(req.user.id);
+    const storeId = req.query.store_id ? parseInt(req.query.store_id) : null;
+    let terminals;
+    if (storeId) {
+      try {
+        const [rows] = await pool.execute(
+          `SELECT m.id, m.name, m.mercadopago_terminal_id, m.mercadopago_access_token, m.user_id, m.created_at
+           FROM mercado_pago_terminals m
+           JOIN mercadopago_terminal_stores ms ON ms.mercadopago_terminal_id = m.id
+           WHERE ms.store_id = ? AND m.user_id = ?`,
+          [storeId, req.user.id]
+        );
+        terminals = rows;
+      } catch {
+        const store = await getStoreById(storeId);
+        if (store && store.user_id === req.user.id) {
+          const all = await getMercadoPagoTerminals(req.user.id);
+          terminals = all;
+        } else {
+          terminals = [];
+        }
+      }
+    } else {
+      terminals = await getMercadoPagoTerminals(req.user.id);
+    }
     res.json(terminals);
   } catch (error) {
     res.status(500).json({ error: error.message });
