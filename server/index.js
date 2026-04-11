@@ -455,13 +455,23 @@ app.get('/api/public/pos-devices/:storeId', async (req, res) => {
     const store = await getStoreById(storeIdInt);
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
 
-    const [mpLinked] = await pool.execute(
-      `SELECT m.id, m.name, m.mercadopago_terminal_id, 'mercadopago' as provider
-       FROM mercado_pago_terminals m
-       JOIN mercadopago_terminal_stores ms ON ms.mercadopago_terminal_id = m.id
-       WHERE ms.store_id = ?`,
-      [storeIdInt]
-    );
+    let mpLinked = [];
+    try {
+      const [rows] = await pool.execute(
+        `SELECT m.id, m.name, m.mercadopago_terminal_id, 'mercadopago' as provider
+         FROM mercado_pago_terminals m
+         JOIN mercadopago_terminal_stores ms ON ms.mercadopago_terminal_id = m.id
+         WHERE ms.store_id = ?`,
+        [storeIdInt]
+      );
+      mpLinked = rows;
+    } catch {
+      const [fallback] = await pool.execute(
+        `SELECT id, name, mercadopago_terminal_id, 'mercadopago' as provider FROM mercado_pago_terminals WHERE user_id = ?`,
+        [store.user_id]
+      );
+      mpLinked = fallback;
+    }
 
     let tuuDevices = [];
     try {
