@@ -8,8 +8,21 @@ import {
   faPuzzlePiece
 } from '@fortawesome/free-solid-svg-icons';
 import {
-  COUNTRIES, DEFAULT_COUNTRY, getCountry, loadCountry, saveCountry, POS_CATALOG
+  COUNTRIES, DEFAULT_COUNTRY, getCountry, loadCountry, saveCountry, getPluginCountries, loadPluginCountries
 } from '../../constants/pos';
+
+// POS nativo integrado: Mercado Pago Point (único built-in).
+const BUILTIN_MP_POINT = {
+  id: 'mercadopago_point',
+  name: 'Mercado Pago Point',
+  provider: 'Mercado Pago',
+  description: 'Terminal Point de Mercado Pago. Detectamos tus dispositivos automáticamente con tu Access Token.',
+  countries: ['CL', 'AR', 'BR', 'MX', 'PE', 'CO', 'UY'],
+  action: 'mp_point',
+  builtin: true,
+  color: '#009EE3',
+  emoji: '💳',
+};
 
 const API = 'https://srservi2.srautomatic.com';
 const GOLD = '#D4AF37';
@@ -26,6 +39,10 @@ function MercadoPagoPoints() {
 
   // Proveedor POS seleccionado actualmente (cuando es MP mostramos el flujo interno)
   const [activeProvider, setActiveProvider] = useState(null);
+
+  // Plugins instalados de la tienda (filtrados por país)
+  const [installedPlugins, setInstalledPlugins] = useState([]);
+  const [pluginCountriesMap, setPluginCountriesMap] = useState({});
 
   // ==== Estado heredado del flujo Mercado Pago Point ====
   const [terminals, setTerminals] = useState([]);
@@ -44,12 +61,51 @@ function MercadoPagoPoints() {
   const [detectError, setDetectError] = useState('');
   const [savingSetup, setSavingSetup] = useState(false);
 
-  useEffect(() => { fetchTerminals(); }, []);
+  useEffect(() => {
+    fetchTerminals();
+    fetchInstalledPlugins();
+    setPluginCountriesMap(loadPluginCountries());
+  }, []);
 
-  const availablePOS = useMemo(
-    () => POS_CATALOG.filter(p => p.countries.includes(country)),
-    [country]
-  );
+  const fetchInstalledPlugins = async () => {
+    try {
+      const response = await fetch(API + '/api/admin/plugins', {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setInstalledPlugins(Array.isArray(data) ? data : []);
+      }
+    } catch { setInstalledPlugins([]); }
+  };
+
+  // POS disponibles = MP Point (si aplica al país) + plugins instalados cuyo país coincide.
+  const availablePOS = useMemo(() => {
+    const list = [];
+    if (BUILTIN_MP_POINT.countries.includes(country)) {
+      list.push(BUILTIN_MP_POINT);
+    }
+    installedPlugins.forEach(plugin => {
+      const countriesForPlugin = pluginCountriesMap[plugin.plugin_id] || [];
+      if (countriesForPlugin.includes(country)) {
+        list.push({
+          id: plugin.plugin_id,
+          name: plugin.name,
+          provider: plugin.author || 'Plugin',
+          description: plugin.description || 'Plugin instalado en tu tienda.',
+          countries: countriesForPlugin,
+          action: 'plugin',
+          pluginId: plugin.plugin_id,
+          isActive: plugin.is_active,
+          logo: plugin.logo,
+          color: '#6b7280',
+          emoji: '🧩',
+        });
+      }
+    });
+    return list;
+  }, [country, installedPlugins, pluginCountriesMap]);
+
   const activeCountry = getCountry(country);
 
   const selectCountry = (code) => {
@@ -262,8 +318,9 @@ function MercadoPagoPoints() {
           <div className="card" style={{ padding: '40px 20px', textAlign: 'center' }}>
             <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '32px', color: '#f59e0b', marginBottom: '12px' }} />
             <p style={{ color: '#6b7280', margin: 0 }}>
-              Todavía no tenemos integraciones nativas para <strong>{activeCountry.name}</strong>.
-              Puedes instalar un plugin personalizado desde <a href="/admin/plugins" style={{ color: GOLD }}>Plugins</a>.
+              No hay POS disponibles para <strong>{activeCountry.name}</strong> en tu tienda todavía.
+              Ve a <a href="/admin/plugins" style={{ color: GOLD }}>Plugins</a> para instalar uno
+              y asignarle <strong>{activeCountry.name}</strong> como país.
             </p>
           </div>
         ) : (

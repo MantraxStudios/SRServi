@@ -3907,11 +3907,15 @@ function Store() {
             <div style={{ fontSize: '48px', fontWeight: '800', color: inactivityCountdown <= 3 ? '#e74c3c' : 'var(--store-primary)', margin: '8px 0 16px' }}>
               {inactivityCountdown}
             </div>
-            <button onClick={() => {
-              setInactivityModalOpen(false);
-              setInactivityCountdown(10);
-              if (inactivityCountdownRef.current) clearInterval(inactivityCountdownRef.current);
-            }} style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', background: '#2ecc71', color: '#fff', fontSize: '18px', fontWeight: '700', cursor: 'pointer' }}>
+            <button
+              className="store-glow-pulse-green"
+              onClick={() => {
+                setInactivityModalOpen(false);
+                setInactivityCountdown(10);
+                if (inactivityCountdownRef.current) clearInterval(inactivityCountdownRef.current);
+              }}
+              style={{ width: '100%', padding: '16px', borderRadius: '12px', border: 'none', background: '#2ecc71', color: '#fff', fontSize: '18px', fontWeight: '700', cursor: 'pointer' }}
+            >
               {lang === 'en' ? 'Yes, I\'m here!' : lang === 'pt' ? 'Sim, estou aqui!' : 'Si, estoy aqui!'}
             </button>
           </div>
