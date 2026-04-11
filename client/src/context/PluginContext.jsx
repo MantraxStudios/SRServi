@@ -141,7 +141,8 @@ export function PluginProvider({ children, mode = 'admin' }) {
 
   const refreshPlugins = () => {
     fetchManifest();
-    if (mode === 'admin') fetchInstalledPlugins();
+    // NOTA: NO re-fetchea installedPlugins para no pisar optimistic updates.
+    // Usa fetchInstalledPlugins() explícitamente si necesitas refrescar del server.
   };
 
   return (

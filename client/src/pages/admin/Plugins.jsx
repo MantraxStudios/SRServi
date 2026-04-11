@@ -34,8 +34,7 @@ function Plugins() {
 
   useEffect(() => {
     setPluginCountriesMap(loadPluginCountries());
-    // Siempre refresca al entrar a la página para estar sincronizado
-    fetchInstalledPlugins();
+    // NOTA: NO re-fetcheamos installedPlugins — usamos el state compartido del PluginContext.
   }, []);
 
   // fetchPlugins ahora es un wrapper del fetch compartido en PluginContext

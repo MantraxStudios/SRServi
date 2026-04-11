@@ -107,7 +107,9 @@ function MercadoPagoPoints() {
   useEffect(() => {
     fetchTerminals();
     fetchWorkshopPlugins();
-    fetchInstalledPlugins(); // refresca del contexto compartido
+    // NOTA: NO re-fetcheamos installedPlugins aquí — usamos el state compartido del
+    // PluginContext que ya fue poblado al entrar al área admin. Un re-fetch aquí puede
+    // llegar con datos viejos y pisar optimistic updates hechos en otras páginas.
     setPluginCountriesMap(loadPluginCountries());
   }, []);
 
