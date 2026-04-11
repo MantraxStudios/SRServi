@@ -37,13 +37,21 @@ function Configurations() {
 
   const fetchTerminals = async () => {
     if (!selectedStore) return;
-
+    const token = localStorage.getItem('token');
     try {
-      const response = await fetch(`/api/public/pos-devices/${selectedStore.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setTerminals(data);
-      }
+      const [mpRes, tuuRes] = await Promise.all([
+        fetch('/api/mercado-pago-terminals', { headers: { Authorization: 'Bearer ' + token } }),
+        fetch('/api/tuu/devices?store_id=' + selectedStore.id)
+      ]);
+      const mpData = mpRes.ok ? await mpRes.json() : [];
+      const tuuData = tuuRes.ok ? await tuuRes.json() : {};
+      const mpList = (Array.isArray(mpData) ? mpData : []).map(t => ({
+        id: t.id, name: t.name, provider: 'mercadopago'
+      }));
+      const tuuList = (Array.isArray(tuuData.posDevices) ? tuuData.posDevices : []).map(d => ({
+        id: d.id, name: d.name, provider: 'tuu'
+      }));
+      setTerminals([...mpList, ...tuuList]);
     } catch (error) {
       console.error('Error fetching terminals:', error);
     }
