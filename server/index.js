@@ -452,11 +452,12 @@ app.get('/api/public/pos-devices/:storeId', async (req, res) => {
   try {
     const { storeId } = req.params;
     const storeIdInt = parseInt(storeId);
-    const userId = await getUserIdFromStore(storeIdInt);
+    const store = await getStoreById(storeIdInt);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
 
     const [mpTerminals] = await pool.execute(
       `SELECT id, name, mercadopago_terminal_id, 'mercadopago' as provider FROM mercado_pago_terminals WHERE user_id = ?`,
-      [userId]
+      [store.user_id]
     );
 
     let tuuDevices = [];
