@@ -312,6 +312,10 @@ function Layout() {
                     <FontAwesomeIcon icon={faLock} />
                     <span>PIN Tienda</span>
                   </NavLink>
+                  <NavLink to="/admin/configurations" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faCreditCard} />
+                    <span>Configuraciones de Pago</span>
+                  </NavLink>
                   <NavLink to="/admin/devices" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faTabletAlt} />
                     <span>Dispositivos</span>
