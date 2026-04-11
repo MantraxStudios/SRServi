@@ -47,7 +47,11 @@ function Plugins() {
       });
       if (response.ok) {
         const data = await response.json();
-        setPlugins(data);
+        // Normalizamos is_active a boolean puro
+        const normalized = Array.isArray(data)
+          ? data.map(p => ({ ...p, is_active: p.is_active === true || p.is_active === 1 || p.is_active === '1' }))
+          : [];
+        setPlugins(normalized);
       }
     } catch (err) {
       console.error('Error fetching plugins:', err);
@@ -145,20 +149,21 @@ function Plugins() {
     setEditingCountriesOf(null);
   };
 
-  const togglePlugin = async (pluginId, isActive) => {
+  const togglePlugin = async (pluginId, currentlyActiveRaw) => {
+    const currentlyActive = currentlyActiveRaw === true || currentlyActiveRaw === 1 || currentlyActiveRaw === '1';
+    const nextActive = !currentlyActive;
     try {
       const token = localStorage.getItem('token');
-      const action = isActive ? 'deactivate' : 'activate';
+      const action = currentlyActive ? 'deactivate' : 'activate';
       const response = await fetch(API + `/api/admin/plugins/${pluginId}/${action}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
-        // Optimistic update para que el botón y el badge cambien al instante
+        // Optimistic update — usamos boolean puro para evitar cualquier inversión
         setPlugins(prev => prev.map(p =>
-          p.plugin_id === pluginId ? { ...p, is_active: !isActive ? 1 : 0 } : p
+          p.plugin_id === pluginId ? { ...p, is_active: nextActive } : p
         ));
-        fetchPlugins();
         refreshPlugins();
       }
     } catch (err) {

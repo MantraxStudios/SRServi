@@ -122,30 +122,41 @@ function MercadoPagoPoints() {
       });
       if (response.ok) {
         const data = await response.json();
-        setInstalledPlugins(Array.isArray(data) ? data : []);
+        // Normalizamos is_active a boolean puro — evita cualquier inversión por tipo.
+        const normalized = Array.isArray(data)
+          ? data.map(p => ({ ...p, is_active: p.is_active === true || p.is_active === 1 || p.is_active === '1' }))
+          : [];
+        setInstalledPlugins(normalized);
       }
     } catch {}
   };
 
+  // Normaliza cualquier representación de is_active a boolean puro.
+  // MySQL TINYINT → Number, JSON parseo, boolean, string... todo queda true/false.
+  const isTruthy = (v) =>
+    v === true || v === 1 || v === '1' || v === 't' || v === 'true' || v === 'TRUE';
+
   const getInstalled = (pluginId) => installedPlugins.find(p => p.plugin_id === pluginId);
 
-  const toggleActive = async (pluginId, isActive) => {
+  const toggleActive = async (pluginId, currentlyActiveRaw) => {
+    // Siempre trabajamos con booleans puros para evitar inversiones por tipo.
+    const currentlyActive = isTruthy(currentlyActiveRaw);
+    const nextActive = !currentlyActive;
     setTogglingId(pluginId);
     try {
-      const action = isActive ? 'deactivate' : 'activate';
+      const action = currentlyActive ? 'deactivate' : 'activate';
       const response = await fetch(API + `/api/admin/plugins/${pluginId}/${action}`, {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token }
       });
       if (response.ok) {
-        // Optimistic update — actualiza el estado local inmediatamente
+        // Optimistic update, confiamos 100% en esto. NO re-fetch en background
+        // porque causa flicker/race condition con datos cacheados.
         setInstalledPlugins(prev => prev.map(p =>
-          p.plugin_id === pluginId ? { ...p, is_active: !isActive ? 1 : 0 } : p
+          p.plugin_id === pluginId ? { ...p, is_active: nextActive } : p
         ));
-        // Refresh desde el servidor en segundo plano
-        fetchInstalledPlugins();
         refreshPlugins && refreshPlugins();
-        setInstallMessage(`Plugin ${isActive ? 'desactivado' : 'activado'}`);
+        setInstallMessage(`Plugin ${currentlyActive ? 'desactivado' : 'activado'}`);
         setTimeout(() => setInstallMessage(''), 2000);
       } else {
         const err = await response.json();
