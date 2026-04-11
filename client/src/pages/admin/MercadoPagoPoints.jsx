@@ -648,9 +648,9 @@ function MercadoPagoPoints() {
 
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-          gap: '10px',
-          marginBottom: '20px'
+          gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+          gap: '8px',
+          marginBottom: '16px'
         }}>
           {/* Mercado Pago Point (built-in) */}
           {mpInCountry && (
@@ -658,33 +658,20 @@ function MercadoPagoPoints() {
               background: '#fff',
               border: '2px solid ' + GOLD,
               borderRadius: '8px',
-              padding: '12px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+              padding: '10px',
+              minWidth: '140px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                 <div style={{
-                  width: '36px', height: '36px', borderRadius: '8px',
+                  width: '28px', height: '28px', borderRadius: '6px',
                   background: '#009EE315',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '18px'
+                  fontSize: '14px'
                 }}>💳</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: '700', color: '#111', fontSize: '13px' }}>Mercado Pago Point</div>
-                  <div style={{ fontSize: '10px', color: '#6b7280' }}>Mercado Pago</div>
-                </div>
-                <span style={{
-                  padding: '2px 6px', background: GOLD + '22', color: '#57410a',
-                  borderRadius: '8px', fontSize: '9px', fontWeight: '700'
-                }}>NATIVO</span>
+                <div style={{ flex: 1, fontSize: '12px', fontWeight: '700', color: '#111' }}>Mercado Pago Point</div>
+                <span style={{ padding: '2px 6px', background: GOLD + '22', color: '#57410a', borderRadius: '6px', fontSize: '9px', fontWeight: '700' }}>NATIVO</span>
               </div>
-              <p style={{ color: '#4b5563', fontSize: '11px', lineHeight: '1.4', margin: '0 0 8px' }}>
-                Terminal Point de Mercado Pago. Detectamos tus dispositivos automáticamente.
-              </p>
-              <button
-                onClick={scrollToMP}
-                className="btn btn-primary btn-sm"
-                style={{ width: '100%', padding: '6px 10px', fontSize: '11px' }}
-              >
+              <button onClick={scrollToMP} className="btn btn-primary btn-sm" style={{ width: '100%', fontSize: '10px', padding: '4px 6px' }}>
                 <FontAwesomeIcon icon={faLink} /> Configurar
               </button>
             </div>
@@ -692,105 +679,44 @@ function MercadoPagoPoints() {
 
           {/* Workshop plugins (filtrados por país) */}
           {loadingWorkshop ? (
-            <div className="card" style={{ padding: '12px', textAlign: 'center', color: '#6b7280', gridColumn: '1 / -1', fontSize: '12px' }}>
-              <FontAwesomeIcon icon={faSpinner} spin /> Cargando plugins...
+            <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', gridColumn: '1 / -1', fontSize: '12px' }}>
+              <FontAwesomeIcon icon={faSpinner} spin /> Cargando...
             </div>
           ) : filteredWorkshopPlugins.length === 0 && !mpInCountry ? (
-            <div className="card" style={{ padding: '20px 12px', textAlign: 'center', gridColumn: '1 / -1' }}>
-              <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '20px', color: '#f59e0b', marginBottom: '8px' }} />
-              <p style={{ color: '#6b7280', margin: 0, fontSize: '12px' }}>
-                No hay plugins para <strong>{activeCountry.name}</strong>.
-              </p>
+            <div style={{ padding: '20px 12px', textAlign: 'center', gridColumn: '1 / -1' }}>
+              <p style={{ color: '#6b7280', margin: 0, fontSize: '12px' }}>Sin plugins para {activeCountry.name}</p>
             </div>
           ) : (
             filteredWorkshopPlugins.map(plugin => {
               const installed = getInstalled(plugin.plugin_id);
-              const assignedCountries = pluginCountriesMap[plugin.plugin_id];
-              const recommended = assignedCountries && assignedCountries.includes(country);
               return (
                 <div key={plugin.plugin_id} style={{
                   background: '#fff',
-                  border: recommended ? '2px solid #2ecc71' : '1px solid #e5e7eb',
+                  border: installed ? (installed.is_active ? '2px solid #2ecc71' : '2px solid #f59e0b') : '1px solid #e5e7eb',
                   borderRadius: '8px',
-                  padding: '12px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                  display: 'flex',
-                  flexDirection: 'column'
+                  padding: '10px',
+                  minWidth: '140px'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                     {plugin.logo ? (
-                      <img src={API + plugin.logo} alt="" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e5e7eb' }} />
+                      <img src={API + plugin.logo} alt="" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }} />
                     ) : (
                       <div style={{
-                        width: '36px', height: '36px', borderRadius: '8px',
+                        width: '28px', height: '28px', borderRadius: '6px',
                         background: '#f3f4f6',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '18px', color: '#9ca3af'
+                        fontSize: '14px', color: '#9ca3af'
                       }}>
                         <FontAwesomeIcon icon={faPuzzlePiece} />
                       </div>
                     )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: '700', color: '#111', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {plugin.name}
-                      </div>
-                      <div style={{ fontSize: '10px', color: '#6b7280' }}>
-                        v{plugin.latest_version || plugin.version}
-                      </div>
+                    <div style={{ flex: 1, fontSize: '12px', fontWeight: '700', color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {plugin.name}
                     </div>
-                    {recommended && (
-                      <span style={{
-                        padding: '2px 6px', background: '#d4edda', color: '#155724',
-                        borderRadius: '8px', fontSize: '9px', fontWeight: '700'
-                      }}>{activeCountry.flag}</span>
-                    )}
                   </div>
 
-                  {plugin.description && (
-                    <p style={{ color: '#4b5563', fontSize: '11px', lineHeight: '1.4', margin: '0 0 8px' }}>
-                      {plugin.description}
-                    </p>
-                  )}
-
-                  {installed && (
-                    <div style={{
-                      padding: '4px 8px', borderRadius: '6px', marginBottom: '8px',
-                      background: installed.is_active ? '#d4edda' : '#fff3cd',
-                      color: installed.is_active ? '#155724' : '#856404',
-                      fontSize: '10px', fontWeight: '700'
-                    }}>
-                      <FontAwesomeIcon icon={installed.is_active ? faCheckCircle : faCheck} />
-                      {' '}Instalado v{installed.version}{installed.is_active ? ' · Activo' : ' · Inactivo'}
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', gap: '6px', marginTop: 'auto', flexWrap: 'wrap' }}>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => fetchVersions(plugin.plugin_id)}
-                      title="Versiones"
-                    >
-                      <FontAwesomeIcon icon={faCodeBranch} />
-                    </button>
-                    <button
-                      className="btn btn-primary btn-sm"
-                      style={{ flex: 1 }}
-                      onClick={() => installPlugin(plugin.plugin_id)}
-                      disabled={installing === plugin.plugin_id}
-                    >
-                      {installing === plugin.plugin_id ? (
-                        <FontAwesomeIcon icon={faSpinner} spin />
-                      ) : installed ? (
-                        <><FontAwesomeIcon icon={faDownload} /> Actualizar</>
-                      ) : (
-                        <><FontAwesomeIcon icon={faDownload} /> Instalar</>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Activate + Config buttons appear only when installed */}
-                  {installed && (
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                  {installed ? (
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                       <button
                         className="btn btn-sm"
                         onClick={() => toggleActive(installed.plugin_id, installed.is_active)}
@@ -801,74 +727,39 @@ function MercadoPagoPoints() {
                           color: installed.is_active ? '#166534' : '#991b1b',
                           border: '1px solid ' + (installed.is_active ? '#bbf7d0' : '#fecaca'),
                           fontWeight: '700',
-                          fontSize: '11px',
-                          padding: '5px 8px'
+                          fontSize: '10px',
+                          padding: '4px 6px'
                         }}
                       >
                         {togglingId === installed.plugin_id ? (
                           <FontAwesomeIcon icon={faSpinner} spin />
                         ) : installed.is_active ? (
-                          <><FontAwesomeIcon icon={faToggleOn} /> Desactivar</>
+                          <><FontAwesomeIcon icon={faToggleOn} /> Off</>
                         ) : (
-                          <><FontAwesomeIcon icon={faToggleOff} /> Activar</>
+                          <><FontAwesomeIcon icon={faToggleOff} /> On</>
                         )}
                       </button>
-                      {installed.is_active && (hasAdminPage(installed) || Object.keys(installed.settings_schema || {}).length > 0) && (
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          onClick={() => openPluginConfig(installed)}
-                          style={{ flex: 1, fontSize: '11px', padding: '5px 8px' }}
-                        >
-                          <FontAwesomeIcon icon={hasAdminPage(installed) ? faExternalLinkAlt : faCog} /> Config
-                        </button>
-                      )}
+                      <button
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => openPluginConfig(installed)}
+                        style={{ flex: 1, fontSize: '10px', padding: '4px 6px' }}
+                      >
+                        <FontAwesomeIcon icon={faCog} />
+                      </button>
                     </div>
-                  )}
-
-                  {expandedVersions === plugin.plugin_id && (
-                    <div style={{ marginTop: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: '700', marginBottom: '8px', color: '#111' }}>
-                        <FontAwesomeIcon icon={faCodeBranch} /> Versiones disponibles
-                      </div>
-                      {loadingVersions ? (
-                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>
-                          <FontAwesomeIcon icon={faSpinner} spin /> Cargando...
-                        </div>
-                      ) : versions.length === 0 ? (
-                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>Sin versiones aprobadas</div>
+                  ) : (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ width: '100%', fontSize: '10px', padding: '4px 6px' }}
+                      onClick={() => installPlugin(plugin.plugin_id)}
+                      disabled={installing === plugin.plugin_id}
+                    >
+                      {installing === plugin.plugin_id ? (
+                        <FontAwesomeIcon icon={faSpinner} spin />
                       ) : (
-                        versions.map(v => (
-                          <div key={v.version} style={{
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            padding: '6px 0', borderBottom: '1px solid #f3f4f6', fontSize: '12px'
-                          }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <strong>v{v.version}</strong>
-                              {v.changelog && (
-                                <span style={{ color: '#6b7280', marginLeft: '6px', fontSize: '11px' }}>— {v.changelog}</span>
-                              )}
-                              <div style={{ color: '#9ca3af', fontSize: '10px', marginTop: '2px' }}>
-                                {new Date(v.created_at).toLocaleDateString('es-ES')}
-                              </div>
-                            </div>
-                            <button
-                              className="btn btn-sm btn-secondary"
-                              onClick={() => installPlugin(plugin.plugin_id, v.version)}
-                              disabled={installing === plugin.plugin_id + v.version}
-                              style={{ fontSize: '11px', padding: '4px 10px' }}
-                            >
-                              {installed?.version === v.version ? (
-                                <><FontAwesomeIcon icon={faCheck} /> Actual</>
-                              ) : installing === plugin.plugin_id + v.version ? (
-                                <FontAwesomeIcon icon={faSpinner} spin />
-                              ) : (
-                                <><FontAwesomeIcon icon={faDownload} /> Instalar</>
-                              )}
-                            </button>
-                          </div>
-                        ))
+                        <><FontAwesomeIcon icon={faDownload} /> Instalar</>
                       )}
-                    </div>
+                    </button>
                   )}
                 </div>
               );
@@ -878,16 +769,15 @@ function MercadoPagoPoints() {
 
         {/* ==== Sección: Plugins de pagos instalados ==== */}
         {paymentPlugins.length > 0 && (
-          <div style={{ marginTop: '20px', marginBottom: '14px' }}>
-            <h2 style={{ fontSize: '14px', color: '#111', margin: '0 0 6px' }}>
+          <div style={{ marginTop: '16px' }}>
+            <h2 style={{ fontSize: '14px', color: '#111', margin: '0 0 8px' }}>
               <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: '6px', color: GOLD }} />
-              Plugins de pagos instalados
+              Pagos instalados
             </h2>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {paymentPlugins.map(plugin => {
                 const isActive = !!plugin.is_active && plugin.is_active !== '0' && plugin.is_active !== 0;
-                const hasSchema = Object.keys(plugin.settings_schema || {}).length > 0;
                 return (
                   <div
                     key={plugin.plugin_id}
@@ -895,43 +785,35 @@ function MercadoPagoPoints() {
                       background: '#fff',
                       border: isActive ? '2px solid #22c55e' : '1px solid #e5e7eb',
                       borderRadius: '8px',
-                      overflow: 'hidden',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                      overflow: 'hidden'
                     }}
                   >
-                    {/* Header con nombre del plugin */}
                     <div style={{
-                      padding: '10px 14px',
+                      padding: '8px 12px',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
+                      gap: '8px',
                       background: isActive ? '#f0fdf4' : '#fafafa',
-                      borderBottom: '1px solid #e5e7eb',
-                      flexWrap: 'wrap'
+                      borderBottom: '1px solid #e5e7eb'
                     }}>
                       {plugin.logo ? (
                         <img
                           src={API + plugin.logo}
                           alt=""
-                          style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e5e7eb' }}
+                          style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }}
                         />
                       ) : (
                         <div style={{
-                          width: '36px', height: '36px', borderRadius: '8px',
+                          width: '28px', height: '28px', borderRadius: '6px',
                           background: GOLD + '22', color: GOLD,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '18px', flexShrink: 0
+                          fontSize: '14px'
                         }}>
                           <FontAwesomeIcon icon={faCreditCard} />
                         </div>
                       )}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <h3 style={{ margin: 0, fontSize: '14px', color: '#111', fontWeight: '700' }}>
-                          {plugin.name}
-                        </h3>
-                        <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '1px' }}>
-                          v{plugin.version}
-                        </div>
+                      <div style={{ flex: 1, fontSize: '12px', fontWeight: '700', color: '#111' }}>
+                        {plugin.name}
                       </div>
                       <button
                         className="btn btn-sm"
@@ -942,73 +824,26 @@ function MercadoPagoPoints() {
                           color: isActive ? '#166534' : '#991b1b',
                           border: '1px solid ' + (isActive ? '#bbf7d0' : '#fecaca'),
                           fontWeight: '700',
-                          fontSize: '11px',
-                          padding: '4px 8px'
+                          fontSize: '10px',
+                          padding: '4px 6px'
                         }}
                       >
                         {togglingId === plugin.plugin_id ? (
                           <FontAwesomeIcon icon={faSpinner} spin />
                         ) : isActive ? (
-                          <><FontAwesomeIcon icon={faToggleOn} /> Desactivar</>
+                          <><FontAwesomeIcon icon={faToggleOn} /> Off</>
                         ) : (
-                          <><FontAwesomeIcon icon={faToggleOff} /> Activar</>
+                          <><FontAwesomeIcon icon={faToggleOff} /> On</>
                         )}
                       </button>
                       {isActive && hasAdminPage(plugin) && (
                         <button
                           className="btn btn-sm btn-secondary"
                           onClick={() => navigate(`/admin/plugins/${plugin.plugin_id}`)}
-                          style={{ fontSize: '11px', padding: '4px 8px' }}
+                          style={{ fontSize: '10px', padding: '4px 6px' }}
                         >
-                          <FontAwesomeIcon icon={faExternalLinkAlt} /> Config
+                          <FontAwesomeIcon icon={faCog} />
                         </button>
-                      )}
-                    </div>
-
-                    {/* Body con configuración inline */}
-                    <div style={{ padding: '12px 14px' }}>
-                      {!isActive ? (
-                        <div style={{
-                          padding: '8px 10px',
-                          background: '#fef3c7',
-                          color: '#854d0e',
-                          borderRadius: '6px',
-                          fontSize: '12px'
-                        }}>
-                          <FontAwesomeIcon icon={faExclamationTriangle} /> Activa el plugin para configurarlo.
-                        </div>
-                      ) : hasAdminPage(plugin) ? (
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => navigate(`/admin/plugins/${plugin.plugin_id}`)}
-                        >
-                          <FontAwesomeIcon icon={faExternalLinkAlt} /> Abrir configuración
-                        </button>
-                      ) : !hasSchema ? (
-                        <div style={{ color: '#6b7280', fontSize: '12px' }}>
-                          Sin opciones configurables.
-                        </div>
-                      ) : (
-                        <>
-                          <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            Configuración para {selectedStore?.name || 'esta tienda'}
-                          </div>
-                          {Object.entries(plugin.settings_schema).map(([key, schema]) =>
-                            renderInlineField(plugin.plugin_id, key, schema)
-                          )}
-                          <button
-                            className="btn btn-primary"
-                            onClick={() => savePaymentPluginSettings(plugin)}
-                            disabled={savingPaymentFor === plugin.plugin_id}
-                            style={{ marginTop: '8px' }}
-                          >
-                            {savingPaymentFor === plugin.plugin_id ? (
-                              <><FontAwesomeIcon icon={faSpinner} spin /> Guardando...</>
-                            ) : (
-                              <><FontAwesomeIcon icon={faSave} /> Guardar configuración</>
-                            )}
-                          </button>
-                        </>
                       )}
                     </div>
                   </div>
@@ -1031,15 +866,11 @@ function MercadoPagoPoints() {
               </button>
             </div>
 
-            <div className="card" style={{ marginBottom: '12px', padding: '12px', background: '#fffbe6', border: '2px solid #e6c200', borderRadius: '8px' }}>
-              <h3 style={{ margin: '0 0 6px', fontSize: '12px' }}><FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#e6a800' }} /> Antes de agregar</h3>
-              <ol style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', lineHeight: '1.6', color: '#555' }}>
-                <li>En la app de Mercado Pago: <strong>Tu negocio &gt; Sucursales y cajas</strong></li>
-                <li>Crea una <strong>Sucursal</strong> y una <strong>Caja</strong></li>
-                <li>Vincula tu <strong>Point</strong> a la caja <strong>escaneando el QR</strong> del Point</li>
-                <li>Obtener tu <strong>Access Token</strong> desde <a href="https://www.mercadopago.com/developers/panel/app" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>mercadopago.com/developers</a></li>
-                <li>Pega el token y <strong>detectamos tus dispositivos</strong></li>
-              </ol>
+            <div style={{ marginBottom: '12px', padding: '8px 12px', background: '#fffbe6', border: '1px solid #e6c200', borderRadius: '6px' }}>
+              <p style={{ margin: 0, fontSize: '11px', color: '#555' }}>
+                <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#e6a800', marginRight: '4px' }} />
+                1. App Mercado Pago: <strong>Tu negocio &gt; Sucursales y cajas</strong>. 2. Vincula tu Point al <strong>escanear QR</strong>. 3. Token en <a href="https://www.mercadopago.com/developers/panel/app" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>mercadopago.com/developers</a>
+              </p>
             </div>
 
             {terminals.length === 0 ? (
