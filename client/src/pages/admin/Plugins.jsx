@@ -391,24 +391,28 @@ function Plugins() {
 
                 <div className="plugin-card-actions">
                   {plugin.is_active && (() => {
-                    const def = registry[plugin.plugin_id];
-                    const hasAdminPage = !!(def?.adminPage || def?.slots?.['admin-page']);
+                    // Usamos datos de DB (siempre disponibles) para decidir si mostrar el botón.
+                    // El registry runtime puede estar vacío justo al activar el plugin.
                     const hasSettings = Object.keys(plugin.settings_schema || {}).length > 0;
-                    if (hasAdminPage) {
-                      return (
-                        <button className="btn btn-sm btn-secondary" onClick={() => navigate(`/admin/plugins/${plugin.plugin_id}`)}>
-                          <FontAwesomeIcon icon={faExternalLinkAlt} /> Config
-                        </button>
-                      );
-                    }
-                    if (hasSettings) {
-                      return (
-                        <button className="btn btn-sm btn-secondary" onClick={() => openSettings(plugin)}>
-                          <FontAwesomeIcon icon={faCog} /> Config
-                        </button>
-                      );
-                    }
-                    return null;
+                    const hasAdminUI = Array.isArray(plugin.admin_slots) && plugin.admin_slots.length > 0;
+                    if (!hasSettings && !hasAdminUI) return null;
+
+                    const handleClick = () => {
+                      // Al click decidimos destino según lo que esté cargado runtime
+                      const def = registry[plugin.plugin_id];
+                      const hasAdminPageRuntime = !!(def?.adminPage || def?.slots?.['admin-page']);
+                      if (hasAdminPageRuntime || hasAdminUI) {
+                        navigate(`/admin/plugins/${plugin.plugin_id}`);
+                      } else if (hasSettings) {
+                        openSettings(plugin);
+                      }
+                    };
+
+                    return (
+                      <button className="btn btn-sm btn-secondary" onClick={handleClick}>
+                        <FontAwesomeIcon icon={hasAdminUI ? faExternalLinkAlt : faCog} /> Config
+                      </button>
+                    );
                   })()}
                   <button className="btn btn-sm btn-danger" onClick={() => uninstallPlugin(plugin.plugin_id, plugin.name)}>
                     <FontAwesomeIcon icon={faTrash} />

@@ -27,14 +27,26 @@ function MercadoPagoPoints() {
   const { refreshPlugins, registry } = usePlugins();
   const { selectedStore } = useStore() || {};
 
-  // Helper: determina si un plugin tiene página admin custom (admin-page slot)
-  const hasAdminPage = (pluginId) => {
+  // Runtime check — puede no estar listo justo después de activar un plugin
+  const hasAdminPageRuntime = (pluginId) => {
     const def = registry?.[pluginId];
     return !!(def?.adminPage || def?.slots?.['admin-page']);
   };
 
+  // DB check — siempre disponible apenas se carga el listado
+  const pluginDeclaresAdminUI = (plugin) => {
+    return Array.isArray(plugin?.admin_slots) && plugin.admin_slots.length > 0;
+  };
+
+  // Combined: el plugin tiene (o tendrá) UI admin custom
+  const hasAdminPage = (plugin) => {
+    if (!plugin) return false;
+    if (pluginDeclaresAdminUI(plugin)) return true;
+    return hasAdminPageRuntime(plugin.plugin_id);
+  };
+
   const openPluginConfig = (plugin) => {
-    if (hasAdminPage(plugin.plugin_id)) {
+    if (hasAdminPage(plugin)) {
       navigate(`/admin/plugins/${plugin.plugin_id}`);
     } else if (Object.keys(plugin.settings_schema || {}).length > 0) {
       openSettings(plugin);
@@ -800,13 +812,13 @@ function MercadoPagoPoints() {
                           <><FontAwesomeIcon icon={faToggleOn} /> Activar</>
                         )}
                       </button>
-                      {installed.is_active && (hasAdminPage(installed.plugin_id) || Object.keys(installed.settings_schema || {}).length > 0) && (
+                      {installed.is_active && (hasAdminPage(installed) || Object.keys(installed.settings_schema || {}).length > 0) && (
                         <button
                           className="btn btn-sm btn-secondary"
                           onClick={() => openPluginConfig(installed)}
                           style={{ flex: 1, minWidth: '120px' }}
                         >
-                          <FontAwesomeIcon icon={hasAdminPage(installed.plugin_id) ? faExternalLinkAlt : faCog} /> Configurar
+                          <FontAwesomeIcon icon={hasAdminPage(installed) ? faExternalLinkAlt : faCog} /> Configurar
                         </button>
                       )}
                     </div>
@@ -932,7 +944,7 @@ function MercadoPagoPoints() {
                       }}>
                         {plugin.is_active ? 'Activo' : 'Inactivo'}
                       </span>
-                      {plugin.is_active && hasAdminPage(plugin.plugin_id) && (
+                      {plugin.is_active && hasAdminPage(plugin) && (
                         <button
                           className="btn btn-sm btn-secondary"
                           onClick={() => navigate(`/admin/plugins/${plugin.plugin_id}`)}
@@ -985,7 +997,7 @@ function MercadoPagoPoints() {
                           <FontAwesomeIcon icon={faExclamationTriangle} />
                           Activa el plugin para poder configurarlo.
                         </div>
-                      ) : hasAdminPage(plugin.plugin_id) ? (
+                      ) : hasAdminPage(plugin) ? (
                         <div style={{
                           padding: '14px 16px',
                           background: '#f0f9ff',
