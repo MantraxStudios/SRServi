@@ -598,111 +598,108 @@ function MercadoPagoPoints() {
         <div style={{
           background: '#fff',
           border: '1px solid #e5e7eb',
-          borderRadius: '12px',
-          padding: '18px 22px',
-          marginBottom: '20px',
+          borderRadius: '8px',
+          padding: '10px 14px',
+          marginBottom: '12px',
           display: 'flex',
           alignItems: 'center',
-          gap: '16px',
+          gap: '10px',
           flexWrap: 'wrap',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+          fontSize: '12px'
         }}>
           <div style={{
-            width: '44px', height: '44px', borderRadius: '10px',
+            width: '32px', height: '32px', borderRadius: '6px',
             background: GOLD + '22', color: GOLD,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '18px', flexShrink: 0
+            fontSize: '14px', flexShrink: 0
           }}>
             <FontAwesomeIcon icon={faGlobe} />
           </div>
-          <div style={{ flex: 1, minWidth: '180px' }}>
-            <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              País del negocio
+          <div style={{ flex: 1, minWidth: '120px' }}>
+            <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              País
             </div>
-            <div style={{ fontSize: '16px', fontWeight: '700', color: '#111', marginTop: '2px' }}>
-              <span style={{ fontSize: '22px', marginRight: '8px' }}>{activeCountry.flag}</span>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#111', marginTop: '1px' }}>
+              <span style={{ fontSize: '16px', marginRight: '6px' }}>{activeCountry.flag}</span>
               {activeCountry.name}
             </div>
           </div>
           <button
-            className="btn btn-secondary"
+            className="btn btn-secondary btn-sm"
             onClick={() => setShowCountryModal(true)}
-            style={{ whiteSpace: 'nowrap' }}
+            style={{ whiteSpace: 'nowrap', padding: '6px 12px', fontSize: '11px' }}
           >
-            Cambiar país
+            Cambiar
           </button>
         </div>
 
         {installMessage && (
           <div style={{
-            padding: '12px 16px', marginBottom: '16px', borderRadius: '8px', fontWeight: '600',
+            padding: '8px 12px', marginBottom: '10px', borderRadius: '6px', fontWeight: '600', fontSize: '12px',
             backgroundColor: installMessage.includes('Error') ? '#f8d7da' : '#d4edda',
             color: installMessage.includes('Error') ? '#721c24' : '#155724'
           }}>{installMessage}</div>
         )}
 
         {/* Catálogo de POS disponibles */}
-        <h2 style={{ fontSize: '18px', color: '#111', margin: '0 0 12px' }}>
-          Sistemas POS disponibles en {activeCountry.name}
+        <h2 style={{ fontSize: '14px', color: '#111', margin: '0 0 8px' }}>
+          POS disponibles en {activeCountry.name}
         </h2>
-        <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 16px' }}>
-          Elige un sistema POS nativo o instala el plugin que necesites desde el Workshop.
-        </p>
 
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-          gap: '14px',
-          marginBottom: '30px'
+          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+          gap: '10px',
+          marginBottom: '20px'
         }}>
           {/* Mercado Pago Point (built-in) */}
           {mpInCountry && (
             <div style={{
               background: '#fff',
               border: '2px solid ' + GOLD,
-              borderRadius: '12px',
-              padding: '18px',
+              borderRadius: '8px',
+              padding: '12px',
               boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                 <div style={{
-                  width: '48px', height: '48px', borderRadius: '10px',
+                  width: '36px', height: '36px', borderRadius: '8px',
                   background: '#009EE315',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '22px'
+                  fontSize: '18px'
                 }}>💳</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: '700', color: '#111', fontSize: '15px' }}>Mercado Pago Point</div>
-                  <div style={{ fontSize: '11px', color: '#6b7280' }}>Mercado Pago</div>
+                  <div style={{ fontWeight: '700', color: '#111', fontSize: '13px' }}>Mercado Pago Point</div>
+                  <div style={{ fontSize: '10px', color: '#6b7280' }}>Mercado Pago</div>
                 </div>
                 <span style={{
-                  padding: '3px 8px', background: GOLD + '22', color: '#57410a',
-                  borderRadius: '10px', fontSize: '10px', fontWeight: '700'
+                  padding: '2px 6px', background: GOLD + '22', color: '#57410a',
+                  borderRadius: '8px', fontSize: '9px', fontWeight: '700'
                 }}>NATIVO</span>
               </div>
-              <p style={{ color: '#4b5563', fontSize: '12px', lineHeight: '1.5', margin: '0 0 12px' }}>
-                Terminal Point de Mercado Pago. Detectamos tus dispositivos automáticamente con tu Access Token.
+              <p style={{ color: '#4b5563', fontSize: '11px', lineHeight: '1.4', margin: '0 0 8px' }}>
+                Terminal Point de Mercado Pago. Detectamos tus dispositivos automáticamente.
               </p>
               <button
                 onClick={scrollToMP}
                 className="btn btn-primary btn-sm"
-                style={{ width: '100%' }}
+                style={{ width: '100%', padding: '6px 10px', fontSize: '11px' }}
               >
-                <FontAwesomeIcon icon={faLink} /> Configurar ahora
+                <FontAwesomeIcon icon={faLink} /> Configurar
               </button>
             </div>
           )}
 
           {/* Workshop plugins (filtrados por país) */}
           {loadingWorkshop ? (
-            <div className="card" style={{ padding: '20px', textAlign: 'center', color: '#6b7280', gridColumn: '1 / -1' }}>
-              <FontAwesomeIcon icon={faSpinner} spin /> Cargando plugins del Workshop...
+            <div className="card" style={{ padding: '12px', textAlign: 'center', color: '#6b7280', gridColumn: '1 / -1', fontSize: '12px' }}>
+              <FontAwesomeIcon icon={faSpinner} spin /> Cargando plugins...
             </div>
           ) : filteredWorkshopPlugins.length === 0 && !mpInCountry ? (
-            <div className="card" style={{ padding: '40px 20px', textAlign: 'center', gridColumn: '1 / -1' }}>
-              <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '32px', color: '#f59e0b', marginBottom: '12px' }} />
-              <p style={{ color: '#6b7280', margin: 0 }}>
-                No hay plugins disponibles para <strong>{activeCountry.name}</strong> en el Workshop todavía.
+            <div className="card" style={{ padding: '20px 12px', textAlign: 'center', gridColumn: '1 / -1' }}>
+              <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '20px', color: '#f59e0b', marginBottom: '8px' }} />
+              <p style={{ color: '#6b7280', margin: 0, fontSize: '12px' }}>
+                No hay plugins para <strong>{activeCountry.name}</strong>.
               </p>
             </div>
           ) : (
@@ -714,84 +711,75 @@ function MercadoPagoPoints() {
                 <div key={plugin.plugin_id} style={{
                   background: '#fff',
                   border: recommended ? '2px solid #2ecc71' : '1px solid #e5e7eb',
-                  borderRadius: '12px',
-                  padding: '18px',
+                  borderRadius: '8px',
+                  padding: '12px',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
                   display: 'flex',
                   flexDirection: 'column'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                     {plugin.logo ? (
-                      <img src={API + plugin.logo} alt="" style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'cover', border: '1px solid #e5e7eb' }} />
+                      <img src={API + plugin.logo} alt="" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e5e7eb' }} />
                     ) : (
                       <div style={{
-                        width: '48px', height: '48px', borderRadius: '10px',
+                        width: '36px', height: '36px', borderRadius: '8px',
                         background: '#f3f4f6',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '22px', color: '#9ca3af'
+                        fontSize: '18px', color: '#9ca3af'
                       }}>
                         <FontAwesomeIcon icon={faPuzzlePiece} />
                       </div>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: '700', color: '#111', fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: '700', color: '#111', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {plugin.name}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                        <FontAwesomeIcon icon={faUser} /> {plugin.author || 'Sin autor'} · v{plugin.latest_version || plugin.version}
+                      <div style={{ fontSize: '10px', color: '#6b7280' }}>
+                        v{plugin.latest_version || plugin.version}
                       </div>
                     </div>
                     {recommended && (
                       <span style={{
-                        padding: '3px 8px', background: '#d4edda', color: '#155724',
-                        borderRadius: '10px', fontSize: '10px', fontWeight: '700'
+                        padding: '2px 6px', background: '#d4edda', color: '#155724',
+                        borderRadius: '8px', fontSize: '9px', fontWeight: '700'
                       }}>{activeCountry.flag}</span>
                     )}
                   </div>
 
                   {plugin.description && (
-                    <p style={{ color: '#4b5563', fontSize: '12px', lineHeight: '1.5', margin: '0 0 10px' }}>
+                    <p style={{ color: '#4b5563', fontSize: '11px', lineHeight: '1.4', margin: '0 0 8px' }}>
                       {plugin.description}
                     </p>
                   )}
 
                   {installed && (
                     <div style={{
-                      padding: '6px 10px', borderRadius: '6px', marginBottom: '10px',
+                      padding: '4px 8px', borderRadius: '6px', marginBottom: '8px',
                       background: installed.is_active ? '#d4edda' : '#fff3cd',
                       color: installed.is_active ? '#155724' : '#856404',
-                      fontSize: '11px', fontWeight: '700',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px'
+                      fontSize: '10px', fontWeight: '700'
                     }}>
-                      <span>
-                        <FontAwesomeIcon icon={installed.is_active ? faCheckCircle : faCheck} />
-                        {' '}Instalado (v{installed.version})
-                        {installed.is_active ? ' · Activo' : ' · Inactivo'}
-                      </span>
+                      <FontAwesomeIcon icon={installed.is_active ? faCheckCircle : faCheck} />
+                      {' '}Instalado v{installed.version}{installed.is_active ? ' · Activo' : ' · Inactivo'}
                     </div>
                   )}
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>
-                    <span><FontAwesomeIcon icon={faDownload} /> {plugin.downloads || 0} descargas</span>
-                  </div>
 
                   <div style={{ display: 'flex', gap: '6px', marginTop: 'auto', flexWrap: 'wrap' }}>
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => fetchVersions(plugin.plugin_id)}
-                      title="Ver versiones"
+                      title="Versiones"
                     >
                       <FontAwesomeIcon icon={faCodeBranch} />
-                      <FontAwesomeIcon icon={expandedVersions === plugin.plugin_id ? faChevronUp : faChevronDown} style={{ fontSize: '10px' }} />
                     </button>
                     <button
                       className="btn btn-primary btn-sm"
-                      style={{ flex: 1, minWidth: '100px' }}
+                      style={{ flex: 1 }}
                       onClick={() => installPlugin(plugin.plugin_id)}
                       disabled={installing === plugin.plugin_id}
                     >
                       {installing === plugin.plugin_id ? (
-                        <><FontAwesomeIcon icon={faSpinner} spin /> Instalando...</>
+                        <FontAwesomeIcon icon={faSpinner} spin />
                       ) : installed ? (
                         <><FontAwesomeIcon icon={faDownload} /> Actualizar</>
                       ) : (
@@ -802,18 +790,19 @@ function MercadoPagoPoints() {
 
                   {/* Activate + Config buttons appear only when installed */}
                   {installed && (
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
                       <button
                         className="btn btn-sm"
                         onClick={() => toggleActive(installed.plugin_id, installed.is_active)}
                         disabled={togglingId === installed.plugin_id}
                         style={{
-                          flex: 1, minWidth: '120px',
-                          // Color refleja el ESTADO ACTUAL del plugin: verde=activo, rojo=inactivo
+                          flex: 1,
                           background: installed.is_active ? '#dcfce7' : '#fee2e2',
                           color: installed.is_active ? '#166534' : '#991b1b',
                           border: '1px solid ' + (installed.is_active ? '#bbf7d0' : '#fecaca'),
-                          fontWeight: '700'
+                          fontWeight: '700',
+                          fontSize: '11px',
+                          padding: '5px 8px'
                         }}
                       >
                         {togglingId === installed.plugin_id ? (
@@ -828,9 +817,9 @@ function MercadoPagoPoints() {
                         <button
                           className="btn btn-sm btn-secondary"
                           onClick={() => openPluginConfig(installed)}
-                          style={{ flex: 1, minWidth: '120px' }}
+                          style={{ flex: 1, fontSize: '11px', padding: '5px 8px' }}
                         >
-                          <FontAwesomeIcon icon={hasAdminPage(installed) ? faExternalLinkAlt : faCog} /> Configurar
+                          <FontAwesomeIcon icon={hasAdminPage(installed) ? faExternalLinkAlt : faCog} /> Config
                         </button>
                       )}
                     </div>
@@ -889,16 +878,13 @@ function MercadoPagoPoints() {
 
         {/* ==== Sección: Plugins de pagos instalados ==== */}
         {paymentPlugins.length > 0 && (
-          <div style={{ marginTop: '30px', marginBottom: '20px' }}>
-            <h2 style={{ fontSize: '18px', color: '#111', margin: '0 0 6px' }}>
-              <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: '8px', color: GOLD }} />
+          <div style={{ marginTop: '20px', marginBottom: '14px' }}>
+            <h2 style={{ fontSize: '14px', color: '#111', margin: '0 0 6px' }}>
+              <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: '6px', color: GOLD }} />
               Plugins de pagos instalados
             </h2>
-            <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 16px' }}>
-              Configura aquí mismo cada pasarela de pago instalada en tu tienda.
-            </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {paymentPlugins.map(plugin => {
                 const isActive = !!plugin.is_active && plugin.is_active !== '0' && plugin.is_active !== 0;
                 const hasSchema = Object.keys(plugin.settings_schema || {}).length > 0;
@@ -908,75 +894,56 @@ function MercadoPagoPoints() {
                     style={{
                       background: '#fff',
                       border: isActive ? '2px solid #22c55e' : '1px solid #e5e7eb',
-                      borderRadius: '14px',
+                      borderRadius: '8px',
                       overflow: 'hidden',
                       boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
                     }}
                   >
                     {/* Header con nombre del plugin */}
                     <div style={{
-                      padding: '16px 20px',
+                      padding: '10px 14px',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '14px',
+                      gap: '10px',
                       background: isActive ? '#f0fdf4' : '#fafafa',
-                      borderBottom: '1px solid #e5e7eb'
+                      borderBottom: '1px solid #e5e7eb',
+                      flexWrap: 'wrap'
                     }}>
                       {plugin.logo ? (
                         <img
                           src={API + plugin.logo}
                           alt=""
-                          style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'cover', border: '1px solid #e5e7eb' }}
+                          style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e5e7eb' }}
                         />
                       ) : (
                         <div style={{
-                          width: '48px', height: '48px', borderRadius: '10px',
+                          width: '36px', height: '36px', borderRadius: '8px',
                           background: GOLD + '22', color: GOLD,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '22px', flexShrink: 0
+                          fontSize: '18px', flexShrink: 0
                         }}>
                           <FontAwesomeIcon icon={faCreditCard} />
                         </div>
                       )}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <h3 style={{ margin: 0, fontSize: '17px', color: '#111', fontWeight: '700' }}>
+                        <h3 style={{ margin: 0, fontSize: '14px', color: '#111', fontWeight: '700' }}>
                           {plugin.name}
                         </h3>
-                        <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-                          v{plugin.version} · {plugin.author || 'Sin autor'}
+                        <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '1px' }}>
+                          v{plugin.version}
                         </div>
                       </div>
-                      <span style={{
-                        padding: '4px 12px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        background: isActive ? '#dcfce7' : '#fef3c7',
-                        color: isActive ? '#166534' : '#854d0e',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {isActive ? 'Activo' : 'Inactivo'}
-                      </span>
-                      {isActive && hasAdminPage(plugin) && (
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          onClick={() => navigate(`/admin/plugins/${plugin.plugin_id}`)}
-                          style={{ whiteSpace: 'nowrap' }}
-                        >
-                          <FontAwesomeIcon icon={faExternalLinkAlt} /> Abrir config
-                        </button>
-                      )}
                       <button
                         className="btn btn-sm"
                         onClick={() => toggleActive(plugin.plugin_id, isActive)}
                         disabled={togglingId === plugin.plugin_id}
                         style={{
-                          // Color refleja el ESTADO ACTUAL: verde=activo, rojo=inactivo
                           background: isActive ? '#dcfce7' : '#fee2e2',
                           color: isActive ? '#166534' : '#991b1b',
                           border: '1px solid ' + (isActive ? '#bbf7d0' : '#fecaca'),
                           fontWeight: '700',
-                          whiteSpace: 'nowrap'
+                          fontSize: '11px',
+                          padding: '4px 8px'
                         }}
                       >
                         {togglingId === plugin.plugin_id ? (
@@ -987,55 +954,39 @@ function MercadoPagoPoints() {
                           <><FontAwesomeIcon icon={faToggleOff} /> Activar</>
                         )}
                       </button>
+                      {isActive && hasAdminPage(plugin) && (
+                        <button
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => navigate(`/admin/plugins/${plugin.plugin_id}`)}
+                          style={{ fontSize: '11px', padding: '4px 8px' }}
+                        >
+                          <FontAwesomeIcon icon={faExternalLinkAlt} /> Config
+                        </button>
+                      )}
                     </div>
 
                     {/* Body con configuración inline */}
-                    <div style={{ padding: '18px 22px' }}>
-                      {plugin.description && (
-                        <p style={{ color: '#4b5563', fontSize: '13px', margin: '0 0 16px', lineHeight: '1.6' }}>
-                          {plugin.description}
-                        </p>
-                      )}
-
+                    <div style={{ padding: '12px 14px' }}>
                       {!isActive ? (
                         <div style={{
-                          padding: '12px 14px',
+                          padding: '8px 10px',
                           background: '#fef3c7',
                           color: '#854d0e',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px'
+                          borderRadius: '6px',
+                          fontSize: '12px'
                         }}>
-                          <FontAwesomeIcon icon={faExclamationTriangle} />
-                          Activa el plugin para poder configurarlo.
+                          <FontAwesomeIcon icon={faExclamationTriangle} /> Activa el plugin para configurarlo.
                         </div>
                       ) : hasAdminPage(plugin) ? (
-                        <div style={{
-                          padding: '14px 16px',
-                          background: '#f0f9ff',
-                          border: '1px solid #bae6fd',
-                          borderRadius: '10px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '12px',
-                          flexWrap: 'wrap'
-                        }}>
-                          <div style={{ fontSize: '13px', color: '#075985' }}>
-                            Este plugin tiene su propia página de configuración.
-                          </div>
-                          <button
-                            className="btn btn-primary"
-                            onClick={() => navigate(`/admin/plugins/${plugin.plugin_id}`)}
-                          >
-                            <FontAwesomeIcon icon={faExternalLinkAlt} /> Abrir configuración
-                          </button>
-                        </div>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => navigate(`/admin/plugins/${plugin.plugin_id}`)}
+                        >
+                          <FontAwesomeIcon icon={faExternalLinkAlt} /> Abrir configuración
+                        </button>
                       ) : !hasSchema ? (
-                        <div style={{ color: '#6b7280', fontSize: '13px', fontStyle: 'italic' }}>
-                          Este plugin no tiene opciones configurables.
+                        <div style={{ color: '#6b7280', fontSize: '12px' }}>
+                          Sin opciones configurables.
                         </div>
                       ) : (
                         <>
@@ -1070,24 +1021,24 @@ function MercadoPagoPoints() {
         {/* Sección Mercado Pago Point (solo si aplica al país o ya hay terminales) */}
         {showMPSection && (
           <div id="mp-point-section">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', marginTop: '30px', flexWrap: 'wrap', gap: '10px' }}>
-              <h2 style={{ fontSize: '18px', color: '#111', margin: 0 }}>
-                <FontAwesomeIcon icon={faCreditCard} style={{ color: '#009EE3', marginRight: '8px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', marginTop: '20px', flexWrap: 'wrap', gap: '8px' }}>
+              <h2 style={{ fontSize: '14px', color: '#111', margin: 0 }}>
+                <FontAwesomeIcon icon={faCreditCard} style={{ color: '#009EE3', marginRight: '6px' }} />
                 Mercado Pago Point
               </h2>
-              <button onClick={() => { resetWizard(); setShowModal(true); }} className="btn btn-primary">
-                <FontAwesomeIcon icon={faPlus} /> Agregar Point
+              <button onClick={() => { resetWizard(); setShowModal(true); }} className="btn btn-primary btn-sm">
+                <FontAwesomeIcon icon={faPlus} /> Agregar
               </button>
             </div>
 
-            <div className="card" style={{ marginBottom: '20px', padding: '16px', background: '#fffbe6', border: '2px solid #e6c200', borderRadius: '12px' }}>
-              <h3 style={{ margin: '0 0 8px', fontSize: '15px' }}><FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#e6a800' }} /> Antes de agregar un Point</h3>
-              <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', lineHeight: '1.8', color: '#555' }}>
-                <li>En la <strong>app de Mercado Pago</strong> del celular, ve a <strong>Tu negocio &gt; Sucursales y cajas</strong></li>
+            <div className="card" style={{ marginBottom: '12px', padding: '12px', background: '#fffbe6', border: '2px solid #e6c200', borderRadius: '8px' }}>
+              <h3 style={{ margin: '0 0 6px', fontSize: '12px' }}><FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#e6a800' }} /> Antes de agregar</h3>
+              <ol style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', lineHeight: '1.6', color: '#555' }}>
+                <li>En la app de Mercado Pago: <strong>Tu negocio &gt; Sucursales y cajas</strong></li>
                 <li>Crea una <strong>Sucursal</strong> y una <strong>Caja</strong></li>
-                <li>Vincula tu <strong>dispositivo Point</strong> a la caja <strong>escaneando el codigo QR</strong> que aparece en la pantalla del Point desde la app</li>
-                <li>Obtener tu <strong>Access Token</strong> desde <a href="https://www.mercadopago.com/developers/panel/app" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>mercadopago.com/developers</a> &gt; Credenciales de produccion</li>
-                <li>Click en <strong>"Agregar Point"</strong> arriba, pega tu token y <strong>detectamos tus dispositivos automaticamente</strong></li>
+                <li>Vincula tu <strong>Point</strong> a la caja <strong>escaneando el QR</strong> del Point</li>
+                <li>Obtener tu <strong>Access Token</strong> desde <a href="https://www.mercadopago.com/developers/panel/app" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>mercadopago.com/developers</a></li>
+                <li>Pega el token y <strong>detectamos tus dispositivos</strong></li>
               </ol>
             </div>
 
@@ -1152,21 +1103,18 @@ function MercadoPagoPoints() {
         <div className="modal-overlay" onClick={() => {
           try { if (localStorage.getItem('srservi_country')) setShowCountryModal(false); } catch {}
         }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px' }}>
             <div className="modal-header">
               <h2 className="modal-title">
-                <FontAwesomeIcon icon={faGlobe} /> ¿De qué país es tu negocio?
+                <FontAwesomeIcon icon={faGlobe} /> País del negocio
               </h2>
             </div>
-            <div style={{ padding: '0 20px 20px' }}>
-              <p style={{ color: '#6b7280', fontSize: '13px', marginTop: 0 }}>
-                Filtramos los plugins POS del Workshop según tu país.
-              </p>
+            <div style={{ padding: '0 16px 16px' }}>
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                gap: '8px',
-                marginTop: '12px'
+                gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+                gap: '6px',
+                marginTop: '10px'
               }}>
                 {COUNTRIES.map(c => (
                   <button
@@ -1175,23 +1123,20 @@ function MercadoPagoPoints() {
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      padding: '10px 12px',
+                      gap: '6px',
+                      padding: '8px 10px',
                       background: country === c.code ? GOLD + '22' : '#fff',
                       border: country === c.code ? `2px solid ${GOLD}` : '1px solid #e5e7eb',
-                      borderRadius: '10px',
+                      borderRadius: '8px',
                       cursor: 'pointer',
-                      fontSize: '13px',
+                      fontSize: '12px',
                       fontWeight: country === c.code ? '700' : '500',
                       color: '#111',
                       textAlign: 'left'
                     }}
                   >
-                    <span style={{ fontSize: '20px' }}>{c.flag}</span>
+                    <span style={{ fontSize: '16px' }}>{c.flag}</span>
                     <span>{c.name}</span>
-                    {c.code === DEFAULT_COUNTRY && (
-                      <span style={{ marginLeft: 'auto', fontSize: '9px', color: GOLD, fontWeight: '700' }}>★</span>
-                    )}
                   </button>
                 ))}
               </div>
@@ -1203,20 +1148,20 @@ function MercadoPagoPoints() {
       {/* Modal: configuración de plugin instalado */}
       {settingsOpen && (
         <div className="modal-overlay" onClick={() => setSettingsOpen(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px' }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px' }}>
             <div className="modal-header">
               <h2 className="modal-title">
-                <FontAwesomeIcon icon={faCog} /> {settingsOpen.name} — Configuración
+                <FontAwesomeIcon icon={faCog} /> {settingsOpen.name}
               </h2>
               <button className="modal-close" onClick={() => setSettingsOpen(null)}>&times;</button>
             </div>
-            <div style={{ padding: '0 20px 20px' }}>
-              <p style={{ color: '#666', fontSize: '14px', margin: '0 0 16px' }}>
-                Configuración para: <strong>{selectedStore?.name || 'tu tienda'}</strong>
+            <div style={{ padding: '0 16px 16px' }}>
+              <p style={{ color: '#666', fontSize: '12px', margin: '0 0 12px' }}>
+                Config: <strong>{selectedStore?.name || 'tienda'}</strong>
               </p>
               {Object.keys(settingsOpen.settings_schema || {}).length === 0 ? (
-                <p style={{ color: '#6b7280', fontStyle: 'italic' }}>
-                  Este plugin no tiene opciones configurables.
+                <p style={{ color: '#6b7280', fontSize: '12px' }}>
+                  Sin opciones configurables.
                 </p>
               ) : (
                 Object.entries(settingsOpen.settings_schema || {}).map(([key, schema]) =>
@@ -1227,11 +1172,11 @@ function MercadoPagoPoints() {
                 <button
                   onClick={saveSettings}
                   disabled={savingSettings}
-                  className="btn btn-primary btn-full"
-                  style={{ marginTop: '12px' }}
+                  className="btn btn-primary btn-full btn-sm"
+                  style={{ marginTop: '10px' }}
                 >
                   <FontAwesomeIcon icon={faSave} />
-                  {savingSettings ? ' Guardando...' : ' Guardar Configuración'}
+                  {savingSettings ? ' Guardando...' : ' Guardar'}
                 </button>
               )}
             </div>
@@ -1254,19 +1199,19 @@ function MercadoPagoPoints() {
               <form onSubmit={handleEditSubmit}>
                 <div className="form-group">
                   <label>Nombre</label>
-                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required style={{ fontSize: '12px' }} />
                 </div>
                 <div className="form-group">
                   <label>Access Token</label>
-                  <input type="text" value={formData.mercadopago_access_token} onChange={(e) => setFormData({ ...formData, mercadopago_access_token: e.target.value })} required />
+                  <input type="text" value={formData.mercadopago_access_token} onChange={(e) => setFormData({ ...formData, mercadopago_access_token: e.target.value })} required style={{ fontSize: '12px' }} />
                 </div>
                 <div className="form-group">
                   <label>Terminal ID</label>
-                  <input type="text" value={formData.mercadopago_terminal_id} onChange={(e) => setFormData({ ...formData, mercadopago_terminal_id: e.target.value })} required />
+                  <input type="text" value={formData.mercadopago_terminal_id} onChange={(e) => setFormData({ ...formData, mercadopago_terminal_id: e.target.value })} required style={{ fontSize: '12px' }} />
                 </div>
                 <div className="flex gap-3 justify-end">
-                  <button type="button" className="btn btn-secondary" onClick={() => { setShowModal(false); resetWizard(); }}>Cancelar</button>
-                  <button type="submit" className="btn btn-primary">Guardar</button>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setShowModal(false); resetWizard(); }}>Cancelar</button>
+                  <button type="submit" className="btn btn-primary btn-sm">Guardar</button>
                 </div>
               </form>
             )}
@@ -1274,57 +1219,48 @@ function MercadoPagoPoints() {
             {setupStep === 'token' && (
               <div>
                 <div className="form-group">
-                  <label>Nombre del Point (opcional)</label>
-                  <input type="text" value={setupName} onChange={(e) => setSetupName(e.target.value)} placeholder="Ej: Point Caja 1" />
+                  <label>Nombre (opcional)</label>
+                  <input type="text" value={setupName} onChange={(e) => setSetupName(e.target.value)} placeholder="Ej: Point Caja 1" style={{ fontSize: '12px' }} />
                 </div>
                 <div className="form-group">
-                  <label>Access Token de Mercado Pago *</label>
-                  <input type="text" value={setupToken} onChange={(e) => setSetupToken(e.target.value)} placeholder="APP_USR-..." required style={{ fontFamily: 'monospace', fontSize: '13px' }} />
-                  <small style={{ color: '#888', fontSize: '11px' }}>Encontralo en <a href="https://www.mercadopago.com/developers/panel/app" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>mercadopago.com/developers</a> &gt; Credenciales de produccion</small>
+                  <label>Access Token *</label>
+                  <input type="text" value={setupToken} onChange={(e) => setSetupToken(e.target.value)} placeholder="APP_USR-..." required style={{ fontFamily: 'monospace', fontSize: '12px' }} />
+                  <small style={{ color: '#888', fontSize: '10px' }}>En <a href="https://www.mercadopago.com/developers/panel/app" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>mercadopago.com/developers</a></small>
                 </div>
                 {detectError && (
-                  <div style={{ padding: '10px', background: '#f8d7da', color: '#721c24', borderRadius: '8px', fontSize: '13px', marginBottom: '12px' }}>
+                  <div style={{ padding: '8px', background: '#f8d7da', color: '#721c24', borderRadius: '6px', fontSize: '11px', marginBottom: '10px' }}>
                     {detectError}
                   </div>
                 )}
-                <button onClick={detectDevicesFromToken} disabled={detecting || !setupToken.trim()} className="btn btn-primary btn-full" style={{ marginTop: '8px' }}>
-                  <FontAwesomeIcon icon={detecting ? faSync : faSearch} spin={detecting} /> {detecting ? 'Buscando dispositivos...' : 'Detectar mis Points'}
+                <button onClick={detectDevicesFromToken} disabled={detecting || !setupToken.trim()} className="btn btn-primary btn-sm btn-full" style={{ marginTop: '6px' }}>
+                  <FontAwesomeIcon icon={detecting ? faSync : faSearch} spin={detecting} /> {detecting ? 'Buscando...' : 'Detectar Points'}
                 </button>
               </div>
             )}
 
             {setupStep === 'detect' && (
               <div>
-                <p style={{ fontSize: '13px', color: '#666', marginTop: 0 }}>
-                  Encontramos <strong>{detectedDevices.length}</strong> dispositivo{detectedDevices.length > 1 ? 's' : ''}. Selecciona el que quieres usar:
+                <p style={{ fontSize: '12px', color: '#666', marginTop: 0 }}>
+                  {detectedDevices.length} dispositivo{detectedDevices.length > 1 ? 's' : ''}. Selecciona:
                 </p>
                 {detectedDevices.map(dev => (
-                  <div key={dev.id} style={{ padding: '14px', background: '#fafafa', borderRadius: '10px', marginBottom: '8px', border: '2px solid #e0e0e0', cursor: 'pointer', transition: 'border-color 0.2s' }}
+                  <div key={dev.id} style={{ padding: '10px', background: '#fafafa', borderRadius: '8px', marginBottom: '6px', border: '2px solid #e0e0e0', cursor: 'pointer', transition: 'border-color 0.2s' }}
                     onClick={() => !savingSetup && selectDevice(dev)}
                     onMouseEnter={(e) => e.currentTarget.style.borderColor = '#2ecc71'}
                     onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e0e0e0'}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <div style={{ fontSize: '14px', fontWeight: '700' }}>{dev.id.split('__')[0]}</div>
-                        <div style={{ fontSize: '11px', color: '#888', fontFamily: 'monospace', marginTop: '2px' }}>{dev.id}</div>
-                        {dev.external_pos_id && <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>POS: {dev.external_pos_id}</div>}
+                        <div style={{ fontSize: '13px', fontWeight: '700' }}>{dev.id.split('__')[0]}</div>
+                        <div style={{ fontSize: '10px', color: '#888', fontFamily: 'monospace' }}>{dev.id}</div>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', fontWeight: '700', background: dev.operating_mode === 'PDV' ? '#2ecc7133' : '#3498db33', color: dev.operating_mode === 'PDV' ? '#27ae60' : '#2980b9' }}>
-                          {dev.operating_mode}
-                        </div>
-                        {dev.operating_mode !== 'PDV' && <div style={{ fontSize: '10px', color: '#888', marginTop: '4px' }}>Se configurara como PDV</div>}
+                      <div style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: '700', background: dev.operating_mode === 'PDV' ? '#2ecc7133' : '#3498db33', color: dev.operating_mode === 'PDV' ? '#27ae60' : '#2980b9' }}>
+                        {dev.operating_mode}
                       </div>
-                    </div>
-                    <div style={{ marginTop: '8px', textAlign: 'center' }}>
-                      <span style={{ fontSize: '12px', color: '#2ecc71', fontWeight: '600' }}>
-                        <FontAwesomeIcon icon={faLink} /> Click para agregar
-                      </span>
                     </div>
                   </div>
                 ))}
-                {savingSetup && <p style={{ textAlign: 'center', color: '#888', fontSize: '13px' }}>Configurando dispositivo...</p>}
-                <button onClick={() => setSetupStep('token')} className="btn btn-secondary btn-full" style={{ marginTop: '8px' }}>
+                {savingSetup && <p style={{ textAlign: 'center', color: '#888', fontSize: '11px' }}>Configurando...</p>}
+                <button onClick={() => setSetupStep('token')} className="btn btn-secondary btn-sm btn-full" style={{ marginTop: '6px' }}>
                   Volver
                 </button>
               </div>
