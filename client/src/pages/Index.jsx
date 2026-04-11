@@ -129,15 +129,9 @@ function Index() {
     setLoadingPos(true);
     setPendingStore(store);
     try {
-      const [mpRes, tuuRes] = await Promise.all([
-        fetch('/api/mercado-pago-terminals?store_id=' + store.id),
-        fetch('/api/tuu/devices?store_id=' + store.id)
-      ]);
-      const mpData = mpRes.ok ? await mpRes.json() : [];
-      const tuuData = tuuRes.ok ? await tuuRes.json() : {};
-      const mpList = (Array.isArray(mpData) ? mpData : []).map(t => ({ id: t.id, name: t.name, provider: 'mercadopago' }));
-      const tuuList = (Array.isArray(tuuData.posDevices) ? tuuData.posDevices : []).map(d => ({ id: d.id, name: d.name, provider: 'tuu' }));
-      const allPos = [...mpList, ...tuuList];
+      const res = await fetch('/api/public/pos-devices/' + store.id);
+      const data = res.ok ? await res.json() : [];
+      const allPos = (Array.isArray(data) ? data : []).map(d => ({ id: d.id, name: d.name, provider: d.provider }));
       setStorePos(allPos);
       if (allPos.length === 1) {
         localStorage.setItem(STORAGE_KEYS.lastTerminalId, allPos[0].id);
