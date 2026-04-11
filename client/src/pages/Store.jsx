@@ -189,7 +189,7 @@ function Store() {
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
-  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '' });
+  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '' });
   const [prodImageFile, setProdImageFile] = useState(null);
   const [prodSaving, setProdSaving] = useState(false);
   const [prodNewExtras, setProdNewExtras] = useState([]);
@@ -1495,6 +1495,7 @@ function Store() {
       price: product?.price?.toString() || '',
       category_id: product?.category_id?.toString() || '',
       description: product?.description || '',
+      barcode: product?.barcode || '',
       stock: product?.stock?.toString() || '0',
       unlimited_stock: product?.unlimited_stock ?? true,
       has_extras: product?.has_extras || false,
@@ -1538,6 +1539,7 @@ function Store() {
       formData.append('price', parseFloat(prodForm.price));
       formData.append('category_id', prodForm.category_id || '');
       formData.append('description', prodForm.description || '');
+      formData.append('barcode', prodForm.barcode || '');
       formData.append('has_extras', prodForm.has_extras);
       formData.append('has_ingredients', prodForm.has_ingredients);
       formData.append('max_extras', prodForm.has_extras ? (parseInt(prodForm.max_extras) || 0) : 0);
@@ -3207,6 +3209,14 @@ function Store() {
                 onChange={(e) => setProdForm({ ...prodForm, description: e.target.value })}
                 placeholder="Descripción (opcional)"
                 className="store-prod-modal-input"
+              />
+              <input
+                type="text"
+                value={prodForm.barcode}
+                onChange={(e) => setProdForm({ ...prodForm, barcode: e.target.value })}
+                placeholder="Código de barras (escanear o escribir)"
+                className="store-prod-modal-input"
+                style={{ fontFamily: 'monospace', letterSpacing: '1px' }}
               />
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer', flex: 1 }}>

@@ -1037,6 +1037,7 @@ app.post('/api/public/:code/products', upload.single('image'), async (req, res) 
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
     const product = await createProduct(auth.store.id, {
       name: req.body.name, description: req.body.description || '',
+      barcode: req.body.barcode || null,
       price: parseFloat(req.body.price) || 0, category_id: req.body.category_id || null, image: imageUrl,
       has_extras: req.body.has_extras === 'true' || req.body.has_extras === true,
       has_ingredients: req.body.has_ingredients === 'true' || req.body.has_ingredients === true,
@@ -1072,6 +1073,7 @@ app.put('/api/public/:code/products/:id', upload.single('image'), async (req, re
 
     const product = await updateProduct(parseInt(req.params.id), auth.store.id, {
       name: req.body.name, description: req.body.description || '',
+      barcode: req.body.barcode || null,
       price: parseFloat(req.body.price) || 0, category_id: req.body.category_id || null, image: imageUrl,
       has_extras: req.body.has_extras === 'true' || req.body.has_extras === true,
       has_ingredients: req.body.has_ingredients === 'true' || req.body.has_ingredients === true,

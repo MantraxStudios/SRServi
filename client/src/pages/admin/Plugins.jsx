@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUpload, faPlug, faToggleOn, faToggleOff, faTrash, faCog, faSave, faPuzzlePiece, faGlobe } from '@fortawesome/free-solid-svg-icons';
+import { faUpload, faPlug, faToggleOn, faToggleOff, faTrash, faCog, faSave, faPuzzlePiece, faGlobe, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { usePlugins } from '../../context/PluginContext';
 import { COUNTRIES, DEFAULT_COUNTRY, getCountry, loadPluginCountries, setPluginCountries, getPluginCountries } from '../../constants/pos';
@@ -8,8 +9,9 @@ import { COUNTRIES, DEFAULT_COUNTRY, getCountry, loadPluginCountries, setPluginC
 const API = 'https://srservi2.srautomatic.com';
 
 function Plugins() {
+  const navigate = useNavigate();
   const { selectedStore } = useStore();
-  const { refreshPlugins } = usePlugins();
+  const { refreshPlugins, registry } = usePlugins();
   const [plugins, setPlugins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -388,11 +390,26 @@ function Plugins() {
                 </div>
 
                 <div className="plugin-card-actions">
-                  {plugin.is_active && Object.keys(plugin.settings_schema || {}).length > 0 && (
-                    <button className="btn btn-sm btn-secondary" onClick={() => openSettings(plugin)}>
-                      <FontAwesomeIcon icon={faCog} /> Config
-                    </button>
-                  )}
+                  {plugin.is_active && (() => {
+                    const def = registry[plugin.plugin_id];
+                    const hasAdminPage = !!(def?.adminPage || def?.slots?.['admin-page']);
+                    const hasSettings = Object.keys(plugin.settings_schema || {}).length > 0;
+                    if (hasAdminPage) {
+                      return (
+                        <button className="btn btn-sm btn-secondary" onClick={() => navigate(`/admin/plugins/${plugin.plugin_id}`)}>
+                          <FontAwesomeIcon icon={faExternalLinkAlt} /> Config
+                        </button>
+                      );
+                    }
+                    if (hasSettings) {
+                      return (
+                        <button className="btn btn-sm btn-secondary" onClick={() => openSettings(plugin)}>
+                          <FontAwesomeIcon icon={faCog} /> Config
+                        </button>
+                      );
+                    }
+                    return null;
+                  })()}
                   <button className="btn btn-sm btn-danger" onClick={() => uninstallPlugin(plugin.plugin_id, plugin.name)}>
                     <FontAwesomeIcon icon={faTrash} />
                   </button>
