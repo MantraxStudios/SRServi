@@ -672,202 +672,271 @@ function MercadoPagoPoints() {
           }}>{installMessage}</div>
         )}
 
-        {/* POS nativos */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-          gap: '8px',
-          marginBottom: '16px'
-        }}>
-          {mpInCountry && (
-            <div style={{
-              background: '#fff',
-              border: '2px solid ' + GOLD,
-              borderRadius: '8px',
-              padding: '10px',
-              minWidth: '140px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                <div style={{
-                  width: '28px', height: '28px', borderRadius: '6px',
-                  background: '#009EE315',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '14px'
-                }}>💳</div>
-                <div style={{ flex: 1, fontSize: '12px', fontWeight: '700', color: '#111' }}>Mercado Pago Point</div>
-                <span style={{ padding: '2px 6px', background: GOLD + '22', color: '#57410a', borderRadius: '6px', fontSize: '9px', fontWeight: '700' }}>NATIVO</span>
-              </div>
-              <button onClick={scrollToMP} className="btn btn-primary btn-sm" style={{ width: '100%', fontSize: '10px', padding: '4px 6px' }}>
-                <FontAwesomeIcon icon={faLink} /> Configurar
-              </button>
-            </div>
-          )}
-
-          <div style={{
-            background: '#fff',
-            border: '2px solid #9c27b0',
-            borderRadius: '8px',
-            padding: '10px',
-            minWidth: '140px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-              <div style={{
-                width: '28px', height: '28px', borderRadius: '6px',
-                background: '#9c27b015',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '14px'
-              }}>📱</div>
-              <div style={{ flex: 1, fontSize: '12px', fontWeight: '700', color: '#111' }}>Tuu POS</div>
-              <span style={{ padding: '2px 6px', background: '#9c27b022', color: '#6a1b9a', borderRadius: '6px', fontSize: '9px', fontWeight: '700' }}>NATIVO</span>
-            </div>
-            <button onClick={() => setTuuConfigOpen(true)} className="btn btn-sm" style={{ width: '100%', fontSize: '10px', padding: '4px 6px', background: '#9c27b0', color: '#fff' }}>
-              <FontAwesomeIcon icon={faLink} /> Configurar
-            </button>
-          </div>
-        </div>
-
-        {/* ==== Sección: TUU POS nativo ==== */}
-        <div style={{ marginTop: '16px' }}>
-          <h2 style={{ fontSize: '14px', color: '#111', margin: '0 0 8px' }}>
-            <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: '6px', color: '#9c27b0' }} />
-            Tuu POS
+        {/* ==== Lista unificada de Terminales POS ==== */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', marginTop: '8px', flexWrap: 'wrap', gap: '8px' }}>
+          <h2 style={{ fontSize: '16px', color: '#111', margin: 0, fontWeight: '800' }}>
+            Terminales POS
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{
-              background: '#fff',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                padding: '8px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: '#fafafa',
-                borderBottom: '1px solid #e5e7eb'
-              }}>
-                <div style={{
-                  width: '28px', height: '28px', borderRadius: '6px',
-                  background: '#9c27b022', color: '#9c27b0',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '14px'
-                }}>
-                  <FontAwesomeIcon icon={faCreditCard} />
-                </div>
-                <div style={{ flex: 1, fontSize: '12px', fontWeight: '700', color: '#111' }}>
-                  Tuu POS
-                </div>
-                <span style={{ padding: '2px 6px', background: '#9c27b022', color: '#9c27b0', borderRadius: '6px', fontSize: '9px', fontWeight: '700' }}>NATIVO</span>
-                <button
-                  className="btn btn-sm"
-                  onClick={() => setTuuConfigOpen(true)}
-                  style={{
-                    background: '#9c27b020',
-                    color: '#6a1b9a',
-                    border: '1px solid #9c27b040',
-                    fontWeight: '700',
-                    fontSize: '10px',
-                    padding: '4px 8px'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faCog} /> Config
-                </button>
-              </div>
-              {tuuApiKey && tuuPosDevices.length > 0 && (
-                <div style={{ padding: '6px 12px', fontSize: '11px', color: '#166534', background: '#f0fdf4' }}>
-                  <FontAwesomeIcon icon={faCheckCircle} style={{ marginRight: '4px' }} />
-                  {tuuPosDevices.length} POS configurado(s)
-                </div>
-              )}
-              {!tuuApiKey && (
-                <div style={{ padding: '6px 12px', fontSize: '11px', color: '#92400e', background: '#fffbeb' }}>
-                  <FontAwesomeIcon icon={faExclamationTriangle} style={{ marginRight: '4px' }} />
-                  Sin API Key — abre Config para configurar
-                </div>
-              )}
-            </div>
-            <div style={{ padding: '6px 10px', fontSize: '10px', color: '#6b7280', background: '#fafafa', borderTop: '1px solid #e5e7eb' }}>
-              API Key en <a href="https://integrations.payment.haulmer.com" target="_blank" style={{ color: '#6a1b9a' }}>integrations.payment.haulmer.com</a>
-            </div>
-          </div>
+          <button onClick={() => { resetWizard(); setShowModal(true); }} className="btn btn-primary btn-sm">
+            <FontAwesomeIcon icon={faPlus} /> Agregar Terminal
+          </button>
         </div>
 
-
-        {/* Sección Mercado Pago Point (solo si aplica al país o ya hay terminales) */}
-        {showMPSection && (
-          <div id="mp-point-section">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', marginTop: '20px', flexWrap: 'wrap', gap: '8px' }}>
-              <h2 style={{ fontSize: '14px', color: '#111', margin: 0 }}>
-                <FontAwesomeIcon icon={faCreditCard} style={{ color: '#009EE3', marginRight: '6px' }} />
-                Mercado Pago Point
-              </h2>
-              <button onClick={() => { resetWizard(); setShowModal(true); }} className="btn btn-primary btn-sm">
-                <FontAwesomeIcon icon={faPlus} /> Agregar
-              </button>
+        {/* ==== Mercado Pago Point ==== */}
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#009EE315', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>💳</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#111' }}>Mercado Pago Point</div>
+              <div style={{ fontSize: '11px', color: '#666' }}>Cobro con tarjeta vía terminal Mercado Pago</div>
             </div>
+            <span style={{ padding: '3px 8px', background: '#fef3c7', color: '#92400e', borderRadius: '6px', fontSize: '10px', fontWeight: '700' }}>MERCADO PAGO</span>
+          </div>
 
+          {showMPSection && (
             <div style={{ marginBottom: '12px', padding: '8px 12px', background: '#fffbe6', border: '1px solid #e6c200', borderRadius: '6px' }}>
               <p style={{ margin: 0, fontSize: '11px', color: '#555' }}>
                 <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#e6a800', marginRight: '4px' }} />
                 1. App Mercado Pago: <strong>Tu negocio &gt; Sucursales y cajas</strong>. 2. Vincula tu Point al <strong>escanear QR</strong>. 3. Token en <a href="https://www.mercadopago.com/developers/panel/app" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>mercadopago.com/developers</a>
               </p>
             </div>
+          )}
 
-            {terminals.length === 0 ? (
-              <div className="empty-state">
-                <h3 className="empty-state-title">Sin máquinas configuradas</h3>
-                <p className="empty-state-text">Agrega tu primer Point para empezar a cobrar.</p>
+          {terminals.length === 0 ? (
+            <div style={{ padding: '20px', textAlign: 'center', border: '2px dashed #e5e7eb', borderRadius: '10px', background: '#fafafa' }}>
+              <p style={{ color: '#9ca3af', margin: 0, fontSize: '13px' }}>Sin terminals configurados</p>
+            </div>
+          ) : (
+            <div className="terminals-grid">
+              {terminals.map(terminal => {
+                const devices = mpDevices[terminal.id] || [];
+                const isLoadingDevs = loadingDevices[terminal.id];
+                return (
+                  <div key={terminal.id} className="terminal-card">
+                    <div className="terminal-card-actions">
+                      <button onClick={() => openEditModal(terminal)} className="store-action-btn"><FontAwesomeIcon icon={faEdit} /></button>
+                      <button onClick={() => handleDelete(terminal.id)} className="store-action-btn danger"><FontAwesomeIcon icon={faTrash} /></button>
+                    </div>
+                    <h3 className="terminal-card-name">{terminal.name}</h3>
+                    <div className="terminal-field-label">Terminal ID</div>
+                    <div className="terminal-field-value" style={{ fontSize: '11px', wordBreak: 'break-all' }}>{terminal.mercadopago_terminal_id}</div>
+                    <div className="terminal-field-label">Access Token</div>
+                    <div className="terminal-field-value masked">{terminal.mercadopago_access_token?.slice(0, 20)}...</div>
+
+                    <div style={{ marginTop: '16px', borderTop: '1px solid #e0e0e0', paddingTop: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#555' }}>Estado del dispositivo</span>
+                        <button onClick={() => fetchDevices(terminal.id)} disabled={isLoadingDevs} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', fontSize: '11px' }}>
+                          <FontAwesomeIcon icon={faSync} spin={isLoadingDevs} />
+                        </button>
+                      </div>
+                      {devices.map(dev => (
+                        <div key={dev.id} style={{ padding: '8px', background: '#fafafa', borderRadius: '8px', border: '1px solid #eee', marginBottom: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', color: '#666' }}>Modo:</span>
+                            <button onClick={() => changeMode(terminal.id, dev.id, 'PDV')} disabled={changingMode === dev.id}
+                              style={{ padding: '3px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', cursor: 'pointer', border: '2px solid', background: dev.operating_mode === 'PDV' ? '#2ecc71' : '#fff', color: dev.operating_mode === 'PDV' ? '#fff' : '#555', borderColor: dev.operating_mode === 'PDV' ? '#2ecc71' : '#ddd' }}>
+                              {dev.operating_mode === 'PDV' && <FontAwesomeIcon icon={faCheckCircle} style={{ marginRight: '3px' }} />}PDV
+                            </button>
+                            <button onClick={() => changeMode(terminal.id, dev.id, 'STANDALONE')} disabled={changingMode === dev.id}
+                              style={{ padding: '3px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', cursor: 'pointer', border: '2px solid', background: dev.operating_mode === 'STANDALONE' ? '#3498db' : '#fff', color: dev.operating_mode === 'STANDALONE' ? '#fff' : '#555', borderColor: dev.operating_mode === 'STANDALONE' ? '#3498db' : '#ddd' }}>
+                              {dev.operating_mode === 'STANDALONE' && <FontAwesomeIcon icon={faCheckCircle} style={{ marginRight: '3px' }} />}STANDALONE
+                            </button>
+                            {changingMode === dev.id && <span style={{ fontSize: '10px', color: '#888' }}>...</span>}
+                          </div>
+                        </div>
+                      ))}
+                      {!isLoadingDevs && devices.length === 0 && <p style={{ fontSize: '11px', color: '#999', margin: 0 }}>Sin datos del dispositivo</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ==== Tuu POS ==== */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#9c27b015', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>📱</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#111' }}>Tuu POS</div>
+              <div style={{ fontSize: '11px', color: '#666' }}>Cobro con tarjeta vía terminal Tuu / Haulmer</div>
+            </div>
+            <span style={{ padding: '3px 8px', background: '#9c27b022', color: '#6a1b9a', borderRadius: '6px', fontSize: '10px', fontWeight: '700' }}>TUU</span>
+          </div>
+
+          <div style={{ marginBottom: '8px', padding: '8px 12px', background: '#f3e5f5', border: '2px solid #9c27b0', borderRadius: '6px' }}>
+            <p style={{ margin: 0, fontSize: '11px', color: '#444' }}>
+              <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#6a1b9a', marginRight: '4px' }} />
+              Configura tu API Key en <a href="https://integrations.payment.haulmer.com" target="_blank" style={{ color: '#6a1b9a', fontWeight: '700' }}>integrations.payment.haulmer.com</a> y agrega tus POS.
+            </p>
+          </div>
+
+          {/* API Key config */}
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <input
+                value={tuuApiKey}
+                onChange={e => setTuuApiKey(e.target.value)}
+                placeholder="API Key de Haulmer"
+                style={{ flex: 2, minWidth: '180px', padding: '7px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px' }}
+              />
+              <select
+                value={tuuDteType}
+                onChange={e => setTuuDteType(parseInt(e.target.value))}
+                style={{ flex: 1, minWidth: '120px', padding: '7px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px' }}
+              >
+                <option value={0}>Sin DTE</option>
+                <option value={39}>Boleta (39)</option>
+                <option value={41}>Boleta Exenta (41)</option>
+                <option value={33}>Factura (33)</option>
+                <option value={34}>Factura Exenta (34)</option>
+              </select>
+              <button
+                onClick={async () => {
+                  if (!tuuApiKey.trim()) { setTuuSaveMsg('Ingresa la API Key'); return; }
+                  setTuuSaving(true); setTuuSaveMsg('');
+                  const res = await fetch(API + '/api/tuu/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ store_id: selectedStore.id, api_key: tuuApiKey.trim(), dte_type: tuuDteType })
+                  });
+                  const data = await res.json();
+                  setTuuSaving(false);
+                  setTuuSaveMsg(data.success ? '✔ Guardado' : 'Error: ' + (data.error || 'desconocido'));
+                  if (data.success) fetchTuuConfig();
+                }}
+                disabled={tuuSaving}
+                className="btn btn-sm"
+                style={{ background: '#6a1b9a', color: '#fff', fontWeight: '700' }}
+              >
+                {tuuSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : <><FontAwesomeIcon icon={faSave} /> Guardar</>}
+              </button>
+            </div>
+            {tuuSaveMsg && <p style={{ marginTop: '6px', fontSize: '12px', color: tuuSaveMsg.includes('Error') ? '#dc3545' : '#155724' }}>{tuuSaveMsg}</p>}
+          </div>
+
+          {/* POS Devices */}
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700' }}>Dispositivos POS</label>
+              <button
+                onClick={() => setTuuAddForm({ name: '', serial: '' })}
+                className="btn btn-sm"
+                style={{ background: '#D4AF37', color: '#000', fontWeight: '700', fontSize: '12px' }}
+              >
+                + Agregar POS
+              </button>
+            </div>
+            {tuuAddForm && (
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                <input
+                  value={tuuAddForm.name}
+                  onChange={e => setTuuAddForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Nombre (ej: Caja 1)"
+                  style={{ flex: 1, minWidth: '120px', padding: '7px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px' }}
+                />
+                <input
+                  value={tuuAddForm.serial}
+                  onChange={e => setTuuAddForm(p => ({ ...p, serial: e.target.value }))}
+                  placeholder="Serial del POS"
+                  style={{ flex: 1, minWidth: '120px', padding: '7px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px' }}
+                />
+                <button
+                  onClick={async () => {
+                    if (!tuuAddForm.name || !tuuAddForm.serial) return;
+                    setTuuAdding(true);
+                    await fetch(API + '/api/tuu/devices', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ store_id: selectedStore.id, name: tuuAddForm.name, serial: tuuAddForm.serial })
+                    });
+                    setTuuAdding(false);
+                    setTuuAddForm(null);
+                    fetchTuuConfig();
+                  }}
+                  disabled={tuuAdding}
+                  className="btn btn-sm"
+                  style={{ background: '#6a1b9a', color: '#fff', fontWeight: '700' }}
+                >
+                  {tuuAdding ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Agregar'}
+                </button>
+                <button onClick={() => setTuuAddForm(null)} className="btn btn-sm btn-secondary" style={{ fontSize: '12px' }}>Cancelar</button>
+              </div>
+            )}
+            {tuuPosDevices.length === 0 ? (
+              <div style={{ padding: '16px', textAlign: 'center', border: '2px dashed #e5e7eb', borderRadius: '10px', background: '#fafafa' }}>
+                <p style={{ color: '#9ca3af', margin: 0, fontSize: '13px' }}>Sin POS configurados</p>
               </div>
             ) : (
-              <div className="terminals-grid">
-                {terminals.map(terminal => {
-                  const devices = mpDevices[terminal.id] || [];
-                  const isLoadingDevs = loadingDevices[terminal.id];
-                  return (
-                    <div key={terminal.id} className="terminal-card">
-                      <div className="terminal-card-actions">
-                        <button onClick={() => openEditModal(terminal)} className="store-action-btn"><FontAwesomeIcon icon={faEdit} /></button>
-                        <button onClick={() => handleDelete(terminal.id)} className="store-action-btn danger"><FontAwesomeIcon icon={faTrash} /></button>
-                      </div>
-                      <h3 className="terminal-card-name">{terminal.name}</h3>
-                      <div className="terminal-field-label">Terminal ID</div>
-                      <div className="terminal-field-value" style={{ fontSize: '11px', wordBreak: 'break-all' }}>{terminal.mercadopago_terminal_id}</div>
-                      <div className="terminal-field-label">Access Token</div>
-                      <div className="terminal-field-value masked">{terminal.mercadopago_access_token?.slice(0, 20)}...</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+                {tuuPosDevices.map(d => (
+                  <div key={d.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <strong style={{ fontSize: '13px', color: '#111' }}>{d.name}</strong>
+                      <div style={{ fontSize: '11px', color: '#666' }}>{d.serial}</div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!confirm('¿Eliminar este POS?')) return;
+                        await fetch(API + '/api/tuu/devices/' + d.id, { method: 'DELETE' });
+                        fetchTuuConfig();
+                      }}
+                      className="btn btn-sm"
+                      style={{ background: '#dc3545', color: '#fff', fontSize: '11px', padding: '4px 8px' }}
+                    >
+                      <FontAwesomeIcon icon={faTrash} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-                      <div style={{ marginTop: '16px', borderTop: '1px solid #e0e0e0', paddingTop: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: '700', color: '#555' }}>Estado del dispositivo</span>
-                          <button onClick={() => fetchDevices(terminal.id)} disabled={isLoadingDevs} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', fontSize: '11px' }}>
-                            <FontAwesomeIcon icon={faSync} spin={isLoadingDevs} />
-                          </button>
-                        </div>
-                        {devices.map(dev => (
-                          <div key={dev.id} style={{ padding: '8px', background: '#fafafa', borderRadius: '8px', border: '1px solid #eee' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '11px', color: '#666' }}>Modo:</span>
-                              <button onClick={() => changeMode(terminal.id, dev.id, 'PDV')} disabled={changingMode === dev.id}
-                                style={{ padding: '3px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', cursor: 'pointer', border: '2px solid', background: dev.operating_mode === 'PDV' ? '#2ecc71' : '#fff', color: dev.operating_mode === 'PDV' ? '#fff' : '#555', borderColor: dev.operating_mode === 'PDV' ? '#2ecc71' : '#ddd' }}>
-                                {dev.operating_mode === 'PDV' && <FontAwesomeIcon icon={faCheckCircle} style={{ marginRight: '3px' }} />}PDV
-                              </button>
-                              <button onClick={() => changeMode(terminal.id, dev.id, 'STANDALONE')} disabled={changingMode === dev.id}
-                                style={{ padding: '3px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', cursor: 'pointer', border: '2px solid', background: dev.operating_mode === 'STANDALONE' ? '#3498db' : '#fff', color: dev.operating_mode === 'STANDALONE' ? '#fff' : '#555', borderColor: dev.operating_mode === 'STANDALONE' ? '#3498db' : '#ddd' }}>
-                                {dev.operating_mode === 'STANDALONE' && <FontAwesomeIcon icon={faCheckCircle} style={{ marginRight: '3px' }} />}STANDALONE
-                              </button>
-                              {changingMode === dev.id && <span style={{ fontSize: '10px', color: '#888' }}>...</span>}
-                            </div>
-                          </div>
-                        ))}
-                        {!isLoadingDevs && devices.length === 0 && <p style={{ fontSize: '11px', color: '#999', margin: 0 }}>Sin datos del dispositivo</p>}
+          {/* Device-POS Assignment */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>Asignar POS a Dispositivos</label>
+            {tuuStoreDevices.length === 0 ? (
+              <div style={{ padding: '12px', textAlign: 'center', border: '2px dashed #e5e7eb', borderRadius: '10px', background: '#fafafa' }}>
+                <p style={{ color: '#9ca3af', margin: 0, fontSize: '12px' }}>Abre la tienda en cada dispositivo para registrarlo</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {tuuStoreDevices.map(sd => {
+                  const assigned = tuuAssignments.find(a => a.device_uid === sd.device_uid);
+                  return (
+                    <div key={sd.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#111' }}>{sd.device_name || sd.device_uid}</div>
+                        <div style={{ fontSize: '10px', color: '#999' }}>{sd.device_uid}</div>
                       </div>
+                      <select
+                        value={assigned?.tuu_device_id || ''}
+                        onChange={async e => {
+                          const posId = e.target.value;
+                          if (!posId) return;
+                          await fetch(API + '/api/tuu/devices/assign', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ store_id: selectedStore.id, device_uid: sd.device_uid, tuu_device_id: parseInt(posId) })
+                          });
+                          fetchTuuConfig();
+                        }}
+                        style={{ padding: '6px 8px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '12px' }}
+                      >
+                        <option value="">Sin POS</option>
+                        {tuuPosDevices.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
                     </div>
                   );
                 })}
               </div>
             )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Modal: selector de país */}
