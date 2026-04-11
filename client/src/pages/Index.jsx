@@ -8,6 +8,8 @@ const STORAGE_KEYS = {
   lastClientCode: 'srservi_last_client_code',
   lastClientStores: 'srservi_last_client_stores',
   lastClientName: 'srservi_last_client_name',
+  lastTerminalId: 'srservi_last_terminal_id',
+  lastTerminalName: 'srservi_last_terminal_name',
 };
 
 function Index() {
@@ -16,6 +18,9 @@ function Index() {
   const [loading, setLoading] = useState(false);
   const [clientStores, setClientStores] = useState(null);
   const [clientName, setClientName] = useState('');
+  const [pendingStore, setPendingStore] = useState(null);
+  const [storePos, setStorePos] = useState([]);
+  const [loadingPos, setLoadingPos] = useState(false);
   const navigate = useNavigate();
 
   // On mount: auto-resume the last session so workers don't have to re-enter
