@@ -96,6 +96,21 @@ function MercadoPagoPoints() {
   const [tuuAddForm, setTuuAddForm] = useState({ name: '', serial: '' });
   const [tuuAdding, setTuuAdding] = useState(false);
 
+  // ==== Unified POS list (unified POS list + modal) ====
+  const [posList, setPosList] = useState([]);
+  const [showPosModal, setShowPosModal] = useState(false);
+  const [posTab, setPosTab] = useState(0);
+  const [mpNewName, setMpNewName] = useState('');
+  const [mpNewToken, setMpNewToken] = useState('');
+  const [mpNewTerminalId, setMpNewTerminalId] = useState('');
+  const [savingMp, setSavingMp] = useState(false);
+  const [mpSaveMsg, setMpSaveMsg] = useState('');
+  const [tuuNewName, setTuuNewName] = useState('');
+  const [tuuNewSerial, setTuuNewSerial] = useState('');
+  const [tuuNewDteType, setTuuNewDteType] = useState(0);
+  const [savingTuu, setSavingTuu] = useState(false);
+  const [tuuSaveMsg2, setTuuSaveMsg2] = useState('');
+
   // Settings modal
   const [settingsOpen, setSettingsOpen] = useState(null);
   const [settingsData, setSettingsData] = useState({});
@@ -123,10 +138,102 @@ function MercadoPagoPoints() {
   const [detectError, setDetectError] = useState('');
   const [savingSetup, setSavingSetup] = useState(false);
 
+  // ==== Unified POS helpers ====
+  const buildPosList = (mpTerminals, tuuDevices, tuuAssignments, tuuStoreDevs) => {
+    const mpList = (Array.isArray(mpTerminals) ? mpTerminals : []).map(t => ({
+      id: t.id,
+      provider: 'mercadopago',
+      name: t.name,
+      terminal_id: t.mercadopago_terminal_id,
+      store_id: t.store_id,
+    }));
+    const tuuList = (Array.isArray(tuuDevices) ? tuuDevices : []).map(d => {
+      const assign = (Array.isArray(tuuAssignments) ? tuuAssignments : []).find(a => a.tuu_device_id === d.id);
+      const storeDev = (Array.isArray(tuuStoreDevs) ? tuuStoreDevs : []).find(s => s.device_uid === assign?.device_uid);
+      return {
+        id: d.id,
+        provider: 'tuu',
+        name: d.name,
+        serial: d.serial,
+        device_uid: assign?.device_uid || null,
+        assigned: !!storeDev,
+        assigned_name: storeDev?.device_name || null,
+        store_id: d.store_id,
+      };
+    });
+    return [...mpList, ...tuuList];
+  };
+
+  const fetchPosList = async () => {
+    if (!selectedStore?.id) return;
+    const [mpRes, tuuRes] = await Promise.all([
+      fetch(API + '/api/mercado-pago-terminals').catch(() => null),
+      fetch(API + '/api/tuu/devices?store_id=' + selectedStore.id).catch(() => null),
+    ]);
+    const tuuData = tuuRes?.ok ? await tuuRes.json() : { posDevices: [], storeDevices: [], assignments: [] };
+    let mpTerminals = [];
+    if (mpRes?.ok) {
+      const raw = await mpRes.json();
+      mpTerminals = Array.isArray(raw) ? raw : (raw.terminals || []);
+    }
+    setPosList(buildPosList(mpTerminals, tuuData.posDevices || [], tuuData.assignments || [], tuuData.storeDevices || []));
+  };
+
+  const saveMpPos = async () => {
+    if (!mpNewName.trim() || !mpNewToken.trim() || !mpNewTerminalId.trim()) { setMpSaveMsg('Completa todos los campos'); return; }
+    setSavingMp(true); setMpSaveMsg('');
+    try {
+      const res = await fetch(API + '/api/mercadopago-terminal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ name: mpNewName.trim(), mercadopago_access_token: mpNewToken.trim(), mercadopago_terminal_id: mpNewTerminalId.trim(), store_id: selectedStore.id })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMpSaveMsg('✔ Guardado');
+        setMpNewName(''); setMpNewToken(''); setMpNewTerminalId('');
+        fetchPosList();
+        setTimeout(() => setShowPosModal(false), 1200);
+      } else { setMpSaveMsg('Error: ' + (data.error || 'revisalo')); }
+    } catch { setMpSaveMsg('Error de conexion'); }
+    finally { setSavingMp(false); }
+  };
+
+  const saveTuuPos = async () => {
+    if (!tuuNewName.trim() || !tuuNewSerial.trim()) { setTuuSaveMsg2('Completa todos los campos'); return; }
+    setSavingTuu(true); setTuuSaveMsg2('');
+    try {
+      const res = await fetch(API + '/api/tuu/devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: selectedStore.id, name: tuuNewName.trim(), serial: tuuNewSerial.trim(), dte_type: tuuNewDteType })
+      });
+      const data = await res.json();
+      if (res.ok || data.success) {
+        setTuuSaveMsg2('✔ Guardado');
+        setTuuNewName(''); setTuuNewSerial('');
+        fetchPosList();
+        setTimeout(() => setShowPosModal(false), 1200);
+      } else { setTuuSaveMsg2('Error: ' + (data.error || 'revisalo')); }
+    } catch { setTuuSaveMsg2('Error de conexion'); }
+    finally { setSavingTuu(false); }
+  };
+
+  const deletePos = async (pos) => {
+    if (!confirm('¿Eliminar este terminal?')) return;
+    if (pos.provider === 'mercadopago') {
+      await fetch(API + '/api/mercadopago-terminal/' + pos.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+    } else if (pos.provider === 'tuu') {
+      await fetch(API + '/api/tuu/devices/' + pos.id, { method: 'DELETE' });
+    }
+    fetchPosList();
+  };
+
   useEffect(() => {
     fetchTerminals();
     fetchWorkshopPlugins();
     fetchTuuConfig();
+    fetchPosList();
     setPluginCountriesMap(loadPluginCountries());
   }, []);
 
@@ -671,271 +778,129 @@ function MercadoPagoPoints() {
           }}>{installMessage}</div>
         )}
 
-        {/* ==== Lista unificada de Terminales POS ==== */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', marginTop: '8px', flexWrap: 'wrap', gap: '8px' }}>
-          <h2 style={{ fontSize: '16px', color: '#111', margin: 0, fontWeight: '800' }}>
-            Terminales POS
-          </h2>
-          <button onClick={() => { resetWizard(); setShowModal(true); }} className="btn btn-primary btn-sm">
+        {/* ==== HEADER UNIFICADO ==== */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', marginTop: '8px' }}>
+          <h2 style={{ fontSize: '16px', color: '#111', margin: 0, fontWeight: '800' }}>Terminales POS</h2>
+          <button onClick={() => { setShowPosModal(true); setPosTab(0); }} className="btn btn-primary btn-sm" style={{ background: '#D4AF37', color: '#000', fontWeight: '800' }}>
             <FontAwesomeIcon icon={faPlus} /> Agregar Terminal
           </button>
         </div>
 
-        {/* ==== Mercado Pago Point ==== */}
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#009EE315', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>💳</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '14px', fontWeight: '800', color: '#111' }}>Mercado Pago Point</div>
-              <div style={{ fontSize: '11px', color: '#666' }}>Cobro con tarjeta vía terminal Mercado Pago</div>
-            </div>
-            <span style={{ padding: '3px 8px', background: '#fef3c7', color: '#92400e', borderRadius: '6px', fontSize: '10px', fontWeight: '700' }}>MERCADO PAGO</span>
+        {/* ==== LISTA UNIFICADA DE POS ==== */}
+        {posList.length === 0 ? (
+          <div style={{ padding: '32px', textAlign: 'center', border: '2px dashed #e5e7eb', borderRadius: '12px', background: '#fafafa' }}>
+            <div style={{ fontSize: '32px', marginBottom: '8px' }}>💳</div>
+            <p style={{ color: '#9ca3af', margin: '0 0 8px', fontSize: '14px' }}>Sin terminals POS configurados</p>
+            <p style={{ color: '#bbb', margin: 0, fontSize: '12px' }}>Presiona "Agregar Terminal" para vincular tu primera terminal</p>
           </div>
-
-          {showMPSection && (
-            <div style={{ marginBottom: '12px', padding: '8px 12px', background: '#fffbe6', border: '1px solid #e6c200', borderRadius: '6px' }}>
-              <p style={{ margin: 0, fontSize: '11px', color: '#555' }}>
-                <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#e6a800', marginRight: '4px' }} />
-                1. App Mercado Pago: <strong>Tu negocio &gt; Sucursales y cajas</strong>. 2. Vincula tu Point al <strong>escanear QR</strong>. 3. Token en <a href="https://www.mercadopago.com/developers/panel/app" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>mercadopago.com/developers</a>
-              </p>
-            </div>
-          )}
-
-          {terminals.length === 0 ? (
-            <div style={{ padding: '20px', textAlign: 'center', border: '2px dashed #e5e7eb', borderRadius: '10px', background: '#fafafa' }}>
-              <p style={{ color: '#9ca3af', margin: 0, fontSize: '13px' }}>Sin terminals configurados</p>
-            </div>
-          ) : (
-            <div className="terminals-grid">
-              {terminals.map(terminal => {
-                const devices = mpDevices[terminal.id] || [];
-                const isLoadingDevs = loadingDevices[terminal.id];
-                return (
-                  <div key={terminal.id} className="terminal-card">
-                    <div className="terminal-card-actions">
-                      <button onClick={() => openEditModal(terminal)} className="store-action-btn"><FontAwesomeIcon icon={faEdit} /></button>
-                      <button onClick={() => handleDelete(terminal.id)} className="store-action-btn danger"><FontAwesomeIcon icon={faTrash} /></button>
-                    </div>
-                    <h3 className="terminal-card-name">{terminal.name}</h3>
-                    <div className="terminal-field-label">Terminal ID</div>
-                    <div className="terminal-field-value" style={{ fontSize: '11px', wordBreak: 'break-all' }}>{terminal.mercadopago_terminal_id}</div>
-                    <div className="terminal-field-label">Access Token</div>
-                    <div className="terminal-field-value masked">{terminal.mercadopago_access_token?.slice(0, 20)}...</div>
-
-                    <div style={{ marginTop: '16px', borderTop: '1px solid #e0e0e0', paddingTop: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: '700', color: '#555' }}>Estado del dispositivo</span>
-                        <button onClick={() => fetchDevices(terminal.id)} disabled={isLoadingDevs} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', fontSize: '11px' }}>
-                          <FontAwesomeIcon icon={faSync} spin={isLoadingDevs} />
-                        </button>
-                      </div>
-                      {devices.map(dev => (
-                        <div key={dev.id} style={{ padding: '8px', background: '#fafafa', borderRadius: '8px', border: '1px solid #eee', marginBottom: '4px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '11px', color: '#666' }}>Modo:</span>
-                            <button onClick={() => changeMode(terminal.id, dev.id, 'PDV')} disabled={changingMode === dev.id}
-                              style={{ padding: '3px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', cursor: 'pointer', border: '2px solid', background: dev.operating_mode === 'PDV' ? '#2ecc71' : '#fff', color: dev.operating_mode === 'PDV' ? '#fff' : '#555', borderColor: dev.operating_mode === 'PDV' ? '#2ecc71' : '#ddd' }}>
-                              {dev.operating_mode === 'PDV' && <FontAwesomeIcon icon={faCheckCircle} style={{ marginRight: '3px' }} />}PDV
-                            </button>
-                            <button onClick={() => changeMode(terminal.id, dev.id, 'STANDALONE')} disabled={changingMode === dev.id}
-                              style={{ padding: '3px 10px', fontSize: '11px', fontWeight: '700', borderRadius: '6px', cursor: 'pointer', border: '2px solid', background: dev.operating_mode === 'STANDALONE' ? '#3498db' : '#fff', color: dev.operating_mode === 'STANDALONE' ? '#fff' : '#555', borderColor: dev.operating_mode === 'STANDALONE' ? '#3498db' : '#ddd' }}>
-                              {dev.operating_mode === 'STANDALONE' && <FontAwesomeIcon icon={faCheckCircle} style={{ marginRight: '3px' }} />}STANDALONE
-                            </button>
-                            {changingMode === dev.id && <span style={{ fontSize: '10px', color: '#888' }}>...</span>}
-                          </div>
-                        </div>
-                      ))}
-                      {!isLoadingDevs && devices.length === 0 && <p style={{ fontSize: '11px', color: '#999', margin: 0 }}>Sin datos del dispositivo</p>}
-                    </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
+            {posList.map(pos => (
+              <div key={pos.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '4px' }}>
+                  <button onClick={() => deletePos(pos)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', fontSize: '14px', padding: '2px 4px' }} title="Eliminar">✕</button>
+                </div>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', background: pos.provider === 'mercadopago' ? '#009EE315' : pos.provider === 'tuu' ? '#9c27b015' : '#3b82f615' }}>
+                  {pos.provider === 'mercadopago' ? '💳' : pos.provider === 'tuu' ? '📱' : '📟'}
+                </div>
+                <div style={{ fontSize: '15px', fontWeight: '800', color: '#111', marginBottom: '2px' }}>{pos.name}</div>
+                <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>
+                  {pos.provider === 'mercadopago' ? 'Mercado Pago Point' : pos.provider === 'tuu' ? 'Tuu POS' : pos.provider === 'square' ? 'Square' : 'Sumup'}
+                </div>
+                {pos.provider === 'tuu' ? (
+                  <div style={{ fontSize: '10px', color: '#999', fontFamily: 'monospace' }}>Serial: {pos.serial || '—'}</div>
+                ) : pos.provider === 'mercadopago' ? (
+                  <div style={{ fontSize: '10px', color: '#999', fontFamily: 'monospace' }}>ID: {pos.terminal_id ? pos.terminal_id.slice(0,12) + '...' : '—'}</div>
+                ) : null}
+                {pos.device_uid && (
+                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: pos.assigned ? '#22c55e' : '#fbbf24' }}></div>
+                    <span style={{ fontSize: '10px', color: '#666' }}>{pos.assigned ? pos.assigned_name : 'Sin asignar'}</span>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ==== Tuu POS ==== */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#9c27b015', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>📱</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '14px', fontWeight: '800', color: '#111' }}>Tuu POS</div>
-              <div style={{ fontSize: '11px', color: '#666' }}>Cobro con tarjeta vía terminal Tuu / Haulmer</div>
-            </div>
-            <span style={{ padding: '3px 8px', background: '#9c27b022', color: '#6a1b9a', borderRadius: '6px', fontSize: '10px', fontWeight: '700' }}>TUU</span>
-          </div>
-
-          <div style={{ marginBottom: '8px', padding: '8px 12px', background: '#f3e5f5', border: '2px solid #9c27b0', borderRadius: '6px' }}>
-            <p style={{ margin: 0, fontSize: '11px', color: '#444' }}>
-              <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#6a1b9a', marginRight: '4px' }} />
-              Configura tu API Key en <a href="https://developers.tuu.cl" target="_blank" style={{ color: '#6a1b9a', fontWeight: '700' }}>developers.tuu.cl</a> (Menú &gt; Pagos &gt; Configuración &gt; API) y los datos del QR consultalos con tu proveedor Tuu.
-            </p>
-          </div>
-
-          {/* API Key config */}
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              <input
-                value={tuuApiKey}
-                onChange={e => setTuuApiKey(e.target.value)}
-                placeholder="API Key de Haulmer"
-                style={{ flex: 2, minWidth: '180px', padding: '7px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px' }}
-              />
-              <select
-                value={tuuDteType}
-                onChange={e => setTuuDteType(parseInt(e.target.value))}
-                style={{ flex: 1, minWidth: '120px', padding: '7px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px' }}
-              >
-                <option value={0}>Sin DTE</option>
-                <option value={39}>Boleta (39)</option>
-                <option value={41}>Boleta Exenta (41)</option>
-                <option value={33}>Factura (33)</option>
-                <option value={34}>Factura Exenta (34)</option>
-              </select>
-              <button
-                onClick={async () => {
-                  if (!tuuApiKey.trim()) { setTuuSaveMsg('Ingresa la API Key'); return; }
-                  setTuuSaving(true); setTuuSaveMsg('');
-                  const res = await fetch(API + '/api/tuu/config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ store_id: selectedStore.id, api_key: tuuApiKey.trim(), dte_type: tuuDteType })
-                  });
-                  const data = await res.json();
-                  setTuuSaving(false);
-                  setTuuSaveMsg(data.success ? '✔ Guardado' : 'Error: ' + (data.error || 'desconocido'));
-                  if (data.success) fetchTuuConfig();
-                }}
-                disabled={tuuSaving}
-                className="btn btn-sm"
-                style={{ background: '#6a1b9a', color: '#fff', fontWeight: '700' }}
-              >
-                {tuuSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : <><FontAwesomeIcon icon={faSave} /> Guardar</>}
-              </button>
-            </div>
-            {tuuSaveMsg && <p style={{ marginTop: '6px', fontSize: '12px', color: tuuSaveMsg.includes('Error') ? '#dc3545' : '#155724' }}>{tuuSaveMsg}</p>}
-          </div>
-
-          {/* POS Devices */}
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <label style={{ fontSize: '13px', fontWeight: '700' }}>Dispositivos POS</label>
-              <button
-                onClick={() => setTuuAddForm({ name: '', serial: '' })}
-                className="btn btn-sm"
-                style={{ background: '#D4AF37', color: '#000', fontWeight: '700', fontSize: '12px' }}
-              >
-                + Agregar POS
-              </button>
-            </div>
-            {tuuAddForm && (
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                <input
-                  value={tuuAddForm.name}
-                  onChange={e => setTuuAddForm(p => ({ ...p, name: e.target.value }))}
-                  placeholder="Nombre (ej: Caja 1)"
-                  style={{ flex: 1, minWidth: '120px', padding: '7px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px' }}
-                />
-                <input
-                  value={tuuAddForm.serial}
-                  onChange={e => setTuuAddForm(p => ({ ...p, serial: e.target.value }))}
-                  placeholder="Serial del POS"
-                  style={{ flex: 1, minWidth: '120px', padding: '7px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px' }}
-                />
-                <button
-                  onClick={async () => {
-                    if (!tuuAddForm.name || !tuuAddForm.serial) return;
-                    setTuuAdding(true);
-                    await fetch(API + '/api/tuu/devices', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ store_id: selectedStore.id, name: tuuAddForm.name, serial: tuuAddForm.serial })
-                    });
-                    setTuuAdding(false);
-                    setTuuAddForm(null);
-                    fetchTuuConfig();
-                  }}
-                  disabled={tuuAdding}
-                  className="btn btn-sm"
-                  style={{ background: '#6a1b9a', color: '#fff', fontWeight: '700' }}
-                >
-                  {tuuAdding ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Agregar'}
-                </button>
-                <button onClick={() => setTuuAddForm(null)} className="btn btn-sm btn-secondary" style={{ fontSize: '12px' }}>Cancelar</button>
+                )}
               </div>
-            )}
-            {tuuPosDevices.length === 0 ? (
-              <div style={{ padding: '16px', textAlign: 'center', border: '2px dashed #e5e7eb', borderRadius: '10px', background: '#fafafa' }}>
-                <p style={{ color: '#9ca3af', margin: 0, fontSize: '13px' }}>Sin POS configurados</p>
+            ))}
+          </div>
+        )}
+
+        {/* ==== MODAL AGREGAR POS ==== */}
+        {showPosModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+            <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '440px', maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <div style={{ padding: '20px 20px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#111' }}>Agregar Terminal</h3>
+                <button onClick={() => setShowPosModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#999', padding: '4px' }}>✕</button>
               </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
-                {tuuPosDevices.map(d => (
-                  <div key={d.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <strong style={{ fontSize: '13px', color: '#111' }}>{d.name}</strong>
-                      <div style={{ fontSize: '11px', color: '#666' }}>{d.serial}</div>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        if (!confirm('¿Eliminar este POS?')) return;
-                        await fetch(API + '/api/tuu/devices/' + d.id, { method: 'DELETE' });
-                        fetchTuuConfig();
-                      }}
-                      className="btn btn-sm"
-                      style={{ background: '#dc3545', color: '#fff', fontSize: '11px', padding: '4px 8px' }}
-                    >
-                      <FontAwesomeIcon icon={faTrash} />
-                    </button>
-                  </div>
+              <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', margin: '16px 0 0', padding: '0 20px' }}>
+                {['Mercado Pago', 'Tuu POS', 'Square', 'Sumup'].map((tab, i) => (
+                  <button key={tab} onClick={() => setPosTab(i)} style={{ padding: '10px 14px', background: 'none', border: 'none', borderBottom: posTab === i ? '3px solid #D4AF37' : '3px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: posTab === i ? '800' : '500', color: posTab === i ? '#111' : '#999', whiteSpace: 'nowrap' }}>{tab}</button>
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* Device-POS Assignment */}
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>Asignar POS a Dispositivos</label>
-            {tuuStoreDevices.length === 0 ? (
-              <div style={{ padding: '12px', textAlign: 'center', border: '2px dashed #e5e7eb', borderRadius: '10px', background: '#fafafa' }}>
-                <p style={{ color: '#9ca3af', margin: 0, fontSize: '12px' }}>Abre la tienda en cada dispositivo para registrarlo</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {tuuStoreDevices.map(sd => {
-                  const assigned = tuuAssignments.find(a => a.device_uid === sd.device_uid);
-                  return (
-                    <div key={sd.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#111' }}>{sd.device_name || sd.device_uid}</div>
-                        <div style={{ fontSize: '10px', color: '#999' }}>{sd.device_uid}</div>
-                      </div>
-                      <select
-                        value={assigned?.tuu_device_id || ''}
-                        onChange={async e => {
-                          const posId = e.target.value;
-                          if (!posId) return;
-                          await fetch(API + '/api/tuu/devices/assign', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ store_id: selectedStore.id, device_uid: sd.device_uid, tuu_device_id: parseInt(posId) })
-                          });
-                          fetchTuuConfig();
-                        }}
-                        style={{ padding: '6px 8px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '12px' }}
-                      >
-                        <option value="">Sin POS</option>
-                        {tuuPosDevices.map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
+              <div style={{ padding: '20px' }}>
+                {posTab === 0 && (
+                  <div>
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Nombre de la terminal</label>
+                      <input value={mpNewName} onChange={e => setMpNewName(e.target.value)} placeholder="Ej: Mostrador principal" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' }} />
+                    </div>
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Access Token de Mercado Pago</label>
+                      <input value={mpNewToken} onChange={e => setMpNewToken(e.target.value)} placeholder="APP_USR-xxxxxxxx-xxxx-xxxx" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+                    </div>
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Terminal ID</label>
+                      <input value={mpNewTerminalId} onChange={e => setMpNewTerminalId(e.target.value)} placeholder="E-Terminal-xxxxx" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+                    </div>
+                    <button onClick={saveMpPos} disabled={savingMp} className="btn btn-primary" style={{ width: '100%', background: '#009ee3', color: '#fff', fontWeight: '800', padding: '12px', borderRadius: '10px', border: 'none', fontSize: '15px' }}>
+                      {savingMp ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Guardar Mercado Pago'}
+                    </button>
+                  </div>
+                )}
+                {posTab === 1 && (
+                  <div>
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Nombre del POS</label>
+                      <input value={tuuNewName} onChange={e => setTuuNewName(e.target.value)} placeholder="Ej: Mostrador" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' }} />
+                    </div>
+                    <div style={{ marginBottom: '12px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Serial del POS</label>
+                      <input value={tuuNewSerial} onChange={e => setTuuNewSerial(e.target.value)} placeholder="XXXXXXXXXX" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+                    </div>
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Tipo de documento</label>
+                      <select value={tuuNewDteType} onChange={e => setTuuNewDteType(parseInt(e.target.value))} style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px' }}>
+                        <option value={0}>Sin boleta</option>
+                        <option value={39}>Boleta</option>
+                        <option value={41}>Boleta exenta</option>
+                        <option value={33}>Factura</option>
+                        <option value={34}>Factura exenta</option>
                       </select>
                     </div>
-                  );
-                })}
+                    <button onClick={saveTuuPos} disabled={savingTuu} className="btn btn-primary" style={{ width: '100%', background: '#6a1b9a', color: '#fff', fontWeight: '800', padding: '12px', borderRadius: '10px', border: 'none', fontSize: '15px' }}>
+                      {savingTuu ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Guardar Tuu POS'}
+                    </button>
+                  </div>
+                )}
+                {posTab === 2 && (
+                  <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                    <div style={{ fontSize: '36px', marginBottom: '12px' }}>🔲</div>
+                    <p style={{ color: '#666', fontSize: '13px' }}>Square próximamente</p>
+                    <p style={{ color: '#bbb', fontSize: '12px' }}>Las credenciales se configuran desde <a href="#" style={{ color: '#0066cc' }}>square.com</a></p>
+                  </div>
+                )}
+                {posTab === 3 && (
+                  <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                    <div style={{ fontSize: '36px', marginBottom: '12px' }}>📱</div>
+                    <p style={{ color: '#666', fontSize: '13px' }}>Sumup próximamente</p>
+                    <p style={{ color: '#bbb', fontSize: '12px' }}>Las credenciales se configuran desde <a href="#" style={{ color: '#0066cc' }}>sumup.com</a></p>
+                  </div>
+                )}
+                {posTab === 0 && mpSaveMsg && <p style={{ marginTop: '10px', fontSize: '12px', color: mpSaveMsg.includes('Error') ? '#dc3545' : '#155724' }}>{mpSaveMsg}</p>}
+                {posTab === 1 && tuuSaveMsg2 && <p style={{ marginTop: '10px', fontSize: '12px', color: tuuSaveMsg2.includes('Error') ? '#dc3545' : '#155724' }}>{tuuSaveMsg2}</p>}
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Modal: selector de país */}
