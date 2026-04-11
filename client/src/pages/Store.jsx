@@ -150,7 +150,9 @@ function Store() {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
   const [availableTerminals, setAvailableTerminals] = useState([]);
-  const [selectedTerminalId, setSelectedTerminalId] = useState('');
+  const [selectedTerminalId, setSelectedTerminalId] = useState(
+    localStorage.getItem('srservi_last_terminal_id') || ''
+  );
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponLoading, setCouponLoading] = useState(false);
