@@ -4523,6 +4523,13 @@ async function startServer() {
         } catch {
           [result] = await pool.execute('INSERT INTO tuu_devices (user_id, name, serial) VALUES (?, ?, ?)', [userId, name, serial]);
         }
+        const deviceUid = 'tuu-' + result.insertId + '-' + Date.now();
+        try {
+          await pool.execute(
+            'INSERT INTO tuu_device_pos (device_uid, tuu_device_id, store_id) VALUES (?, ?, ?)',
+            [deviceUid, result.insertId, parseInt(store_id)]
+          );
+        } catch { }
         res.json({ id: result.insertId, name, serial, device_id: device_id || '' });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
