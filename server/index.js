@@ -465,13 +465,7 @@ app.get('/api/public/pos-devices/:storeId', async (req, res) => {
         [storeIdInt]
       );
       mpLinked = rows;
-    } catch {
-      const [fallback] = await pool.execute(
-        `SELECT id, name, mercadopago_terminal_id, 'mercadopago' as provider FROM mercado_pago_terminals WHERE user_id = ?`,
-        [store.user_id]
-      );
-      mpLinked = fallback;
-    }
+    } catch (e) { console.log('[pos-devices] MP query error:', e.message); }
 
     let tuuDevices = [];
     try {
@@ -480,7 +474,9 @@ app.get('/api/public/pos-devices/:storeId', async (req, res) => {
         [storeIdInt]
       );
       tuuDevices = tuuRows;
-    } catch { tuuDevices = []; }
+    } catch (e) { console.log('[pos-devices] Tuu query error:', e.message); }
+
+    console.log('[pos-devices] storeIdInt:', storeIdInt, 'mpLinked:', mpLinked, 'tuuDevices:', tuuDevices);
 
     const mpFormatted = mpLinked.map(t => ({ id: t.id, name: t.name, device_id: t.mercadopago_terminal_id, provider: 'mercadopago' }));
     const tuuFormatted = tuuDevices.map(d => ({ id: d.id, name: d.name, device_id: d.device_id || d.serial, serial: d.serial, provider: 'tuu' }));
