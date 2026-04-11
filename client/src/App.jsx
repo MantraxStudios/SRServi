@@ -29,6 +29,7 @@ import PluginPage from './pages/admin/PluginPage';
 import Workshop from './pages/admin/Workshop';
 import Devices from './pages/admin/Devices';
 import Tickets from './pages/admin/Tickets';
+import Tutoriales from './pages/admin/Tutoriales';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import Store from './pages/Store';
@@ -100,6 +101,7 @@ function App() {
             <Route path="workshop" element={<Workshop />} />
             <Route path="devices" element={<Devices />} />
             <Route path="tickets" element={<Tickets />} />
+            <Route path="tutoriales" element={<Tutoriales />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="/worker-login" element={<WorkerLogin />} />

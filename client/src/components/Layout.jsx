@@ -8,7 +8,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 const API = 'https://srservi2.srautomatic.com';
 
 import {
-  faHome,
   faList,
   faBox,
   faFlask,
@@ -30,9 +29,10 @@ import {
   faLock,
   faPuzzlePiece,
   faGlobe,
-  faEye,
   faTabletAlt,
-  faTicketAlt
+  faTicketAlt,
+  faBookOpen,
+  faCashRegister
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -241,13 +241,11 @@ function Layout() {
           <ul className="sidebar-nav" onClick={(e) => { if (!e.target.closest('.dropdown-item') && !e.target.closest('.dropdown-header') && !e.target.closest('.dropdown-container')) setMenuOpen(false); }}>
             <li className="sidebar-section-label">Principal</li>
             <li>
-              <NavLink to="/admin" end onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faHome} />
-                <span>Inicio</span>
+              <NavLink to="/admin/tutoriales" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faBookOpen} />
+                <span>Tutoriales</span>
               </NavLink>
             </li>
-
-            <li className="sidebar-section-label">Tienda</li>
             {selectedStore && (
               <li>
                 <a
@@ -262,14 +260,12 @@ function Layout() {
                 </a>
               </li>
             )}
-            {selectedStore && (
-              <li>
-                <a href={`/store/${selectedStore.code}`} target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
-                  <FontAwesomeIcon icon={faEye} />
-                  <span>Vista Previa</span>
-                </a>
-              </li>
-            )}
+            <li>
+              <NavLink to="/admin/mercado-pago-points" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faCashRegister} />
+                <span>Vincular POS</span>
+              </NavLink>
+            </li>
 
             <li className="sidebar-section-label">Gestión</li>
             <li className="dropdown-container">
