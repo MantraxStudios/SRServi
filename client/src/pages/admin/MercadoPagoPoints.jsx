@@ -1,35 +1,26 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { usePlugins } from '../../context/PluginContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faEdit, faTrash, faCreditCard, faSync, faCheckCircle,
   faExclamationTriangle, faSearch, faLink, faGlobe, faCashRegister,
-  faPuzzlePiece
+  faPuzzlePiece, faDownload, faCodeBranch, faChevronDown, faChevronUp,
+  faSpinner, faCheck, faUser
 } from '@fortawesome/free-solid-svg-icons';
 import {
-  COUNTRIES, DEFAULT_COUNTRY, getCountry, loadCountry, saveCountry, getPluginCountries, loadPluginCountries
+  COUNTRIES, DEFAULT_COUNTRY, getCountry, loadCountry, saveCountry, loadPluginCountries
 } from '../../constants/pos';
 
 // POS nativo integrado: Mercado Pago Point (único built-in).
-const BUILTIN_MP_POINT = {
-  id: 'mercadopago_point',
-  name: 'Mercado Pago Point',
-  provider: 'Mercado Pago',
-  description: 'Terminal Point de Mercado Pago. Detectamos tus dispositivos automáticamente con tu Access Token.',
-  countries: ['CL', 'AR', 'BR', 'MX', 'PE', 'CO', 'UY'],
-  action: 'mp_point',
-  builtin: true,
-  color: '#009EE3',
-  emoji: '💳',
-};
+const BUILTIN_MP_POINT_COUNTRIES = ['CL', 'AR', 'BR', 'MX', 'PE', 'CO', 'UY'];
 
 const API = 'https://srservi2.srautomatic.com';
 const GOLD = '#D4AF37';
 
 function MercadoPagoPoints() {
   const { token } = useAuth();
-  const navigate = useNavigate();
+  const { refreshPlugins } = usePlugins();
 
   // País seleccionado (default: Chile)
   const [country, setCountry] = useState(loadCountry);
@@ -37,12 +28,16 @@ function MercadoPagoPoints() {
     try { return !localStorage.getItem('srservi_country'); } catch { return true; }
   });
 
-  // Proveedor POS seleccionado actualmente (cuando es MP mostramos el flujo interno)
-  const [activeProvider, setActiveProvider] = useState(null);
-
-  // Plugins instalados de la tienda (filtrados por país)
-  const [installedPlugins, setInstalledPlugins] = useState([]);
+  // ==== Workshop ====
+  const [workshopPlugins, setWorkshopPlugins] = useState([]);
+  const [installedIds, setInstalledIds] = useState([]);
   const [pluginCountriesMap, setPluginCountriesMap] = useState({});
+  const [loadingWorkshop, setLoadingWorkshop] = useState(true);
+  const [installing, setInstalling] = useState(null);
+  const [installMessage, setInstallMessage] = useState('');
+  const [expandedVersions, setExpandedVersions] = useState(null);
+  const [versions, setVersions] = useState([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
 
   // ==== Estado heredado del flujo Mercado Pago Point ====
   const [terminals, setTerminals] = useState([]);
@@ -63,50 +58,77 @@ function MercadoPagoPoints() {
 
   useEffect(() => {
     fetchTerminals();
-    fetchInstalledPlugins();
+    fetchWorkshopPlugins();
+    fetchInstalledIds();
     setPluginCountriesMap(loadPluginCountries());
   }, []);
 
-  const fetchInstalledPlugins = async () => {
+  const fetchWorkshopPlugins = async () => {
+    setLoadingWorkshop(true);
     try {
-      const response = await fetch(API + '/api/admin/plugins', {
-        headers: { Authorization: 'Bearer ' + token }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setInstalledPlugins(Array.isArray(data) ? data : []);
-      }
-    } catch { setInstalledPlugins([]); }
+      const response = await fetch(API + '/api/workshop/plugins?search=');
+      if (response.ok) setWorkshopPlugins(await response.json());
+    } catch { setWorkshopPlugins([]); }
+    finally { setLoadingWorkshop(false); }
   };
 
-  // POS disponibles = MP Point (si aplica al país) + plugins instalados cuyo país coincide.
-  const availablePOS = useMemo(() => {
-    const list = [];
-    if (BUILTIN_MP_POINT.countries.includes(country)) {
-      list.push(BUILTIN_MP_POINT);
-    }
-    installedPlugins.forEach(plugin => {
-      const countriesForPlugin = pluginCountriesMap[plugin.plugin_id] || [];
-      if (countriesForPlugin.includes(country)) {
-        list.push({
-          id: plugin.plugin_id,
-          name: plugin.name,
-          provider: plugin.author || 'Plugin',
-          description: plugin.description || 'Plugin instalado en tu tienda.',
-          countries: countriesForPlugin,
-          action: 'plugin',
-          pluginId: plugin.plugin_id,
-          isActive: plugin.is_active,
-          logo: plugin.logo,
-          color: '#6b7280',
-          emoji: '🧩',
-        });
+  const fetchInstalledIds = async () => {
+    try {
+      const response = await fetch(API + '/api/workshop/installed-ids', {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (response.ok) setInstalledIds(await response.json());
+    } catch {}
+  };
+
+  const getInstalled = (pluginId) => installedIds.find(i => i.plugin_id === pluginId);
+
+  const fetchVersions = async (pluginId) => {
+    if (expandedVersions === pluginId) { setExpandedVersions(null); return; }
+    setLoadingVersions(true);
+    setExpandedVersions(pluginId);
+    try {
+      const response = await fetch(API + `/api/workshop/plugins/${pluginId}/versions`);
+      if (response.ok) setVersions(await response.json());
+      else setVersions([]);
+    } catch { setVersions([]); }
+    finally { setLoadingVersions(false); }
+  };
+
+  const installPlugin = async (pluginId, version) => {
+    setInstalling(pluginId + (version || ''));
+    setInstallMessage('');
+    try {
+      const response = await fetch(API + `/api/workshop/install/${pluginId}`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version: version || undefined })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setInstallMessage(`"${data.plugin?.name || pluginId}" v${data.plugin?.version || ''} instalado. Actívalo en Plugins.`);
+        refreshPlugins && refreshPlugins();
+        fetchInstalledIds();
+      } else {
+        setInstallMessage(data.error || 'Error al instalar');
       }
+    } catch { setInstallMessage('Error al instalar'); }
+    finally { setInstalling(null); }
+  };
+
+  // Plugins del workshop filtrados por país:
+  //  - Si el plugin tiene países asignados (localStorage) y el país actual está incluido → mostrar.
+  //  - Si el plugin NO tiene países asignados → mostrar siempre (disponible global).
+  const filteredWorkshopPlugins = useMemo(() => {
+    return workshopPlugins.filter(plugin => {
+      const assigned = pluginCountriesMap[plugin.plugin_id];
+      if (!assigned || assigned.length === 0) return true;
+      return assigned.includes(country);
     });
-    return list;
-  }, [country, installedPlugins, pluginCountriesMap]);
+  }, [workshopPlugins, pluginCountriesMap, country]);
 
   const activeCountry = getCountry(country);
+  const mpInCountry = BUILTIN_MP_POINT_COUNTRIES.includes(country);
 
   const selectCountry = (code) => {
     setCountry(code);
@@ -114,20 +136,9 @@ function MercadoPagoPoints() {
     setShowCountryModal(false);
   };
 
-  const handleSelectProvider = (provider) => {
-    if (provider.action === 'mp_point') {
-      setActiveProvider(provider);
-      // scroll a la sección de MP
-      setTimeout(() => {
-        const el = document.getElementById('mp-point-section');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 50);
-      return;
-    }
-    if (provider.action === 'plugin') {
-      navigate('/admin/plugins');
-      return;
-    }
+  const scrollToMP = () => {
+    const el = document.getElementById('mp-point-section');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   // ==== Mercado Pago Point (flujo original) ====
@@ -258,7 +269,7 @@ function MercadoPagoPoints() {
 
   if (loading) return <div className="loading">Cargando...</div>;
 
-  const mpInCatalog = availablePOS.some(p => p.action === 'mp_point');
+  const showMPSection = mpInCountry || terminals.length > 0;
 
   return (
     <>
@@ -306,85 +317,219 @@ function MercadoPagoPoints() {
           </button>
         </div>
 
+        {installMessage && (
+          <div style={{
+            padding: '12px 16px', marginBottom: '16px', borderRadius: '8px', fontWeight: '600',
+            backgroundColor: installMessage.includes('Error') ? '#f8d7da' : '#d4edda',
+            color: installMessage.includes('Error') ? '#721c24' : '#155724'
+          }}>{installMessage}</div>
+        )}
+
         {/* Catálogo de POS disponibles */}
         <h2 style={{ fontSize: '18px', color: '#111', margin: '0 0 12px' }}>
           Sistemas POS disponibles en {activeCountry.name}
         </h2>
         <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 16px' }}>
-          Elige el proveedor de POS que usas para vincularlo al totem.
+          Elige un sistema POS nativo o instala el plugin que necesites desde el Workshop.
         </p>
 
-        {availablePOS.length === 0 ? (
-          <div className="card" style={{ padding: '40px 20px', textAlign: 'center' }}>
-            <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '32px', color: '#f59e0b', marginBottom: '12px' }} />
-            <p style={{ color: '#6b7280', margin: 0 }}>
-              No hay POS disponibles para <strong>{activeCountry.name}</strong> en tu tienda todavía.
-              Ve a <a href="/admin/plugins" style={{ color: GOLD }}>Plugins</a> para instalar uno
-              y asignarle <strong>{activeCountry.name}</strong> como país.
-            </p>
-          </div>
-        ) : (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: '14px',
-            marginBottom: '30px'
-          }}>
-            {availablePOS.map(pos => (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+          gap: '14px',
+          marginBottom: '30px'
+        }}>
+          {/* Mercado Pago Point (built-in) */}
+          {mpInCountry && (
+            <div style={{
+              background: '#fff',
+              border: '2px solid ' + GOLD,
+              borderRadius: '12px',
+              padding: '18px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                <div style={{
+                  width: '48px', height: '48px', borderRadius: '10px',
+                  background: '#009EE315',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '22px'
+                }}>💳</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '700', color: '#111', fontSize: '15px' }}>Mercado Pago Point</div>
+                  <div style={{ fontSize: '11px', color: '#6b7280' }}>Mercado Pago</div>
+                </div>
+                <span style={{
+                  padding: '3px 8px', background: GOLD + '22', color: '#57410a',
+                  borderRadius: '10px', fontSize: '10px', fontWeight: '700'
+                }}>NATIVO</span>
+              </div>
+              <p style={{ color: '#4b5563', fontSize: '12px', lineHeight: '1.5', margin: '0 0 12px' }}>
+                Terminal Point de Mercado Pago. Detectamos tus dispositivos automáticamente con tu Access Token.
+              </p>
               <button
-                key={pos.id}
-                onClick={() => handleSelectProvider(pos)}
-                style={{
+                onClick={scrollToMP}
+                className="btn btn-primary btn-sm"
+                style={{ width: '100%' }}
+              >
+                <FontAwesomeIcon icon={faLink} /> Configurar ahora
+              </button>
+            </div>
+          )}
+
+          {/* Workshop plugins (filtrados por país) */}
+          {loadingWorkshop ? (
+            <div className="card" style={{ padding: '20px', textAlign: 'center', color: '#6b7280', gridColumn: '1 / -1' }}>
+              <FontAwesomeIcon icon={faSpinner} spin /> Cargando plugins del Workshop...
+            </div>
+          ) : filteredWorkshopPlugins.length === 0 && !mpInCountry ? (
+            <div className="card" style={{ padding: '40px 20px', textAlign: 'center', gridColumn: '1 / -1' }}>
+              <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '32px', color: '#f59e0b', marginBottom: '12px' }} />
+              <p style={{ color: '#6b7280', margin: 0 }}>
+                No hay plugins disponibles para <strong>{activeCountry.name}</strong> en el Workshop todavía.
+              </p>
+            </div>
+          ) : (
+            filteredWorkshopPlugins.map(plugin => {
+              const installed = getInstalled(plugin.plugin_id);
+              const assignedCountries = pluginCountriesMap[plugin.plugin_id];
+              const recommended = assignedCountries && assignedCountries.includes(country);
+              return (
+                <div key={plugin.plugin_id} style={{
                   background: '#fff',
-                  border: activeProvider?.id === pos.id ? `2px solid ${GOLD}` : '1px solid #e5e7eb',
+                  border: recommended ? '2px solid #2ecc71' : '1px solid #e5e7eb',
                   borderRadius: '12px',
                   padding: '18px',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'}
-                onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-                  <div style={{
-                    width: '48px', height: '48px', borderRadius: '10px',
-                    background: (pos.color || '#000') + '15',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '22px'
-                  }}>
-                    {pos.emoji}
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                    {plugin.logo ? (
+                      <img src={API + plugin.logo} alt="" style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'cover', border: '1px solid #e5e7eb' }} />
+                    ) : (
+                      <div style={{
+                        width: '48px', height: '48px', borderRadius: '10px',
+                        background: '#f3f4f6',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '22px', color: '#9ca3af'
+                      }}>
+                        <FontAwesomeIcon icon={faPuzzlePiece} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: '700', color: '#111', fontSize: '15px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {plugin.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                        <FontAwesomeIcon icon={faUser} /> {plugin.author || 'Sin autor'} · v{plugin.latest_version || plugin.version}
+                      </div>
+                    </div>
+                    {recommended && (
+                      <span style={{
+                        padding: '3px 8px', background: '#d4edda', color: '#155724',
+                        borderRadius: '10px', fontSize: '10px', fontWeight: '700'
+                      }}>{activeCountry.flag}</span>
+                    )}
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: '700', color: '#111', fontSize: '15px' }}>{pos.name}</div>
-                    <div style={{ fontSize: '11px', color: '#6b7280' }}>{pos.provider}</div>
+
+                  {plugin.description && (
+                    <p style={{ color: '#4b5563', fontSize: '12px', lineHeight: '1.5', margin: '0 0 10px' }}>
+                      {plugin.description}
+                    </p>
+                  )}
+
+                  {installed && (
+                    <div style={{
+                      padding: '6px 10px', borderRadius: '6px', marginBottom: '10px',
+                      background: '#d4edda', color: '#155724', fontSize: '11px', fontWeight: '700'
+                    }}>
+                      <FontAwesomeIcon icon={faCheck} /> Instalado (v{installed.version})
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#6b7280', marginBottom: '10px' }}>
+                    <span><FontAwesomeIcon icon={faDownload} /> {plugin.downloads || 0} descargas</span>
                   </div>
-                  {pos.builtin && (
-                    <span style={{
-                      padding: '3px 8px', background: GOLD + '22', color: '#57410a',
-                      borderRadius: '10px', fontSize: '10px', fontWeight: '700'
-                    }}>NATIVO</span>
+
+                  <div style={{ display: 'flex', gap: '6px', marginTop: 'auto' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => fetchVersions(plugin.plugin_id)}
+                      title="Ver versiones"
+                    >
+                      <FontAwesomeIcon icon={faCodeBranch} />
+                      <FontAwesomeIcon icon={expandedVersions === plugin.plugin_id ? faChevronUp : faChevronDown} style={{ fontSize: '10px' }} />
+                    </button>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ flex: 1 }}
+                      onClick={() => installPlugin(plugin.plugin_id)}
+                      disabled={installing === plugin.plugin_id}
+                    >
+                      {installing === plugin.plugin_id ? (
+                        <><FontAwesomeIcon icon={faSpinner} spin /> Instalando...</>
+                      ) : installed ? (
+                        <><FontAwesomeIcon icon={faDownload} /> Actualizar</>
+                      ) : (
+                        <><FontAwesomeIcon icon={faDownload} /> Instalar</>
+                      )}
+                    </button>
+                  </div>
+
+                  {expandedVersions === plugin.plugin_id && (
+                    <div style={{ marginTop: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '700', marginBottom: '8px', color: '#111' }}>
+                        <FontAwesomeIcon icon={faCodeBranch} /> Versiones disponibles
+                      </div>
+                      {loadingVersions ? (
+                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                          <FontAwesomeIcon icon={faSpinner} spin /> Cargando...
+                        </div>
+                      ) : versions.length === 0 ? (
+                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>Sin versiones aprobadas</div>
+                      ) : (
+                        versions.map(v => (
+                          <div key={v.version} style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '6px 0', borderBottom: '1px solid #f3f4f6', fontSize: '12px'
+                          }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <strong>v{v.version}</strong>
+                              {v.changelog && (
+                                <span style={{ color: '#6b7280', marginLeft: '6px', fontSize: '11px' }}>— {v.changelog}</span>
+                              )}
+                              <div style={{ color: '#9ca3af', fontSize: '10px', marginTop: '2px' }}>
+                                {new Date(v.created_at).toLocaleDateString('es-ES')}
+                              </div>
+                            </div>
+                            <button
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => installPlugin(plugin.plugin_id, v.version)}
+                              disabled={installing === plugin.plugin_id + v.version}
+                              style={{ fontSize: '11px', padding: '4px 10px' }}
+                            >
+                              {installed?.version === v.version ? (
+                                <><FontAwesomeIcon icon={faCheck} /> Actual</>
+                              ) : installing === plugin.plugin_id + v.version ? (
+                                <FontAwesomeIcon icon={faSpinner} spin />
+                              ) : (
+                                <><FontAwesomeIcon icon={faDownload} /> Instalar</>
+                              )}
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   )}
                 </div>
-                <p style={{ color: '#4b5563', fontSize: '12px', lineHeight: '1.5', margin: '0 0 12px' }}>
-                  {pos.description}
-                </p>
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '6px',
-                  color: pos.action === 'mp_point' ? '#2ecc71' : '#6b7280',
-                  fontSize: '12px', fontWeight: '600'
-                }}>
-                  <FontAwesomeIcon icon={pos.action === 'mp_point' ? faLink : faPuzzlePiece} />
-                  {pos.action === 'mp_point' ? 'Configurar ahora' : 'Instalar plugin'}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
+              );
+            })
+          )}
+        </div>
 
         {/* Sección Mercado Pago Point (solo si aplica al país o ya hay terminales) */}
-        {(mpInCatalog || terminals.length > 0) && (
+        {showMPSection && (
           <div id="mp-point-section">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', marginTop: '30px', flexWrap: 'wrap', gap: '10px' }}>
               <h2 style={{ fontSize: '18px', color: '#111', margin: 0 }}>
@@ -466,7 +611,6 @@ function MercadoPagoPoints() {
       {/* Modal: selector de país */}
       {showCountryModal && (
         <div className="modal-overlay" onClick={() => {
-          // Solo se puede cerrar si ya hay un país elegido
           try { if (localStorage.getItem('srservi_country')) setShowCountryModal(false); } catch {}
         }}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
@@ -477,7 +621,7 @@ function MercadoPagoPoints() {
             </div>
             <div style={{ padding: '0 20px 20px' }}>
               <p style={{ color: '#6b7280', fontSize: '13px', marginTop: 0 }}>
-                Elegimos automáticamente las mejores integraciones POS disponibles para tu país.
+                Filtramos los plugins POS del Workshop según tu país.
               </p>
               <div style={{
                 display: 'grid',
