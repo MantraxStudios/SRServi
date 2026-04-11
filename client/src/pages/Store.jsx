@@ -292,13 +292,12 @@ function Store() {
     };
   }, [editMode]);
 
-  // Show welcome modal after order completion (when lastOrderNumber clears)
+  // Welcome/language modal disabled — just reset state after order completion
   const showWelcomeAfterOrder = () => {
     setCart([]);
     setCartOpen(false);
     setPaymentModalOpen(false);
     setCashPaymentSuccess(false);
-    setTimeout(() => setWelcomeModalOpen(true), 500);
   };
 
   useEffect(() => {
@@ -527,10 +526,7 @@ function Store() {
       setStore(deduplicatedData);
       if (data.top_selling) setTopSellingIds(data.top_selling);
 
-      // Show welcome/language modal on every page load (not in edit mode)
-      if (!adminEditToken) {
-        setTimeout(() => setWelcomeModalOpen(true), 800);
-      }
+      // Welcome/language modal disabled — no longer shown on page load
 
       const terminalsResponse = await fetch(`/api/public/${code}/mercado-pago-terminals`);
       if (terminalsResponse.ok) {
