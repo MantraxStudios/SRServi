@@ -49,6 +49,20 @@ async function migrate() {
       console.log('ℹ️ Tabla tuu_devices no existe, se creara con la columna');
     }
 
+    try {
+      const [configCols] = await connection.execute('DESCRIBE store_configurations');
+      const configColNames = configCols.map(c => c.Field);
+      if (!configColNames.includes('default_terminal')) {
+        console.log('➕ Agregando columna default_terminal a store_configurations...');
+        await connection.execute('ALTER TABLE store_configurations ADD COLUMN default_terminal INT DEFAULT NULL');
+        console.log('✅ Columna default_terminal agregada');
+      } else {
+        console.log('ℹ️ Columna default_terminal ya existe');
+      }
+    } catch (e) {
+      console.log('ℹ️ Tabla store_configurations no existe, se creara con la columna');
+    }
+
     console.log('\n✅ Migración completada');
     connection.release();
     await pool.end();

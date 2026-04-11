@@ -136,6 +136,7 @@ async function createTables() {
       is_default BOOLEAN NOT NULL DEFAULT FALSE,
       is_minimarket BOOLEAN NOT NULL DEFAULT FALSE,
       default_minimarket_terminal INT DEFAULT NULL,
+      default_terminal INT DEFAULT NULL,
       allow_serve BOOLEAN NOT NULL DEFAULT TRUE,
       allow_takeout BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

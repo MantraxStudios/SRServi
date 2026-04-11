@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle, faDesktop } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 function Configurations() {
@@ -19,6 +19,7 @@ function Configurations() {
     is_default: false,
     is_minimarket: false,
     default_minimarket_terminal: '',
+    default_terminal: '',
     allow_serve: true,
     allow_takeout: true
   });
@@ -38,7 +39,7 @@ function Configurations() {
     if (!selectedStore) return;
 
     try {
-      const response = await fetch(`/api/public/terminals/${selectedStore.id}`);
+      const response = await fetch(`/api/public/pos-devices/${selectedStore.id}`);
       if (response.ok) {
         const data = await response.json();
         setTerminals(data);
@@ -139,6 +140,7 @@ function Configurations() {
       is_default: Boolean(config.is_default),
       is_minimarket: Boolean(config.is_minimarket),
       default_minimarket_terminal: config.default_minimarket_terminal || '',
+      default_terminal: config.default_terminal || '',
       allow_serve: Boolean(config.allow_serve),
       allow_takeout: Boolean(config.allow_takeout)
     });
@@ -177,6 +179,7 @@ function Configurations() {
       is_default: false,
       is_minimarket: false,
       default_minimarket_terminal: '',
+      default_terminal: '',
       allow_serve: true,
       allow_takeout: true
     });
@@ -214,6 +217,7 @@ function Configurations() {
                     <th>Nombre</th>
                     <th>Efectivo</th>
                     <th>Tarjeta</th>
+                    <th>POS</th>
                     <th>Activo</th>
                     <th>Predeterminada</th>
                     <th>Acciones</th>
@@ -235,6 +239,16 @@ function Configurations() {
                         <span className="icon-success"><FontAwesomeIcon icon={faCheck} /></span>
                       ) : (
                         <span className="icon-danger">-</span>
+                      )}
+                    </td>
+                    <td>
+                      {config.default_terminal ? (
+                        <span style={{ fontSize: '12px', color: '#555' }}>
+                          <FontAwesomeIcon icon={faDesktop} style={{ color: '#666', marginRight: '4px' }} />
+                          #{config.default_terminal}
+                        </span>
+                      ) : (
+                        <span className="text-muted">-</span>
                       )}
                     </td>
                     <td>
@@ -367,6 +381,30 @@ function Configurations() {
                     <span>Tarjeta</span>
                   </label>
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label><FontAwesomeIcon icon={faDesktop} style={{ color: '#666', marginRight: '6px' }} />Terminal POS</label>
+                <select
+                  value={formData.default_terminal}
+                  onChange={(e) => setFormData({ ...formData, default_terminal: e.target.value })}
+                  style={{ width: '100%', padding: '10px', border: '2px solid #e0e0e0', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box', background: '#fff' }}
+                >
+                  <option value="">Ninguna</option>
+                  {terminals.map(terminal => (
+                    <option key={`${terminal.provider}-${terminal.id}`} value={terminal.id}>
+                      {terminal.name} {terminal.provider === 'tuu' ? '(Tuu)' : '(MP)'}
+                    </option>
+                  ))}
+                </select>
+                {terminals.length === 0 && (
+                  <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#888' }}>
+                    No hay POS registrados.{' '}
+                    <span style={{ color: '#007bff', cursor: 'pointer' }} onClick={() => { setShowPosModal && setShowPosModal(true); }}>
+                      Agregar terminal
+                    </span>
+                  </p>
+                )}
               </div>
 
               <div className="form-group">

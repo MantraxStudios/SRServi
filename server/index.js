@@ -448,6 +448,35 @@ app.get('/api/public/terminals/:storeId', async (req, res) => {
   }
 });
 
+app.get('/api/public/pos-devices/:storeId', async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const storeIdInt = parseInt(storeId);
+    const userId = await getUserIdFromStore(storeIdInt);
+
+    const [mpTerminals] = await pool.execute(
+      `SELECT id, name, mercadopago_terminal_id, 'mercadopago' as provider FROM mercado_pago_terminals WHERE user_id = ?`,
+      [userId]
+    );
+
+    let tuuDevices = [];
+    try {
+      const [tuuRows] = await pool.execute(
+        `SELECT d.id, d.name, d.serial, d.device_id, 'tuu' as provider FROM tuu_devices d JOIN tuu_device_pos dp ON d.id = dp.tuu_device_id WHERE dp.store_id = ?`,
+        [storeIdInt]
+      );
+      tuuDevices = tuuRows;
+    } catch { tuuDevices = []; }
+
+    const mpFormatted = mpTerminals.map(t => ({ id: t.id, name: t.name, device_id: t.mercadopago_terminal_id, provider: 'mercadopago' }));
+    const tuuFormatted = tuuDevices.map(d => ({ id: d.id, name: d.name, device_id: d.device_id || d.serial, serial: d.serial, provider: 'tuu' }));
+
+    res.json([...mpFormatted, ...tuuFormatted]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/public/:code/coupons/validate', async (req, res) => {
   try {
     const { code } = req.params;
