@@ -448,11 +448,10 @@ app.get('/api/public/terminals/:storeId', async (req, res) => {
   }
 });
 
-app.get('/api/public/pos-devices/:storeId', async (req, res) => {
+app.get('/api/public/pos-devices/:storeCode', async (req, res) => {
   try {
-    const { storeId } = req.params;
-    const storeIdInt = parseInt(storeId);
-    const store = await getStoreById(storeIdInt);
+    const { storeCode } = req.params;
+    const store = await getStoreByCode((storeCode || '').toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
 
     let mpLinked = [];
@@ -462,7 +461,7 @@ app.get('/api/public/pos-devices/:storeId', async (req, res) => {
          FROM mercado_pago_terminals m
          JOIN mercadopago_terminal_stores ms ON ms.mercadopago_terminal_id = m.id
          WHERE ms.store_id = ?`,
-        [storeIdInt]
+        [store.id]
       );
       mpLinked = rows;
     } catch (e) { console.log('[pos-devices] MP query error:', e.message); }
@@ -470,13 +469,16 @@ app.get('/api/public/pos-devices/:storeId', async (req, res) => {
     let tuuDevices = [];
     try {
       const [tuuRows] = await pool.execute(
-        `SELECT d.id, d.name, d.serial, d.device_id, 'tuu' as provider FROM tuu_devices d JOIN tuu_device_pos dp ON d.id = dp.tuu_device_id WHERE dp.store_id = ?`,
-        [storeIdInt]
+        `SELECT d.id, d.name, d.serial, d.device_id, 'tuu' as provider
+         FROM tuu_devices d
+         JOIN tuu_device_pos dp ON d.id = dp.tuu_device_id
+         WHERE dp.store_id = ?`,
+        [store.id]
       );
       tuuDevices = tuuRows;
     } catch (e) { console.log('[pos-devices] Tuu query error:', e.message); }
 
-    console.log('[pos-devices] storeIdInt:', storeIdInt, 'mpLinked:', mpLinked, 'tuuDevices:', tuuDevices);
+    console.log('[pos-devices] storeCode:', storeCode, 'store.id:', store.id, 'user_id:', store.user_id, 'mpLinked:', mpLinked.length, 'tuuDevices:', tuuDevices.length);
 
     const mpFormatted = mpLinked.map(t => ({ id: t.id, name: t.name, device_id: t.mercadopago_terminal_id, provider: 'mercadopago' }));
     const tuuFormatted = tuuDevices.map(d => ({ id: d.id, name: d.name, device_id: d.device_id || d.serial, serial: d.serial, provider: 'tuu' }));

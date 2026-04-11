@@ -144,7 +144,7 @@ function Index() {
     setLoadingPos(true);
     setPendingStore(store);
     try {
-      const res = await fetch('/api/public/pos-devices/' + store.id);
+      const res = await fetch('/api/public/pos-devices/' + store.code);
       const data = res.ok ? await res.json() : [];
       const allPos = (Array.isArray(data) ? data : []).map(d => ({ id: d.id, name: d.name, provider: d.provider }));
       setStorePos(allPos);
