@@ -63,6 +63,38 @@ async function migrate() {
       console.log('ℹ️ Tabla store_configurations no existe, se creara con la columna');
     }
 
+    try {
+      await connection.execute('DESCRIBE mercadopago_terminal_stores');
+      console.log('ℹ️ Tabla mercadopago_terminal_stores ya existe');
+    } catch (e) {
+      console.log('➕ Creando tabla mercadopago_terminal_stores...');
+      await connection.execute(`
+        CREATE TABLE mercadopago_terminal_stores (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          mercadopago_terminal_id INT NOT NULL,
+          store_id INT NOT NULL,
+          UNIQUE KEY unique_mp_store (mercadopago_terminal_id, store_id)
+        )`);
+      console.log('✅ Tabla mercadopago_terminal_stores creada');
+    }
+
+    try {
+      const [links] = await connection.execute('SELECT COUNT(*) as c FROM mercadopago_terminal_stores');
+      if (links[0].c === 0) {
+        console.log('➕ Vinculando MP existentes a tiendas...');
+        await connection.execute(`
+          INSERT IGNORE INTO mercadopago_terminal_stores (mercadopago_terminal_id, store_id)
+          SELECT m.id, s.id FROM mercado_pago_terminals m JOIN stores s ON s.user_id = m.user_id
+        `);
+        const [count] = await connection.execute('SELECT COUNT(*) as c FROM mercadopago_terminal_stores');
+        console.log('✅ ' + count[0].c + ' vinculos MP-tienda creados');
+      } else {
+        console.log('ℹ️ Ya hay vinculos MP-tienda existentes');
+      }
+    } catch (e) {
+      console.log('ℹ️ No se pudieron crear vinculos MP: ' + e.message);
+    }
+
     console.log('\n✅ Migración completada');
     connection.release();
     await pool.end();

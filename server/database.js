@@ -261,6 +261,17 @@ async function createTables() {
   
   await pool.execute(createMercadoPagoTerminalsTable);
 
+  const createMpTerminalStoresTable = `
+    CREATE TABLE IF NOT EXISTS mercadopago_terminal_stores (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      mercadopago_terminal_id INT NOT NULL,
+      store_id INT NOT NULL,
+      UNIQUE KEY unique_mp_store (mercadopago_terminal_id, store_id),
+      FOREIGN KEY (mercadopago_terminal_id) REFERENCES mercado_pago_terminals(id) ON DELETE CASCADE,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )`;
+  await pool.execute(createMpTerminalStoresTable);
+
   await pool.execute(createInventoryTable);
 
   await pool.execute(`

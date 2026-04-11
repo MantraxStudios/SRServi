@@ -172,24 +172,36 @@ function MercadoPagoPoints() {
 
   const fetchPosList = async () => {
     if (!selectedStore?.id) return;
-    const [mpRes, tuuRes] = await Promise.all([
-      fetch(API + '/api/mercado-pago-terminals').catch(() => null),
-      fetch(API + '/api/tuu/devices?store_id=' + selectedStore.id).catch(() => null),
-    ]);
-    const tuuData = tuuRes?.ok ? await tuuRes.json() : { posDevices: [], storeDevices: [], assignments: [] };
-    let mpTerminals = [];
-    if (mpRes?.ok) {
-      const raw = await mpRes.json();
-      mpTerminals = Array.isArray(raw) ? raw : (raw.terminals || []);
+    try {
+      const res = await fetch(API + '/api/public/pos-devices/' + selectedStore.id);
+      if (!res.ok) { setPosList([]); return; }
+      const devices = await res.json();
+      const mpList = devices.filter(d => d.provider === 'mercadopago').map(t => ({
+        id: t.id,
+        provider: 'mercadopago',
+        name: t.name,
+        terminal_id: t.device_id,
+      }));
+      const tuuList = devices.filter(d => d.provider === 'tuu').map(d => ({
+        id: d.id,
+        provider: 'tuu',
+        name: d.name,
+        serial: d.serial,
+        device_uid: null,
+        assigned: false,
+        assigned_name: null,
+      }));
+      setPosList([...mpList, ...tuuList]);
+    } catch {
+      setPosList([]);
     }
-    setPosList(buildPosList(mpTerminals, tuuData.posDevices || [], tuuData.assignments || [], tuuData.storeDevices || []));
   };
 
   const saveMpPos = async () => {
     if (!mpNewName.trim() || !mpNewToken.trim() || !mpNewTerminalId.trim()) { setMpSaveMsg('Completa todos los campos'); return; }
     setSavingMp(true); setMpSaveMsg('');
     try {
-      const res = await fetch(API + '/api/mercadopago-terminal', {
+      const res = await fetch(API + '/api/mercado-pago-terminals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ name: mpNewName.trim(), mercadopago_access_token: mpNewToken.trim(), mercadopago_terminal_id: mpNewTerminalId.trim(), store_id: selectedStore.id })
@@ -228,7 +240,7 @@ function MercadoPagoPoints() {
   const deletePos = async (pos) => {
     if (!confirm('¿Eliminar este terminal?')) return;
     if (pos.provider === 'mercadopago') {
-      await fetch(API + '/api/mercadopago-terminal/' + pos.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+      await fetch(API + '/api/mercado-pago-terminals/' + pos.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
     } else if (pos.provider === 'tuu') {
       await fetch(API + '/api/tuu/devices/' + pos.id, { method: 'DELETE' });
     }
@@ -887,7 +899,7 @@ function MercadoPagoPoints() {
                               onClick={async () => {
                                 setSavingMp(true);
                                 const name = d.external_pos_id ? d.external_pos_id.split('__')[0] : ('Point ' + d.id.slice(0,8));
-                                const res = await fetch(API + '/api/mercadopago-terminal', {
+                                const res = await fetch(API + '/api/mercado-pago-terminals', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
                                   body: JSON.stringify({ name, mercadopago_access_token: mpNewToken.trim(), mercadopago_terminal_id: d.id, store_id: selectedStore.id })

@@ -455,9 +455,12 @@ app.get('/api/public/pos-devices/:storeId', async (req, res) => {
     const store = await getStoreById(storeIdInt);
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
 
-    const [mpTerminals] = await pool.execute(
-      `SELECT id, name, mercadopago_terminal_id, 'mercadopago' as provider FROM mercado_pago_terminals WHERE user_id = ?`,
-      [store.user_id]
+    const [mpLinked] = await pool.execute(
+      `SELECT m.id, m.name, m.mercadopago_terminal_id, 'mercadopago' as provider
+       FROM mercado_pago_terminals m
+       JOIN mercadopago_terminal_stores ms ON ms.mercadopago_terminal_id = m.id
+       WHERE ms.store_id = ?`,
+      [storeIdInt]
     );
 
     let tuuDevices = [];
@@ -469,7 +472,7 @@ app.get('/api/public/pos-devices/:storeId', async (req, res) => {
       tuuDevices = tuuRows;
     } catch { tuuDevices = []; }
 
-    const mpFormatted = mpTerminals.map(t => ({ id: t.id, name: t.name, device_id: t.mercadopago_terminal_id, provider: 'mercadopago' }));
+    const mpFormatted = mpLinked.map(t => ({ id: t.id, name: t.name, device_id: t.mercadopago_terminal_id, provider: 'mercadopago' }));
     const tuuFormatted = tuuDevices.map(d => ({ id: d.id, name: d.name, device_id: d.device_id || d.serial, serial: d.serial, provider: 'tuu' }));
 
     res.json([...mpFormatted, ...tuuFormatted]);
@@ -3464,7 +3467,7 @@ app.get('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
 
 app.post('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
   try {
-    const { name, mercadopago_access_token, mercadopago_terminal_id } = req.body;
+    const { name, mercadopago_access_token, mercadopago_terminal_id, store_id } = req.body;
     
     if (!name || !mercadopago_access_token || !mercadopago_terminal_id) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
@@ -3475,6 +3478,13 @@ app.post('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
       mercadopago_access_token,
       mercadopago_terminal_id
     });
+
+    if (store_id) {
+      await pool.execute(
+        'INSERT IGNORE INTO mercadopago_terminal_stores (mercadopago_terminal_id, store_id) VALUES (?, ?)',
+        [terminal.id, store_id]
+      );
+    }
     
     res.json(terminal);
   } catch (error) {
