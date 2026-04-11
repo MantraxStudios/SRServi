@@ -672,18 +672,13 @@ function MercadoPagoPoints() {
           }}>{installMessage}</div>
         )}
 
-        {/* Catálogo de POS disponibles */}
-        <h2 style={{ fontSize: '14px', color: '#111', margin: '0 0 8px' }}>
-          POS disponibles en {activeCountry.name}
-        </h2>
-
+        {/* POS nativos */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
           gap: '8px',
           marginBottom: '16px'
         }}>
-          {/* Mercado Pago Point (built-in) */}
           {mpInCountry && (
             <div style={{
               background: '#fff',
@@ -708,124 +703,27 @@ function MercadoPagoPoints() {
             </div>
           )}
 
-          {/* Workshop plugins (filtrados por país) */}
-          {loadingWorkshop ? (
-            <div style={{ padding: '12px', textAlign: 'center', color: '#6b7280', gridColumn: '1 / -1', fontSize: '12px' }}>
-              <FontAwesomeIcon icon={faSpinner} spin /> Cargando...
+          <div style={{
+            background: '#fff',
+            border: '2px solid #9c27b0',
+            borderRadius: '8px',
+            padding: '10px',
+            minWidth: '140px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+              <div style={{
+                width: '28px', height: '28px', borderRadius: '6px',
+                background: '#9c27b015',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '14px'
+              }}>📱</div>
+              <div style={{ flex: 1, fontSize: '12px', fontWeight: '700', color: '#111' }}>Tuu POS</div>
+              <span style={{ padding: '2px 6px', background: '#9c27b022', color: '#6a1b9a', borderRadius: '6px', fontSize: '9px', fontWeight: '700' }}>NATIVO</span>
             </div>
-          ) : filteredWorkshopPlugins.length === 0 && !mpInCountry ? (
-            <div style={{ padding: '20px 12px', textAlign: 'center', gridColumn: '1 / -1' }}>
-              <p style={{ color: '#6b7280', margin: 0, fontSize: '12px' }}>Sin plugins para {activeCountry.name}</p>
-            </div>
-          ) : (
-            filteredWorkshopPlugins.map(plugin => {
-              const installed = getInstalled(plugin.plugin_id);
-              return (
-                <div key={plugin.plugin_id} style={{
-                  background: '#fff',
-                  border: installed ? (installed.is_active ? '2px solid #2ecc71' : '2px solid #f59e0b') : '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  padding: '10px',
-                  minWidth: '140px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                    {plugin.logo ? (
-                      <img src={API + plugin.logo} alt="" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{
-                        width: '28px', height: '28px', borderRadius: '6px',
-                        background: '#f3f4f6',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '14px', color: '#9ca3af'
-                      }}>
-                        <FontAwesomeIcon icon={faPuzzlePiece} />
-                      </div>
-                    )}
-                    <div style={{ flex: 1, fontSize: '12px', fontWeight: '700', color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {plugin.name}
-                    </div>
-                  </div>
-
-                  {installed ? (
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                      <button
-                        className="btn btn-sm"
-                        onClick={() => toggleActive(installed.plugin_id, installed.is_active)}
-                        disabled={togglingId === installed.plugin_id}
-                        style={{
-                          flex: 1,
-                          background: installed.is_active ? '#dcfce7' : '#fee2e2',
-                          color: installed.is_active ? '#166534' : '#991b1b',
-                          border: '1px solid ' + (installed.is_active ? '#bbf7d0' : '#fecaca'),
-                          fontWeight: '700',
-                          fontSize: '10px',
-                          padding: '4px 6px'
-                        }}
-                      >
-                        {togglingId === installed.plugin_id ? (
-                          <FontAwesomeIcon icon={faSpinner} spin />
-                        ) : installed.is_active ? (
-                          <><FontAwesomeIcon icon={faToggleOn} /> Off</>
-                        ) : (
-                          <><FontAwesomeIcon icon={faToggleOff} /> On</>
-                        )}
-                      </button>
-                      <button
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => openPluginConfig(installed)}
-                        style={{ flex: 1, fontSize: '10px', padding: '4px 6px' }}
-                      >
-                        <FontAwesomeIcon icon={faCog} />
-                      </button>
-                      <button
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => fetchVersions(plugin.plugin_id)}
-                        disabled={installing === plugin.plugin_id}
-                        style={{ fontSize: '10px', padding: '4px 6px' }}
-                        title="Cambiar versión"
-                      >
-                        <FontAwesomeIcon icon={faCodeBranch} />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      style={{ width: '100%', fontSize: '10px', padding: '4px 6px' }}
-                      onClick={() => installPlugin(plugin.plugin_id)}
-                      disabled={installing === plugin.plugin_id}
-                    >
-                      {installing === plugin.plugin_id ? (
-                        <FontAwesomeIcon icon={faSpinner} spin />
-                      ) : (
-                        <><FontAwesomeIcon icon={faDownload} /> Instalar</>
-                      )}
-                    </button>
-                  )}
-
-                  {expandedVersions === plugin.plugin_id && (
-                    <div style={{ marginTop: '6px', borderTop: '1px solid #e5e7eb', paddingTop: '6px' }}>
-                      {loadingVersions ? (
-                        <div style={{ fontSize: '10px', color: '#9ca3af' }}><FontAwesomeIcon icon={faSpinner} spin /> Cargando...</div>
-                      ) : versions.length === 0 ? (
-                        <div style={{ fontSize: '10px', color: '#9ca3af' }}>Sin versiones</div>
-                      ) : (
-                        <select
-                          className="form-control"
-                          style={{ fontSize: '10px', padding: '3px 4px', marginBottom: '4px' }}
-                          value={installed?.version || ''}
-                          onChange={(e) => installPlugin(plugin.plugin_id, e.target.value)}
-                        >
-                          {versions.map(v => (
-                            <option key={v.version} value={v.version}>v{v.version}</option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
+            <button onClick={() => setTuuConfigOpen(true)} className="btn btn-sm" style={{ width: '100%', fontSize: '10px', padding: '4px 6px', background: '#9c27b0', color: '#fff' }}>
+              <FontAwesomeIcon icon={faLink} /> Configurar
+            </button>
+          </div>
         </div>
 
         {/* ==== Sección: TUU POS nativo ==== */}
