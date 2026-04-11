@@ -9,8 +9,6 @@ function Configurations() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
-  const [terminals, setTerminals] = useState([]);
-  const [loadingTerminals, setLoadingTerminals] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -117,7 +115,6 @@ function Configurations() {
 
   const handleEdit = (config) => {
     setEditingConfig(config);
-    fetchTerminals();
     setFormData({
       name: config.name,
       description: config.description || '',
@@ -156,7 +153,6 @@ function Configurations() {
 
   const openModal = () => {
     setEditingConfig(null);
-    fetchTerminals();
     setFormData({
       name: '',
       description: '',

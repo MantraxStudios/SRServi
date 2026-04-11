@@ -222,8 +222,7 @@ function Index() {
           {loadingPos && <p style={{ textAlign: 'center', color: '#888' }}>Buscando POS...</p>}
           {!loadingPos && storePos.length === 0 && (
             <p style={{ textAlign: 'center', color: '#d97706', marginTop: '20px' }}>
-              No hay POS vinculados a esta tienda.{' '}
-              <a href="/admin/terminals" style={{ color: '#0066cc' }}>Vincular POS</a>
+              No hay POS vinculados a esta tienda
             </p>
           )}
           {!loadingPos && storePos.length > 1 && (
