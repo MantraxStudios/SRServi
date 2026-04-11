@@ -746,6 +746,15 @@ function MercadoPagoPoints() {
                       >
                         <FontAwesomeIcon icon={faCog} />
                       </button>
+                      <button
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => fetchVersions(plugin.plugin_id)}
+                        disabled={installing === plugin.plugin_id}
+                        style={{ fontSize: '10px', padding: '4px 6px' }}
+                        title="Cambiar versión"
+                      >
+                        <FontAwesomeIcon icon={faCodeBranch} />
+                      </button>
                     </div>
                   ) : (
                     <button
@@ -760,6 +769,27 @@ function MercadoPagoPoints() {
                         <><FontAwesomeIcon icon={faDownload} /> Instalar</>
                       )}
                     </button>
+                  )}
+
+                  {expandedVersions === plugin.plugin_id && (
+                    <div style={{ marginTop: '6px', borderTop: '1px solid #e5e7eb', paddingTop: '6px' }}>
+                      {loadingVersions ? (
+                        <div style={{ fontSize: '10px', color: '#9ca3af' }}><FontAwesomeIcon icon={faSpinner} spin /> Cargando...</div>
+                      ) : versions.length === 0 ? (
+                        <div style={{ fontSize: '10px', color: '#9ca3af' }}>Sin versiones</div>
+                      ) : (
+                        <select
+                          className="form-control"
+                          style={{ fontSize: '10px', padding: '3px 4px', marginBottom: '4px' }}
+                          value={installed?.version || ''}
+                          onChange={(e) => installPlugin(plugin.plugin_id, e.target.value)}
+                        >
+                          {versions.map(v => (
+                            <option key={v.version} value={v.version}>v{v.version}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                   )}
                 </div>
               );
