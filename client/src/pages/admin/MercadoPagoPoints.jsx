@@ -126,12 +126,19 @@ function MercadoPagoPoints() {
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('[fetchInstalledPlugins] raw server response:', data.map(p => ({ plugin_id: p.plugin_id, is_active: p.is_active, type: typeof p.is_active })));
+        // Coerción súper defensiva: acepta true/1/"1"/"t"/"true"/"TRUE" como true; todo lo demás es false.
         const normalized = Array.isArray(data)
-          ? data.map(p => ({ ...p, is_active: p.is_active === true || p.is_active === 1 || p.is_active === '1' }))
+          ? data.map(p => {
+              const raw = p.is_active;
+              const isActive = raw === true || raw === 1 || raw === '1' || raw === 't' || raw === 'true' || raw === 'TRUE';
+              return { ...p, is_active: isActive };
+            })
           : [];
+        console.log('[fetchInstalledPlugins] normalized:', normalized.map(p => ({ plugin_id: p.plugin_id, is_active: p.is_active })));
         setInstalledPlugins(normalized);
       }
-    } catch {}
+    } catch (e) { console.error('[fetchInstalledPlugins] error:', e); }
   };
 
   // Normaliza cualquier representación de is_active a boolean puro.
@@ -141,37 +148,33 @@ function MercadoPagoPoints() {
 
   const getInstalled = (pluginId) => installedPlugins.find(p => p.plugin_id === pluginId);
 
-  // Mismo patrón exacto que togglePlugin en Plugins.jsx — que el usuario dice funciona correctamente.
+  // EXACTAMENTE el mismo patrón que Plugins.jsx (que el usuario dice funciona bien).
   const toggleActive = async (pluginId, currentlyActiveRaw) => {
-    const currentlyActive = Boolean(currentlyActiveRaw);
+    const currentlyActive = currentlyActiveRaw === true || currentlyActiveRaw === 1 || currentlyActiveRaw === '1';
     const nextActive = !currentlyActive;
-    console.log('[toggleActive]', { pluginId, currentlyActiveRaw, currentlyActive, nextActive });
+    console.log('[toggleActive] click', { pluginId, currentlyActiveRaw, currentlyActive, nextActive });
     setTogglingId(pluginId);
     try {
+      const authToken = localStorage.getItem('token');
       const action = currentlyActive ? 'deactivate' : 'activate';
-      console.log('[toggleActive] calling action:', action);
       const response = await fetch(API + `/api/admin/plugins/${pluginId}/${action}`, {
         method: 'POST',
-        headers: { Authorization: 'Bearer ' + token }
+        headers: { 'Authorization': `Bearer ${authToken}` }
       });
       if (response.ok) {
-        console.log('[toggleActive] success, setting is_active=', nextActive);
-        setInstalledPlugins(prev => {
-          const updated = prev.map(p =>
-            p.plugin_id === pluginId ? { ...p, is_active: nextActive } : p
-          );
-          console.log('[toggleActive] new installedPlugins:', updated.filter(p => p.plugin_id === pluginId));
-          return updated;
-        });
-        refreshPlugins && refreshPlugins();
+        console.log('[toggleActive] OK, optimistic update is_active=', nextActive);
+        setInstalledPlugins(prev => prev.map(p =>
+          p.plugin_id === pluginId ? { ...p, is_active: nextActive } : p
+        ));
+        refreshPlugins();
         setInstallMessage(`Plugin ${nextActive ? 'activado' : 'desactivado'}`);
         setTimeout(() => setInstallMessage(''), 2000);
-      } else {
-        const err = await response.json();
-        setInstallMessage(err.error || 'Error al cambiar estado');
       }
-    } catch (e) { console.error('[toggleActive] error:', e); setInstallMessage('Error de conexión'); }
-    finally { setTogglingId(null); }
+    } catch (err) {
+      console.error('Error toggling plugin:', err);
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   const openSettings = async (plugin) => {
@@ -297,15 +300,13 @@ function MercadoPagoPoints() {
     return false;
   };
 
-  const paymentPlugins = useMemo(
-    () => installedPlugins.filter(isPaymentPlugin),
-    [installedPlugins]
-  );
+  // Filtro directo (sin useMemo) para evitar stale memoization
+  const paymentPlugins = installedPlugins.filter(isPaymentPlugin);
 
   // Cargar settings del plugin de pagos la primera vez que lo vemos activo con schema
   useEffect(() => {
     if (!selectedStore) return;
-    paymentPlugins.forEach(plugin => {
+    installedPlugins.filter(isPaymentPlugin).forEach(plugin => {
       if (loadedSettingsFor[plugin.plugin_id]) return;
       if (!plugin.settings_schema || Object.keys(plugin.settings_schema).length === 0) return;
       fetch(API + `/api/admin/plugins/${plugin.plugin_id}/settings/${selectedStore.id}`, {
@@ -319,7 +320,7 @@ function MercadoPagoPoints() {
         .catch(() => {});
     });
     // eslint-disable-next-line
-  }, [paymentPlugins, selectedStore]);
+  }, [installedPlugins, selectedStore]);
 
   const updatePaymentSetting = (pluginId, key, value) => {
     setPaymentPluginSettings(prev => ({
@@ -913,13 +914,21 @@ function MercadoPagoPoints() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {paymentPlugins.map(plugin => {
+                // Coerción permisiva: cualquier valor truthy distinto de 0/"0"/false se considera active
+                const isActive = plugin.is_active !== false
+                  && plugin.is_active !== 0
+                  && plugin.is_active !== '0'
+                  && plugin.is_active !== null
+                  && plugin.is_active !== undefined
+                  && !!plugin.is_active;
                 const hasSchema = Object.keys(plugin.settings_schema || {}).length > 0;
+                console.log('[render payment plugin]', plugin.plugin_id, 'is_active(raw):', plugin.is_active, 'type:', typeof plugin.is_active, 'isActive(bool):', isActive);
                 return (
                   <div
                     key={plugin.plugin_id}
                     style={{
                       background: '#fff',
-                      border: plugin.is_active ? '2px solid #22c55e' : '1px solid #e5e7eb',
+                      border: isActive ? '2px solid #22c55e' : '1px solid #e5e7eb',
                       borderRadius: '14px',
                       overflow: 'hidden',
                       boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
@@ -931,7 +940,7 @@ function MercadoPagoPoints() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '14px',
-                      background: plugin.is_active ? '#f0fdf4' : '#fafafa',
+                      background: isActive ? '#f0fdf4' : '#fafafa',
                       borderBottom: '1px solid #e5e7eb'
                     }}>
                       {plugin.logo ? (
@@ -963,13 +972,13 @@ function MercadoPagoPoints() {
                         borderRadius: '12px',
                         fontSize: '11px',
                         fontWeight: '700',
-                        background: plugin.is_active ? '#dcfce7' : '#fef3c7',
-                        color: plugin.is_active ? '#166534' : '#854d0e',
+                        background: isActive ? '#dcfce7' : '#fef3c7',
+                        color: isActive ? '#166534' : '#854d0e',
                         whiteSpace: 'nowrap'
                       }}>
-                        {plugin.is_active ? 'Activo' : 'Inactivo'}
+                        {isActive ? 'Activo' : 'Inactivo'}
                       </span>
-                      {plugin.is_active && hasAdminPage(plugin) && (
+                      {isActive && hasAdminPage(plugin) && (
                         <button
                           className="btn btn-sm btn-secondary"
                           onClick={() => navigate(`/admin/plugins/${plugin.plugin_id}`)}
@@ -980,19 +989,19 @@ function MercadoPagoPoints() {
                       )}
                       <button
                         className="btn btn-sm"
-                        onClick={() => toggleActive(plugin.plugin_id, plugin.is_active)}
+                        onClick={() => toggleActive(plugin.plugin_id, isActive)}
                         disabled={togglingId === plugin.plugin_id}
                         style={{
-                          background: plugin.is_active ? '#fee2e2' : '#dcfce7',
-                          color: plugin.is_active ? '#991b1b' : '#166534',
-                          border: '1px solid ' + (plugin.is_active ? '#fecaca' : '#bbf7d0'),
+                          background: isActive ? '#fee2e2' : '#dcfce7',
+                          color: isActive ? '#991b1b' : '#166534',
+                          border: '1px solid ' + (isActive ? '#fecaca' : '#bbf7d0'),
                           fontWeight: '700',
                           whiteSpace: 'nowrap'
                         }}
                       >
                         {togglingId === plugin.plugin_id ? (
                           <FontAwesomeIcon icon={faSpinner} spin />
-                        ) : plugin.is_active ? (
+                        ) : isActive ? (
                           <><FontAwesomeIcon icon={faToggleOff} /> Desactivar</>
                         ) : (
                           <><FontAwesomeIcon icon={faToggleOn} /> Activar</>
@@ -1008,7 +1017,7 @@ function MercadoPagoPoints() {
                         </p>
                       )}
 
-                      {!plugin.is_active ? (
+                      {!isActive ? (
                         <div style={{
                           padding: '12px 14px',
                           background: '#fef3c7',
