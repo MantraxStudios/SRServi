@@ -116,8 +116,9 @@ function MercadoPagoPoints() {
 
   const fetchInstalledPlugins = async () => {
     try {
-      const response = await fetch(API + '/api/admin/plugins', {
-        headers: { Authorization: 'Bearer ' + token }
+      const response = await fetch(API + '/api/admin/plugins?_=' + Date.now(), {
+        headers: { Authorization: 'Bearer ' + token },
+        cache: 'no-store'
       });
       if (response.ok) {
         const data = await response.json();
@@ -137,7 +138,12 @@ function MercadoPagoPoints() {
         headers: { Authorization: 'Bearer ' + token }
       });
       if (response.ok) {
-        await fetchInstalledPlugins();
+        // Optimistic update — actualiza el estado local inmediatamente
+        setInstalledPlugins(prev => prev.map(p =>
+          p.plugin_id === pluginId ? { ...p, is_active: !isActive ? 1 : 0 } : p
+        ));
+        // Refresh desde el servidor en segundo plano
+        fetchInstalledPlugins();
         refreshPlugins && refreshPlugins();
         setInstallMessage(`Plugin ${isActive ? 'desactivado' : 'activado'}`);
         setTimeout(() => setInstallMessage(''), 2000);

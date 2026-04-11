@@ -41,8 +41,9 @@ function Plugins() {
   const fetchPlugins = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(API + '/api/admin/plugins', {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch(API + '/api/admin/plugins?_=' + Date.now(), {
+        headers: { 'Authorization': `Bearer ${token}` },
+        cache: 'no-store'
       });
       if (response.ok) {
         const data = await response.json();
@@ -153,6 +154,10 @@ function Plugins() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
+        // Optimistic update para que el botón y el badge cambien al instante
+        setPlugins(prev => prev.map(p =>
+          p.plugin_id === pluginId ? { ...p, is_active: !isActive ? 1 : 0 } : p
+        ));
         fetchPlugins();
         refreshPlugins();
       }
