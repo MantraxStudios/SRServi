@@ -61,8 +61,7 @@ function MercadoPagoPoints() {
 
   // ==== Workshop ====
   const [workshopPlugins, setWorkshopPlugins] = useState([]);
-  const [installedPluginsRaw, setInstalledPluginsRaw] = useState([]); // raw from /api/admin/plugins
-  const [activeOverride, setActiveOverride] = useState({}); // { pluginId: true|false } — siempre manda
+  const [installedPlugins, setInstalledPlugins] = useState([]); // full objects from /api/admin/plugins
   const [pluginCountriesMap, setPluginCountriesMap] = useState({});
   const [loadingWorkshop, setLoadingWorkshop] = useState(true);
   const [installing, setInstalling] = useState(null);
@@ -71,25 +70,6 @@ function MercadoPagoPoints() {
   const [expandedVersions, setExpandedVersions] = useState(null);
   const [versions, setVersions] = useState([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
-
-  // installedPlugins = raw + override aplicado. Esto garantiza que el override SIEMPRE gana.
-  const installedPlugins = useMemo(() => {
-    return installedPluginsRaw.map(p => {
-      if (p.plugin_id in activeOverride) {
-        return { ...p, is_active: activeOverride[p.plugin_id] };
-      }
-      return p;
-    });
-  }, [installedPluginsRaw, activeOverride]);
-
-  const setInstalledPlugins = (updater) => {
-    // backwards-compat: permite que otros callers sigan pensando que existe setInstalledPlugins
-    if (typeof updater === 'function') {
-      setInstalledPluginsRaw(prev => updater(prev));
-    } else {
-      setInstalledPluginsRaw(updater);
-    }
-  };
 
   // Settings modal
   const [settingsOpen, setSettingsOpen] = useState(null);
@@ -125,6 +105,10 @@ function MercadoPagoPoints() {
     setPluginCountriesMap(loadPluginCountries());
   }, []);
 
+  useEffect(() => {
+    console.log('[installedPlugins changed]', installedPlugins.map(p => ({ id: p.plugin_id, is_active: p.is_active })));
+  }, [installedPlugins]);
+
   const fetchWorkshopPlugins = async () => {
     setLoadingWorkshop(true);
     try {
@@ -142,11 +126,10 @@ function MercadoPagoPoints() {
       });
       if (response.ok) {
         const data = await response.json();
-        // Normalizamos is_active a boolean puro — evita cualquier inversión por tipo.
         const normalized = Array.isArray(data)
           ? data.map(p => ({ ...p, is_active: p.is_active === true || p.is_active === 1 || p.is_active === '1' }))
           : [];
-        setInstalledPluginsRaw(normalized);
+        setInstalledPlugins(normalized);
       }
     } catch {}
   };
@@ -158,29 +141,36 @@ function MercadoPagoPoints() {
 
   const getInstalled = (pluginId) => installedPlugins.find(p => p.plugin_id === pluginId);
 
+  // Mismo patrón exacto que togglePlugin en Plugins.jsx — que el usuario dice funciona correctamente.
   const toggleActive = async (pluginId, currentlyActiveRaw) => {
-    // Siempre trabajamos con booleans puros para evitar inversiones por tipo.
-    const currentlyActive = isTruthy(currentlyActiveRaw);
+    const currentlyActive = Boolean(currentlyActiveRaw);
     const nextActive = !currentlyActive;
+    console.log('[toggleActive]', { pluginId, currentlyActiveRaw, currentlyActive, nextActive });
     setTogglingId(pluginId);
     try {
       const action = currentlyActive ? 'deactivate' : 'activate';
+      console.log('[toggleActive] calling action:', action);
       const response = await fetch(API + `/api/admin/plugins/${pluginId}/${action}`, {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token }
       });
       if (response.ok) {
-        // Override — esta lectura SIEMPRE gana sobre installedPluginsRaw.
-        // Nada puede pisarlo (ni refetch, ni refreshPlugins, ni data stale).
-        setActiveOverride(prev => ({ ...prev, [pluginId]: nextActive }));
+        console.log('[toggleActive] success, setting is_active=', nextActive);
+        setInstalledPlugins(prev => {
+          const updated = prev.map(p =>
+            p.plugin_id === pluginId ? { ...p, is_active: nextActive } : p
+          );
+          console.log('[toggleActive] new installedPlugins:', updated.filter(p => p.plugin_id === pluginId));
+          return updated;
+        });
         refreshPlugins && refreshPlugins();
-        setInstallMessage(`Plugin ${currentlyActive ? 'desactivado' : 'activado'}`);
+        setInstallMessage(`Plugin ${nextActive ? 'activado' : 'desactivado'}`);
         setTimeout(() => setInstallMessage(''), 2000);
       } else {
         const err = await response.json();
         setInstallMessage(err.error || 'Error al cambiar estado');
       }
-    } catch { setInstallMessage('Error de conexión'); }
+    } catch (e) { console.error('[toggleActive] error:', e); setInstallMessage('Error de conexión'); }
     finally { setTogglingId(null); }
   };
 
