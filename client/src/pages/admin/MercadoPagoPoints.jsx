@@ -174,27 +174,55 @@ function MercadoPagoPoints() {
     if (!selectedStore?.id) return;
     try {
       const res = await fetch(API + '/api/public/pos-devices/' + selectedStore.id);
-      if (!res.ok) { setPosList([]); return; }
-      const devices = await res.json();
-      const mpList = devices.filter(d => d.provider === 'mercadopago').map(t => ({
-        id: t.id,
-        provider: 'mercadopago',
-        name: t.name,
-        terminal_id: t.device_id,
-      }));
-      const tuuList = devices.filter(d => d.provider === 'tuu').map(d => ({
-        id: d.id,
-        provider: 'tuu',
-        name: d.name,
-        serial: d.serial,
-        device_uid: null,
-        assigned: false,
-        assigned_name: null,
-      }));
-      setPosList([...mpList, ...tuuList]);
-    } catch {
-      setPosList([]);
-    }
+      if (res.ok) {
+        const devices = await res.json();
+        const mpList = devices.filter(d => d.provider === 'mercadopago').map(t => ({
+          id: t.id,
+          provider: 'mercadopago',
+          name: t.name,
+          terminal_id: t.device_id,
+        }));
+        const tuuList = devices.filter(d => d.provider === 'tuu').map(d => ({
+          id: d.id,
+          provider: 'tuu',
+          name: d.name,
+          serial: d.serial,
+          device_uid: null,
+          assigned: false,
+          assigned_name: null,
+        }));
+        setPosList([...mpList, ...tuuList]);
+        return;
+      }
+    } catch { }
+
+    const fetchLegacy = async () => {
+      const token = localStorage.getItem('token');
+      try {
+        const [mpRes, tuuRes] = await Promise.all([
+          fetch(API + '/api/mercado-pago-terminals', { headers: { Authorization: 'Bearer ' + token } }),
+          fetch(API + '/api/tuu/devices?store_id=' + selectedStore.id)
+        ]);
+        const [mpData, tuuData] = await Promise.all([mpRes.json(), tuuRes.json()]);
+        const mpList = (Array.isArray(mpData) ? mpData : []).map(t => ({
+          id: t.id,
+          provider: 'mercadopago',
+          name: t.name,
+          terminal_id: t.mercadopago_terminal_id,
+        }));
+        const tuuList = (Array.isArray(tuuData.posDevices) ? tuuData.posDevices : []).map(d => ({
+          id: d.id,
+          provider: 'tuu',
+          name: d.name,
+          serial: d.serial,
+          device_uid: null,
+          assigned: false,
+          assigned_name: null,
+        }));
+        setPosList([...mpList, ...tuuList]);
+      } catch { setPosList([]); }
+    };
+    fetchLegacy();
   };
 
   const saveMpPos = async () => {
