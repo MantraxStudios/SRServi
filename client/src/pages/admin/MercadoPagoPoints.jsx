@@ -105,10 +105,6 @@ function MercadoPagoPoints() {
     setPluginCountriesMap(loadPluginCountries());
   }, []);
 
-  useEffect(() => {
-    console.log('[installedPlugins changed]', installedPlugins.map(p => ({ id: p.plugin_id, is_active: p.is_active })));
-  }, [installedPlugins]);
-
   const fetchWorkshopPlugins = async () => {
     setLoadingWorkshop(true);
     try {
@@ -126,8 +122,6 @@ function MercadoPagoPoints() {
       });
       if (response.ok) {
         const data = await response.json();
-        console.log('[fetchInstalledPlugins] raw server response:', data.map(p => ({ plugin_id: p.plugin_id, is_active: p.is_active, type: typeof p.is_active })));
-        // Coerción súper defensiva: acepta true/1/"1"/"t"/"true"/"TRUE" como true; todo lo demás es false.
         const normalized = Array.isArray(data)
           ? data.map(p => {
               const raw = p.is_active;
@@ -135,10 +129,9 @@ function MercadoPagoPoints() {
               return { ...p, is_active: isActive };
             })
           : [];
-        console.log('[fetchInstalledPlugins] normalized:', normalized.map(p => ({ plugin_id: p.plugin_id, is_active: p.is_active })));
         setInstalledPlugins(normalized);
       }
-    } catch (e) { console.error('[fetchInstalledPlugins] error:', e); }
+    } catch {}
   };
 
   // Normaliza cualquier representación de is_active a boolean puro.
@@ -148,11 +141,9 @@ function MercadoPagoPoints() {
 
   const getInstalled = (pluginId) => installedPlugins.find(p => p.plugin_id === pluginId);
 
-  // EXACTAMENTE el mismo patrón que Plugins.jsx (que el usuario dice funciona bien).
   const toggleActive = async (pluginId, currentlyActiveRaw) => {
     const currentlyActive = currentlyActiveRaw === true || currentlyActiveRaw === 1 || currentlyActiveRaw === '1';
     const nextActive = !currentlyActive;
-    console.log('[toggleActive] click', { pluginId, currentlyActiveRaw, currentlyActive, nextActive });
     setTogglingId(pluginId);
     try {
       const authToken = localStorage.getItem('token');
@@ -162,7 +153,6 @@ function MercadoPagoPoints() {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       if (response.ok) {
-        console.log('[toggleActive] OK, optimistic update is_active=', nextActive);
         setInstalledPlugins(prev => prev.map(p =>
           p.plugin_id === pluginId ? { ...p, is_active: nextActive } : p
         ));
@@ -833,9 +823,9 @@ function MercadoPagoPoints() {
                         {togglingId === installed.plugin_id ? (
                           <FontAwesomeIcon icon={faSpinner} spin />
                         ) : installed.is_active ? (
-                          <><FontAwesomeIcon icon={faToggleOff} /> Desactivar</>
+                          <><FontAwesomeIcon icon={faToggleOn} /> Desactivar</>
                         ) : (
-                          <><FontAwesomeIcon icon={faToggleOn} /> Activar</>
+                          <><FontAwesomeIcon icon={faToggleOff} /> Activar</>
                         )}
                       </button>
                       {installed.is_active && (hasAdminPage(installed) || Object.keys(installed.settings_schema || {}).length > 0) && (
@@ -914,15 +904,8 @@ function MercadoPagoPoints() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {paymentPlugins.map(plugin => {
-                // Coerción permisiva: cualquier valor truthy distinto de 0/"0"/false se considera active
-                const isActive = plugin.is_active !== false
-                  && plugin.is_active !== 0
-                  && plugin.is_active !== '0'
-                  && plugin.is_active !== null
-                  && plugin.is_active !== undefined
-                  && !!plugin.is_active;
+                const isActive = !!plugin.is_active && plugin.is_active !== '0' && plugin.is_active !== 0;
                 const hasSchema = Object.keys(plugin.settings_schema || {}).length > 0;
-                console.log('[render payment plugin]', plugin.plugin_id, 'is_active(raw):', plugin.is_active, 'type:', typeof plugin.is_active, 'isActive(bool):', isActive);
                 return (
                   <div
                     key={plugin.plugin_id}
@@ -1002,9 +985,9 @@ function MercadoPagoPoints() {
                         {togglingId === plugin.plugin_id ? (
                           <FontAwesomeIcon icon={faSpinner} spin />
                         ) : isActive ? (
-                          <><FontAwesomeIcon icon={faToggleOff} /> Desactivar</>
+                          <><FontAwesomeIcon icon={faToggleOn} /> Desactivar</>
                         ) : (
-                          <><FontAwesomeIcon icon={faToggleOn} /> Activar</>
+                          <><FontAwesomeIcon icon={faToggleOff} /> Activar</>
                         )}
                       </button>
                     </div>
