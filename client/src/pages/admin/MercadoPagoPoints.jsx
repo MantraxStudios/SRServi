@@ -253,7 +253,7 @@ function MercadoPagoPoints() {
     fetchTuuConfig();
     fetchPosList();
     setPluginCountriesMap(loadPluginCountries());
-  }, []);
+  }, [selectedStore?.id]);
 
   const fetchWorkshopPlugins = async () => {
     setLoadingWorkshop(true);
