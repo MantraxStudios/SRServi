@@ -801,9 +801,10 @@ function MercadoPagoPoints() {
                         disabled={togglingId === installed.plugin_id}
                         style={{
                           flex: 1, minWidth: '120px',
-                          background: installed.is_active ? '#fee2e2' : '#dcfce7',
-                          color: installed.is_active ? '#991b1b' : '#166534',
-                          border: '1px solid ' + (installed.is_active ? '#fecaca' : '#bbf7d0'),
+                          // Color refleja el ESTADO ACTUAL del plugin: verde=activo, rojo=inactivo
+                          background: installed.is_active ? '#dcfce7' : '#fee2e2',
+                          color: installed.is_active ? '#166534' : '#991b1b',
+                          border: '1px solid ' + (installed.is_active ? '#bbf7d0' : '#fecaca'),
                           fontWeight: '700'
                         }}
                       >
@@ -962,9 +963,10 @@ function MercadoPagoPoints() {
                         onClick={() => toggleActive(plugin.plugin_id, isActive)}
                         disabled={togglingId === plugin.plugin_id}
                         style={{
-                          background: isActive ? '#fee2e2' : '#dcfce7',
-                          color: isActive ? '#991b1b' : '#166534',
-                          border: '1px solid ' + (isActive ? '#fecaca' : '#bbf7d0'),
+                          // Color refleja el ESTADO ACTUAL: verde=activo, rojo=inactivo
+                          background: isActive ? '#dcfce7' : '#fee2e2',
+                          color: isActive ? '#166534' : '#991b1b',
+                          border: '1px solid ' + (isActive ? '#bbf7d0' : '#fecaca'),
                           fontWeight: '700',
                           whiteSpace: 'nowrap'
                         }}
