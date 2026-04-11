@@ -356,6 +356,7 @@ async function createTables() {
       user_id INT NOT NULL,
       name VARCHAR(255) NOT NULL,
       serial VARCHAR(100) NOT NULL,
+      device_id VARCHAR(100) DEFAULT '',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);

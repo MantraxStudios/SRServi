@@ -35,6 +35,20 @@ async function migrate() {
       console.log('ℹ️ Columna cash_approved ya existe');
     }
 
+    try {
+      const [tuuDeviceCols] = await connection.execute('DESCRIBE tuu_devices');
+      const tuuDeviceColNames = tuuDeviceCols.map(c => c.Field);
+      if (!tuuDeviceColNames.includes('device_id')) {
+        console.log('➕ Agregando columna device_id a tuu_devices...');
+        await connection.execute('ALTER TABLE tuu_devices ADD COLUMN device_id VARCHAR(100) DEFAULT \'\'');
+        console.log('✅ Columna device_id agregada');
+      } else {
+        console.log('ℹ️ Columna device_id ya existe');
+      }
+    } catch (e) {
+      console.log('ℹ️ Tabla tuu_devices no existe, se creara con la columna');
+    }
+
     console.log('\n✅ Migración completada');
     connection.release();
     await pool.end();

@@ -4458,11 +4458,17 @@ async function startServer() {
 
     app.post('/api/tuu/devices', async (req, res) => {
       try {
-        const { store_id, name, serial } = req.body;
+        const { store_id, name, serial, device_id, api_key } = req.body;
         if (!name || !serial) return res.status(400).json({ error: 'Nombre y serial requeridos' });
         const userId = await tuuGetUserIdFromStore(parseInt(store_id));
-        const [result] = await pool.execute('INSERT INTO tuu_devices (user_id, name, serial) VALUES (?, ?, ?)', [userId, name, serial]);
-        res.json({ id: result.insertId, name, serial });
+        if (api_key) {
+          await pool.execute(
+            'INSERT INTO tuu_config (user_id, api_key) VALUES (?, ?) ON DUPLICATE KEY UPDATE api_key = ?',
+            [userId, api_key, api_key]
+          );
+        }
+        const [result] = await pool.execute('INSERT INTO tuu_devices (user_id, name, serial, device_id) VALUES (?, ?, ?, ?)', [userId, name, serial, device_id || '']);
+        res.json({ id: result.insertId, name, serial, device_id: device_id || '' });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
@@ -4534,26 +4540,6 @@ async function startServer() {
       if (intervalId) { clearInterval(intervalId); tuuActivePolls.delete(req.params.key); }
       await pool.execute('UPDATE tuu_transactions SET status = ?, updated_at = NOW() WHERE idempotency_key = ?', ['Canceled', req.params.key]);
       res.json({ success: true });
-    });
-
-    app.post('/api/tuu/qr', async (req, res) => {
-      try {
-        const { serial, store_id } = req.body;
-        if (!serial) return res.status(400).json({ error: 'serial requerido' });
-        const userId = await tuuGetUserIdFromStore(parseInt(store_id));
-        const config = await tuuGetConfig(userId);
-        if (!config?.api_key) return res.status(400).json({ error: 'API Key de Tuu no configurada' });
-        const response = await fetch(`${TUU_API}/GetPaymentRequest/${serial}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json', 'X-API-Key': config.api_key }
-        });
-        const data = await response.json();
-        if (!response.ok) return res.status(400).json({ error: data.message || 'Error al obtener QR' });
-        if (data.qrImage) return res.json({ qrImage: data.qrImage });
-        res.json({ error: 'QR no disponible' });
-      } catch (e) {
-        res.status(500).json({ error: e.message });
-      }
     });
 
     app.get('/api/tuu/transactions', async (req, res) => {

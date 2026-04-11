@@ -111,12 +111,11 @@ function MercadoPagoPoints() {
   const [mpModalError, setMpModalError] = useState('');
   const [tuuNewName, setTuuNewName] = useState('');
   const [tuuNewSerial, setTuuNewSerial] = useState('');
+  const [tuuNewDeviceId, setTuuNewDeviceId] = useState('');
+  const [tuuNewApiKey, setTuuNewApiKey] = useState('');
   const [tuuNewDteType, setTuuNewDteType] = useState(0);
   const [savingTuu, setSavingTuu] = useState(false);
   const [tuuSaveMsg2, setTuuSaveMsg2] = useState('');
-  const [tuuQrImage, setTuuQrImage] = useState(null);
-  const [tuuGettingQr, setTuuGettingQr] = useState(false);
-  const [tuuQrMsg, setTuuQrMsg] = useState('');
 
   // Settings modal
   const [settingsOpen, setSettingsOpen] = useState(null);
@@ -213,12 +212,12 @@ function MercadoPagoPoints() {
       const res = await fetch(API + '/api/tuu/devices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store_id: selectedStore.id, name: tuuNewName.trim(), serial: tuuNewSerial.trim(), dte_type: tuuNewDteType })
+        body: JSON.stringify({ store_id: selectedStore.id, name: tuuNewName.trim(), serial: tuuNewSerial.trim(), device_id: tuuNewDeviceId.trim(), api_key: tuuNewApiKey.trim(), dte_type: tuuNewDteType })
       });
       const data = await res.json();
       if (res.ok || data.success) {
         setTuuSaveMsg2('✔ Guardado');
-        setTuuNewName(''); setTuuNewSerial('');
+        setTuuNewName(''); setTuuNewSerial(''); setTuuNewDeviceId(''); setTuuNewApiKey('');
         fetchPosList();
         setTimeout(() => setShowPosModal(false), 1200);
       } else { setTuuSaveMsg2('Error: ' + (data.error || 'revisalo')); }
@@ -840,7 +839,7 @@ function MercadoPagoPoints() {
               </div>
               <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', margin: '16px 0 0', padding: '0 20px' }}>
                 {['Mercado Pago', 'Tuu POS', 'Square', 'Sumup'].map((tab, i) => (
-                  <button key={tab} onClick={() => { setPosTab(i); setMpModalStep('token'); setMpModalDetected([]); setMpModalError(''); setTuuQrImage(null); setTuuQrMsg(''); }} style={{ padding: '10px 14px', background: 'none', border: 'none', borderBottom: posTab === i ? '3px solid #D4AF37' : '3px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: posTab === i ? '800' : '500', color: posTab === i ? '#111' : '#999', whiteSpace: 'nowrap' }}>{tab}</button>
+                  <button key={tab} onClick={() => { setPosTab(i); setMpModalStep('token'); setMpModalDetected([]); setMpModalError(''); }} style={{ padding: '10px 14px', background: 'none', border: 'none', borderBottom: posTab === i ? '3px solid #D4AF37' : '3px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: posTab === i ? '800' : '500', color: posTab === i ? '#111' : '#999', whiteSpace: 'nowrap' }}>{tab}</button>
                 ))}
               </div>
               <div style={{ padding: '20px' }}>
@@ -920,34 +919,10 @@ function MercadoPagoPoints() {
                 )}
                 {posTab === 1 && (
                   <div>
-                    <div style={{ textAlign: 'center', marginBottom: '14px', padding: '12px', background: '#f9f0ff', borderRadius: '10px', border: '1px solid #e9d5ff' }}>
-                      <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: '700', color: '#6a1b9a' }}>QR para escanear en la app Tuu</p>
-                      <div style={{ background: '#fff', border: '2px dashed #d0b0f0', borderRadius: '8px', padding: '12px', display: 'inline-block', minHeight: '120px', minWidth: '120px' }}>
-                        {tuuQrImage ? (
-                          <img src={tuuQrImage} alt="QR Tuu" style={{ width: '120px', height: '120px', display: 'block' }} />
-                        ) : (
-                          <div style={{ width: '120px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: '11px', textAlign: 'center' }}>Escanea el QR<br/>que genera Tuu<br/>al pagar</div>
-                        )}
-                      </div>
-                      <button onClick={async () => {
-                        if (!tuuNewSerial.trim()) { setTuuSaveMsg2('Ingresa el serial del POS primero'); return; }
-                        setTuuGettingQr(true); setTuuQrImage(null); setTuuQrMsg('');
-                        try {
-                          const res = await fetch(API + '/api/tuu/qr', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ serial: tuuNewSerial.trim(), amount: 0, store_id: selectedStore.id })
-                          });
-                          const data = await res.json();
-                          if (!res.ok) { setTuuQrMsg(data.error || 'Error'); setTuuGettingQr(false); return; }
-                          if (data.qrImage) { setTuuQrImage('data:image/png;base64,' + data.qrImage); setTuuQrMsg('✔ QR obtenido'); }
-                          else { setTuuQrMsg('QR no disponible para este dispositivo'); }
-                        } catch { setTuuQrMsg('Error de conexion'); }
-                        setTuuGettingQr(false);
-                      }} disabled={tuuGettingQr} style={{ marginTop: '8px', padding: '5px 14px', background: '#6a1b9a', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: '700' }}>
-                        {tuuGettingQr ? <><FontAwesomeIcon icon={faSpinner} spin /> Obteniendo...</> : 'Obtener QR'}
-                      </button>
-                      {tuuQrMsg && <p style={{ margin: '4px 0 0', fontSize: '11px', color: tuuQrMsg.includes('Error') || tuuQrMsg.includes('error') ? '#dc3545' : '#6a1b9a' }}>{tuuQrMsg}</p>}
+                    <div style={{ marginBottom: '10px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>API Key de Tuu</label>
+                      <input value={tuuNewApiKey} onChange={e => setTuuNewApiKey(e.target.value)} placeholder="XXXX-XXXX-XXXX-XXXX" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' }} />
+                      <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>La obtienes en integrations.tuu.cl</p>
                     </div>
                     <div style={{ marginBottom: '10px' }}>
                       <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Nombre del POS</label>
@@ -956,6 +931,10 @@ function MercadoPagoPoints() {
                     <div style={{ marginBottom: '10px' }}>
                       <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Serial del POS</label>
                       <input value={tuuNewSerial} onChange={e => setTuuNewSerial(e.target.value)} placeholder="XXXXXXXXXX" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+                    </div>
+                    <div style={{ marginBottom: '14px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>ID del dispositivo</label>
+                      <input value={tuuNewDeviceId} onChange={e => setTuuNewDeviceId(e.target.value)} placeholder="ID que entrega Tuu (opcional)" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
                     </div>
                     <div style={{ marginBottom: '14px' }}>
                       <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Tipo de documento</label>
