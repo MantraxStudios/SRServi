@@ -3470,7 +3470,12 @@ app.get('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id ? parseInt(req.query.store_id) : null;
     let terminals;
+
     if (storeId) {
+      const store = await getStoreById(storeId);
+      if (!store || store.user_id !== req.user.id) {
+        return res.json([]);
+      }
       try {
         const [rows] = await pool.execute(
           `SELECT m.id, m.name, m.mercadopago_terminal_id, m.mercadopago_access_token, m.user_id, m.created_at
@@ -3481,13 +3486,7 @@ app.get('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
         );
         terminals = rows;
       } catch {
-        const store = await getStoreById(storeId);
-        if (store && store.user_id === req.user.id) {
-          const all = await getMercadoPagoTerminals(req.user.id);
-          terminals = all;
-        } else {
-          terminals = [];
-        }
+        terminals = await getMercadoPagoTerminals(req.user.id);
       }
     } else {
       terminals = await getMercadoPagoTerminals(req.user.id);
