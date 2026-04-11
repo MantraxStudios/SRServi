@@ -86,7 +86,6 @@ function MercadoPagoPoints() {
   const [loadingVersions, setLoadingVersions] = useState(false);
 
   // ==== TUU POS native ====
-  const [tuuConfigOpen, setTuuConfigOpen] = useState(false);
   const [tuuApiKey, setTuuApiKey] = useState('');
   const [tuuDteType, setTuuDteType] = useState(0);
   const [tuuSaving, setTuuSaving] = useState(false);
@@ -769,7 +768,7 @@ function MercadoPagoPoints() {
           <div style={{ marginBottom: '8px', padding: '8px 12px', background: '#f3e5f5', border: '2px solid #9c27b0', borderRadius: '6px' }}>
             <p style={{ margin: 0, fontSize: '11px', color: '#444' }}>
               <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#6a1b9a', marginRight: '4px' }} />
-              Configura tu API Key en <a href="https://integrations.payment.haulmer.com" target="_blank" style={{ color: '#6a1b9a', fontWeight: '700' }}>integrations.payment.haulmer.com</a> y agrega tus POS.
+              Configura tu API Key en <a href="https://developers.tuu.cl" target="_blank" style={{ color: '#6a1b9a', fontWeight: '700' }}>developers.tuu.cl</a> (Menú &gt; Pagos &gt; Configuración &gt; API) y los datos del QR consultalos con tu proveedor Tuu.
             </p>
           </div>
 
@@ -1110,194 +1109,6 @@ function MercadoPagoPoints() {
         </div>
       )}
 
-      {tuuConfigOpen && (
-        <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: '520px', padding: '24px' }}>
-            <h2 style={{ color: '#6a1b9a', marginBottom: '4px' }}>
-              <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: '8px' }} />
-              Tuu POS — Configuración
-            </h2>
-            <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>
-              Terminales POS para Cobro con Tarjeta
-            </p>
-
-            {/* Instrucciones */}
-            <div style={{ border: '2px solid #9c27b0', borderRadius: '12px', padding: '14px', background: '#f3e5f5', marginBottom: '16px' }}>
-              <h3 style={{ color: '#6a1b9a', margin: '0 0 8px', fontSize: '14px' }}>¿Cómo empezar?</h3>
-              <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '13px', color: '#444', lineHeight: '1.8' }}>
-                <li><strong>Obtén tu API Key</strong> desde <a href="https://integrations.payment.haulmer.com" target="_blank" style={{ color: '#6a1b9a' }}>integrations.payment.haulmer.com</a> y pégala abajo.</li>
-                <li><strong>Agrega tus POS</strong> con el nombre y serial del equipo.</li>
-                <li><strong>Asigna cada tablet/celular</strong> a un POS — cuando un trabajador abre la tienda, se registra automáticamente.</li>
-                <li><strong>En la caja</strong>, al cobrar elegís "Tuu" y el sistema usa el POS asignado.</li>
-              </ol>
-            </div>
-
-            {/* API Key */}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>API Key</label>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <input
-                  type="password"
-                  value={tuuApiKey}
-                  onChange={e => setTuuApiKey(e.target.value)}
-                  placeholder="API Key de Tuu"
-                  style={{ flex: 1, minWidth: '200px', padding: '8px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px', outline: 'none' }}
-                />
-                <select
-                  value={tuuDteType}
-                  onChange={e => setTuuDteType(parseInt(e.target.value))}
-                  style={{ padding: '8px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px', outline: 'none' }}
-                >
-                  <option value={0}>Sin documento</option>
-                  <option value={33}>Factura</option>
-                  <option value={48}>Boleta NA</option>
-                  <option value={99}>Boleta</option>
-                </select>
-                <button
-                  onClick={async () => {
-                    setTuuSaving(true);
-                    setTuuSaveMsg('');
-                    try {
-                      const res = await fetch(API + '/api/tuu/config', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ store_id: selectedStore.id, api_key: tuuApiKey, dte_type: tuuDteType })
-                      });
-                      const data = await res.json();
-                      setTuuSaveMsg(data.api_key ? 'Guardado ✓' : 'Error al guardar');
-                    } catch { setTuuSaveMsg('Error de conexión'); }
-                    setTuuSaving(false);
-                    setTimeout(() => setTuuSaveMsg(''), 3000);
-                  }}
-                  disabled={tuuSaving}
-                  className="btn btn-sm"
-                  style={{ background: '#6a1b9a', color: '#fff', fontWeight: '700' }}
-                >
-                  {tuuSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : <><FontAwesomeIcon icon={faSave} /> Guardar</>}
-                </button>
-              </div>
-              {tuuSaveMsg && <p style={{ marginTop: '6px', fontSize: '12px', color: tuuSaveMsg.includes('Error') ? '#dc3545' : '#155724' }}>{tuuSaveMsg}</p>}
-            </div>
-
-            {/* POS Devices */}
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700' }}>Dispositivos POS</label>
-                <button
-                  onClick={() => setTuuAddForm({ name: '', serial: '' })}
-                  className="btn btn-sm"
-                  style={{ background: '#D4AF37', color: '#000', fontWeight: '700', fontSize: '12px' }}
-                >
-                  + Agregar POS
-                </button>
-              </div>
-              {tuuAddForm && (
-                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                  <input
-                    value={tuuAddForm.name}
-                    onChange={e => setTuuAddForm(p => ({ ...p, name: e.target.value }))}
-                    placeholder="Nombre (ej: Caja 1)"
-                    style={{ flex: 1, minWidth: '120px', padding: '7px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px' }}
-                  />
-                  <input
-                    value={tuuAddForm.serial}
-                    onChange={e => setTuuAddForm(p => ({ ...p, serial: e.target.value }))}
-                    placeholder="Serial (ej: TJ44...)"
-                    style={{ flex: 1, minWidth: '120px', padding: '7px 10px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '13px' }}
-                  />
-                  <button
-                    onClick={async () => {
-                      if (!tuuAddForm.name || !tuuAddForm.serial) return;
-                      setTuuAdding(true);
-                      await fetch(API + '/api/tuu/devices', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ store_id: selectedStore.id, name: tuuAddForm.name, serial: tuuAddForm.serial })
-                      });
-                      setTuuAdding(false);
-                      setTuuAddForm(null);
-                      fetchTuuConfig();
-                    }}
-                    disabled={tuuAdding}
-                    className="btn btn-sm"
-                    style={{ background: '#6a1b9a', color: '#fff', fontWeight: '700' }}
-                  >
-                    {tuuAdding ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Agregar'}
-                  </button>
-                  <button onClick={() => setTuuAddForm(null)} className="btn btn-sm btn-secondary" style={{ fontSize: '12px' }}>Cancelar</button>
-                </div>
-              )}
-              {tuuPosDevices.length === 0 && (
-                <p style={{ color: '#999', fontSize: '13px' }}>Sin POS. Agrega uno.</p>
-              )}
-              {tuuPosDevices.map(d => (
-                <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
-                  <div>
-                    <strong style={{ fontSize: '13px' }}>{d.name}</strong>
-                    <div style={{ fontSize: '12px', color: '#666' }}>{d.serial}</div>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      if (!confirm('¿Eliminar este POS?')) return;
-                      await fetch(API + '/api/tuu/devices/' + d.id, { method: 'DELETE' });
-                      fetchTuuConfig();
-                    }}
-                    className="btn btn-sm"
-                    style={{ background: '#dc3545', color: '#fff', fontSize: '11px', padding: '4px 8px' }}
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {/* Device-POS Assignment */}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '13px', fontWeight: '700', display: 'block', marginBottom: '6px' }}>Asignar POS a Dispositivos</label>
-              <p style={{ fontSize: '12px', color: '#666', margin: '0 0 10px' }}>Cada tablet/celular que accede a tu tienda se registra aquí. Asigna qué POS usa cada uno.</p>
-              {tuuStoreDevices.length === 0 && (
-                <p style={{ color: '#999', fontSize: '13px' }}>No hay dispositivos registrados. Abre la tienda desde un dispositivo para que se registre.</p>
-              )}
-              {tuuStoreDevices.map(sd => {
-                const assigned = tuuAssignments.find(a => a.device_uid === sd.device_uid);
-                return (
-                  <div key={sd.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', borderBottom: '1px solid #f0f0f0', flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <strong style={{ fontSize: '12px' }}>{sd.label || 'Sin nombre'}</strong>
-                      <div style={{ fontSize: '10px', color: '#888', fontFamily: 'monospace', background: '#f5f5f5', padding: '1px 4px', borderRadius: '3px' }}>
-                        {sd.device_uid?.substring(0, 16)}...
-                      </div>
-                    </div>
-                    <select
-                      value={assigned?.tuu_device_id || ''}
-                      onChange={async e => {
-                        const posId = e.target.value;
-                        if (!posId) return;
-                        await fetch(API + '/api/tuu/devices/assign', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ store_id: selectedStore.id, device_uid: sd.device_uid, tuu_device_id: parseInt(posId) })
-                        });
-                        fetchTuuConfig();
-                      }}
-                      style={{ padding: '6px 8px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '12px' }}
-                    >
-                      <option value="">Sin POS</option>
-                      {tuuPosDevices.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              })}
-            </div>
-
-            <button onClick={() => setTuuConfigOpen(false)} className="btn btn-secondary btn-full">
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
     </>
   );
 }
