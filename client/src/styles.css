@@ -2408,6 +2408,139 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(0);
 }
 
+/* ============================================
+   Proceed/Pay button GLOW animation
+   Applied to: cart pay button, checkout button,
+   and ingredient/extras modal "next/done/add" buttons
+   ============================================ */
+@keyframes store-glow-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(212, 175, 55, 0.65),
+      0 6px 18px rgba(212, 175, 55, 0.40),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    filter: brightness(1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 14px rgba(212, 175, 55, 0),
+      0 10px 28px rgba(212, 175, 55, 0.75),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    filter: brightness(1.12);
+  }
+}
+
+.store-glow-pulse {
+  animation: store-glow-pulse 1.6s ease-in-out infinite;
+  position: relative;
+}
+
+.store-glow-pulse:hover {
+  animation-play-state: paused;
+}
+
+/* ============================================
+   Remove blue tap / selection / focus highlight
+   in the store across all browsers (touch + desktop)
+   ============================================ */
+.store-container,
+.store-container *,
+.store-modal-overlay,
+.store-modal-overlay *,
+.store-cart-sheet,
+.store-cart-sheet *,
+.store-prod-modal,
+.store-prod-modal *,
+.store-pin-modal,
+.store-pin-modal *,
+.cart-bar,
+.cart-bar *,
+.modal-overlay,
+.modal-overlay * {
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0) !important;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Keep text selection usable in form fields */
+.store-container input,
+.store-container textarea,
+.store-container select,
+.store-modal-overlay input,
+.store-modal-overlay textarea,
+.store-modal-overlay select,
+.store-cart-sheet input,
+.store-cart-sheet textarea,
+.store-prod-modal input,
+.store-prod-modal textarea,
+.store-prod-modal select,
+.store-pin-modal input,
+.modal-overlay input,
+.modal-overlay textarea,
+.modal-overlay select {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* Remove the blue focus ring on buttons and clickable elements inside the store */
+.store-container button,
+.store-container [role="button"],
+.store-container a,
+.store-modal-overlay button,
+.store-modal-overlay [role="button"],
+.store-cart-sheet button,
+.store-prod-modal button,
+.store-pin-modal button,
+.cart-bar button,
+.modal-overlay button,
+.modal-overlay [role="button"] {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.store-container button:focus,
+.store-container button:focus-visible,
+.store-container a:focus,
+.store-modal-overlay button:focus,
+.store-modal-overlay button:focus-visible,
+.store-cart-sheet button:focus,
+.store-prod-modal button:focus,
+.store-pin-modal button:focus,
+.cart-bar button:focus,
+.modal-overlay button:focus,
+.modal-overlay button:focus-visible {
+  outline: none !important;
+  box-shadow: none;
+}
+
+/* Remove blue text-selection color inside the store (where selection is allowed) */
+.store-container ::selection,
+.store-modal-overlay ::selection,
+.store-cart-sheet ::selection,
+.store-prod-modal ::selection,
+.store-pin-modal ::selection,
+.cart-bar ::selection,
+.modal-overlay ::selection {
+  background: rgba(212, 175, 55, 0.35);
+  color: inherit;
+}
+.store-container ::-moz-selection,
+.store-modal-overlay ::-moz-selection,
+.store-cart-sheet ::-moz-selection,
+.store-prod-modal ::-moz-selection,
+.store-pin-modal ::-moz-selection,
+.cart-bar ::-moz-selection,
+.modal-overlay ::-moz-selection {
+  background: rgba(212, 175, 55, 0.35);
+  color: inherit;
+}
+
 /* Toast notification */
 .toast {
   position: fixed;

@@ -2030,7 +2030,7 @@ function Store() {
           </span>
           <button
             onClick={() => setCartOpen(true)}
-            className="cart-bar-pay-btn"
+            className="cart-bar-pay-btn store-glow-pulse"
           >
             {t('pay', lang)}
           </button>
@@ -2259,7 +2259,7 @@ function Store() {
               {productModalStep === 'main' ? (
                 <button
                   onClick={() => setIngredientsModalOpen(false)}
-                  className="btn btn-lg btn-full"
+                  className="btn btn-lg btn-full store-glow-pulse"
                   style={{
                     backgroundColor: 'var(--store-accent)',
                     color: 'var(--store-primary)',
@@ -2272,7 +2272,7 @@ function Store() {
                 <button
                   onClick={selectedProduct.extras?.length > 0 ? handleNextToExtras : addToCart}
                   disabled={addingToCart}
-                  className="btn btn-lg btn-full"
+                  className="btn btn-lg btn-full store-glow-pulse"
                   style={{
                     backgroundColor: addingToCart ? '#28a745' : 'var(--store-accent)',
                     color: 'var(--store-primary)',
@@ -2466,7 +2466,7 @@ function Store() {
               {productModalStep === 'main' ? (
                 <button
                   onClick={() => setExtrasModalOpen(false)}
-                  className="btn btn-lg btn-full"
+                  className="btn btn-lg btn-full store-glow-pulse"
                   style={{
                     backgroundColor: 'var(--store-accent)',
                     color: 'var(--store-primary)',
@@ -2479,7 +2479,7 @@ function Store() {
                 <button
                   onClick={addToCart}
                   disabled={addingToCart}
-                  className="btn btn-lg btn-full"
+                  className="btn btn-lg btn-full store-glow-pulse"
                   style={{
                     backgroundColor: addingToCart ? '#28a745' : 'var(--store-accent)',
                     color: 'var(--store-primary)',
@@ -2566,7 +2566,7 @@ function Store() {
               ))}
 
               <div className="store-cart-summary">
-                <div className="store-cart-summary-row">
+                <div className="store-cart-summary-row" style={{ display: 'none' }}>
                   <span>{t('subtotal', lang)}</span>
                   <span className="font-semibold">{colors.currency.symbol}{Number(getCartTotal()).toFixed(2)}</span>
                 </div>
@@ -2627,7 +2627,7 @@ function Store() {
               </div>
             </div>
 
-            <button onClick={handleCheckout} className="store-cart-checkout-btn">
+            <button onClick={handleCheckout} className="store-cart-checkout-btn store-glow-pulse">
               <FontAwesomeIcon icon={faCheck} />
               {t('confirmOrder', lang)} - {colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}
             </button>

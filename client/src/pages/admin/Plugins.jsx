@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUpload, faPlug, faToggleOn, faToggleOff, faTrash, faCog, faSave, faPuzzlePiece } from '@fortawesome/free-solid-svg-icons';
+import { faUpload, faPlug, faToggleOn, faToggleOff, faTrash, faCog, faSave, faPuzzlePiece, faGlobe } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { usePlugins } from '../../context/PluginContext';
+import { COUNTRIES, DEFAULT_COUNTRY, getCountry, loadPluginCountries, setPluginCountries, getPluginCountries } from '../../constants/pos';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -16,6 +17,20 @@ function Plugins() {
   const [settingsOpen, setSettingsOpen] = useState(null);
   const [settingsData, setSettingsData] = useState({});
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Upload flow con selección de país
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadCountries, setUploadCountries] = useState([DEFAULT_COUNTRY]);
+
+  // Países por plugin (almacenado en localStorage, cliente-only)
+  const [pluginCountriesMap, setPluginCountriesMap] = useState({});
+  const [editingCountriesOf, setEditingCountriesOf] = useState(null);
+  const [editCountriesDraft, setEditCountriesDraft] = useState([]);
+
+  useEffect(() => {
+    setPluginCountriesMap(loadPluginCountries());
+  }, []);
 
   useEffect(() => {
     fetchPlugins();
@@ -38,11 +53,35 @@ function Plugins() {
     }
   };
 
-  const handleUpload = async (e) => {
+  const openUploadModal = () => {
+    setUploadFile(null);
+    setUploadCountries([DEFAULT_COUNTRY]);
+    setUploadModalOpen(true);
+  };
+
+  const toggleUploadCountry = (code) => {
+    setUploadCountries(prev =>
+      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+    );
+  };
+
+  const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     if (!file.name.endsWith('.zip')) {
       setMessage('Solo se aceptan archivos .zip');
+      return;
+    }
+    setUploadFile(file);
+  };
+
+  const handleUpload = async () => {
+    if (!uploadFile) {
+      setMessage('Selecciona un archivo .zip primero');
+      return;
+    }
+    if (uploadCountries.length === 0) {
+      setMessage('Selecciona al menos un país para el plugin');
       return;
     }
 
@@ -51,7 +90,8 @@ function Plugins() {
     try {
       const token = localStorage.getItem('token');
       const formData = new FormData();
-      formData.append('plugin', file);
+      formData.append('plugin', uploadFile);
+      formData.append('countries', JSON.stringify(uploadCountries));
 
       const response = await fetch(API + '/api/admin/plugins/upload', {
         method: 'POST',
@@ -61,7 +101,16 @@ function Plugins() {
 
       const data = await response.json();
       if (response.ok) {
+        // Guardar países localmente asociados al plugin instalado
+        const pluginId = data.plugin_id || data.id;
+        if (pluginId) {
+          setPluginCountries(pluginId, uploadCountries);
+          setPluginCountriesMap(loadPluginCountries());
+        }
         setMessage(`Plugin "${data.name}" v${data.version} instalado`);
+        setUploadModalOpen(false);
+        setUploadFile(null);
+        setUploadCountries([DEFAULT_COUNTRY]);
         fetchPlugins();
         refreshPlugins();
       } else {
@@ -71,8 +120,26 @@ function Plugins() {
       setMessage('Error al subir el archivo');
     } finally {
       setUploading(false);
-      e.target.value = '';
     }
+  };
+
+  const openCountryEditor = (plugin) => {
+    const current = getPluginCountries(plugin.plugin_id);
+    setEditCountriesDraft(current.length ? current : [DEFAULT_COUNTRY]);
+    setEditingCountriesOf(plugin);
+  };
+
+  const toggleEditCountry = (code) => {
+    setEditCountriesDraft(prev =>
+      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+    );
+  };
+
+  const saveCountriesForPlugin = () => {
+    if (!editingCountriesOf) return;
+    setPluginCountries(editingCountriesOf.plugin_id, editCountriesDraft);
+    setPluginCountriesMap(loadPluginCountries());
+    setEditingCountriesOf(null);
   };
 
   const togglePlugin = async (pluginId, isActive) => {
@@ -229,17 +296,10 @@ function Plugins() {
         <h1>
           <FontAwesomeIcon icon={faPuzzlePiece} /> Plugins
         </h1>
-        <label className={`btn btn-primary${uploading ? ' disabled' : ''}`} style={{ cursor: uploading ? 'wait' : 'pointer' }}>
+        <button className="btn btn-primary" onClick={openUploadModal} disabled={uploading}>
           <FontAwesomeIcon icon={faUpload} />
           {uploading ? 'Instalando...' : 'Subir Plugin (.zip)'}
-          <input
-            type="file"
-            accept=".zip"
-            onChange={handleUpload}
-            disabled={uploading}
-            style={{ display: 'none' }}
-          />
-        </label>
+        </button>
       </header>
 
       <div className="admin-main">
@@ -310,6 +370,21 @@ function Plugins() {
                   {plugin.is_active && (
                     <span className="plugin-badge active">Activo</span>
                   )}
+                  {(pluginCountriesMap[plugin.plugin_id] || []).map(code => {
+                    const c = getCountry(code);
+                    return (
+                      <span key={code} className="plugin-badge" style={{ background: '#f0f0f0', color: '#333' }}>
+                        {c.flag} {c.code}
+                      </span>
+                    );
+                  })}
+                  <button
+                    onClick={() => openCountryEditor(plugin)}
+                    title="Editar países"
+                    style={{ background: 'none', border: '1px dashed #ccc', borderRadius: '10px', padding: '2px 8px', fontSize: '10px', cursor: 'pointer', color: '#666' }}
+                  >
+                    <FontAwesomeIcon icon={faGlobe} /> {(pluginCountriesMap[plugin.plugin_id] || []).length === 0 ? 'Asignar país' : 'Editar'}
+                  </button>
                 </div>
 
                 <div className="plugin-card-actions">
@@ -370,6 +445,136 @@ function Plugins() {
           </div>
         </div>
       </div>
+
+      {/* Upload modal con selector de país */}
+      {uploadModalOpen && (
+        <div className="modal-overlay" onClick={() => !uploading && setUploadModalOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">
+                <FontAwesomeIcon icon={faUpload} /> Subir Plugin
+              </h2>
+              <button className="modal-close" onClick={() => !uploading && setUploadModalOpen(false)}>&times;</button>
+            </div>
+            <div style={{ padding: '0 20px 20px' }}>
+              <div className="form-group">
+                <label>Archivo .zip *</label>
+                <input type="file" accept=".zip" onChange={handleFileChange} disabled={uploading} />
+                {uploadFile && (
+                  <small style={{ color: '#2ecc71', fontSize: '11px' }}>
+                    <FontAwesomeIcon icon={faUpload} /> {uploadFile.name}
+                  </small>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label>
+                  <FontAwesomeIcon icon={faGlobe} /> Países donde funciona el plugin *
+                </label>
+                <small style={{ display: 'block', color: '#888', fontSize: '11px', marginBottom: '8px' }}>
+                  Selecciona los países en los que este plugin está disponible. Aparecerá en "Vincular POS" para los usuarios de esos países.
+                </small>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                  gap: '6px',
+                  marginTop: '8px'
+                }}>
+                  {COUNTRIES.map(c => {
+                    const selected = uploadCountries.includes(c.code);
+                    return (
+                      <button
+                        key={c.code}
+                        type="button"
+                        onClick={() => toggleUploadCountry(c.code)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '6px',
+                          padding: '8px 10px',
+                          background: selected ? '#D4AF3722' : '#fff',
+                          border: selected ? '2px solid #D4AF37' : '1px solid #e5e7eb',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: selected ? '700' : '500',
+                          color: '#111',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <span style={{ fontSize: '16px' }}>{c.flag}</span>
+                        <span>{c.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end" style={{ marginTop: '16px' }}>
+                <button className="btn btn-secondary" onClick={() => setUploadModalOpen(false)} disabled={uploading}>Cancelar</button>
+                <button className="btn btn-primary" onClick={handleUpload} disabled={uploading || !uploadFile}>
+                  <FontAwesomeIcon icon={faUpload} /> {uploading ? 'Instalando...' : 'Instalar plugin'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal editar países de un plugin instalado */}
+      {editingCountriesOf && (
+        <div className="modal-overlay" onClick={() => setEditingCountriesOf(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">
+                <FontAwesomeIcon icon={faGlobe} /> Países — {editingCountriesOf.name}
+              </h2>
+              <button className="modal-close" onClick={() => setEditingCountriesOf(null)}>&times;</button>
+            </div>
+            <div style={{ padding: '0 20px 20px' }}>
+              <p style={{ color: '#6b7280', fontSize: '13px', marginTop: 0 }}>
+                Estos son los países en los que este plugin aparecerá como POS disponible.
+              </p>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                gap: '6px',
+                marginTop: '12px'
+              }}>
+                {COUNTRIES.map(c => {
+                  const selected = editCountriesDraft.includes(c.code);
+                  return (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => toggleEditCountry(c.code)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        padding: '8px 10px',
+                        background: selected ? '#D4AF3722' : '#fff',
+                        border: selected ? '2px solid #D4AF37' : '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: selected ? '700' : '500',
+                        color: '#111',
+                        textAlign: 'left'
+                      }}
+                    >
+                      <span style={{ fontSize: '16px' }}>{c.flag}</span>
+                      <span>{c.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex gap-3 justify-end" style={{ marginTop: '16px' }}>
+                <button className="btn btn-secondary" onClick={() => setEditingCountriesOf(null)}>Cancelar</button>
+                <button className="btn btn-primary" onClick={saveCountriesForPlugin}>
+                  <FontAwesomeIcon icon={faSave} /> Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {settingsOpen && (
         <div className="modal-overlay" onClick={() => setSettingsOpen(null)}>
