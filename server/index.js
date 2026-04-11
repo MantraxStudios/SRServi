@@ -314,7 +314,7 @@ app.get('/api/public/lookup/:code', async (req, res) => {
           error: 'Esta tienda ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación.'
         });
       }
-      return res.json({ type: 'store', code: store.code });
+      return res.json({ type: 'store', id: store.id, code: store.code, name: store.name });
     }
 
     // Otherwise, try to match it against a client (user) code

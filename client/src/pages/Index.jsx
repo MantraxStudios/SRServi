@@ -26,34 +26,49 @@ function Index() {
   // On mount: auto-resume the last session so workers don't have to re-enter
   // the code every time the totem reboots.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('reset') === '1') {
-      localStorage.removeItem(STORAGE_KEYS.lastStoreCode);
-      localStorage.removeItem(STORAGE_KEYS.lastClientCode);
-      localStorage.removeItem(STORAGE_KEYS.lastClientStores);
-      localStorage.removeItem(STORAGE_KEYS.lastClientName);
-      window.history.replaceState({}, '', '/');
-      return;
-    }
+    (async () => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('reset') === '1') {
+        localStorage.removeItem(STORAGE_KEYS.lastStoreCode);
+        localStorage.removeItem(STORAGE_KEYS.lastClientCode);
+        localStorage.removeItem(STORAGE_KEYS.lastClientStores);
+        localStorage.removeItem(STORAGE_KEYS.lastClientName);
+        window.history.replaceState({}, '', '/');
+        return;
+      }
 
-    const savedStoreCode = localStorage.getItem(STORAGE_KEYS.lastStoreCode);
-    if (savedStoreCode) {
-      navigate(`/store/${savedStoreCode}`, { replace: true });
-      return;
-    }
-
-    // No saved store but a client code with stores → show the picker again
-    const savedClientStores = localStorage.getItem(STORAGE_KEYS.lastClientStores);
-    if (savedClientStores) {
-      try {
-        const parsed = JSON.parse(savedClientStores);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setClientStores(parsed);
-          setClientName(localStorage.getItem(STORAGE_KEYS.lastClientName) || '');
-          setCode(localStorage.getItem(STORAGE_KEYS.lastClientCode) || '');
+      const savedStoreCode = localStorage.getItem(STORAGE_KEYS.lastStoreCode);
+      if (savedStoreCode) {
+        const res = await fetch(`/api/public/lookup/${savedStoreCode}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.type === 'store') {
+            fetchStorePos({ id: data.id, code: data.code, name: data.name }, false);
+            return;
+          }
+          if (data.type === 'client') {
+            const [single] = data.stores;
+            if (single) {
+              fetchStorePos(single, false);
+              return;
+            }
+          }
         }
-      } catch { /* ignore */ }
-    }
+        localStorage.removeItem(STORAGE_KEYS.lastStoreCode);
+      }
+
+      const savedClientStores = localStorage.getItem(STORAGE_KEYS.lastClientStores);
+      if (savedClientStores) {
+        try {
+          const parsed = JSON.parse(savedClientStores);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setClientStores(parsed);
+            setClientName(localStorage.getItem(STORAGE_KEYS.lastClientName) || '');
+            setCode(localStorage.getItem(STORAGE_KEYS.lastClientCode) || '');
+          }
+        } catch { /* ignore */ }
+      }
+    })();
   }, [navigate]);
 
   const persistStoreSelection = (storeCode) => {
