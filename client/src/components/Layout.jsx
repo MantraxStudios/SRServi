@@ -267,15 +267,16 @@ function Layout() {
               </NavLink>
             </li>
 
-            <li className="sidebar-section-label">Gestión</li>
+            <li className="sidebar-section-label">Más</li>
             <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['gestion'] ? ' open' : ''}`} onClick={() => toggleDropdown('gestion')}>
-                <FontAwesomeIcon icon={faShoppingBag} />
-                <span>Ventas</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['gestion'] ? 180 : 0} />
+              <button className={`dropdown-header${openDropdowns['todo'] ? ' open' : ''}`} onClick={() => toggleDropdown('todo')}>
+                <FontAwesomeIcon icon={faCog} />
+                <span>Administración</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['todo'] ? 180 : 0} />
               </button>
-              {openDropdowns['gestion'] && (
+              {openDropdowns['todo'] && (
                 <div className="dropdown-content">
+                  {/* Gestión */}
                   <NavLink to="/admin/orders" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faShoppingBag} />
                     <span>Pedidos</span>
@@ -296,19 +297,8 @@ function Layout() {
                     <FontAwesomeIcon icon={faBarcode} />
                     <span>Market</span>
                   </NavLink>
-                </div>
-              )}
-            </li>
 
-            <li className="sidebar-section-label">Configuración</li>
-            <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['sistema'] ? ' open' : ''}`} onClick={() => toggleDropdown('sistema')}>
-                <FontAwesomeIcon icon={faCog} />
-                <span>Sistema</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['sistema'] ? 180 : 0} />
-              </button>
-              {openDropdowns['sistema'] && (
-                <div className="dropdown-content">
+                  {/* Sistema */}
                   <NavLink to="/admin/plans" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faCrown} />
                     <span>Planes</span>
@@ -337,18 +327,8 @@ function Layout() {
                     <FontAwesomeIcon icon={faTabletAlt} />
                     <span>Dispositivos</span>
                   </NavLink>
-                </div>
-              )}
-            </li>
 
-            <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['componentes'] ? ' open' : ''}`} onClick={() => toggleDropdown('componentes')}>
-                <FontAwesomeIcon icon={faPuzzlePiece} />
-                <span>Componentes</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['componentes'] ? 180 : 0} />
-              </button>
-              {openDropdowns['componentes'] && (
-                <div className="dropdown-content">
+                  {/* Componentes */}
                   <NavLink to="/admin/plugins" end className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faPuzzlePiece} />
                     <span>Plugins</span>
@@ -363,17 +343,15 @@ function Layout() {
                       <span>{item.label || item.pluginId}</span>
                     </NavLink>
                   ))}
+
+                  {/* Soporte */}
+                  <NavLink to="/admin/tickets" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faTicketAlt} />
+                    <span>Soporte</span>
+                  </NavLink>
                 </div>
               )}
               <PluginSlot name="sidebar" context={{ storeId: selectedStore?.id }} />
-            </li>
-
-            <li className="sidebar-section-label">Ayuda</li>
-            <li>
-              <NavLink to="/admin/tickets" className={({isActive}) => isActive ? 'active' : ''} onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faTicketAlt} />
-                <span>Soporte</span>
-              </NavLink>
             </li>
           </ul>
 
