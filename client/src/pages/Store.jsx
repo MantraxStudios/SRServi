@@ -169,10 +169,10 @@ function Store() {
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [editingCat, setEditingCat] = useState(null);
   const [catName, setCatName] = useState('');
-  const [pluginPaymentProvider, setPluginPaymentProvider] = useState(null);
+  const [tuuProvider, setTuuProvider] = useState(null);
   const [qrProvider, setQrProvider] = useState(null);
   const [qrPaymentUrl, setQrPaymentUrl] = useState(null);
-  const [pluginPaymentKey, setPluginPaymentKey] = useState(null);
+  const [tuuPaymentKey, setTuuPaymentKey] = useState(null);
   const [haulmerNative, setHaulmerNative] = useState(false);
   const [haulmerReference, setHaulmerReference] = useState(null);
   const [deviceUid] = useState(() => {
@@ -510,6 +510,21 @@ function Store() {
       }
     });
 
+    socket.on('tuu_payment_update', (data) => {
+      if (data.orderId && pendingOrderDataRef?.current?.order?.id === data.orderId) {
+        if (data.status === 'Completed') {
+          setPaymentWaiting(false); setQrPaymentUrl(null); setTuuPaymentKey(null);
+          setPaymentConfirmed(true);
+          setLastOrderNumber(data.order_number || pendingOrderDataRef.current.order.order_number || null);
+          setCart([]);
+          setCartOpen(false);
+        } else if (['Canceled', 'Failed', 'Timeout'].includes(data.status)) {
+          setPaymentWaiting(false); setQrPaymentUrl(null); setTuuPaymentKey(null);
+          setPaymentCancelled(true);
+        }
+      }
+    });
+
     socket.on('totem_restart', (data) => {
       console.log('totem_restart received:', data, 'myStore:', storeIdRef.current, 'isAdmin:', !!adminEditToken);
       // Only restart if this is not the admin editor and matches our store
@@ -664,22 +679,19 @@ function Store() {
         }
       } catch { /* ignore */ }
 
-      // Check if a plugin payment provider is available
+      // Check if TUU POS is available (native)
       try {
         const lastTerminalId = localStorage.getItem('srservi_last_terminal_id') || '';
-        const lastTerminalName = localStorage.getItem('srservi_last_terminal_name') || '';
         const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
-        console.log('[Store] Checking payment provider - store_id:', data.store.id, 'terminal_id:', lastTerminalId, 'terminal_name:', lastTerminalName, 'provider:', lastTerminalProvider, 'device_uid:', deviceUid);
-        const ppRes = await fetch(`/api/plugins/payments/provider?store_id=${data.store.id}&device_uid=${deviceUid}&terminal_id=${lastTerminalId}&terminal_provider=${lastTerminalProvider}`);
-        const ppData = await ppRes.json();
-        console.log('[Store] Payment provider response:', ppData);
-        if (ppData.available) {
-          setPluginPaymentProvider(ppData);
-          console.log('[Store] pluginPaymentProvider SET:', ppData);
-        } else {
-          console.log('[Store] pluginPaymentProvider NOT set - reason:', ppData.reason);
+        if (!lastTerminalProvider || lastTerminalProvider === 'tuu') {
+          const tuuRes = await fetch(`/api/tuu/provider?store_id=${data.store.id}&device_uid=${deviceUid}&terminal_id=${lastTerminalId}`);
+          const tuuData = await tuuRes.json();
+          if (tuuData.available) {
+            setTuuProvider(tuuData);
+            console.log('[Store] TUU provider SET:', tuuData);
+          }
         }
-      } catch (e) { console.error('[Store] Payment provider error:', e); /* no payment plugin, ignore */ }
+      } catch (e) { console.error('[Store] TUU provider error:', e); }
 
       // Check native Haulmer availability
       try {
@@ -1059,11 +1071,9 @@ function Store() {
 
   const processPayment = async (selectedMethod = paymentMethod) => {
     if (cart.length === 0) return;
-    const hasPluginProvider = selectedMethod === 'card' && pluginPaymentProvider;
     const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
-    const forceTuu = selectedMethod === 'card' && lastTerminalProvider === 'tuu';
-    const forceSquare = selectedMethod === 'card' && lastTerminalProvider === 'square';
-    if (selectedMethod === 'card' && !hasPluginProvider && !forceTuu && !forceSquare && !selectedTerminalId) {
+    const isTuu = selectedMethod === 'card' && (tuuProvider || lastTerminalProvider === 'tuu');
+    if (selectedMethod === 'card' && !isTuu && !selectedTerminalId) {
       alert(t('noTerminalAssigned', lang));
       return;
     }
@@ -1085,8 +1095,8 @@ function Store() {
     }));
 
     try {
-      // --- Plugin payment provider (Tuu, etc.) ---
-      if (hasPluginProvider || forceTuu || forceSquare) {
+      // --- TUU POS nativo ---
+      if (isTuu) {
         const orderRes = await fetch(API + '/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1100,22 +1110,21 @@ function Store() {
         const order = await orderRes.json();
         setPendingOrderData({ order, storeId });
 
-        const chargeRes = await fetch('/api/plugins/payments/charge', {
+        const chargeRes = await fetch('/api/tuu/charge', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             store_id: storeId, order_id: order.id,
             amount: Math.round(Number(finalTotal)),
             description: `Pedido #${order.order_number || order.id}`,
-            device_uid: pluginPaymentProvider?.deviceUid || deviceUid,
-            terminal_id: localStorage.getItem('srservi_last_terminal_id') || null,
-            terminal_provider: lastTerminalProvider
+            device_uid: tuuProvider?.deviceUid || deviceUid,
+            terminal_id: localStorage.getItem('srservi_last_terminal_id') || null
           })
         });
         const chargeData = await chargeRes.json();
-        if (!chargeData.success) throw new Error(chargeData.error || 'Error al enviar cobro');
+        if (!chargeData.success) throw new Error(chargeData.error || 'Error al enviar cobro al POS');
 
-        setPluginPaymentKey(chargeData.paymentKey);
+        setTuuPaymentKey(chargeData.paymentKey);
         setPaymentWaiting(true);
         setPaymentTimeLeft(300);
 
@@ -1234,7 +1243,7 @@ function Store() {
 
     const orderId = pendingOrderData.order.id;
     const storeId = pendingOrderData.storeId;
-    const isPluginPayment = !!pluginPaymentKey;
+    const isTuuPayment = !!tuuPaymentKey;
     const isHaulmerNative = !!haulmerReference;
 
     const onPaymentSuccess = (orderNumberOverride) => {
@@ -1244,14 +1253,14 @@ function Store() {
       setCartOpen(false);
       setPaymentModalOpen(false);
       setPaymentWaiting(false); setQrPaymentUrl(null);
-      setPluginPaymentKey(null);
+      setTuuPaymentKey(null);
       setHaulmerReference(null);
     };
 
     const onPaymentFail = () => {
       setPaymentWaiting(false); setQrPaymentUrl(null);
       setPaymentCancelled(true);
-      setPluginPaymentKey(null);
+      setTuuPaymentKey(null);
       setHaulmerReference(null);
     };
 
@@ -1271,16 +1280,16 @@ function Store() {
             clearInterval(timerInterval);
             onPaymentFail();
           }
-        } else if (isPluginPayment) {
-          // --- Generic plugin payment polling ---
-          const res = await fetch(`/api/plugins/payments/status/${pluginPaymentKey}`);
+        } else if (isTuuPayment) {
+          // --- TUU POS nativo ---
+          const res = await fetch(`/api/tuu/status/${tuuPaymentKey}`);
           if (!res.ok) return;
           const data = await res.json();
 
           if (data.status === 'Completed') {
             clearInterval(pollInterval);
             clearInterval(timerInterval);
-            onPaymentSuccess();
+            onPaymentSuccess(data.order_number || null);
           } else if (['Canceled', 'Failed', 'Timeout'].includes(data.status)) {
             clearInterval(pollInterval);
             clearInterval(timerInterval);
@@ -1330,8 +1339,8 @@ function Store() {
         if (prev <= 1) {
           clearInterval(timerInterval);
           clearInterval(pollInterval);
-          if (isPluginPayment && pluginPaymentKey) {
-            fetch(`/api/plugins/payments/cancel/${pluginPaymentKey}`, { method: 'POST' });
+          if (isTuuPayment && tuuPaymentKey) {
+            fetch(`/api/tuu/cancel/${tuuPaymentKey}`, { method: 'POST' });
           }
           onPaymentFail();
           return 0;
@@ -1344,7 +1353,7 @@ function Store() {
       clearInterval(pollInterval);
       clearInterval(timerInterval);
     };
-  }, [paymentWaiting, pendingOrderData, pluginPaymentKey, haulmerReference]);
+  }, [paymentWaiting, pendingOrderData, tuuPaymentKey, haulmerReference]);
 
   useEffect(() => {
     setAppliedCoupon(null);
@@ -3014,8 +3023,8 @@ function Store() {
 
                 {selectedConfiguration?.accept_card && (
                   <div className="text-muted text-sm" style={{ marginTop: '14px' }}>
-                    {pluginPaymentProvider ? (
-                      <><FontAwesomeIcon icon={faCreditCard} /> Procesará con <strong>{pluginPaymentProvider.provider === 'square' ? 'Square' : pluginPaymentProvider.provider === 'tuu' ? 'Tuu' : pluginPaymentProvider.provider}</strong> — {pluginPaymentProvider.deviceName || pluginPaymentProvider.deviceSerial || ''}</>
+                    {tuuProvider ? (
+                      <><FontAwesomeIcon icon={faCreditCard} /> Procesará con <strong>TUU</strong> — {tuuProvider.deviceName || tuuProvider.deviceSerial || ''}</>
                     ) : (
                       <>{t('terminalAssigned', lang)}{' '}
                       <strong>
@@ -3118,11 +3127,11 @@ function Store() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ store_id: pendingOrderData.storeId })
                   });
-                  if (pluginPaymentKey) {
-                    await fetch(`/api/plugins/payments/cancel/${pluginPaymentKey}`, { method: 'POST' });
+                  if (tuuPaymentKey) {
+                    await fetch(`/api/tuu/cancel/${tuuPaymentKey}`, { method: 'POST' });
                   }
                 } catch (e) { console.error(e); }
-                setPaymentWaiting(false); setQrPaymentUrl(null);
+                setPaymentWaiting(false); setQrPaymentUrl(null); setTuuPaymentKey(null);
                 setPaymentCancelled(true);
               }}
               className="btn btn-danger"
@@ -3371,13 +3380,13 @@ function Store() {
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ store_id: pendingOrderData.storeId })
                     });
-                    if (pluginPaymentKey) {
-                      await fetch(`/api/plugins/payments/cancel/${pluginPaymentKey}`, { method: 'POST' });
+                    if (tuuPaymentKey) {
+                      await fetch(`/api/tuu/cancel/${tuuPaymentKey}`, { method: 'POST' });
                     }
                   } catch (e) { console.error(e); }
                   setPaymentCancelled(false);
                   setPendingOrderData(null);
-                  setPaymentWaiting(false); setQrPaymentUrl(null);
+                  setPaymentWaiting(false); setQrPaymentUrl(null); setTuuPaymentKey(null);
                   setCart([]);
                   setCartOpen(false);
                   setPaymentModalOpen(false);

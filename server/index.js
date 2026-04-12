@@ -4471,14 +4471,17 @@ async function startServer() {
               'UPDATE tuu_transactions SET status = ?, transaction_ref = ?, updated_at = NOW() WHERE idempotency_key = ?',
               ['Completed', data.transactionReference || null, idempotencyKey]
             );
+            let orderNumber = null;
             if (orderId) {
               await pool.execute(
                 "UPDATE orders SET status = 'paid', payment_process = 1, sequence_id = ?, reference_id = ? WHERE id = ?",
                 [data.sequenceNumber || null, data.transactionReference || null, orderId]
               ).catch(() => {});
+              const [orRows] = await pool.execute('SELECT order_number FROM orders WHERE id = ?', [orderId]).catch(() => [[]]);
+              orderNumber = orRows[0]?.order_number || null;
             }
             const socketId = userSockets.get(parseInt(storeId));
-            if (socketId) io.to(socketId).emit('tuu_payment_update', { idempotencyKey, orderId, status: 'Completed', transactionRef: data.transactionReference, sequenceNumber: data.sequenceNumber });
+            if (socketId) io.to(socketId).emit('tuu_payment_update', { idempotencyKey, orderId, order_number: orderNumber, status: 'Completed', transactionRef: data.transactionReference, sequenceNumber: data.sequenceNumber });
           } else if (data.status === 'Canceled' || data.status === 'Failed') {
             clearInterval(intervalId);
             tuuActivePolls.delete(idempotencyKey);
@@ -4602,6 +4605,80 @@ async function startServer() {
         res.json({ available: !!device?.serial, deviceName: device?.name || null });
       } catch (e) { res.json({ available: false }); }
     });
+
+    // ── NATIVE TUU ENDPOINTS (no plugin system) ──────────────────────────
+
+    app.get('/api/tuu/provider', async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        const deviceUid = req.query.device_uid;
+        const terminalId = parseInt(req.query.terminal_id) || null;
+        if (!storeId) return res.json({ available: false });
+        const userId = await tuuGetUserIdFromStore(storeId);
+        const config = await tuuGetConfig(userId);
+        if (!config?.api_key) return res.json({ available: false, reason: 'No API Key TUU' });
+        let device = null;
+        if (terminalId) {
+          const [rows] = await pool.execute('SELECT * FROM tuu_devices WHERE id = ? AND user_id = ?', [terminalId, userId]);
+          device = rows[0] || null;
+        }
+        if (!device && deviceUid) device = await tuuGetDeviceForUid(deviceUid, storeId);
+        if (!device) device = await tuuGetAnyDeviceForStore(storeId);
+        if (!device) return res.json({ available: false, reason: 'No hay dispositivo TUU' });
+        res.json({ available: true, provider: 'tuu', deviceName: device.name, deviceSerial: device.serial, deviceId: device.id });
+      } catch (e) { res.json({ available: false, reason: e.message }); }
+    });
+
+    app.post('/api/tuu/charge', async (req, res) => {
+      try {
+        const { store_id, order_id, amount, description, device_uid, terminal_id } = req.body;
+        if (!store_id || !amount) return res.status(400).json({ error: 'store_id y amount requeridos' });
+        const userId = await tuuGetUserIdFromStore(parseInt(store_id));
+        const config = await tuuGetConfig(userId);
+        if (!config?.api_key) return res.status(400).json({ error: 'API Key de TUU no configurada. Ve al admin > Vincular POS > TUU.' });
+        let device = null;
+        if (terminal_id) {
+          const [rows] = await pool.execute('SELECT * FROM tuu_devices WHERE id = ? AND user_id = ?', [parseInt(terminal_id), userId]);
+          device = rows[0] || null;
+        }
+        if (!device && device_uid) device = await tuuGetDeviceForUid(device_uid, parseInt(store_id));
+        if (!device) device = await tuuGetAnyDeviceForStore(parseInt(store_id));
+        if (!device) return res.status(400).json({ error: 'No hay POS TUU configurado. Ve al admin > Vincular POS.' });
+        const payment = await tuuCreatePayment(config.api_key, amount, device.serial, description || '', config.dte_type);
+        await pool.execute(
+          'INSERT INTO tuu_transactions (store_id, order_id, idempotency_key, amount, status, device_serial) VALUES (?, ?, ?, ?, ?, ?)',
+          [parseInt(store_id), order_id || null, payment.idempotencyKey, Math.round(amount), 'Pending', device.serial]
+        );
+        tuuStartPolling(config.api_key, payment.idempotencyKey, parseInt(store_id), order_id);
+        res.json({ success: true, paymentKey: payment.idempotencyKey, status: payment.status, deviceName: device.name });
+      } catch (e) {
+        console.error('[tuu/charge]', e.message);
+        res.status(500).json({ error: e.message });
+      }
+    });
+
+    app.get('/api/tuu/status/:key', async (req, res) => {
+      try {
+        const [rows] = await pool.execute(
+          'SELECT t.*, o.order_number FROM tuu_transactions t LEFT JOIN orders o ON o.id = t.order_id WHERE t.idempotency_key = ?',
+          [req.params.key]
+        );
+        if (rows.length === 0) return res.status(404).json({ error: 'No encontrado' });
+        res.json(rows[0]);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/tuu/cancel/:key', async (req, res) => {
+      try {
+        const key = req.params.key;
+        const intervalId = tuuActivePolls.get(key);
+        if (intervalId) { clearInterval(intervalId); tuuActivePolls.delete(key); }
+        await pool.execute('UPDATE tuu_transactions SET status = ?, updated_at = NOW() WHERE idempotency_key = ?', ['Canceled', key]);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // ── END NATIVE TUU ENDPOINTS ──────────────────────────────────────────
 
     app.get('/api/plugins/payments/provider', async (req, res) => {
       try {
