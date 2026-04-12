@@ -8535,3 +8535,29 @@ html body .store-container .store-product-card * {
   background: #f8d7da;
   color: #721c24;
 }
+
+/* ================================================
+   EDITOR TOTEM — modo pantalla completa en admin
+   ================================================ */
+.admin-sidebar.editor-hidden {
+  display: none !important;
+  width: 0 !important;
+}
+
+.admin-content--editor {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  z-index: 9000 !important;
+  overflow: auto !important;
+  background: #fff !important;
+}
+
+/* Hace que el layout-wrapper no corte el editor */
+.layout-wrapper:has(.admin-content--editor) {
+  overflow: hidden;
+}

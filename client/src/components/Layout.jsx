@@ -1,5 +1,5 @@
 import { useState, useEffect, createContext, useContext } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
@@ -41,6 +41,8 @@ function Layout() {
   const { user, token, logout } = useAuth();
   const [isPremiumUser, setIsPremiumUser] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const isEditorMode = location.pathname.startsWith('/admin/editor');
   const [stores, setStores] = useState([]);
   const [selectedStore, setSelectedStore] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -163,11 +165,11 @@ function Layout() {
         '--store-secondary': colors.secondary,
         '--store-accent': colors.accent
       }}>
-        {isMobile && menuOpen && (
+        {!isEditorMode && isMobile && menuOpen && (
           <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
         )}
 
-        <nav className={`admin-sidebar ${isMobile ? (menuOpen ? 'mobile-open' : 'mobile-closed') : ''}`}>
+        <nav className={`admin-sidebar ${isEditorMode ? 'editor-hidden' : ''} ${!isEditorMode && isMobile ? (menuOpen ? 'mobile-open' : 'mobile-closed') : ''}`}>
           <div className="sidebar-header">
             <div className="sidebar-brand">
               <div className="sidebar-brand-logo">
@@ -245,16 +247,13 @@ function Layout() {
             </li>
             {selectedStore && (
               <li>
-                <a
-                  href={`/store/${selectedStore.code}?admin_edit=${token}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <NavLink
+                  to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`}
                   onClick={() => setMenuOpen(false)}
-                  style={{ textDecoration: 'none' }}
                 >
                   <FontAwesomeIcon icon={faBox} />
                   <span>Editor Totem</span>
-                </a>
+                </NavLink>
               </li>
             )}
             <li>
@@ -347,8 +346,34 @@ function Layout() {
             </button>
           </div>
         </nav>
-        <main className="admin-content">
-          <div className="mobile-header">
+        <main className={isEditorMode ? 'admin-content admin-content--editor' : 'admin-content'}>
+          {isEditorMode && (
+            <button
+              onClick={() => navigate('/admin')}
+              style={{
+                position: 'fixed',
+                top: '12px',
+                left: '12px',
+                zIndex: 99999,
+                background: 'rgba(0,0,0,0.75)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backdropFilter: 'blur(4px)',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.3)'
+              }}
+            >
+              ← Volver al admin
+            </button>
+          )}
+          <div className="mobile-header" style={isEditorMode ? { display: 'none' } : {}}>
             <button className="mobile-header-btn" onClick={() => setMenuOpen(true)}>
               <FontAwesomeIcon icon={faBars} />
             </button>
