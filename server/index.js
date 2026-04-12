@@ -5294,8 +5294,8 @@ async function startServer() {
           x_reference: reference,
           x_shop_name: config.commerce_name || 'SRServi',
           x_url_callback: `${serverUrl}/api/haulmer/webhook`,
-          x_url_cancel:   `${serverUrl}/store/${storeCode}?delivery=true`,
-          x_url_complete: `${serverUrl}/store/${storeCode}?delivery=true`
+          x_url_cancel:   `${serverUrl}/store/${storeCode}`,
+          x_url_complete: `${serverUrl}/store/${storeCode}`
         };
         payload.x_signature = haulmerSign(payload, config.secret_key);
 

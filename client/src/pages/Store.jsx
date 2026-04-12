@@ -242,26 +242,31 @@ function Store() {
   useEffect(() => {
     if (!qrReturnRef) return;
 
-    // Referencia nativa Haulmer (prefijo SRSN-) → verificar con endpoint propio
+    // Referencia nativa Haulmer (prefijo SRSN-) — confiar en x_result de Haulmer
     if (qrReturnRef.startsWith('SRSN-')) {
-      const xResult = searchParams.get('x_result');
-      const xAmount = searchParams.get('x_amount');
+      const xResult  = searchParams.get('x_result');
+      const xAmount  = searchParams.get('x_amount');
+      const xMessage = searchParams.get('x_message');
+
       if (xResult === 'completed') {
+        // Obtener datos de orden en paralelo (no bloqueante para mostrar el éxito)
         fetch(`/api/haulmer/payment/${encodeURIComponent(qrReturnRef)}/status`)
-          .then(r => r.json())
+          .then(r => r.ok ? r.json() : null)
           .then(data => {
             setQrPaymentResult({
-              success: data.status === 'completed',
-              status: data.status,
+              success: true,
+              status: 'completed',
               reference: qrReturnRef,
-              amount: data.amount || xAmount,
-              message: data.status === 'completed' ? 'Pago aprobado' : 'Pago pendiente de confirmación',
-              order: data.order_id ? { id: data.order_id, order_number: data.order_number } : null
+              amount: data?.amount || xAmount,
+              message: xMessage || 'Pago aprobado',
+              order: data?.order_id ? { id: data.order_id, order_number: data.order_number } : null
             });
           })
-          .catch(() => setQrPaymentResult({ success: true, reference: qrReturnRef, amount: xAmount, message: 'Pago recibido' }));
+          .catch(() => {
+            setQrPaymentResult({ success: true, reference: qrReturnRef, amount: xAmount, message: xMessage || 'Pago aprobado' });
+          });
       } else {
-        setQrPaymentResult({ success: false, reference: qrReturnRef, message: 'Pago no completado' });
+        setQrPaymentResult({ success: false, reference: qrReturnRef, message: xMessage || 'Pago no completado' });
       }
       return;
     }
