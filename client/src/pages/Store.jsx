@@ -545,16 +545,30 @@ function Store() {
         const safeTerminals = Array.isArray(terminalsData) ? terminalsData : [];
         setAvailableTerminals(safeTerminals);
         const hasTerminalFromUrl = terminalFromUrl && safeTerminals.some(terminal => String(terminal.id) === String(terminalFromUrl));
-        setSelectedTerminalId(prev =>
-          hasTerminalFromUrl
-            ? String(terminalFromUrl)
-            : (prev && safeTerminals.some(terminal => String(terminal.id) === String(prev)))
-            ? prev
-            : (safeTerminals[0]?.id ? String(safeTerminals[0].id) : '')
-        );
+        // FIX: If the user already selected a non-MercadoPago terminal (e.g. Tuu) in the
+        // Index screen, its ID won't appear in safeTerminals (which is a MercadoPago-only
+        // list). We must NOT fall back to safeTerminals[0] in that case, or we would
+        // silently switch the user to a random MercadoPago device.
+        const savedProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
+        const savedTerminalId = localStorage.getItem('srservi_last_terminal_id') || '';
+        setSelectedTerminalId(prev => {
+          // 1. URL parameter wins when the terminal belongs to MercadoPago
+          if (hasTerminalFromUrl) return String(terminalFromUrl);
+          // 2. Current value is already a valid MercadoPago terminal — keep it
+          if (prev && safeTerminals.some(terminal => String(terminal.id) === String(prev))) return prev;
+          // 3. The user picked a non-MercadoPago terminal in Index — preserve it
+          if (savedProvider && savedProvider !== 'mercadopago' && savedTerminalId) return savedTerminalId;
+          // 4. No valid selection yet — default to the first MercadoPago terminal
+          return safeTerminals[0]?.id ? String(safeTerminals[0].id) : '';
+        });
       } else {
         setAvailableTerminals([]);
-        setSelectedTerminalId('');
+        // FIX: Only clear the selectedTerminalId if the saved provider was MercadoPago.
+        // If it was another provider (e.g. Tuu), keep the stored selection.
+        const savedProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
+        if (!savedProvider || savedProvider === 'mercadopago') {
+          setSelectedTerminalId('');
+        }
       }
 
       let configsData = [];
@@ -1002,7 +1016,9 @@ function Store() {
   const processPayment = async (selectedMethod = paymentMethod) => {
     if (cart.length === 0) return;
     const hasPluginProvider = selectedMethod === 'card' && pluginPaymentProvider;
-    if (selectedMethod === 'card' && !hasPluginProvider && !selectedTerminalId) {
+    const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
+    const forceTuu = selectedMethod === 'card' && lastTerminalProvider === 'tuu';
+    if (selectedMethod === 'card' && !hasPluginProvider && !forceTuu && !selectedTerminalId) {
       alert(t('noTerminalAssigned', lang));
       return;
     }
@@ -1025,8 +1041,7 @@ function Store() {
 
     try {
       // --- Plugin payment provider (Tuu, etc.) ---
-      if (hasPluginProvider) {
-        // Create order first
+      if (hasPluginProvider || forceTuu) {
         const orderRes = await fetch(API + '/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1040,7 +1055,6 @@ function Store() {
         const order = await orderRes.json();
         setPendingOrderData({ order, storeId });
 
-        // Charge via generic payment API
         const chargeRes = await fetch('/api/plugins/payments/charge', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1050,7 +1064,7 @@ function Store() {
             description: `Pedido #${order.order_number || order.id}`,
             device_uid: deviceUid,
             terminal_id: localStorage.getItem('srservi_last_terminal_id') || null,
-            terminal_provider: localStorage.getItem('srservi_last_terminal_provider') || ''
+            terminal_provider: lastTerminalProvider
           })
         });
         const chargeData = await chargeRes.json();
@@ -2894,7 +2908,7 @@ function Store() {
                     ) : (
                       <>{t('terminalAssigned', lang)}{' '}
                       <strong>
-                        {localStorage.getItem('srservi_last_terminalName') || localStorage.getItem('srservi_last_terminal_id') || 'MercadoPago'}
+                        {localStorage.getItem('srservi_last_terminal_name') || localStorage.getItem('srservi_last_terminal_id') || 'MercadoPago'}
                       </strong></>
                     )}
                   </div>

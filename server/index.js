@@ -4654,22 +4654,42 @@ async function startServer() {
     app.post('/api/plugins/payments/charge', async (req, res) => {
       try {
         const { store_id, order_id, amount, description, device_uid, terminal_id, terminal_provider } = req.body;
+        console.log('[charge] store_id:', store_id, 'terminal_id:', terminal_id, 'terminal_provider:', terminal_provider, 'device_uid:', device_uid);
         if (!store_id || !amount) return res.status(400).json({ error: 'store_id y amount requeridos' });
-        const userId = await tuuGetUserIdFromStore(parseInt(store_id));
-        const config = await tuuGetConfig(userId);
-        if (!config?.api_key) return res.status(400).json({ error: 'API Key de Tuu no configurada' });
+        let userId;
+        try {
+          userId = await tuuGetUserIdFromStore(parseInt(store_id));
+          console.log('[charge] userId:', userId);
+        } catch (e) { console.error('[charge] userId error:', e.message); return res.status(500).json({ error: 'Error al obtener usuario de tienda' }); }
+        let config;
+        try {
+          config = await tuuGetConfig(userId);
+          console.log('[charge] config:', config ? JSON.stringify({api_key: config.api_key ? '***' : 'null'}) : 'null');
+        } catch (e) { console.error('[charge] config error:', e.message); return res.status(500).json({ error: 'Error al obtener config Tuu' }); }
+        if (!config?.api_key) {
+          console.log('[charge] FAIL: no api_key for userId:', userId);
+          return res.status(400).json({ error: 'API Key de Tuu no configurada. Ve al admin > Tuu POS > Configuración y guarda tu API Key.' });
+        }
         let device = null;
         if (terminal_id && terminal_provider === 'tuu') {
+          console.log('[charge] Looking for device by terminal_id:', terminal_id, 'userId:', userId);
           const [rows] = await pool.execute('SELECT * FROM tuu_devices WHERE id = ? AND user_id = ?', [parseInt(terminal_id), userId]);
+          console.log('[charge] tuu_devices result:', rows.length, rows[0]?.name);
           device = rows[0] || null;
         }
         if (!device && device_uid) {
           device = await tuuGetDeviceForUid(device_uid, parseInt(store_id));
+          console.log('[charge] tuuGetDeviceForUid result:', device?.name);
         }
         if (!device) {
           device = await tuuGetAnyDeviceForStore(parseInt(store_id));
+          console.log('[charge] tuuGetAnyDeviceForStore result:', device?.name);
         }
-        if (!device) return res.status(400).json({ error: 'No hay POS Tuu configurado. Configura un POS en Tuu POS del admin.' });
+        if (!device) {
+          console.log('[charge] FAIL: no device found');
+          return res.status(400).json({ error: 'No hay POS Tuu configurado. Ve al admin > Tuu POS > Vincular POS.' });
+        }
+        console.log('[charge] SUCCESS - using device:', device.name, 'serial:', device.serial);
         const payment = await tuuCreatePayment(config.api_key, amount, device.serial, description || '', config.dte_type);
         await pool.execute(
           'INSERT INTO tuu_transactions (store_id, order_id, idempotency_key, amount, status, device_serial) VALUES (?, ?, ?, ?, ?, ?)',
