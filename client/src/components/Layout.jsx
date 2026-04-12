@@ -169,7 +169,7 @@ function Layout() {
           <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
         )}
 
-        <nav className={`admin-sidebar ${isEditorMode ? 'editor-hidden' : ''} ${!isEditorMode && isMobile ? (menuOpen ? 'mobile-open' : 'mobile-closed') : ''}`}>
+        <nav className={`admin-sidebar ${isEditorMode ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : ''} ${!isEditorMode && isMobile ? (menuOpen ? 'mobile-open' : 'mobile-closed') : ''}`}>
           <div className="sidebar-header">
             <div className="sidebar-brand">
               <div className="sidebar-brand-logo">
@@ -348,30 +348,46 @@ function Layout() {
         </nav>
         <main className={isEditorMode ? 'admin-content admin-content--editor' : 'admin-content'}>
           {isEditorMode && (
-            <button
-              onClick={() => navigate('/admin')}
-              style={{
-                position: 'fixed',
-                top: '12px',
-                left: '12px',
-                zIndex: 99999,
-                background: 'rgba(0,0,0,0.75)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 14px',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                backdropFilter: 'blur(4px)',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.3)'
-              }}
-            >
-              ← Volver al admin
-            </button>
+            <div style={{ position: 'fixed', top: '12px', left: '12px', zIndex: 99999, display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => setMenuOpen(o => !o)}
+                title={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+                style={{
+                  background: 'rgba(0,0,0,0.75)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  fontSize: '16px',
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(4px)',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                  lineHeight: 1
+                }}
+              >
+                {menuOpen ? '✕' : '☰'}
+              </button>
+              <button
+                onClick={() => { setMenuOpen(false); navigate('/admin'); }}
+                style={{
+                  background: 'rgba(0,0,0,0.75)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 14px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  backdropFilter: 'blur(4px)',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.3)'
+                }}
+              >
+                ← Admin
+              </button>
+            </div>
           )}
           <div className="mobile-header" style={isEditorMode ? { display: 'none' } : {}}>
             <button className="mobile-header-btn" onClick={() => setMenuOpen(true)}>

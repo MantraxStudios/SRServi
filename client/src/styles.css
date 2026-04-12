@@ -8544,6 +8544,17 @@ html body .store-container .store-product-card * {
   width: 0 !important;
 }
 
+/* Sidebar aparece como overlay encima del editor sin desplazar contenido */
+.admin-sidebar.editor-sidebar-open {
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  height: 100vh !important;
+  z-index: 99998 !important;
+  box-shadow: 4px 0 32px rgba(0,0,0,0.5) !important;
+  display: flex !important;
+}
+
 .admin-content--editor {
   position: fixed !important;
   inset: 0 !important;
