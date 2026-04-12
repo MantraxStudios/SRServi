@@ -1237,9 +1237,9 @@ function Store() {
     const isPluginPayment = !!pluginPaymentKey;
     const isHaulmerNative = !!haulmerReference;
 
-    const onPaymentSuccess = () => {
+    const onPaymentSuccess = (orderNumberOverride) => {
       setPaymentConfirmed(true);
-      setLastOrderNumber(pendingOrderData.order.order_number);
+      setLastOrderNumber(orderNumberOverride || pendingOrderData.order.order_number);
       setCart([]);
       setCartOpen(false);
       setPaymentModalOpen(false);
@@ -1265,8 +1265,7 @@ function Store() {
           if (data.status === 'completed') {
             clearInterval(pollInterval);
             clearInterval(timerInterval);
-            if (data.order_number) setLastOrderNumber(data.order_number);
-            onPaymentSuccess();
+            onPaymentSuccess(data.order_number || null);
           } else if (data.status === 'failed' || data.status === 'cancelled') {
             clearInterval(pollInterval);
             clearInterval(timerInterval);
