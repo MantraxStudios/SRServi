@@ -103,8 +103,8 @@ function App() {
             <Route path="tickets" element={<Tickets />} />
             <Route path="tutoriales" element={<Tutoriales />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="editor/:code" element={<Store />} />
           </Route>
-          <Route path="/admin/editor/:code" element={<ProtectedRoute><Store /></ProtectedRoute>} />
           <Route path="/worker-login" element={<WorkerLogin />} />
           <Route path="/worker-panel" element={<WorkerPanel />} />
           <Route path="/superadmin/login" element={<SuperadminLogin />} />
