@@ -504,7 +504,7 @@ function Store() {
       if (data.order_id && pendingOrderDataRef?.current?.order?.id === data.order_id) {
         setPaymentWaiting(false); setQrPaymentUrl(null);
         setPaymentConfirmed(true);
-        setLastOrderNumber(pendingOrderDataRef.current.order.order_number);
+        setLastOrderNumber(data.order_number || pendingOrderDataRef.current.order.order_number);
         setCart([]);
         setCartOpen(false);
       }
@@ -1265,6 +1265,7 @@ function Store() {
           if (data.status === 'completed') {
             clearInterval(pollInterval);
             clearInterval(timerInterval);
+            if (data.order_number) setLastOrderNumber(data.order_number);
             onPaymentSuccess();
           } else if (data.status === 'failed' || data.status === 'cancelled') {
             clearInterval(pollInterval);

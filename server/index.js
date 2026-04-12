@@ -5373,6 +5373,7 @@ async function startServer() {
             ).catch(() => {});
             // Asignar order_number si falta
             const [existing] = await pool.execute('SELECT order_number FROM orders WHERE id = ?', [tx.order_id]);
+            let finalOrderNumber = existing[0]?.order_number || null;
             if (existing[0] && !existing[0].order_number) {
               const [usedRows] = await pool.execute(
                 'SELECT order_number FROM orders WHERE store_id = ? AND DATE(created_at) = CURDATE() AND order_number IS NOT NULL',
@@ -5387,8 +5388,9 @@ async function startServer() {
               }
               if (!orderNum) orderNum = String(used.size + 1);
               await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [orderNum, tx.order_id]);
+              finalOrderNumber = orderNum;
             }
-            io.to(`store_${tx.store_id}`).emit('qr_payment_completed', { order_id: tx.order_id, reference });
+            io.to(`store_${tx.store_id}`).emit('qr_payment_completed', { order_id: tx.order_id, reference, order_number: finalOrderNumber });
           }
         } else if (result === 'failed' || result === 'cancelled') {
           await pool.execute(
