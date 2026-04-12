@@ -134,6 +134,7 @@ function Store() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const selectedProductRef = useRef(null);
   const [orderType, setOrderType] = useState('serve');
   const [productConfig, setProductConfig] = useState({
     selectedIngredients: [],
@@ -753,6 +754,7 @@ function Store() {
       setTimeout(() => setNotification(null), 2000);
       return;
     }
+    selectedProductRef.current = product;
     setSelectedProduct(product);
     setProductConfig({
       selectedIngredients: [],
@@ -772,11 +774,12 @@ function Store() {
       setTimeout(() => setExtrasModalOpen(true), 100);
     } else {
       setProductModalStep('main');
-      setTimeout(() => addToCart(), 100);
+      setTimeout(() => addToCartRef(), 100);
     }
   };
 
   const closeProductModal = () => {
+    selectedProductRef.current = null;
     setSelectedProduct(null);
     setProductModalStep('main');
     setAddingToCart(false);
@@ -956,6 +959,36 @@ function Store() {
     setNotification({ name: selectedProduct.name, image: selectedProduct.image });
     setProductModalStep('main');
     closeProductModal();
+    setTimeout(() => setNotification(null), 1500);
+  };
+
+  // Ref-based version for use inside setTimeout callbacks where state closures are stale
+  const addToCartRef = () => {
+    const product = selectedProductRef.current;
+    if (!product) return;
+
+    setIngredientsModalOpen(false);
+    setExtrasModalOpen(false);
+
+    const unitPrice = Number(product.price);
+    const cartItem = {
+      id: Date.now(),
+      product_id: product.id,
+      product_name: product.name,
+      product_image: product.image,
+      unit_price: unitPrice,
+      quantity: 1,
+      total: unitPrice,
+      selected_ingredients: [],
+      selected_extras: []
+    };
+
+    setCart(prev => [...prev, cartItem]);
+    setNotification({ name: product.name, image: product.image });
+    setProductModalStep('main');
+    selectedProductRef.current = null;
+    setSelectedProduct(null);
+    setAddingToCart(false);
     setTimeout(() => setNotification(null), 1500);
   };
 
