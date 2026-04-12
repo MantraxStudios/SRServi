@@ -33,10 +33,12 @@ class PluginManager {
     const self = this;
 
     // Get available payment provider for a store
-    app.get('/api/plugins/payments/provider', async (req, res) => {
+    // NOTE: If no installed plugin handles this, call next() so native integrations
+    // in index.js (e.g. Tuu nativo) can respond instead of returning {available:false}.
+    app.get('/api/plugins/payments/provider', async (req, res, next) => {
       try {
         const storeId = parseInt(req.query.store_id);
-        if (!storeId) return res.json({ available: false });
+        if (!storeId) return next();
 
         for (const [pluginId, provider] of self.hooks.getPaymentProviders()) {
           try {
@@ -46,17 +48,20 @@ class PluginManager {
             }
           } catch { /* skip */ }
         }
-        res.json({ available: false });
+        // No plugin provider found — fall through to native handlers (Tuu nativo, etc.)
+        next();
       } catch {
-        res.json({ available: false });
+        next();
       }
     });
 
-    // Charge via the available provider
-    app.post('/api/plugins/payments/charge', async (req, res) => {
+    // Charge via the available provider.
+    // NOTE: Same pattern — if no installed plugin can handle this, call next() so
+    // native integrations in index.js can take over.
+    app.post('/api/plugins/payments/charge', async (req, res, next) => {
       try {
         const { store_id, order_id, amount, description } = req.body;
-        if (!store_id || !amount) return res.status(400).json({ error: 'store_id y amount requeridos' });
+        if (!store_id || !amount) return next();
 
         // Find available provider
         let activeProvider = null;
@@ -72,13 +77,15 @@ class PluginManager {
         }
 
         if (!activeProvider) {
-          return res.status(400).json({ error: 'No hay proveedor de pago disponible' });
+          // No plugin provider — fall through to native handlers (Tuu nativo, etc.)
+          return next();
         }
 
         const result = await activeProvider.charge(parseInt(store_id), amount, order_id, description, req.body.device_uid);
         res.json({ ...result, provider: activePluginId });
       } catch (error) {
-        res.status(500).json({ error: error.message });
+        // On plugin error, fall through to native handlers
+        next();
       }
     });
 
