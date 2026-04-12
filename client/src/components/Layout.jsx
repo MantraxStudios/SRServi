@@ -30,7 +30,9 @@ import {
   faTabletAlt,
   faTicketAlt,
   faBookOpen,
-  faCashRegister
+  faCashRegister,
+  faChevronLeft,
+  faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -50,6 +52,16 @@ function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [openDropdowns, setOpenDropdowns] = useState({});
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem('sidebar_collapsed') === 'true'
+  );
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed(prev => {
+      localStorage.setItem('sidebar_collapsed', String(!prev));
+      return !prev;
+    });
+  };
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -163,13 +175,14 @@ function Layout() {
       <div className="layout-wrapper" style={{
         '--store-primary': colors.primary,
         '--store-secondary': colors.secondary,
-        '--store-accent': colors.accent
+        '--store-accent': colors.accent,
+        '--sidebar-w': (!isMobile && sidebarCollapsed) ? '0px' : '270px'
       }}>
         {!isEditorMode && isMobile && menuOpen && (
           <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
         )}
 
-        <nav className={`admin-sidebar ${isEditorMode && isMobile ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : ''} ${!isEditorMode && isMobile ? (menuOpen ? 'mobile-open' : 'mobile-closed') : ''}`}>
+        <nav className={`admin-sidebar ${!isMobile && sidebarCollapsed ? 'sidebar-collapsed' : ''} ${isEditorMode && isMobile ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : ''} ${!isEditorMode && isMobile ? (menuOpen ? 'mobile-open' : 'mobile-closed') : ''}`}>
           <div className="sidebar-header">
             <div className="sidebar-brand">
               <div className="sidebar-brand-logo">
@@ -346,6 +359,17 @@ function Layout() {
             </button>
           </div>
         </nav>
+
+        {!isMobile && (
+          <button
+            className={`sidebar-collapse-btn${sidebarCollapsed ? ' sidebar-collapse-btn--open' : ''}`}
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? 'Abrir menú' : 'Cerrar menú'}
+          >
+            <FontAwesomeIcon icon={sidebarCollapsed ? faChevronRight : faChevronLeft} />
+          </button>
+        )}
+
         <main className={isEditorMode ? (isMobile ? 'admin-content admin-content--editor' : 'admin-content admin-content--editor-desktop') : 'admin-content'}>
           {isEditorMode && isMobile && (
             <div style={{ position: 'fixed', top: '12px', left: '12px', zIndex: 99999, display: 'flex', gap: '8px' }}>

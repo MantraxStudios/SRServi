@@ -5193,6 +5193,212 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
+    // =====================================================================
+    // HAULMER QR — integración nativa (sin plugin)
+    // =====================================================================
+    const HAULMER_NATIVE_API = 'https://core.payment.haulmer.com/api/v1/payment';
+
+    (async () => {
+      try {
+        await pool.execute(`CREATE TABLE IF NOT EXISTS haulmer_native_config (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL UNIQUE,
+          account_id VARCHAR(255) NOT NULL,
+          secret_key VARCHAR(500) NOT NULL,
+          commerce_name VARCHAR(255) DEFAULT 'Mi Tienda',
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )`);
+        await pool.execute(`CREATE TABLE IF NOT EXISTS haulmer_native_transactions (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          store_id INT NOT NULL,
+          order_id INT DEFAULT NULL,
+          reference VARCHAR(120) NOT NULL UNIQUE,
+          amount INT NOT NULL,
+          status VARCHAR(50) DEFAULT 'pending',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )`);
+      } catch (e) { console.error('[Haulmer] Table init error:', e.message); }
+    })();
+
+    function haulmerSign(data, secret) {
+      const keys = Object.keys(data).filter(k => k.startsWith('x_')).sort();
+      const str = keys.filter(k => data[k] != null && data[k] !== '').map(k => k + data[k]).join('');
+      return crypto.createHmac('sha256', secret).update(str).digest('hex');
+    }
+
+    // GET /api/haulmer/config
+    app.get('/api/haulmer/config', authenticateToken, async (req, res) => {
+      try {
+        const [rows] = await pool.execute(
+          'SELECT account_id, commerce_name FROM haulmer_native_config WHERE user_id = ?', [req.user.id]
+        );
+        res.json(rows[0] || {});
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // POST /api/haulmer/config
+    app.post('/api/haulmer/config', authenticateToken, async (req, res) => {
+      try {
+        const { account_id, secret_key, commerce_name } = req.body;
+        if (!account_id) return res.status(400).json({ error: 'account_id requerido' });
+        await pool.execute(`
+          INSERT INTO haulmer_native_config (user_id, account_id, secret_key, commerce_name)
+          VALUES (?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE account_id = VALUES(account_id), secret_key = VALUES(secret_key),
+            commerce_name = VALUES(commerce_name), updated_at = NOW()
+        `, [req.user.id, account_id.trim(), (secret_key || '').trim(), (commerce_name || 'Mi Tienda').trim()]);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // GET /api/haulmer/available?store_id=X
+    app.get('/api/haulmer/available', async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        const [storeRows] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [storeId]);
+        if (!storeRows[0]) return res.json({ available: false });
+        const [rows] = await pool.execute(
+          'SELECT account_id, secret_key FROM haulmer_native_config WHERE user_id = ?', [storeRows[0].user_id]
+        );
+        const cfg = rows[0];
+        res.json({ available: !!(cfg?.account_id && cfg?.secret_key) });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // POST /api/haulmer/payment — crea pago y devuelve URL
+    app.post('/api/haulmer/payment', async (req, res) => {
+      try {
+        const { store_id, order_id, amount, description } = req.body;
+        const [storeRows] = await pool.execute('SELECT user_id, code FROM stores WHERE id = ?', [store_id]);
+        if (!storeRows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
+        const [cfgRows] = await pool.execute(
+          'SELECT * FROM haulmer_native_config WHERE user_id = ?', [storeRows[0].user_id]
+        );
+        const config = cfgRows[0];
+        if (!config?.account_id || !config?.secret_key) return res.status(400).json({ error: 'Haulmer no configurado' });
+
+        const storeCode = storeRows[0].code;
+        const reference = `SRSN-${store_id}-${order_id || 0}-${Date.now()}`;
+        const serverUrl = 'https://srservi2.srautomatic.com';
+
+        const payload = {
+          x_account_id: config.account_id,
+          x_amount: Math.round(amount),
+          x_currency: 'CLP',
+          x_customer_email: 'cliente@srservi.com',
+          x_customer_first_name: 'Cliente',
+          x_customer_last_name: 'SRServi',
+          x_customer_phone: '+56900000000',
+          x_description: description || 'Pago SRServi',
+          x_reference: reference,
+          x_shop_name: config.commerce_name || 'SRServi',
+          x_url_callback: `${serverUrl}/api/haulmer/webhook`,
+          x_url_cancel:   `${serverUrl}/store/${storeCode}?delivery=true`,
+          x_url_complete: `${serverUrl}/store/${storeCode}?delivery=true`
+        };
+        payload.x_signature = haulmerSign(payload, config.secret_key);
+
+        const hRes = await fetch(HAULMER_NATIVE_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-REDIRECT': 'false' },
+          body: JSON.stringify(payload)
+        });
+        if (!hRes.ok) throw new Error(`Haulmer ${hRes.status}: ${await hRes.text()}`);
+
+        const raw = await hRes.text();
+        let paymentUrl = null;
+        try { const d = JSON.parse(raw); paymentUrl = d.url || d.redirectUrl || d.x_redirect_url || d.processUrl || d.payment_url; } catch {}
+        if (!paymentUrl && raw.startsWith('http')) paymentUrl = raw.trim();
+        if (!paymentUrl) throw new Error('No se obtuvo URL de pago de Haulmer');
+
+        await pool.execute(
+          'INSERT INTO haulmer_native_transactions (store_id, order_id, reference, amount, status) VALUES (?, ?, ?, ?, ?)',
+          [store_id, order_id || null, reference, Math.round(amount), 'pending']
+        );
+        if (order_id) {
+          await pool.execute('UPDATE orders SET external_reference = ? WHERE id = ?', [reference, order_id]).catch(() => {});
+        }
+
+        res.json({ success: true, paymentUrl, reference });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // GET /api/haulmer/payment/:reference/status — poll desde frontend
+    app.get('/api/haulmer/payment/:reference/status', async (req, res) => {
+      try {
+        const [rows] = await pool.execute(
+          'SELECT status, order_id, reference FROM haulmer_native_transactions WHERE reference = ?', [req.params.reference]
+        );
+        if (!rows[0]) return res.status(404).json({ error: 'No encontrado' });
+        res.json(rows[0]);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // POST /api/haulmer/webhook — Haulmer llama aquí al completar el pago
+    app.post('/api/haulmer/webhook', async (req, res) => {
+      try {
+        const params = { ...req.query, ...req.body };
+        const reference = params.x_reference;
+        const result    = params.x_result;
+        if (!reference) return res.status(400).json({ error: 'Missing reference' });
+
+        const [txs] = await pool.execute('SELECT * FROM haulmer_native_transactions WHERE reference = ?', [reference]);
+        if (!txs[0]) return res.status(404).json({ error: 'Transacción no encontrada' });
+        const tx = txs[0];
+
+        // Verificar firma
+        const [cfgRows] = await pool.execute(
+          `SELECT hnc.* FROM haulmer_native_config hnc
+           JOIN stores s ON s.user_id = hnc.user_id WHERE s.id = ?`, [tx.store_id]
+        );
+        const config = cfgRows[0];
+        if (config && params.x_signature) {
+          const checkData = { ...params }; delete checkData.x_signature;
+          if (haulmerSign(checkData, config.secret_key) !== params.x_signature) {
+            return res.status(400).json({ error: 'Firma inválida' });
+          }
+        }
+
+        if (result === 'completed' && tx.status !== 'completed') {
+          await pool.execute(
+            'UPDATE haulmer_native_transactions SET status = ?, updated_at = NOW() WHERE reference = ?',
+            ['completed', reference]
+          );
+          if (tx.order_id) {
+            await pool.execute(
+              'UPDATE orders SET payment_process = 1, cash_approved = TRUE, reference_id = ?, sequence_id = ? WHERE id = ?',
+              [params.x_authorization_code || reference, reference, tx.order_id]
+            ).catch(() => {});
+            // Asignar order_number si falta
+            const [existing] = await pool.execute('SELECT order_number FROM orders WHERE id = ?', [tx.order_id]);
+            if (existing[0] && !existing[0].order_number) {
+              const [usedRows] = await pool.execute(
+                'SELECT order_number FROM orders WHERE store_id = ? AND DATE(created_at) = CURDATE() AND order_number IS NOT NULL',
+                [tx.store_id]
+              );
+              const used = new Set(usedRows.map(r => r.order_number));
+              const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+              let orderNum = null;
+              for (let i = 0; i < 200 && !orderNum; i++) {
+                const c = letters[Math.floor(Math.random() * 26)] + String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
+                if (!used.has(c)) orderNum = c;
+              }
+              if (!orderNum) orderNum = String(used.size + 1);
+              await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [orderNum, tx.order_id]);
+            }
+            io.to(`store_${tx.store_id}`).emit('qr_payment_completed', { order_id: tx.order_id, reference });
+          }
+        } else if (result === 'failed' || result === 'cancelled') {
+          await pool.execute(
+            'UPDATE haulmer_native_transactions SET status = ?, updated_at = NOW() WHERE reference = ?',
+            [result, reference]
+          );
+        }
+        res.json({ success: true });
+      } catch (e) { console.error('[Haulmer webhook]', e); res.status(500).json({ error: e.message }); }
+    });
+
     server.listen(PORT, HOST, () => {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
     });

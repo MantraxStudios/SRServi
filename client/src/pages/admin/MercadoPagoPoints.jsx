@@ -117,6 +117,14 @@ function MercadoPagoPoints() {
   const [savingTuu, setSavingTuu] = useState(false);
   const [tuuSaveMsg2, setTuuSaveMsg2] = useState('');
 
+  // === Haulmer QR nativo ===
+  const [haulmerAccountId, setHaulmerAccountId] = useState('');
+  const [haulmerSecretKey, setHaulmerSecretKey] = useState('');
+  const [haulmerCommerceName, setHaulmerCommerceName] = useState('');
+  const [haulmerSaving, setHaulmerSaving] = useState(false);
+  const [haulmerMsg, setHaulmerMsg] = useState('');
+  const [haulmerLoaded, setHaulmerLoaded] = useState(false);
+
   // === Square Terminal state ===
   const [squareAccessToken, setSquareAccessToken] = useState('');
   const [squareLocationId, setSquareLocationId] = useState('');
@@ -261,6 +269,7 @@ function MercadoPagoPoints() {
     fetchWorkshopPlugins();
     fetchTuuConfig();
     fetchSquareData();
+    fetchHaulmerConfig();
     fetchPosList();
     setPluginCountriesMap(loadPluginCountries());
   }, [selectedStore?.id]);
@@ -313,6 +322,48 @@ function MercadoPagoPoints() {
       const res = await fetch(API + '/api/square/devices?store_id=' + selectedStore.id, { headers: { Authorization: 'Bearer ' + token } });
       if (res.ok) setSquareDevices(await res.json());
     } catch {}
+  };
+
+  const fetchHaulmerConfig = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(API + '/api/haulmer/config', { headers: { Authorization: 'Bearer ' + token } });
+      if (res.ok) {
+        const data = await res.json();
+        setHaulmerAccountId(data.account_id || '');
+        setHaulmerCommerceName(data.commerce_name || '');
+        setHaulmerLoaded(!!(data.account_id));
+      }
+    } catch {}
+  };
+
+  const saveHaulmerConfig = async () => {
+    if (!haulmerAccountId.trim() || !haulmerSecretKey.trim()) {
+      setHaulmerMsg('Account ID y Secret Key son requeridos');
+      return;
+    }
+    setHaulmerSaving(true); setHaulmerMsg('');
+    try {
+      const res = await fetch(API + '/api/haulmer/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          account_id: haulmerAccountId.trim(),
+          secret_key: haulmerSecretKey.trim(),
+          commerce_name: haulmerCommerceName.trim() || 'Mi Tienda'
+        })
+      });
+      if (res.ok) {
+        setHaulmerMsg('✔ Guardado correctamente');
+        setHaulmerSecretKey('');
+        setHaulmerLoaded(true);
+        setTimeout(() => setHaulmerMsg(''), 3000);
+      } else {
+        const d = await res.json();
+        setHaulmerMsg('Error: ' + (d.error || 'intenta de nuevo'));
+      }
+    } catch { setHaulmerMsg('Error de conexión'); }
+    finally { setHaulmerSaving(false); }
   };
 
   const squareSaveConfig = async () => {
@@ -960,6 +1011,73 @@ function MercadoPagoPoints() {
             ))}
           </div>
         )}
+
+        {/* ==== HAULMER QR NATIVO ==== */}
+        <div style={{ marginTop: '28px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '40px', height: '40px', background: '#000', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+              🌐
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#111' }}>Haulmer QR</h3>
+                {haulmerLoaded && (
+                  <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', background: '#d1fae5', color: '#065f46' }}>ACTIVO</span>
+                )}
+              </div>
+              <p style={{ margin: 0, fontSize: '12px', color: '#888' }}>Pasarela de pago QR para modo delivery</p>
+            </div>
+          </div>
+          <div style={{ padding: '20px' }}>
+            <div style={{ display: 'grid', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '5px' }}>Account ID *</label>
+                <input
+                  type="text"
+                  value={haulmerAccountId}
+                  onChange={e => setHaulmerAccountId(e.target.value)}
+                  placeholder="Ej: 12345"
+                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'monospace' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '5px' }}>
+                  Secret Key * {haulmerLoaded && <span style={{ fontWeight: '400', color: '#aaa' }}>(dejar vacío para mantener el actual)</span>}
+                </label>
+                <input
+                  type="password"
+                  value={haulmerSecretKey}
+                  onChange={e => setHaulmerSecretKey(e.target.value)}
+                  placeholder={haulmerLoaded ? '••••••••••••••••' : 'Tu secret key de Haulmer'}
+                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'monospace' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '5px' }}>Nombre del comercio</label>
+                <input
+                  type="text"
+                  value={haulmerCommerceName}
+                  onChange={e => setHaulmerCommerceName(e.target.value)}
+                  placeholder="Mi Tienda"
+                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+            {haulmerMsg && (
+              <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', background: haulmerMsg.includes('Error') || haulmerMsg.includes('requerido') ? '#fef2f2' : '#f0fdf4', color: haulmerMsg.includes('Error') || haulmerMsg.includes('requerido') ? '#dc2626' : '#16a34a' }}>
+                {haulmerMsg}
+              </div>
+            )}
+            <button
+              onClick={saveHaulmerConfig}
+              disabled={haulmerSaving}
+              style={{ marginTop: '14px', padding: '10px 20px', background: haulmerSaving ? '#ccc' : '#000', color: '#D4AF37', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '800', cursor: haulmerSaving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <FontAwesomeIcon icon={haulmerSaving ? faSpinner : faSave} spin={haulmerSaving} />
+              {haulmerSaving ? 'Guardando...' : 'Guardar Credenciales'}
+            </button>
+          </div>
+        </div>
 
         {/* ==== MODAL AGREGAR POS ==== */}
         {showPosModal && (

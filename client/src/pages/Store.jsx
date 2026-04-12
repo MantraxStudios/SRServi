@@ -173,6 +173,8 @@ function Store() {
   const [qrProvider, setQrProvider] = useState(null);
   const [qrPaymentUrl, setQrPaymentUrl] = useState(null);
   const [pluginPaymentKey, setPluginPaymentKey] = useState(null);
+  const [haulmerNative, setHaulmerNative] = useState(false);
+  const [haulmerReference, setHaulmerReference] = useState(null);
   const [deviceUid] = useState(() => {
     let uid = localStorage.getItem('srservi_device_uid');
     if (!uid) {
@@ -648,7 +650,16 @@ function Store() {
         }
       } catch (e) { console.error('[Store] Payment provider error:', e); /* no payment plugin, ignore */ }
 
-      // Check QR provider availability
+      // Check native Haulmer availability
+      try {
+        const haulmerRes = await fetch(`/api/haulmer/available?store_id=${data.store.id}`);
+        if (haulmerRes.ok) {
+          const haulmerData = await haulmerRes.json();
+          if (haulmerData.available) setHaulmerNative(true);
+        }
+      } catch { /* ignore */ }
+
+      // Check QR provider availability (plugin fallback)
       try {
         const qrRes = await fetch(`/api/plugins/qr/provider?store_id=${data.store.id}`);
         if (qrRes.ok) {
@@ -972,7 +983,9 @@ function Store() {
     if (cart.length === 0) return;
     setCartOpen(false);
     if (deliveryMode) {
-      if (qrProvider) {
+      if (haulmerNative) {
+        processPayment('haulmer_native');
+      } else if (qrProvider) {
         processPayment('qr');
       } else {
         alert(t('noQRConfigured', lang));
@@ -1092,7 +1105,40 @@ function Store() {
         setPaymentWaiting(true);
         setPaymentTimeLeft(90);
 
-      // --- QR Provider ---
+      // --- Haulmer QR Nativo ---
+      } else if (selectedMethod === 'haulmer_native') {
+        const orderRes = await fetch(API + '/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId, order_type: orderType, payment_method: 'card',
+            items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
+            total: Number(finalTotal).toFixed(2), delivery: deliveryMode
+          })
+        });
+        if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
+        const order = await orderRes.json();
+        setPendingOrderData({ order, storeId });
+
+        const hRes = await fetch('/api/haulmer/payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId, order_id: order.id,
+            amount: Math.round(Number(finalTotal)),
+            description: `Pedido #${order.order_number || order.id}`
+          })
+        });
+        const hData = await hRes.json();
+        if (!hData.success) throw new Error(hData.error || 'Error generando pago Haulmer');
+
+        setHaulmerReference(hData.reference);
+        setQrPaymentUrl(hData.paymentUrl);
+        setPaymentWaiting(true);
+        setPaymentTimeLeft(300);
+        window.open(hData.paymentUrl, '_blank', 'noopener,noreferrer');
+
+      // --- QR Provider (plugin) ---
       } else if (selectedMethod === 'qr') {
         const orderRes = await fetch(API + '/api/orders', {
           method: 'POST',
@@ -1158,6 +1204,7 @@ function Store() {
     const orderId = pendingOrderData.order.id;
     const storeId = pendingOrderData.storeId;
     const isPluginPayment = !!pluginPaymentKey;
+    const isHaulmerNative = !!haulmerReference;
 
     const onPaymentSuccess = () => {
       setPaymentConfirmed(true);
@@ -1167,17 +1214,33 @@ function Store() {
       setPaymentModalOpen(false);
       setPaymentWaiting(false); setQrPaymentUrl(null);
       setPluginPaymentKey(null);
+      setHaulmerReference(null);
     };
 
     const onPaymentFail = () => {
       setPaymentWaiting(false); setQrPaymentUrl(null);
       setPaymentCancelled(true);
       setPluginPaymentKey(null);
+      setHaulmerReference(null);
     };
 
     const pollInterval = setInterval(async () => {
       try {
-        if (isPluginPayment) {
+        if (isHaulmerNative) {
+          // --- Haulmer QR nativo ---
+          const res = await fetch(`/api/haulmer/payment/${encodeURIComponent(haulmerReference)}/status`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.status === 'completed') {
+            clearInterval(pollInterval);
+            clearInterval(timerInterval);
+            onPaymentSuccess();
+          } else if (data.status === 'failed' || data.status === 'cancelled') {
+            clearInterval(pollInterval);
+            clearInterval(timerInterval);
+            onPaymentFail();
+          }
+        } else if (isPluginPayment) {
           // --- Generic plugin payment polling ---
           const res = await fetch(`/api/plugins/payments/status/${pluginPaymentKey}`);
           if (!res.ok) return;
@@ -1250,7 +1313,7 @@ function Store() {
       clearInterval(pollInterval);
       clearInterval(timerInterval);
     };
-  }, [paymentWaiting, pendingOrderData, pluginPaymentKey]);
+  }, [paymentWaiting, pendingOrderData, pluginPaymentKey, haulmerReference]);
 
   useEffect(() => {
     setAppliedCoupon(null);
@@ -2881,7 +2944,23 @@ function Store() {
                     </button>
                   )}
 
-                  {qrProvider && deliveryMode && (
+                  {haulmerNative && deliveryMode && (
+                    <button
+                      onClick={() => processPayment('haulmer_native')}
+                      className="btn btn-lg btn-full store-glow-pulse"
+                      style={{
+                        backgroundColor: 'var(--store-primary)',
+                        color: 'var(--store-secondary)',
+                        border: '3px solid #D4AF37',
+                        borderRadius: '15px'
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faQrcode} style={{ fontSize: '28px' }} />
+                      <span className="font-bold" style={{ fontSize: '18px' }}>{t('payWithQR', lang)}</span>
+                    </button>
+                  )}
+
+                  {!haulmerNative && qrProvider && deliveryMode && (
                     <button
                       onClick={() => processPayment('qr')}
                       className="btn btn-lg btn-full store-glow-pulse"
@@ -2897,7 +2976,7 @@ function Store() {
                     </button>
                   )}
 
-                  {!selectedConfiguration?.accept_cash && !selectedConfiguration?.accept_card && !qrProvider && (
+                  {!selectedConfiguration?.accept_cash && !selectedConfiguration?.accept_card && !qrProvider && !haulmerNative && (
                     <p className="text-muted">{t('noPaymentMethods', lang)}</p>
                   )}
                 </div>

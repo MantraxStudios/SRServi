@@ -8537,6 +8537,52 @@ html body .store-container .store-product-card * {
 }
 
 /* ================================================
+   SIDEBAR COLAPSABLE (solo desktop)
+   ================================================ */
+.admin-sidebar {
+  transition: width 0.28s cubic-bezier(.4,0,.2,1), left var(--transition-slow);
+}
+
+@media (min-width: 769px) {
+  .admin-sidebar {
+    overflow: hidden;
+  }
+}
+
+.admin-sidebar.sidebar-collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+}
+
+.sidebar-collapse-btn {
+  position: fixed;
+  left: calc(var(--sidebar-w, 270px) - 1px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 48px;
+  background: #1a1a1a;
+  color: #D4AF37;
+  border: 1px solid #333;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  transition: left 0.28s cubic-bezier(.4,0,.2,1), background 0.15s;
+  padding: 0;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.3);
+}
+
+.sidebar-collapse-btn:hover {
+  background: #2a2a2a;
+  color: #f0c040;
+}
+
+/* ================================================
    EDITOR TOTEM — modo pantalla completa en admin
    ================================================ */
 .admin-sidebar.editor-hidden {
@@ -8572,10 +8618,11 @@ html body .store-container .store-product-card * {
 .admin-content--editor-desktop {
   position: fixed !important;
   top: 0 !important;
-  left: 270px !important;
+  left: var(--sidebar-w, 270px) !important;
   right: 0 !important;
   bottom: 0 !important;
-  width: calc(100vw - 270px) !important;
+  width: calc(100vw - var(--sidebar-w, 270px)) !important;
+  transition: left 0.28s cubic-bezier(.4,0,.2,1), width 0.28s cubic-bezier(.4,0,.2,1) !important;
   height: 100vh !important;
   min-height: 100vh !important;
   padding: 0 !important;
