@@ -619,7 +619,9 @@ function Store() {
 
       // Check if a plugin payment provider is available
       try {
-        const ppRes = await fetch(`/api/plugins/payments/provider?store_id=${data.store.id}&device_uid=${deviceUid}`);
+        const lastTerminalId = localStorage.getItem('srservi_last_terminal_id') || '';
+        const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
+        const ppRes = await fetch(`/api/plugins/payments/provider?store_id=${data.store.id}&device_uid=${deviceUid}&terminal_id=${lastTerminalId}&terminal_provider=${lastTerminalProvider}`);
         if (ppRes.ok) {
           const ppData = await ppRes.json();
           if (ppData.available) setPluginPaymentProvider(ppData);
@@ -1040,7 +1042,9 @@ function Store() {
             store_id: storeId, order_id: order.id,
             amount: Math.round(Number(finalTotal)),
             description: `Pedido #${order.order_number || order.id}`,
-            device_uid: deviceUid
+            device_uid: deviceUid,
+            terminal_id: localStorage.getItem('srservi_last_terminal_id') || null,
+            terminal_provider: localStorage.getItem('srservi_last_terminal_provider') || ''
           })
         });
         const chargeData = await chargeRes.json();
@@ -2877,12 +2881,16 @@ function Store() {
                   )}
                 </div>
 
-                {selectedConfiguration?.accept_card && availableTerminals.length > 0 && (
+                {selectedConfiguration?.accept_card && (
                   <div className="text-muted text-sm" style={{ marginTop: '14px' }}>
-                    {t('terminalAssigned', lang)}{' '}
-                    <strong>
-                      {availableTerminals.find(terminal => String(terminal.id) === String(selectedTerminalId))?.name || t('notAvailable', lang)}
-                    </strong>
+                    {pluginPaymentProvider ? (
+                      <><FontAwesomeIcon icon={faCreditCard} /> Procesará con <strong>Tuu</strong> — {pluginPaymentProvider.deviceName}</>
+                    ) : (
+                      <>{t('terminalAssigned', lang)}{' '}
+                      <strong>
+                        {localStorage.getItem('srservi_last_terminalName') || localStorage.getItem('srservi_last_terminal_id') || 'MercadoPago'}
+                      </strong></>
+                    )}
                   </div>
                 )}
 

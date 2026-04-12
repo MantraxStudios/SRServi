@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   lastClientName: 'srservi_last_client_name',
   lastTerminalId: 'srservi_last_terminal_id',
   lastTerminalName: 'srservi_last_terminal_name',
+  lastTerminalProvider: 'srservi_last_terminal_provider',
 };
 
 function Index() {
@@ -151,6 +152,7 @@ function Index() {
       if (allPos.length === 1) {
         localStorage.setItem(STORAGE_KEYS.lastTerminalId, allPos[0].id);
         localStorage.setItem(STORAGE_KEYS.lastTerminalName, allPos[0].name);
+        localStorage.setItem(STORAGE_KEYS.lastTerminalProvider, allPos[0].provider || '');
         if (fromClientPicker) { persistStoreSelection(store.code); }
         navigate(`/store/${store.code}`);
       }
@@ -198,6 +200,7 @@ function Index() {
   const handlePickPos = (pos) => {
     localStorage.setItem(STORAGE_KEYS.lastTerminalId, pos.id);
     localStorage.setItem(STORAGE_KEYS.lastTerminalName, pos.name);
+    localStorage.setItem(STORAGE_KEYS.lastTerminalProvider, pos.provider || '');
     if (pendingStore) {
       persistStoreSelection(pendingStore.code);
       navigate(`/store/${pendingStore.code}`);
@@ -211,6 +214,7 @@ function Index() {
     localStorage.removeItem(STORAGE_KEYS.lastClientName);
     localStorage.removeItem(STORAGE_KEYS.lastTerminalId);
     localStorage.removeItem(STORAGE_KEYS.lastTerminalName);
+    localStorage.removeItem(STORAGE_KEYS.lastTerminalProvider);
     setClientStores(null);
     setClientName('');
     setCode('');
