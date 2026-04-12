@@ -620,13 +620,19 @@ function Store() {
       // Check if a plugin payment provider is available
       try {
         const lastTerminalId = localStorage.getItem('srservi_last_terminal_id') || '';
+        const lastTerminalName = localStorage.getItem('srservi_last_terminal_name') || '';
         const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
+        console.log('[Store] Checking payment provider - store_id:', data.store.id, 'terminal_id:', lastTerminalId, 'terminal_name:', lastTerminalName, 'provider:', lastTerminalProvider, 'device_uid:', deviceUid);
         const ppRes = await fetch(`/api/plugins/payments/provider?store_id=${data.store.id}&device_uid=${deviceUid}&terminal_id=${lastTerminalId}&terminal_provider=${lastTerminalProvider}`);
-        if (ppRes.ok) {
-          const ppData = await ppRes.json();
-          if (ppData.available) setPluginPaymentProvider(ppData);
+        const ppData = await ppRes.json();
+        console.log('[Store] Payment provider response:', ppData);
+        if (ppData.available) {
+          setPluginPaymentProvider(ppData);
+          console.log('[Store] pluginPaymentProvider SET:', ppData);
+        } else {
+          console.log('[Store] pluginPaymentProvider NOT set - reason:', ppData.reason);
         }
-      } catch { /* no payment plugin, ignore */ }
+      } catch (e) { console.error('[Store] Payment provider error:', e); /* no payment plugin, ignore */ }
 
       // Check QR provider availability
       try {

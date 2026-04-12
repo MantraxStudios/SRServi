@@ -4608,20 +4608,29 @@ async function startServer() {
         const deviceUid = req.query.device_uid;
         const terminalId = parseInt(req.query.terminal_id);
         const terminalProvider = req.query.terminal_provider || '';
+        console.log('[provider] store_id:', storeId, 'device_uid:', deviceUid, 'terminal_id:', terminalId, 'terminal_provider:', terminalProvider);
         if (!storeId) return res.json({ available: false });
         const userId = await tuuGetUserIdFromStore(storeId);
+        console.log('[provider] userId:', userId);
         const config = await tuuGetConfig(userId);
+        console.log('[provider] config.api_key exists:', !!config?.api_key);
         if (!config?.api_key) return res.json({ available: false });
         let device = null;
         if (terminalId && terminalProvider === 'tuu') {
+          console.log('[provider] Looking for tuu device by terminal_id:', terminalId);
           const [rows] = await pool.execute('SELECT * FROM tuu_devices WHERE id = ? AND user_id = ?', [terminalId, userId]);
+          console.log('[provider] tuu_devices by id result:', rows.length, rows[0]?.name);
           device = rows[0] || null;
         }
         if (!device && deviceUid) {
+          console.log('[provider] Looking for tuu device by device_uid:', deviceUid);
           device = await tuuGetDeviceForUid(deviceUid, storeId);
+          console.log('[provider] tuuGetDeviceForUid result:', device?.name);
         }
         if (!device) {
+          console.log('[provider] Looking for any tuu device for store');
           device = await tuuGetAnyDeviceForStore(storeId);
+          console.log('[provider] tuuGetAnyDeviceForStore result:', device?.name);
         }
         if (!device) return res.json({ available: false, reason: 'No hay POS Tuu configurado para esta tienda' });
         res.json({
@@ -4631,7 +4640,7 @@ async function startServer() {
           deviceName: device.name,
           deviceSerial: device.serial
         });
-      } catch (e) { res.json({ available: false }); }
+      } catch (e) { console.error('[provider] error:', e.message); res.json({ available: false }); }
     });
 
     app.post('/api/plugins/payments/charge', async (req, res) => {
