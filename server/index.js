@@ -4609,12 +4609,19 @@ async function startServer() {
         const terminalId = parseInt(req.query.terminal_id);
         const terminalProvider = req.query.terminal_provider || '';
         console.log('[provider] store_id:', storeId, 'device_uid:', deviceUid, 'terminal_id:', terminalId, 'terminal_provider:', terminalProvider);
-        if (!storeId) return res.json({ available: false });
-        const userId = await tuuGetUserIdFromStore(storeId);
-        console.log('[provider] userId:', userId);
-        const config = await tuuGetConfig(userId);
-        console.log('[provider] config.api_key exists:', !!config?.api_key);
-        if (!config?.api_key) return res.json({ available: false });
+        if (!storeId) { console.log('[provider] FAIL: no storeId'); return res.json({ available: false, reason: 'no storeId' }); }
+        let userId;
+        try {
+          userId = await tuuGetUserIdFromStore(storeId);
+          console.log('[provider] userId:', userId);
+        } catch (e) { console.log('[provider] tuuGetUserIdFromStore error:', e.message); return res.json({ available: false, reason: 'userId error: ' + e.message }); }
+        let config;
+        try {
+          config = await tuuGetConfig(userId);
+          console.log('[provider] config:', config ? JSON.stringify(config) : 'null');
+          console.log('[provider] config.api_key exists:', !!config?.api_key);
+        } catch (e) { console.log('[provider] tuuGetConfig error:', e.message); return res.json({ available: false, reason: 'config error: ' + e.message }); }
+        if (!config?.api_key) { console.log('[provider] FAIL: no api_key'); return res.json({ available: false, reason: 'No hay API Key de Tuu configurada para esta cuenta. Ve al admin > Tuu POS > Configuración.' }); }
         let device = null;
         if (terminalId && terminalProvider === 'tuu') {
           console.log('[provider] Looking for tuu device by terminal_id:', terminalId);
@@ -4632,7 +4639,8 @@ async function startServer() {
           device = await tuuGetAnyDeviceForStore(storeId);
           console.log('[provider] tuuGetAnyDeviceForStore result:', device?.name);
         }
-        if (!device) return res.json({ available: false, reason: 'No hay POS Tuu configurado para esta tienda' });
+        if (!device) { console.log('[provider] FAIL: no device found'); return res.json({ available: false, reason: 'No hay POS Tuu configurado para esta tienda. Ve al admin > Tuu POS > Vincular POS.' }); }
+        console.log('[provider] SUCCESS - device:', device.name);
         res.json({
           available: true,
           provider: 'tuu',
@@ -4640,7 +4648,7 @@ async function startServer() {
           deviceName: device.name,
           deviceSerial: device.serial
         });
-      } catch (e) { console.error('[provider] error:', e.message); res.json({ available: false }); }
+      } catch (e) { console.error('[provider] error:', e.message); res.json({ available: false, reason: 'error: ' + e.message }); }
     });
 
     app.post('/api/plugins/payments/charge', async (req, res) => {
