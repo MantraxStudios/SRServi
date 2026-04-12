@@ -4622,6 +4622,12 @@ async function startServer() {
           console.log('[provider] config.api_key exists:', !!config?.api_key);
         } catch (e) { console.log('[provider] tuuGetConfig error:', e.message); return res.json({ available: false, reason: 'config error: ' + e.message }); }
         if (!config?.api_key) { console.log('[provider] FAIL: no api_key'); return res.json({ available: false, reason: 'No hay API Key de Tuu configurada para esta cuenta. Ve al admin > Tuu POS > Configuración.' }); }
+        // FIX: Si el usuario eligió explícitamente un terminal que NO es Tuu (ej: MercadoPago),
+        // no debemos activar el proveedor Tuu aunque existan dispositivos Tuu en la tienda.
+        if (terminalProvider && terminalProvider !== 'tuu') {
+          console.log('[provider] SKIP: terminal_provider is', terminalProvider, '- not Tuu, deferring to MercadoPago handler');
+          return res.json({ available: false, reason: 'Terminal seleccionado no es Tuu' });
+        }
         let device = null;
         if (terminalId && terminalProvider === 'tuu') {
           console.log('[provider] Looking for tuu device by terminal_id:', terminalId);
@@ -4669,6 +4675,11 @@ async function startServer() {
         if (!config?.api_key) {
           console.log('[charge] FAIL: no api_key for userId:', userId);
           return res.status(400).json({ error: 'API Key de Tuu no configurada. Ve al admin > Tuu POS > Configuración y guarda tu API Key.' });
+        }
+        // FIX: Si el terminal seleccionado no es Tuu, este handler no debe procesar el cobro.
+        if (terminal_provider && terminal_provider !== 'tuu') {
+          console.log('[charge] SKIP: terminal_provider is', terminal_provider, '- not Tuu');
+          return res.status(400).json({ error: 'Terminal seleccionado no es Tuu. Usa el flujo de MercadoPago.' });
         }
         let device = null;
         if (terminal_id && terminal_provider === 'tuu') {
