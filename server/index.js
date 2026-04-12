@@ -5413,6 +5413,39 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
+    // Shared helper: confirm a Haulmer payment, update order, assign order_number
+    async function haulmerConfirmOrder(tx, reference, authCode) {
+      await pool.execute(
+        'UPDATE haulmer_native_transactions SET status = ?, updated_at = NOW() WHERE reference = ?',
+        ['completed', reference]
+      );
+      if (!tx.order_id) return null;
+      await pool.execute(
+        "UPDATE orders SET payment_process = 1, cash_approved = TRUE, status = 'preparing', reference_id = ?, sequence_id = ? WHERE id = ?",
+        [authCode || reference, reference, tx.order_id]
+      ).catch(() => {});
+      // Assign order_number if missing
+      const [existing] = await pool.execute('SELECT order_number FROM orders WHERE id = ?', [tx.order_id]);
+      let finalOrderNumber = existing[0]?.order_number || null;
+      if (existing[0] && !existing[0].order_number) {
+        const [usedRows] = await pool.execute(
+          'SELECT order_number FROM orders WHERE store_id = ? AND DATE(created_at) = CURDATE() AND order_number IS NOT NULL',
+          [tx.store_id]
+        );
+        const used = new Set(usedRows.map(r => r.order_number));
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        let orderNum = null;
+        for (let i = 0; i < 200 && !orderNum; i++) {
+          const c = letters[Math.floor(Math.random() * 26)] + String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
+          if (!used.has(c)) orderNum = c;
+        }
+        if (!orderNum) orderNum = String(used.size + 1);
+        await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [orderNum, tx.order_id]);
+        finalOrderNumber = orderNum;
+      }
+      return finalOrderNumber;
+    }
+
     // POST /api/haulmer/webhook — Haulmer llama aquí al completar el pago
     app.post('/api/haulmer/webhook', async (req, res) => {
       try {
@@ -5439,35 +5472,15 @@ async function startServer() {
         }
 
         if (result === 'completed' && tx.status !== 'completed') {
-          await pool.execute(
-            'UPDATE haulmer_native_transactions SET status = ?, updated_at = NOW() WHERE reference = ?',
-            ['completed', reference]
-          );
+          const orderNumber = await haulmerConfirmOrder(tx, reference, params.x_authorization_code || null);
           if (tx.order_id) {
-            await pool.execute(
-              'UPDATE orders SET payment_process = 1, cash_approved = TRUE, reference_id = ?, sequence_id = ? WHERE id = ?',
-              [params.x_authorization_code || reference, reference, tx.order_id]
-            ).catch(() => {});
-            // Asignar order_number si falta
-            const [existing] = await pool.execute('SELECT order_number FROM orders WHERE id = ?', [tx.order_id]);
-            let finalOrderNumber = existing[0]?.order_number || null;
-            if (existing[0] && !existing[0].order_number) {
-              const [usedRows] = await pool.execute(
-                'SELECT order_number FROM orders WHERE store_id = ? AND DATE(created_at) = CURDATE() AND order_number IS NOT NULL',
-                [tx.store_id]
-              );
-              const used = new Set(usedRows.map(r => r.order_number));
-              const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-              let orderNum = null;
-              for (let i = 0; i < 200 && !orderNum; i++) {
-                const c = letters[Math.floor(Math.random() * 26)] + String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
-                if (!used.has(c)) orderNum = c;
-              }
-              if (!orderNum) orderNum = String(used.size + 1);
-              await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [orderNum, tx.order_id]);
-              finalOrderNumber = orderNum;
+            io.to(`store_${tx.store_id}`).emit('qr_payment_completed', { order_id: tx.order_id, reference, order_number: orderNumber });
+            // Also emit payment_confirmed so WorkerPanel picks it up in real-time
+            const [orderRows] = await pool.execute('SELECT * FROM orders WHERE id = ?', [tx.order_id]);
+            if (orderRows[0]) {
+              const [itemRows] = await pool.execute('SELECT * FROM order_items WHERE order_id = ?', [tx.order_id]);
+              io.to(`store_${tx.store_id}`).emit('payment_confirmed', { ...orderRows[0], items: itemRows });
             }
-            io.to(`store_${tx.store_id}`).emit('qr_payment_completed', { order_id: tx.order_id, reference, order_number: finalOrderNumber });
           }
         } else if (result === 'failed' || result === 'cancelled') {
           await pool.execute(
@@ -5477,6 +5490,36 @@ async function startServer() {
         }
         res.json({ success: true });
       } catch (e) { console.error('[Haulmer webhook]', e); res.status(500).json({ error: e.message }); }
+    });
+
+    // POST /api/haulmer/confirm — frontend llama esto al volver de pago con x_result=completed
+    app.post('/api/haulmer/confirm', async (req, res) => {
+      try {
+        const params = req.body;
+        const reference = params.x_reference;
+        if (!reference || !reference.startsWith('SRSN-')) return res.status(400).json({ error: 'Referencia inválida' });
+
+        const [txs] = await pool.execute('SELECT * FROM haulmer_native_transactions WHERE reference = ?', [reference]);
+        if (!txs[0]) return res.status(404).json({ error: 'Transacción no encontrada' });
+        const tx = txs[0];
+
+        if (tx.status === 'completed') {
+          // Already confirmed — just return the order_number
+          const [orRows] = await pool.execute('SELECT order_number FROM orders WHERE id = ?', [tx.order_id]);
+          return res.json({ success: true, order_number: orRows[0]?.order_number || null, already_confirmed: true });
+        }
+
+        const orderNumber = await haulmerConfirmOrder(tx, reference, params.x_authorization_code || null);
+        if (tx.order_id) {
+          io.to(`store_${tx.store_id}`).emit('qr_payment_completed', { order_id: tx.order_id, reference, order_number: orderNumber });
+          const [orderRows] = await pool.execute('SELECT * FROM orders WHERE id = ?', [tx.order_id]);
+          if (orderRows[0]) {
+            const [itemRows] = await pool.execute('SELECT * FROM order_items WHERE order_id = ?', [tx.order_id]);
+            io.to(`store_${tx.store_id}`).emit('payment_confirmed', { ...orderRows[0], items: itemRows });
+          }
+        }
+        res.json({ success: true, order_number: orderNumber });
+      } catch (e) { console.error('[Haulmer confirm]', e); res.status(500).json({ error: e.message }); }
     });
 
     server.listen(PORT, HOST, () => {

@@ -74,6 +74,15 @@ function WorkerPanel() {
       }
     });
 
+    socket.on('payment_confirmed', (order) => {
+      if (order.payment_process === 1) {
+        setOrders(prev => {
+          if (prev.find(o => o.id === order.id)) return prev;
+          return [order, ...prev];
+        });
+      }
+    });
+
     socket.on('order_updated', () => {
       fetchOrders(parsedWorker.store_id);
     });

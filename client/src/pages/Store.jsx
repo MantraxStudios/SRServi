@@ -242,24 +242,32 @@ function Store() {
   useEffect(() => {
     if (!qrReturnRef) return;
 
-    // Referencia nativa Haulmer (prefijo SRSN-) — confiar en x_result de Haulmer
+    // Referencia nativa Haulmer (prefijo SRSN-) — confirmar y registrar orden
     if (qrReturnRef.startsWith('SRSN-')) {
       const xResult  = searchParams.get('x_result');
       const xAmount  = searchParams.get('x_amount');
       const xMessage = searchParams.get('x_message');
 
       if (xResult === 'completed') {
-        // Obtener datos de orden en paralelo (no bloqueante para mostrar el éxito)
-        fetch(`/api/haulmer/payment/${encodeURIComponent(qrReturnRef)}/status`)
+        // Recopilar todos los params x_* para enviar al confirm endpoint
+        const xParams = {};
+        for (const [key, val] of searchParams.entries()) {
+          if (key.startsWith('x_')) xParams[key] = val;
+        }
+        fetch('/api/haulmer/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(xParams)
+        })
           .then(r => r.ok ? r.json() : null)
           .then(data => {
             setQrPaymentResult({
               success: true,
               status: 'completed',
               reference: qrReturnRef,
-              amount: data?.amount || xAmount,
+              amount: xAmount,
               message: xMessage || 'Pago aprobado',
-              order: data?.order_id ? { id: data.order_id, order_number: data.order_number } : null
+              order: data?.order_number ? { order_number: data.order_number } : null
             });
           })
           .catch(() => {
