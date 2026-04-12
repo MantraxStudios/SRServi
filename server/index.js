@@ -4657,6 +4657,34 @@ async function startServer() {
       } catch (e) { console.error('[provider] error:', e.message); res.json({ available: false, reason: 'error: ' + e.message }); }
     });
 
+    // Square provider — native handler (called when PluginManager passes via next())
+    app.get('/api/plugins/payments/provider', async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        const terminalId = parseInt(req.query.terminal_id);
+        const terminalProvider = req.query.terminal_provider || '';
+        if (!storeId) return res.json({ available: false });
+        if (terminalProvider && terminalProvider !== 'square') return res.json({ available: false });
+        // Get userId from store
+        const [storeRows] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [storeId]);
+        if (!storeRows[0]) return res.json({ available: false });
+        const userId = storeRows[0].user_id;
+        const [cfgRows] = await pool.execute('SELECT * FROM square_config WHERE user_id = ?', [userId]);
+        if (!cfgRows[0]?.access_token) return res.json({ available: false, reason: 'No Square config' });
+        let device = null;
+        if (terminalId) {
+          const [rows] = await pool.execute('SELECT * FROM square_devices WHERE id = ? AND user_id = ?', [terminalId, userId]);
+          device = rows[0] || null;
+        }
+        if (!device) {
+          const [rows] = await pool.execute('SELECT * FROM square_devices WHERE user_id = ? AND store_id = ? LIMIT 1', [userId, storeId]);
+          device = rows[0] || null;
+        }
+        if (!device) return res.json({ available: false, reason: 'No Square device found' });
+        res.json({ available: true, provider: 'square', deviceId: device.device_id, deviceName: device.name });
+      } catch (e) { res.json({ available: false, reason: e.message }); }
+    });
+
     app.post('/api/plugins/payments/charge', async (req, res) => {
       try {
         const { store_id, order_id, amount, description, device_uid, terminal_id, terminal_provider } = req.body;
@@ -4784,6 +4812,181 @@ async function startServer() {
         const device = await tuuGetAnyDeviceForStore(storeId);
         res.json({ success: true, device: device?.name || 'Sin POS asignado' });
       } catch (e) { res.json({ success: false, error: e.message }); }
+    });
+
+
+    // =====================================================================
+    // SQUARE TERMINAL — device code pairing + payments
+    // =====================================================================
+    (async () => {
+      // Ensure tables exist
+      try {
+        await pool.execute(`CREATE TABLE IF NOT EXISTS square_config (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL UNIQUE,
+          access_token TEXT NOT NULL,
+          location_id VARCHAR(255) NOT NULL DEFAULT '',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )`);
+        await pool.execute(`CREATE TABLE IF NOT EXISTS square_devices (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          store_id INT NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          device_id VARCHAR(255) NOT NULL,
+          device_code_id VARCHAR(255) DEFAULT NULL,
+          location_id VARCHAR(255) DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+      } catch (e) { console.error('[Square] Table init error:', e.message); }
+    })();
+
+    // Helper: get userId from JWT token
+    async function squareGetUserId(req) {
+      const auth = req.headers['authorization'] || '';
+      const tok = auth.replace('Bearer ', '').trim();
+      if (!tok) throw new Error('No token');
+      const decoded = jwt.verify(tok, JWT_SECRET);
+      return decoded.id;
+    }
+
+    // Helper: get Square config for user
+    async function squareGetConfig(userId) {
+      const [rows] = await pool.execute('SELECT * FROM square_config WHERE user_id = ?', [userId]);
+      return rows[0] || null;
+    }
+
+    // GET /api/square/config
+    app.get('/api/square/config', async (req, res) => {
+      try {
+        const userId = await squareGetUserId(req);
+        const cfg = await squareGetConfig(userId);
+        res.json(cfg ? { access_token: cfg.access_token ? '***' : '', location_id: cfg.location_id, hasToken: !!cfg.access_token } : { access_token: '', location_id: '', hasToken: false });
+      } catch (e) { res.status(401).json({ error: e.message }); }
+    });
+
+    // POST /api/square/config — save access_token + location_id
+    app.post('/api/square/config', async (req, res) => {
+      try {
+        const userId = await squareGetUserId(req);
+        const { access_token, location_id } = req.body;
+        if (!access_token) return res.status(400).json({ error: 'access_token requerido' });
+        await pool.execute(
+          'INSERT INTO square_config (user_id, access_token, location_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE access_token = ?, location_id = ?',
+          [userId, access_token, location_id || '', access_token, location_id || '']
+        );
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // GET /api/square/locations — fetch locations from Square API
+    app.get('/api/square/locations', async (req, res) => {
+      try {
+        const userId = await squareGetUserId(req);
+        const cfg = await squareGetConfig(userId);
+        if (!cfg?.access_token) return res.status(400).json({ error: 'Configura el Access Token primero' });
+        const sqRes = await fetch('https://connect.squareup.com/v2/locations', {
+          headers: { 'Authorization': 'Bearer ' + cfg.access_token, 'Square-Version': '2026-01-22' }
+        });
+        const data = await sqRes.json();
+        if (!sqRes.ok) return res.status(sqRes.status).json({ error: data?.errors?.[0]?.detail || 'Error Square API' });
+        res.json(data.locations || []);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // POST /api/square/device-code — generate login code
+    app.post('/api/square/device-code', async (req, res) => {
+      try {
+        const userId = await squareGetUserId(req);
+        const cfg = await squareGetConfig(userId);
+        if (!cfg?.access_token) return res.status(400).json({ error: 'Configura el Access Token primero' });
+        const locationId = req.body.location_id || cfg.location_id;
+        if (!locationId) return res.status(400).json({ error: 'Se requiere Location ID' });
+        const deviceName = req.body.device_name || 'Square Terminal';
+        const idempotencyKey = 'sq_code_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        const sqRes = await fetch('https://connect.squareup.com/v2/devices/codes', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + cfg.access_token, 'Square-Version': '2026-01-22', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idempotency_key: idempotencyKey, device_code: { name: deviceName, product_type: 'TERMINAL_API', location_id: locationId } })
+        });
+        const data = await sqRes.json();
+        if (!sqRes.ok) return res.status(sqRes.status).json({ error: data?.errors?.[0]?.detail || 'Error Square API', errors: data?.errors });
+        res.json(data.device_code);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // GET /api/square/device-code/:id — poll pairing status
+    app.get('/api/square/device-code/:id', async (req, res) => {
+      try {
+        const userId = await squareGetUserId(req);
+        const cfg = await squareGetConfig(userId);
+        if (!cfg?.access_token) return res.status(400).json({ error: 'No config' });
+        const sqRes = await fetch('https://connect.squareup.com/v2/devices/codes/' + encodeURIComponent(req.params.id), {
+          headers: { 'Authorization': 'Bearer ' + cfg.access_token, 'Square-Version': '2026-01-22' }
+        });
+        const data = await sqRes.json();
+        if (!sqRes.ok) return res.status(sqRes.status).json({ error: data?.errors?.[0]?.detail || 'Error' });
+        res.json(data.device_code);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // POST /api/square/devices — save paired device
+    app.post('/api/square/devices', async (req, res) => {
+      try {
+        const userId = await squareGetUserId(req);
+        const { store_id, name, device_id, device_code_id, location_id } = req.body;
+        if (!store_id || !device_id) return res.status(400).json({ error: 'store_id y device_id requeridos' });
+        const [result] = await pool.execute(
+          'INSERT INTO square_devices (user_id, store_id, name, device_id, device_code_id, location_id) VALUES (?, ?, ?, ?, ?, ?)',
+          [userId, store_id, name || 'Square Terminal', device_id, device_code_id || null, location_id || null]
+        );
+        res.json({ success: true, id: result.insertId });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // GET /api/square/devices — list devices for store
+    app.get('/api/square/devices', async (req, res) => {
+      try {
+        const userId = await squareGetUserId(req);
+        const storeId = parseInt(req.query.store_id);
+        const [rows] = await pool.execute('SELECT * FROM square_devices WHERE user_id = ? AND store_id = ? ORDER BY created_at DESC', [userId, storeId]);
+        res.json(rows);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // DELETE /api/square/devices/:id
+    app.delete('/api/square/devices/:id', async (req, res) => {
+      try {
+        const userId = await squareGetUserId(req);
+        await pool.execute('DELETE FROM square_devices WHERE id = ? AND user_id = ?', [req.params.id, userId]);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // GET /api/plugins/payments/provider — Square native (fallthrough from PluginManager)
+    // Already handled above for Tuu — Square check is added here as an additional fallthrough
+    app.get('/api/square/provider', async (req, res) => {
+      try {
+        const userId = await squareGetUserId(req);
+        const storeId = parseInt(req.query.store_id);
+        const terminalId = parseInt(req.query.terminal_id);
+        const terminalProvider = req.query.terminal_provider || '';
+        if (terminalProvider && terminalProvider !== 'square') return res.json({ available: false });
+        const cfg = await squareGetConfig(userId);
+        if (!cfg?.access_token) return res.json({ available: false, reason: 'No Square config' });
+        let device = null;
+        if (terminalId) {
+          const [rows] = await pool.execute('SELECT * FROM square_devices WHERE id = ? AND user_id = ?', [terminalId, userId]);
+          device = rows[0] || null;
+        }
+        if (!device) {
+          const [rows] = await pool.execute('SELECT * FROM square_devices WHERE user_id = ? AND store_id = ? LIMIT 1', [userId, storeId]);
+          device = rows[0] || null;
+        }
+        if (!device) return res.json({ available: false, reason: 'No Square device found' });
+        res.json({ available: true, provider: 'square', deviceId: device.device_id, deviceName: device.name });
+      } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
     server.listen(PORT, HOST, () => {

@@ -117,6 +117,25 @@ function MercadoPagoPoints() {
   const [savingTuu, setSavingTuu] = useState(false);
   const [tuuSaveMsg2, setTuuSaveMsg2] = useState('');
 
+  // === Square Terminal state ===
+  const [squareAccessToken, setSquareAccessToken] = useState('');
+  const [squareLocationId, setSquareLocationId] = useState('');
+  const [squareDeviceName, setSquareDeviceName] = useState('');
+  const [squareLocations, setSquareLocations] = useState([]);
+  const [squareLoadingLocs, setSquareLoadingLocs] = useState(false);
+  const [squareCode, setSquareCode] = useState('');
+  const [squareCodeId, setSquareCodeId] = useState('');
+  const [squareCodeExpiry, setSquareCodeExpiry] = useState('');
+  const [squareCodeStatus, setSquareCodeStatus] = useState('');
+  const [squareGenerating, setSquareGenerating] = useState(false);
+  const [squarePolling, setSquarePolling] = useState(false);
+  const [squarePollMsg, setSquarePollMsg] = useState('');
+  const [squareSavingCfg, setSquareSavingCfg] = useState(false);
+  const [squareCfgSaved, setSquareCfgSaved] = useState(false);
+  const [squareDevices, setSquareDevices] = useState([]);
+  const [squareStep, setSquareStep] = useState('config'); // 'config' | 'code' | 'paired'
+  const [squareError, setSquareError] = useState('');
+
   // Settings modal
   const [settingsOpen, setSettingsOpen] = useState(null);
   const [settingsData, setSettingsData] = useState({});
@@ -145,7 +164,7 @@ function MercadoPagoPoints() {
   const [savingSetup, setSavingSetup] = useState(false);
 
   // ==== Unified POS helpers ====
-  const buildPosList = (mpTerminals, tuuDevices, tuuAssignments, tuuStoreDevs) => {
+  const buildPosList = (mpTerminals, tuuDevices, tuuAssignments, tuuStoreDevs, squareDevsList = []) => {
     const mpList = (Array.isArray(mpTerminals) ? mpTerminals : []).map(t => ({
       id: t.id,
       provider: 'mercadopago',
@@ -167,7 +186,14 @@ function MercadoPagoPoints() {
         store_id: d.store_id,
       };
     });
-    return [...mpList, ...tuuList];
+    const squareList = (Array.isArray(squareDevsList) ? squareDevsList : []).map(d => ({
+      id: d.id,
+      provider: 'square',
+      name: d.name,
+      terminal_id: d.device_id,
+      store_id: d.store_id,
+    }));
+    return [...mpList, ...tuuList, ...squareList];
   };
 
   const fetchPosList = async () => {
@@ -175,7 +201,7 @@ function MercadoPagoPoints() {
     const tuuDevices = tuuPosDevices;
     const assignments = tuuAssignments;
     const storeDevs = tuuStoreDevices;
-    setPosList(buildPosList(mpTerminals, tuuDevices, assignments, storeDevs));
+    setPosList(buildPosList(mpTerminals, tuuDevices, assignments, storeDevs, squareDevices));
   };
 
   const saveMpPos = async () => {
@@ -224,6 +250,8 @@ function MercadoPagoPoints() {
       await fetch(API + '/api/mercado-pago-terminals/' + pos.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
     } else if (pos.provider === 'tuu') {
       await fetch(API + '/api/tuu/devices/' + pos.id, { method: 'DELETE' });
+    } else if (pos.provider === 'square') {
+      await fetch(API + '/api/square/devices/' + pos.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
     }
     fetchPosList();
   };
@@ -232,6 +260,7 @@ function MercadoPagoPoints() {
     fetchTerminals();
     fetchWorkshopPlugins();
     fetchTuuConfig();
+    fetchSquareData();
     fetchPosList();
     setPluginCountriesMap(loadPluginCountries());
   }, [selectedStore?.id]);
@@ -268,6 +297,112 @@ function MercadoPagoPoints() {
         setTuuAssignments(data.assignments || []);
       }
     } catch {}
+  };
+
+  const fetchSquareData = async () => {
+    if (!selectedStore?.id || !token) return;
+    try {
+      const res = await fetch(API + '/api/square/config', { headers: { Authorization: 'Bearer ' + token } });
+      if (res.ok) {
+        const data = await res.json();
+        setSquareCfgSaved(data.hasToken);
+        setSquareLocationId(data.location_id || '');
+      }
+    } catch {}
+    try {
+      const res = await fetch(API + '/api/square/devices?store_id=' + selectedStore.id, { headers: { Authorization: 'Bearer ' + token } });
+      if (res.ok) setSquareDevices(await res.json());
+    } catch {}
+  };
+
+  const squareSaveConfig = async () => {
+    if (!squareAccessToken.trim()) { setSquareError('Ingresa el Access Token'); return; }
+    setSquareSavingCfg(true); setSquareError('');
+    try {
+      const res = await fetch(API + '/api/square/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ access_token: squareAccessToken.trim(), location_id: squareLocationId.trim() })
+      });
+      if (res.ok) { setSquareCfgSaved(true); setSquareStep('code'); setSquareError(''); }
+      else { const d = await res.json(); setSquareError(d.error || 'Error al guardar'); }
+    } catch { setSquareError('Error de conexión'); }
+    setSquareSavingCfg(false);
+  };
+
+  const squareFetchLocations = async () => {
+    setSquareLoadingLocs(true); setSquareError('');
+    if (!squareCfgSaved) { await squareSaveConfig(); }
+    try {
+      const res = await fetch(API + '/api/square/locations', { headers: { Authorization: 'Bearer ' + token } });
+      if (res.ok) { const locs = await res.json(); setSquareLocations(locs); }
+      else { const d = await res.json(); setSquareError(d.error || 'Error al cargar ubicaciones'); }
+    } catch { setSquareError('Error de conexión'); }
+    setSquareLoadingLocs(false);
+  };
+
+  const squareGenerateCode = async () => {
+    setSquareError('');
+    if (!squareLocationId.trim()) { setSquareError('Selecciona o ingresa un Location ID'); return; }
+    setSquareGenerating(true); setSquareCode(''); setSquareCodeId(''); setSquareCodeStatus(''); setSquarePollMsg('');
+    try {
+      // Save config first (in case token or location changed)
+      const cfgRes = await fetch(API + '/api/square/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ access_token: squareAccessToken.trim() || undefined, location_id: squareLocationId.trim() })
+      });
+      if (!cfgRes.ok && squareAccessToken.trim()) { const d = await cfgRes.json(); setSquareError(d.error || 'Error al guardar config'); setSquareGenerating(false); return; }
+      const res = await fetch(API + '/api/square/device-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ location_id: squareLocationId.trim(), device_name: squareDeviceName.trim() || 'Square Terminal' })
+      });
+      const data = await res.json();
+      if (!res.ok) { setSquareError(data.error || 'Error al generar código'); setSquareGenerating(false); return; }
+      setSquareCode(data.code || '');
+      setSquareCodeId(data.id || '');
+      setSquareCodeExpiry(data.pair_by || '');
+      setSquareCodeStatus(data.status || 'UNPAIRED');
+      setSquareStep('code');
+      // Start polling
+      setSquarePolling(true);
+      squarePoll(data.id);
+    } catch (e) { setSquareError('Error: ' + e.message); }
+    setSquareGenerating(false);
+  };
+
+  const squarePoll = async (codeId) => {
+    let attempts = 0;
+    const maxAttempts = 100; // ~5 min
+    const intervalId = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) { clearInterval(intervalId); setSquarePolling(false); setSquarePollMsg('Código expirado. Genera uno nuevo.'); return; }
+      try {
+        const res = await fetch(API + '/api/square/device-code/' + encodeURIComponent(codeId), { headers: { Authorization: 'Bearer ' + token } });
+        const data = await res.json();
+        setSquareCodeStatus(data.status || '');
+        if (data.status === 'PAIRED' && data.device_id) {
+          clearInterval(intervalId); setSquarePolling(false);
+          setSquarePollMsg('✔ Terminal emparejado. Device ID: ' + data.device_id);
+          setSquareStep('paired');
+          // Auto-save device
+          await fetch(API + '/api/square/devices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({ store_id: selectedStore.id, name: squareDeviceName.trim() || 'Square Terminal', device_id: data.device_id, device_code_id: codeId, location_id: squareLocationId })
+          });
+          fetchSquareData();
+          fetchPosList();
+        } else if (data.status === 'UNKNOWN') {
+          clearInterval(intervalId); setSquarePolling(false); setSquarePollMsg('Código expirado. Genera uno nuevo.');
+        } else {
+          setSquarePollMsg('Esperando que ingreses el código en el terminal... (' + attempts + ')');
+        }
+      } catch { /* ignore poll errors */ }
+    }, 3000);
+    // Store intervalId so we can clear it on unmount/tab switch
+    window._squarePollInterval = intervalId;
   };
 
   // Normaliza cualquier representación de is_active a boolean puro.
@@ -950,10 +1085,106 @@ function MercadoPagoPoints() {
                   </div>
                 )}
                 {posTab === 2 && (
-                  <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                    <div style={{ fontSize: '36px', marginBottom: '12px' }}>🔲</div>
-                    <p style={{ color: '#666', fontSize: '13px' }}>Square próximamente</p>
-                    <p style={{ color: '#bbb', fontSize: '12px' }}>Las credenciales se configuran desde <a href="#" style={{ color: '#0066cc' }}>square.com</a></p>
+                  <div>
+                    {/* Step 1: Config */}
+                    <div style={{ marginBottom: '14px', padding: '12px', background: squareStep !== 'config' ? '#f9fafb' : '#fff', border: '2px solid ' + (squareStep === 'config' ? '#000' : '#e5e7eb'), borderRadius: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: squareStep === 'config' ? '12px' : '0', cursor: 'pointer' }} onClick={() => setSquareStep('config')}>
+                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#111' }}>① Credenciales Square</span>
+                        {squareCfgSaved && <span style={{ fontSize: '11px', color: '#155724', background: '#d4edda', padding: '2px 8px', borderRadius: '20px', fontWeight: '700' }}>✔ Guardado</span>}
+                      </div>
+                      {squareStep === 'config' && (
+                        <div>
+                          <div style={{ marginBottom: '10px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Access Token de Square</label>
+                            <input value={squareAccessToken} onChange={e => setSquareAccessToken(e.target.value)} placeholder="EAAl..." style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+                            <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>Obtén el Production Token en <a href="https://developer.squareup.com" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>developer.squareup.com</a> → tu app → Credentials</p>
+                          </div>
+                          <div style={{ marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                              <label style={{ fontSize: '12px', fontWeight: '700', color: '#333' }}>Location ID</label>
+                              <button onClick={squareFetchLocations} disabled={squareLoadingLocs || !squareAccessToken.trim()} style={{ fontSize: '11px', color: '#0066cc', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                                {squareLoadingLocs ? '⏳ Cargando...' : '🔍 Buscar ubicaciones'}
+                              </button>
+                            </div>
+                            {squareLocations.length > 0 ? (
+                              <select value={squareLocationId} onChange={e => setSquareLocationId(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' }}>
+                                <option value="">-- Selecciona una ubicación --</option>
+                                {squareLocations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.id})</option>)}
+                              </select>
+                            ) : (
+                              <input value={squareLocationId} onChange={e => setSquareLocationId(e.target.value)} placeholder="Ej: LAR6T2M15K5BQ" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+                            )}
+                            <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>O ingrésalo manualmente desde tu Square Dashboard → Ajustes → Ubicaciones</p>
+                          </div>
+                          <button onClick={async () => { await squareSaveConfig(); if (!squareError) setSquareStep('code'); }} disabled={squareSavingCfg || !squareAccessToken.trim() || !squareLocationId.trim()} style={{ width: '100%', padding: '11px', background: '#000', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}>
+                            {squareSavingCfg ? '⏳ Guardando...' : 'Guardar y continuar →'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Step 2: Generate code */}
+                    <div style={{ marginBottom: '14px', padding: '12px', background: squareStep !== 'code' ? '#f9fafb' : '#fff', border: '2px solid ' + (squareStep === 'code' ? '#000' : '#e5e7eb'), borderRadius: '10px', opacity: squareCfgSaved ? 1 : 0.5 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: squareStep === 'code' ? '12px' : '0', cursor: squareCfgSaved ? 'pointer' : 'default' }} onClick={() => squareCfgSaved && setSquareStep('code')}>
+                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#111' }}>② Vincular terminal Square</span>
+                      </div>
+                      {squareStep === 'code' && (
+                        <div>
+                          <div style={{ marginBottom: '10px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Nombre del terminal (opcional)</label>
+                            <input value={squareDeviceName} onChange={e => setSquareDeviceName(e.target.value)} placeholder="Ej: Caja Principal" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' }} />
+                          </div>
+                          <button onClick={squareGenerateCode} disabled={squareGenerating || squarePolling} style={{ width: '100%', padding: '12px', background: '#000', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '15px', cursor: 'pointer', marginBottom: '14px' }}>
+                            {squareGenerating ? '⏳ Generando...' : '🔲 Generar código de inicio de sesión'}
+                          </button>
+                          {squareCode && (
+                            <div style={{ background: '#fefce8', border: '2px solid #D4AF37', borderRadius: '12px', padding: '16px', textAlign: 'center', marginBottom: '12px' }}>
+                              <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#666' }}>Ingresa este código en el terminal Square:</p>
+                              <div style={{ fontSize: '36px', fontWeight: '900', letterSpacing: '6px', color: '#000', fontFamily: 'monospace' }}>{squareCode}</div>
+                              <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#888' }}>Terminal → Iniciar sesión → Usar código de dispositivo</p>
+                              {squareCodeExpiry && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#999' }}>Expira: {new Date(squareCodeExpiry).toLocaleTimeString('es-CL')}</p>}
+                            </div>
+                          )}
+                          {squarePolling && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#f0f9ff', borderRadius: '8px', fontSize: '12px', color: '#0369a1' }}>
+                              <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span>
+                              {squarePollMsg || 'Esperando emparejamiento...'}
+                            </div>
+                          )}
+                          {squareStep === 'paired' && (
+                            <div style={{ padding: '10px 12px', background: '#d1fae5', borderRadius: '8px', fontSize: '13px', color: '#065f46', fontWeight: '700' }}>{squarePollMsg}</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Paired success */}
+                    {squareStep === 'paired' && (
+                      <div style={{ padding: '12px 14px', background: '#d1fae5', border: '2px solid #6ee7b7', borderRadius: '10px', fontSize: '13px', color: '#065f46', fontWeight: '700', textAlign: 'center' }}>
+                        ✔ {squarePollMsg || 'Terminal vinculado exitosamente'}
+                        <div style={{ marginTop: '8px' }}>
+                          <button onClick={() => { setSquareStep('code'); setSquareCode(''); setSquareCodeId(''); setSquarePollMsg(''); }} style={{ fontSize: '12px', color: '#0369a1', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>+ Vincular otro terminal</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Devices list */}
+                    {squareDevices.length > 0 && (
+                      <div style={{ marginTop: '14px' }}>
+                        <p style={{ fontSize: '12px', fontWeight: '700', color: '#555', margin: '0 0 6px' }}>Terminales Square vinculados:</p>
+                        {squareDevices.map(d => (
+                          <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', marginBottom: '4px' }}>
+                            <div>
+                              <span style={{ fontSize: '13px', fontWeight: '700', color: '#111' }}>{d.name}</span>
+                              <span style={{ fontSize: '11px', color: '#888', marginLeft: '8px', fontFamily: 'monospace' }}>{d.device_id?.slice(0, 16)}...</span>
+                            </div>
+                            <button onClick={async () => { if (!confirm('¿Desvincular ' + d.name + '?')) return; await fetch(API + '/api/square/devices/' + d.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } }); fetchSquareData(); fetchPosList(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545', fontSize: '16px' }}>🗑</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {squareError && <p style={{ marginTop: '10px', fontSize: '12px', color: '#dc3545', fontWeight: '700' }}>⚠ {squareError}</p>}
                   </div>
                 )}
                 {posTab === 3 && (
