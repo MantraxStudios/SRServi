@@ -89,8 +89,8 @@ class PluginManager {
       }
     });
 
-    // Check payment status
-    app.get('/api/plugins/payments/status/:paymentKey', async (req, res) => {
+    // Check payment status — fall through to native handlers if no plugin handles it
+    app.get('/api/plugins/payments/status/:paymentKey', async (req, res, next) => {
       try {
         const { paymentKey } = req.params;
         // Try all providers
@@ -100,14 +100,15 @@ class PluginManager {
             if (result) return res.json(result);
           } catch { /* try next */ }
         }
-        res.status(404).json({ error: 'Pago no encontrado' });
+        // No plugin handled it — fall through to native Tuu route in index.js
+        next();
       } catch (error) {
-        res.status(500).json({ error: error.message });
+        next();
       }
     });
 
-    // Cancel payment
-    app.post('/api/plugins/payments/cancel/:paymentKey', async (req, res) => {
+    // Cancel payment — fall through to native handlers if no plugin handles it
+    app.post('/api/plugins/payments/cancel/:paymentKey', async (req, res, next) => {
       try {
         const { paymentKey } = req.params;
         for (const [, provider] of self.hooks.getPaymentProviders()) {
@@ -116,7 +117,8 @@ class PluginManager {
             if (result) return res.json(result);
           } catch { /* try next */ }
         }
-        res.status(404).json({ error: 'Pago no encontrado' });
+        // No plugin handled it — fall through to native Tuu route in index.js
+        next();
       } catch (error) {
         res.status(500).json({ error: error.message });
       }
