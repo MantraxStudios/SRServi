@@ -4394,6 +4394,7 @@ async function startServer() {
     const TUU_API = 'https://integrations.payment.haulmer.com/RemotePayment/v2';
 
     let tuuActivePolls = new global.Map ? new global.Map() : new Map();
+    const squareActivePolls = new Map(); // checkoutId -> intervalId
 
     async function tuuGetUserIdFromStore(storeId) {
       const [rows] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [storeId]);
@@ -4704,7 +4705,145 @@ async function startServer() {
           console.log('[charge] FAIL: no api_key for userId:', userId);
           return res.status(400).json({ error: 'API Key de Tuu no configurada. Ve al admin > Tuu POS > Configuración y guarda tu API Key.' });
         }
-        // FIX: Si el terminal seleccionado no es Tuu, este handler no debe procesar el cobro.
+        // Si el terminal es Square, lo maneja el bloque Square de abajo.
+        // Si es otro proveedor no-Tuu (ej: MercadoPago), rechazar aquí.
+        if (terminal_provider && terminal_provider === 'square') {
+          // ── SQUARE TERMINAL CHARGE ──────────────────────────────────────
+          console.log('[charge-square] starting - store_id:', store_id, 'terminal_id:', terminal_id, 'amount:', amount);
+          try {
+            // Ensure sq_checkouts table exists
+            await pool.execute(`CREATE TABLE IF NOT EXISTS sq_checkouts (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              checkout_id VARCHAR(255) NOT NULL UNIQUE,
+              store_id INT NOT NULL,
+              order_id INT DEFAULT NULL,
+              amount INT NOT NULL,
+              currency VARCHAR(3) DEFAULT 'USD',
+              status VARCHAR(50) DEFAULT 'PENDING',
+              device_id VARCHAR(255) DEFAULT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )`);
+
+            // Get Square config for this store
+            const [storeRows2] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [parseInt(store_id)]);
+            if (!storeRows2[0]) return res.status(400).json({ error: 'Tienda no encontrada' });
+            const sqUserId = storeRows2[0].user_id;
+            const [sqCfgRows] = await pool.execute('SELECT * FROM square_config WHERE user_id = ?', [sqUserId]);
+            const sqCfg = sqCfgRows[0];
+            if (!sqCfg?.access_token) return res.status(400).json({ error: 'Square no configurado. Ve al admin > Vincular POS > Square.' });
+
+            // Find device
+            let sqDevice = null;
+            if (terminal_id) {
+              const [sqDevRows] = await pool.execute('SELECT * FROM square_devices WHERE id = ? AND user_id = ?', [parseInt(terminal_id), sqUserId]);
+              sqDevice = sqDevRows[0] || null;
+            }
+            if (!sqDevice) {
+              const [sqDevRows] = await pool.execute('SELECT * FROM square_devices WHERE user_id = ? AND store_id = ? ORDER BY created_at DESC LIMIT 1', [sqUserId, parseInt(store_id)]);
+              sqDevice = sqDevRows[0] || null;
+            }
+            if (!sqDevice) return res.status(400).json({ error: 'No hay terminal Square vinculado. Ve al admin > Vincular POS > Square.' });
+
+            // Strip device: prefix if present (legacy)
+            const sqDeviceId = sqDevice.device_id.startsWith('device:') ? sqDevice.device_id.slice(7) : sqDevice.device_id;
+
+            // Square amounts are always in cents USD
+            const sqAmount = Math.round(Number(amount));
+
+            const sqPayload = {
+              idempotency_key: 'sq_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+              checkout: {
+                amount_money: { amount: sqAmount, currency: 'USD' },
+                device_options: { device_id: sqDeviceId },
+                reference_id: String(order_id || ''),
+                note: description || ('Orden #' + (order_id || '')),
+              }
+            };
+
+            console.log('[charge-square] POST /v2/terminals/checkouts payload:', JSON.stringify(sqPayload));
+
+            const sqRes = await fetch('https://connect.squareup.com/v2/terminals/checkouts', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + sqCfg.access_token,
+                'Square-Version': '2026-01-22'
+              },
+              body: JSON.stringify(sqPayload)
+            });
+
+            const sqData = await sqRes.json();
+            console.log('[charge-square] Square response status:', sqRes.status, 'checkout id:', sqData?.checkout?.id);
+
+            if (!sqRes.ok || !sqData?.checkout?.id) {
+              const sqErr = sqData?.errors?.[0]?.detail || 'Error desconocido Square';
+              console.error('[charge-square] Square API error:', sqErr);
+              return res.status(400).json({ error: sqErr });
+            }
+
+            const checkoutId = sqData.checkout.id;
+
+            // Persist to DB
+            await pool.execute(
+              'INSERT INTO sq_checkouts (checkout_id, store_id, order_id, amount, currency, status, device_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [checkoutId, parseInt(store_id), order_id || null, sqAmount, 'USD', 'PENDING', sqDeviceId]
+            );
+
+            // Start server-side polling (every 5s, max 60 attempts = 5 min)
+            let sqAttempts = 0;
+            const sqPollId = setInterval(async () => {
+              sqAttempts++;
+              try {
+                const pollRes = await fetch('https://connect.squareup.com/v2/terminals/checkouts/' + encodeURIComponent(checkoutId), {
+                  headers: { 'Authorization': 'Bearer ' + sqCfg.access_token, 'Square-Version': '2026-01-22' }
+                });
+                const pollData = await pollRes.json();
+                const sqStatus = pollData?.checkout?.status || 'UNKNOWN';
+                console.log('[charge-square] poll attempt', sqAttempts, 'status:', sqStatus, 'checkout:', checkoutId);
+
+                if (sqStatus === 'COMPLETED') {
+                  clearInterval(sqPollId); squareActivePolls.delete(checkoutId);
+                  await pool.execute('UPDATE sq_checkouts SET status = ? WHERE checkout_id = ?', ['Completed', checkoutId]);
+                  if (order_id) {
+                    await pool.execute("UPDATE orders SET status = 'paid', payment_process = 1 WHERE id = ?", [order_id]).catch(() => {});
+                  }
+                  const socketId = userSockets.get(parseInt(store_id));
+                  if (socketId) io.to(socketId).emit('square_payment_update', { checkoutId, orderId: order_id, status: 'Completed' });
+                } else if (sqStatus === 'CANCELED' || sqStatus === 'CANCEL_REQUESTED') {
+                  clearInterval(sqPollId); squareActivePolls.delete(checkoutId);
+                  await pool.execute('UPDATE sq_checkouts SET status = ? WHERE checkout_id = ?', ['Canceled', checkoutId]);
+                  if (order_id) {
+                    await pool.execute("UPDATE orders SET status = 'canceled' WHERE id = ?", [order_id]).catch(() => {});
+                  }
+                  const socketId = userSockets.get(parseInt(store_id));
+                  if (socketId) io.to(socketId).emit('square_payment_update', { checkoutId, orderId: order_id, status: 'Canceled' });
+                }
+              } catch (pollErr) { console.error('[charge-square] poll error:', pollErr.message); }
+
+              if (sqAttempts >= 60) {
+                clearInterval(sqPollId); squareActivePolls.delete(checkoutId);
+                // Auto-cancel on timeout
+                fetch('https://connect.squareup.com/v2/terminals/checkouts/' + encodeURIComponent(checkoutId) + '/cancel', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + sqCfg.access_token, 'Square-Version': '2026-01-22' },
+                  body: '{}'
+                }).catch(() => {});
+                await pool.execute('UPDATE sq_checkouts SET status = ? WHERE checkout_id = ?', ['Timeout', checkoutId]);
+                const socketId = userSockets.get(parseInt(store_id));
+                if (socketId) io.to(socketId).emit('square_payment_update', { checkoutId, orderId: order_id, status: 'Timeout' });
+              }
+            }, 5000);
+            squareActivePolls.set(checkoutId, sqPollId);
+
+            return res.json({ success: true, paymentKey: checkoutId, status: 'PENDING', deviceName: sqDevice.name, provider: 'square' });
+
+          } catch (sqErr) {
+            console.error('[charge-square] error:', sqErr.message);
+            return res.status(500).json({ error: sqErr.message });
+          }
+          // ── END SQUARE TERMINAL CHARGE ──────────────────────────────────
+        }
+
         if (terminal_provider && terminal_provider !== 'tuu') {
           console.log('[charge] SKIP: terminal_provider is', terminal_provider, '- not Tuu');
           return res.status(400).json({ error: 'Terminal seleccionado no es Tuu. Usa el flujo de MercadoPago.' });
@@ -4744,16 +4883,81 @@ async function startServer() {
 
     app.get('/api/plugins/payments/status/:key', async (req, res) => {
       try {
-        const [rows] = await pool.execute('SELECT * FROM tuu_transactions WHERE idempotency_key = ?', [req.params.key]);
+        const key = req.params.key;
+
+        // 1. Check Square checkouts first (checkout IDs look like random strings, not idempotency keys)
+        const [sqRows] = await pool.execute('SELECT * FROM sq_checkouts WHERE checkout_id = ?', [key]);
+        if (sqRows.length > 0) {
+          const sq = sqRows[0];
+          // If still pending, query Square API for fresh status
+          if (sq.status === 'PENDING') {
+            try {
+              const storeId = sq.store_id;
+              const [storeRows] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [storeId]);
+              const userId = storeRows[0]?.user_id;
+              if (userId) {
+                const [cfgRows] = await pool.execute('SELECT access_token FROM square_config WHERE user_id = ?', [userId]);
+                if (cfgRows[0]?.access_token) {
+                  const pollRes = await fetch('https://connect.squareup.com/v2/terminals/checkouts/' + encodeURIComponent(key), {
+                    headers: { 'Authorization': 'Bearer ' + cfgRows[0].access_token, 'Square-Version': '2026-01-22' }
+                  });
+                  const pollData = await pollRes.json();
+                  const freshStatus = pollData?.checkout?.status || 'UNKNOWN';
+                  if (freshStatus !== 'PENDING' && freshStatus !== 'IN_PROGRESS') {
+                    // Normalize Square status → Store.jsx expected values
+                    const normalized = freshStatus === 'COMPLETED' ? 'Completed' : freshStatus === 'CANCELED' || freshStatus === 'CANCEL_REQUESTED' ? 'Canceled' : freshStatus;
+                    await pool.execute('UPDATE sq_checkouts SET status = ? WHERE checkout_id = ?', [normalized, key]);
+                    sq.status = normalized;
+                  }
+                }
+              }
+            } catch (pollErr) { console.error('[status-square] poll error:', pollErr.message); }
+          }
+          // Normalize stored status for Store.jsx polling
+          const normalized = sq.status === 'COMPLETED' ? 'Completed' : sq.status === 'CANCELED' ? 'Canceled' : sq.status;
+          return res.json({ status: normalized, provider: 'square', checkout_id: key });
+        }
+
+        // 2. Fall through to Tuu transactions
+        const [rows] = await pool.execute('SELECT * FROM tuu_transactions WHERE idempotency_key = ?', [key]);
         if (rows.length === 0) return res.status(404).json({ error: 'No encontrado' });
         res.json(rows[0]);
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
     app.post('/api/plugins/payments/cancel/:key', async (req, res) => {
-      const intervalId = tuuActivePolls.get(req.params.key);
-      if (intervalId) { clearInterval(intervalId); tuuActivePolls.delete(req.params.key); }
-      await pool.execute('UPDATE tuu_transactions SET status = ?, updated_at = NOW() WHERE idempotency_key = ?', ['Canceled', req.params.key]);
+      const key = req.params.key;
+
+      // Check if it's a Square checkout
+      const [sqRows] = await pool.execute('SELECT * FROM sq_checkouts WHERE checkout_id = ?', [key]).catch(() => [[]]);
+      if (sqRows.length > 0) {
+        // Stop polling
+        const sqPollId = squareActivePolls.get(key);
+        if (sqPollId) { clearInterval(sqPollId); squareActivePolls.delete(key); }
+        // Cancel on Square API
+        try {
+          const storeId = sqRows[0].store_id;
+          const [storeRows] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [storeId]);
+          const userId = storeRows[0]?.user_id;
+          if (userId) {
+            const [cfgRows] = await pool.execute('SELECT access_token FROM square_config WHERE user_id = ?', [userId]);
+            if (cfgRows[0]?.access_token) {
+              await fetch('https://connect.squareup.com/v2/terminals/checkouts/' + encodeURIComponent(key) + '/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfgRows[0].access_token, 'Square-Version': '2026-01-22' },
+                body: '{}'
+              });
+            }
+          }
+        } catch (e) { console.error('[cancel-square] error:', e.message); }
+        await pool.execute('UPDATE sq_checkouts SET status = ? WHERE checkout_id = ?', ['Canceled', key]).catch(() => {});
+        return res.json({ success: true, provider: 'square' });
+      }
+
+      // Tuu cancel
+      const intervalId = tuuActivePolls.get(key);
+      if (intervalId) { clearInterval(intervalId); tuuActivePolls.delete(key); }
+      await pool.execute('UPDATE tuu_transactions SET status = ?, updated_at = NOW() WHERE idempotency_key = ?', ['Canceled', key]);
       res.json({ success: true });
     });
 

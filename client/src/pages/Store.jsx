@@ -1018,7 +1018,8 @@ function Store() {
     const hasPluginProvider = selectedMethod === 'card' && pluginPaymentProvider;
     const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
     const forceTuu = selectedMethod === 'card' && lastTerminalProvider === 'tuu';
-    if (selectedMethod === 'card' && !hasPluginProvider && !forceTuu && !selectedTerminalId) {
+    const forceSquare = selectedMethod === 'card' && lastTerminalProvider === 'square';
+    if (selectedMethod === 'card' && !hasPluginProvider && !forceTuu && !forceSquare && !selectedTerminalId) {
       alert(t('noTerminalAssigned', lang));
       return;
     }
@@ -1041,7 +1042,7 @@ function Store() {
 
     try {
       // --- Plugin payment provider (Tuu, etc.) ---
-      if (hasPluginProvider || forceTuu) {
+      if (hasPluginProvider || forceTuu || forceSquare) {
         const orderRes = await fetch(API + '/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1062,7 +1063,7 @@ function Store() {
             store_id: storeId, order_id: order.id,
             amount: Math.round(Number(finalTotal)),
             description: `Pedido #${order.order_number || order.id}`,
-            device_uid: deviceUid,
+            device_uid: pluginPaymentProvider?.deviceUid || deviceUid,
             terminal_id: localStorage.getItem('srservi_last_terminal_id') || null,
             terminal_provider: lastTerminalProvider
           })
@@ -2904,7 +2905,7 @@ function Store() {
                 {selectedConfiguration?.accept_card && (
                   <div className="text-muted text-sm" style={{ marginTop: '14px' }}>
                     {pluginPaymentProvider ? (
-                      <><FontAwesomeIcon icon={faCreditCard} /> Procesará con <strong>Tuu</strong> — {pluginPaymentProvider.deviceName}</>
+                      <><FontAwesomeIcon icon={faCreditCard} /> Procesará con <strong>{pluginPaymentProvider.provider === 'square' ? 'Square' : pluginPaymentProvider.provider === 'tuu' ? 'Tuu' : pluginPaymentProvider.provider}</strong> — {pluginPaymentProvider.deviceName || pluginPaymentProvider.deviceSerial || ''}</>
                     ) : (
                       <>{t('terminalAssigned', lang)}{' '}
                       <strong>
