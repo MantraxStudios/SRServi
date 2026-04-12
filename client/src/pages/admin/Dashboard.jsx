@@ -8,14 +8,15 @@ import {
   faExclamationCircle,
   faArrowRight,
   faPlus,
-  faCog
+  faCog,
+  faDesktop
 } from '@fortawesome/free-solid-svg-icons';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../components/Layout';
 
 function Dashboard() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { selectedStore } = useStore();
   const [stats, setStats] = useState({
     products: 0,
@@ -163,6 +164,18 @@ function Dashboard() {
                 </div>
                 <FontAwesomeIcon icon={faArrowRight} className="quick-action-arrow" />
               </Link>
+              {selectedStore && (
+                <Link to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`} className="quick-action">
+                  <div className="quick-action-icon" style={{ backgroundColor: '#000000' }}>
+                    <FontAwesomeIcon icon={faDesktop} />
+                  </div>
+                  <div className="quick-action-info">
+                    <div className="quick-action-label">Editor Totem</div>
+                    <div className="quick-action-sublabel">Diseño y productos</div>
+                  </div>
+                  <FontAwesomeIcon icon={faArrowRight} className="quick-action-arrow" />
+                </Link>
+              )}
               <Link to="/admin/categories" className="quick-action">
                 <div className="quick-action-icon" style={{ backgroundColor: '#4CAF50' }}>
                   <FontAwesomeIcon icon={faStore} />
