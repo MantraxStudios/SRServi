@@ -8568,7 +8568,25 @@ html body .store-container .store-product-card * {
   background: #fff !important;
 }
 
+/* Editor desktop: respeta el sidebar */
+.admin-content--editor-desktop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 270px !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: calc(100vw - 270px) !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  z-index: 9000 !important;
+  overflow: auto !important;
+  background: #fff !important;
+}
+
 /* Hace que el layout-wrapper no corte el editor */
-.layout-wrapper:has(.admin-content--editor) {
+.layout-wrapper:has(.admin-content--editor),
+.layout-wrapper:has(.admin-content--editor-desktop) {
   overflow: hidden;
 }

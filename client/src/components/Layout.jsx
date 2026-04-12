@@ -169,7 +169,7 @@ function Layout() {
           <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
         )}
 
-        <nav className={`admin-sidebar ${isEditorMode ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : ''} ${!isEditorMode && isMobile ? (menuOpen ? 'mobile-open' : 'mobile-closed') : ''}`}>
+        <nav className={`admin-sidebar ${isEditorMode && isMobile ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : ''} ${!isEditorMode && isMobile ? (menuOpen ? 'mobile-open' : 'mobile-closed') : ''}`}>
           <div className="sidebar-header">
             <div className="sidebar-brand">
               <div className="sidebar-brand-logo">
@@ -346,8 +346,8 @@ function Layout() {
             </button>
           </div>
         </nav>
-        <main className={isEditorMode ? 'admin-content admin-content--editor' : 'admin-content'}>
-          {isEditorMode && (
+        <main className={isEditorMode ? (isMobile ? 'admin-content admin-content--editor' : 'admin-content admin-content--editor-desktop') : 'admin-content'}>
+          {isEditorMode && isMobile && (
             <div style={{ position: 'fixed', top: '12px', left: '12px', zIndex: 99999, display: 'flex', gap: '8px' }}>
               <button
                 onClick={() => setMenuOpen(o => !o)}
