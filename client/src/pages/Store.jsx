@@ -241,6 +241,32 @@ function Store() {
 
   useEffect(() => {
     if (!qrReturnRef) return;
+
+    // Referencia nativa Haulmer (prefijo SRSN-) → verificar con endpoint propio
+    if (qrReturnRef.startsWith('SRSN-')) {
+      const xResult = searchParams.get('x_result');
+      const xAmount = searchParams.get('x_amount');
+      if (xResult === 'completed') {
+        fetch(`/api/haulmer/payment/${encodeURIComponent(qrReturnRef)}/status`)
+          .then(r => r.json())
+          .then(data => {
+            setQrPaymentResult({
+              success: data.status === 'completed',
+              status: data.status,
+              reference: qrReturnRef,
+              amount: data.amount || xAmount,
+              message: data.status === 'completed' ? 'Pago aprobado' : 'Pago pendiente de confirmación',
+              order: data.order_id ? { id: data.order_id, order_number: data.order_number } : null
+            });
+          })
+          .catch(() => setQrPaymentResult({ success: true, reference: qrReturnRef, amount: xAmount, message: 'Pago recibido' }));
+      } else {
+        setQrPaymentResult({ success: false, reference: qrReturnRef, message: 'Pago no completado' });
+      }
+      return;
+    }
+
+    // Plugin QR verify (referencias SRS- u otras)
     const allParams = {};
     searchParams.forEach((v, k) => { allParams[k] = v; });
     fetch('/api/plugins/qr/verify', {

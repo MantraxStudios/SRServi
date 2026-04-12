@@ -5328,7 +5328,8 @@ async function startServer() {
     app.get('/api/haulmer/payment/:reference/status', async (req, res) => {
       try {
         const [rows] = await pool.execute(
-          'SELECT status, order_id, reference FROM haulmer_native_transactions WHERE reference = ?', [req.params.reference]
+          'SELECT t.status, t.order_id, t.reference, t.amount, o.order_number FROM haulmer_native_transactions t LEFT JOIN orders o ON o.id = t.order_id WHERE t.reference = ?',
+          [req.params.reference]
         );
         if (!rows[0]) return res.status(404).json({ error: 'No encontrado' });
         res.json(rows[0]);

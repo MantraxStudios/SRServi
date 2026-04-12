@@ -392,7 +392,7 @@ function Layout() {
                 {menuOpen ? '✕' : '☰'}
               </button>
               <button
-                onClick={() => { setMenuOpen(false); navigate('/admin'); }}
+                onClick={() => { setMenuOpen(false); navigate('/admin/dashboard'); }}
                 style={{
                   background: 'rgba(0,0,0,0.75)',
                   color: '#fff',

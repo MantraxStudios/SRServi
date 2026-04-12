@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { useStore } from './components/Layout';
 import { PluginProvider } from './context/PluginContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -37,6 +38,13 @@ import TvDisplay from './pages/TvDisplay';
 import Docs from './pages/Docs';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
+
+function AdminEditorRedirect() {
+  const { selectedStore } = useStore();
+  const { token } = useAuth();
+  if (!selectedStore) return <Navigate to="/admin/dashboard" replace />;
+  return <Navigate to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`} replace />;
+}
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -79,7 +87,8 @@ function App() {
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/admin" element={<ProtectedRoute><PluginProvider mode="admin"><Layout /></PluginProvider></ProtectedRoute>}>
-            <Route index element={<Dashboard />} />
+            <Route index element={<AdminEditorRedirect />} />
+            <Route path="dashboard" element={<Dashboard />} />
             <Route path="stores" element={<Stores />} />
             <Route path="categories" element={<Categories />} />
             <Route path="products" element={<Products />} />
