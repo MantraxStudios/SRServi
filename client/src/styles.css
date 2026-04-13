@@ -1379,6 +1379,51 @@ h1, h2, h3, h4, h5, h6 {
   padding-top: 2px;
 }
 
+/* Sub-dropdowns dentro de Administración */
+.subdropdown-container {
+  margin-bottom: 2px;
+}
+
+.subdropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: none;
+  border-radius: 7px;
+  color: rgba(255,255,255,0.75);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.subdropdown-header:hover,
+.subdropdown-header.open {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+
+.subdropdown-header svg:first-child {
+  width: 13px;
+  font-size: 12px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.subdropdown-header span {
+  flex: 1;
+}
+
+.subdropdown-content {
+  margin: 2px 0 4px 10px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255,255,255,0.08);
+}
+
 .dropdown-item:hover svg {
   color: #D4AF37;
 }
