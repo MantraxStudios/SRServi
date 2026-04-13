@@ -208,7 +208,7 @@ function Dashboard() {
                 <FontAwesomeIcon icon={faArrowRight} className="quick-action-arrow" />
               </Link>
               <a
-                href="/download/launcher"
+                href="/api/download/launcher"
                 className="quick-action"
                 style={{ textDecoration: 'none' }}
               >

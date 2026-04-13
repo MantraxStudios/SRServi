@@ -178,7 +178,7 @@ function Register() {
         </div>
 
         <a
-          href="/download/launcher"
+          href="/api/download/launcher"
           className="btn btn-primary btn-lg btn-full"
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '12px', textDecoration: 'none' }}
         >
