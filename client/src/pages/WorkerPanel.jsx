@@ -856,31 +856,31 @@ function WorkerPanel() {
 
             {payResult && (
               <div>
-                <div style={{ background: '#111', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
-                  <div className="worker-detail-row">
-                    <span className="worker-detail-label">Pedido:</span>
-                    <span className="worker-detail-value" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: colors.accent }}>
+                <div style={{ background: '#1a1a1a', borderRadius: '8px', padding: '14px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>Pedido:</span>
+                    <span style={{ fontSize: '1.3rem', fontWeight: '800', color: colors.accent }}>
                       #{getOrderDisplayNumber(payResult)}
                     </span>
                   </div>
-                  <div className="worker-detail-row">
-                    <span className="worker-detail-label">Tipo:</span>
-                    <span className="worker-detail-value">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>Tipo:</span>
+                    <span style={{ color: '#fff', fontWeight: '600', fontSize: '13px' }}>
                       <FontAwesomeIcon icon={getOrderTypeInfo(payResult.order_type).icon} /> {getOrderTypeInfo(payResult.order_type).label}
                     </span>
                   </div>
-                  <div className="worker-detail-row">
-                    <span className="worker-detail-label">Total:</span>
-                    <span className="worker-detail-value" style={{ color: '#22c55e', fontWeight: 'bold' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>Total:</span>
+                    <span style={{ color: '#22c55e', fontWeight: '800', fontSize: '1.2rem' }}>
                       ${isNaN(payResult.total) ? '0.00' : Number(payResult.total).toFixed(2)}
                     </span>
                   </div>
                   {payResult.items && payResult.items.length > 0 && (
-                    <div className="worker-items-list" style={{ marginTop: '8px' }}>
+                    <div style={{ marginTop: '8px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '8px' }}>
                       {payResult.items.map((item, idx) => (
-                        <div key={idx} className="worker-order-item-line">
-                          <span className="worker-order-item-qty">{item.quantity}x</span>
-                          <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                        <div key={idx} style={{ display: 'flex', gap: '6px', padding: '3px 0', fontSize: '13px' }}>
+                          <span style={{ color: colors.accent, fontWeight: '700', minWidth: '22px' }}>{item.quantity}x</span>
+                          <span style={{ color: '#fff', fontWeight: '500' }}>{item.product_name || item.name || 'Producto'}</span>
                         </div>
                       ))}
                     </div>
