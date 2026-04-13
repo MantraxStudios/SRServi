@@ -203,7 +203,13 @@ const apkStorage = multer.diskStorage({
 });
 const apkUpload = multer({ storage: apkStorage, limits: { fileSize: 500 * 1024 * 1024 } });
 
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', (req, res, next) => {
+  if (req.path.endsWith('.apk')) {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', `attachment; filename="${path.basename(req.path)}"`);
+  }
+  next();
+}, express.static('uploads'));
 // Serve plugin static files with path traversal protection
 app.use('/api/plugins/static', (req, res, next) => {
   // Block path traversal attempts
