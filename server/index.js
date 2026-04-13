@@ -3304,6 +3304,41 @@ app.get('/api/orders/store/:storeId', async (req, res) => {
   }
 });
 
+app.get('/api/orders/store/:storeId/find', async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const { q } = req.query;
+    if (!q?.trim()) return res.json(null);
+    const term = q.trim().toUpperCase();
+    const [rows] = await pool.execute(
+      `SELECT o.*, w.name as completed_by_name
+       FROM orders o
+       LEFT JOIN workers w ON o.completed_by = w.id
+       WHERE o.store_id = ?
+       AND DATE(o.created_at) = CURDATE()
+       AND (UPPER(o.order_number) = ? OR CAST(o.id AS CHAR) = ?)
+       LIMIT 1`,
+      [parseInt(storeId), term, term]
+    );
+    if (rows.length === 0) return res.json(null);
+    const order = rows[0];
+    const [items] = await pool.execute(
+      `SELECT oi.*, COALESCE(p.name, 'Producto eliminado') as product_name
+       FROM order_items oi LEFT JOIN products p ON oi.product_id = p.id
+       WHERE oi.order_id = ?`,
+      [order.id]
+    );
+    const parsedItems = items.map(item => ({
+      ...item,
+      selected_ingredients: item.selected_ingredients ? JSON.parse(item.selected_ingredients) : [],
+      selected_extras: item.selected_extras ? JSON.parse(item.selected_extras) : []
+    }));
+    res.json({ ...order, total: parseFloat(order.total) || 0, items: parsedItems });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.put('/api/orders/:id/status', authenticateToken, async (req, res) => {
   try {
     const { status, worker_id, worker_name } = req.body;

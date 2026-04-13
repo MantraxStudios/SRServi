@@ -413,20 +413,40 @@ function WorkerPanel() {
     setPayResult(null);
   };
 
-  const handlePaySearch = (term) => {
+  const handlePaySearch = async (term) => {
     setPaySearch(term);
     if (!term.trim()) { setPayResult(null); return; }
     const t = term.trim().toUpperCase();
+
+    // 1. Buscar en estado local
     const inPending = pendingCashOrders.find(o =>
       (o.order_number || '').toUpperCase() === t ||
       getOrderDisplayNumber(o).toUpperCase() === t
     );
     if (inPending) { setPayResult({ ...inPending, _isPendingCash: true }); return; }
+
     const inActive = orders.find(o =>
       (o.order_number || '').toUpperCase() === t ||
       getOrderDisplayNumber(o).toUpperCase() === t
     );
     if (inActive) { setPayResult({ ...inActive, _isPendingCash: false }); return; }
+
+    // 2. Fallback: buscar en la API directamente
+    try {
+      const token = localStorage.getItem('workerToken');
+      const resp = await fetch(`/api/orders/store/${worker.store_id}/find?q=${encodeURIComponent(term.trim())}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (resp.ok) {
+        const found = await resp.json();
+        if (found) {
+          const isPendingCash = found.payment_method === 'cash' && !found.cash_approved;
+          setPayResult({ ...found, _isPendingCash: isPendingCash });
+          return;
+        }
+      }
+    } catch {}
+
     setPayResult(undefined);
   };
 
