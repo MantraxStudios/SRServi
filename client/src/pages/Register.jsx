@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faEnvelope, faLock, faStore, faDownload } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faEnvelope, faLock, faStore, faDownload, faHardHat } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -175,6 +175,14 @@ function Register() {
             ¿Ya tienes cuenta?{' '}
             <Link to="/login" className="auth-link">Inicia sesión</Link>
           </p>
+          <Link
+            to="/worker-login"
+            className="btn btn-lg btn-full"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '12px', textDecoration: 'none', background: '#1a1a1a', color: '#D4AF37', border: '1px solid #D4AF37' }}
+          >
+            <FontAwesomeIcon icon={faHardHat} />
+            Ingresar como Trabajador
+          </Link>
         </div>
 
         <a
