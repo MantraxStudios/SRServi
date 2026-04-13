@@ -275,6 +275,12 @@ function Layout() {
                 <span>Vincular POS</span>
               </NavLink>
             </li>
+            <li>
+              <NavLink to="/admin/workers" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faUsers} />
+                <span>Trabajadores</span>
+              </NavLink>
+            </li>
 
             <li className="sidebar-section-label">Más</li>
             <li className="dropdown-container">
@@ -302,10 +308,6 @@ function Layout() {
                         <NavLink to="/admin/analytics" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faChartLine} />
                           <span>Análisis</span>
-                        </NavLink>
-                        <NavLink to="/admin/workers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faUsers} />
-                          <span>Trabajadores</span>
                         </NavLink>
                         <NavLink to="/admin/coupons" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faPercent} />

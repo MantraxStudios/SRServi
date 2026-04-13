@@ -1182,20 +1182,8 @@ function MercadoPagoPoints() {
                       <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Serial del POS</label>
                       <input value={tuuNewSerial} onChange={e => setTuuNewSerial(e.target.value)} placeholder="XXXXXXXXXX" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
                     </div>
-                    <div style={{ marginBottom: '14px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>ID del dispositivo</label>
-                      <input value={tuuNewDeviceId} onChange={e => setTuuNewDeviceId(e.target.value)} placeholder="ID que entrega Tuu (opcional)" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
-                    </div>
-                    <div style={{ marginBottom: '14px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Tipo de documento</label>
-                      <select value={tuuNewDteType} onChange={e => setTuuNewDteType(parseInt(e.target.value))} style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px' }}>
-                        <option value={0}>Sin boleta</option>
-                        <option value={39}>Boleta</option>
-                        <option value={41}>Boleta exenta</option>
-                        <option value={33}>Factura</option>
-                        <option value={34}>Factura exenta</option>
-                      </select>
-                    </div>
+                    <input type="hidden" value={tuuNewDeviceId} />
+                    <input type="hidden" value={tuuNewDteType} />
                     <button onClick={saveTuuPos} disabled={savingTuu} className="btn btn-primary" style={{ width: '100%', background: '#6a1b9a', color: '#fff', fontWeight: '800', padding: '12px', borderRadius: '10px', border: 'none', fontSize: '15px' }}>
                       {savingTuu ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Guardar Tuu POS'}
                     </button>
