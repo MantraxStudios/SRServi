@@ -285,7 +285,8 @@ function Layout() {
               </button>
               {openDropdowns['todo'] && (
                 <div className="dropdown-content">
-                  {/* Gestión */}
+                  {/* Operaciones diarias */}
+                  <div className="dropdown-group-label">Operaciones</div>
                   <NavLink to="/admin/orders" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faShoppingBag} />
                     <span>Pedidos</span>
@@ -302,47 +303,51 @@ function Layout() {
                     <FontAwesomeIcon icon={faPercent} />
                     <span>Cupones</span>
                   </NavLink>
+
+                  {/* Catálogo */}
+                  <div className="dropdown-group-label">Catálogo</div>
                   <NavLink to="/admin/market" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faBarcode} />
                     <span>Market</span>
                   </NavLink>
-
-                  {/* Sistema */}
-                  <NavLink to="/admin/plans" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faCrown} />
-                    <span>Planes</span>
+                  <NavLink to="/admin/workshop" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faGlobe} />
+                    <span>Workshop</span>
                   </NavLink>
+
+                  {/* Configuración */}
+                  <div className="dropdown-group-label">Configuración</div>
                   <NavLink to="/admin/settings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faPalette} />
                     <span>Colores y QR</span>
                   </NavLink>
+                  <NavLink to="/admin/configurations" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faCreditCard} />
+                    <span>Pagos</span>
+                  </NavLink>
                   <NavLink to="/admin/worker-config" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faUsers} />
+                    <FontAwesomeIcon icon={faCreditCard} />
                     <span>Pago manual</span>
                   </NavLink>
                   <NavLink to="/admin/store-pin" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faLock} />
                     <span>PIN Tienda</span>
                   </NavLink>
-                  <NavLink to="/admin/configurations" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faCreditCard} />
-                    <span>Configuraciones de Pago</span>
-                  </NavLink>
                   <NavLink to="/admin/devices" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faTabletAlt} />
                     <span>Dispositivos</span>
                   </NavLink>
 
-                  {/* Componentes */}
+                  {/* Sistema */}
+                  <div className="dropdown-group-label">Cuenta</div>
+                  <NavLink to="/admin/plans" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faCrown} />
+                    <span>Planes</span>
+                  </NavLink>
                   <NavLink to="/admin/plugins" end className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faPuzzlePiece} />
                     <span>Plugins</span>
                   </NavLink>
-                  <NavLink to="/admin/workshop" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faGlobe} />
-                    <span>Workshop</span>
-                  </NavLink>
-                  {/* Soporte */}
                   <NavLink to="/admin/tickets" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faTicketAlt} />
                     <span>Soporte</span>
