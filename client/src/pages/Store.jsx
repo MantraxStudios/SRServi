@@ -2977,14 +2977,25 @@ function Store() {
 
             {processingPayment ? (
               <div className="flex flex-col items-center" style={{ padding: '40px', gap: '20px' }}>
-                <div style={{
-                  width: '60px',
-                  height: '60px',
-                  border: '5px solid var(--store-accent)',
-                  borderTop: '5px solid var(--store-primary)',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite'
-                }} />
+                <div style={{ animation: 'pulse 2s infinite' }}>
+                  <svg viewBox="0 0 100 130" width="80" height="104" xmlns="http://www.w3.org/2000/svg" fill="none">
+                    <rect x="15" y="5" width="70" height="115" rx="9" stroke="var(--store-primary)" strokeWidth="2.5" fill="var(--store-accent)" fillOpacity="0.15"/>
+                    <rect x="23" y="13" width="54" height="36" rx="5" stroke="var(--store-primary)" strokeWidth="1.5" fill="var(--store-accent)" fillOpacity="0.25"/>
+                    <rect x="23" y="56" width="54" height="7" rx="3.5" stroke="var(--store-primary)" strokeWidth="1.5" fill="var(--store-accent)" fillOpacity="0.2"/>
+                    <rect x="23" y="70" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.4"/>
+                    <rect x="43" y="70" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.4"/>
+                    <rect x="63" y="70" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.4"/>
+                    <rect x="23" y="84" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.4"/>
+                    <rect x="43" y="84" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.4"/>
+                    <rect x="63" y="84" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.4"/>
+                    <rect x="23" y="98" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.3"/>
+                    <rect x="43" y="98" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.7"/>
+                    <rect x="63" y="98" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.3"/>
+                    <rect x="2" y="54" width="22" height="11" rx="2.5" fill="var(--store-primary)" fillOpacity="0.8"/>
+                    <line x1="6" y1="58.5" x2="20" y2="58.5" stroke="var(--store-accent)" strokeWidth="1.5" opacity="0.6"/>
+                    <line x1="6" y1="62" x2="17" y2="62" stroke="var(--store-accent)" strokeWidth="1" opacity="0.4"/>
+                  </svg>
+                </div>
                 <p className="text-muted" style={{ fontSize: '14px' }}>
                   {t('waitingTerminal', lang)}
                 </p>
@@ -3113,15 +3124,25 @@ function Store() {
                 <p className="text-muted" style={{ marginBottom: '20px', fontSize: '14px' }}>
                   {t('tapCardTerminal', lang)}
                 </p>
-                <div style={{
-                  width: '80px',
-                  height: '80px',
-                  border: '6px solid var(--store-accent)',
-                  borderTop: '6px solid var(--store-primary)',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  margin: '0 auto 20px'
-                }} />
+                <div style={{ margin: '0 auto 20px', animation: 'pulse 2s infinite' }}>
+                  <svg viewBox="0 0 100 130" width="90" height="117" xmlns="http://www.w3.org/2000/svg" fill="none">
+                    <rect x="15" y="5" width="70" height="115" rx="9" stroke="var(--store-primary)" strokeWidth="2.5" fill="var(--store-accent)" fillOpacity="0.15"/>
+                    <rect x="23" y="13" width="54" height="36" rx="5" stroke="var(--store-primary)" strokeWidth="1.5" fill="var(--store-accent)" fillOpacity="0.25"/>
+                    <rect x="23" y="56" width="54" height="7" rx="3.5" stroke="var(--store-primary)" strokeWidth="1.5" fill="var(--store-accent)" fillOpacity="0.2"/>
+                    <rect x="23" y="70" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.4"/>
+                    <rect x="43" y="70" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.4"/>
+                    <rect x="63" y="70" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.4"/>
+                    <rect x="23" y="84" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.4"/>
+                    <rect x="43" y="84" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.4"/>
+                    <rect x="63" y="84" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.4"/>
+                    <rect x="23" y="98" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.3"/>
+                    <rect x="43" y="98" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.7"/>
+                    <rect x="63" y="98" width="14" height="10" rx="2.5" fill="var(--store-accent)" fillOpacity="0.3"/>
+                    <rect x="2" y="54" width="22" height="11" rx="2.5" fill="var(--store-primary)" fillOpacity="0.8"/>
+                    <line x1="6" y1="58.5" x2="20" y2="58.5" stroke="var(--store-accent)" strokeWidth="1.5" opacity="0.6"/>
+                    <line x1="6" y1="62" x2="17" y2="62" stroke="var(--store-accent)" strokeWidth="1" opacity="0.4"/>
+                  </svg>
+                </div>
               </>
             )}
             <p className="text-muted" style={{ fontSize: '14px', marginBottom: '10px' }}>
@@ -3134,27 +3155,29 @@ function Store() {
             }}>
               {Math.floor(paymentTimeLeft / 60)}:{String(paymentTimeLeft % 60).padStart(2, '0')}
             </p>
-            <button
-              onClick={async () => {
-                if (!pendingOrderData) return;
-                try {
-                  await fetch(`/api/orders/${pendingOrderData.order.id}/cancel-payment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ store_id: pendingOrderData.storeId })
-                  });
-                  if (tuuPaymentKey) {
-                    await fetch(`/api/tuu/cancel/${tuuPaymentKey}`, { method: 'POST' });
-                  }
-                } catch (e) { console.error(e); }
-                setPaymentWaiting(false); setQrPaymentUrl(null); setTuuPaymentKey(null);
-                setPaymentCancelled(true);
-              }}
-              className="btn btn-danger"
-              style={{ padding: '12px 24px', borderRadius: '10px' }}
-            >
-              {t('cancelPayment', lang)}
-            </button>
+            {qrPaymentUrl && (
+              <button
+                onClick={async () => {
+                  if (!pendingOrderData) return;
+                  try {
+                    await fetch(`/api/orders/${pendingOrderData.order.id}/cancel-payment`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ store_id: pendingOrderData.storeId })
+                    });
+                    if (tuuPaymentKey) {
+                      await fetch(`/api/tuu/cancel/${tuuPaymentKey}`, { method: 'POST' });
+                    }
+                  } catch (e) { console.error(e); }
+                  setPaymentWaiting(false); setQrPaymentUrl(null); setTuuPaymentKey(null);
+                  setPaymentCancelled(true);
+                }}
+                className="btn btn-danger"
+                style={{ padding: '12px 24px', borderRadius: '10px' }}
+              >
+                {t('cancelPayment', lang)}
+              </button>
+            )}
           </div>
         </div>
       )}

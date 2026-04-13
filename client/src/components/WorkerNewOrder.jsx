@@ -518,7 +518,25 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
     return (
       <div className="worker-pos-overlay">
         <div className="worker-pos-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem' }}>
-          <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: '2.5rem', color: '#D4AF37' }} />
+          <div style={{ animation: 'pulse 2s infinite' }}>
+            <svg viewBox="0 0 100 130" width="70" height="91" xmlns="http://www.w3.org/2000/svg" fill="none">
+              <rect x="15" y="5" width="70" height="115" rx="9" stroke="#D4AF37" strokeWidth="2.5" fill="#D4AF37" fillOpacity="0.1"/>
+              <rect x="23" y="13" width="54" height="36" rx="5" stroke="#D4AF37" strokeWidth="1.5" fill="#D4AF37" fillOpacity="0.2"/>
+              <rect x="23" y="56" width="54" height="7" rx="3.5" stroke="#D4AF37" strokeWidth="1.5" fill="#D4AF37" fillOpacity="0.15"/>
+              <rect x="23" y="70" width="14" height="10" rx="2.5" fill="#D4AF37" fillOpacity="0.4"/>
+              <rect x="43" y="70" width="14" height="10" rx="2.5" fill="#D4AF37" fillOpacity="0.4"/>
+              <rect x="63" y="70" width="14" height="10" rx="2.5" fill="#D4AF37" fillOpacity="0.4"/>
+              <rect x="23" y="84" width="14" height="10" rx="2.5" fill="#D4AF37" fillOpacity="0.4"/>
+              <rect x="43" y="84" width="14" height="10" rx="2.5" fill="#D4AF37" fillOpacity="0.4"/>
+              <rect x="63" y="84" width="14" height="10" rx="2.5" fill="#D4AF37" fillOpacity="0.4"/>
+              <rect x="23" y="98" width="14" height="10" rx="2.5" fill="#D4AF37" fillOpacity="0.3"/>
+              <rect x="43" y="98" width="14" height="10" rx="2.5" fill="#D4AF37" fillOpacity="0.7"/>
+              <rect x="63" y="98" width="14" height="10" rx="2.5" fill="#D4AF37" fillOpacity="0.3"/>
+              <rect x="2" y="54" width="22" height="11" rx="2.5" fill="#D4AF37" fillOpacity="0.9"/>
+              <line x1="6" y1="58.5" x2="20" y2="58.5" stroke="#000" strokeWidth="1.5" opacity="0.3"/>
+              <line x1="6" y1="62" x2="17" y2="62" stroke="#000" strokeWidth="1" opacity="0.2"/>
+            </svg>
+          </div>
           <h2 style={{ color: '#fff', margin: 0 }}>Esperando pago en terminal</h2>
           <p style={{ color: 'rgba(255,255,255,0.7)', margin: 0 }}>
             Presente la tarjeta en el lector Point
@@ -526,36 +544,6 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
           <div style={{ fontSize: '2rem', color: '#D4AF37', fontWeight: 700 }}>
             {paymentTimeLeft}s
           </div>
-          <button
-            className="btn"
-            style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', padding: '0.5rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}
-            onClick={async () => {
-              // Tell backend to cancel the active payment so that the POS
-              // terminal (Tuu / Mercado Pago Point / etc.) also stops its sale
-              if (pendingOrderData?.order?.id) {
-                try {
-                  await fetch(API + `/api/orders/${pendingOrderData.order.id}/cancel-payment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ store_id: storeId })
-                  });
-                } catch (e) { console.error('Error cancelling payment:', e); }
-                if (pendingOrderData.tuuKey) {
-                  try {
-                    await fetch(API + `/api/tuu/cancel/${pendingOrderData.tuuKey}`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' }
-                    });
-                  } catch (e) { console.error('Error cancelling tuu payment:', e); }
-                }
-              }
-              setPaymentWaiting(false);
-              setPaymentCancelled(true);
-            }}
-          >
-            <FontAwesomeIcon icon={faTimes} style={{ marginRight: '0.5rem' }} />
-            Cancelar
-          </button>
         </div>
       </div>
     );
