@@ -1610,7 +1610,7 @@ app.post('/api/store/:code/qr-webhook', async (req, res) => {
           );
           if (orders.length > 0) {
             await pool.execute(
-              'UPDATE orders SET payment_process = 1, cash_approved = TRUE, reference_id = ?, sequence_id = ? WHERE id = ?',
+              "UPDATE orders SET payment_process = 1, cash_approved = TRUE, status = 'preparing', reference_id = ?, sequence_id = ? WHERE id = ?",
               [payment.id?.toString(), payment.external_reference, orders[0].id]
             );
             const socketId = userSockets.get(store.id);
@@ -3296,10 +3296,7 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
 app.get('/api/orders/store/:storeId', async (req, res) => {
   try {
     const { storeId } = req.params;
-    const orders = await getOrders(parseInt(storeId));
-    if (orders.length > 0) {
-      console.log('First order items:', orders[0].items);
-    }
+    const orders = await getOrders(parseInt(storeId), true);
     res.json(orders);
   } catch (error) {
     console.error('Error fetching orders:', error);

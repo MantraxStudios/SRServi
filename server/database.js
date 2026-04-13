@@ -1798,9 +1798,10 @@ export async function createOrder(storeId, orderData) {
   const paymentProcess = fromWorker ? 1 : 0;
 
   const store = await getStoreById(storeId);
+  const initialStatus = paymentProcess === 1 ? 'preparing' : 'pending';
   const [result] = await pool.execute(
-    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, payment_process) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, paymentProcess]
+    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, payment_process, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, paymentProcess, initialStatus]
   );
   const orderId = result.insertId;
 
@@ -1825,7 +1826,7 @@ export async function createOrder(storeId, orderData) {
     discount_total: couponData.discount_total,
     coupon_code: couponData.coupon_code,
     total, 
-    status: 'pending',
+    status: initialStatus,
     payment_method,
     cash_approved: cashApproved,
     items 
@@ -1848,12 +1849,14 @@ export async function createOrder(storeId, orderData) {
   return finalOrder;
 }
 
-export async function getOrders(storeId) {
+export async function getOrders(storeId, todayOnly = false) {
+  const dateFilter = todayOnly ? 'AND DATE(o.created_at) = CURDATE()' : '';
   const [rows] = await pool.execute(
-    `SELECT o.*, w.name as completed_by_name 
-     FROM orders o 
-     LEFT JOIN workers w ON o.completed_by = w.id 
+    `SELECT o.*, w.name as completed_by_name
+     FROM orders o
+     LEFT JOIN workers w ON o.completed_by = w.id
      WHERE o.store_id = ? AND (o.payment_process = 1 OR (o.payment_method = 'cash' AND o.cash_approved = 0))
+     ${dateFilter}
      ORDER BY o.created_at DESC`,
     [storeId]
   );
@@ -2216,7 +2219,7 @@ export async function processMercadoPagoPayment(storeId, orderData) {
 
 export async function confirmCardPayment(orderId, storeId) {
   await pool.execute(
-    `UPDATE orders SET cash_approved = TRUE, payment_process = 1,
+    `UPDATE orders SET cash_approved = TRUE, payment_process = 1, status = 'preparing',
      reference_id = COALESCE(reference_id, mp_order_id),
      sequence_id = COALESCE(sequence_id, external_reference)
      WHERE id = ? AND store_id = ?`,
