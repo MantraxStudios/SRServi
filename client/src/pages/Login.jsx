@@ -116,7 +116,7 @@ function Login() {
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '12px', textDecoration: 'none', background: '#1a1a1a', color: '#D4AF37', border: '1px solid #D4AF37' }}
           >
             <FontAwesomeIcon icon={faUserCog} />
-            Ingresar como Trabajador
+            Ingresar como Vendedor
           </Link>
         </div>
 

@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useStore } from './components/Layout';
 import { PluginProvider } from './context/PluginContext';
@@ -38,6 +39,76 @@ import TvDisplay from './pages/TvDisplay';
 import Docs from './pages/Docs';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
+
+const TV_CODE_KEY = 'srservi_tv_code';
+
+function TvEntry() {
+  const navigate = useNavigate();
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const saved = localStorage.getItem(TV_CODE_KEY);
+    if (saved) navigate(`/tv/${saved}`, { replace: true });
+  }, [navigate]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed) { setError('Ingresa el código de tienda'); return; }
+    localStorage.setItem(TV_CODE_KEY, trimmed);
+    navigate(`/tv/${trimmed}`, { replace: true });
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh', background: '#0a0a0a', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif'
+    }}>
+      <div style={{
+        background: '#141414', borderRadius: '16px', padding: '48px 40px',
+        width: '100%', maxWidth: '380px', border: '1px solid rgba(212,175,55,0.2)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{
+            width: '60px', height: '60px', background: '#D4AF37', borderRadius: '12px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px', fontSize: '22px', fontWeight: '900', color: '#0a0a0a'
+          }}>SR</div>
+          <h1 style={{ color: '#fff', fontSize: '22px', margin: '0 0 6px', fontWeight: '700' }}>Pantalla TV</h1>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', margin: 0 }}>Ingresa el código de tu tienda</p>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            value={code}
+            onChange={e => { setCode(e.target.value); setError(''); }}
+            placeholder="Ej: ABC123"
+            autoFocus
+            style={{
+              width: '100%', padding: '14px 16px', fontSize: '18px', letterSpacing: '4px',
+              textAlign: 'center', textTransform: 'uppercase', background: '#1a1a1a',
+              border: '1px solid rgba(212,175,55,0.3)', borderRadius: '10px', color: '#fff',
+              outline: 'none', boxSizing: 'border-box', marginBottom: '8px'
+            }}
+          />
+          {error && <p style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', margin: '0 0 8px' }}>{error}</p>}
+          <button
+            type="submit"
+            style={{
+              width: '100%', padding: '14px', background: 'linear-gradient(135deg,#D4AF37,#b8972e)',
+              border: 'none', borderRadius: '10px', color: '#0a0a0a', fontWeight: '700',
+              fontSize: '15px', cursor: 'pointer', marginTop: '8px'
+            }}
+          >
+            Entrar
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function AdminEditorRedirect() {
   const { selectedStore } = useStore();
@@ -81,6 +152,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/store/:code" element={<Store />} />
+          <Route path="/tv" element={<TvEntry />} />
           <Route path="/tv/:code" element={<TvDisplay />} />
           <Route path="/market/:code" element={<Minimarket />} />
           <Route path="/docs" element={<Docs />} />

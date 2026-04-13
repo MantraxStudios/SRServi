@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUtensils, faBell, faClock, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 
+const TV_CODE_KEY = 'srservi_tv_code';
+
 function TvDisplay() {
   const { code } = useParams();
+  const navigate = useNavigate();
   const [data, setData] = useState({ store: null, preparing: [], ready: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,6 +40,7 @@ function TvDisplay() {
       }
       prevReadyRef.current = json.ready;
 
+      localStorage.setItem(TV_CODE_KEY, code);
       setData(json);
       setError(null);
     } catch (err) {
@@ -75,6 +79,12 @@ function TvDisplay() {
       <div className="tv-error">
         <h1>Error</h1>
         <p>{error}</p>
+        <button
+          onClick={() => { localStorage.removeItem(TV_CODE_KEY); navigate('/tv'); }}
+          style={{ marginTop: '16px', padding: '10px 24px', background: '#D4AF37', border: 'none', borderRadius: '8px', color: '#0a0a0a', fontWeight: '700', fontSize: '15px', cursor: 'pointer' }}
+        >
+          Cambiar tienda
+        </button>
       </div>
     );
   }
