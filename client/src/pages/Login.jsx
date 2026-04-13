@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEnvelope, faLock } from '@fortawesome/free-solid-svg-icons';
+import { faEnvelope, faLock, faDownload } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -111,6 +111,16 @@ function Login() {
             <Link to="/register" className="auth-link">Regístrate aquí</Link>
           </p>
         </div>
+
+        <a
+          href="/SRServiLauncherClient.apk"
+          download="SRServiLauncherClient.apk"
+          className="btn btn-primary btn-lg btn-full"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '12px', textDecoration: 'none' }}
+        >
+          <FontAwesomeIcon icon={faDownload} />
+          Descargar App Android
+        </a>
       </div>
     </div>
   );

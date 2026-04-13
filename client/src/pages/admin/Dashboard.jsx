@@ -9,7 +9,8 @@ import {
   faArrowRight,
   faPlus,
   faCog,
-  faDesktop
+  faDesktop,
+  faDownload
 } from '@fortawesome/free-solid-svg-icons';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -206,6 +207,21 @@ function Dashboard() {
                 </div>
                 <FontAwesomeIcon icon={faArrowRight} className="quick-action-arrow" />
               </Link>
+              <a
+                href="/SRServiLauncherClient.apk"
+                download="SRServiLauncherClient.apk"
+                className="quick-action"
+                style={{ textDecoration: 'none' }}
+              >
+                <div className="quick-action-icon" style={{ backgroundColor: '#D4AF37' }}>
+                  <FontAwesomeIcon icon={faDownload} />
+                </div>
+                <div className="quick-action-info">
+                  <div className="quick-action-label">Descargar App Android</div>
+                  <div className="quick-action-sublabel">SRServi Launcher Client</div>
+                </div>
+                <FontAwesomeIcon icon={faArrowRight} className="quick-action-arrow" />
+              </a>
             </div>
           </div>
 
