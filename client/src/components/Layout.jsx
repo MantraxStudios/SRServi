@@ -168,7 +168,7 @@ function Layout() {
         '--store-accent': colors.accent,
         '--sidebar-w': '0px'
       }}>
-        {!isEditorMode && menuOpen && (
+        {menuOpen && (
           <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
         )}
 
@@ -266,7 +266,7 @@ function Layout() {
             <li>
               <NavLink to="/admin/workers" onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faUsers} />
-                <span>Trabajadores</span>
+                <span>Vendedores</span>
               </NavLink>
             </li>
 
@@ -398,7 +398,7 @@ function Layout() {
         </nav>
 
         <main className={isEditorMode ? 'admin-content admin-content--editor-desktop' : 'admin-content admin-content--no-sidebar'}>
-          {isEditorMode && isMobile && (
+          {isEditorMode && (
             <div style={{ position: 'fixed', top: '12px', left: '12px', zIndex: 99999, display: 'flex', gap: '8px' }}>
               <button
                 onClick={() => setMenuOpen(o => !o)}
