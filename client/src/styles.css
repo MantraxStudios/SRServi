@@ -8681,11 +8681,14 @@ html body .store-container .store-product-card * {
   background: #fff !important;
 }
 
-/* Editor desktop: pantalla completa (sidebar es drawer overlay) */
+/* Editor desktop: pantalla completa, se adapta al sidebar */
 .admin-content--editor-desktop {
   position: fixed !important;
-  inset: 0 !important;
-  width: 100vw !important;
+  left: var(--sidebar-w, 0px) !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: auto !important;
   height: 100vh !important;
   min-height: 100vh !important;
   padding: 0 !important;
@@ -8693,6 +8696,7 @@ html body .store-container .store-product-card * {
   z-index: 9000 !important;
   overflow: auto !important;
   background: #fff !important;
+  transition: left 0.28s cubic-bezier(.4,0,.2,1) !important;
 }
 
 /* Hace que el layout-wrapper no corte el editor */

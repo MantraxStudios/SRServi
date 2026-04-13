@@ -51,6 +51,10 @@ function Layout() {
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    if (isEditorMode) setMenuOpen(true);
+  }, [isEditorMode]);
   const [openDropdowns, setOpenDropdowns] = useState({});
 
   useEffect(() => {
@@ -166,9 +170,9 @@ function Layout() {
         '--store-primary': colors.primary,
         '--store-secondary': colors.secondary,
         '--store-accent': colors.accent,
-        '--sidebar-w': '0px'
+        '--sidebar-w': (isEditorMode && menuOpen && !isMobile) ? '270px' : '0px'
       }}>
-        {menuOpen && (
+        {menuOpen && (!isEditorMode || isMobile) && (
           <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
         )}
 
@@ -398,11 +402,11 @@ function Layout() {
         </nav>
 
         <main className={isEditorMode ? 'admin-content admin-content--editor-desktop' : 'admin-content admin-content--no-sidebar'}>
-          {isEditorMode && (
-            <div style={{ position: 'fixed', top: '12px', left: '12px', zIndex: 99999, display: 'flex', gap: '8px' }}>
+          {isEditorMode && !menuOpen && (
+            <div style={{ position: 'fixed', top: '12px', left: '12px', zIndex: 99999 }}>
               <button
-                onClick={() => setMenuOpen(o => !o)}
-                title={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+                onClick={() => setMenuOpen(true)}
+                title="Abrir menú"
                 style={{
                   background: 'rgba(0,0,0,0.75)',
                   color: '#fff',
@@ -416,27 +420,7 @@ function Layout() {
                   lineHeight: 1
                 }}
               >
-                {menuOpen ? '✕' : '☰'}
-              </button>
-              <button
-                onClick={() => { setMenuOpen(false); navigate('/admin/dashboard'); }}
-                style={{
-                  background: 'rgba(0,0,0,0.75)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '8px 14px',
-                  fontSize: '13px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  backdropFilter: 'blur(4px)',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.3)'
-                }}
-              >
-                ← Admin
+                ☰
               </button>
             </div>
           )}
