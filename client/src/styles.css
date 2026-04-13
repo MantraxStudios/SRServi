@@ -2424,7 +2424,7 @@ html body .store-container .store-product-card * {
 .cart-bar {
   position: fixed;
   bottom: 14px;
-  left: 14px;
+  left: calc(var(--sidebar-w, 0px) + 14px);
   right: 14px;
   background: #ffffff;
   display: flex;
@@ -2787,7 +2787,7 @@ html body .store-container .store-product-card * {
 .store-modal-overlay {
   position: fixed;
   top: 0;
-  left: 0;
+  left: var(--sidebar-w, 0px);
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.75);
@@ -2903,7 +2903,7 @@ html body .store-container .store-product-card * {
 .cart-overlay {
   position: fixed;
   top: 0;
-  left: 0;
+  left: var(--sidebar-w, 0px);
   right: 0;
   bottom: 0;
   background-color: rgba(0,0,0,0.5);
@@ -2914,7 +2914,7 @@ html body .store-container .store-product-card * {
 .store-cart-sheet {
   position: fixed;
   bottom: -90%;
-  left: 0;
+  left: var(--sidebar-w, 0px);
   right: 0;
   height: 88%;
   background: #fff;
