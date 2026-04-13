@@ -36,7 +36,8 @@
       "Bash(rm \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\tuu-payments.zip\")",
       "Bash(powershell -Command \"Compress-Archive -Path 'tuu-payments\\\\*' -DestinationPath 'C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\tuu-payments.zip'\")",
       "Bash(grep -v \"store-prod-modal\\\\|placeholder=\\\\\"\\\\\\\\\\\\$\\\\\\\\\\\\\"\\\\|store-cart-coupon\\\\|prodForm\\\\|complementForm\")",
-      "Bash(grep -v \"^\\\\s*//\")"
+      "Bash(grep -v \"^\\\\s*//\")",
+      "Bash(npm run:*)"
     ]
   }
 }
