@@ -1907,7 +1907,7 @@ export async function updateOrderStatus(orderId, storeId, status, workerId, work
 
 export async function approveCashPayment(orderId, storeId, workerId, workerName) {
   await pool.execute(
-    'UPDATE orders SET cash_approved = TRUE, payment_process = 1 WHERE id = ? AND store_id = ?',
+    "UPDATE orders SET cash_approved = TRUE, payment_process = 1, status = 'preparing' WHERE id = ? AND store_id = ?",
     [orderId, storeId]
   );
   

@@ -3247,6 +3247,8 @@ app.get('/api/store/:code/orders', async (req, res) => {
         order_number: order.order_number,
         order_type: order.order_type,
         status: order.status,
+        cash_approved: order.cash_approved ? 1 : 0,
+        payment_process: order.payment_process,
         total: parseFloat(order.total),
         subtotal: parseFloat(order.subtotal || 0),
         discount_total: parseFloat(order.discount_total || 0),
@@ -4521,7 +4523,7 @@ async function startServer() {
             let orderNumber = null;
             if (orderId) {
               await pool.execute(
-                "UPDATE orders SET status = 'paid', payment_process = 1, sequence_id = ?, reference_id = ? WHERE id = ?",
+                "UPDATE orders SET status = 'preparing', payment_process = 1, cash_approved = TRUE, sequence_id = ?, reference_id = ? WHERE id = ?",
                 [data.sequenceNumber || null, data.transactionReference || null, orderId]
               ).catch(() => {});
               const [orRows] = await pool.execute('SELECT order_number FROM orders WHERE id = ?', [orderId]).catch(() => [[]]);
@@ -4930,7 +4932,7 @@ async function startServer() {
                   clearInterval(sqPollId); squareActivePolls.delete(checkoutId);
                   await pool.execute('UPDATE sq_checkouts SET status = ? WHERE checkout_id = ?', ['Completed', checkoutId]);
                   if (order_id) {
-                    await pool.execute("UPDATE orders SET status = 'paid', payment_process = 1 WHERE id = ?", [order_id]).catch(() => {});
+                    await pool.execute("UPDATE orders SET status = 'preparing', payment_process = 1, cash_approved = TRUE WHERE id = ?", [order_id]).catch(() => {});
                   }
                   const socketId = userSockets.get(parseInt(store_id));
                   if (socketId) io.to(socketId).emit('square_payment_update', { checkoutId, orderId: order_id, status: 'Completed' });
