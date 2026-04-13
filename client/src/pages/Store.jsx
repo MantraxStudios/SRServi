@@ -3062,38 +3062,13 @@ function Store() {
                   )}
                 </div>
 
-                {selectedConfiguration?.accept_card && (
-                  <div className="text-muted text-sm" style={{ marginTop: '14px' }}>
-                    {tuuProvider ? (
-                      <><FontAwesomeIcon icon={faCreditCard} /> Procesará con <strong>TUU</strong> — {tuuProvider.deviceName || tuuProvider.deviceSerial || ''}</>
-                    ) : (
-                      <>{t('terminalAssigned', lang)}{' '}
-                      <strong>
-                        {localStorage.getItem('srservi_last_terminal_name') || localStorage.getItem('srservi_last_terminal_id') || 'MercadoPago'}
-                      </strong></>
-                    )}
-                  </div>
-                )}
-
-                <p style={{
-                  color: '#999',
-                  marginTop: '20px',
-                  fontSize: '13px',
-                  fontStyle: 'italic'
-                }}>
-                  {t('tapPaymentInfo', lang)}
-                </p>
-
                 <button
                   onClick={() => {
                     setPaymentModalOpen(false);
                   }}
                   className="btn"
                   style={{
-                    marginTop: '10px',
-                    backgroundColor: 'transparent',
-                    color: '#666',
-                    border: 'none'
+                    display: 'none'
                   }}
                 >
                   {t('cancel', lang)}
