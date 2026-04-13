@@ -4295,6 +4295,14 @@ app.put('/api/superadmin/workshop/:pluginId/version/:version/status', authentica
   }
 });
 
+// ==================== APK Static Download ====================
+app.get('/download/launcher', (req, res) => {
+  const apkPath = path.join(__serverDir, '../client/dist/SRServiLauncherClient.apk');
+  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.setHeader('Content-Disposition', 'attachment; filename="SRServiLauncherClient.apk"');
+  res.sendFile(apkPath);
+});
+
 // ==================== APK Releases ====================
 
 app.get('/api/superadmin/apks', authenticateSuperadminToken, async (req, res) => {

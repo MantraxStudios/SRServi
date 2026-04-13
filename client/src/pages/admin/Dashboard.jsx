@@ -208,8 +208,7 @@ function Dashboard() {
                 <FontAwesomeIcon icon={faArrowRight} className="quick-action-arrow" />
               </Link>
               <a
-                href="/SRServiLauncherClient.apk"
-                download="SRServiLauncherClient.apk"
+                href="/download/launcher"
                 className="quick-action"
                 style={{ textDecoration: 'none' }}
               >

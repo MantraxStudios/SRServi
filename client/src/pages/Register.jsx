@@ -178,8 +178,7 @@ function Register() {
         </div>
 
         <a
-          href="/SRServiLauncherClient.apk"
-          download="SRServiLauncherClient.apk"
+          href="/download/launcher"
           className="btn btn-primary btn-lg btn-full"
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '12px', textDecoration: 'none' }}
         >
