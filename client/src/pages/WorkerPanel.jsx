@@ -496,25 +496,6 @@ function WorkerPanel() {
         </div>
       </header>
 
-      <div className="worker-stats">
-        <div className="worker-stat">
-          <span className="worker-stat-number">{stats.pending}</span>
-          <span className="worker-stat-label">Pendientes</span>
-        </div>
-        <div className="worker-stat">
-          <span className="worker-stat-number">{stats.preparing}</span>
-          <span className="worker-stat-label">Preparando</span>
-        </div>
-        <div className="worker-stat">
-          <span className="worker-stat-number">{stats.ready}</span>
-          <span className="worker-stat-label">Listos</span>
-        </div>
-        <div className="worker-stat">
-          <span className="worker-stat-number">{stats.total}</span>
-          <span className="worker-stat-label">Total</span>
-        </div>
-      </div>
-
       <div className="worker-controls">
         <div className="worker-search">
           <FontAwesomeIcon icon={faSearch} className="worker-search-icon" />
