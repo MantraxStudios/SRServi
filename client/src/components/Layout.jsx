@@ -277,16 +277,16 @@ function Layout() {
             </li>
 
             <li className="sidebar-section-label">Más</li>
+
+            {/* Operaciones */}
             <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['todo'] ? ' open' : ''}`} onClick={() => toggleDropdown('todo')}>
-                <FontAwesomeIcon icon={faCog} />
-                <span>Administración</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['todo'] ? 180 : 0} />
+              <button className={`dropdown-header${openDropdowns['operaciones'] ? ' open' : ''}`} onClick={() => toggleDropdown('operaciones')}>
+                <FontAwesomeIcon icon={faShoppingBag} />
+                <span>Operaciones</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['operaciones'] ? 180 : 0} />
               </button>
-              {openDropdowns['todo'] && (
+              {openDropdowns['operaciones'] && (
                 <div className="dropdown-content">
-                  {/* Operaciones diarias */}
-                  <div className="dropdown-group-label">Operaciones</div>
                   <NavLink to="/admin/orders" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faShoppingBag} />
                     <span>Pedidos</span>
@@ -303,9 +303,19 @@ function Layout() {
                     <FontAwesomeIcon icon={faPercent} />
                     <span>Cupones</span>
                   </NavLink>
+                </div>
+              )}
+            </li>
 
-                  {/* Catálogo */}
-                  <div className="dropdown-group-label">Catálogo</div>
+            {/* Catálogo */}
+            <li className="dropdown-container">
+              <button className={`dropdown-header${openDropdowns['catalogo'] ? ' open' : ''}`} onClick={() => toggleDropdown('catalogo')}>
+                <FontAwesomeIcon icon={faBarcode} />
+                <span>Catálogo</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['catalogo'] ? 180 : 0} />
+              </button>
+              {openDropdowns['catalogo'] && (
+                <div className="dropdown-content">
                   <NavLink to="/admin/market" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faBarcode} />
                     <span>Market</span>
@@ -314,9 +324,19 @@ function Layout() {
                     <FontAwesomeIcon icon={faGlobe} />
                     <span>Workshop</span>
                   </NavLink>
+                </div>
+              )}
+            </li>
 
-                  {/* Configuración */}
-                  <div className="dropdown-group-label">Configuración</div>
+            {/* Configuración */}
+            <li className="dropdown-container">
+              <button className={`dropdown-header${openDropdowns['config'] ? ' open' : ''}`} onClick={() => toggleDropdown('config')}>
+                <FontAwesomeIcon icon={faCog} />
+                <span>Configuración</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['config'] ? 180 : 0} />
+              </button>
+              {openDropdowns['config'] && (
+                <div className="dropdown-content">
                   <NavLink to="/admin/settings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faPalette} />
                     <span>Colores y QR</span>
@@ -337,9 +357,19 @@ function Layout() {
                     <FontAwesomeIcon icon={faTabletAlt} />
                     <span>Dispositivos</span>
                   </NavLink>
+                </div>
+              )}
+            </li>
 
-                  {/* Sistema */}
-                  <div className="dropdown-group-label">Cuenta</div>
+            {/* Cuenta */}
+            <li className="dropdown-container">
+              <button className={`dropdown-header${openDropdowns['cuenta'] ? ' open' : ''}`} onClick={() => toggleDropdown('cuenta')}>
+                <FontAwesomeIcon icon={faCrown} />
+                <span>Cuenta</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['cuenta'] ? 180 : 0} />
+              </button>
+              {openDropdowns['cuenta'] && (
+                <div className="dropdown-content">
                   <NavLink to="/admin/plans" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faCrown} />
                     <span>Planes</span>
