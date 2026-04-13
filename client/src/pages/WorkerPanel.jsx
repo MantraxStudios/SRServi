@@ -23,6 +23,9 @@ function WorkerPanel() {
   const [activeTab, setActiveTab] = useState('active');
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [storeCode, setStoreCode] = useState('');
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [paySearch, setPaySearch] = useState('');
+  const [payResult, setPayResult] = useState(null);
 
   const colors = storeColors || {
     primary: '#0a0a0a',
@@ -404,6 +407,35 @@ function WorkerPanel() {
     return `${letter}${num.toString().padStart(2, '0')}`;
   };
 
+  const closePayModal = () => {
+    setShowPayModal(false);
+    setPaySearch('');
+    setPayResult(null);
+  };
+
+  const handlePaySearch = (term) => {
+    setPaySearch(term);
+    if (!term.trim()) { setPayResult(null); return; }
+    const t = term.trim().toUpperCase();
+    const inPending = pendingCashOrders.find(o =>
+      (o.order_number || '').toUpperCase() === t ||
+      getOrderDisplayNumber(o).toUpperCase() === t
+    );
+    if (inPending) { setPayResult({ ...inPending, _isPendingCash: true }); return; }
+    const inActive = orders.find(o =>
+      (o.order_number || '').toUpperCase() === t ||
+      getOrderDisplayNumber(o).toUpperCase() === t
+    );
+    if (inActive) { setPayResult({ ...inActive, _isPendingCash: false }); return; }
+    setPayResult(undefined);
+  };
+
+  const handleApprovePay = async () => {
+    if (!payResult?._isPendingCash) return;
+    await approveCashPayment(payResult.id);
+    closePayModal();
+  };
+
   if (loading) {
     return (
       <div className="loading-center">
@@ -433,7 +465,11 @@ function WorkerPanel() {
         <div className="worker-header-buttons">
           <button className="worker-new-order-btn" onClick={() => setShowNewOrder(true)}>
             <FontAwesomeIcon icon={faPlus} />
-            <span>Nuevo Pedido</span>
+            <span>Ingresar Pedido</span>
+          </button>
+          <button className="worker-new-order-btn" onClick={() => setShowPayModal(true)} style={{ background: '#1a6b1a' }}>
+            <FontAwesomeIcon icon={faMoneyBillWave} />
+            <span>Cobrar</span>
           </button>
           <button
             className="worker-switch-btn"
@@ -509,17 +545,6 @@ function WorkerPanel() {
             <FontAwesomeIcon icon={faClock} /> Activos ({orders.length})
           </button>
           <button
-            className={`worker-tab ${activeTab === 'cash' ? 'active' : ''}`}
-            onClick={() => setActiveTab('cash')}
-          >
-            <FontAwesomeIcon icon={faMoneyBillWave} /> Efectivo ({pendingCashOrders.length})
-            {pendingCashOrders.length > 0 && (
-              <span className="worker-tab-badge">
-                {pendingCashOrders.length}
-              </span>
-            )}
-          </button>
-          <button
             className={`worker-tab ${activeTab === 'completed' ? 'active' : ''}`}
             onClick={() => setActiveTab('completed')}
           >
@@ -586,70 +611,6 @@ function WorkerPanel() {
                   <div className="worker-order-total">
                     ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
                   </div>
-                </div>
-              ))}
-            </div>
-          )
-        ) : activeTab === 'cash' ? (
-          pendingCashOrders.length === 0 ? (
-            <div className="empty-state">
-              <p>No hay pagos en efectivo pendientes</p>
-            </div>
-          ) : (
-            <div className="worker-orders-list">
-              {pendingCashOrders.map(order => (
-                <div
-                  key={order.id}
-                  className="worker-order-card cash-pending"
-                >
-                  <div className="worker-order-header">
-                    <h3 className="worker-order-number">{getOrderDisplayNumber(order)}</h3>
-                    <div className="worker-order-type serve">
-                      <FontAwesomeIcon icon={faMoneyBillWave} /> Efectivo
-                    </div>
-                  </div>
-                  <div className="worker-order-info">
-                    <div className="worker-status-badge cash-pending-badge">
-                      <FontAwesomeIcon icon={faClock} /> Pendiente de Pago
-                    </div>
-                    <p className="worker-order-time">
-                      {new Date(order.created_at).toLocaleTimeString('es-ES', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
-                  </div>
-                  {order.items && order.items.length > 0 && (
-                    <div className="worker-order-items-preview">
-                      {order.items.map((item, idx) => (
-                        <div key={idx} className="worker-order-item-line">
-                          <span className="worker-order-item-qty">{item.quantity}x</span>
-                          <div className="worker-order-item-detail">
-                            <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
-                            {item.selected_ingredients && item.selected_ingredients.length > 0 && (
-                              <span className="worker-order-item-addons">
-                                {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients.map(i => i.name || i).join(', ') : item.selected_ingredients)}
-                              </span>
-                            )}
-                            {item.selected_extras && item.selected_extras.length > 0 && (
-                              <span className="worker-order-item-addons">
-                                + {(Array.isArray(item.selected_extras) ? item.selected_extras.map(e => e.name || e).join(', ') : item.selected_extras)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="worker-order-total">
-                    ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
-                  </div>
-                  <button
-                    className="worker-action-btn approve"
-                    onClick={() => approveCashPayment(order.id)}
-                  >
-                    <FontAwesomeIcon icon={faCheck} /> Aprobar Pago
-                  </button>
                 </div>
               ))}
             </div>
@@ -857,6 +818,92 @@ function WorkerPanel() {
               >
                 Cerrar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPayModal && (
+        <div className="worker-modal-overlay" onClick={closePayModal}>
+          <div className="worker-modal" onClick={e => e.stopPropagation()}>
+            <div className="worker-modal-header">
+              <h2 className="worker-modal-title">Cobrar Pedido</h2>
+              <button className="worker-modal-close" onClick={closePayModal}>x</button>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', color: colors.secondary }}>Número de Pedido</label>
+              <input
+                type="text"
+                value={paySearch}
+                onChange={e => handlePaySearch(e.target.value)}
+                placeholder="Ej: A01, B12..."
+                autoFocus
+                style={{
+                  width: '100%', padding: '10px 14px', fontSize: '1.1rem',
+                  background: '#1a1a1a', color: '#fff', border: `1px solid ${colors.accent}`,
+                  borderRadius: '8px', outline: 'none', boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {paySearch.trim() && payResult === undefined && (
+              <div style={{ color: '#ef4444', textAlign: 'center', padding: '12px' }}>
+                No se encontró ningún pedido con ese número
+              </div>
+            )}
+
+            {payResult && (
+              <div>
+                <div style={{ background: '#111', borderRadius: '8px', padding: '12px', marginBottom: '12px' }}>
+                  <div className="worker-detail-row">
+                    <span className="worker-detail-label">Pedido:</span>
+                    <span className="worker-detail-value" style={{ fontSize: '1.2rem', fontWeight: 'bold', color: colors.accent }}>
+                      #{getOrderDisplayNumber(payResult)}
+                    </span>
+                  </div>
+                  <div className="worker-detail-row">
+                    <span className="worker-detail-label">Tipo:</span>
+                    <span className="worker-detail-value">
+                      <FontAwesomeIcon icon={getOrderTypeInfo(payResult.order_type).icon} /> {getOrderTypeInfo(payResult.order_type).label}
+                    </span>
+                  </div>
+                  <div className="worker-detail-row">
+                    <span className="worker-detail-label">Total:</span>
+                    <span className="worker-detail-value" style={{ color: '#22c55e', fontWeight: 'bold' }}>
+                      ${isNaN(payResult.total) ? '0.00' : Number(payResult.total).toFixed(2)}
+                    </span>
+                  </div>
+                  {payResult.items && payResult.items.length > 0 && (
+                    <div className="worker-items-list" style={{ marginTop: '8px' }}>
+                      {payResult.items.map((item, idx) => (
+                        <div key={idx} className="worker-order-item-line">
+                          <span className="worker-order-item-qty">{item.quantity}x</span>
+                          <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {payResult._isPendingCash ? (
+                  <button
+                    className="worker-action-btn approve"
+                    style={{ width: '100%', justifyContent: 'center', fontSize: '1rem', padding: '12px' }}
+                    onClick={handleApprovePay}
+                  >
+                    <FontAwesomeIcon icon={faCheck} /> Marcar como Pagado
+                  </button>
+                ) : (
+                  <div style={{ color: '#f59e0b', textAlign: 'center', padding: '8px' }}>
+                    Este pedido ya está procesado (estado: {payResult.status})
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="worker-modal-actions modal-close-actions" style={{ marginTop: '12px' }}>
+              <button className="worker-action-btn close" onClick={closePayModal}>Cerrar</button>
             </div>
           </div>
         </div>
