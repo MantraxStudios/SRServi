@@ -52,16 +52,6 @@ function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [openDropdowns, setOpenDropdowns] = useState({});
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => localStorage.getItem('sidebar_collapsed') === 'true'
-  );
-
-  const toggleSidebar = () => {
-    setSidebarCollapsed(prev => {
-      localStorage.setItem('sidebar_collapsed', String(!prev));
-      return !prev;
-    });
-  };
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -176,13 +166,13 @@ function Layout() {
         '--store-primary': colors.primary,
         '--store-secondary': colors.secondary,
         '--store-accent': colors.accent,
-        '--sidebar-w': (!isMobile && sidebarCollapsed) ? '0px' : '270px'
+        '--sidebar-w': '0px'
       }}>
-        {!isEditorMode && isMobile && menuOpen && (
+        {!isEditorMode && menuOpen && (
           <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
         )}
 
-        <nav className={`admin-sidebar ${!isMobile && sidebarCollapsed ? 'sidebar-collapsed' : ''} ${isEditorMode && isMobile ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : ''} ${!isEditorMode && isMobile ? (menuOpen ? 'mobile-open' : 'mobile-closed') : ''}`}>
+        <nav className={`admin-sidebar ${isEditorMode ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : (menuOpen ? 'mobile-open' : 'mobile-closed')}`}>
           <div className="sidebar-header">
             <div className="sidebar-brand">
               <div className="sidebar-brand-logo">
@@ -193,11 +183,9 @@ function Layout() {
                 <small>Panel de Administración</small>
               </div>
             </div>
-            {isMobile && (
-              <button className="sidebar-close-btn" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
-            )}
+            <button className="sidebar-close-btn" onClick={() => setMenuOpen(false)}>
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
           </div>
 
           {user?.support_pin && (
@@ -409,17 +397,7 @@ function Layout() {
           </div>
         </nav>
 
-        {!isMobile && (
-          <button
-            className={`sidebar-collapse-btn${sidebarCollapsed ? ' sidebar-collapse-btn--open' : ''}`}
-            onClick={toggleSidebar}
-            title={sidebarCollapsed ? 'Abrir menú' : 'Cerrar menú'}
-          >
-            <FontAwesomeIcon icon={sidebarCollapsed ? faChevronRight : faChevronLeft} />
-          </button>
-        )}
-
-        <main className={isEditorMode ? (isMobile ? 'admin-content admin-content--editor' : 'admin-content admin-content--editor-desktop') : 'admin-content'}>
+        <main className={isEditorMode ? 'admin-content admin-content--editor-desktop' : 'admin-content admin-content--no-sidebar'}>
           {isEditorMode && isMobile && (
             <div style={{ position: 'fixed', top: '12px', left: '12px', zIndex: 99999, display: 'flex', gap: '8px' }}>
               <button
@@ -466,7 +444,7 @@ function Layout() {
             <button className="mobile-header-btn" onClick={() => setMenuOpen(true)}>
               <FontAwesomeIcon icon={faBars} />
             </button>
-            <h1>SRServi</h1>
+            {isMobile && <h1>SRServi</h1>}
             {user?.support_pin && (
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', background: '#f0f0f0', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', color: '#666' }}>
                 <FontAwesomeIcon icon={faLock} style={{ color: '#9b59b6' }} />
