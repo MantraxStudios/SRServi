@@ -344,27 +344,6 @@ function Store() {
     setCashPaymentSuccess(false);
   };
 
-  // Auto-close "gracias" modals after 20 seconds
-  useEffect(() => {
-    if (!paymentConfirmed) return;
-    const t = setTimeout(() => {
-      setPaymentConfirmed(false);
-      setPendingOrderData(null);
-      setLastOrderNumber(null);
-      showWelcomeAfterOrder();
-    }, 20000);
-    return () => clearTimeout(t);
-  }, [paymentConfirmed]);
-
-  useEffect(() => {
-    if (!cashPaymentSuccess) return;
-    const t = setTimeout(() => {
-      setLastOrderNumber(null);
-      showWelcomeAfterOrder();
-    }, 20000);
-    return () => clearTimeout(t);
-  }, [cashPaymentSuccess]);
-
   useEffect(() => {
     if (selectedConfiguration?.is_minimarket && store?.store?.code) {
       navigate(`/market/${store.store.code}${configFromUrl ? `?config=${configFromUrl}` : ''}`);
@@ -423,6 +402,33 @@ function Store() {
     'ontouchstart' in window ||
     (navigator.maxTouchPoints && navigator.maxTouchPoints > 0)
   );
+
+  // Auto-close "gracias" modals after 20 seconds
+  useEffect(() => {
+    if (!paymentConfirmed) return;
+    const autoCloseTimer = setTimeout(() => {
+      setPaymentConfirmed(false);
+      setPendingOrderData(null);
+      setLastOrderNumber(null);
+      setCart([]);
+      setCartOpen(false);
+      setPaymentModalOpen(false);
+      setCashPaymentSuccess(false);
+    }, 20000);
+    return () => clearTimeout(autoCloseTimer);
+  }, [paymentConfirmed]);
+
+  useEffect(() => {
+    if (!cashPaymentSuccess) return;
+    const autoCloseTimer = setTimeout(() => {
+      setLastOrderNumber(null);
+      setCart([]);
+      setCartOpen(false);
+      setPaymentModalOpen(false);
+      setCashPaymentSuccess(false);
+    }, 20000);
+    return () => clearTimeout(autoCloseTimer);
+  }, [cashPaymentSuccess]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
