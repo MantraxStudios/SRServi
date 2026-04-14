@@ -1075,8 +1075,9 @@ app.post('/api/public/:code/restart-all', async (req, res) => {
     }
     await pool.execute('UPDATE store_devices SET pending_restart = TRUE WHERE store_id = ?', [store.id]);
 
-    // Emit only to the store's own room (clients registered via register_store)
+    // Emit to store room and also broadcast globally so all connected clients are notified
     io.to(`store_${store.id}`).emit('totem_restart', { store_id: store.id });
+    io.emit('totem_restart', { store_id: store.id });
 
     res.json({ success: true });
   } catch (error) {

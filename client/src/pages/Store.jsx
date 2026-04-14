@@ -570,6 +570,8 @@ function Store() {
       console.log('totem_restart received:', data, 'myStore:', storeIdRef.current, 'editMode:', editModeRef.current);
       // Only restart if this client is NOT in edit mode and the store matches
       if (!editModeRef.current && storeIdRef.current && String(data.store_id) === String(storeIdRef.current)) {
+        // Clear the pending_restart DB flag so the page-load check and polling don't trigger a second restart
+        fetch(`/api/public/device-config/${localStorage.getItem('srservi_device_uid')}/${storeIdRef.current}`, { cache: 'no-store' }).catch(() => {});
         showRestartNotification(5);
       }
     });
@@ -584,6 +586,25 @@ function Store() {
     if (store?.store?.id && socketRef.current?.connected) {
       socketRef.current.emit('register_store', store.store.id);
     }
+  }, [store?.store?.id]);
+
+  // Poll pending_restart every 10 seconds so clients restart in real-time even if the socket event is missed
+  useEffect(() => {
+    if (!store?.store?.id) return;
+    const storeId = store.store.id;
+    const poll = setInterval(async () => {
+      if (editModeRef.current) return; // never restart while in edit mode
+      try {
+        const res = await fetch(`/api/public/device-config/${deviceUid}/${storeId}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const dc = await res.json();
+        if (dc.pending_restart) {
+          const delay = parseInt(dc.restart_time) || 5;
+          showRestartNotification(delay);
+        }
+      } catch { /* ignore */ }
+    }, 10000);
+    return () => clearInterval(poll);
   }, [store?.store?.id]);
 
   const fetchStore = async () => {
