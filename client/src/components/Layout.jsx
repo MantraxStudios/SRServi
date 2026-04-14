@@ -32,7 +32,8 @@ import {
   faBookOpen,
   faCashRegister,
   faChevronLeft,
-  faChevronRight
+  faChevronRight,
+  faUserCog
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -394,6 +395,10 @@ function Layout() {
           </ul>
 
           <div className="sidebar-footer">
+            <button onClick={() => navigate('/worker')} className="sidebar-logout-btn" style={{ color: '#D4AF37' }}>
+              <FontAwesomeIcon icon={faUserCog} />
+              <span>Panel Vendedor</span>
+            </button>
             <button onClick={handleLogout} className="sidebar-logout-btn">
               <FontAwesomeIcon icon={faSignOutAlt} />
               <span>Cerrar Sesión</span>
@@ -429,8 +434,15 @@ function Layout() {
               <FontAwesomeIcon icon={faBars} />
             </button>
             {isMobile && <h1>SRServi</h1>}
+            <button
+              onClick={() => navigate('/worker')}
+              style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              <FontAwesomeIcon icon={faUserCog} />
+              <span>Panel Vendedor</span>
+            </button>
             {user?.support_pin && (
-              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', background: '#f0f0f0', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', color: '#666' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0f0f0', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', color: '#666' }}>
                 <FontAwesomeIcon icon={faLock} style={{ color: '#9b59b6' }} />
                 <span>PIN: <strong style={{ letterSpacing: '2px', color: '#333' }}>{user.support_pin}</strong></span>
               </div>
