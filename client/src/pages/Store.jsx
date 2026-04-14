@@ -1625,17 +1625,80 @@ function Store() {
   const getAuthBody = () => adminToken ? { token: adminToken } : { pin: sessionPin };
 
   const showRestartNotification = (delaySec) => {
+    if (editModeRef.current) return;
+
+    // Inject keyframe animations once
+    if (!document.getElementById('srservi-restart-styles')) {
+      const style = document.createElement('style');
+      style.id = 'srservi-restart-styles';
+      style.textContent = `
+        @keyframes _srFadeIn { from { opacity:0 } to { opacity:1 } }
+        @keyframes _srSlideUp { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:translateY(0) } }
+        @keyframes _srSpin { to { transform:rotate(360deg) } }
+        @keyframes _srPulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
+        @keyframes _srScaleIn { from { transform:scale(0.7); opacity:0 } to { transform:scale(1); opacity:1 } }
+      `;
+      document.head.appendChild(style);
+    }
+
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);color:#fff;font-family:sans-serif;';
-    const countdownEl = document.createElement('div');
-    overlay.innerHTML = `
-      <div style="font-size:48px;margin-bottom:16px;">&#x1F504;</div>
-      <h2 style="margin:0 0 8px;font-size:22px;text-align:center;">El administrador realizó cambios</h2>
-      <p style="margin:0 0 20px;font-size:16px;color:#ccc;text-align:center;">Este totem será reiniciado</p>
+    overlay.style.cssText = `
+      position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999999;
+      background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);
+      display:flex;align-items:center;justify-content:center;
+      animation:_srFadeIn 0.35s ease;
     `;
-    countdownEl.style.cssText = 'font-size:36px;font-weight:bold;color:#D4AF37;';
+
+    const card = document.createElement('div');
+    card.style.cssText = `
+      display:flex;flex-direction:column;align-items:center;gap:18px;
+      animation:_srSlideUp 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    `;
+
+    // Spinner ring + countdown number in center
+    const spinnerWrapper = document.createElement('div');
+    spinnerWrapper.style.cssText = 'position:relative;width:130px;height:130px;';
+
+    const ring = document.createElement('div');
+    ring.style.cssText = `
+      position:absolute;inset:0;border-radius:50%;
+      border:5px solid rgba(212,175,55,0.18);
+      border-top-color:#D4AF37;border-right-color:#D4AF37;
+      animation:_srSpin 1s linear infinite;
+    `;
+
+    const ringOuter = document.createElement('div');
+    ringOuter.style.cssText = `
+      position:absolute;inset:-10px;border-radius:50%;
+      border:2px solid rgba(212,175,55,0.08);
+      border-bottom-color:rgba(212,175,55,0.35);
+      animation:_srSpin 2.5s linear infinite reverse;
+    `;
+
+    const countdownEl = document.createElement('div');
+    countdownEl.style.cssText = `
+      position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+      font-size:46px;font-weight:800;color:#D4AF37;font-family:sans-serif;
+      animation:_srScaleIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    `;
     countdownEl.textContent = delaySec;
-    overlay.appendChild(countdownEl);
+
+    spinnerWrapper.appendChild(ringOuter);
+    spinnerWrapper.appendChild(ring);
+    spinnerWrapper.appendChild(countdownEl);
+
+    const title = document.createElement('h2');
+    title.style.cssText = 'margin:0;font-size:20px;font-weight:700;color:#fff;font-family:sans-serif;letter-spacing:0.3px;';
+    title.textContent = 'Aplicando cambios';
+
+    const subtitle = document.createElement('p');
+    subtitle.style.cssText = 'margin:0;font-size:14px;color:rgba(255,255,255,0.5);font-family:sans-serif;animation:_srPulse 1.6s ease infinite;';
+    subtitle.textContent = 'Reiniciando pantalla...';
+
+    card.appendChild(spinnerWrapper);
+    card.appendChild(title);
+    card.appendChild(subtitle);
+    overlay.appendChild(card);
     document.body.appendChild(overlay);
 
     let remaining = delaySec;
