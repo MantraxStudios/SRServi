@@ -4477,8 +4477,17 @@ async function startServer() {
       return rows[0] || null;
     }
 
-    async function tuuCreatePayment(apiKey, amount, deviceSerial, description, dteType) {
+    async function tuuCreatePayment(apiKey, amount, deviceSerial, description, dteType, orderNumber) {
       const idempotencyKey = crypto.randomUUID();
+      const extraData = {
+        sourceName: 'SRServi',
+        sourceVersion: '1.1.0'
+      };
+      if (orderNumber) {
+        extraData.customFields = [
+          { name: 'ORDEN: ', value: String(orderNumber), print: true }
+        ];
+      }
       const response = await fetch(`${TUU_API}/Create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
@@ -4488,7 +4497,7 @@ async function startServer() {
           IdempotencyKey: idempotencyKey,
           Description: description || 'Pago SRServi',
           DteType: dteType || 0,
-          extraData: { sourceName: 'SRServi', sourceVersion: '1.1.0' }
+          extraData
         })
       });
       const data = await response.json();
@@ -4693,7 +4702,31 @@ async function startServer() {
         if (!device && device_uid) device = await tuuGetDeviceForUid(device_uid, parseInt(store_id));
         if (!device) device = await tuuGetAnyDeviceForStore(parseInt(store_id));
         if (!device) return res.status(400).json({ error: 'No hay POS TUU configurado. Ve al admin > Vincular POS.' });
-        const payment = await tuuCreatePayment(config.api_key, amount, device.serial, description || '', config.dte_type);
+        let orderNumber = null;
+        if (order_id) {
+          const [orRows] = await pool.execute('SELECT order_number, store_id FROM orders WHERE id = ?', [order_id]).catch(() => [[]]);
+          orderNumber = orRows[0]?.order_number || null;
+          // Si la orden aún no tiene order_number, generarlo y asignarlo ahora
+          // para que quede impreso en la boleta TUU
+          if (orRows[0] && !orderNumber) {
+            const orderStoreId = orRows[0].store_id || store_id;
+            const [usedRows] = await pool.execute(
+              'SELECT order_number FROM orders WHERE store_id = ? AND DATE(created_at) = CURDATE() AND order_number IS NOT NULL',
+              [orderStoreId]
+            );
+            const used = new Set(usedRows.map(r => r.order_number));
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            let orderNum = null;
+            for (let i = 0; i < 200 && !orderNum; i++) {
+              const c = letters[Math.floor(Math.random() * 26)] + String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
+              if (!used.has(c)) orderNum = c;
+            }
+            if (!orderNum) orderNum = String(used.size + 1);
+            await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [orderNum, order_id]);
+            orderNumber = orderNum;
+          }
+        }
+        const payment = await tuuCreatePayment(config.api_key, amount, device.serial, description || '', config.dte_type, orderNumber);
         await pool.execute(
           'INSERT INTO tuu_transactions (store_id, order_id, idempotency_key, amount, status, device_serial) VALUES (?, ?, ?, ?, ?, ?)',
           [parseInt(store_id), order_id || null, payment.idempotencyKey, Math.round(amount), 'Pending', device.serial]
