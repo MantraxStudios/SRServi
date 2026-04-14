@@ -3101,12 +3101,15 @@ function Store() {
                 </div>
 
                 <button
-                  onClick={() => {
-                    setPaymentModalOpen(false);
-                  }}
-                  className="btn"
+                  onClick={() => setPaymentModalOpen(false)}
+                  className="btn btn-lg btn-full"
                   style={{
-                    display: 'none'
+                    marginTop: '8px',
+                    backgroundColor: 'transparent',
+                    color: 'var(--store-primary)',
+                    border: '2px solid var(--store-primary)',
+                    borderRadius: '15px',
+                    opacity: 0.7
                   }}
                 >
                   {t('cancel', lang)}
