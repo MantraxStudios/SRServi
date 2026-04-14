@@ -395,10 +395,10 @@ function Layout() {
           </ul>
 
           <div className="sidebar-footer">
-            <button onClick={() => navigate('/worker')} className="sidebar-logout-btn" style={{ color: '#D4AF37' }}>
+            <a href="https://srservi2.srautomatic.com/worker-login" target="_blank" rel="noopener noreferrer" className="sidebar-logout-btn" style={{ color: '#D4AF37', textDecoration: 'none' }}>
               <FontAwesomeIcon icon={faUserCog} />
               <span>Panel Vendedor</span>
-            </button>
+            </a>
             <button onClick={handleLogout} className="sidebar-logout-btn">
               <FontAwesomeIcon icon={faSignOutAlt} />
               <span>Cerrar Sesión</span>
@@ -434,13 +434,15 @@ function Layout() {
               <FontAwesomeIcon icon={faBars} />
             </button>
             {isMobile && <h1>SRServi</h1>}
-            <button
-              onClick={() => navigate('/worker')}
-              style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+            <a
+              href="https://srservi2.srautomatic.com/worker-login"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', textDecoration: 'none' }}
             >
               <FontAwesomeIcon icon={faUserCog} />
               <span>Panel Vendedor</span>
-            </button>
+            </a>
             {user?.support_pin && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0f0f0', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', color: '#666' }}>
                 <FontAwesomeIcon icon={faLock} style={{ color: '#9b59b6' }} />
