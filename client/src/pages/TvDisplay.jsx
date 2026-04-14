@@ -93,6 +93,20 @@ function TvDisplay() {
   const formatTime = (d) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
   const formatDate = (d) => d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
 
+  const now = new Date();
+  // completed recientes (< 5 min) van en "Listos para retirar"
+  const completedRecent = (completed || []).filter(o => {
+    const t = new Date(o.completed_at);
+    return (now - t) < 5 * 60 * 1000;
+  });
+  // completed viejos (>= 5 min) van en la franja "Entregados"
+  const completedOld = (completed || []).filter(o => {
+    const t = new Date(o.completed_at);
+    return (now - t) >= 5 * 60 * 1000;
+  });
+  // columna "Listos para retirar" = ready + completedRecent
+  const readyAndRecent = [...ready, ...completedRecent];
+
   return (
     <div
       className="tv-container"
@@ -141,16 +155,16 @@ function TvDisplay() {
           <div className="tv-column-header">
             <FontAwesomeIcon icon={faBell} className="tv-column-icon tv-icon-ready" />
             <h2>LISTOS PARA RETIRAR</h2>
-            <span className="tv-column-count">{ready.length}</span>
+            <span className="tv-column-count">{readyAndRecent.length}</span>
           </div>
           <div className="tv-orders-grid">
-            {ready.length === 0 ? (
+            {readyAndRecent.length === 0 ? (
               <div className="tv-empty">
                 <FontAwesomeIcon icon={faCheckCircle} />
                 <p>Ningún pedido listo</p>
               </div>
             ) : (
-              ready.map((order, idx) => (
+              readyAndRecent.map((order, idx) => (
                 <div
                   key={order.id}
                   className={`tv-order-card tv-order-ready ${highlightOrder === order.order_number ? 'tv-highlight' : ''}`}
@@ -164,14 +178,14 @@ function TvDisplay() {
           </div>
         </section>
 
-        {completed && completed.length > 0 && (
+        {completedOld.length > 0 && (
           <section className="tv-column tv-column-completed" style={{ gridColumn: '1 / -1', maxHeight: '140px' }}>
             <div className="tv-column-header" style={{ marginBottom: '10px', paddingBottom: '8px', borderColor: '#555' }}>
               <FontAwesomeIcon icon={faCheckCircle} className="tv-column-icon" style={{ background: 'rgba(150,150,150,0.15)', color: '#888', fontSize: '14px', width: '28px', height: '28px', borderRadius: '8px' }} />
               <h2 style={{ fontSize: '12px', color: '#666', letterSpacing: '2px' }}>ENTREGADOS</h2>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {completed.map((order) => (
+              {completedOld.map((order) => (
                 <div key={order.id} style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', padding: '4px 12px', color: '#555', fontWeight: '700', fontSize: '14px', textDecoration: 'line-through' }}>
                   {order.order_number}
                 </div>
