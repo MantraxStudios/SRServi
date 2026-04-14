@@ -230,11 +230,16 @@ function Store() {
   const storeIdRef = useRef(null);
   const socketRef = useRef(null);
   const pendingOrderDataRef = useRef(null);
+  const editModeRef = useRef(false);
 
   useEffect(() => {
     setActiveCategory('all');
     storeIdRef.current = store?.store?.id || null;
   }, [store?.store?.id]);
+
+  useEffect(() => {
+    editModeRef.current = editMode;
+  }, [editMode]);
 
   useEffect(() => {
     pendingOrderDataRef.current = pendingOrderData;
@@ -562,9 +567,9 @@ function Store() {
     });
 
     socket.on('totem_restart', (data) => {
-      console.log('totem_restart received:', data, 'myStore:', storeIdRef.current, 'isAdmin:', !!adminEditToken);
-      // Only restart if this is not the admin editor and matches our store
-      if (!adminEditToken && storeIdRef.current && String(data.store_id) === String(storeIdRef.current)) {
+      console.log('totem_restart received:', data, 'myStore:', storeIdRef.current, 'editMode:', editModeRef.current);
+      // Only restart if this client is NOT in edit mode and the store matches
+      if (!editModeRef.current && storeIdRef.current && String(data.store_id) === String(storeIdRef.current)) {
         showRestartNotification(5);
       }
     });

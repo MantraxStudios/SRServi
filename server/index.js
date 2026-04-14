@@ -1075,9 +1075,8 @@ app.post('/api/public/:code/restart-all', async (req, res) => {
     }
     await pool.execute('UPDATE store_devices SET pending_restart = TRUE WHERE store_id = ?', [store.id]);
 
-    // Emit to store room + global fallback
+    // Emit only to the store's own room (clients registered via register_store)
     io.to(`store_${store.id}`).emit('totem_restart', { store_id: store.id });
-    io.emit('totem_restart', { store_id: store.id });
 
     res.json({ success: true });
   } catch (error) {
@@ -1184,6 +1183,9 @@ app.put('/api/public/:code/products/:id/complements', async (req, res) => {
     const productId = parseInt(req.params.id);
     const { ingredient_ids = [], extra_ids = [] } = req.body;
 
+    // Mark that this product has explicit complement configuration
+    await pool.execute('UPDATE products SET complements_configured = TRUE WHERE id = ?', [productId]);
+
     // Sync ingredients
     await pool.execute('DELETE FROM product_ingredients WHERE product_id = ?', [productId]);
     for (const ingId of ingredient_ids) {
@@ -1204,9 +1206,22 @@ app.put('/api/public/:code/products/:id/complements', async (req, res) => {
 app.get('/api/public/:code/products/:id/complements', async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
-    const [ings] = await pool.execute('SELECT ingredient_id FROM product_ingredients WHERE product_id = ?', [productId]);
-    const [exts] = await pool.execute('SELECT extra_id FROM product_extras WHERE product_id = ?', [productId]);
-    res.json({ ingredient_ids: ings.map(r => r.ingredient_id), extra_ids: exts.map(r => r.extra_id) });
+    const [prodRows] = await pool.execute(
+      'SELECT store_id, complements_configured FROM products WHERE id = ?', [productId]
+    );
+    if (prodRows.length === 0) return res.json({ ingredient_ids: [], extra_ids: [] });
+    const { store_id, complements_configured } = prodRows[0];
+
+    if (complements_configured) {
+      const [ings] = await pool.execute('SELECT ingredient_id FROM product_ingredients WHERE product_id = ?', [productId]);
+      const [exts] = await pool.execute('SELECT extra_id FROM product_extras WHERE product_id = ?', [productId]);
+      return res.json({ ingredient_ids: ings.map(r => r.ingredient_id), extra_ids: exts.map(r => r.extra_id) });
+    }
+
+    // Not yet configured — return all store ingredients/extras so editor shows all selected
+    const [ings] = await pool.execute('SELECT id FROM ingredients WHERE store_id = ?', [store_id]);
+    const [exts] = await pool.execute('SELECT id FROM extras WHERE store_id = ?', [store_id]);
+    res.json({ ingredient_ids: ings.map(r => r.id), extra_ids: exts.map(r => r.id) });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
