@@ -185,14 +185,24 @@ function Register() {
           </Link>
         </div>
 
-        <a
-          href="/api/download/launcher"
-          className="btn btn-primary btn-lg btn-full"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '12px', textDecoration: 'none' }}
-        >
-          <FontAwesomeIcon icon={faDownload} />
-          Descargar App Android
-        </a>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+          <a
+            href="/api/download/launcher"
+            className="btn btn-primary btn-lg btn-full"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none' }}
+          >
+            <FontAwesomeIcon icon={faDownload} />
+            Descargar App Android
+          </a>
+          <a
+            href="/api/download/tv"
+            className="btn btn-lg btn-full"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', background: '#1a1a1a', color: '#D4AF37', border: '1px solid #D4AF37' }}
+          >
+            <FontAwesomeIcon icon={faDownload} />
+            Descargar App TV Órdenes
+          </a>
+        </div>
       </div>
     </div>
   );

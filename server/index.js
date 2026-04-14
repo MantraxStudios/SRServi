@@ -4337,6 +4337,13 @@ app.get('/api/download/launcher', (req, res) => {
   res.sendFile(apkPath);
 });
 
+app.get('/api/download/tv', (req, res) => {
+  const apkPath = path.join(__serverDir, '../client/dist/SRServiTVOrdenes.apk');
+  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.setHeader('Content-Disposition', 'attachment; filename="SRServiTVOrdenes.apk"');
+  res.sendFile(apkPath);
+});
+
 // ==================== APK Releases ====================
 
 app.get('/api/superadmin/apks', authenticateSuperadminToken, async (req, res) => {
@@ -4485,7 +4492,9 @@ async function startServer() {
       };
       if (orderNumber) {
         extraData.customFields = [
-          { name: 'ORDEN: ', value: String(orderNumber), print: true }
+          { name: '************************', value: '', print: true },
+          { name: 'ORDEN:', value: String(orderNumber), print: true },
+          { name: '************************', value: '', print: true }
         ];
       }
       const response = await fetch(`${TUU_API}/Create`, {
