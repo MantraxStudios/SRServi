@@ -557,6 +557,17 @@ async function migrateTables() {
     }
 
     try {
+      const [catCols] = await pool.execute('SHOW COLUMNS FROM categories');
+      const catColNames = catCols.map(c => c.Field);
+      if (!catColNames.includes('sort_order')) {
+        await pool.execute('ALTER TABLE categories ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
+        console.log('✅ Columna sort_order agregada a categories');
+      }
+    } catch (migErr) {
+      console.error('❌ Error migrando categories:', migErr.message);
+    }
+
+    try {
       await pool.execute('SELECT 1 FROM inventory LIMIT 1');
       console.log('ℹ️ Tabla inventory ya existe');
     } catch (err) {
@@ -1115,10 +1126,20 @@ export async function getStoreEditPin(storeId) {
 
 export async function getCategories(storeId) {
   const [rows] = await pool.execute(
-    'SELECT * FROM categories WHERE store_id = ? ORDER BY name',
+    'SELECT * FROM categories WHERE store_id = ? ORDER BY sort_order ASC, name ASC',
     [storeId]
   );
   return rows;
+}
+
+export async function updateCategoriesOrder(storeId, categoryOrders) {
+  for (let i = 0; i < categoryOrders.length; i++) {
+    await pool.execute(
+      'UPDATE categories SET sort_order = ? WHERE id = ? AND store_id = ?',
+      [i, categoryOrders[i].id, storeId]
+    );
+  }
+  return true;
 }
 
 export async function createCategory(storeId, data) {

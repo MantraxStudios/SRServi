@@ -60,6 +60,7 @@ import {
   updateInventory,
   setInventoryStock,
   updateProductsOrder,
+  updateCategoriesOrder,
   createOrder,
   getOrders,
   updateUserSettings,
@@ -717,6 +718,18 @@ app.put('/api/public/:code/products/order', async (req, res) => {
     if (!req.body.products) return res.status(400).json({ error: 'products es requerido' });
     await updateProductsOrder(auth.store.id, req.body.products);
     emitProductUpdate(auth.store.id, 'products_reordered', { products: req.body.products });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.put('/api/public/:code/categories/order', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    if (!req.body.categories) return res.status(400).json({ error: 'categories es requerido' });
+    await updateCategoriesOrder(auth.store.id, req.body.categories);
+    io.to(`store_${auth.store.id}`).emit('category_updated');
+    io.emit('category_updated');
     res.json({ success: true });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });

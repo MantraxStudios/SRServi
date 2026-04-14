@@ -7845,6 +7845,33 @@ html body .store-container .store-product-card * {
   font-size: 12px;
 }
 
+/* Category tab drag wrapper */
+.cat-tab-sortable {
+  display: contents;
+}
+
+.cat-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  margin-right: 4px;
+  color: rgba(0,0,0,0.3);
+  cursor: grab;
+  flex-shrink: 0;
+  font-size: 11px;
+  touch-action: none;
+}
+
+.cat-drag-handle:active {
+  cursor: grabbing;
+}
+
+.category-tab.is-dragging {
+  opacity: 0.4;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
 /* Category tab inline edit */
 .cat-tab-edit-icons {
   display: inline-flex;

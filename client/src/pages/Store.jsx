@@ -55,6 +55,31 @@ import { PluginProvider } from '../context/PluginContext';
 
 const API = 'https://srservi2.srautomatic.com';
 
+function SortableCategoryTab({ catObj, activeCategory, onEdit, onDelete }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: catObj.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return (
+    <button
+      ref={setNodeRef}
+      style={style}
+      className={`category-tab${activeCategory === catObj.name ? ' active' : ''}${isDragging ? ' is-dragging' : ''}`}
+      data-category={catObj.name}
+    >
+      <span className="cat-drag-handle" {...attributes} {...listeners}>
+        <FontAwesomeIcon icon={faGripVertical} />
+      </span>
+      {catObj.name}
+      <span className="cat-tab-edit-icons">
+        <span onClick={(e) => { e.stopPropagation(); onEdit(catObj); }}><FontAwesomeIcon icon={faEdit} /></span>
+        <span onClick={(e) => { e.stopPropagation(); onDelete(catObj); }} className="cat-tab-del"><FontAwesomeIcon icon={faTrash} /></span>
+      </span>
+    </button>
+  );
+}
+
 function SortableProductCard({ product, onEdit, onDelete, currencySymbol }) {
   const {
     attributes,
@@ -166,6 +191,7 @@ function Store() {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
   const [editDragActiveId, setEditDragActiveId] = useState(null);
+  const [catDragActiveId, setCatDragActiveId] = useState(null);
   const [sessionPin, setSessionPin] = useState(null);
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [editingCat, setEditingCat] = useState(null);
@@ -1717,6 +1743,34 @@ function Store() {
     }
   };
 
+  const handleCatDragStart = (event) => {
+    setCatDragActiveId(event.active.id);
+  };
+
+  const handleCatDragEnd = async (event) => {
+    const { active, over } = event;
+    setCatDragActiveId(null);
+    if (!over || active.id === over.id || !store?.categories) return;
+
+    const allCats = [...store.categories];
+    const oldIndex = allCats.findIndex(c => c.id === active.id);
+    const newIndex = allCats.findIndex(c => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newCats = arrayMove(allCats, oldIndex, newIndex);
+    setStore(prev => ({ ...prev, categories: newCats }));
+
+    try {
+      await fetch(`/api/public/${code}/categories/order`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...getAuthBody(), categories: newCats.map(c => ({ id: c.id })) })
+      });
+    } catch (error) {
+      console.error('Error saving category order:', error);
+    }
+  };
+
   const openCatModal = (cat = null) => {
     setEditingCat(cat);
     setCatName(cat ? cat.name : '');
@@ -2091,25 +2145,40 @@ function Store() {
         >
           {t('all', lang)}
         </button>
-        {(store?.categories || []).map(c => c.name).map(cat => {
-          const catObj = (store?.categories || []).find(c => c.name === cat);
-          return (
-            <button
-              key={cat}
-              className={`category-tab${activeCategory === cat ? ' active' : ''}`}
-              data-category={cat}
-              onClick={() => !editMode && setActiveCategory(cat)}
+        {editMode ? (
+          <DndContext
+            sensors={editSensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleCatDragStart}
+            onDragEnd={handleCatDragEnd}
+          >
+            <SortableContext
+              items={(store?.categories || []).map(c => c.id)}
+              strategy={rectSortingStrategy}
             >
-              {cat}
-              {editMode && catObj && (
-                <span className="cat-tab-edit-icons">
-                  <span onClick={(e) => { e.stopPropagation(); openCatModal(catObj); }}><FontAwesomeIcon icon={faEdit} /></span>
-                  <span onClick={(e) => { e.stopPropagation(); deleteCat(catObj); }} className="cat-tab-del"><FontAwesomeIcon icon={faTrash} /></span>
-                </span>
-              )}
+              {(store?.categories || []).map(catObj => (
+                <SortableCategoryTab
+                  key={catObj.id}
+                  catObj={catObj}
+                  activeCategory={activeCategory}
+                  onEdit={openCatModal}
+                  onDelete={deleteCat}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        ) : (
+          (store?.categories || []).map(catObj => (
+            <button
+              key={catObj.id}
+              className={`category-tab${activeCategory === catObj.name ? ' active' : ''}`}
+              data-category={catObj.name}
+              onClick={() => setActiveCategory(catObj.name)}
+            >
+              {catObj.name}
             </button>
-          );
-        })}
+          ))
+        )}
         {editMode && (
           <button className="category-tab cat-tab-add" onClick={() => openCatModal()}>
             <FontAwesomeIcon icon={faFolderPlus} />
