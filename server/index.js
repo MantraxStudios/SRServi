@@ -4492,9 +4492,7 @@ async function startServer() {
       };
       if (orderNumber) {
         extraData.customFields = [
-          { name: '************************', value: '', print: true },
-          { name: 'ORDEN:', value: String(orderNumber), print: true },
-          { name: '************************', value: '', print: true }
+          { name: 'ORDEN:', value: String(orderNumber), print: true }
         ];
       }
       const response = await fetch(`${TUU_API}/Create`, {
