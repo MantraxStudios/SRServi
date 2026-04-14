@@ -4338,9 +4338,9 @@ app.get('/api/download/launcher', (req, res) => {
 });
 
 app.get('/api/download/tv', (req, res) => {
-  const apkPath = path.join(__serverDir, '../client/dist/SRServiTVOrdenes.apk');
+  const apkPath = path.join(__serverDir, '../client/public/SRServiTVOrder.apk');
   res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-  res.setHeader('Content-Disposition', 'attachment; filename="SRServiTVOrdenes.apk"');
+  res.setHeader('Content-Disposition', 'attachment; filename="SRServiTVOrder.apk"');
   res.sendFile(apkPath);
 });
 
