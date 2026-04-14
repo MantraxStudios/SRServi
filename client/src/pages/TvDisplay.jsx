@@ -9,7 +9,7 @@ const TV_CODE_KEY = 'srservi_tv_code';
 function TvDisplay() {
   const { code } = useParams();
   const navigate = useNavigate();
-  const [data, setData] = useState({ store: null, preparing: [], ready: [] });
+  const [data, setData] = useState({ store: null, preparing: [], ready: [], completed: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [time, setTime] = useState(new Date());
@@ -89,7 +89,7 @@ function TvDisplay() {
     );
   }
 
-  const { store, preparing, ready } = data;
+  const { store, preparing, ready, completed } = data;
   const formatTime = (d) => d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
   const formatDate = (d) => d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -163,6 +163,22 @@ function TvDisplay() {
             )}
           </div>
         </section>
+
+        {completed && completed.length > 0 && (
+          <section className="tv-column tv-column-completed" style={{ gridColumn: '1 / -1', maxHeight: '140px' }}>
+            <div className="tv-column-header" style={{ marginBottom: '10px', paddingBottom: '8px', borderColor: '#555' }}>
+              <FontAwesomeIcon icon={faCheckCircle} className="tv-column-icon" style={{ background: 'rgba(150,150,150,0.15)', color: '#888', fontSize: '14px', width: '28px', height: '28px', borderRadius: '8px' }} />
+              <h2 style={{ fontSize: '12px', color: '#666', letterSpacing: '2px' }}>ENTREGADOS</h2>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {completed.map((order) => (
+                <div key={order.id} style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', padding: '4px 12px', color: '#555', fontWeight: '700', fontSize: '14px', textDecoration: 'line-through' }}>
+                  {order.order_number}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
 
       {highlightOrder && (
@@ -278,6 +294,7 @@ function TvDisplay() {
           flex: 1;
           display: grid;
           grid-template-columns: 1fr 1fr;
+          grid-template-rows: 1fr auto;
           gap: 0;
           overflow: hidden;
         }

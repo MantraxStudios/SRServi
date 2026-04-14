@@ -734,30 +734,12 @@ function WorkerPanel() {
 
             {selectedOrder.status !== 'completed' && (
               <div className="worker-modal-actions">
-                {selectedOrder.status === 'pending' && (
-                  <button
-                    className="worker-action-btn preparing"
-                    onClick={() => updateOrderStatus(selectedOrder.id, 'preparing')}
-                  >
-                    <FontAwesomeIcon icon={faBox} /> Preparando
-                  </button>
-                )}
-                {selectedOrder.status === 'preparing' && (
-                  <button
-                    className="worker-action-btn ready"
-                    onClick={() => updateOrderStatus(selectedOrder.id, 'ready')}
-                  >
-                    <FontAwesomeIcon icon={faCheck} /> Listo
-                  </button>
-                )}
-                {selectedOrder.status === 'ready' && (
-                  <button
-                    className="worker-action-btn complete"
-                    onClick={() => updateOrderStatus(selectedOrder.id, 'completed')}
-                  >
-                    <FontAwesomeIcon icon={faCheck} /> Marcar Completado
-                  </button>
-                )}
+                <button
+                  className="worker-action-btn complete"
+                  onClick={() => updateOrderStatus(selectedOrder.id, 'completed')}
+                >
+                  <FontAwesomeIcon icon={faCheck} /> Completado
+                </button>
               </div>
             )}
 

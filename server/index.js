@@ -3183,10 +3183,14 @@ app.get('/api/store/:code/tv-orders', async (req, res) => {
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
 
     const [rows] = await pool.execute(
-      `SELECT id, order_number, status, total, created_at
+      `SELECT id, order_number, status, total, created_at, completed_at
        FROM orders
-       WHERE store_id = ? AND payment_process = 1 AND status IN ('preparing', 'ready')
-         AND DATE(created_at) = CURDATE()
+       WHERE store_id = ? AND payment_process = 1
+         AND (
+           (status IN ('preparing', 'ready') AND DATE(created_at) = CURDATE())
+           OR
+           (status = 'completed' AND completed_at >= NOW() - INTERVAL 5 MINUTE)
+         )
        ORDER BY created_at ASC`,
       [store.id]
     );
@@ -3209,6 +3213,11 @@ app.get('/api/store/:code/tv-orders', async (req, res) => {
         id: o.id,
         order_number: o.order_number,
         created_at: o.created_at
+      })),
+      completed: rows.filter(o => o.status === 'completed').map(o => ({
+        id: o.id,
+        order_number: o.order_number,
+        completed_at: o.completed_at
       }))
     });
   } catch (error) {
