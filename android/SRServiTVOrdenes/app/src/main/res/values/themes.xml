@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.SRServiTVOrdenes" parent="Theme.AppCompat.DayNight.NoActionBar" />
+</resources>
