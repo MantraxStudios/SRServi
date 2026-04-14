@@ -1022,6 +1022,12 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                     <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', opacity: 0.7 }}>Configúralos en Pago manual desde el panel admin</p>
                   </div>
                 )}
+                <button
+                  onClick={() => setShowPayModal(false)}
+                  style={{ width: '100%', marginTop: '12px', padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer' }}
+                >
+                  Cancelar
+                </button>
               </div>
             </div>
           </div>
