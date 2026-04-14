@@ -251,22 +251,22 @@ function TvDisplay() {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 24px;
-          padding: 32px 40px;
+          gap: 12px;
+          padding: 12px 20px;
           background: #000;
-          border-bottom: 4px solid var(--tv-accent);
+          border-bottom: 3px solid var(--tv-accent);
         }
 
         .tv-logo {
-          width: 80px;
-          height: 80px;
-          border-radius: 16px;
+          width: 44px;
+          height: 44px;
+          border-radius: 10px;
           object-fit: cover;
-          border: 3px solid var(--tv-accent);
+          border: 2px solid var(--tv-accent);
         }
 
         .tv-store-name {
-          font-size: 48px;
+          font-size: 22px;
           font-weight: 900;
           margin: 0;
           letter-spacing: 2px;
@@ -286,7 +286,7 @@ function TvDisplay() {
           display: flex;
           flex-direction: column;
           overflow: hidden;
-          padding: 40px 48px;
+          padding: 16px 20px;
         }
 
         .tv-column-preparing {
@@ -301,10 +301,10 @@ function TvDisplay() {
         .tv-column-header {
           display: flex;
           align-items: center;
-          gap: 20px;
-          padding-bottom: 24px;
-          margin-bottom: 32px;
-          border-bottom: 3px solid;
+          gap: 10px;
+          padding-bottom: 10px;
+          margin-bottom: 14px;
+          border-bottom: 2px solid;
         }
 
         .tv-column-preparing .tv-column-header {
@@ -316,19 +316,19 @@ function TvDisplay() {
         }
 
         .tv-column-header h2 {
-          font-size: 32px;
+          font-size: 15px;
           font-weight: 900;
           margin: 0;
-          letter-spacing: 3px;
+          letter-spacing: 2px;
           flex: 1;
           color: #fff;
         }
 
         .tv-column-icon {
-          font-size: 40px;
-          width: 70px;
-          height: 70px;
-          border-radius: 18px;
+          font-size: 18px;
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -348,11 +348,11 @@ function TvDisplay() {
         }
 
         .tv-column-count {
-          padding: 10px 24px;
-          border-radius: 14px;
-          font-size: 28px;
+          padding: 4px 12px;
+          border-radius: 8px;
+          font-size: 14px;
           font-weight: 900;
-          min-width: 70px;
+          min-width: 36px;
           text-align: center;
         }
 
@@ -369,8 +369,8 @@ function TvDisplay() {
         .tv-orders-grid {
           flex: 1;
           display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          gap: 16px;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 10px;
           overflow-y: auto;
           align-content: start;
         }
@@ -383,18 +383,18 @@ function TvDisplay() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 80px 20px;
+          padding: 40px 20px;
           color: #333;
-          font-size: 22px;
+          font-size: 14px;
           font-weight: 700;
-          gap: 20px;
+          gap: 10px;
         }
 
-        .tv-empty svg { font-size: 100px; opacity: 0.3; }
+        .tv-empty svg { font-size: 48px; opacity: 0.3; }
 
         .tv-order-card {
           aspect-ratio: 1;
-          border-radius: 20px;
+          border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -407,19 +407,19 @@ function TvDisplay() {
         .tv-order-preparing {
           background: #f59e0b;
           color: #000;
-          box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
+          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
           animation: tv-fade-in 0.5s ease-out backwards, tv-pulse 2s infinite;
         }
 
         .tv-order-ready {
           background: #22c55e;
           color: #000;
-          box-shadow: 0 0 40px rgba(34, 197, 94, 0.4);
+          box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
         }
 
         .tv-order-number {
-          font-size: 42px;
-          letter-spacing: -1px;
+          font-size: 20px;
+          letter-spacing: -0.5px;
           z-index: 2;
         }
 
@@ -442,7 +442,7 @@ function TvDisplay() {
 
         .tv-highlight {
           animation: tv-fade-in 0.5s ease-out, tv-bounce 0.8s infinite !important;
-          box-shadow: 0 0 60px rgba(34, 197, 94, 0.8);
+          box-shadow: 0 0 30px rgba(34, 197, 94, 0.8);
           transform: scale(1.05);
         }
 
@@ -461,33 +461,33 @@ function TvDisplay() {
         .tv-popup {
           background: linear-gradient(135deg, #34d399 0%, #22c55e 100%);
           color: #000;
-          padding: 60px 100px;
-          border-radius: 32px;
+          padding: 30px 60px;
+          border-radius: 24px;
           text-align: center;
           box-shadow: 0 20px 80px rgba(34, 197, 94, 0.6);
           animation: tv-popup-in 0.5s ease-out;
-          border: 6px solid var(--tv-accent);
+          border: 4px solid var(--tv-accent);
         }
 
         .tv-popup-icon {
-          font-size: 80px;
+          font-size: 48px;
           color: #000;
           animation: tv-bell-shake 1s ease-in-out infinite;
-          margin-bottom: 20px;
+          margin-bottom: 12px;
         }
 
         .tv-popup-label {
-          font-size: 28px;
+          font-size: 18px;
           font-weight: 900;
-          margin: 0 0 16px;
+          margin: 0 0 10px;
           letter-spacing: 4px;
         }
 
         .tv-popup-number {
-          font-size: 200px;
+          font-size: 120px;
           font-weight: 900;
           margin: 0;
-          letter-spacing: -8px;
+          letter-spacing: -4px;
           line-height: 1;
         }
       `}</style>
