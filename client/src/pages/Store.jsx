@@ -31,7 +31,8 @@ import {
   faGlobe,
   faClock,
   faQrcode,
-  faDownload
+  faDownload,
+  faInfoCircle
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -221,6 +222,9 @@ function Store() {
   const [restartingSending, setRestartingSending] = useState(false);
   const [pinOptionsModalOpen, setPinOptionsModalOpen] = useState(false);
   const [totemZoom, setTotemZoom] = useState(() => parseFloat(localStorage.getItem('srservi_totem_zoom') || '1'));
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
+  const infoPressTimerRef = useRef(null);
+  const infoPressTriggeredRef = useRef(false);
   const [posSelectModalOpen, setPosSelectModalOpen] = useState(false);
   const [posSelectList, setPosSelectList] = useState([]);
   const [posSelectLoading, setPosSelectLoading] = useState(false);
@@ -880,7 +884,7 @@ function Store() {
     setExtrasModalOpen(false);
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen;
 
   useEffect(() => {
     anyModalOpenRef.current = anyModalOpen;
@@ -1780,6 +1784,28 @@ function Store() {
     }
   };
 
+  const handleInfoPointerDown = (e) => {
+    e.stopPropagation();
+    infoPressTriggeredRef.current = false;
+    infoPressTimerRef.current = setTimeout(() => {
+      infoPressTriggeredRef.current = true;
+      setPinInput('');
+      setPinError('');
+      setPinModalOpen(true);
+    }, 2000);
+  };
+
+  const handleInfoPointerUp = (e) => {
+    e.stopPropagation();
+    if (infoPressTimerRef.current) {
+      clearTimeout(infoPressTimerRef.current);
+      infoPressTimerRef.current = null;
+    }
+    if (!infoPressTriggeredRef.current) {
+      setInfoModalOpen(true);
+    }
+  };
+
   const handlePinSubmit = async (pinValue) => {
     const pin = pinValue || pinInput;
     if (!pin || pin.length < 4) return;
@@ -2187,12 +2213,6 @@ function Store() {
     <div
       className="store-container"
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom }}
-      onTouchStart={handleLongPressStart}
-      onTouchEnd={handleLongPressEnd}
-      onTouchMove={handleLongPressEnd}
-      onMouseDown={handleLongPressStart}
-      onMouseUp={handleLongPressEnd}
-      onMouseLeave={handleLongPressEnd}
     >
       <header className="store-header">
         <div className="store-header-content">
@@ -2216,6 +2236,18 @@ function Store() {
       </header>
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
+
+      {/* Info button — tap: info modal | hold 2s: PIN modal */}
+      {!editMode && (
+        <button
+          onPointerDown={handleInfoPointerDown}
+          onPointerUp={handleInfoPointerUp}
+          onPointerLeave={() => { if (infoPressTimerRef.current) { clearTimeout(infoPressTimerRef.current); infoPressTimerRef.current = null; } }}
+          style={{ position: 'fixed', top: '8px', right: '48px', zIndex: 200, background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: '14px', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
+        >
+          <FontAwesomeIcon icon={faInfoCircle} />
+        </button>
+      )}
 
       {/* Language selector */}
       <div style={{ position: 'fixed', top: '8px', right: '8px', zIndex: 200 }}>
@@ -4313,18 +4345,32 @@ function Store() {
         </div>
       )}
 
-      {pinModalOpen && (
-        <div className="store-modal-overlay" onClick={() => setPinModalOpen(false)}>
-          <div className="store-pin-modal" onClick={(e) => e.stopPropagation()}>
-            <div style={{ marginBottom: '14px', padding: '10px', background: '#f5f5f5', borderRadius: '8px', fontSize: '11px', color: '#666', lineHeight: '1.6' }}>
-              <div style={{ fontWeight: '700', fontSize: '12px', color: '#333', marginBottom: '4px' }}>Info del Totem</div>
+      {infoModalOpen && (
+        <div className="store-modal-overlay" onClick={() => setInfoModalOpen(false)}>
+          <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '340px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FontAwesomeIcon icon={faInfoCircle} style={{ color: 'var(--store-accent)', fontSize: '18px' }} />
+                <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--store-primary)' }}>Info del Tótem</span>
+              </div>
+              <button onClick={() => setInfoModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: '18px' }}>&times;</button>
+            </div>
+            <div style={{ fontSize: '12px', color: '#555', lineHeight: '2', background: '#f8f8f8', borderRadius: '8px', padding: '12px' }}>
               <div><strong>Device UID:</strong> <span style={{ fontFamily: 'monospace', fontSize: '10px', wordBreak: 'break-all' }}>{deviceUid}</span></div>
               <div><strong>Tienda:</strong> {store?.store?.name || '-'} ({code})</div>
               <div><strong>Store ID:</strong> {store?.store?.id || '-'}</div>
-              <div><strong>Config:</strong> {selectedConfiguration?.name || 'Ninguna'} {selectedConfiguration?.id ? `(#${selectedConfiguration.id})` : ''}</div>
+              <div><strong>Config:</strong> {selectedConfiguration?.name || 'Ninguna'}{selectedConfiguration?.id ? ` (#${selectedConfiguration.id})` : ''}</div>
               <div><strong>Terminal:</strong> {selectedTerminalId || 'Ninguna'}</div>
-              <div><strong>Socket:</strong> {socketRef.current?.connected ? 'Conectado' : 'Desconectado'} {socketRef.current?.id ? `(${socketRef.current.id})` : ''}</div>
+              <div><strong>Socket:</strong> {socketRef.current?.connected ? '🟢 Conectado' : '🔴 Desconectado'}{socketRef.current?.id ? ` (${socketRef.current.id})` : ''}</div>
             </div>
+            <p style={{ fontSize: '11px', color: '#bbb', textAlign: 'center', marginTop: '12px', marginBottom: 0 }}>Mantén presionado el botón <FontAwesomeIcon icon={faInfoCircle} /> para acceder al PIN de edición</p>
+          </div>
+        </div>
+      )}
+
+      {pinModalOpen && (
+        <div className="store-modal-overlay" onClick={() => setPinModalOpen(false)}>
+          <div className="store-pin-modal" onClick={(e) => e.stopPropagation()}>
             <div style={{ textAlign: 'center', marginBottom: '16px' }}>
               <FontAwesomeIcon icon={faLock} style={{ fontSize: '28px', color: 'var(--store-accent)', marginBottom: '8px' }} />
               <h3 style={{ margin: 0, color: 'var(--store-primary)' }}>Ingresa el PIN</h3>
