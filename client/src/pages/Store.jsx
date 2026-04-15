@@ -1737,7 +1737,7 @@ function Store() {
 
   const formatPrice = (price) => {
     const num = Number(price);
-    if (selectedConfiguration?.hide_decimals) {
+    if (selectedConfiguration?.hide_decimals || store?.store?.hide_decimals) {
       const formatted = num.toFixed(2);
       return formatted.endsWith('.00') ? String(Math.round(num)) : formatted;
     }
@@ -2098,7 +2098,7 @@ function Store() {
   // Smart mode: reorder products putting top sellers first
   const getSmartProducts = () => {
     const prods = store?.products || [];
-    if (topSellingIds.length === 0) return prods;
+    if (topSellingIds.length === 0 || store?.store?.show_top_selling === false) return prods;
     const top = [];
     const rest = [];
     for (const p of prods) {
@@ -2113,7 +2113,7 @@ function Store() {
   const renderProductCard = (product) => {
     const isUnlimited = product.unlimited_stock === true || product.unlimited_stock === 1 || product.unlimited_stock === '1';
     const isOutOfStock = !isUnlimited && product.stock === 0;
-    const isTopSelling = topSellingIds.includes(product.id);
+    const isTopSelling = topSellingIds.includes(product.id) && store?.store?.show_top_selling !== false;
     return (
       <div
         key={product.id}
@@ -2522,7 +2522,7 @@ function Store() {
           >
             <div className="products-grid" style={{ padding: '0 16px' }}>
               {(store?.products || []).map(product => (
-                <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} currencySymbol={colors.currency.symbol} hideDecimals={!!selectedConfiguration?.hide_decimals} />
+                <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} />
               ))}
               {renderAddProductCard()}
             </div>

@@ -1022,7 +1022,7 @@ export async function createStore(userId, data) {
 }
 
 export async function updateStore(storeId, userId, data) {
-  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout } = data;
+  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling } = data;
 
   // Ensure columns exist
   try {
@@ -1030,6 +1030,8 @@ export async function updateStore(storeId, userId, data) {
     const names = cols.map(c => c.Field);
     if (!names.includes('smart_mode')) await pool.execute('ALTER TABLE stores ADD COLUMN smart_mode BOOLEAN DEFAULT TRUE');
     if (!names.includes('inactivity_timeout')) await pool.execute('ALTER TABLE stores ADD COLUMN inactivity_timeout INT DEFAULT 120');
+    if (!names.includes('hide_decimals')) await pool.execute('ALTER TABLE stores ADD COLUMN hide_decimals BOOLEAN DEFAULT FALSE');
+    if (!names.includes('show_top_selling')) await pool.execute('ALTER TABLE stores ADD COLUMN show_top_selling BOOLEAN DEFAULT TRUE');
   } catch { /* ignore */ }
 
   let query = `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ?`;
@@ -1058,6 +1060,16 @@ export async function updateStore(storeId, userId, data) {
   if (inactivity_timeout !== undefined) {
     query += `, inactivity_timeout = ?`;
     params.push(parseInt(inactivity_timeout) || 120);
+  }
+
+  if (hide_decimals !== undefined) {
+    query += `, hide_decimals = ?`;
+    params.push(hide_decimals ? 1 : 0);
+  }
+
+  if (show_top_selling !== undefined) {
+    query += `, show_top_selling = ?`;
+    params.push(show_top_selling ? 1 : 0);
   }
 
   query += ` WHERE id = ? AND user_id = ?`;

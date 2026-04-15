@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPalette, faCoins, faChevronDown, faCheck, faFire, faClock, faQrcode, faEye, faEyeSlash, faDownload } from '@fortawesome/free-solid-svg-icons';
+import { faPalette, faCoins, faChevronDown, faCheck, faFire, faClock, faQrcode, faEye, faEyeSlash, faDownload, faHashtag } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useNavigate, Link } from 'react-router-dom';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -32,7 +32,9 @@ function Settings() {
     currency_symbol: '$',
     currency_name: 'Dólar Estadounidense',
     smart_mode: true,
-    inactivity_timeout: 120
+    inactivity_timeout: 120,
+    hide_decimals: false,
+    show_top_selling: true
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -80,7 +82,9 @@ function Settings() {
         currency_symbol: selectedStore.currency_symbol || '$',
         currency_name: selectedStore.currency_name || 'Dólar Estadounidense',
         smart_mode: selectedStore.smart_mode ?? true,
-        inactivity_timeout: selectedStore.inactivity_timeout ?? 120
+        inactivity_timeout: selectedStore.inactivity_timeout ?? 120,
+        hide_decimals: selectedStore.hide_decimals ?? false,
+        show_top_selling: selectedStore.show_top_selling ?? true
       });
     }
   }, [selectedStore]);
@@ -267,6 +271,22 @@ function Settings() {
               </label>
             </div>
             <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '15px' }}>
+                <input
+                  type="checkbox"
+                  checked={!!formData.show_top_selling}
+                  onChange={(e) => setFormData(prev => ({ ...prev, show_top_selling: e.target.checked }))}
+                  style={{ width: '20px', height: '20px' }}
+                />
+                <div>
+                  <strong>Mostrar "Más vendidos"</strong>
+                  <div style={{ fontSize: '12px', color: '#888', fontWeight: '400' }}>
+                    Muestra el badge de llama 🔥 y reordena los productos más vendidos al inicio
+                  </div>
+                </div>
+              </label>
+            </div>
+            <div className="form-group">
               <label>
                 <FontAwesomeIcon icon={faClock} /> Tiempo de inactividad (segundos)
               </label>
@@ -283,6 +303,33 @@ function Settings() {
                   {Math.floor((formData.inactivity_timeout || 120) / 60)}m {(formData.inactivity_timeout || 120) % 60}s — despues de este tiempo sin uso aparece el modal "¿Sigues ahi?"
                 </span>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">
+              <FontAwesomeIcon icon={faHashtag} className="gap-2" />
+              Visualización de Precios
+            </div>
+          </div>
+          <div style={{ padding: '0 20px 20px' }}>
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '15px' }}>
+                <input
+                  type="checkbox"
+                  checked={!!formData.hide_decimals}
+                  onChange={(e) => setFormData(prev => ({ ...prev, hide_decimals: e.target.checked }))}
+                  style={{ width: '20px', height: '20px' }}
+                />
+                <div>
+                  <strong>Ocultar decimales (.00)</strong>
+                  <div style={{ fontSize: '12px', color: '#888', fontWeight: '400' }}>
+                    Los precios enteros se muestran sin centavos — ej: <strong>$1.200</strong> en vez de <strong>$1.200.00</strong>
+                  </div>
+                </div>
+              </label>
             </div>
           </div>
         </div>
