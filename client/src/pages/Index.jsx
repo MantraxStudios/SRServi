@@ -149,13 +149,38 @@ function Index() {
       const data = res.ok ? await res.json() : [];
       const allPos = (Array.isArray(data) ? data : []).map(d => ({ id: d.id, name: d.name, provider: d.provider }));
       setStorePos(allPos);
+
+      // If a terminal is already saved, go straight in without asking again
+      const savedId = localStorage.getItem(STORAGE_KEYS.lastTerminalId);
+      const savedProvider = localStorage.getItem(STORAGE_KEYS.lastTerminalProvider);
+      if (savedId) {
+        const stillExists = allPos.some(p => String(p.id) === String(savedId));
+        const isNonMpProvider = savedProvider && savedProvider !== 'mercadopago';
+        if (stillExists || isNonMpProvider || allPos.length === 0) {
+          if (fromClientPicker) persistStoreSelection(store.code);
+          navigate(`/store/${store.code}`);
+          return;
+        }
+      }
+
+      // Auto-select if only one POS available
       if (allPos.length === 1) {
         localStorage.setItem(STORAGE_KEYS.lastTerminalId, allPos[0].id);
         localStorage.setItem(STORAGE_KEYS.lastTerminalName, allPos[0].name);
         localStorage.setItem(STORAGE_KEYS.lastTerminalProvider, allPos[0].provider || '');
-        if (fromClientPicker) { persistStoreSelection(store.code); }
+        if (fromClientPicker) persistStoreSelection(store.code);
         navigate(`/store/${store.code}`);
+        return;
       }
+
+      // No POS configured → go straight in
+      if (allPos.length === 0) {
+        if (fromClientPicker) persistStoreSelection(store.code);
+        navigate(`/store/${store.code}`);
+        return;
+      }
+
+      // Multiple POS and none saved yet → show picker
     } catch { setStorePos([]); }
     finally { setLoadingPos(false); }
   };
@@ -231,7 +256,7 @@ function Index() {
             <FontAwesomeIcon icon={faArrowLeft} /> Volver
           </button>
           <h1 className="index-title">{pendingStore.name || 'Tienda'}</h1>
-          <p className="index-subtitle">Elige el POS que usaras en este totem</p>
+          <p className="index-subtitle">Elige el POS para este tótem (solo se pregunta una vez)</p>
           {loadingPos && <p style={{ textAlign: 'center', color: '#888' }}>Buscando POS...</p>}
           {!loadingPos && storePos.length === 0 && (
             <p style={{ textAlign: 'center', color: '#d97706', marginTop: '20px' }}>
