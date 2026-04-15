@@ -280,7 +280,7 @@ function Configurations() {
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
             <div className="modal-header">
               <h2 className="modal-title">
                 {editingConfig ? 'Editar Configuracion' : 'Nueva Configuracion'}
@@ -290,6 +290,8 @@ function Configurations() {
               </button>
             </div>
             <form onSubmit={handleSubmit}>
+              {error && <div className="error" style={{ marginBottom: '16px' }}>{error}</div>}
+
               <div className="form-group">
                 <label>Nombre</label>
                 <input
@@ -297,48 +299,12 @@ function Configurations() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
-                  placeholder="Ej: Pago con Tarjeta"
+                  placeholder="Ej: Tarjeta + Efectivo"
                 />
               </div>
 
               <div className="form-group">
-                <label>Opciones de Pedido</label>
-                <div className="flex flex-wrap gap-3">
-                  <div className={`checkbox-card ${formData.allow_serve ? 'active-green' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={formData.allow_serve}
-                      onChange={(e) => setFormData({ ...formData, allow_serve: e.target.checked })}
-                    />
-                    <span className="checkbox-card-icon"><FontAwesomeIcon icon={faUtensils} /></span>
-                    <div>
-                      <span className="font-semibold">Comer aquí</span>
-                      <span className="text-muted text-xs">Para servir en mesa</span>
-                    </div>
-                  </div>
-
-                  <div className={`checkbox-card ${formData.allow_takeout ? 'active-blue' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={formData.allow_takeout}
-                      onChange={(e) => setFormData({ ...formData, allow_takeout: e.target.checked })}
-                    />
-                    <span className="checkbox-card-icon"><FontAwesomeIcon icon={faShoppingBag} /></span>
-                    <div>
-                      <span className="font-semibold">Para llevar</span>
-                      <span className="text-muted text-xs">Servicio para llevar</span>
-                    </div>
-                  </div>
-                </div>
-                {!formData.allow_serve && !formData.allow_takeout && (
-                  <p className="validation-warning">
-                    <FontAwesomeIcon icon={faExclamationTriangle} /> Al menos una opción de pedido debe estar habilitada
-                  </p>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label>Descripcion (opcional)</label>
+                <label>Descripcion <span style={{ fontWeight: 400, color: '#aaa', fontSize: '12px' }}>(opcional)</span></label>
                 <input
                   type="text"
                   value={formData.description}
@@ -348,72 +314,167 @@ function Configurations() {
               </div>
 
               <div className="form-group">
-                <label>Metodos de Pago</label>
-                <div className="flex gap-4">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={formData.accept_cash}
-                      onChange={(e) => setFormData({ ...formData, accept_cash: e.target.checked })}
-                    />
-                    <FontAwesomeIcon icon={faMoneyBillWave} className="icon-success" />
-                    <span>Efectivo</span>
-                  </label>
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={formData.accept_card}
-                      onChange={(e) => setFormData({ ...formData, accept_card: e.target.checked })}
-                    />
-                    <FontAwesomeIcon icon={faCreditCard} className="icon-blue" />
-                    <span>Tarjeta</span>
-                  </label>
+                <label>Métodos de Pago</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(p => ({ ...p, accept_cash: !p.accept_cash }))}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px',
+                      borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
+                      border: `2px solid ${formData.accept_cash ? '#16a34a' : '#e0e0e0'}`,
+                      background: formData.accept_cash ? '#f0fdf4' : '#fafafa',
+                      color: formData.accept_cash ? '#15803d' : '#666'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '20px', color: formData.accept_cash ? '#16a34a' : '#aaa' }} />
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontWeight: '700', fontSize: '14px' }}>Efectivo</div>
+                      <div style={{ fontSize: '11px', opacity: 0.7 }}>Pago en caja</div>
+                    </div>
+                    {formData.accept_cash && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#16a34a' }} />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData(p => ({ ...p, accept_card: !p.accept_card }))}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px',
+                      borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
+                      border: `2px solid ${formData.accept_card ? '#2563eb' : '#e0e0e0'}`,
+                      background: formData.accept_card ? '#eff6ff' : '#fafafa',
+                      color: formData.accept_card ? '#1d4ed8' : '#666'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '20px', color: formData.accept_card ? '#2563eb' : '#aaa' }} />
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontWeight: '700', fontSize: '14px' }}>Tarjeta / POS</div>
+                      <div style={{ fontSize: '11px', opacity: 0.7 }}>Débito · Crédito · QR</div>
+                    </div>
+                    {formData.accept_card && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#2563eb' }} />}
+                  </button>
                 </div>
+                {!formData.accept_cash && !formData.accept_card && (
+                  <p className="validation-warning" style={{ marginTop: '8px' }}>
+                    <FontAwesomeIcon icon={faExclamationTriangle} /> Debes habilitar al menos un método de pago
+                  </p>
+                )}
               </div>
 
               <div className="form-group">
-                <label>Tipo de Store</label>
-                <div>
-                  <div className={`checkbox-card ${formData.is_minimarket ? 'active-gold' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={formData.is_minimarket}
-                      onChange={(e) => setFormData({ ...formData, is_minimarket: e.target.checked })}
-                    />
-                    <FontAwesomeIcon icon={faStore} className="icon-gold" />
-                    <span className="font-semibold">Minimarket</span>
-                    <span className="text-muted text-xs">(Interfaz simplificada con grid de productos)</span>
+                <label>Tipo de Pedido</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(p => ({ ...p, allow_serve: !p.allow_serve }))}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px',
+                      borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
+                      border: `2px solid ${formData.allow_serve ? '#16a34a' : '#e0e0e0'}`,
+                      background: formData.allow_serve ? '#f0fdf4' : '#fafafa',
+                      color: formData.allow_serve ? '#15803d' : '#666'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faUtensils} style={{ fontSize: '18px', color: formData.allow_serve ? '#16a34a' : '#aaa' }} />
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontWeight: '700', fontSize: '14px' }}>Comer aquí</div>
+                      <div style={{ fontSize: '11px', opacity: 0.7 }}>Servir en mesa</div>
+                    </div>
+                    {formData.allow_serve && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#16a34a' }} />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData(p => ({ ...p, allow_takeout: !p.allow_takeout }))}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px',
+                      borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
+                      border: `2px solid ${formData.allow_takeout ? '#2563eb' : '#e0e0e0'}`,
+                      background: formData.allow_takeout ? '#eff6ff' : '#fafafa',
+                      color: formData.allow_takeout ? '#1d4ed8' : '#666'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faShoppingBag} style={{ fontSize: '18px', color: formData.allow_takeout ? '#2563eb' : '#aaa' }} />
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontWeight: '700', fontSize: '14px' }}>Para llevar</div>
+                      <div style={{ fontSize: '11px', opacity: 0.7 }}>Pedido para llevar</div>
+                    </div>
+                    {formData.allow_takeout && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#2563eb' }} />}
+                  </button>
+                </div>
+                {!formData.allow_serve && !formData.allow_takeout && (
+                  <p className="validation-warning" style={{ marginTop: '8px' }}>
+                    <FontAwesomeIcon icon={faExclamationTriangle} /> Al menos una opción de pedido debe estar habilitada
+                  </p>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => setFormData(p => ({ ...p, is_minimarket: !p.is_minimarket }))}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px',
+                    borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
+                    border: `2px solid ${formData.is_minimarket ? '#D4AF37' : '#e0e0e0'}`,
+                    background: formData.is_minimarket ? '#fffbeb' : '#fafafa',
+                    color: formData.is_minimarket ? '#92400e' : '#666'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faStore} style={{ fontSize: '18px', color: formData.is_minimarket ? '#D4AF37' : '#aaa' }} />
+                  <span style={{ fontSize: '12px', fontWeight: '700' }}>Minimarket</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFormData(p => ({ ...p, is_active: !p.is_active }))}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px',
+                    borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
+                    border: `2px solid ${formData.is_active ? '#16a34a' : '#e0e0e0'}`,
+                    background: formData.is_active ? '#f0fdf4' : '#fafafa',
+                    color: formData.is_active ? '#15803d' : '#666'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faCheck} style={{ fontSize: '18px', color: formData.is_active ? '#16a34a' : '#aaa' }} />
+                  <span style={{ fontSize: '12px', fontWeight: '700' }}>Activo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFormData(p => ({ ...p, is_default: !p.is_default }))}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px',
+                    borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
+                    border: `2px solid ${formData.is_default ? '#7c3aed' : '#e0e0e0'}`,
+                    background: formData.is_default ? '#f5f3ff' : '#fafafa',
+                    color: formData.is_default ? '#6d28d9' : '#666'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faCheck} style={{ fontSize: '18px', color: formData.is_default ? '#7c3aed' : '#aaa' }} />
+                  <span style={{ fontSize: '12px', fontWeight: '700' }}>Predeterminada</span>
+                </button>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => setFormData(p => ({ ...p, hide_decimals: !p.hide_decimals }))}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', width: '100%',
+                    borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
+                    border: `2px solid ${formData.hide_decimals ? '#475569' : '#e0e0e0'}`,
+                    background: formData.hide_decimals ? '#f8fafc' : '#fafafa',
+                    color: formData.hide_decimals ? '#1e293b' : '#888'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faCreditCardAlt} style={{ fontSize: '16px', color: formData.hide_decimals ? '#475569' : '#ccc' }} />
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: '700', fontSize: '13px' }}>Ocultar decimales (.00)</div>
+                    <div style={{ fontSize: '11px', opacity: 0.65 }}>Los precios enteros no mostrarán centavos</div>
                   </div>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <div className="flex gap-4">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={formData.is_active}
-                      onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                    />
-                    <span>Activo</span>
-                  </label>
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={formData.is_default}
-                      onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
-                    />
-                    <span>Predeterminada</span>
-                  </label>
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={formData.hide_decimals}
-                      onChange={(e) => setFormData({ ...formData, hide_decimals: e.target.checked })}
-                    />
-                    <span>Ocultar decimales (.00)</span>
-                  </label>
-                </div>
+                  {formData.hide_decimals && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#475569' }} />}
+                </button>
               </div>
 
               <div className="form-actions">

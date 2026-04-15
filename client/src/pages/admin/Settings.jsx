@@ -246,6 +246,7 @@ function Settings() {
           </div>
         </div>
 
+        <form onSubmit={handleSubmit}>
         <div className="card">
           <div className="card-header">
             <div className="card-title">
@@ -342,7 +343,6 @@ function Settings() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit}>
             <div className="color-grid">
               <div className="form-group">
                 <label>Color Primario (Texto y Bordes)</label>
@@ -493,15 +493,17 @@ function Settings() {
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="btn btn-primary btn-full btn-lg"
-              disabled={loading}
-            >
-              {loading ? 'Guardando...' : 'Guardar Configuración'}
-            </button>
-          </form>
         </div>
+
+        <button
+          type="submit"
+          className="btn btn-primary btn-full btn-lg"
+          disabled={loading}
+          style={{ marginTop: '8px', marginBottom: '8px' }}
+        >
+          {loading ? 'Guardando...' : 'Guardar Configuración'}
+        </button>
+        </form>
 
         <div className="card" style={{ marginTop: '20px' }}>
           <div className="card-header">

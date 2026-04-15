@@ -39,6 +39,8 @@ import {
   DndContext,
   closestCenter,
   PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragOverlay,
@@ -218,6 +220,7 @@ function Store() {
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [restartingSending, setRestartingSending] = useState(false);
   const [pinOptionsModalOpen, setPinOptionsModalOpen] = useState(false);
+  const [totemZoom, setTotemZoom] = useState(() => parseFloat(localStorage.getItem('srservi_totem_zoom') || '1'));
   const [posSelectModalOpen, setPosSelectModalOpen] = useState(false);
   const [posSelectList, setPosSelectList] = useState([]);
   const [posSelectLoading, setPosSelectLoading] = useState(false);
@@ -1804,7 +1807,8 @@ function Store() {
   };
 
   const editSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
   );
 
   const handleEditDragStart = (event) => {
@@ -2182,7 +2186,7 @@ function Store() {
     <PluginProvider mode="store">
     <div
       className="store-container"
-      style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary }}
+      style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom }}
       onTouchStart={handleLongPressStart}
       onTouchEnd={handleLongPressEnd}
       onTouchMove={handleLongPressEnd}
@@ -4437,6 +4441,28 @@ function Store() {
               >
                 Editar tótem
               </button>
+              <div style={{ marginTop: '8px', padding: '14px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#fafafa' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)' }}>Zoom del tótem</span>
+                  <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--store-accent)', minWidth: '42px', textAlign: 'right' }}>{Math.round(totemZoom * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="20"
+                  max="200"
+                  step="5"
+                  value={Math.round(totemZoom * 100)}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) / 100;
+                    setTotemZoom(val);
+                    localStorage.setItem('srservi_totem_zoom', String(val));
+                  }}
+                  style={{ width: '100%', accentColor: 'var(--store-accent)' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#aaa', marginTop: '2px' }}>
+                  <span>20%</span><span>100%</span><span>200%</span>
+                </div>
+              </div>
               <button
                 onClick={() => setPinOptionsModalOpen(false)}
                 style={{ padding: '10px', borderRadius: '8px', border: 'none', background: 'transparent', color: '#999', fontSize: '14px', cursor: 'pointer' }}
