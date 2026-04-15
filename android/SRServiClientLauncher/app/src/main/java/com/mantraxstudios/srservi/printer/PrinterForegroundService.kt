@@ -74,6 +74,16 @@ class PrinterForegroundService : Service() {
         super.onDestroy()
     }
 
+    // Si la tarea es eliminada (swipe en recientes o cierre forzado),
+    // relanzar MainActivity para mantener el modo kiosk
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        val relaunchIntent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        }
+        startActivity(relaunchIntent)
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun autoConnect() {

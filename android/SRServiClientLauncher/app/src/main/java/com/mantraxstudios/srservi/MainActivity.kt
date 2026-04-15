@@ -199,17 +199,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupKioskMode() {
-        val prefs = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
-        val kioskEnabled = prefs.getBoolean("kiosk_mode", false)
-        if (!kioskEnabled) return
-
         val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val adminComponent = SRServiDeviceAdminReceiver.getComponentName(this)
 
         if (dpm.isDeviceOwnerApp(packageName)) {
+            // Modo mejorado con Device Owner: bloqueo total del sistema (lock task)
             dpm.setLockTaskPackages(adminComponent, arrayOf(packageName))
             startLockTask()
         }
+        // Sin Device Owner: el bloqueo se logra a través de:
+        //   - La app registrada como HOME launcher (botón Home vuelve a la app)
+        //   - onBackPressed bloqueado (ver abajo)
+        //   - excludeFromRecents en el manifest
+        //   - PrinterForegroundService.onTaskRemoved relanza la app si la cierran
+    }
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onBackPressed() {
+        // Bloquear el botón atrás para evitar salir de la app en modo kiosk.
+        // No llamar a super para que no haga nada.
     }
 
     override fun onResume() {
