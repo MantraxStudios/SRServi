@@ -1079,10 +1079,9 @@ async function verifyStoreAccess(code, body) {
 // Global restart all totems for a store
 app.post('/api/public/:code/restart-all', async (req, res) => {
   try {
-    const store = await getStoreByCode(req.params.code.toUpperCase());
-    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
-    const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || 'your-secret-key');
-    if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    const store = auth.store;
 
     // Mark all devices for this store as pending restart
     try {
@@ -2374,6 +2373,17 @@ app.get('/api/public/worker-payment-methods/:storeId', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+app.put('/api/public/:code/store-configurations/:id', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals } = req.body;
+    if (!name) return res.status(400).json({ error: 'Nombre es requerido' });
+    const configuration = await updateStoreConfiguration(parseInt(req.params.id), auth.store.id, { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals });
+    res.json(configuration);
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/public/store-configurations/:storeId', async (req, res) => {

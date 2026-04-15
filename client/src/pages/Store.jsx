@@ -1513,14 +1513,14 @@ function Store() {
   };
 
   useEffect(() => {
-    if (editMode && adminToken) fetchComplements();
+    if (editMode) fetchComplements();
   }, [editMode, adminToken]);
 
   const saveComplement = async () => {
     if (!complementForm.name.trim()) return;
     const type = complementForm.type;
     const formData = new FormData();
-    formData.append('token', adminToken);
+    formData.append(adminToken ? 'token' : 'pin', adminToken || sessionPin);
     formData.append('name', complementForm.name.trim());
     formData.append('price', parseFloat(complementForm.price) || 0);
     formData.append('category_id', complementForm.category_id || '');
@@ -1543,7 +1543,7 @@ function Store() {
     await fetch(`/api/public/${code}/${type === 'extra' ? 'extras' : 'ingredients'}/${id}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: adminToken })
+      body: JSON.stringify(getAuthBody())
     });
     fetchComplements();
     fetchStore();
@@ -2308,29 +2308,23 @@ function Store() {
             <button className={`store-editor-tab${editorTab === 'products' ? ' active' : ''}`} onClick={() => setEditorTab('products')}>
               <FontAwesomeIcon icon={faBox} /> Productos
             </button>
-            {adminToken && (
-              <button className={`store-editor-tab${editorTab === 'payment' ? ' active' : ''}`} onClick={() => setEditorTab('payment')}>
-                <FontAwesomeIcon icon={faCreditCard} /> Config. Pago
-              </button>
-            )}
-            {adminToken && (
-              <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => setEditorTab('complements')}>
-                <FontAwesomeIcon icon={faPlus} /> Complementos
-              </button>
-            )}
-            {adminToken && (
-              <button className="store-editor-tab" onClick={() => { loadStoreStyles(); setStyleEditorOpen(true); }}>
-                <FontAwesomeIcon icon={faPalette} /> Estilos
-              </button>
-            )}
+            <button className={`store-editor-tab${editorTab === 'payment' ? ' active' : ''}`} onClick={() => setEditorTab('payment')}>
+              <FontAwesomeIcon icon={faCreditCard} /> Config. Pago
+            </button>
+            <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => setEditorTab('complements')}>
+              <FontAwesomeIcon icon={faPlus} /> Complementos
+            </button>
+            <button className="store-editor-tab" onClick={() => { loadStoreStyles(); setStyleEditorOpen(true); }}>
+              <FontAwesomeIcon icon={faPalette} /> Estilos
+            </button>
           </div>
-          <button className="store-editor-done" onClick={() => { if (adminToken) { setShowRestartConfirm(true); } else { setEditMode(false); } }}>
+          <button className="store-editor-done" onClick={() => setShowRestartConfirm(true)}>
             Guardar
           </button>
         </div>
       )}
 
-      {editMode && editorTab === 'payment' && adminToken && (
+      {editMode && editorTab === 'payment' && (
         <div className="store-editor-complements">
           <div className="store-editor-comp-header">
             <span>Config. Pago — configuraciones de la tienda</span>
@@ -2353,10 +2347,10 @@ function Store() {
                           const v = e.target.checked;
                           setConfigurations(prev => prev.map(c => c.id === cfg.id ? { ...c, accept_cash: v } : c));
                           try {
-                            await fetch(`/api/store-configurations/${cfg.id}`, {
+                            await fetch(`/api/public/${code}/store-configurations/${cfg.id}`, {
                               method: 'PUT',
-                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-                              body: JSON.stringify({ ...cfg, accept_cash: v })
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ ...getAuthBody(), ...cfg, accept_cash: v })
                             });
                           } catch { /* ignore */ }
                         }}
@@ -2370,10 +2364,10 @@ function Store() {
                           const v = e.target.checked;
                           setConfigurations(prev => prev.map(c => c.id === cfg.id ? { ...c, accept_card: v } : c));
                           try {
-                            await fetch(`/api/store-configurations/${cfg.id}`, {
+                            await fetch(`/api/public/${code}/store-configurations/${cfg.id}`, {
                               method: 'PUT',
-                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-                              body: JSON.stringify({ ...cfg, accept_card: v })
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ ...getAuthBody(), ...cfg, accept_card: v })
                             });
                           } catch { /* ignore */ }
                         }}
@@ -2387,10 +2381,10 @@ function Store() {
                           const v = e.target.checked;
                           setConfigurations(prev => prev.map(c => c.id === cfg.id ? { ...c, allow_serve: v } : c));
                           try {
-                            await fetch(`/api/store-configurations/${cfg.id}`, {
+                            await fetch(`/api/public/${code}/store-configurations/${cfg.id}`, {
                               method: 'PUT',
-                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-                              body: JSON.stringify({ ...cfg, allow_serve: v })
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ ...getAuthBody(), ...cfg, allow_serve: v })
                             });
                           } catch { /* ignore */ }
                         }}
@@ -2404,10 +2398,10 @@ function Store() {
                           const v = e.target.checked;
                           setConfigurations(prev => prev.map(c => c.id === cfg.id ? { ...c, allow_takeout: v } : c));
                           try {
-                            await fetch(`/api/store-configurations/${cfg.id}`, {
+                            await fetch(`/api/public/${code}/store-configurations/${cfg.id}`, {
                               method: 'PUT',
-                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-                              body: JSON.stringify({ ...cfg, allow_takeout: v })
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ ...getAuthBody(), ...cfg, allow_takeout: v })
                             });
                           } catch { /* ignore */ }
                         }}
@@ -2424,7 +2418,7 @@ function Store() {
         </div>
       )}
 
-      {editMode && editorTab === 'complements' && adminToken && (
+      {editMode && editorTab === 'complements' && (
         <div className="store-editor-complements">
           <div className="store-editor-comp-header">
             <span>Extras ({extras.length})</span>
@@ -3810,7 +3804,7 @@ function Store() {
                 )}
               </div>
 
-              {adminToken && (
+              {editMode && (
                 <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px', marginTop: '4px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '8px', border: '2px solid', borderColor: prodForm.has_extras ? '#22c55e' : '#e0e0e0', background: prodForm.has_extras ? '#dcfce7' : '#fafafa' }}>
@@ -4302,7 +4296,7 @@ function Store() {
                     await fetch(`/api/public/${code}/restart-all`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ token: adminToken })
+                      body: JSON.stringify(getAuthBody())
                     });
                   } catch {}
                   setRestartingSending(false);
