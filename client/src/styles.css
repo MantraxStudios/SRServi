@@ -7872,6 +7872,12 @@ html body .store-container .store-product-card * {
   align-items: center;
   justify-content: center;
   font-size: 12px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.store-edit-drag-handle:active {
+  cursor: grabbing;
 }
 
 /* Category tab drag wrapper */
