@@ -20,7 +20,8 @@ function Configurations() {
     default_minimarket_terminal: '',
     default_terminal: '',
     allow_serve: true,
-    allow_takeout: true
+    allow_takeout: true,
+    hide_decimals: false
   });
   const [error, setError] = useState('');
 
@@ -105,7 +106,8 @@ function Configurations() {
         is_minimarket: false,
         default_minimarket_terminal: '',
         allow_serve: true,
-        allow_takeout: true
+        allow_takeout: true,
+        hide_decimals: false
       });
       fetchConfigurations();
     } catch (err) {
@@ -126,7 +128,8 @@ function Configurations() {
       default_minimarket_terminal: config.default_minimarket_terminal || '',
       default_terminal: config.default_terminal || '',
       allow_serve: Boolean(config.allow_serve),
-      allow_takeout: Boolean(config.allow_takeout)
+      allow_takeout: Boolean(config.allow_takeout),
+      hide_decimals: Boolean(config.hide_decimals)
     });
     setShowModal(true);
   };
@@ -164,7 +167,8 @@ function Configurations() {
       default_minimarket_terminal: '',
       default_terminal: '',
       allow_serve: true,
-      allow_takeout: true
+      allow_takeout: true,
+      hide_decimals: false
     });
     setShowModal(true);
   };
@@ -400,6 +404,14 @@ function Configurations() {
                       onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
                     />
                     <span>Predeterminada</span>
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={formData.hide_decimals}
+                      onChange={(e) => setFormData({ ...formData, hide_decimals: e.target.checked })}
+                    />
+                    <span>Ocultar decimales (.00)</span>
                   </label>
                 </div>
               </div>

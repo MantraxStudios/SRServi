@@ -719,7 +719,7 @@ function WorkerPanel() {
                         </div>
                         {item.selected_ingredients && item.selected_ingredients.length > 0 && (
                           <div className="worker-item-extras">
-                            <strong>Ingredientes:</strong> {Array.isArray(item.selected_ingredients) ? item.selected_ingredients.map(i => i.name || i).join(', ') : item.selected_ingredients}
+                            <strong>Complementos:</strong> {Array.isArray(item.selected_ingredients) ? item.selected_ingredients.map(i => i.name || i).join(', ') : item.selected_ingredients}
                           </div>
                         )}
                         {item.selected_extras && item.selected_extras.length > 0 && (

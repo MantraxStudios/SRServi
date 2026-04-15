@@ -80,7 +80,7 @@ function SortableCategoryTab({ catObj, activeCategory, onEdit, onDelete }) {
   );
 }
 
-function SortableProductCard({ product, onEdit, onDelete, currencySymbol }) {
+function SortableProductCard({ product, onEdit, onDelete, currencySymbol, hideDecimals }) {
   const {
     attributes,
     listeners,
@@ -134,7 +134,7 @@ function SortableProductCard({ product, onEdit, onDelete, currencySymbol }) {
         <div className="store-product-info">
           <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`}>
             <span className="store-product-name">{product.name}:</span>
-            <span className="store-product-price">{currencySymbol}{Number(product.price).toFixed(2)}</span>
+            <span className="store-product-price">{currencySymbol}{hideDecimals && Number(product.price).toFixed(2).endsWith('.00') ? String(Math.round(Number(product.price))) : Number(product.price).toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -217,6 +217,10 @@ function Store() {
   const [complementModal, setComplementModal] = useState(null);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [restartingSending, setRestartingSending] = useState(false);
+  const [pinOptionsModalOpen, setPinOptionsModalOpen] = useState(false);
+  const [posSelectModalOpen, setPosSelectModalOpen] = useState(false);
+  const [posSelectList, setPosSelectList] = useState([]);
+  const [posSelectLoading, setPosSelectLoading] = useState(false);
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
@@ -257,6 +261,9 @@ function Store() {
   const socketRef = useRef(null);
   const pendingOrderDataRef = useRef(null);
   const editModeRef = useRef(false);
+  const adminTokenRef = useRef(null);
+  const restartTriggeredRef = useRef(false);
+  const anyModalOpenRef = useRef(false);
 
   useEffect(() => {
     setActiveCategory('all');
@@ -266,6 +273,18 @@ function Store() {
   useEffect(() => {
     editModeRef.current = editMode;
   }, [editMode]);
+
+  useEffect(() => {
+    adminTokenRef.current = adminToken;
+  }, [adminToken]);
+
+  useEffect(() => {
+    anyModalOpenRef.current = anyModalOpen;
+    if (anyModalOpen && longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, [anyModalOpen]);
 
   useEffect(() => {
     pendingOrderDataRef.current = pendingOrderData;
@@ -425,7 +444,7 @@ function Store() {
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [paymentCancelled, setPaymentCancelled] = useState(false);
   const [cashPaymentSuccess, setCashPaymentSuccess] = useState(false);
-  const [paymentTimeLeft, setPaymentTimeLeft] = useState(90);
+  const [paymentTimeLeft, setPaymentTimeLeft] = useState(60);
   const [notification, setNotification] = useState(null);
   const [barcode, setBarcode] = useState('');
   const barcodeInputRef = useRef(null);
@@ -866,7 +885,7 @@ function Store() {
     setExtrasModalOpen(false);
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen;
 
   useEffect(() => {
     if (isTouchDevice) return;
@@ -1263,7 +1282,7 @@ function Store() {
         const result = await response.json();
         setPendingOrderData({ order: result.order || result, storeId });
         setPaymentWaiting(true);
-        setPaymentTimeLeft(90);
+        setPaymentTimeLeft(60);
 
       // --- Haulmer QR Nativo ---
       } else if (selectedMethod === 'haulmer_native') {
@@ -1625,7 +1644,11 @@ function Store() {
   const getAuthBody = () => adminToken ? { token: adminToken } : { pin: sessionPin };
 
   const showRestartNotification = (delaySec) => {
-    if (editModeRef.current) return;
+    // Never show on admin sessions (edit mode or any active admin token/URL param)
+    if (editModeRef.current || adminTokenRef.current || adminEditToken) return;
+    // Prevent multiple concurrent restart notifications
+    if (restartTriggeredRef.current) return;
+    restartTriggeredRef.current = true;
 
     // Inject keyframe animations once
     if (!document.getElementById('srservi-restart-styles')) {
@@ -1712,6 +1735,15 @@ function Store() {
     }, 1000);
   };
 
+  const formatPrice = (price) => {
+    const num = Number(price);
+    if (selectedConfiguration?.hide_decimals) {
+      const formatted = num.toFixed(2);
+      return formatted.endsWith('.00') ? String(Math.round(num)) : formatted;
+    }
+    return num.toFixed(2);
+  };
+
   const groupProductsByCategory = () => {
     if (!store?.products) return {};
 
@@ -1729,7 +1761,9 @@ function Store() {
 
   const handleLongPressStart = () => {
     if (editMode) return;
+    if (anyModalOpenRef.current) return;
     longPressTimerRef.current = setTimeout(() => {
+      if (anyModalOpenRef.current) return;
       setPinInput('');
       setPinError('');
       setPinModalOpen(true);
@@ -1755,10 +1789,10 @@ function Store() {
       const data = await response.json();
       if (data.valid) {
         setSessionPin(pin);
-        setEditMode(true);
         setPinModalOpen(false);
         setPinInput('');
         setPinError('');
+        setPinOptionsModalOpen(true);
       } else {
         setPinError('PIN incorrecto');
         setPinInput('');
@@ -2124,7 +2158,7 @@ function Store() {
         <div className="store-product-info">
           <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`}>
             <span className="store-product-name">{product.name}:</span>
-            <span className="store-product-price">{colors.currency.symbol}{Number(product.price).toFixed(2)}</span>
+            <span className="store-product-price">{colors.currency.symbol}{formatPrice(product.price)}</span>
           </div>
         </div>
       </div>
@@ -2488,7 +2522,7 @@ function Store() {
           >
             <div className="products-grid" style={{ padding: '0 16px' }}>
               {(store?.products || []).map(product => (
-                <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} currencySymbol={colors.currency.symbol} />
+                <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} currencySymbol={colors.currency.symbol} hideDecimals={!!selectedConfiguration?.hide_decimals} />
               ))}
               {renderAddProductCard()}
             </div>
@@ -2528,7 +2562,7 @@ function Store() {
         </div>
         <div className="cart-bar-right">
           <span className="cart-bar-total">
-            {colors.currency.symbol}{Number(getCartTotal()).toFixed(2)}
+            {colors.currency.symbol}{formatPrice(getCartTotal())}
           </span>
           <button
             onClick={() => setCartOpen(true)}
@@ -2731,7 +2765,7 @@ function Store() {
                           fontWeight: '600',
                           color: isSelected ? '#fff' : 'var(--store-accent)'
                         }}>
-                          +{colors.currency.symbol}{Number(ingredient.price).toFixed(2)}
+                          +{colors.currency.symbol}{formatPrice(ingredient.price)}
                         </div>
                       )}
                     </div>
@@ -2781,7 +2815,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  {selectedProduct.extras?.length > 0 ? <>{t('next', lang)} <FontAwesomeIcon icon={faChevronRight} /></> : (addingToCart ? t('addedExclaim', lang) : `${t('addBtn', lang)} - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`)}
+                  {selectedProduct.extras?.length > 0 ? <>{t('next', lang)} <FontAwesomeIcon icon={faChevronRight} /></> : (addingToCart ? t('addedExclaim', lang) : `${t('addBtn', lang)} - ${colors.currency.symbol}${formatPrice(calculateProductPrice() * productConfig.quantity)}`)}
                 </button>
               )}
             </div>
@@ -2938,7 +2972,7 @@ function Store() {
                           fontWeight: '600',
                           color: isSelected ? '#fff' : 'var(--store-accent)'
                         }}>
-                          +{colors.currency.symbol}{Number(extra.price).toFixed(2)}
+                          +{colors.currency.symbol}{formatPrice(extra.price)}
                         </div>
                       )}
                     </div>
@@ -2988,7 +3022,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  {addingToCart ? t('addedExclaim', lang) : `${t('addBtn', lang)} - ${colors.currency.symbol}${(calculateProductPrice() * productConfig.quantity).toFixed(2)}`}
+                  {addingToCart ? t('addedExclaim', lang) : `${t('addBtn', lang)} - ${colors.currency.symbol}${formatPrice(calculateProductPrice() * productConfig.quantity)}`}
                 </button>
               )}
             </div>
@@ -3060,7 +3094,7 @@ function Store() {
                         </button>
                       </div>
                       <div className="store-cart-item-total">
-                        {colors.currency.symbol}{Number(item.total).toFixed(2)}
+                        {colors.currency.symbol}{formatPrice(item.total)}
                       </div>
                     </div>
                   </div>
@@ -3071,12 +3105,12 @@ function Store() {
                 {appliedCoupon && (
                   <div className="store-cart-summary-row store-cart-discount">
                     <span>{t('discount', lang)} ({appliedCoupon.coupon_code})</span>
-                    <span>-{colors.currency.symbol}{Number(appliedCoupon.discount_total || 0).toFixed(2)}</span>
+                    <span>-{colors.currency.symbol}{formatPrice(appliedCoupon.discount_total || 0)}</span>
                   </div>
                 )}
                 <div className="store-cart-summary-total">
                   <span>{t('total', lang)}</span>
-                  <span>{colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}</span>
+                  <span>{colors.currency.symbol}{formatPrice(getFinalTotal())}</span>
                 </div>
                 <div className="store-cart-coupon">
                   <input
@@ -3125,7 +3159,7 @@ function Store() {
 
             <button onClick={handleCheckout} className="store-cart-checkout-btn store-glow-pulse">
               <FontAwesomeIcon icon={faCheck} />
-              {t('confirmOrder', lang)} - {colors.currency.symbol}{Number(getFinalTotal()).toFixed(2)}
+              {t('confirmOrder', lang)} - {colors.currency.symbol}{formatPrice(getFinalTotal())}
             </button>
 
             <button
@@ -3339,10 +3373,15 @@ function Store() {
             <p className="font-bold" style={{
               color: paymentTimeLeft <= 30 ? '#DC3545' : 'var(--store-primary)',
               fontSize: '24px',
-              marginBottom: '20px'
+              marginBottom: '10px'
             }}>
               {Math.floor(paymentTimeLeft / 60)}:{String(paymentTimeLeft % 60).padStart(2, '0')}
             </p>
+            {!qrPaymentUrl && (
+              <p style={{ fontSize: '13px', color: '#888', marginBottom: '16px', fontStyle: 'italic' }}>
+                Si desea cancelar debe hacerlo en el POS
+              </p>
+            )}
             {qrPaymentUrl && (
               <button
                 onClick={async () => {
@@ -3637,7 +3676,7 @@ function Store() {
               {t('thankYouPurchase', lang)}
             </h2>
             <p className="text-muted" style={{ marginBottom: '20px', fontSize: '16px' }}>
-              {t('pleaseWait', lang)}
+              Acércate a la caja para pagar en efectivo
             </p>
             {lastOrderNumber && (
               <div style={{
@@ -4360,6 +4399,108 @@ function Store() {
           </div>
         </div>
       )}
+      {/* PIN Options modal - shown after correct PIN entry */}
+      {pinOptionsModalOpen && (
+        <div className="store-modal-overlay" onClick={() => setPinOptionsModalOpen(false)}>
+          <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '320px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <FontAwesomeIcon icon={faLock} style={{ fontSize: '28px', color: 'var(--store-accent)', marginBottom: '8px' }} />
+              <h3 style={{ margin: 0, color: 'var(--store-primary)' }}>¿Qué deseas hacer?</h3>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button
+                onClick={async () => {
+                  setPinOptionsModalOpen(false);
+                  setPosSelectLoading(true);
+                  setPosSelectModalOpen(true);
+                  try {
+                    const res = await fetch(`/api/public/${code}/mercado-pago-terminals`);
+                    const mpList = res.ok ? await res.json() : [];
+                    const tuuRes = await fetch(`/api/tuu/provider?store_id=${store?.store?.id}&device_uid=${deviceUid}`);
+                    const tuuData = tuuRes.ok ? await tuuRes.json() : {};
+                    const list = [...(Array.isArray(mpList) ? mpList.map(mp => ({ ...mp, provider: 'mercadopago' })) : [])];
+                    if (tuuData.available) list.push({ id: tuuData.deviceUid || 'tuu', name: tuuData.name || 'TUU POS', provider: 'tuu' });
+                    setPosSelectList(list);
+                  } catch { setPosSelectList([]); }
+                  setPosSelectLoading(false);
+                }}
+                style={{ padding: '14px', borderRadius: '10px', border: '2px solid var(--store-primary)', background: '#fff', color: 'var(--store-primary)', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
+              >
+                Cambiar POS
+              </button>
+              <button
+                onClick={() => {
+                  setPinOptionsModalOpen(false);
+                  setEditMode(true);
+                }}
+                style={{ padding: '14px', borderRadius: '10px', border: '2px solid var(--store-accent)', background: 'var(--store-primary)', color: 'var(--store-secondary)', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
+              >
+                Editar tótem
+              </button>
+              <button
+                onClick={() => setPinOptionsModalOpen(false)}
+                style={{ padding: '10px', borderRadius: '8px', border: 'none', background: 'transparent', color: '#999', fontSize: '14px', cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POS selection modal - from within the totem */}
+      {posSelectModalOpen && (
+        <div className="store-modal-overlay" onClick={() => setPosSelectModalOpen(false)}>
+          <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, color: 'var(--store-primary)' }}>Seleccionar POS</h3>
+              <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#888' }}>Elige el terminal de pago para este tótem</p>
+            </div>
+            {posSelectLoading ? (
+              <p style={{ textAlign: 'center', color: '#888', padding: '20px 0' }}>Buscando terminales...</p>
+            ) : posSelectList.length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#d97706', padding: '20px 0' }}>No hay terminales disponibles</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
+                {posSelectList.map(pos => (
+                  <button
+                    key={pos.id}
+                    onClick={() => {
+                      localStorage.setItem('srservi_last_terminal_id', pos.id);
+                      localStorage.setItem('srservi_last_terminal_name', pos.name || '');
+                      localStorage.setItem('srservi_last_terminal_provider', pos.provider || '');
+                      setSelectedTerminalId(String(pos.id));
+                      if (pos.provider === 'tuu' && tuuProvider) {
+                        setTuuProvider({ ...tuuProvider, deviceUid: pos.id });
+                      }
+                      setPosSelectModalOpen(false);
+                    }}
+                    style={{
+                      padding: '12px 16px', borderRadius: '10px',
+                      border: `2px solid ${String(selectedTerminalId) === String(pos.id) ? 'var(--store-primary)' : '#e0e0e0'}`,
+                      background: String(selectedTerminalId) === String(pos.id) ? 'var(--store-accent)' : '#fff',
+                      color: 'var(--store-primary)', fontSize: '14px', fontWeight: '600',
+                      cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                    }}
+                  >
+                    <span>{pos.name}</span>
+                    <span style={{ fontSize: '12px', color: '#888', fontWeight: '400' }}>
+                      {pos.provider === 'mercadopago' ? 'MercadoPago' : 'TUU'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => setPosSelectModalOpen(false)}
+              style={{ width: '100%', padding: '10px', borderRadius: '8px', border: 'none', background: 'transparent', color: '#999', fontSize: '14px', cursor: 'pointer' }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Welcome modal - language selection with explosion animation */}
       {welcomeModalOpen && (
         <div className="store-modal-overlay" style={{ zIndex: 99999, transition: 'opacity 0.4s', opacity: welcomeClosing ? 0 : 1 }}>

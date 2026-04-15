@@ -675,6 +675,11 @@ async function migrateTables() {
       } else {
         console.log('ℹ️ Tabla store_configurations ya tiene columna allow_takeout');
       }
+      if (!configColNames.includes('hide_decimals')) {
+        console.log('⚠️ Agregando columna hide_decimals a tabla store_configurations...');
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN hide_decimals BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna hide_decimals agregada a store_configurations');
+      }
     } catch (migErr) {
       if (migErr.message.includes('Duplicate column')) {
         console.log('ℹ️ Columnas ya existen en store_configurations');
@@ -1277,18 +1282,18 @@ export async function getStoreConfigurationById(configId, storeId) {
 }
 
 export async function createStoreConfiguration(storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout } = data;
-  
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals } = data;
+
   if (is_default) {
     await pool.execute(
       'UPDATE store_configurations SET is_default = FALSE WHERE store_id = ?',
       [storeId]
     );
   }
-  
+
   const [result] = await pool.execute(
-    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false]
+    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, hide_decimals === true]
   );
   return {
     id: result.insertId,
@@ -1302,23 +1307,24 @@ export async function createStoreConfiguration(storeId, data) {
     is_minimarket: is_minimarket === true,
     default_minimarket_terminal: default_minimarket_terminal || null,
     allow_serve: allow_serve !== false,
-    allow_takeout: allow_takeout !== false
+    allow_takeout: allow_takeout !== false,
+    hide_decimals: hide_decimals === true
   };
 }
 
 export async function updateStoreConfiguration(configId, storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout } = data;
-  
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals } = data;
+
   if (is_default) {
     await pool.execute(
       'UPDATE store_configurations SET is_default = FALSE WHERE store_id = ?',
       [storeId]
     );
   }
-  
+
   await pool.execute(
-    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ?, allow_serve = ?, allow_takeout = ? WHERE id = ? AND store_id = ?',
-    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, configId, storeId]
+    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ?, allow_serve = ?, allow_takeout = ?, hide_decimals = ? WHERE id = ? AND store_id = ?',
+    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, hide_decimals === true, configId, storeId]
   );
   return {
     id: configId,
@@ -1332,7 +1338,8 @@ export async function updateStoreConfiguration(configId, storeId, data) {
     is_minimarket: is_minimarket === true,
     default_minimarket_terminal: default_minimarket_terminal || null,
     allow_serve: allow_serve !== false,
-    allow_takeout: allow_takeout !== false
+    allow_takeout: allow_takeout !== false,
+    hide_decimals: hide_decimals === true
   };
 }
 
