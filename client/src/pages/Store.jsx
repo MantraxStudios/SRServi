@@ -279,14 +279,6 @@ function Store() {
   }, [adminToken]);
 
   useEffect(() => {
-    anyModalOpenRef.current = anyModalOpen;
-    if (anyModalOpen && longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  }, [anyModalOpen]);
-
-  useEffect(() => {
     pendingOrderDataRef.current = pendingOrderData;
   }, [pendingOrderData]);
 
@@ -886,6 +878,14 @@ function Store() {
   };
 
   const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen;
+
+  useEffect(() => {
+    anyModalOpenRef.current = anyModalOpen;
+    if (anyModalOpen && longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, [anyModalOpen]);
 
   useEffect(() => {
     if (isTouchDevice) return;
