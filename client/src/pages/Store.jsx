@@ -4733,8 +4733,8 @@ function Store() {
                   WebkitBackdropFilter: 'blur(16px)',
                   border: '1.5px solid rgba(212,175,55,0.6)',
                   borderRadius: 50,
-                  padding: '0 20px 0 10px',
-                  height: 58,
+                  padding: '0 26px 0 10px',
+                  height: 70,
                   cursor: 'pointer',
                   boxShadow: '0 0 0 4px rgba(212,175,55,0.08), 0 8px 32px rgba(0,0,0,0.5)',
                   animation: 'ss-glow 2.5s ease-in-out infinite',
@@ -4749,7 +4749,7 @@ function Store() {
                 </div>
 
                 {/* Texto subrayado dorado */}
-                <span style={{ fontSize: 'clamp(14px,1.9vw,17px)', fontWeight: '700', color: '#fff', letterSpacing: '0.4px', borderBottom: '2px solid #D4AF37', paddingBottom: 2, whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 'clamp(18px,3vw,28px)', fontWeight: '800', color: '#fff', letterSpacing: '0.4px', borderBottom: '2.5px solid #D4AF37', paddingBottom: 3, whiteSpace: 'nowrap' }}>
                   Toca aquí para continuar
                 </span>
 
