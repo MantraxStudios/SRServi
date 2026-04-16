@@ -497,7 +497,13 @@ function Store() {
     const timeout = screensaverCfg.timeout_seconds * 1000;
     const startTimer = () => {
       clearTimeout(screensaverTimerRef.current);
-      screensaverTimerRef.current = setTimeout(() => setScreensaverActive(true), timeout);
+      screensaverTimerRef.current = setTimeout(() => {
+        setScreensaverActive(true);
+        // Enter fullscreen when screensaver activates
+        const el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      }, timeout);
     };
     const onActivity = () => {
       if (screensaverActive) return; // handled by overlay click
@@ -4662,40 +4668,80 @@ function Store() {
       {/* Screensaver overlay */}
       {screensaverActive && screensaverCfg?.enabled && (
         <div
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99990, background: '#000', cursor: 'pointer' }}
-          onClick={() => { setScreensaverActive(false); clearTimeout(screensaverTimerRef.current); }}
-          onTouchStart={() => { setScreensaverActive(false); clearTimeout(screensaverTimerRef.current); }}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99990, background: '#000', display: 'flex', flexDirection: 'column' }}
         >
-          {/* Media or logo */}
-          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '24px' }}>
+          {/* Content area — fills everything above footer */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '24px', padding: '32px' }}>
             {screensaverCfg.media_url ? (
               <img
                 src={API + screensaverCfg.media_url}
                 alt="Salva pantallas"
-                style={{ maxWidth: '80vw', maxHeight: '60vh', objectFit: 'contain', borderRadius: '12px' }}
+                style={{ maxWidth: '90vw', maxHeight: '65vh', objectFit: 'contain', borderRadius: '12px' }}
               />
             ) : screensaverCfg.store_logo ? (
               <img
                 src={API + screensaverCfg.store_logo}
                 alt={screensaverCfg.store_name}
-                style={{ maxWidth: '240px', maxHeight: '240px', objectFit: 'contain', animation: 'ss-float 4s ease-in-out infinite' }}
+                style={{ maxWidth: '320px', maxHeight: '320px', objectFit: 'contain', animation: 'ss-float 4s ease-in-out infinite' }}
               />
             ) : (
-              <div style={{ fontSize: '80px', animation: 'ss-float 4s ease-in-out infinite' }}>🏪</div>
+              <div style={{ fontSize: '100px', animation: 'ss-float 4s ease-in-out infinite' }}>🏪</div>
             )}
 
             {/* Nombre de tienda — siempre visible */}
             {screensaverCfg.store_name && (
-              <div style={{ fontSize: 'clamp(22px, 5vw, 48px)', fontWeight: '900', color: '#fff', letterSpacing: '-1px', textAlign: 'center', textShadow: '0 2px 24px rgba(212,175,55,0.4)', padding: '0 32px', lineHeight: 1.1 }}>
+              <div style={{ fontSize: 'clamp(28px, 6vw, 64px)', fontWeight: '900', color: '#fff', letterSpacing: '-1px', textAlign: 'center', textShadow: '0 2px 24px rgba(212,175,55,0.5)', padding: '0 32px', lineHeight: 1.1 }}>
                 {screensaverCfg.store_name}
               </div>
             )}
 
-            <div style={{ position: 'absolute', bottom: '32px', fontSize: '13px', color: 'rgba(255,255,255,0.35)', fontWeight: '600', letterSpacing: '1px', textTransform: 'uppercase' }}>
-              Toca para continuar
+            {/* Toca para hacer tu pedido */}
+            <div style={{ fontSize: 'clamp(22px, 5vw, 52px)', fontWeight: '900', color: '#D4AF37', textAlign: 'center', textShadow: '0 0 32px rgba(212,175,55,0.6)', letterSpacing: '0px', padding: '0 24px', lineHeight: 1.2, animation: 'ss-pulse 2.5s ease-in-out infinite' }}>
+              Toca para hacer tu pedido
             </div>
           </div>
-          <style>{`@keyframes ss-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }`}</style>
+
+          {/* Footer CTA — big, unmissable, safe click zone */}
+          <div
+            onClick={() => {
+              setScreensaverActive(false);
+              clearTimeout(screensaverTimerRef.current);
+              if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              setScreensaverActive(false);
+              clearTimeout(screensaverTimerRef.current);
+              if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+            }}
+            style={{
+              flexShrink: 0,
+              background: 'linear-gradient(135deg, #D4AF37 0%, #f5d97a 50%, #D4AF37 100%)',
+              padding: '28px 32px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              boxShadow: '0 -4px 32px rgba(212,175,55,0.5)',
+            }}
+          >
+            <div style={{ fontSize: 'clamp(28px, 5vw, 44px)', animation: 'ss-bounce 1.2s ease-in-out infinite' }}>
+              &#8595;
+            </div>
+            <div style={{ fontSize: 'clamp(18px, 3.5vw, 32px)', fontWeight: '900', color: '#000', letterSpacing: '1px', textAlign: 'center', textTransform: 'uppercase' }}>
+              Toca aquí para continuar
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes ss-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
+            @keyframes ss-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.75;transform:scale(1.04)} }
+            @keyframes ss-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(8px)} }
+          `}</style>
         </div>
       )}
 
