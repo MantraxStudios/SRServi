@@ -260,6 +260,11 @@ function Store() {
   const [inactivityCountdown, setInactivityCountdown] = useState(10);
   const inactivityTimerRef = useRef(null);
   const inactivityCountdownRef = useRef(null);
+
+  // Screensaver
+  const [screensaverCfg, setScreensaverCfg] = useState(null);
+  const [screensaverActive, setScreensaverActive] = useState(false);
+  const screensaverTimerRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
   const storeIdRef = useRef(null);
@@ -476,6 +481,36 @@ function Store() {
     }, 20000);
     return () => clearTimeout(autoCloseTimer);
   }, [cashPaymentSuccess]);
+
+  // Fetch screensaver config (public, no auth needed)
+  useEffect(() => {
+    if (!code) return;
+    fetch(`${API}/api/public/${code}/screensaver`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setScreensaverCfg(data); })
+      .catch(() => {});
+  }, [code]);
+
+  // Screensaver timer — independent from the inactivity-reload timer
+  useEffect(() => {
+    if (!screensaverCfg?.enabled || !screensaverCfg?.timeout_seconds) return;
+    const timeout = screensaverCfg.timeout_seconds * 1000;
+    const startTimer = () => {
+      clearTimeout(screensaverTimerRef.current);
+      screensaverTimerRef.current = setTimeout(() => setScreensaverActive(true), timeout);
+    };
+    const onActivity = () => {
+      if (screensaverActive) return; // handled by overlay click
+      startTimer();
+    };
+    const events = ['touchstart', 'mousedown', 'keydown', 'scroll', 'mousemove'];
+    events.forEach(e => document.addEventListener(e, onActivity, { passive: true }));
+    startTimer();
+    return () => {
+      events.forEach(e => document.removeEventListener(e, onActivity));
+      clearTimeout(screensaverTimerRef.current);
+    };
+  }, [screensaverCfg, screensaverActive]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -4621,6 +4656,46 @@ function Store() {
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Screensaver overlay */}
+      {screensaverActive && screensaverCfg?.enabled && (
+        <div
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99990, background: '#000', cursor: 'pointer' }}
+          onClick={() => { setScreensaverActive(false); clearTimeout(screensaverTimerRef.current); }}
+          onTouchStart={() => { setScreensaverActive(false); clearTimeout(screensaverTimerRef.current); }}
+        >
+          {/* Media or logo */}
+          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '28px' }}>
+            {screensaverCfg.media_url ? (
+              <img
+                src={API + screensaverCfg.media_url}
+                alt="Salva pantallas"
+                style={{ maxWidth: '80vw', maxHeight: '70vh', objectFit: 'contain', borderRadius: '12px' }}
+              />
+            ) : (
+              <>
+                {screensaverCfg.store_logo && (
+                  <img
+                    src={API + screensaverCfg.store_logo}
+                    alt={screensaverCfg.store_name}
+                    style={{ maxWidth: '260px', maxHeight: '260px', objectFit: 'contain', animation: 'ss-float 4s ease-in-out infinite' }}
+                  />
+                )}
+                {!screensaverCfg.store_logo && (
+                  <div style={{ fontSize: '80px', animation: 'ss-float 4s ease-in-out infinite' }}>🏪</div>
+                )}
+                <div style={{ fontSize: 'clamp(22px, 5vw, 48px)', fontWeight: '900', color: '#fff', letterSpacing: '-1px', textAlign: 'center', textShadow: '0 2px 24px rgba(212,175,55,0.35)', padding: '0 24px' }}>
+                  {screensaverCfg.store_name}
+                </div>
+              </>
+            )}
+            <div style={{ position: 'absolute', bottom: '32px', fontSize: '13px', color: 'rgba(255,255,255,0.35)', fontWeight: '600', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              Toca para continuar
+            </div>
+          </div>
+          <style>{`@keyframes ss-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }`}</style>
         </div>
       )}
 

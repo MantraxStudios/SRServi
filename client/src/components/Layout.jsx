@@ -28,6 +28,7 @@ import {
   faPuzzlePiece,
   faGlobe,
   faTabletAlt,
+  faTv,
   faTicketAlt,
   faBookOpen,
   faCashRegister,
@@ -359,6 +360,10 @@ function Layout() {
                         <NavLink to="/admin/devices" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faTabletAlt} />
                           <span>Dispositivos</span>
+                        </NavLink>
+                        <NavLink to="/admin/screensaver" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                          <FontAwesomeIcon icon={faTv} />
+                          <span>Salva Pantallas</span>
                         </NavLink>
                       </div>
                     )}

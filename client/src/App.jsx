@@ -31,6 +31,7 @@ import PluginPage from './pages/admin/PluginPage';
 import Workshop from './pages/admin/Workshop';
 import Devices from './pages/admin/Devices';
 import Tickets from './pages/admin/Tickets';
+import Screensaver from './pages/admin/Screensaver';
 import Tutoriales from './pages/admin/Tutoriales';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
@@ -181,6 +182,7 @@ function App() {
             <Route path="plugins/:pluginId" element={<PluginPage />} />
             <Route path="workshop" element={<Workshop />} />
             <Route path="devices" element={<Devices />} />
+            <Route path="screensaver" element={<Screensaver />} />
             <Route path="tickets" element={<Tickets />} />
             <Route path="tutoriales" element={<Tutoriales />} />
             <Route path="settings" element={<Settings />} />

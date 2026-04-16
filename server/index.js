@@ -3722,6 +3722,78 @@ app.get('/api/mercado-pago-terminals/:id/status', authenticateToken, async (req,
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// ==================== Screensaver API ====================
+
+let _screensaverTableReady = false;
+async function ensureScreensaverTable() {
+  if (_screensaverTableReady) return;
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS screensaver_config (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      enabled BOOLEAN DEFAULT FALSE,
+      media_url VARCHAR(500) DEFAULT NULL,
+      timeout_seconds INT DEFAULT 60,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_screensaver_user (user_id)
+    )
+  `);
+  _screensaverTableReady = true;
+}
+
+// Get screensaver config (admin)
+app.get('/api/screensaver/config', authenticateToken, async (req, res) => {
+  try {
+    await ensureScreensaverTable();
+    const [rows] = await pool.execute('SELECT * FROM screensaver_config WHERE user_id = ?', [req.user.id]);
+    res.json(rows[0] || { enabled: false, media_url: null, timeout_seconds: 60 });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Save screensaver config (admin, with optional image upload)
+app.post('/api/screensaver/config', authenticateToken, upload.single('media'), async (req, res) => {
+  try {
+    await ensureScreensaverTable();
+    const enabled = req.body.enabled === 'true' || req.body.enabled === true;
+    const timeout_seconds = parseInt(req.body.timeout_seconds) || 60;
+    let media_url = req.body.media_url || null;
+    if (req.file) media_url = '/uploads/' + req.file.filename;
+    await pool.execute(
+      `INSERT INTO screensaver_config (user_id, enabled, media_url, timeout_seconds)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), media_url = COALESCE(VALUES(media_url), media_url), timeout_seconds = VALUES(timeout_seconds), updated_at = NOW()`,
+      [req.user.id, enabled, media_url, timeout_seconds]
+    );
+    const [rows] = await pool.execute('SELECT * FROM screensaver_config WHERE user_id = ?', [req.user.id]);
+    res.json(rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Delete screensaver media (admin)
+app.delete('/api/screensaver/media', authenticateToken, async (req, res) => {
+  try {
+    await ensureScreensaverTable();
+    await pool.execute('UPDATE screensaver_config SET media_url = NULL, updated_at = NOW() WHERE user_id = ?', [req.user.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Public endpoint: get screensaver for a store code (checks premium)
+app.get('/api/public/:code/screensaver', async (req, res) => {
+  try {
+    await ensureScreensaverTable();
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const plan = await getUserPlan(store.user_id);
+    const isPremium = plan && plan.plan_name && plan.plan_name !== 'Gratis';
+    if (!isPremium) return res.json({ enabled: false });
+    const [rows] = await pool.execute('SELECT * FROM screensaver_config WHERE user_id = ?', [store.user_id]);
+    const cfg = rows[0] || { enabled: false, media_url: null, timeout_seconds: 60 };
+    res.json({ ...cfg, store_logo: store.logo_url || null, store_name: store.name });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ==================== Support Tickets API ====================
 
 // Ensure tickets tables
