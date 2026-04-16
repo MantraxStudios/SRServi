@@ -277,6 +277,11 @@ function MercadoPagoPoints() {
     setPluginCountriesMap(loadPluginCountries());
   }, [selectedStore?.id]);
 
+  // Reconstruir la lista unificada cada vez que cambien los datos de algún proveedor
+  useEffect(() => {
+    setPosList(buildPosList(terminals, tuuPosDevices, tuuAssignments, tuuStoreDevices, squareDevices));
+  }, [terminals, tuuPosDevices, tuuAssignments, tuuStoreDevices, squareDevices]);
+
   const fetchWorkshopPlugins = async () => {
     setLoadingWorkshop(true);
     try {
