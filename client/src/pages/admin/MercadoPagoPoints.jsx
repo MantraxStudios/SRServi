@@ -109,6 +109,8 @@ function MercadoPagoPoints() {
   const [mpModalDetected, setMpModalDetected] = useState([]);
   const [mpModalDetecting, setMpModalDetecting] = useState(false);
   const [mpModalError, setMpModalError] = useState('');
+  const [mpWorkingBanner, setMpWorkingBanner] = useState(false);
+  const [mpBannerMode, setMpBannerMode] = useState(null); // null = cargando, string = modo detectado
   const [tuuNewName, setTuuNewName] = useState('');
   const [tuuNewSerial, setTuuNewSerial] = useState('');
   const [tuuNewDeviceId, setTuuNewDeviceId] = useState('');
@@ -1150,20 +1152,35 @@ function MercadoPagoPoints() {
                                 });
                                 if (res.ok) {
                                   const created = await res.json();
-                                  // Automatically set PDV mode on the terminal
+                                  // Cerrar modal y mostrar banner de espera
+                                  setShowPosModal(false);
+                                  setMpBannerMode(null);
+                                  setMpWorkingBanner(true);
+                                  setMpNewToken('');
+                                  setMpModalStep('token');
+                                  setMpModalDetected([]);
+                                  // Configurar PDV en MercadoPago
                                   try {
                                     await fetch(API + `/api/mercado-pago-terminals/${created.id}/mode`, {
                                       method: 'PATCH',
                                       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
                                       body: JSON.stringify({ device_id: d.id, operating_mode: 'PDV' })
                                     });
-                                  } catch { /* ignore mode error, terminal was saved */ }
-                                  setMpSaveMsg('✔ Guardado en modo PDV');
-                                  setMpNewToken('');
-                                  setMpModalStep('token');
-                                  setMpModalDetected([]);
+                                  } catch { /* ignore mode error */ }
+                                  // Consultar estado real del dispositivo en MP
+                                  try {
+                                    const statusRes = await fetch(API + `/api/mercado-pago-terminals/${created.id}/status`, {
+                                      headers: { Authorization: 'Bearer ' + token }
+                                    });
+                                    if (statusRes.ok) {
+                                      const statusData = await statusRes.json();
+                                      setMpBannerMode(statusData.operating_mode || 'UNDEFINED');
+                                    } else {
+                                      setMpBannerMode('PDV');
+                                    }
+                                  } catch { setMpBannerMode('PDV'); }
                                   refreshAll();
-                                  setTimeout(() => setShowPosModal(false), 1200);
+                                  setTimeout(() => setMpWorkingBanner(false), 5000);
                                 } else {
                                   const err = await res.json();
                                   setMpModalError(err.error || 'Error al guardar');
@@ -1406,6 +1423,75 @@ function MercadoPagoPoints() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Banner: configurando PDV en MercadoPago */}
+      {mpWorkingBanner && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.65)', zIndex: 99999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            background: '#000', borderRadius: '20px', padding: '36px 48px',
+            textAlign: 'center', maxWidth: '360px', width: '90%',
+            border: '2px solid #D4AF37', boxShadow: '0 24px 80px rgba(0,0,0,0.5)'
+          }}>
+            {mpBannerMode === null ? (
+              /* Estado: cargando */
+              <>
+                <div style={{ fontSize: '44px', marginBottom: '16px' }}>⚙️</div>
+                <div style={{ fontSize: '20px', fontWeight: '900', color: '#D4AF37', marginBottom: '8px' }}>
+                  Estamos trabajando
+                </div>
+                <div style={{ fontSize: '13px', color: '#ccc', lineHeight: '1.5' }}>
+                  Configurando tu terminal en modo PDV.<br />
+                  Esto tomará solo un momento...
+                </div>
+                <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '6px' }}>
+                  {[0,1,2].map(i => (
+                    <div key={i} style={{
+                      width: '8px', height: '8px', borderRadius: '50%', background: '#D4AF37',
+                      animation: `bounce 0.8s ease-in-out ${i * 0.15}s infinite alternate`
+                    }} />
+                  ))}
+                </div>
+              </>
+            ) : (
+              /* Estado: resultado */
+              <>
+                <div style={{ fontSize: '48px', marginBottom: '14px' }}>
+                  {mpBannerMode === 'PDV' ? '✅' : mpBannerMode === 'STANDALONE' ? '📟' : '⚠️'}
+                </div>
+                <div style={{ fontSize: '20px', fontWeight: '900', color: '#D4AF37', marginBottom: '10px' }}>
+                  Terminal configurado
+                </div>
+                <div style={{
+                  display: 'inline-block',
+                  padding: '6px 18px',
+                  borderRadius: '30px',
+                  fontSize: '15px',
+                  fontWeight: '800',
+                  letterSpacing: '1px',
+                  background: mpBannerMode === 'PDV' ? '#16a34a22' : mpBannerMode === 'STANDALONE' ? '#d9770622' : '#71717a22',
+                  color: mpBannerMode === 'PDV' ? '#4ade80' : mpBannerMode === 'STANDALONE' ? '#fb923c' : '#a1a1aa',
+                  border: `1.5px solid ${mpBannerMode === 'PDV' ? '#4ade80' : mpBannerMode === 'STANDALONE' ? '#fb923c' : '#71717a'}`,
+                  marginBottom: '10px'
+                }}>
+                  {mpBannerMode}
+                </div>
+                <div style={{ fontSize: '12px', color: '#888', marginTop: '6px' }}>
+                  {mpBannerMode === 'PDV'
+                    ? 'Tu Point está listo para recibir pagos desde SRServi.'
+                    : mpBannerMode === 'STANDALONE'
+                    ? 'El terminal está en modo autónomo. Puedes cambiarlo desde la configuración.'
+                    : 'No se pudo determinar el estado. Verifica en la app de Mercado Pago.'}
+                </div>
+              </>
+            )}
+          </div>
+          <style>{`@keyframes bounce { from { transform: translateY(0); opacity:0.4; } to { transform: translateY(-8px); opacity:1; } }`}</style>
         </div>
       )}
 

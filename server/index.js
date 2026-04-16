@@ -3705,6 +3705,23 @@ app.patch('/api/mercado-pago-terminals/:id/mode', authenticateToken, async (req,
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// Get MP terminal status (operating_mode) from MercadoPago API
+app.get('/api/mercado-pago-terminals/:id/status', authenticateToken, async (req, res) => {
+  try {
+    const terminal = await getMercadoPagoTerminalById(parseInt(req.params.id));
+    if (!terminal || terminal.user_id !== req.user.id) return res.status(404).json({ error: 'Terminal no encontrada' });
+    const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/list?limit=50', {
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.mercadopago_access_token}` }
+    });
+    if (!mpRes.ok) return res.status(mpRes.status).json({ error: 'Error al consultar MercadoPago' });
+    const data = await mpRes.json();
+    const terminals = data.data?.terminals || [];
+    const found = terminals.find(t => t.id === terminal.mercadopago_terminal_id);
+    if (!found) return res.status(404).json({ error: 'Dispositivo no encontrado en MercadoPago' });
+    res.json({ operating_mode: found.operating_mode || 'UNDEFINED', terminal: found });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // ==================== Support Tickets API ====================
 
 // Ensure tickets tables
