@@ -4688,59 +4688,68 @@ function Store() {
             {/* Dark overlay so text/UI is always readable */}
             <div style={{ position: 'absolute', inset: 0, background: screensaverCfg.media_url ? 'rgba(0,0,0,0.45)' : '#000' }} />
 
-            {/* ── Center credits ── */}
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '18px', pointerEvents: 'none' }}>
+            {/* ── Centro: logo/nombre + bloque de créditos ── */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, pointerEvents: 'none', padding: '32px 48px' }}>
 
-              {/* Logo flotante (solo si no hay imagen de fondo) */}
-              {!screensaverCfg.media_url && screensaverCfg.store_logo && (
-                <img
-                  src={API + screensaverCfg.store_logo}
-                  alt={screensaverCfg.store_name}
-                  style={{ width: 'clamp(80px,18vw,180px)', height: 'clamp(80px,18vw,180px)', objectFit: 'contain', animation: 'ss-float 4s ease-in-out infinite', filter: 'drop-shadow(0 0 24px rgba(212,175,55,0.5))' }}
-                />
-              )}
-              {!screensaverCfg.media_url && !screensaverCfg.store_logo && (
-                <div style={{ fontSize: 'clamp(60px,12vw,110px)', animation: 'ss-float 4s ease-in-out infinite' }}>🏪</div>
+              {/* Logo (solo sin imagen de fondo) */}
+              {!screensaverCfg.media_url && (
+                screensaverCfg.store_logo ? (
+                  <img
+                    src={API + screensaverCfg.store_logo}
+                    alt={screensaverCfg.store_name}
+                    style={{ width: 150, height: 150, objectFit: 'contain', animation: 'ss-float 4s ease-in-out infinite', filter: 'drop-shadow(0 4px 20px rgba(212,175,55,0.45))' }}
+                  />
+                ) : (
+                  <div style={{ width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(212,175,55,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'ss-float 4s ease-in-out infinite' }}>
+                    <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 48, color: '#D4AF37' }} />
+                  </div>
+                )
               )}
 
               {/* Nombre tienda */}
               {screensaverCfg.store_name && (
-                <div style={{ fontSize: 'clamp(26px,6vw,64px)', fontWeight: '900', color: '#fff', textAlign: 'center', textShadow: '0 2px 24px rgba(212,175,55,0.6)', padding: '0 32px', lineHeight: 1.1 }}>
+                <div style={{ fontSize: 'clamp(26px,5vw,58px)', fontWeight: '900', color: '#fff', textAlign: 'center', textShadow: '0 2px 32px rgba(0,0,0,0.8)', lineHeight: 1.15, letterSpacing: '-0.5px' }}>
                   {screensaverCfg.store_name}
                 </div>
               )}
 
-              {/* Carrito animado + créditos */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-                <div style={{ fontSize: 'clamp(36px,7vw,72px)', animation: 'ss-cart 1.6s ease-in-out infinite' }}>🛒</div>
-                <div style={{ fontSize: 'clamp(15px,2.8vw,26px)', fontWeight: '800', color: '#D4AF37', textAlign: 'center', letterSpacing: '1px', textShadow: '0 0 16px rgba(212,175,55,0.5)' }}>
+              {/* Separador */}
+              <div style={{ width: 56, height: 2, background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)', borderRadius: 2 }} />
+
+              {/* Bloque créditos */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(212,175,55,0.12)', border: '1.5px solid rgba(212,175,55,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'ss-cart 2s ease-in-out infinite' }}>
+                  <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 24, color: '#D4AF37' }} />
+                </div>
+                <div style={{ fontSize: 'clamp(16px,2.8vw,26px)', fontWeight: '800', color: '#D4AF37', textAlign: 'center', letterSpacing: '0.5px' }}>
                   Auto Servicio
                 </div>
-                <div style={{ fontSize: 'clamp(11px,1.8vw,17px)', fontWeight: '500', color: 'rgba(255,255,255,0.55)', textAlign: 'center', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: 'clamp(10px,1.4vw,13px)', fontWeight: '500', color: 'rgba(255,255,255,0.4)', textAlign: 'center', letterSpacing: '3px', textTransform: 'uppercase' }}>
                   Desarrollado por SRAutomatic CL
                 </div>
               </div>
             </div>
 
-            {/* ── Bottom-left white card ── */}
-            <div style={{ position: 'absolute', bottom: '28px', left: '28px', background: '#fff', borderRadius: '20px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 8px 40px rgba(0,0,0,0.5)', maxWidth: 'min(420px, 90vw)' }}>
+            {/* ── Footer: card blanca abajo a la izquierda ── */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120, display: 'flex', alignItems: 'center', padding: '0 32px', background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#fff', borderRadius: 20, padding: '12px 16px 12px 12px', boxShadow: '0 8px 48px rgba(0,0,0,0.55)' }}>
 
-              {/* Logo circular */}
-              <div style={{ flexShrink: 0, width: 'clamp(52px,9vw,72px)', height: 'clamp(52px,9vw,72px)', borderRadius: '50%', overflow: 'hidden', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid #D4AF37' }}>
-                {screensaverCfg.store_logo ? (
-                  <img src={API + screensaverCfg.store_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <span style={{ fontSize: '28px' }}>🏪</span>
-                )}
-              </div>
+                {/* Logo circular */}
+                <div style={{ flexShrink: 0, width: 62, height: 62, borderRadius: '50%', overflow: 'hidden', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid #D4AF37' }}>
+                  {screensaverCfg.store_logo
+                    ? <img src={API + screensaverCfg.store_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    : <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 22, color: '#D4AF37' }} />
+                  }
+                </div>
 
-              {/* Flecha + botón */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-                <div style={{ fontSize: 'clamp(20px,3.5vw,30px)', color: '#D4AF37', animation: 'ss-arrow 1s ease-in-out infinite', flexShrink: 0 }}>➜</div>
+                {/* Flecha animada */}
+                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 20, color: '#D4AF37', animation: 'ss-arrow 0.9s ease-in-out infinite', flexShrink: 0 }} />
+
+                {/* Botón negro */}
                 <button
                   onClick={dismissSS}
                   onTouchStart={dismissSS}
-                  style={{ flex: 1, background: '#000', color: '#fff', border: 'none', borderRadius: '12px', padding: 'clamp(10px,1.5vw,14px) clamp(14px,2vw,20px)', fontSize: 'clamp(13px,2.2vw,18px)', fontWeight: '800', cursor: 'pointer', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}
+                  style={{ flexShrink: 0, background: '#111', color: '#fff', border: 'none', borderRadius: 12, padding: '13px 22px', fontSize: 'clamp(13px,1.8vw,16px)', fontWeight: '700', cursor: 'pointer', letterSpacing: '0.2px', lineHeight: 1.3, whiteSpace: 'nowrap' }}
                 >
                   Toca aquí para continuar
                 </button>
@@ -4748,9 +4757,9 @@ function Store() {
             </div>
 
             <style>{`
-              @keyframes ss-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
-              @keyframes ss-cart  { 0%,100%{transform:translateX(0)} 30%{transform:translateX(8px)} 60%{transform:translateX(-4px)} }
-              @keyframes ss-arrow { 0%,100%{transform:translateX(0)} 50%{transform:translateX(6px)} }
+              @keyframes ss-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+              @keyframes ss-cart  { 0%,100%{transform:translateX(0)} 45%{transform:translateX(7px)} }
+              @keyframes ss-arrow { 0%,100%{transform:translateX(0)} 50%{transform:translateX(5px)} }
             `}</style>
           </div>
         );
