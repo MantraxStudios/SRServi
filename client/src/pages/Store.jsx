@@ -223,8 +223,6 @@ function Store() {
   const [pinOptionsModalOpen, setPinOptionsModalOpen] = useState(false);
   const [totemZoom, setTotemZoom] = useState(() => parseFloat(localStorage.getItem('srservi_totem_zoom') || '1'));
   const [infoModalOpen, setInfoModalOpen] = useState(false);
-  const infoPressTimerRef = useRef(null);
-  const infoPressTriggeredRef = useRef(false);
   const [posSelectModalOpen, setPosSelectModalOpen] = useState(false);
   const [posSelectList, setPosSelectList] = useState([]);
   const [posSelectLoading, setPosSelectLoading] = useState(false);
@@ -1766,83 +1764,41 @@ function Store() {
     return grouped;
   };
 
-  const handleLongPressStart = () => {
-    if (editMode) return;
-    if (anyModalOpenRef.current) return;
-    console.log('[PIN] longPressStart — iniciando timer 2s');
-    longPressTimerRef.current = setTimeout(() => {
+  // Long-press en cualquier parte: mousedown/touchstart en document → 2s → abre PIN
+  useEffect(() => {
+    let timer = null;
+    const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+    const start = () => {
       if (anyModalOpenRef.current) return;
-      console.log('[PIN] 2s cumplidos — abriendo modal PIN');
-      setPinInput('');
-      setPinError('');
-      setPinModalOpen(true);
-    }, 2000);
-  };
+      cancel();
+      console.log('[PIN] press inicio — timer 2s');
+      timer = setTimeout(() => {
+        timer = null;
+        if (anyModalOpenRef.current) return;
+        console.log('[PIN] 2s cumplidos — abriendo modal PIN');
+        setPinInput('');
+        setPinError('');
+        setPinModalOpen(true);
+      }, 2000);
+    };
+    document.addEventListener('mousedown', start);
+    document.addEventListener('mouseup', cancel);
+    document.addEventListener('mouseleave', cancel);
+    document.addEventListener('touchstart', start, { passive: true });
+    document.addEventListener('touchend', cancel);
+    document.addEventListener('touchcancel', cancel);
+    return () => {
+      cancel();
+      document.removeEventListener('mousedown', start);
+      document.removeEventListener('mouseup', cancel);
+      document.removeEventListener('mouseleave', cancel);
+      document.removeEventListener('touchstart', start);
+      document.removeEventListener('touchend', cancel);
+      document.removeEventListener('touchcancel', cancel);
+    };
+  }, []);
 
-  const handleLongPressEnd = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  };
-
-  const handleInfoPointerDown = (e) => {
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
-    e.preventDefault();
-    e.stopPropagation();
-    if (anyModalOpenRef.current) {
-      console.log('[PIN] pointerdown ignorado — modal abierto');
-      return;
-    }
-    // Limpiar timers previos
-    if (infoPressTimerRef.current) { clearInterval(infoPressTimerRef.current); infoPressTimerRef.current = null; }
-    if (infoPressTimerRef._pinTimeout) { clearTimeout(infoPressTimerRef._pinTimeout); infoPressTimerRef._pinTimeout = null; }
-    infoPressTriggeredRef.current = false;
-    const startTime = Date.now();
-    console.log('[PIN] pointerdown — iniciando timer 2s');
-    infoPressTimerRef.current = setInterval(() => {
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`[PIN] apretado: ${elapsed}s`);
-    }, 300);
-    infoPressTimerRef._pinTimeout = setTimeout(() => {
-      console.log('[PIN] 2s cumplidos — abriendo modal PIN');
-      if (infoPressTimerRef.current) { clearInterval(infoPressTimerRef.current); infoPressTimerRef.current = null; }
-      infoPressTriggeredRef.current = true;
-      setPinInput('');
-      setPinError('');
-      setPinModalOpen(true);
-    }, 2000);
-  };
-
-  const handleInfoPointerUp = (e) => {
-    e.stopPropagation();
-    const elapsed = infoPressTimerRef._pinTimeout ? 'cancelado' : 'ya disparado';
-    console.log(`[PIN] pointerup — estado: ${elapsed}, triggered: ${infoPressTriggeredRef.current}`);
-    if (infoPressTimerRef.current) {
-      clearInterval(infoPressTimerRef.current);
-      infoPressTimerRef.current = null;
-    }
-    if (infoPressTimerRef._pinTimeout) {
-      clearTimeout(infoPressTimerRef._pinTimeout);
-      infoPressTimerRef._pinTimeout = null;
-    }
-    if (!infoPressTriggeredRef.current && !anyModalOpenRef.current) {
-      console.log('[PIN] tap corto — abriendo infoModal');
-      setInfoModalOpen(true);
-    }
-  };
-
-  const handleInfoPointerCancel = () => {
-    console.log('[PIN] pointercancel — cancelando timer');
-    if (infoPressTimerRef.current) {
-      clearInterval(infoPressTimerRef.current);
-      infoPressTimerRef.current = null;
-    }
-    if (infoPressTimerRef._pinTimeout) {
-      clearTimeout(infoPressTimerRef._pinTimeout);
-      infoPressTimerRef._pinTimeout = null;
-    }
-  };
+  const handleLongPressEnd = () => {};
 
   const handlePinSubmit = async (pinValue) => {
     const pin = pinValue || pinInput;
@@ -2274,8 +2230,6 @@ function Store() {
       </header>
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
-
-      {/* Info button moved outside zoom container — see below */}
 
       {/* Language selector */}
       <div style={{ position: 'fixed', top: '8px', right: '8px', zIndex: 200 }}>
@@ -4391,7 +4345,7 @@ function Store() {
               <div><strong>Terminal:</strong> {selectedTerminalId || 'Ninguna'}</div>
               <div><strong>Socket:</strong> {socketRef.current?.connected ? '🟢 Conectado' : '🔴 Desconectado'}{socketRef.current?.id ? ` (${socketRef.current.id})` : ''}</div>
             </div>
-            <p style={{ fontSize: '11px', color: '#bbb', textAlign: 'center', marginTop: '12px', marginBottom: 0 }}>Mantén presionado la esquina superior derecha 10 segundos para acceder al PIN de edición</p>
+            <p style={{ fontSize: '11px', color: '#bbb', textAlign: 'center', marginTop: '12px', marginBottom: 0 }}>Mantén presionado 2 segundos en cualquier parte de la pantalla para acceder al PIN de edición</p>
           </div>
         </div>
       )}
@@ -4700,19 +4654,6 @@ function Store() {
       )}
     </div>
 
-      {/* Info button — OUTSIDE zoom container so position:fixed hit area is correct */}
-      {!editMode && (
-        <button
-          onPointerDown={handleInfoPointerDown}
-          onPointerUp={handleInfoPointerUp}
-          onPointerCancel={handleInfoPointerCancel}
-          onPointerLeave={handleInfoPointerCancel}
-          onContextMenu={(e) => e.preventDefault()}
-          style={{ position: 'fixed', top: 0, right: 0, zIndex: 9999, background: 'transparent', border: 'none', borderRadius: '0 0 0 50%', width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'transparent', fontSize: '14px', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'none', opacity: 0.01 }}
-        >
-          <FontAwesomeIcon icon={faInfoCircle} />
-        </button>
-      )}
     </PluginProvider>
   );
 }
