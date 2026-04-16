@@ -884,7 +884,7 @@ function Store() {
     setExtrasModalOpen(false);
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen;
 
   useEffect(() => {
     anyModalOpenRef.current = anyModalOpen;
@@ -1785,9 +1785,12 @@ function Store() {
   };
 
   const handleInfoPointerDown = (e) => {
-    e.stopPropagation();
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+    e.stopPropagation();
+    e.preventDefault();
+    if (anyModalOpenRef.current) return;
     infoPressTriggeredRef.current = false;
+    if (infoPressTimerRef.current) clearTimeout(infoPressTimerRef.current);
     infoPressTimerRef.current = setTimeout(() => {
       infoPressTriggeredRef.current = true;
       setPinInput('');
@@ -1798,11 +1801,12 @@ function Store() {
 
   const handleInfoPointerUp = (e) => {
     e.stopPropagation();
+    e.preventDefault();
     if (infoPressTimerRef.current) {
       clearTimeout(infoPressTimerRef.current);
       infoPressTimerRef.current = null;
     }
-    if (!infoPressTriggeredRef.current) {
+    if (!infoPressTriggeredRef.current && !anyModalOpenRef.current) {
       setInfoModalOpen(true);
     }
   };
@@ -4652,8 +4656,8 @@ function Store() {
 
       {/* Inactivity modal - auto restart */}
       {inactivityModalOpen && (
-        <div className="store-modal-overlay" style={{ zIndex: 99998 }}>
-          <div style={{ background: '#fff', borderRadius: '20px', padding: '32px 24px', maxWidth: '360px', width: '90%', textAlign: 'center' }}>
+        <div className="store-modal-overlay" style={{ zIndex: 99998 }} onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+          <div style={{ background: '#fff', borderRadius: '20px', padding: '32px 24px', maxWidth: '360px', width: '90%', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ margin: '0 0 8px', fontSize: '22px', color: '#333' }}>
               {lang === 'en' ? 'Are you still there?' : lang === 'pt' ? 'Voce ainda esta ai?' : 'Sigues ahi?'}
             </h2>
@@ -4665,7 +4669,8 @@ function Store() {
             </div>
             <button
               className="store-glow-pulse-green"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setInactivityModalOpen(false);
                 setInactivityCountdown(10);
                 if (inactivityCountdownRef.current) clearInterval(inactivityCountdownRef.current);
