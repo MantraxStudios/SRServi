@@ -1143,7 +1143,16 @@ function MercadoPagoPoints() {
                                   body: JSON.stringify({ name, mercadopago_access_token: mpNewToken.trim(), mercadopago_terminal_id: d.id, store_id: selectedStore.id })
                                 });
                                 if (res.ok) {
-                                  setMpSaveMsg('✔ Guardado');
+                                  const created = await res.json();
+                                  // Automatically set PDV mode on the terminal
+                                  try {
+                                    await fetch(API + `/api/mercado-pago-terminals/${created.id}/mode`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                                      body: JSON.stringify({ device_id: d.id, operating_mode: 'PDV' })
+                                    });
+                                  } catch { /* ignore mode error, terminal was saved */ }
+                                  setMpSaveMsg('✔ Guardado en modo PDV');
                                   setMpNewToken('');
                                   setMpModalStep('token');
                                   setMpModalDetected([]);
