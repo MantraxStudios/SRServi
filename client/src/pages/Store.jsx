@@ -4685,80 +4685,81 @@ function Store() {
               />
             )}
 
-            {/* Dark overlay so text/UI is always readable */}
-            <div style={{ position: 'absolute', inset: 0, background: screensaverCfg.media_url ? 'rgba(0,0,0,0.45)' : '#000' }} />
+            {/* Dark overlay gradient */}
+            <div style={{ position: 'absolute', inset: 0, background: screensaverCfg.media_url ? 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%)' : 'linear-gradient(160deg, #0a0a0a 0%, #111 100%)' }} />
 
-            {/* ── Centro: logo/nombre + bloque de créditos ── */}
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, pointerEvents: 'none', padding: '32px 48px' }}>
+            {/* ══════════ Layout principal centrado ══════════ */}
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, padding: '40px 48px 160px' }}>
 
-              {/* Logo (solo sin imagen de fondo) */}
-              {!screensaverCfg.media_url && (
-                screensaverCfg.store_logo ? (
-                  <img
-                    src={API + screensaverCfg.store_logo}
-                    alt={screensaverCfg.store_name}
-                    style={{ width: 150, height: 150, objectFit: 'contain', animation: 'ss-float 4s ease-in-out infinite', filter: 'drop-shadow(0 4px 20px rgba(212,175,55,0.45))' }}
-                  />
-                ) : (
-                  <div style={{ width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(212,175,55,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'ss-float 4s ease-in-out infinite' }}>
-                    <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 48, color: '#D4AF37' }} />
-                  </div>
-                )
-              )}
+              {/* Logo circular flotante */}
+              <div style={{ width: 110, height: 110, borderRadius: '50%', overflow: 'hidden', border: '3px solid #D4AF37', flexShrink: 0, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'ss-float 4s ease-in-out infinite', boxShadow: '0 0 0 6px rgba(212,175,55,0.12)', marginBottom: 24 }}>
+                {screensaverCfg.store_logo
+                  ? <img src={API + screensaverCfg.store_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  : <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 40, color: '#D4AF37' }} />
+                }
+              </div>
 
               {/* Nombre tienda */}
               {screensaverCfg.store_name && (
-                <div style={{ fontSize: 'clamp(26px,5vw,58px)', fontWeight: '900', color: '#fff', textAlign: 'center', textShadow: '0 2px 32px rgba(0,0,0,0.8)', lineHeight: 1.15, letterSpacing: '-0.5px' }}>
+                <div style={{ fontSize: 'clamp(28px,5.5vw,62px)', fontWeight: '900', color: '#fff', textAlign: 'center', lineHeight: 1.1, letterSpacing: '-0.5px', marginBottom: 18 }}>
                   {screensaverCfg.store_name}
                 </div>
               )}
 
-              {/* Separador */}
-              <div style={{ width: 56, height: 2, background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)', borderRadius: 2 }} />
+              {/* Línea dorada */}
+              <div style={{ width: 64, height: 2, background: 'linear-gradient(90deg,transparent,#D4AF37,transparent)', borderRadius: 2, marginBottom: 28 }} />
 
-              {/* Bloque créditos */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(212,175,55,0.12)', border: '1.5px solid rgba(212,175,55,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'ss-cart 2s ease-in-out infinite' }}>
-                  <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 24, color: '#D4AF37' }} />
-                </div>
-                <div style={{ fontSize: 'clamp(16px,2.8vw,26px)', fontWeight: '800', color: '#D4AF37', textAlign: 'center', letterSpacing: '0.5px' }}>
+              {/* Carrito FA + créditos */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 'clamp(28px,4vw,40px)', color: '#D4AF37', animation: 'ss-cart 2s ease-in-out infinite', marginBottom: 4 }} />
+                <span style={{ fontSize: 'clamp(17px,2.8vw,26px)', fontWeight: '800', color: '#D4AF37', letterSpacing: '1px' }}>
                   Auto Servicio
-                </div>
-                <div style={{ fontSize: 'clamp(10px,1.4vw,13px)', fontWeight: '500', color: 'rgba(255,255,255,0.4)', textAlign: 'center', letterSpacing: '3px', textTransform: 'uppercase' }}>
+                </span>
+                <span style={{ fontSize: 'clamp(10px,1.3vw,13px)', color: 'rgba(255,255,255,0.35)', letterSpacing: '3px', textTransform: 'uppercase', fontWeight: 500 }}>
                   Desarrollado por SRAutomatic CL
-                </div>
+                </span>
               </div>
             </div>
 
-            {/* ── Footer: card blanca abajo a la izquierda ── */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120, display: 'flex', alignItems: 'center', padding: '0 32px', background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#fff', borderRadius: 20, padding: '12px 16px 12px 12px', boxShadow: '0 8px 48px rgba(0,0,0,0.55)' }}>
-
-                {/* Logo circular */}
-                <div style={{ flexShrink: 0, width: 62, height: 62, borderRadius: '50%', overflow: 'hidden', background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid #D4AF37' }}>
+            {/* ══════════ Footer CTA centrado ══════════ */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)', padding: '0 32px' }}>
+              <button
+                onClick={dismissSS}
+                onTouchStart={dismissSS}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  background: 'rgba(0,0,0,0.72)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1.5px solid rgba(212,175,55,0.55)',
+                  borderRadius: 50,
+                  padding: '0 8px 0 8px',
+                  height: 62,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 32px rgba(0,0,0,0.45)',
+                }}
+              >
+                {/* Logo mini circular */}
+                <div style={{ width: 46, height: 46, borderRadius: '50%', overflow: 'hidden', border: '2px solid #D4AF37', flexShrink: 0, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {screensaverCfg.store_logo
                     ? <img src={API + screensaverCfg.store_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    : <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 22, color: '#D4AF37' }} />
+                    : <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 16, color: '#D4AF37' }} />
                   }
                 </div>
 
-                {/* Flecha animada */}
-                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 20, color: '#D4AF37', animation: 'ss-arrow 0.9s ease-in-out infinite', flexShrink: 0 }} />
-
-                {/* Botón negro */}
-                <button
-                  onClick={dismissSS}
-                  onTouchStart={dismissSS}
-                  style={{ flexShrink: 0, background: '#111', color: '#fff', border: 'none', borderRadius: 12, padding: '13px 22px', fontSize: 'clamp(13px,1.8vw,16px)', fontWeight: '700', cursor: 'pointer', letterSpacing: '0.2px', lineHeight: 1.3, whiteSpace: 'nowrap' }}
-                >
+                {/* Texto con subrayado dorado */}
+                <span style={{ fontSize: 'clamp(14px,2vw,17px)', fontWeight: '700', color: '#fff', letterSpacing: '0.3px', borderBottom: '2px solid #D4AF37', paddingBottom: 2, whiteSpace: 'nowrap' }}>
                   Toca aquí para continuar
-                </button>
-              </div>
+                </span>
+
+                {/* Chevron animado */}
+                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 14, color: '#D4AF37', animation: 'ss-arrow 0.9s ease-in-out infinite', marginRight: 6, flexShrink: 0 }} />
+              </button>
             </div>
 
             <style>{`
               @keyframes ss-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
-              @keyframes ss-cart  { 0%,100%{transform:translateX(0)} 45%{transform:translateX(7px)} }
+              @keyframes ss-cart  { 0%,100%{transform:translateX(0) scale(1)} 45%{transform:translateX(8px) scale(1.04)} }
               @keyframes ss-arrow { 0%,100%{transform:translateX(0)} 50%{transform:translateX(5px)} }
             `}</style>
           </div>
