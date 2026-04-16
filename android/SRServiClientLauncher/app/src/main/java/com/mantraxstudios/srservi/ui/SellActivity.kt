@@ -1,15 +1,19 @@
 package com.mantraxstudios.srservi.ui
 
+import android.Manifest
 import android.app.ActivityManager
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -21,6 +25,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -148,6 +153,23 @@ class SellActivity : AppCompatActivity() {
                 }
             }
 
+            override fun onPermissionRequest(request: PermissionRequest) {
+                val granted = request.resources.filter { res ->
+                    when (res) {
+                        PermissionRequest.RESOURCE_VIDEO_CAPTURE ->
+                            ContextCompat.checkSelfPermission(
+                                this@SellActivity, Manifest.permission.CAMERA
+                            ) == PackageManager.PERMISSION_GRANTED
+                        PermissionRequest.RESOURCE_AUDIO_CAPTURE ->
+                            ContextCompat.checkSelfPermission(
+                                this@SellActivity, Manifest.permission.RECORD_AUDIO
+                            ) == PackageManager.PERMISSION_GRANTED
+                        else -> true
+                    }
+                }.toTypedArray()
+                if (granted.isNotEmpty()) request.grant(granted) else request.deny()
+            }
+
             override fun onShowFileChooser(
                 webView: WebView,
                 filePathCallback: ValueCallback<Array<Uri>>,
@@ -157,7 +179,13 @@ class SellActivity : AppCompatActivity() {
                 this@SellActivity.filePathCallback = filePathCallback
                 // Unpin temporarily so the system file chooser can open
                 stopKioskLock()
-                fileChooserLauncher.launch(fileChooserParams.createIntent())
+                try {
+                    fileChooserLauncher.launch(fileChooserParams.createIntent())
+                } catch (_: Exception) {
+                    this@SellActivity.filePathCallback?.onReceiveValue(null)
+                    this@SellActivity.filePathCallback = null
+                    webView.post { startKioskLock() }
+                }
                 return true
             }
         }

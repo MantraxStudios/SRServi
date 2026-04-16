@@ -155,17 +155,23 @@ class SetupWizardActivity : AppCompatActivity() {
                 add(Manifest.permission.BLUETOOTH_SCAN)
             }
             add(Manifest.permission.ACCESS_FINE_LOCATION)
+            add(Manifest.permission.CAMERA)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
+                add(Manifest.permission.READ_MEDIA_IMAGES)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                add(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
         }
 
         list += Step(
             id          = "runtime_perms",
             title       = "Permisos de funcionamiento",
-            description = "SRServi necesita acceso a Bluetooth para conectarse con la " +
-                          "impresora de recibos, y permiso de notificaciones para " +
-                          "mantenerse activa mientras monitorea pedidos.",
+            description = "SRServi necesita acceso a:\n\n" +
+                          "• Bluetooth — conectar impresora de recibos\n" +
+                          "• Ubicación — requerida por Bluetooth en Android\n" +
+                          "• Cámara y galería — capturar imágenes desde la app\n" +
+                          "• Notificaciones — mantenerse activa monitoreando pedidos",
             actionLabel = "Conceder permisos",
             icon        = "\uD83D\uDD10", // 🔐
             isDone      = { ctx ->
@@ -262,8 +268,12 @@ class SetupWizardActivity : AppCompatActivity() {
                     add(Manifest.permission.BLUETOOTH_SCAN)
                 }
                 add(Manifest.permission.ACCESS_FINE_LOCATION)
+                add(Manifest.permission.CAMERA)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     add(Manifest.permission.POST_NOTIFICATIONS)
+                    add(Manifest.permission.READ_MEDIA_IMAGES)
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                    add(Manifest.permission.READ_EXTERNAL_STORAGE)
                 }
             }
 

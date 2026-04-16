@@ -67,9 +67,25 @@ class PrinterForegroundService : Service() {
         super.onCreate()
         printerManager = (application as SRServiApp).printerManager
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification("Monitoreando pedidos..."))
+        startForegroundSafe()
         autoConnect()
         handler.post(pollingRunnable)
+    }
+
+    private fun startForegroundSafe() {
+        val notification = buildNotification("Monitoreando pedidos...")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val hasBluetoothPerm = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            val fgsType = if (hasBluetoothPerm)
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            else
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            startForeground(NOTIFICATION_ID, notification, fgsType)
+        } else {
+            @Suppress("DEPRECATION")
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
