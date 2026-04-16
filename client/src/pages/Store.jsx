@@ -4666,89 +4666,115 @@ function Store() {
       )}
 
       {/* Screensaver overlay */}
-      {screensaverActive && screensaverCfg?.enabled && (
-        <div
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99990, background: '#000', display: 'flex', flexDirection: 'column' }}
-        >
-          {/* Content area — fills everything above footer */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '24px', padding: '32px' }}>
-            {screensaverCfg.media_url ? (
+      {screensaverActive && screensaverCfg?.enabled && (() => {
+        const dismissSS = (e) => {
+          if (e) { e.stopPropagation(); e.preventDefault(); }
+          setScreensaverActive(false);
+          clearTimeout(screensaverTimerRef.current);
+          if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        };
+        return (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99990, background: '#000', overflow: 'hidden' }}>
+
+            {/* Full-screen background image */}
+            {screensaverCfg.media_url && (
               <img
                 src={API + screensaverCfg.media_url}
-                alt="Salva pantallas"
-                style={{ maxWidth: '90vw', maxHeight: '65vh', objectFit: 'contain', borderRadius: '12px' }}
+                alt=""
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
               />
-            ) : screensaverCfg.store_logo ? (
-              <img
-                src={API + screensaverCfg.store_logo}
-                alt={screensaverCfg.store_name}
-                style={{ maxWidth: '320px', maxHeight: '320px', objectFit: 'contain', animation: 'ss-float 4s ease-in-out infinite' }}
-              />
-            ) : (
-              <div style={{ fontSize: '100px', animation: 'ss-float 4s ease-in-out infinite' }}>🏪</div>
             )}
 
-            {/* Nombre de tienda — siempre visible */}
-            {screensaverCfg.store_name && (
-              <div style={{ fontSize: 'clamp(28px, 6vw, 64px)', fontWeight: '900', color: '#fff', letterSpacing: '-1px', textAlign: 'center', textShadow: '0 2px 24px rgba(212,175,55,0.5)', padding: '0 32px', lineHeight: 1.1 }}>
-                {screensaverCfg.store_name}
+            {/* Dark overlay so text/UI is always readable */}
+            <div style={{ position: 'absolute', inset: 0, background: screensaverCfg.media_url ? 'rgba(0,0,0,0.45)' : '#000' }} />
+
+            {/* ── Center credits ── */}
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '18px', pointerEvents: 'none' }}>
+
+              {/* Logo flotante (solo si no hay imagen de fondo) */}
+              {!screensaverCfg.media_url && screensaverCfg.store_logo && (
+                <img
+                  src={API + screensaverCfg.store_logo}
+                  alt={screensaverCfg.store_name}
+                  style={{ width: 'clamp(80px,18vw,180px)', height: 'clamp(80px,18vw,180px)', objectFit: 'contain', animation: 'ss-float 4s ease-in-out infinite', filter: 'drop-shadow(0 0 24px rgba(212,175,55,0.5))' }}
+                />
+              )}
+              {!screensaverCfg.media_url && !screensaverCfg.store_logo && (
+                <div style={{ fontSize: 'clamp(60px,12vw,110px)', animation: 'ss-float 4s ease-in-out infinite' }}>🏪</div>
+              )}
+
+              {/* Nombre tienda */}
+              {screensaverCfg.store_name && (
+                <div style={{ fontSize: 'clamp(26px,6vw,64px)', fontWeight: '900', color: '#fff', textAlign: 'center', textShadow: '0 2px 24px rgba(212,175,55,0.6)', padding: '0 32px', lineHeight: 1.1 }}>
+                  {screensaverCfg.store_name}
+                </div>
+              )}
+
+              {/* Carrito animado + créditos */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
+                <div style={{ fontSize: 'clamp(36px,7vw,72px)', animation: 'ss-cart 1.6s ease-in-out infinite' }}>🛒</div>
+                <div style={{ fontSize: 'clamp(15px,2.8vw,26px)', fontWeight: '800', color: '#D4AF37', textAlign: 'center', letterSpacing: '1px', textShadow: '0 0 16px rgba(212,175,55,0.5)' }}>
+                  Auto Servicio
+                </div>
+                <div style={{ fontSize: 'clamp(11px,1.8vw,17px)', fontWeight: '500', color: 'rgba(255,255,255,0.55)', textAlign: 'center', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                  Desarrollado por SRAutomatic CL
+                </div>
               </div>
-            )}
-
-            {/* Toca para hacer tu pedido */}
-            <div style={{ fontSize: 'clamp(22px, 5vw, 52px)', fontWeight: '900', color: '#D4AF37', textAlign: 'center', textShadow: '0 0 32px rgba(212,175,55,0.6)', letterSpacing: '0px', padding: '0 24px', lineHeight: 1.2, animation: 'ss-pulse 2.5s ease-in-out infinite' }}>
-              Toca para hacer tu pedido
             </div>
+
+            {/* ── Bottom-left white card ── */}
+            <div style={{ position: 'absolute', bottom: '28px', left: '28px', background: '#fff', borderRadius: '20px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 8px 40px rgba(0,0,0,0.5)', maxWidth: 'min(420px, 90vw)' }}>
+
+              {/* Logo circular */}
+              <div style={{ flexShrink: 0, width: 'clamp(52px,9vw,72px)', height: 'clamp(52px,9vw,72px)', borderRadius: '50%', overflow: 'hidden', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '3px solid #D4AF37' }}>
+                {screensaverCfg.store_logo ? (
+                  <img src={API + screensaverCfg.store_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <span style={{ fontSize: '28px' }}>🏪</span>
+                )}
+              </div>
+
+              {/* Flecha + botón */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                <div style={{ fontSize: 'clamp(20px,3.5vw,30px)', color: '#D4AF37', animation: 'ss-arrow 1s ease-in-out infinite', flexShrink: 0 }}>➜</div>
+                <button
+                  onClick={dismissSS}
+                  onTouchStart={dismissSS}
+                  style={{ flex: 1, background: '#000', color: '#fff', border: 'none', borderRadius: '12px', padding: 'clamp(10px,1.5vw,14px) clamp(14px,2vw,20px)', fontSize: 'clamp(13px,2.2vw,18px)', fontWeight: '800', cursor: 'pointer', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}
+                >
+                  Toca aquí para continuar
+                </button>
+              </div>
+            </div>
+
+            <style>{`
+              @keyframes ss-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
+              @keyframes ss-cart  { 0%,100%{transform:translateX(0)} 30%{transform:translateX(8px)} 60%{transform:translateX(-4px)} }
+              @keyframes ss-arrow { 0%,100%{transform:translateX(0)} 50%{transform:translateX(6px)} }
+            `}</style>
           </div>
-
-          {/* Footer CTA — big, unmissable, safe click zone */}
-          <div
-            onClick={() => {
-              setScreensaverActive(false);
-              clearTimeout(screensaverTimerRef.current);
-              if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-            }}
-            onTouchStart={(e) => {
-              e.stopPropagation();
-              setScreensaverActive(false);
-              clearTimeout(screensaverTimerRef.current);
-              if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-            }}
-            style={{
-              flexShrink: 0,
-              background: 'linear-gradient(135deg, #D4AF37 0%, #f5d97a 50%, #D4AF37 100%)',
-              padding: '28px 32px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-              userSelect: 'none',
-              WebkitUserSelect: 'none',
-              boxShadow: '0 -4px 32px rgba(212,175,55,0.5)',
-            }}
-          >
-            <div style={{ fontSize: 'clamp(28px, 5vw, 44px)', animation: 'ss-bounce 1.2s ease-in-out infinite' }}>
-              &#8595;
-            </div>
-            <div style={{ fontSize: 'clamp(18px, 3.5vw, 32px)', fontWeight: '900', color: '#000', letterSpacing: '1px', textAlign: 'center', textTransform: 'uppercase' }}>
-              Toca aquí para continuar
-            </div>
-          </div>
-
-          <style>{`
-            @keyframes ss-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
-            @keyframes ss-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.75;transform:scale(1.04)} }
-            @keyframes ss-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(8px)} }
-          `}</style>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Inactivity modal - auto restart */}
       {inactivityModalOpen && (
-        <div className="store-modal-overlay" style={{ zIndex: 99998 }} onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
-          <div style={{ background: '#fff', borderRadius: '20px', padding: '32px 24px', maxWidth: '360px', width: '90%', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+        <div
+          className="store-modal-overlay"
+          style={{ zIndex: 99998 }}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          onPointerUp={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          onTouchStart={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); }}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: '20px', padding: '32px 24px', maxWidth: '360px', width: '90%', textAlign: 'center' }}
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+            onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+            onPointerUp={(e) => { e.stopPropagation(); e.preventDefault(); }}
+            onTouchStart={(e) => { e.stopPropagation(); e.preventDefault(); }}
+            onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          >
             <h2 style={{ margin: '0 0 8px', fontSize: '22px', color: '#333' }}>
               {lang === 'en' ? 'Are you still there?' : lang === 'pt' ? 'Voce ainda esta ai?' : 'Sigues ahi?'}
             </h2>
@@ -4760,8 +4786,17 @@ function Store() {
             </div>
             <button
               className="store-glow-pulse-green"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+              onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+              onPointerUp={(e) => {
+                e.stopPropagation(); e.preventDefault();
+                setInactivityModalOpen(false);
+                setInactivityCountdown(10);
+                if (inactivityCountdownRef.current) clearInterval(inactivityCountdownRef.current);
+              }}
+              onTouchStart={(e) => { e.stopPropagation(); e.preventDefault(); }}
+              onTouchEnd={(e) => {
+                e.stopPropagation(); e.preventDefault();
                 setInactivityModalOpen(false);
                 setInactivityCountdown(10);
                 if (inactivityCountdownRef.current) clearInterval(inactivityCountdownRef.current);
