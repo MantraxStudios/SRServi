@@ -4667,30 +4667,30 @@ function Store() {
           onTouchStart={() => { setScreensaverActive(false); clearTimeout(screensaverTimerRef.current); }}
         >
           {/* Media or logo */}
-          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '28px' }}>
+          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '24px' }}>
             {screensaverCfg.media_url ? (
               <img
                 src={API + screensaverCfg.media_url}
                 alt="Salva pantallas"
-                style={{ maxWidth: '80vw', maxHeight: '70vh', objectFit: 'contain', borderRadius: '12px' }}
+                style={{ maxWidth: '80vw', maxHeight: '60vh', objectFit: 'contain', borderRadius: '12px' }}
+              />
+            ) : screensaverCfg.store_logo ? (
+              <img
+                src={API + screensaverCfg.store_logo}
+                alt={screensaverCfg.store_name}
+                style={{ maxWidth: '240px', maxHeight: '240px', objectFit: 'contain', animation: 'ss-float 4s ease-in-out infinite' }}
               />
             ) : (
-              <>
-                {screensaverCfg.store_logo && (
-                  <img
-                    src={API + screensaverCfg.store_logo}
-                    alt={screensaverCfg.store_name}
-                    style={{ maxWidth: '260px', maxHeight: '260px', objectFit: 'contain', animation: 'ss-float 4s ease-in-out infinite' }}
-                  />
-                )}
-                {!screensaverCfg.store_logo && (
-                  <div style={{ fontSize: '80px', animation: 'ss-float 4s ease-in-out infinite' }}>🏪</div>
-                )}
-                <div style={{ fontSize: 'clamp(22px, 5vw, 48px)', fontWeight: '900', color: '#fff', letterSpacing: '-1px', textAlign: 'center', textShadow: '0 2px 24px rgba(212,175,55,0.35)', padding: '0 24px' }}>
-                  {screensaverCfg.store_name}
-                </div>
-              </>
+              <div style={{ fontSize: '80px', animation: 'ss-float 4s ease-in-out infinite' }}>🏪</div>
             )}
+
+            {/* Nombre de tienda — siempre visible */}
+            {screensaverCfg.store_name && (
+              <div style={{ fontSize: 'clamp(22px, 5vw, 48px)', fontWeight: '900', color: '#fff', letterSpacing: '-1px', textAlign: 'center', textShadow: '0 2px 24px rgba(212,175,55,0.4)', padding: '0 32px', lineHeight: 1.1 }}>
+                {screensaverCfg.store_name}
+              </div>
+            )}
+
             <div style={{ position: 'absolute', bottom: '32px', fontSize: '13px', color: 'rgba(255,255,255,0.35)', fontWeight: '600', letterSpacing: '1px', textTransform: 'uppercase' }}>
               Toca para continuar
             </div>

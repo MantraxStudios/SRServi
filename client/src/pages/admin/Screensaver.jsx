@@ -352,25 +352,25 @@ export function ScreensaverContent({ mediaUrl, storeName, storeLogo }) {
         <img
           src={mediaUrl}
           alt="Salva pantallas"
-          style={{ maxWidth: '80vw', maxHeight: '70vh', objectFit: 'contain', borderRadius: '12px' }}
+          style={{ maxWidth: '80vw', maxHeight: '60vh', objectFit: 'contain', borderRadius: '12px' }}
+        />
+      ) : storeLogo ? (
+        <img
+          src={storeLogo}
+          alt={storeName}
+          style={{ maxWidth: '240px', maxHeight: '240px', objectFit: 'contain', animation: 'ss-float 4s ease-in-out infinite' }}
         />
       ) : (
-        <>
-          {storeLogo && (
-            <img
-              src={storeLogo}
-              alt={storeName}
-              style={{ maxWidth: '260px', maxHeight: '260px', objectFit: 'contain', animation: 'ss-float 4s ease-in-out infinite' }}
-            />
-          )}
-          <div style={{ fontSize: 'clamp(24px, 5vw, 48px)', fontWeight: '900', color: '#fff', letterSpacing: '-1px', textAlign: 'center', textShadow: '0 2px 20px rgba(212,175,55,0.4)' }}>
-            {storeName}
-          </div>
-          {!storeLogo && (
-            <div style={{ fontSize: '72px' }}>🏪</div>
-          )}
-        </>
+        <div style={{ fontSize: '72px', animation: 'ss-float 4s ease-in-out infinite' }}>🏪</div>
       )}
+
+      {/* Nombre siempre visible */}
+      {storeName && (
+        <div style={{ fontSize: 'clamp(24px, 5vw, 48px)', fontWeight: '900', color: '#fff', letterSpacing: '-1px', textAlign: 'center', textShadow: '0 2px 20px rgba(212,175,55,0.4)', padding: '0 32px', lineHeight: 1.1 }}>
+          {storeName}
+        </div>
+      )}
+
       <style>{`
         @keyframes ss-float {
           0%, 100% { transform: translateY(0px); }
