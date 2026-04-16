@@ -2271,18 +2271,7 @@ function Store() {
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
 
-      {/* Info button — invisible | tap: info modal | hold 10s: PIN modal */}
-      {!editMode && (
-        <button
-          onPointerDown={handleInfoPointerDown}
-          onPointerUp={handleInfoPointerUp}
-          onPointerCancel={handleInfoPointerCancel}
-          onContextMenu={(e) => e.preventDefault()}
-          style={{ position: 'fixed', top: 0, right: 0, zIndex: 9999, background: 'transparent', border: 'none', borderRadius: '0 0 0 50%', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'transparent', fontSize: '14px', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'none', opacity: 0.01 }}
-        >
-          <FontAwesomeIcon icon={faInfoCircle} />
-        </button>
-      )}
+      {/* Info button moved outside zoom container — see below */}
 
       {/* Language selector */}
       <div style={{ position: 'fixed', top: '8px', right: '8px', zIndex: 200 }}>
@@ -4706,6 +4695,19 @@ function Store() {
         </div>
       )}
     </div>
+
+      {/* Info button — OUTSIDE zoom container so position:fixed hit area is correct */}
+      {!editMode && (
+        <button
+          onPointerDown={handleInfoPointerDown}
+          onPointerUp={handleInfoPointerUp}
+          onPointerCancel={handleInfoPointerCancel}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ position: 'fixed', top: 0, right: 0, zIndex: 9999, background: 'transparent', border: 'none', borderRadius: '0 0 0 50%', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'transparent', fontSize: '14px', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'none', opacity: 0.01 }}
+        >
+          <FontAwesomeIcon icon={faInfoCircle} />
+        </button>
+      )}
     </PluginProvider>
   );
 }
