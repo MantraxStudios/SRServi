@@ -212,6 +212,46 @@ function MercadoPagoPoints() {
     setPosList(buildPosList(mpTerminals, tuuDevices, assignments, storeDevs, squareDevices));
   };
 
+  // Re-fetch everything from server and rebuild the unified list
+  const refreshAll = async () => {
+    try {
+      const [mpRes, tuuRes, squareRes] = await Promise.all([
+        fetch(API + '/api/mercado-pago-terminals', { headers: { Authorization: 'Bearer ' + token } }),
+        selectedStore?.id ? fetch(API + '/api/tuu/devices?store_id=' + selectedStore.id) : Promise.resolve(null),
+        selectedStore?.id ? fetch(API + '/api/square/devices?store_id=' + selectedStore.id, { headers: { Authorization: 'Bearer ' + token } }) : Promise.resolve(null),
+      ]);
+
+      let mpTerminals = terminals;
+      if (mpRes.ok) {
+        mpTerminals = await mpRes.json();
+        if (!Array.isArray(mpTerminals)) mpTerminals = [];
+        setTerminals(mpTerminals);
+        mpTerminals.forEach(t => fetchDevices(t.id));
+      }
+
+      let newTuuDevices = tuuPosDevices;
+      let newAssignments = tuuAssignments;
+      let newStoreDevs = tuuStoreDevices;
+      if (tuuRes && tuuRes.ok) {
+        const tuuData = await tuuRes.json();
+        newTuuDevices = tuuData.posDevices || [];
+        newStoreDevs = tuuData.storeDevices || [];
+        newAssignments = tuuData.assignments || [];
+        setTuuPosDevices(newTuuDevices);
+        setTuuStoreDevices(newStoreDevs);
+        setTuuAssignments(newAssignments);
+      }
+
+      let newSquareDevices = squareDevices;
+      if (squareRes && squareRes.ok) {
+        newSquareDevices = await squareRes.json();
+        setSquareDevices(newSquareDevices);
+      }
+
+      setPosList(buildPosList(mpTerminals, newTuuDevices, newAssignments, newStoreDevs, newSquareDevices));
+    } catch { /* silently ignore */ }
+  };
+
   const saveMpPos = async () => {
     if (!mpNewName.trim() || !mpNewToken.trim() || !mpNewTerminalId.trim()) { setMpSaveMsg('Completa todos los campos'); return; }
     setSavingMp(true); setMpSaveMsg('');
@@ -225,7 +265,7 @@ function MercadoPagoPoints() {
       if (res.ok) {
         setMpSaveMsg('✔ Guardado');
         setMpNewName(''); setMpNewToken(''); setMpNewTerminalId('');
-        fetchPosList();
+        refreshAll();
         setTimeout(() => setShowPosModal(false), 1200);
       } else { setMpSaveMsg('Error: ' + (data.error || 'revisalo')); }
     } catch { setMpSaveMsg('Error de conexion'); }
@@ -245,7 +285,7 @@ function MercadoPagoPoints() {
       if (res.ok || data.success) {
         setTuuSaveMsg2('✔ Guardado');
         setTuuNewName(''); setTuuNewSerial(''); setTuuNewDeviceId(''); setTuuNewApiKey('');
-        fetchPosList();
+        refreshAll();
         setTimeout(() => setShowPosModal(false), 1200);
       } else { setTuuSaveMsg2('Error: ' + (data.error || 'revisalo')); }
     } catch { setTuuSaveMsg2('Error de conexion'); }
@@ -261,22 +301,15 @@ function MercadoPagoPoints() {
     } else if (pos.provider === 'square') {
       await fetch(API + '/api/square/devices/' + pos.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
     }
-    fetchPosList();
+    refreshAll();
   };
 
   useEffect(() => {
-    fetchTerminals();
     fetchWorkshopPlugins();
-    fetchTuuConfig();
-    fetchSquareData();
     fetchHaulmerConfig();
-    fetchPosList();
+    refreshAll();
     setPluginCountriesMap(loadPluginCountries());
   }, [selectedStore?.id]);
-
-  useEffect(() => {
-    fetchPosList();
-  }, [terminals, tuuPosDevices, tuuAssignments, tuuStoreDevices]);
 
   const fetchWorkshopPlugins = async () => {
     setLoadingWorkshop(true);
@@ -444,7 +477,7 @@ function MercadoPagoPoints() {
             body: JSON.stringify({ store_id: selectedStore.id, name: squareDeviceName.trim() || 'Square Terminal', device_id: data.device_id, device_code_id: codeId, location_id: squareLocationId })
           });
           fetchSquareData();
-          fetchPosList();
+          refreshAll();
         } else if (data.status === 'UNKNOWN') {
           clearInterval(intervalId); setSquarePolling(false); setSquarePollMsg('Código expirado. Genera uno nuevo.');
         } else {
@@ -1156,7 +1189,7 @@ function MercadoPagoPoints() {
                                   setMpNewToken('');
                                   setMpModalStep('token');
                                   setMpModalDetected([]);
-                                  fetchPosList();
+                                  refreshAll();
                                   setTimeout(() => setShowPosModal(false), 1200);
                                 } else {
                                   const err = await res.json();
@@ -1293,7 +1326,7 @@ function MercadoPagoPoints() {
                               <span style={{ fontSize: '13px', fontWeight: '700', color: '#111' }}>{d.name}</span>
                               <span style={{ fontSize: '11px', color: '#888', marginLeft: '8px', fontFamily: 'monospace' }}>{d.device_id?.slice(0, 16)}...</span>
                             </div>
-                            <button onClick={async () => { if (!confirm('¿Desvincular ' + d.name + '?')) return; await fetch(API + '/api/square/devices/' + d.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } }); fetchSquareData(); fetchPosList(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545', fontSize: '16px' }}>🗑</button>
+                            <button onClick={async () => { if (!confirm('¿Desvincular ' + d.name + '?')) return; await fetch(API + '/api/square/devices/' + d.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } }); refreshAll(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545', fontSize: '16px' }}>🗑</button>
                           </div>
                         ))}
                       </div>
