@@ -1786,13 +1786,14 @@ function Store() {
 
   const handleInfoPointerDown = (e) => {
     e.stopPropagation();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
     infoPressTriggeredRef.current = false;
     infoPressTimerRef.current = setTimeout(() => {
       infoPressTriggeredRef.current = true;
       setPinInput('');
       setPinError('');
       setPinModalOpen(true);
-    }, 2000);
+    }, 10000);
   };
 
   const handleInfoPointerUp = (e) => {
@@ -1803,6 +1804,13 @@ function Store() {
     }
     if (!infoPressTriggeredRef.current) {
       setInfoModalOpen(true);
+    }
+  };
+
+  const handleInfoPointerCancel = () => {
+    if (infoPressTimerRef.current) {
+      clearTimeout(infoPressTimerRef.current);
+      infoPressTimerRef.current = null;
     }
   };
 
@@ -2237,13 +2245,13 @@ function Store() {
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
 
-      {/* Info button — tap: info modal | hold 2s: PIN modal */}
+      {/* Info button — invisible | tap: info modal | hold 10s: PIN modal */}
       {!editMode && (
         <button
           onPointerDown={handleInfoPointerDown}
           onPointerUp={handleInfoPointerUp}
-          onPointerLeave={() => { if (infoPressTimerRef.current) { clearTimeout(infoPressTimerRef.current); infoPressTimerRef.current = null; } }}
-          style={{ position: 'fixed', top: '8px', right: '48px', zIndex: 200, background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: '14px', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }}
+          onPointerCancel={handleInfoPointerCancel}
+          style={{ position: 'fixed', top: '8px', right: '48px', zIndex: 200, background: 'transparent', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'transparent', fontSize: '14px', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none', opacity: 0 }}
         >
           <FontAwesomeIcon icon={faInfoCircle} />
         </button>
@@ -4363,7 +4371,7 @@ function Store() {
               <div><strong>Terminal:</strong> {selectedTerminalId || 'Ninguna'}</div>
               <div><strong>Socket:</strong> {socketRef.current?.connected ? '🟢 Conectado' : '🔴 Desconectado'}{socketRef.current?.id ? ` (${socketRef.current.id})` : ''}</div>
             </div>
-            <p style={{ fontSize: '11px', color: '#bbb', textAlign: 'center', marginTop: '12px', marginBottom: 0 }}>Mantén presionado el botón <FontAwesomeIcon icon={faInfoCircle} /> para acceder al PIN de edición</p>
+            <p style={{ fontSize: '11px', color: '#bbb', textAlign: 'center', marginTop: '12px', marginBottom: 0 }}>Mantén presionado la esquina superior derecha 10 segundos para acceder al PIN de edición</p>
           </div>
         </div>
       )}
