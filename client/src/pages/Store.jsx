@@ -1787,11 +1787,22 @@ function Store() {
   const handleInfoPointerDown = (e) => {
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
     e.stopPropagation();
-    e.preventDefault();
-    if (anyModalOpenRef.current) return;
+    if (anyModalOpenRef.current) {
+      console.log('[PIN] pointerdown ignorado — modal abierto');
+      return;
+    }
     infoPressTriggeredRef.current = false;
     if (infoPressTimerRef.current) clearTimeout(infoPressTimerRef.current);
-    infoPressTimerRef.current = setTimeout(() => {
+    const startTime = Date.now();
+    console.log('[PIN] pointerdown — iniciando timer 10s');
+    infoPressTimerRef.current = setInterval(() => {
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`[PIN] apretado: ${elapsed}s`);
+    }, 500);
+    infoPressTimerRef._pinTimeout = setTimeout(() => {
+      console.log('[PIN] 10s cumplidos — abriendo modal PIN');
+      clearInterval(infoPressTimerRef.current);
+      infoPressTimerRef.current = null;
       infoPressTriggeredRef.current = true;
       setPinInput('');
       setPinError('');
@@ -1801,20 +1812,31 @@ function Store() {
 
   const handleInfoPointerUp = (e) => {
     e.stopPropagation();
-    e.preventDefault();
+    const elapsed = infoPressTimerRef._pinTimeout ? 'cancelado' : 'ya disparado';
+    console.log(`[PIN] pointerup — estado: ${elapsed}, triggered: ${infoPressTriggeredRef.current}`);
     if (infoPressTimerRef.current) {
-      clearTimeout(infoPressTimerRef.current);
+      clearInterval(infoPressTimerRef.current);
       infoPressTimerRef.current = null;
     }
+    if (infoPressTimerRef._pinTimeout) {
+      clearTimeout(infoPressTimerRef._pinTimeout);
+      infoPressTimerRef._pinTimeout = null;
+    }
     if (!infoPressTriggeredRef.current && !anyModalOpenRef.current) {
+      console.log('[PIN] tap corto — abriendo infoModal');
       setInfoModalOpen(true);
     }
   };
 
   const handleInfoPointerCancel = () => {
+    console.log('[PIN] pointercancel — cancelando timer');
     if (infoPressTimerRef.current) {
-      clearTimeout(infoPressTimerRef.current);
+      clearInterval(infoPressTimerRef.current);
       infoPressTimerRef.current = null;
+    }
+    if (infoPressTimerRef._pinTimeout) {
+      clearTimeout(infoPressTimerRef._pinTimeout);
+      infoPressTimerRef._pinTimeout = null;
     }
   };
 
@@ -2255,7 +2277,7 @@ function Store() {
           onPointerDown={handleInfoPointerDown}
           onPointerUp={handleInfoPointerUp}
           onPointerCancel={handleInfoPointerCancel}
-          style={{ position: 'fixed', top: '8px', right: '48px', zIndex: 200, background: 'transparent', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'transparent', fontSize: '14px', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none', opacity: 0 }}
+          style={{ position: 'fixed', top: 0, right: 0, zIndex: 9999, background: 'transparent', border: 'none', borderRadius: '0 0 0 50%', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'transparent', fontSize: '14px', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none', opacity: 0.01 }}
         >
           <FontAwesomeIcon icon={faInfoCircle} />
         </button>
