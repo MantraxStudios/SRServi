@@ -1769,12 +1769,14 @@ function Store() {
   const handleLongPressStart = () => {
     if (editMode) return;
     if (anyModalOpenRef.current) return;
+    console.log('[PIN] longPressStart — iniciando timer 2s');
     longPressTimerRef.current = setTimeout(() => {
       if (anyModalOpenRef.current) return;
+      console.log('[PIN] 2s cumplidos — abriendo modal PIN');
       setPinInput('');
       setPinError('');
       setPinModalOpen(true);
-    }, 10000);
+    }, 2000);
   };
 
   const handleLongPressEnd = () => {
@@ -1786,28 +1788,30 @@ function Store() {
 
   const handleInfoPointerDown = (e) => {
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+    e.preventDefault();
     e.stopPropagation();
     if (anyModalOpenRef.current) {
       console.log('[PIN] pointerdown ignorado — modal abierto');
       return;
     }
+    // Limpiar timers previos
+    if (infoPressTimerRef.current) { clearInterval(infoPressTimerRef.current); infoPressTimerRef.current = null; }
+    if (infoPressTimerRef._pinTimeout) { clearTimeout(infoPressTimerRef._pinTimeout); infoPressTimerRef._pinTimeout = null; }
     infoPressTriggeredRef.current = false;
-    if (infoPressTimerRef.current) clearInterval(infoPressTimerRef.current);
     const startTime = Date.now();
-    console.log('[PIN] pointerdown — iniciando timer 10s');
+    console.log('[PIN] pointerdown — iniciando timer 2s');
     infoPressTimerRef.current = setInterval(() => {
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`[PIN] apretado: ${elapsed}s`);
-    }, 500);
+    }, 300);
     infoPressTimerRef._pinTimeout = setTimeout(() => {
-      console.log('[PIN] 10s cumplidos — abriendo modal PIN');
-      clearInterval(infoPressTimerRef.current);
-      infoPressTimerRef.current = null;
+      console.log('[PIN] 2s cumplidos — abriendo modal PIN');
+      if (infoPressTimerRef.current) { clearInterval(infoPressTimerRef.current); infoPressTimerRef.current = null; }
       infoPressTriggeredRef.current = true;
       setPinInput('');
       setPinError('');
       setPinModalOpen(true);
-    }, 10000);
+    }, 2000);
   };
 
   const handleInfoPointerUp = (e) => {
@@ -4702,8 +4706,9 @@ function Store() {
           onPointerDown={handleInfoPointerDown}
           onPointerUp={handleInfoPointerUp}
           onPointerCancel={handleInfoPointerCancel}
+          onPointerLeave={handleInfoPointerCancel}
           onContextMenu={(e) => e.preventDefault()}
-          style={{ position: 'fixed', top: 0, right: 0, zIndex: 9999, background: 'transparent', border: 'none', borderRadius: '0 0 0 50%', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'transparent', fontSize: '14px', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'none', opacity: 0.01 }}
+          style={{ position: 'fixed', top: 0, right: 0, zIndex: 9999, background: 'transparent', border: 'none', borderRadius: '0 0 0 50%', width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'transparent', fontSize: '14px', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'none', opacity: 0.01 }}
         >
           <FontAwesomeIcon icon={faInfoCircle} />
         </button>
