@@ -82,8 +82,11 @@ class MainActivity : AppCompatActivity() {
         if (dpm.isDeviceOwnerApp(packageName)) {
             dpm.setLockTaskPackages(adminComponent, arrayOf(packageName))
             if (!kioskModeActive) {
-                startLockTask()
-                kioskModeActive = true
+                // Post to next frame so the UI renders before the system call blocks
+                window.decorView.post {
+                    startLockTask()
+                    kioskModeActive = true
+                }
             }
         }
         // Sin Device Owner, el modo kiosk se logra combinando:

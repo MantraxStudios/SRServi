@@ -42,7 +42,6 @@ class MainActivity : ComponentActivity() {
                 displayZoomControls = false
                 loadWithOverviewMode = true
                 useWideViewPort = true
-                // textZoom removido — dejarlo en default (100) evita el zoom gigante
             }
 
             // Habilitar cookies

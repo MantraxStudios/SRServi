@@ -1,8 +1,10 @@
 package com.mantraxstudios.srservi.ui
 
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -11,6 +13,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.appbar.MaterialToolbar
 import com.mantraxstudios.srservi.R
@@ -19,6 +22,20 @@ class WorkerLoginActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+    private val fileChooserLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val uris: Array<Uri>? = if (result.resultCode == RESULT_OK) {
+                result.data?.let { data ->
+                    data.clipData?.let { clip ->
+                        Array(clip.itemCount) { i -> clip.getItemAt(i).uri }
+                    } ?: data.data?.let { arrayOf(it) }
+                }
+            } else null
+            filePathCallback?.onReceiveValue(uris)
+            filePathCallback = null
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,6 +70,17 @@ class WorkerLoginActivity : AppCompatActivity() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 progressBar.progress = newProgress
                 progressBar.visibility = if (newProgress < 100) View.VISIBLE else View.GONE
+            }
+
+            override fun onShowFileChooser(
+                webView: WebView,
+                filePathCallback: ValueCallback<Array<Uri>>,
+                fileChooserParams: FileChooserParams
+            ): Boolean {
+                this@WorkerLoginActivity.filePathCallback?.onReceiveValue(null)
+                this@WorkerLoginActivity.filePathCallback = filePathCallback
+                fileChooserLauncher.launch(fileChooserParams.createIntent())
+                return true
             }
         }
 

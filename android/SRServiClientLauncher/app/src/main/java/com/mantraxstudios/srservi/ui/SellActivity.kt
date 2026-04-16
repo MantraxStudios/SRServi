@@ -3,12 +3,14 @@ package com.mantraxstudios.srservi.ui
 import android.app.ActivityManager
 import android.app.admin.DevicePolicyManager
 import android.content.Context
-import android.os.Build
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -16,6 +18,7 @@ import android.webkit.WebViewClient
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -29,6 +32,22 @@ class SellActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
     private var inLockTask = false
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+    private val fileChooserLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val uris: Array<Uri>? = if (result.resultCode == RESULT_OK) {
+                result.data?.let { data ->
+                    data.clipData?.let { clip ->
+                        Array(clip.itemCount) { i -> clip.getItemAt(i).uri }
+                    } ?: data.data?.let { arrayOf(it) }
+                }
+            } else null
+            filePathCallback?.onReceiveValue(uris)
+            filePathCallback = null
+            // Re-pin after returning from file chooser
+            webView.post { startKioskLock() }
+        }
 
     companion object {
         private const val SELL_URL = "https://srservi2.srautomatic.com/"
@@ -78,8 +97,11 @@ class SellActivity : AppCompatActivity() {
                 val adminComponent = SRServiDeviceAdminReceiver.getComponentName(this)
                 dpm.setLockTaskPackages(adminComponent, arrayOf(packageName))
             }
-            startLockTask()
-            inLockTask = true
+            // Post to next frame so the WebView starts rendering before the system call blocks
+            webView.post {
+                startLockTask()
+                inLockTask = true
+            }
         } catch (_: Exception) {
             // Sin device owner: el sistema mostrara una confirmacion al usuario.
             // Si rechaza, no entramos en lock task pero el resto de bloqueos siguen activos.
@@ -124,6 +146,19 @@ class SellActivity : AppCompatActivity() {
                 } else {
                     progressBar.visibility = View.GONE
                 }
+            }
+
+            override fun onShowFileChooser(
+                webView: WebView,
+                filePathCallback: ValueCallback<Array<Uri>>,
+                fileChooserParams: FileChooserParams
+            ): Boolean {
+                this@SellActivity.filePathCallback?.onReceiveValue(null)
+                this@SellActivity.filePathCallback = filePathCallback
+                // Unpin temporarily so the system file chooser can open
+                stopKioskLock()
+                fileChooserLauncher.launch(fileChooserParams.createIntent())
+                return true
             }
         }
     }
