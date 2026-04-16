@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faBox, faGripVertical, faCamera, faTimes, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faBox, faGripVertical, faCamera } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { getImageUrl } from '../../config.js';
+import CameraModal from '../../components/CameraModal';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -48,61 +49,8 @@ function Products() {
   const [error, setError] = useState('');
   const [activeId, setActiveId] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [cameraPhoto, setCameraPhoto] = useState(null); // data URL preview
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const streamRef = useRef(null);
 
   const fetchAllRef = useRef(false);
-
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-  }, []);
-
-  const openCamera = useCallback(async () => {
-    setCameraPhoto(null);
-    setCameraOpen(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-      streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch {
-      alert('No se pudo acceder a la cámara. Verifica los permisos.');
-      setCameraOpen(false);
-    }
-  }, []);
-
-  const capturePhoto = useCallback(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    setCameraPhoto(dataUrl);
-    stopCamera();
-  }, [stopCamera]);
-
-  const confirmPhoto = useCallback(() => {
-    if (!cameraPhoto) return;
-    fetch(cameraPhoto)
-      .then(r => r.blob())
-      .then(blob => {
-        const file = new File([blob], 'foto-producto.jpg', { type: 'image/jpeg' });
-        setFormData(prev => ({ ...prev, imageFile: file }));
-        setCameraOpen(false);
-        setCameraPhoto(null);
-      });
-  }, [cameraPhoto]);
-
-  const retakePhoto = useCallback(() => {
-    setCameraPhoto(null);
-    openCamera();
-  }, [openCamera]);
 
   useEffect(() => {
     if (!selectedStore) {
@@ -569,7 +517,7 @@ function Products() {
                   />
                   <button
                     type="button"
-                    onClick={openCamera}
+                    onClick={() => setCameraOpen(true)}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#111', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: '700', fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
                   >
                     <FontAwesomeIcon icon={faCamera} />
@@ -718,56 +666,12 @@ function Products() {
         </div>
       )}
 
-      {/* ── Modal cámara ── */}
       {cameraOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 24 }}>
-
-          {/* Visor / preview */}
-          <div style={{ position: 'relative', width: '100%', maxWidth: 480, borderRadius: 16, overflow: 'hidden', background: '#000', aspectRatio: '4/3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {cameraPhoto ? (
-              <img src={cameraPhoto} alt="Foto tomada" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            )}
-          </div>
-
-          {/* Controles */}
-          {!cameraPhoto ? (
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-              <button
-                onClick={() => { stopCamera(); setCameraOpen(false); }}
-                style={{ background: 'rgba(255,255,255,0.1)', border: '1.5px solid rgba(255,255,255,0.25)', color: '#fff', borderRadius: 12, padding: '12px 22px', fontWeight: '700', fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
-              >
-                <FontAwesomeIcon icon={faTimes} /> Cancelar
-              </button>
-              <button
-                onClick={capturePhoto}
-                style={{ background: '#D4AF37', border: 'none', color: '#000', borderRadius: '50%', width: 68, height: 68, fontWeight: '900', fontSize: 26, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 5px rgba(212,175,55,0.25)' }}
-              >
-                <FontAwesomeIcon icon={faCamera} />
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-              <button
-                onClick={retakePhoto}
-                style={{ background: 'rgba(255,255,255,0.1)', border: '1.5px solid rgba(255,255,255,0.25)', color: '#fff', borderRadius: 12, padding: '12px 22px', fontWeight: '700', fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
-              >
-                <FontAwesomeIcon icon={faCamera} /> Repetir
-              </button>
-              <button
-                onClick={confirmPhoto}
-                style={{ background: '#2ecc71', border: 'none', color: '#fff', borderRadius: 12, padding: '12px 28px', fontWeight: '800', fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 20px rgba(46,204,113,0.35)' }}
-              >
-                <FontAwesomeIcon icon={faCheck} /> Usar foto
-              </button>
-            </div>
-          )}
-        </div>
+        <CameraModal
+          onCapture={(file) => { setFormData(prev => ({ ...prev, imageFile: file })); setCameraOpen(false); }}
+          onClose={() => setCameraOpen(false)}
+        />
       )}
-
-      {/* Canvas oculto para captura */}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
     </>
   );
 }

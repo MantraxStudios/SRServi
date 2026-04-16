@@ -32,10 +32,12 @@ import {
   faClock,
   faQrcode,
   faDownload,
-  faInfoCircle
+  faInfoCircle,
+  faCamera
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
+import CameraModal from '../components/CameraModal';
 import {
   DndContext,
   closestCenter,
@@ -231,6 +233,7 @@ function Store() {
   const [editingProd, setEditingProd] = useState(null);
   const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '' });
   const [prodImageFile, setProdImageFile] = useState(null);
+  const [prodCameraOpen, setProdCameraOpen] = useState(false);
   const [prodSaving, setProdSaving] = useState(false);
   const [prodNewExtras, setProdNewExtras] = useState([]);
   const [prodNewComplements, setProdNewComplements] = useState([]);
@@ -3784,15 +3787,25 @@ function Store() {
                   <FontAwesomeIcon icon={faBox} />
                 </div>
               )}
-              <label className="store-prod-modal-image-btn">
-                <FontAwesomeIcon icon={faEdit} /> {prodImageFile || editingProd?.image ? 'Cambiar' : 'Agregar imagen'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => { if (e.target.files[0]) setProdImageFile(e.target.files[0]); }}
-                  style={{ display: 'none' }}
-                />
-              </label>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <label className="store-prod-modal-image-btn">
+                  <FontAwesomeIcon icon={faEdit} /> {prodImageFile || editingProd?.image ? 'Cambiar' : 'Agregar imagen'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => { if (e.target.files[0]) setProdImageFile(e.target.files[0]); }}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setProdCameraOpen(true)}
+                  className="store-prod-modal-image-btn"
+                  style={{ cursor: 'pointer', border: 'none' }}
+                >
+                  <FontAwesomeIcon icon={faCamera} /> Tomar foto
+                </button>
+              </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -3915,6 +3928,13 @@ function Store() {
             </div>
           </div>
         </div>
+      )}
+
+      {prodCameraOpen && (
+        <CameraModal
+          onCapture={(file) => { setProdImageFile(file); setProdCameraOpen(false); }}
+          onClose={() => setProdCameraOpen(false)}
+        />
       )}
 
       {showComplementsModal && (
