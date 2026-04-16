@@ -204,54 +204,6 @@ function MercadoPagoPoints() {
     return [...mpList, ...tuuList, ...squareList];
   };
 
-  const fetchPosList = async () => {
-    const mpTerminals = terminals;
-    const tuuDevices = tuuPosDevices;
-    const assignments = tuuAssignments;
-    const storeDevs = tuuStoreDevices;
-    setPosList(buildPosList(mpTerminals, tuuDevices, assignments, storeDevs, squareDevices));
-  };
-
-  // Re-fetch everything from server and rebuild the unified list
-  const refreshAll = async () => {
-    try {
-      const [mpRes, tuuRes, squareRes] = await Promise.all([
-        fetch(API + '/api/mercado-pago-terminals', { headers: { Authorization: 'Bearer ' + token } }),
-        selectedStore?.id ? fetch(API + '/api/tuu/devices?store_id=' + selectedStore.id) : Promise.resolve(null),
-        selectedStore?.id ? fetch(API + '/api/square/devices?store_id=' + selectedStore.id, { headers: { Authorization: 'Bearer ' + token } }) : Promise.resolve(null),
-      ]);
-
-      let mpTerminals = terminals;
-      if (mpRes.ok) {
-        mpTerminals = await mpRes.json();
-        if (!Array.isArray(mpTerminals)) mpTerminals = [];
-        setTerminals(mpTerminals);
-        mpTerminals.forEach(t => fetchDevices(t.id));
-      }
-
-      let newTuuDevices = tuuPosDevices;
-      let newAssignments = tuuAssignments;
-      let newStoreDevs = tuuStoreDevices;
-      if (tuuRes && tuuRes.ok) {
-        const tuuData = await tuuRes.json();
-        newTuuDevices = tuuData.posDevices || [];
-        newStoreDevs = tuuData.storeDevices || [];
-        newAssignments = tuuData.assignments || [];
-        setTuuPosDevices(newTuuDevices);
-        setTuuStoreDevices(newStoreDevs);
-        setTuuAssignments(newAssignments);
-      }
-
-      let newSquareDevices = squareDevices;
-      if (squareRes && squareRes.ok) {
-        newSquareDevices = await squareRes.json();
-        setSquareDevices(newSquareDevices);
-      }
-
-      setPosList(buildPosList(mpTerminals, newTuuDevices, newAssignments, newStoreDevs, newSquareDevices));
-    } catch { /* silently ignore */ }
-  };
-
   const saveMpPos = async () => {
     if (!mpNewName.trim() || !mpNewToken.trim() || !mpNewTerminalId.trim()) { setMpSaveMsg('Completa todos los campos'); return; }
     setSavingMp(true); setMpSaveMsg('');
@@ -302,6 +254,20 @@ function MercadoPagoPoints() {
       await fetch(API + '/api/square/devices/' + pos.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
     }
     refreshAll();
+  };
+
+  // Calls all fetch functions in parallel to refresh data from server.
+  // fetchTerminals, fetchTuuConfig, fetchSquareData are declared further below —
+  // this is fine because refreshAll is only ever *called* at runtime (events/effects),
+  // never at declaration time, so all const functions are already evaluated by then.
+  const refreshAll = async () => {
+    try {
+      await Promise.all([
+        fetchTerminals(),
+        fetchTuuConfig(),
+        fetchSquareData(),
+      ]);
+    } catch { /* silently ignore */ }
   };
 
   useEffect(() => {
@@ -942,6 +908,8 @@ function MercadoPagoPoints() {
     } catch {}
   };
 
+  // Re-fetch everything from server and rebuild the unified list.
+  // Declared as function (not const) so it hoists and can be called anywhere in the component.
   if (loading) return <div className="loading">Cargando...</div>;
 
   const showMPSection = mpInCountry || terminals.length > 0;
