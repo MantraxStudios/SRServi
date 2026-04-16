@@ -1,12 +1,16 @@
 package com.mantraxstudios.srservi.printer
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -14,6 +18,7 @@ import android.os.Looper
 import androidx.core.app.NotificationCompat
 import com.mantraxstudios.srservi.MainActivity
 import com.mantraxstudios.srservi.R
+import com.mantraxstudios.srservi.RestartBridgeActivity
 import com.mantraxstudios.srservi.SRServiApp
 import com.mantraxstudios.srservi.network.ApiService
 
@@ -21,7 +26,9 @@ class PrinterForegroundService : Service() {
 
     companion object {
         const val CHANNEL_ID = "printer_service_channel"
+        private const val CHANNEL_RELAUNCH_ID = "relaunch_channel"
         const val NOTIFICATION_ID = 1
+        private const val NOTIFICATION_RELAUNCH_ID = 2
         const val ACTION_ORDERS_UPDATED = "com.mantraxstudios.srservi.ORDERS_UPDATED"
         const val PREFS_NAME = "srservi_prefs"
         const val KEY_PRINTED_IDS = "printed_order_ids"
@@ -75,13 +82,65 @@ class PrinterForegroundService : Service() {
     }
 
     // Si la tarea es eliminada (swipe en recientes o cierre forzado),
-    // relanzar MainActivity para mantener el modo kiosk
+    // relanzar la app para mantener el modo kiosk.
+    //
+    // Android 14/15 bloquea dos cosas por separado:
+    //   1. BAL desde ForegroundService → se permite si la app es launcher/Device Owner.
+    //   2. "balDontBringExistingBackgroundTaskStackToFg" → bloquea traer tareas
+    //      existentes al frente incluso con BAL permitido.
+    //
+    // Solución: RestartBridgeActivity (taskAffinity="", standard) crea una tarea
+    // NUEVA sin historial, evitando la segunda restricción.
+    // Si no somos el launcher, mostramos una notificación heads-up.
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        val relaunchIntent = Intent(this, MainActivity::class.java).apply {
+
+        val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+
+        if (dpm.isDeviceOwnerApp(packageName) || isDefaultLauncher()) {
+            // Tenemos exención BAL. Usamos RestartBridgeActivity para evitar
+            // "balDontBringExistingBackgroundTaskStackToFg" que bloquea incluso
+            // al launcher si intenta traer una tarea existente al frente.
+            try {
+                startActivity(
+                    Intent(this, RestartBridgeActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                )
+                return
+            } catch (_: Exception) { /* fallthrough to notification */ }
+        }
+
+        // Sin exención BAL o si el lanzamiento falló: notificación heads-up.
+        val mainIntent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         }
-        startActivity(relaunchIntent)
+        showRelaunchNotification(mainIntent)
+    }
+
+    private fun isDefaultLauncher(): Boolean {
+        val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val info = packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+        return info?.activityInfo?.packageName == packageName
+    }
+
+    private fun showRelaunchNotification(relaunchIntent: Intent) {
+        val pi = PendingIntent.getActivity(
+            this, 0, relaunchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, CHANNEL_RELAUNCH_ID)
+            .setContentTitle("SRServi")
+            .setContentText("Toca para reactivar la aplicación")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentIntent(pi)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .build()
+
+        getSystemService(NotificationManager::class.java)
+            .notify(NOTIFICATION_RELAUNCH_ID, notification)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -155,15 +214,31 @@ class PrinterForegroundService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Servicio de Impresión",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Monitoreo de pedidos e impresión automática"
-                setShowBadge(false)
-            }
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            val nm = getSystemService(NotificationManager::class.java)
+
+            // Canal persistente del servicio (baja prioridad, sin sonido)
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID,
+                    "Servicio de Impresión",
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = "Monitoreo de pedidos e impresión automática"
+                    setShowBadge(false)
+                }
+            )
+
+            // Canal de relanzamiento (alta prioridad, aparece como heads-up)
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_RELAUNCH_ID,
+                    "Reactivar SRServi",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Avisa cuando la app se cierra para poder reabrirla"
+                    setShowBadge(false)
+                }
+            )
         }
     }
 

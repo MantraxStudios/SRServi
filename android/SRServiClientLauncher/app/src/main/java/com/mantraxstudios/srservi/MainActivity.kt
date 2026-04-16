@@ -1,20 +1,12 @@
 package com.mantraxstudios.srservi
 
-import android.Manifest
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import android.view.View
 import android.widget.TextView
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
@@ -29,65 +21,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var printerManager: BluetoothPrinterManager
     private lateinit var tvPrinterStatus: TextView
 
-    // Permisos necesarios con su descripcion para el usuario
-    private data class PermissionInfo(
-        val permission: String,
-        val nombre: String,
-        val motivo: String
-    )
-
-    private fun requiredPermissions(): List<PermissionInfo> {
-        val lista = mutableListOf<PermissionInfo>()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            lista += PermissionInfo(
-                Manifest.permission.BLUETOOTH_CONNECT,
-                "Bluetooth (Conectar)",
-                "Necesario para conectar la impresora Bluetooth y imprimir recibos."
-            )
-            lista += PermissionInfo(
-                Manifest.permission.BLUETOOTH_SCAN,
-                "Bluetooth (Buscar)",
-                "Necesario para encontrar y emparejar la impresora Bluetooth."
-            )
-        }
-
-        lista += PermissionInfo(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            "Ubicacion",
-            "Android requiere este permiso para poder usar Bluetooth y encontrar la impresora."
-        )
-
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-            lista += PermissionInfo(
-                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                "Almacenamiento",
-                "Necesario para guardar recibos en el dispositivo."
-            )
-        } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
-            lista += PermissionInfo(
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                "Almacenamiento",
-                "Necesario para leer archivos de recibos."
-            )
-        }
-
-        return lista
-    }
-
-    private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        val denied = requiredPermissions().filter { info ->
-            results[info.permission] == false
-        }
-        if (denied.isNotEmpty()) {
-            showPermissionDeniedDialog(denied)
-        } else {
-            // Todos los permisos otorgados — arrancar el servicio de impresion
-            PrinterForegroundService.start(this)
-        }
-    }
+    // Evita llamar startLockTask() más de una vez
+    private var kioskModeActive = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -113,89 +48,31 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnAppSettings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        // El servicio se inicia SIEMPRE para que onTaskRemoved pueda relanzar
+        // la app aunque el wizard todavía no esté completo.
+        // BluetoothPrinterManager ya maneja gracefully la falta de permisos.
+        PrinterForegroundService.start(this)
+
+        // Si falta algún permiso o configuración crítica, mostrar el wizard.
+        // El kiosk/lock-task se activa DESPUÉS del wizard para que el usuario
+        // pueda navegar a los ajustes del sistema durante la configuración.
+        if (SetupWizardActivity.isSetupNeeded(this)) {
+            startActivity(Intent(this, SetupWizardActivity::class.java))
+            return
+        }
 
         setupKioskMode()
-        checkAndRequestPermissions()
+        updatePrinterStatus()
     }
 
-    // Verifica cuales permisos faltan y los pide todos juntos
-    private fun checkAndRequestPermissions() {
-        val missing = requiredPermissions()
-            .map { it.permission }
-            .filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
-
-        if (missing.isNotEmpty()) {
-            // Antes de pedir, explica para que sirve cada uno
-            val infos = requiredPermissions().filter { it.permission in missing }
-            showPermissionRationaleDialog(infos) {
-                permissionLauncher.launch(missing.toTypedArray())
-            }
-        }
-    }
-
-    // Dialog explicativo ANTES de pedir los permisos
-    private fun showPermissionRationaleDialog(
-        permisos: List<PermissionInfo>,
-        onAceptar: () -> Unit
-    ) {
-        val mensaje = buildString {
-            appendLine("Esta app necesita los siguientes permisos para funcionar correctamente:\n")
-            permisos.forEach { info ->
-                appendLine("• ${info.nombre}")
-                appendLine("  ${info.motivo}\n")
-            }
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle("Permisos necesarios")
-            .setMessage(mensaje.trim())
-            .setCancelable(false)
-            .setPositiveButton("Entendido, continuar") { _, _ -> onAceptar() }
-            .show()
-    }
-
-    // Dialog si el usuario nego un permiso, con opcion de ir a ajustes
-    private fun showPermissionDeniedDialog(denied: List<PermissionInfo>) {
-        val permanentlyDenied = denied.filter { info ->
-            !shouldShowRequestPermissionRationale(info.permission)
-        }
-        val soloNegados = denied.filter { info ->
-            shouldShowRequestPermissionRationale(info.permission)
-        }
-
-        val mensaje = buildString {
-            if (permanentlyDenied.isNotEmpty()) {
-                appendLine("Los siguientes permisos fueron BLOQUEADOS. Debes activarlos manualmente en Ajustes del sistema:\n")
-                permanentlyDenied.forEach { appendLine("• ${it.nombre}: ${it.motivo}\n") }
-                appendLine("Presiona \"Ir a Ajustes\" y activa cada permiso en la seccion \"Permisos\".")
-            } else {
-                appendLine("Los siguientes permisos son necesarios para que la app funcione:\n")
-                soloNegados.forEach { appendLine("• ${it.nombre}: ${it.motivo}\n") }
-            }
-        }
-
-        val builder = AlertDialog.Builder(this)
-            .setTitle("Permisos requeridos")
-            .setMessage(mensaje.trim())
-            .setCancelable(false)
-
-        if (permanentlyDenied.isNotEmpty()) {
-            builder.setPositiveButton("Ir a Ajustes") { _, _ ->
-                startActivity(
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", packageName, null)
-                    }
-                )
-            }
-            builder.setNegativeButton("Omitir por ahora", null)
-        } else {
-            builder.setPositiveButton("Volver a intentar") { _, _ ->
-                permissionLauncher.launch(denied.map { it.permission }.toTypedArray())
-            }
-            builder.setNegativeButton("Omitir por ahora", null)
-        }
-
-        builder.show()
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onBackPressed() {
+        // Bloquear el botón atrás en modo kiosk.
     }
 
     private fun setupKioskMode() {
@@ -203,26 +80,17 @@ class MainActivity : AppCompatActivity() {
         val adminComponent = SRServiDeviceAdminReceiver.getComponentName(this)
 
         if (dpm.isDeviceOwnerApp(packageName)) {
-            // Modo mejorado con Device Owner: bloqueo total del sistema (lock task)
             dpm.setLockTaskPackages(adminComponent, arrayOf(packageName))
-            startLockTask()
+            if (!kioskModeActive) {
+                startLockTask()
+                kioskModeActive = true
+            }
         }
-        // Sin Device Owner: el bloqueo se logra a través de:
-        //   - La app registrada como HOME launcher (botón Home vuelve a la app)
-        //   - onBackPressed bloqueado (ver abajo)
+        // Sin Device Owner, el modo kiosk se logra combinando:
+        //   - La app registrada como HOME launcher (el botón Inicio regresa a la app)
+        //   - onBackPressed bloqueado (arriba)
         //   - excludeFromRecents en el manifest
         //   - PrinterForegroundService.onTaskRemoved relanza la app si la cierran
-    }
-
-    @Suppress("OVERRIDE_DEPRECATION")
-    override fun onBackPressed() {
-        // Bloquear el botón atrás para evitar salir de la app en modo kiosk.
-        // No llamar a super para que no haga nada.
-    }
-
-    override fun onResume() {
-        super.onResume()
-        updatePrinterStatus()
     }
 
     private fun updatePrinterStatus() {

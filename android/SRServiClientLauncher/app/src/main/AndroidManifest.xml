@@ -17,7 +17,13 @@
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- Requerido en API 34+ como tipo de fallback cuando Bluetooth aún no está concedido -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Necesario para excluir la app de la optimización de batería (no se puede matar) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Necesario para mostrar la notificación del servicio en Android 13+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".SRServiApp"
@@ -57,6 +63,27 @@
             </intent-filter>
         </activity>
 
+        <!-- Puente transparente para relanzar la app desde background (Android 14/15+).
+             taskAffinity="" garantiza una tarea nueva sin historial previo, lo que
+             evita el bloqueo "balDontBringExistingBackgroundTaskStackToFg". -->
+        <activity
+            android:name=".RestartBridgeActivity"
+            android:exported="false"
+            android:launchMode="standard"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:screenOrientation="portrait" />
+
+        <!-- Wizard de configuración inicial — se muestra una sola vez hasta que
+             todos los permisos y ajustes requeridos estén en orden. -->
+        <activity
+            android:name=".SetupWizardActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:screenOrientation="portrait" />
+
         <activity
             android:name=".ui.SellActivity"
             android:exported="false"
@@ -86,7 +113,7 @@
             android:name=".printer.PrinterForegroundService"
             android:exported="false"
             android:stopWithTask="false"
-            android:foregroundServiceType="connectedDevice" />
+            android:foregroundServiceType="connectedDevice|dataSync" />
 
         <receiver
             android:name=".receiver.BootReceiver"
