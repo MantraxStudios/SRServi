@@ -4722,38 +4722,39 @@ function Store() {
             </div>
 
             {/* ══════════ Footer CTA centrado ══════════ */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)', padding: '0 32px' }}>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)' }}>
               <button
                 onClick={dismissSS}
                 onTouchStart={dismissSS}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 14,
-                  background: 'rgba(0,0,0,0.72)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  border: '1.5px solid rgba(212,175,55,0.55)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                  background: 'rgba(10,10,10,0.85)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  border: '1.5px solid rgba(212,175,55,0.6)',
                   borderRadius: 50,
-                  padding: '0 8px 0 8px',
-                  height: 62,
+                  padding: '0 20px 0 10px',
+                  height: 58,
                   cursor: 'pointer',
-                  boxShadow: '0 4px 32px rgba(0,0,0,0.45)',
+                  boxShadow: '0 0 0 4px rgba(212,175,55,0.08), 0 8px 32px rgba(0,0,0,0.5)',
+                  animation: 'ss-glow 2.5s ease-in-out infinite',
                 }}
               >
                 {/* Logo mini circular */}
-                <div style={{ width: 46, height: 46, borderRadius: '50%', overflow: 'hidden', border: '2px solid #D4AF37', flexShrink: 0, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', border: '2px solid #D4AF37', flexShrink: 0, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {screensaverCfg.store_logo
                     ? <img src={API + screensaverCfg.store_logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    : <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 16, color: '#D4AF37' }} />
+                    : <FontAwesomeIcon icon={faShoppingCart} style={{ fontSize: 15, color: '#D4AF37' }} />
                   }
                 </div>
 
-                {/* Texto con subrayado dorado */}
-                <span style={{ fontSize: 'clamp(14px,2vw,17px)', fontWeight: '700', color: '#fff', letterSpacing: '0.3px', borderBottom: '2px solid #D4AF37', paddingBottom: 2, whiteSpace: 'nowrap' }}>
+                {/* Texto subrayado dorado */}
+                <span style={{ fontSize: 'clamp(14px,1.9vw,17px)', fontWeight: '700', color: '#fff', letterSpacing: '0.4px', borderBottom: '2px solid #D4AF37', paddingBottom: 2, whiteSpace: 'nowrap' }}>
                   Toca aquí para continuar
                 </span>
 
                 {/* Chevron animado */}
-                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 14, color: '#D4AF37', animation: 'ss-arrow 0.9s ease-in-out infinite', marginRight: 6, flexShrink: 0 }} />
+                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13, color: '#D4AF37', animation: 'ss-arrow 0.9s ease-in-out infinite', flexShrink: 0 }} />
               </button>
             </div>
 
@@ -4761,6 +4762,7 @@ function Store() {
               @keyframes ss-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
               @keyframes ss-cart  { 0%,100%{transform:translateX(0) scale(1)} 45%{transform:translateX(8px) scale(1.04)} }
               @keyframes ss-arrow { 0%,100%{transform:translateX(0)} 50%{transform:translateX(5px)} }
+              @keyframes ss-glow  { 0%,100%{box-shadow:0 0 0 4px rgba(212,175,55,0.08),0 8px 32px rgba(0,0,0,0.5)} 50%{box-shadow:0 0 0 6px rgba(212,175,55,0.18),0 8px 40px rgba(212,175,55,0.2)} }
             `}</style>
           </div>
         );
