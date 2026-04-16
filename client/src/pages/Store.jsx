@@ -1792,7 +1792,7 @@ function Store() {
       return;
     }
     infoPressTriggeredRef.current = false;
-    if (infoPressTimerRef.current) clearTimeout(infoPressTimerRef.current);
+    if (infoPressTimerRef.current) clearInterval(infoPressTimerRef.current);
     const startTime = Date.now();
     console.log('[PIN] pointerdown — iniciando timer 10s');
     infoPressTimerRef.current = setInterval(() => {
@@ -2277,7 +2277,8 @@ function Store() {
           onPointerDown={handleInfoPointerDown}
           onPointerUp={handleInfoPointerUp}
           onPointerCancel={handleInfoPointerCancel}
-          style={{ position: 'fixed', top: 0, right: 0, zIndex: 9999, background: 'transparent', border: 'none', borderRadius: '0 0 0 50%', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'transparent', fontSize: '14px', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none', opacity: 0.01 }}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{ position: 'fixed', top: 0, right: 0, zIndex: 9999, background: 'transparent', border: 'none', borderRadius: '0 0 0 50%', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'transparent', fontSize: '14px', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'none', opacity: 0.01 }}
         >
           <FontAwesomeIcon icon={faInfoCircle} />
         </button>
