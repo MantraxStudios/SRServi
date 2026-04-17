@@ -6,6 +6,7 @@ import { PluginProvider } from './context/PluginContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
 import WorkerLogin from './pages/WorkerLogin';
 import WorkerPanel from './pages/WorkerPanel';
 import Dashboard from './pages/admin/Dashboard';
@@ -159,6 +160,7 @@ function App() {
           <Route path="/docs" element={<Docs />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/admin" element={<ProtectedRoute><PluginProvider mode="admin"><Layout /></PluginProvider></ProtectedRoute>}>
             <Route index element={<AdminEditorRedirect />} />
             <Route path="dashboard" element={<Dashboard />} />

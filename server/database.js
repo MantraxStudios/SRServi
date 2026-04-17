@@ -716,6 +716,14 @@ async function migrateTables() {
       } else {
         console.log('ℹ️ Tabla users ya tiene columna last_active');
       }
+      if (!userColNames.includes('totp_secret')) {
+        await pool.execute('ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64) DEFAULT NULL');
+        console.log('✅ Columna totp_secret agregada a users');
+      }
+      if (!userColNames.includes('totp_enabled')) {
+        await pool.execute('ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna totp_enabled agregada a users');
+      }
     } catch (err) {
       if (err.message.includes('Duplicate column')) {
         console.log('ℹ️ Columnas ya existen en users');
@@ -933,7 +941,7 @@ export async function createUser(username, email, password, business_name) {
 
 export async function authenticateUser(email, password) {
   const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
-  
+
   if (rows.length === 0) {
     return null;
   }
@@ -944,7 +952,7 @@ export async function authenticateUser(email, password) {
   if (!isValid) {
     return null;
   }
-  
+
   await pool.execute('UPDATE users SET last_active = NOW() WHERE id = ?', [user.id]);
 
   return {
@@ -953,8 +961,31 @@ export async function authenticateUser(email, password) {
     email: user.email,
     code: user.code,
     business_name: user.business_name,
-    is_banned: user.is_banned
+    is_banned: user.is_banned,
+    totp_enabled: Boolean(user.totp_enabled),
+    totp_secret: user.totp_secret || null
   };
+}
+
+export async function setTotpSecret(userId, secret) {
+  await pool.execute('UPDATE users SET totp_secret = ? WHERE id = ?', [secret, userId]);
+}
+
+export async function enableTotp(userId) {
+  await pool.execute('UPDATE users SET totp_enabled = TRUE WHERE id = ?', [userId]);
+}
+
+export async function disableTotp(userId) {
+  await pool.execute('UPDATE users SET totp_enabled = FALSE, totp_secret = NULL WHERE id = ?', [userId]);
+}
+
+export async function updateUserPassword(userId, hashedPassword) {
+  await pool.execute('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
+}
+
+export async function getUserByEmail(email) {
+  const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
+  return rows[0] || null;
 }
 
 export async function getUserByCode(code) {
@@ -970,7 +1001,7 @@ export async function getUserByCode(code) {
 
 export async function getUserById(id) {
   const [rows] = await pool.execute(
-    'SELECT id, username, email, code, business_name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name FROM users WHERE id = ?',
+    'SELECT id, username, email, code, business_name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, totp_enabled, totp_secret FROM users WHERE id = ?',
     [id]
   );
   return rows.length > 0 ? rows[0] : null;

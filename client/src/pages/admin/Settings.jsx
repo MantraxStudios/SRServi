@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPalette, faCoins, faChevronDown, faCheck, faFire, faClock, faQrcode, faEye, faEyeSlash, faDownload, faHashtag } from '@fortawesome/free-solid-svg-icons';
+import { faPalette, faCoins, faChevronDown, faCheck, faFire, faClock, faQrcode, faEye, faEyeSlash, faDownload, faHashtag, faShieldAlt, faKey, faLock, faUnlock } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useNavigate, Link } from 'react-router-dom';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -48,6 +48,15 @@ function Settings() {
   const [mpError, setMpError] = useState('');
   const [showMpToken, setShowMpToken] = useState(false);
   const qrRef = useRef(null);
+
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [totpSetup, setTotpSetup] = useState(null); // { secret, otpauthUrl }
+  const [totpCode, setTotpCode] = useState('');
+  const [totpDisableCode, setTotpDisableCode] = useState('');
+  const [totpLoading, setTotpLoading] = useState(false);
+  const [totpError, setTotpError] = useState('');
+  const [totpSuccess, setTotpSuccess] = useState('');
+  const [totpStep, setTotpStep] = useState('idle'); // 'idle' | 'setup' | 'disable'
 
   const downloadQR = () => {
     const canvas = qrRef.current?.querySelector('canvas');
@@ -100,6 +109,16 @@ function Settings() {
     }
   }, [selectedStore, token]);
 
+  useEffect(() => {
+    if (token) {
+      fetch('/api/auth/2fa/status', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(r => r.json()).then(data => {
+        setTotpEnabled(data.enabled || false);
+      }).catch(() => {});
+    }
+  }, [token]);
+
   const saveMpConfig = async () => {
     setMpSaving(true);
     setMpError('');
@@ -124,6 +143,72 @@ function Settings() {
       setMpError('Error de conexión');
     } finally {
       setMpSaving(false);
+    }
+  };
+
+  const startTotpSetup = async () => {
+    setTotpError('');
+    setTotpLoading(true);
+    try {
+      const res = await fetch('/api/auth/2fa/setup', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al generar código');
+      setTotpSetup(data);
+      setTotpStep('setup');
+      setTotpCode('');
+    } catch (err) {
+      setTotpError(err.message);
+    } finally {
+      setTotpLoading(false);
+    }
+  };
+
+  const confirmTotpEnable = async () => {
+    setTotpError('');
+    setTotpLoading(true);
+    try {
+      const res = await fetch('/api/auth/2fa/enable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ code: totpCode })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Código incorrecto');
+      setTotpEnabled(true);
+      setTotpStep('idle');
+      setTotpSetup(null);
+      setTotpCode('');
+      setTotpSuccess('Verificación en 2 pasos activada correctamente');
+      setTimeout(() => setTotpSuccess(''), 4000);
+    } catch (err) {
+      setTotpError(err.message);
+    } finally {
+      setTotpLoading(false);
+    }
+  };
+
+  const confirmTotpDisable = async () => {
+    setTotpError('');
+    setTotpLoading(true);
+    try {
+      const res = await fetch('/api/auth/2fa/disable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ code: totpDisableCode })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Código incorrecto');
+      setTotpEnabled(false);
+      setTotpStep('idle');
+      setTotpDisableCode('');
+      setTotpSuccess('Verificación en 2 pasos desactivada');
+      setTimeout(() => setTotpSuccess(''), 4000);
+    } catch (err) {
+      setTotpError(err.message);
+    } finally {
+      setTotpLoading(false);
     }
   };
 
@@ -618,6 +703,153 @@ function Settings() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+        <div className="card" style={{ marginTop: '24px' }}>
+          <div className="card-header">
+            <div className="card-title">
+              <FontAwesomeIcon icon={faShieldAlt} className="gap-2" />
+              Verificación en 2 pasos (2FA)
+            </div>
+          </div>
+
+          {totpError && <div className="error" style={{ marginBottom: '12px' }}>{totpError}</div>}
+          {totpSuccess && <div className="success" style={{ marginBottom: '12px' }}>{totpSuccess}</div>}
+
+          {totpStep === 'idle' && (
+            <div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '14px', padding: '14px',
+                borderRadius: '10px', marginBottom: '16px',
+                background: totpEnabled ? '#f0fdf4' : '#fffbeb',
+                border: `1px solid ${totpEnabled ? '#16a34a' : '#D4AF37'}`
+              }}>
+                <FontAwesomeIcon
+                  icon={totpEnabled ? faLock : faUnlock}
+                  style={{ fontSize: '22px', color: totpEnabled ? '#16a34a' : '#D4AF37' }}
+                />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '14px' }}>
+                    {totpEnabled ? 'Verificación en 2 pasos activada' : 'Verificación en 2 pasos desactivada'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                    {totpEnabled
+                      ? 'Tu cuenta está protegida. Se pedirá un código al iniciar sesión.'
+                      : 'Actívala para mayor seguridad. Funciona con Google Authenticator, Authy y otras apps.'}
+                  </div>
+                </div>
+              </div>
+              {totpEnabled ? (
+                <button
+                  onClick={() => { setTotpStep('disable'); setTotpDisableCode(''); setTotpError(''); }}
+                  className="btn btn-secondary"
+                  style={{ color: '#dc2626', borderColor: '#dc2626' }}
+                >
+                  <FontAwesomeIcon icon={faUnlock} style={{ marginRight: '6px' }} />
+                  Desactivar 2FA
+                </button>
+              ) : (
+                <button
+                  onClick={startTotpSetup}
+                  className="btn btn-primary"
+                  disabled={totpLoading}
+                  style={{ background: '#D4AF37', border: 'none', color: '#000', fontWeight: 800 }}
+                >
+                  <FontAwesomeIcon icon={faShieldAlt} style={{ marginRight: '6px' }} />
+                  {totpLoading ? 'Generando...' : 'Activar verificación en 2 pasos'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {totpStep === 'setup' && totpSetup && (
+            <div>
+              <p style={{ fontSize: '14px', color: '#444', marginBottom: '16px' }}>
+                <strong>Paso 1:</strong> Abre <strong>Google Authenticator</strong>, <strong>Authy</strong> u otra app de autenticación y escanea este código QR:
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                <div style={{ padding: '16px', background: '#fff', border: '2px solid #000', borderRadius: '12px' }}>
+                  <QRCodeCanvas value={totpSetup.otpauthUrl} size={200} level="H" bgColor="#ffffff" fgColor="#000000" />
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>¿No puedes escanear? Ingresa este código manualmente:</p>
+                  <div style={{
+                    fontFamily: 'monospace', fontSize: '14px', fontWeight: 700,
+                    background: '#f3f4f6', padding: '8px 14px', borderRadius: '8px',
+                    letterSpacing: '3px', color: '#1a1a1a', border: '1px solid #e0e0e0'
+                  }}>
+                    {totpSetup.secret}
+                  </div>
+                </div>
+              </div>
+              <p style={{ fontSize: '14px', color: '#444', marginBottom: '10px' }}>
+                <strong>Paso 2:</strong> Ingresa el código de 6 dígitos que muestra la app para confirmar:
+              </p>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+                <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={totpCode}
+                    onChange={e => { setTotpCode(e.target.value.replace(/\D/g, '')); setTotpError(''); }}
+                    placeholder="000000"
+                    style={{ fontSize: '22px', letterSpacing: '8px', textAlign: 'center', fontWeight: 700 }}
+                  />
+                </div>
+                <button
+                  onClick={confirmTotpEnable}
+                  className="btn btn-primary"
+                  disabled={totpLoading || totpCode.length !== 6}
+                  style={{ background: '#D4AF37', border: 'none', color: '#000', fontWeight: 800, height: '46px' }}
+                >
+                  {totpLoading ? 'Verificando...' : 'Confirmar'}
+                </button>
+              </div>
+              <button
+                onClick={() => { setTotpStep('idle'); setTotpSetup(null); setTotpError(''); }}
+                style={{ marginTop: '10px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '13px' }}
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+
+          {totpStep === 'disable' && (
+            <div>
+              <p style={{ fontSize: '14px', color: '#444', marginBottom: '14px' }}>
+                Para desactivar la verificación en 2 pasos, ingresa el código actual de tu app de autenticación:
+              </p>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+                <div className="form-group" style={{ margin: 0, flex: 1 }}>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={totpDisableCode}
+                    onChange={e => { setTotpDisableCode(e.target.value.replace(/\D/g, '')); setTotpError(''); }}
+                    placeholder="000000"
+                    style={{ fontSize: '22px', letterSpacing: '8px', textAlign: 'center', fontWeight: 700 }}
+                  />
+                </div>
+                <button
+                  onClick={confirmTotpDisable}
+                  className="btn"
+                  disabled={totpLoading || totpDisableCode.length !== 6}
+                  style={{ background: '#dc2626', border: 'none', color: '#fff', fontWeight: 800, height: '46px' }}
+                >
+                  {totpLoading ? 'Desactivando...' : 'Desactivar'}
+                </button>
+              </div>
+              <button
+                onClick={() => { setTotpStep('idle'); setTotpError(''); }}
+                style={{ marginTop: '10px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '13px' }}
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>

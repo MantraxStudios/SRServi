@@ -10,6 +10,8 @@ import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
+import speakeasy from 'speakeasy';
+import bcrypt from 'bcryptjs';
 import PluginManager from './plugins/PluginManager.js';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
@@ -109,6 +111,11 @@ import {
   setStoreEditPin,
   verifyStoreEditPin,
   getStoreEditPin,
+  setTotpSecret,
+  enableTotp,
+  disableTotp,
+  updateUserPassword,
+  getUserByEmail,
   pool
 } from './database.js';
 
@@ -281,26 +288,192 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({ error: 'Email y contraseña son requeridos' });
     }
-    
+
     const user = await authenticateUser(email, password);
-    
+
     if (!user) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
-    
+
     if (user.is_banned) {
-      return res.status(403).json({ 
-        error: 'Tu cuenta ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación. La revisión puede demorar entre 1 semana y 1 mes.' 
+      return res.status(403).json({
+        error: 'Tu cuenta ha sido suspendida. Contacta a soporte@srautomatic.com para la apelación. La revisión puede demorar entre 1 semana y 1 mes.'
       });
     }
-    
+
+    if (user.totp_enabled) {
+      const tempToken = jwt.sign({ id: user.id, type: '2fa_pending' }, JWT_SECRET, { expiresIn: '5m' });
+      return res.json({ requiresTwoFactor: true, tempToken });
+    }
+
     const token = jwt.sign({ id: user.id, email: user.email, type: 'user' }, JWT_SECRET, { expiresIn: '7d' });
-    
-    res.json({ user, token });
+    const { totp_secret, totp_enabled, ...safeUser } = user;
+    res.json({ user: safeUser, token, twoFactorReminder: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/auth/2fa/verify', async (req, res) => {
+  try {
+    const { tempToken, code } = req.body;
+    if (!tempToken || !code) return res.status(400).json({ error: 'Datos incompletos' });
+
+    let payload;
+    try {
+      payload = jwt.verify(tempToken, JWT_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'Token expirado o inválido' });
+    }
+    if (payload.type !== '2fa_pending') return res.status(401).json({ error: 'Token inválido' });
+
+    const user = await getUserById(payload.id);
+    if (!user || !user.totp_secret) return res.status(401).json({ error: 'Usuario no encontrado' });
+
+    const valid = speakeasy.totp.verify({
+      secret: user.totp_secret,
+      encoding: 'base32',
+      token: String(code).replace(/\s/g, ''),
+      window: 1
+    });
+
+    if (!valid) return res.status(401).json({ error: 'Código incorrecto' });
+
+    const token = jwt.sign({ id: user.id, email: user.email, type: 'user' }, JWT_SECRET, { expiresIn: '7d' });
+    const { totp_secret, totp_enabled, password, ...safeUser } = user;
+    res.json({ user: safeUser, token });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/auth/2fa/status', authenticateToken, async (req, res) => {
+  try {
+    const user = await getUserById(req.user.id);
+    res.json({ enabled: Boolean(user?.totp_enabled) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/auth/2fa/setup', authenticateToken, async (req, res) => {
+  try {
+    const user = await getUserById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const secret = speakeasy.generateSecret({
+      name: `SRServi (${user.email})`,
+      issuer: 'SRServi',
+      length: 20
+    });
+
+    await setTotpSecret(req.user.id, secret.base32);
+
+    res.json({
+      secret: secret.base32,
+      otpauthUrl: secret.otpauth_url
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/auth/2fa/enable', authenticateToken, async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'Código requerido' });
+
+    const user = await getUserById(req.user.id);
+    if (!user || !user.totp_secret) return res.status(400).json({ error: 'Primero genera el QR de configuración' });
+
+    const valid = speakeasy.totp.verify({
+      secret: user.totp_secret,
+      encoding: 'base32',
+      token: String(code).replace(/\s/g, ''),
+      window: 1
+    });
+
+    if (!valid) return res.status(401).json({ error: 'Código incorrecto. Asegúrate de haber escaneado el QR.' });
+
+    await enableTotp(req.user.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/auth/2fa/disable', authenticateToken, async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'Código requerido' });
+
+    const user = await getUserById(req.user.id);
+    if (!user || !user.totp_secret) return res.status(400).json({ error: '2FA no está configurado' });
+
+    const valid = speakeasy.totp.verify({
+      secret: user.totp_secret,
+      encoding: 'base32',
+      token: String(code).replace(/\s/g, ''),
+      window: 1
+    });
+
+    if (!valid) return res.status(401).json({ error: 'Código incorrecto' });
+
+    await disableTotp(req.user.id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/auth/2fa/recover', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ error: 'Email y código son requeridos' });
+
+    const user = await getUserByEmail(email);
+    if (!user) return res.status(404).json({ error: 'No existe una cuenta con ese email' });
+    if (!user.totp_enabled || !user.totp_secret) {
+      return res.status(400).json({ error: 'Esta cuenta no tiene verificación en 2 pasos activada' });
+    }
+
+    const valid = speakeasy.totp.verify({
+      secret: user.totp_secret,
+      encoding: 'base32',
+      token: String(code).replace(/\s/g, ''),
+      window: 1
+    });
+
+    if (!valid) return res.status(401).json({ error: 'Código incorrecto' });
+
+    const recoveryToken = jwt.sign({ id: user.id, type: 'password_recovery' }, JWT_SECRET, { expiresIn: '10m' });
+    res.json({ recoveryToken });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/auth/2fa/reset-password', async (req, res) => {
+  try {
+    const { recoveryToken, newPassword } = req.body;
+    if (!recoveryToken || !newPassword) return res.status(400).json({ error: 'Datos incompletos' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+
+    let payload;
+    try {
+      payload = jwt.verify(recoveryToken, JWT_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'Token expirado. Vuelve a verificar con tu app.' });
+    }
+    if (payload.type !== 'password_recovery') return res.status(401).json({ error: 'Token inválido' });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await updateUserPassword(payload.id, hashed);
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
