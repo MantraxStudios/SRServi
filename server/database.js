@@ -2692,15 +2692,15 @@ export async function getAnalytics(storeId, dateRange = 'week') {
            SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN 1 ELSE 0 END) as completed,
            SUM(CASE WHEN status IN ('pending', 'waiting') THEN 1 ELSE 0 END) as pending,
            SUM(CASE WHEN status IN ('cancelled') THEN 1 ELSE 0 END) as cancelled,
-           SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN total_amount ELSE 0 END) as revenue
+           SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN total ELSE 0 END) as revenue
     FROM orders o
     WHERE store_id = ? ${dateFilter}
   `;
-  
+
   const [totals] = await pool.execute(totalOrdersQuery, [storeId]);
-  
+
   const avgOrderQuery = `
-    SELECT AVG(total_amount) as avg_order
+    SELECT AVG(total) as avg_order
     FROM orders
     WHERE store_id = ? AND status IN ('paid', 'processed', 'completed', 'approved') ${dateFilter.replace('o.', '')}
   `;
@@ -2729,7 +2729,7 @@ export async function getSalesByDay(storeId, dateRange = 'week') {
   const query = `
     SELECT DATE(created_at) as date,
            COUNT(*) as orders,
-           SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN total_amount ELSE 0 END) as revenue
+           SUM(CASE WHEN status IN ('paid', 'processed', 'completed', 'approved') THEN total ELSE 0 END) as revenue
     FROM orders
     WHERE store_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
     GROUP BY DATE(created_at)
@@ -2755,7 +2755,7 @@ export async function getTopProducts(storeId, limit = 10, dateRange = 'week') {
       p.name,
       p.image,
       SUM(oi.quantity) as total_sold,
-      SUM(oi.quantity * oi.price) as revenue
+      SUM(oi.quantity * oi.unit_price) as revenue
     FROM order_items oi
     JOIN orders o ON oi.order_id = o.id
     JOIN products p ON oi.product_id = p.id
@@ -2799,9 +2799,8 @@ export async function getRecentOrders(storeId, limit = 10) {
     SELECT 
       o.id,
       o.status,
-      o.total_amount,
+      o.total,
       o.created_at,
-      o.customer_name,
       COUNT(oi.id) as items_count
     FROM orders o
     LEFT JOIN order_items oi ON o.id = oi.order_id
