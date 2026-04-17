@@ -161,9 +161,18 @@ class SetupWizardActivity : AppCompatActivity() {
             } catch (_: Exception) { /* fallthrough */ }
         }
 
-        // ── Nivel 2: Chooser de home apps — diálogo flotante sobre la app ───
-        // Funciona en TODAS las versiones de Android. El usuario ve la lista de
-        // launchers disponibles y elige SRServi → "Siempre". No sale a Settings.
+        // ── Nivel 2: RoleManager — modal dentro de la app (Android 10+) ─────
+        // Esta es la ÚNICA vía que actualiza isRoleHeld() correctamente.
+        // createChooser NO actualiza el rol y por eso el check seguiría fallando.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val rm = getSystemService(RoleManager::class.java)
+                settingsLauncher.launch(rm.createRequestRoleIntent(RoleManager.ROLE_HOME))
+                return
+            } catch (_: Exception) { /* fallthrough */ }
+        }
+
+        // ── Nivel 3: Android < 10 — chooser nativo ──────────────────────────
         try {
             val homeIntent = Intent(Intent.ACTION_MAIN).apply {
                 addCategory(Intent.CATEGORY_HOME)
@@ -174,15 +183,6 @@ class SetupWizardActivity : AppCompatActivity() {
             )
             return
         } catch (_: Exception) { /* fallthrough */ }
-
-        // ── Nivel 3: RoleManager (Android 10+) como segundo intento ─────────
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                val rm = getSystemService(RoleManager::class.java)
-                settingsLauncher.launch(rm.createRequestRoleIntent(RoleManager.ROLE_HOME))
-                return
-            } catch (_: Exception) { /* fallthrough */ }
-        }
 
         // ── Nivel 4: último recurso — Settings ──────────────────────────────
         try {
