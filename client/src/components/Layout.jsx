@@ -246,12 +246,6 @@ function Layout() {
 
           <ul className="sidebar-nav" onClick={(e) => { if (!e.target.closest('.dropdown-item') && !e.target.closest('.dropdown-header') && !e.target.closest('.dropdown-container')) setMenuOpen(false); }}>
             <li className="sidebar-section-label">Principal</li>
-            <li>
-              <NavLink to="/admin/tutoriales" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faBookOpen} />
-                <span>Tutoriales</span>
-              </NavLink>
-            </li>
             {selectedStore && (
               <li>
                 <NavLink
@@ -273,6 +267,12 @@ function Layout() {
               <NavLink to="/admin/workers" onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faUsers} />
                 <span>Vendedores</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/tutoriales" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faBookOpen} />
+                <span>Tutoriales</span>
               </NavLink>
             </li>
 
