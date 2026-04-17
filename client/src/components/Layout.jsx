@@ -270,12 +270,6 @@ function Layout() {
               </NavLink>
             </li>
             <li className="sidebar-section-label">Más</li>
-            <li>
-              <NavLink to="/admin/tutoriales" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faBookOpen} />
-                <span>Tutoriales</span>
-              </NavLink>
-            </li>
             <li className="dropdown-container">
               <button className={`dropdown-header${openDropdowns['admin'] ? ' open' : ''}`} onClick={() => toggleDropdown('admin')}>
                 <FontAwesomeIcon icon={faCog} />
@@ -367,6 +361,12 @@ function Layout() {
                       </div>
                     )}
                   </div>
+
+                  {/* Tutoriales */}
+                  <NavLink to="/admin/tutoriales" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faBookOpen} />
+                    <span>Tutoriales</span>
+                  </NavLink>
 
                   {/* Sub-dropdown: Cuenta */}
                   <div className="subdropdown-container">
