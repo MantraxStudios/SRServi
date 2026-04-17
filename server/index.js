@@ -2914,14 +2914,14 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery } = req.body;
+    const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number } = req.body;
 
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
     }
 
-    console.log('Creating order:', { store_id, order_type, payment_method, items, from_worker, delivery });
-    const order = await createOrder(parseInt(store_id), { order_type, payment_method, items, coupon_code, from_worker, delivery });
+    console.log('Creating order:', { store_id, order_type, payment_method, items, from_worker, delivery, table_number });
+    const order = await createOrder(parseInt(store_id), { order_type, payment_method, items, coupon_code, from_worker, delivery, table_number });
 
     const socketId = userSockets.get(parseInt(store_id));
     if (socketId) {
@@ -2944,32 +2944,33 @@ app.post('/api/orders', async (req, res) => {
 
 app.post('/api/orders/process-payment', async (req, res) => {
   try {
-    const { store_id, items, order_type, payment_method, selected_terminal_id, coupon_code } = req.body;
-    
+    const { store_id, items, order_type, payment_method, selected_terminal_id, coupon_code, table_number } = req.body;
+
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
     }
-    
+
     if (payment_method === 'card') {
       console.log('Procesando pago con tarjeta:', { store_id, order_type, selected_terminal_id });
-      
+
       const mpResult = await processMercadoPagoPayment(parseInt(store_id), {
         items,
         order_type,
         selected_terminal_id: selected_terminal_id ? parseInt(selected_terminal_id) : null,
         coupon_code
       });
-      
+
       console.log('Pago Mercado Pago procesado:', JSON.stringify(mpResult));
-      
-      const order = await createOrder(parseInt(store_id), { 
-        order_type, 
+
+      const order = await createOrder(parseInt(store_id), {
+        order_type,
         payment_method: 'card',
         items,
         mp_order_id: mpResult.mp_order_id,
         external_reference: mpResult.external_reference,
         coupon_code,
-        terminal_id: selected_terminal_id ? parseInt(selected_terminal_id) : null
+        terminal_id: selected_terminal_id ? parseInt(selected_terminal_id) : null,
+        table_number
       });
       
       const socketId = userSockets.get(parseInt(store_id));

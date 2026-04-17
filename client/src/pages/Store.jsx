@@ -177,6 +177,9 @@ function Store() {
   const [addingToCart, setAddingToCart] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('card');
+  const [tableModalOpen, setTableModalOpen] = useState(false);
+  const [tableNumber, setTableNumber] = useState('');
+  const [pendingPaymentMethod, setPendingPaymentMethod] = useState(null);
   const [lastOrderNumber, setLastOrderNumber] = useState(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
@@ -926,7 +929,7 @@ function Store() {
     setExtrasModalOpen(false);
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen;
 
   useEffect(() => {
     anyModalOpenRef.current = anyModalOpen;
@@ -1257,7 +1260,18 @@ function Store() {
     setCouponCodeInput('');
   };
 
-  const processPayment = async (selectedMethod = paymentMethod) => {
+  const handlePaymentMethodSelect = (method) => {
+    if (selectedConfiguration?.allow_table_service) {
+      setPendingPaymentMethod(method);
+      setTableNumber('');
+      setTableModalOpen(true);
+      setPaymentModalOpen(false);
+    } else {
+      processPayment(method);
+    }
+  };
+
+  const processPayment = async (selectedMethod = paymentMethod, tableNum = null) => {
     if (cart.length === 0) return;
     const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
     const isTuu = selectedMethod === 'card' && (tuuProvider || lastTerminalProvider === 'tuu');
@@ -1291,7 +1305,8 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), delivery: deliveryMode
+            total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            table_number: tableNum ? parseInt(tableNum) : null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -1324,7 +1339,8 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: selectedMethod,
             items: cartItems, selected_terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
-            coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), delivery: deliveryMode
+            coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            table_number: tableNum ? parseInt(tableNum) : null
           })
         });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
@@ -1341,7 +1357,8 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), delivery: deliveryMode
+            total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            table_number: tableNum ? parseInt(tableNum) : null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -1374,7 +1391,8 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), delivery: deliveryMode
+            total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            table_number: tableNum ? parseInt(tableNum) : null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -1406,7 +1424,8 @@ function Store() {
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: selectedMethod,
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-            total: Number(finalTotal).toFixed(2), delivery: deliveryMode
+            total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            table_number: tableNum ? parseInt(tableNum) : null
           })
         });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
@@ -3280,7 +3299,7 @@ function Store() {
                 <div className="flex flex-col" style={{ gap: '15px' }}>
                   {selectedConfiguration?.accept_card && (
                     <button
-                      onClick={() => processPayment('card')}
+                      onClick={() => handlePaymentMethodSelect('card')}
                       className="btn btn-lg btn-full store-glow-pulse"
                       style={{
                         backgroundColor: 'var(--store-secondary)',
@@ -3297,7 +3316,7 @@ function Store() {
 
                   {selectedConfiguration?.accept_cash && (
                     <button
-                      onClick={() => processPayment('cash')}
+                      onClick={() => handlePaymentMethodSelect('cash')}
                       className="btn btn-lg btn-full store-glow-pulse"
                       style={{
                         backgroundColor: 'var(--store-secondary)',
@@ -3364,6 +3383,95 @@ function Store() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {tableModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal text-center" style={{ maxWidth: '360px' }}>
+            <h2 style={{ color: 'var(--store-primary)', marginBottom: '6px', fontSize: '22px', fontWeight: 800 }}>
+              ¿A qué mesa?
+            </h2>
+            <p className="text-muted" style={{ marginBottom: '18px', fontSize: '14px' }}>
+              Ingresa el número de mesa
+            </p>
+
+            <div style={{
+              fontSize: '48px', fontWeight: 900, letterSpacing: '4px', minHeight: '64px',
+              color: 'var(--store-primary)', marginBottom: '16px',
+              background: 'var(--store-secondary)', borderRadius: '12px', padding: '8px 16px',
+              border: '2px solid var(--store-primary)'
+            }}>
+              {tableNumber || <span style={{ opacity: 0.25 }}>—</span>}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '14px' }}>
+              {[1,2,3,4,5,6,7,8,9].map(n => (
+                <button
+                  key={n}
+                  onClick={() => setTableNumber(prev => prev.length < 3 ? prev + String(n) : prev)}
+                  style={{
+                    fontSize: '24px', fontWeight: 700, padding: '16px',
+                    borderRadius: '12px', border: '2px solid var(--store-primary)',
+                    background: 'var(--store-secondary)', color: 'var(--store-primary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
+              <button
+                onClick={() => setTableNumber(prev => prev.slice(0, -1))}
+                style={{
+                  fontSize: '20px', fontWeight: 700, padding: '16px',
+                  borderRadius: '12px', border: '2px solid #e0e0e0',
+                  background: '#fafafa', color: '#666', cursor: 'pointer'
+                }}
+              >
+                ⌫
+              </button>
+              <button
+                onClick={() => setTableNumber(prev => prev.length < 3 ? prev + '0' : prev)}
+                style={{
+                  fontSize: '24px', fontWeight: 700, padding: '16px',
+                  borderRadius: '12px', border: '2px solid var(--store-primary)',
+                  background: 'var(--store-secondary)', color: 'var(--store-primary)',
+                  cursor: 'pointer'
+                }}
+              >
+                0
+              </button>
+              <div />
+            </div>
+
+            <button
+              onClick={() => {
+                if (!tableNumber) return;
+                setTableModalOpen(false);
+                processPayment(pendingPaymentMethod, tableNumber);
+              }}
+              disabled={!tableNumber}
+              className="btn btn-lg btn-full"
+              style={{
+                backgroundColor: tableNumber ? 'var(--store-primary)' : '#ccc',
+                color: tableNumber ? 'var(--store-secondary)' : '#fff',
+                borderRadius: '12px', fontWeight: 800, fontSize: '18px',
+                marginBottom: '10px', opacity: tableNumber ? 1 : 0.5
+              }}
+            >
+              Confirmar Mesa {tableNumber}
+            </button>
+
+            <button
+              onClick={() => { setTableModalOpen(false); setPaymentModalOpen(true); }}
+              style={{
+                background: 'transparent', border: 'none', color: 'var(--store-primary)',
+                fontSize: '14px', cursor: 'pointer', opacity: 0.6
+              }}
+            >
+              Volver
+            </button>
           </div>
         </div>
       )}

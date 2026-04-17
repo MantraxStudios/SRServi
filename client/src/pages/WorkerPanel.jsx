@@ -575,6 +575,16 @@ function WorkerPanel() {
                       {getOrderTypeInfo(order.order_type).label}
                     </div>
                   </div>
+                  {order.table_number != null && (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      background: '#D4AF3722', color: '#92400e', border: '1px solid #D4AF37',
+                      borderRadius: '8px', padding: '3px 10px', fontSize: '13px', fontWeight: 700,
+                      marginBottom: '6px'
+                    }}>
+                      Mesa {order.table_number}
+                    </div>
+                  )}
                   <div className="worker-order-info">
                     <div className="worker-status-badge" style={{ backgroundColor: `${getStatusColor(order.status)}22`, color: getStatusColor(order.status) }}>
                       <FontAwesomeIcon icon={getStatusIcon(order.status)} />
@@ -636,6 +646,16 @@ function WorkerPanel() {
                       {getOrderTypeInfo(order.order_type).label}
                     </div>
                   </div>
+                  {order.table_number != null && (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      background: '#D4AF3722', color: '#92400e', border: '1px solid #D4AF37',
+                      borderRadius: '8px', padding: '3px 10px', fontSize: '13px', fontWeight: 700,
+                      marginBottom: '6px'
+                    }}>
+                      Mesa {order.table_number}
+                    </div>
+                  )}
                   <div className="worker-order-info">
                     <div className="worker-status-badge completed-badge">
                       <FontAwesomeIcon icon={faCheck} /> Completado
@@ -699,6 +719,14 @@ function WorkerPanel() {
                 {getOrderTypeInfo(selectedOrder.order_type).label}
               </span>
             </div>
+            {selectedOrder.table_number != null && (
+              <div className="worker-detail-row">
+                <span className="worker-detail-label">Mesa:</span>
+                <span className="worker-detail-value" style={{ color: '#D4AF37', fontWeight: 800, fontSize: '18px' }}>
+                  {selectedOrder.table_number}
+                </span>
+              </div>
+            )}
             <div className="worker-detail-row">
               <span className="worker-detail-label">Estado:</span>
               <span className="worker-detail-value">{selectedOrder.status}</span>

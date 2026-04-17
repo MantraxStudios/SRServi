@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle, faDesktop } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle, faDesktop, faHashtag } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 function Configurations() {
@@ -21,7 +21,8 @@ function Configurations() {
     default_terminal: '',
     allow_serve: true,
     allow_takeout: true,
-    hide_decimals: false
+    hide_decimals: false,
+    allow_table_service: false
   });
   const [error, setError] = useState('');
 
@@ -107,7 +108,8 @@ function Configurations() {
         default_minimarket_terminal: '',
         allow_serve: true,
         allow_takeout: true,
-        hide_decimals: false
+        hide_decimals: false,
+        allow_table_service: false
       });
       fetchConfigurations();
     } catch (err) {
@@ -129,7 +131,8 @@ function Configurations() {
       default_terminal: config.default_terminal || '',
       allow_serve: Boolean(config.allow_serve),
       allow_takeout: Boolean(config.allow_takeout),
-      hide_decimals: Boolean(config.hide_decimals)
+      hide_decimals: Boolean(config.hide_decimals),
+      allow_table_service: Boolean(config.allow_table_service)
     });
     setShowModal(true);
   };
@@ -168,7 +171,8 @@ function Configurations() {
       default_terminal: '',
       allow_serve: true,
       allow_takeout: true,
-      hide_decimals: false
+      hide_decimals: false,
+      allow_table_service: false
     });
     setShowModal(true);
   };
@@ -474,6 +478,27 @@ function Configurations() {
                     <div style={{ fontSize: '11px', opacity: 0.65 }}>Los precios enteros no mostrarán centavos</div>
                   </div>
                   {formData.hide_decimals && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#475569' }} />}
+                </button>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => setFormData(p => ({ ...p, allow_table_service: !p.allow_table_service }))}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', width: '100%',
+                    borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
+                    border: `2px solid ${formData.allow_table_service ? '#D4AF37' : '#e0e0e0'}`,
+                    background: formData.allow_table_service ? '#fffdf0' : '#fafafa',
+                    color: formData.allow_table_service ? '#92400e' : '#888'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faHashtag} style={{ fontSize: '16px', color: formData.allow_table_service ? '#D4AF37' : '#ccc' }} />
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: '700', fontSize: '13px' }}>Llevar a mesa</div>
+                    <div style={{ fontSize: '11px', opacity: 0.65 }}>Pedir número de mesa al confirmar pago</div>
+                  </div>
+                  {formData.allow_table_service && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#D4AF37' }} />}
                 </button>
               </div>
 

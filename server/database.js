@@ -139,6 +139,7 @@ async function createTables() {
       default_terminal INT DEFAULT NULL,
       allow_serve BOOLEAN NOT NULL DEFAULT TRUE,
       allow_takeout BOOLEAN NOT NULL DEFAULT TRUE,
+      allow_table_service BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )`;
@@ -484,6 +485,10 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE orders ADD COLUMN reference_id VARCHAR(100) DEFAULT NULL');
         console.log('✅ Columna reference_id agregada a orders');
       }
+      if (!orderColumnNames.includes('table_number')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN table_number INT DEFAULT NULL');
+        console.log('✅ Columna table_number agregada a orders');
+      }
     } catch (orderMigrationError) {
       console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
     }
@@ -679,6 +684,11 @@ async function migrateTables() {
         console.log('⚠️ Agregando columna hide_decimals a tabla store_configurations...');
         await pool.execute('ALTER TABLE store_configurations ADD COLUMN hide_decimals BOOLEAN NOT NULL DEFAULT FALSE');
         console.log('✅ Columna hide_decimals agregada a store_configurations');
+      }
+      if (!configColNames.includes('allow_table_service')) {
+        console.log('⚠️ Agregando columna allow_table_service a tabla store_configurations...');
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN allow_table_service BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna allow_table_service agregada a store_configurations');
       }
     } catch (migErr) {
       if (migErr.message.includes('Duplicate column')) {
@@ -1294,7 +1304,7 @@ export async function getStoreConfigurationById(configId, storeId) {
 }
 
 export async function createStoreConfiguration(storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals } = data;
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service } = data;
 
   if (is_default) {
     await pool.execute(
@@ -1304,8 +1314,8 @@ export async function createStoreConfiguration(storeId, data) {
   }
 
   const [result] = await pool.execute(
-    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, hide_decimals === true]
+    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, hide_decimals === true, allow_table_service === true]
   );
   return {
     id: result.insertId,
@@ -1320,12 +1330,13 @@ export async function createStoreConfiguration(storeId, data) {
     default_minimarket_terminal: default_minimarket_terminal || null,
     allow_serve: allow_serve !== false,
     allow_takeout: allow_takeout !== false,
-    hide_decimals: hide_decimals === true
+    hide_decimals: hide_decimals === true,
+    allow_table_service: allow_table_service === true
   };
 }
 
 export async function updateStoreConfiguration(configId, storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals } = data;
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service } = data;
 
   if (is_default) {
     await pool.execute(
@@ -1335,8 +1346,8 @@ export async function updateStoreConfiguration(configId, storeId, data) {
   }
 
   await pool.execute(
-    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ?, allow_serve = ?, allow_takeout = ?, hide_decimals = ? WHERE id = ? AND store_id = ?',
-    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, hide_decimals === true, configId, storeId]
+    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ?, allow_serve = ?, allow_takeout = ?, hide_decimals = ?, allow_table_service = ? WHERE id = ? AND store_id = ?',
+    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, hide_decimals === true, allow_table_service === true, configId, storeId]
   );
   return {
     id: configId,
@@ -1351,7 +1362,8 @@ export async function updateStoreConfiguration(configId, storeId, data) {
     default_minimarket_terminal: default_minimarket_terminal || null,
     allow_serve: allow_serve !== false,
     allow_takeout: allow_takeout !== false,
-    hide_decimals: hide_decimals === true
+    hide_decimals: hide_decimals === true,
+    allow_table_service: allow_table_service === true
   };
 }
 
@@ -1859,7 +1871,7 @@ export async function generateUniqueOrderNumber(storeId) {
 }
 
 export async function createOrder(storeId, orderData) {
-  const { order_type, items, payment_method, coupon_code } = orderData;
+  const { order_type, items, payment_method, coupon_code, table_number } = orderData;
   
   let subtotal = 0;
   items.forEach(item => {
@@ -1876,8 +1888,8 @@ export async function createOrder(storeId, orderData) {
   const store = await getStoreById(storeId);
   const initialStatus = paymentProcess === 1 ? 'preparing' : 'pending';
   const [result] = await pool.execute(
-    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, payment_process, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, paymentProcess, initialStatus]
+    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, payment_process, status, table_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, paymentProcess, initialStatus, table_number || null]
   );
   const orderId = result.insertId;
 
@@ -1896,16 +1908,17 @@ export async function createOrder(storeId, orderData) {
   const finalOrder = {
     id: orderId,
     order_number: orderNumber,
-    store_id: storeId, 
-    order_type, 
+    store_id: storeId,
+    order_type,
     subtotal: couponData.subtotal,
     discount_total: couponData.discount_total,
     coupon_code: couponData.coupon_code,
-    total, 
+    total,
     status: initialStatus,
     payment_method,
     cash_approved: cashApproved,
-    items 
+    table_number: table_number || null,
+    items
   };
 
   for (const item of items) {

@@ -38,7 +38,8 @@
       "Bash(grep -v \"store-prod-modal\\\\|placeholder=\\\\\"\\\\\\\\\\\\$\\\\\\\\\\\\\"\\\\|store-cart-coupon\\\\|prodForm\\\\|complementForm\")",
       "Bash(grep -v \"^\\\\s*//\")",
       "Bash(npm run:*)",
-      "Bash(node_modules/.bin/vite build *)"
+      "Bash(node_modules/.bin/vite build *)",
+      "Bash(cmd /c \"findstr /i faHashtag C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\client\\\\node_modules\\\\@fortawesome\\\\free-solid-svg-icons\\\\index.js 2>&1 | head\")"
     ]
   }
 }
