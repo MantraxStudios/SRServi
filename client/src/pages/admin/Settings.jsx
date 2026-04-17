@@ -704,7 +704,6 @@ function Settings() {
             )}
           </div>
         </div>
-      </div>
 
         <div className="card" style={{ marginTop: '24px' }}>
           <div className="card-header">
@@ -855,5 +854,6 @@ function Settings() {
     </>
   );
 }
+
 
 export default Settings;
