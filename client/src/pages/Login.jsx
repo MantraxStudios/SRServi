@@ -3,22 +3,30 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope, faLock, faDownload, faUserCog, faShieldAlt, faKey } from '@fortawesome/free-solid-svg-icons';
+import { QRCodeCanvas } from 'qrcode.react';
 
 const API = 'https://srservi2.srautomatic.com';
 
 function Login() {
-  const [step, setStep] = useState('login'); // 'login' | 'totp' | 'reminder'
+  const [step, setStep] = useState('login'); // 'login' | 'totp' | 'setup2fa'
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [totpCode, setTotpCode] = useState('');
   const [tempToken, setTempToken] = useState('');
   const [pendingUser, setPendingUser] = useState(null);
   const [pendingToken, setPendingToken] = useState('');
+  const [setupData, setSetupData] = useState(null); // { secret, otpauthUrl }
+  const [setupCode, setSetupCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  const finishLogin = (user, token) => {
+    login(user, token);
+    navigate('/admin');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,15 +47,21 @@ function Login() {
         return;
       }
 
-      if (data.twoFactorReminder && !sessionStorage.getItem('2fa_reminder_dismissed')) {
-        setPendingUser(data.user);
-        setPendingToken(data.token);
-        setStep('reminder');
-        return;
-      }
+      setPendingUser(data.user);
+      setPendingToken(data.token);
 
-      login(data.user, data.token);
-      navigate('/admin');
+      // Fetch setup QR inline
+      const setupRes = await fetch(API + '/api/auth/2fa/setup', {
+        headers: { 'Authorization': `Bearer ${data.token}` }
+      });
+      const setupJson = await setupRes.json();
+      if (setupRes.ok) {
+        setSetupData(setupJson);
+        setSetupCode('');
+        setStep('setup2fa');
+      } else {
+        finishLogin(data.user, data.token);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -67,8 +81,7 @@ function Login() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Código incorrecto');
-      login(data.user, data.token);
-      navigate('/admin');
+      finishLogin(data.user, data.token);
     } catch (err) {
       setError(err.message);
       setTotpCode('');
@@ -77,67 +90,26 @@ function Login() {
     }
   };
 
-  const finishLogin = () => {
-    login(pendingUser, pendingToken);
-    navigate('/admin');
+  const handleActivate2FA = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch(API + '/api/auth/2fa/enable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${pendingToken}` },
+        body: JSON.stringify({ code: setupCode })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Código incorrecto');
+      finishLogin(pendingUser, pendingToken);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const dismissReminder = () => {
-    sessionStorage.setItem('2fa_reminder_dismissed', '1');
-    finishLogin();
-  };
-
-  if (step === 'reminder') {
-    return (
-      <div className="auth-container">
-        <div className="auth-card" style={{ maxWidth: '420px' }}>
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <div style={{
-              width: '64px', height: '64px', borderRadius: '50%',
-              background: 'linear-gradient(135deg, #D4AF37, #92400e)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 16px'
-            }}>
-              <FontAwesomeIcon icon={faShieldAlt} style={{ fontSize: '28px', color: '#fff' }} />
-            </div>
-            <h2 style={{ fontWeight: 800, fontSize: '20px', marginBottom: '8px' }}>
-              Protege tu cuenta SRServi
-            </h2>
-            <p style={{ color: '#666', fontSize: '14px', lineHeight: '1.5' }}>
-              Activa la <strong>verificación en 2 pasos</strong> para mayor seguridad.
-              Sin ella, si alguien obtiene tu contraseña podría acceder a tu cuenta.
-            </p>
-          </div>
-
-          <div style={{
-            background: '#fffbeb', border: '1px solid #D4AF37', borderRadius: '10px',
-            padding: '14px 16px', marginBottom: '20px', fontSize: '13px', color: '#92400e'
-          }}>
-            <strong>¿Para qué sirve?</strong><br />
-            Cada vez que inicies sesión, tu app de autenticación generará un código de 6 dígitos.
-            Funciona con <strong>Google Authenticator</strong>, <strong>Authy</strong> u otras.
-          </div>
-
-          <button
-            onClick={() => { finishLogin(); setTimeout(() => navigate('/admin/settings'), 100); }}
-            className="btn btn-primary btn-lg btn-full"
-            style={{ marginBottom: '10px', background: '#D4AF37', border: 'none', color: '#000', fontWeight: 800 }}
-          >
-            <FontAwesomeIcon icon={faShieldAlt} style={{ marginRight: '8px' }} />
-            Activar ahora
-          </button>
-          <button
-            onClick={dismissReminder}
-            className="btn btn-lg btn-full"
-            style={{ background: 'transparent', border: '1px solid #ccc', color: '#888', fontSize: '14px' }}
-          >
-            Omitir por ahora
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  // ── Paso: verificación TOTP al iniciar sesión ──────────────────────────────
   if (step === 'totp') {
     return (
       <div className="auth-container">
@@ -202,6 +174,97 @@ function Login() {
     );
   }
 
+  // ── Paso: configurar 2FA después de login exitoso ──────────────────────────
+  if (step === 'setup2fa' && setupData) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card" style={{ maxWidth: '420px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #D4AF37, #92400e)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px'
+            }}>
+              <FontAwesomeIcon icon={faShieldAlt} style={{ fontSize: '24px', color: '#fff' }} />
+            </div>
+            <h2 style={{ fontWeight: 800, fontSize: '20px', marginBottom: '6px' }}>Protege tu cuenta</h2>
+            <p style={{ color: '#666', fontSize: '13px', lineHeight: '1.5' }}>
+              Activa la verificación en 2 pasos para que nadie más pueda entrar aunque tenga tu contraseña.
+              Funciona con <strong>Google Authenticator</strong>, <strong>Authy</strong> y otras apps.
+            </p>
+          </div>
+
+          {error && <div className="error" style={{ marginBottom: '12px' }}>{error}</div>}
+
+          <p style={{ fontSize: '13px', color: '#444', marginBottom: '12px', fontWeight: 600 }}>
+            1. Escanea este QR con tu app de autenticación:
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
+            <div style={{ padding: '14px', background: '#fff', border: '2px solid #000', borderRadius: '12px' }}>
+              <QRCodeCanvas value={setupData.otpauthUrl} size={180} level="H" bgColor="#ffffff" fgColor="#000000" />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: '11px', color: '#999', marginBottom: '4px' }}>¿No puedes escanear? Ingresa este código en la app:</p>
+              <div style={{
+                fontFamily: 'monospace', fontSize: '13px', fontWeight: 700,
+                background: '#f3f4f6', padding: '6px 12px', borderRadius: '8px',
+                letterSpacing: '3px', color: '#1a1a1a', border: '1px solid #e0e0e0',
+                wordBreak: 'break-all'
+              }}>
+                {setupData.secret}
+              </div>
+            </div>
+          </div>
+
+          <p style={{ fontSize: '13px', color: '#444', marginBottom: '8px', fontWeight: 600 }}>
+            2. Ingresa el código de 6 dígitos que muestra la app:
+          </p>
+
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '14px' }}>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={setupCode}
+              onChange={e => { setSetupCode(e.target.value.replace(/\D/g, '')); setError(''); }}
+              placeholder="000000"
+              style={{
+                flex: 1, fontSize: '24px', letterSpacing: '8px', textAlign: 'center',
+                fontWeight: 700, padding: '10px', borderRadius: '10px',
+                border: '2px solid #e0e0e0', outline: 'none'
+              }}
+            />
+            <button
+              onClick={handleActivate2FA}
+              disabled={loading || setupCode.length !== 6}
+              className="btn btn-primary"
+              style={{
+                background: setupCode.length === 6 ? '#D4AF37' : '#e0e0e0',
+                border: 'none', color: setupCode.length === 6 ? '#000' : '#999',
+                fontWeight: 800, padding: '10px 18px', borderRadius: '10px', fontSize: '14px'
+              }}
+            >
+              {loading ? '...' : 'Activar'}
+            </button>
+          </div>
+
+          <button
+            onClick={() => finishLogin(pendingUser, pendingToken)}
+            style={{
+              width: '100%', background: 'transparent', border: '1px solid #ddd',
+              color: '#999', borderRadius: '10px', padding: '10px',
+              cursor: 'pointer', fontSize: '13px'
+            }}
+          >
+            Omitir por ahora
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Paso: formulario de login ──────────────────────────────────────────────
   return (
     <div className="auth-container">
       <div className="auth-card">
