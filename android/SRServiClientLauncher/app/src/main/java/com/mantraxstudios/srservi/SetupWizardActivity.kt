@@ -1,10 +1,12 @@
 package com.mantraxstudios.srservi
 
 import android.Manifest
+import android.app.admin.DevicePolicyManager
 import android.app.role.RoleManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -12,9 +14,11 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.View
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
 import com.mantraxstudios.srservi.databinding.ActivitySetupWizardBinding
 
 class SetupWizardActivity : AppCompatActivity() {
@@ -56,6 +60,13 @@ class SetupWizardActivity : AppCompatActivity() {
         binding = ActivitySetupWizardBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Bloquear el gesto de "atrás" en todas las versiones de Android.
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // Bloqueado — el usuario debe completar TODOS los pasos.
+            }
+        })
+
         // El botón "omitir" nunca se muestra — todos los pasos son obligatorios.
         binding.btnSkip.visibility = View.GONE
 
@@ -69,12 +80,15 @@ class SetupWizardActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Siempre re-escanear desde el inicio para detectar condiciones que
+        // cambiaron después de completar el wizard (ej: launcher reemplazado).
+        currentIndex = 0
         refresh()
     }
 
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
-        // Bloqueado — el usuario debe completar TODOS los pasos.
+        // Bloqueado vía onBackPressedDispatcher, esta rama es solo fallback.
     }
 
     // ── Lógica del wizard ────────────────────────────────────────────────────
@@ -129,16 +143,53 @@ class SetupWizardActivity : AppCompatActivity() {
     }
 
     private fun openLauncherSettings() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val rm = getSystemService(RoleManager::class.java)
-            if (rm.isRoleAvailable(RoleManager.ROLE_HOME) && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
-                try {
-                    settingsLauncher.launch(rm.createRequestRoleIntent(RoleManager.ROLE_HOME))
-                    return
-                } catch (_: Exception) { /* fallthrough */ }
-            }
+        // ── Nivel 1: Device Owner → establece sin ninguna UI ────────────────
+        val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val admin = SRServiDeviceAdminReceiver.getComponentName(this)
+        if (dpm.isDeviceOwnerApp(packageName)) {
+            try {
+                val filter = IntentFilter(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_HOME)
+                    addCategory(Intent.CATEGORY_DEFAULT)
+                }
+                dpm.addPersistentPreferredActivity(
+                    admin, filter,
+                    ComponentName(packageName, MainActivity::class.java.name)
+                )
+                refresh()
+                return
+            } catch (_: Exception) { /* fallthrough */ }
         }
-        openSettings(Intent(Settings.ACTION_HOME_SETTINGS))
+
+        // ── Nivel 2: Chooser de home apps — diálogo flotante sobre la app ───
+        // Funciona en TODAS las versiones de Android. El usuario ve la lista de
+        // launchers disponibles y elige SRServi → "Siempre". No sale a Settings.
+        try {
+            val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                addCategory(Intent.CATEGORY_DEFAULT)
+            }
+            settingsLauncher.launch(
+                Intent.createChooser(homeIntent, "Seleccionar lanzador predeterminado")
+            )
+            return
+        } catch (_: Exception) { /* fallthrough */ }
+
+        // ── Nivel 3: RoleManager (Android 10+) como segundo intento ─────────
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val rm = getSystemService(RoleManager::class.java)
+                settingsLauncher.launch(rm.createRequestRoleIntent(RoleManager.ROLE_HOME))
+                return
+            } catch (_: Exception) { /* fallthrough */ }
+        }
+
+        // ── Nivel 4: último recurso — Settings ──────────────────────────────
+        try {
+            settingsLauncher.launch(Intent(Settings.ACTION_HOME_SETTINGS))
+        } catch (_: Exception) {
+            settingsLauncher.launch(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+        }
     }
 
     private fun prefs() = getSharedPreferences(PREFS, MODE_PRIVATE)
@@ -231,18 +282,14 @@ class SetupWizardActivity : AppCompatActivity() {
         }
 
         // ── Paso 4: Lanzador predeterminado ──────────────────────────────────
-        // OBLIGATORIO: sin esto el auto-reinicio no funciona en Android 10+.
-        // isDone solo es true cuando la app ES realmente el launcher activo.
         list += Step(
             id          = "launcher",
             title       = "Lanzador predeterminado",
             description = "SRServi debe ser la pantalla de inicio del dispositivo.\n\n" +
-                          "Esto es necesario para que la app pueda reabrirse " +
-                          "automáticamente cuando se cierra y para que el botón de " +
-                          "inicio siempre regrese a SRServi.\n\n" +
-                          "En la pantalla que se abrirá, selecciona \"SRServi\" " +
-                          "y toca \"Siempre\".",
-            actionLabel = "Configurar lanzador",
+                          "Esto es obligatorio para que funcione como punto de autoservicio " +
+                          "y para que el botón de inicio siempre regrese a SRServi.\n\n" +
+                          "Toca el botón y selecciona SRServi cuando el sistema lo solicite.",
+            actionLabel = "Establecer como lanzador",
             icon        = "\uD83C\uDFE0", // 🏠
             isDone      = { ctx -> isDefaultLauncher(ctx) },
             execute     = { activity -> activity.openLauncherSettings() }
@@ -290,6 +337,21 @@ class SetupWizardActivity : AppCompatActivity() {
         }
 
         fun isDefaultLauncher(context: Context): Boolean {
+            // Android 10+: RoleManager es la única API confiable.
+            // resolveActivity da falsos positivos si la app tiene CATEGORY_HOME
+            // en su intent-filter aunque el usuario no la haya elegido como launcher.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                return try {
+                    val rm = context.getSystemService(RoleManager::class.java)
+                    rm.isRoleHeld(RoleManager.ROLE_HOME)
+                } catch (_: Exception) {
+                    // Fallback para dispositivos que no implementen RoleManager correctamente
+                    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+                    val info = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+                    info?.activityInfo?.packageName == context.packageName
+                }
+            }
+            // Android < 10: resolveActivity es el único mecanismo disponible
             val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
             val info   = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
             return info?.activityInfo?.packageName == context.packageName
