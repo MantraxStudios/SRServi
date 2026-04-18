@@ -3672,6 +3672,8 @@ app.get('/api/store/:code/orders', async (req, res) => {
         coupon_code: order.coupon_code,
         completed_by_name: order.completed_by_name,
         created_at: order.created_at,
+        table_number: order.table_number ?? null,
+        service_type: order.table_number != null ? 'servir' : 'llevar',
         items: items.map(item => ({
           id: item.id,
           product_id: item.product_id,
