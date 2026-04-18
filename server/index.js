@@ -279,6 +279,16 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
     }
 
+    const [existingEmail] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
+    if (existingEmail.length > 0) {
+      return res.status(400).json({ error: 'Ya existe una cuenta con ese correo electrónico' });
+    }
+
+    const [existingUsername] = await pool.execute('SELECT id FROM users WHERE username = ?', [username]);
+    if (existingUsername.length > 0) {
+      return res.status(400).json({ error: 'Ese nombre de usuario ya está en uso' });
+    }
+
     const user = await createUser(username, email, password, business_name);
 
     const storeName = business_name || username;
