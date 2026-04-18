@@ -12,6 +12,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import speakeasy from 'speakeasy';
 import bcrypt from 'bcryptjs';
+import nodemailer from 'nodemailer';
 import PluginManager from './plugins/PluginManager.js';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
@@ -116,6 +117,8 @@ import {
   disableTotp,
   updateUserPassword,
   getUserByEmail,
+  setVerificationCode,
+  markEmailVerified,
   pool
 } from './database.js';
 
@@ -130,6 +133,18 @@ const io = new Server(server, {
 const PORT = process.env.SERVER_PORT || 8888;
 const HOST = process.env.SERVER_HOST || '127.0.0.1';
 const JWT_SECRET = process.env.JWT_SECRET || 'srservi-secret-key-2024';
+const BASE_URL = process.env.BASE_URL || 'https://srservi2.srautomatic.com';
+
+const mailer = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST || '163.227.179.59',
+  port: parseInt(process.env.EMAIL_PORT || '587'),
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  },
+  tls: { rejectUnauthorized: false }
+});
 
 const mpClient = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN,
@@ -253,20 +268,21 @@ const authenticateToken = (req, res, next) => {
 
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { username, email, password, business_name } = req.body;
-    
+    const { username, password, business_name } = req.body;
+    const email = (req.body.email || '').toLowerCase().trim();
+
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
-    
+
     if (password.length < 6) {
       return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
     }
-    
+
     const user = await createUser(username, email, password, business_name);
-    
+
     const storeName = business_name || username;
-    const store = await createStore(user.id, {
+    await createStore(user.id, {
       name: storeName,
       primary_color: '#000000',
       secondary_color: '#FFFFFF',
@@ -276,10 +292,24 @@ app.post('/api/auth/register', async (req, res) => {
       currency_symbol: '$',
       currency_name: 'Dólar Estadounidense'
     });
-    
-    const token = jwt.sign({ id: user.id, email: user.email, type: 'user' }, JWT_SECRET, { expiresIn: '7d' });
-    
-    res.json({ user, token, store });
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date(Date.now() + 15 * 60 * 1000);
+    await setVerificationCode(user.id, code, expires);
+
+    await mailer.sendMail({
+      from: `"SRServi" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Activa tu cuenta SRServi',
+      html: `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+        <h2 style="color:#D4AF37">Bienvenido a SRServi</h2>
+        <p>Tu código de activación es:</p>
+        <div style="font-size:36px;font-weight:900;letter-spacing:10px;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px">${code}</div>
+        <p style="color:#888;font-size:12px">Expira en 15 minutos. Si no creaste esta cuenta, ignora este correo.</p>
+      </div>`
+    });
+
+    res.json({ requiresVerification: true, email });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -287,7 +317,8 @@ app.post('/api/auth/register', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const password = req.body.password;
+    const email = (req.body.email || '').toLowerCase().trim();
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email y contraseña son requeridos' });
@@ -305,14 +336,91 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
+    if (!user.email_verified) {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expires = new Date(Date.now() + 15 * 60 * 1000);
+      await setVerificationCode(user.id, code, expires);
+      await mailer.sendMail({
+        from: `"SRServi" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Activa tu cuenta SRServi',
+        html: `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+          <h2 style="color:#D4AF37">Activa tu cuenta</h2>
+          <p>Tu código de activación es:</p>
+          <div style="font-size:36px;font-weight:900;letter-spacing:10px;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px">${code}</div>
+          <p style="color:#888;font-size:12px">Expira en 15 minutos.</p>
+        </div>`
+      });
+      return res.json({ requiresVerification: true, email });
+    }
+
     if (user.totp_enabled) {
       const tempToken = jwt.sign({ id: user.id, type: '2fa_pending' }, JWT_SECRET, { expiresIn: '5m' });
       return res.json({ requiresTwoFactor: true, tempToken });
     }
 
     const token = jwt.sign({ id: user.id, email: user.email, type: 'user' }, JWT_SECRET, { expiresIn: '7d' });
-    const { totp_secret, totp_enabled, ...safeUser } = user;
-    res.json({ user: safeUser, token, twoFactorReminder: true });
+    const { totp_secret, totp_enabled, email_verified, ...safeUser } = user;
+    res.json({ user: safeUser, token });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/auth/verify-email', async (req, res) => {
+  try {
+    const email = (req.body.email || '').toLowerCase().trim();
+    const { code } = req.body;
+    if (!email || !code) return res.status(400).json({ error: 'Datos incompletos' });
+
+    const user = await getUserByEmail(email);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (user.email_verified) return res.status(400).json({ error: 'La cuenta ya está verificada' });
+
+    if (!user.verification_code || user.verification_code !== String(code).trim()) {
+      return res.status(401).json({ error: 'Código incorrecto' });
+    }
+    if (!user.verification_expires || new Date() > new Date(user.verification_expires)) {
+      return res.status(401).json({ error: 'El código expiró. Solicita uno nuevo.' });
+    }
+
+    await markEmailVerified(user.id);
+
+    const fullUser = await getUserById(user.id);
+    const token = jwt.sign({ id: user.id, email: user.email, type: 'user' }, JWT_SECRET, { expiresIn: '7d' });
+    const { totp_secret, totp_enabled, ...safeUser } = fullUser;
+    res.json({ user: safeUser, token });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/auth/resend-verification', async (req, res) => {
+  try {
+    const email = (req.body.email || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+    const user = await getUserByEmail(email);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (user.email_verified) return res.status(400).json({ error: 'La cuenta ya está verificada' });
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date(Date.now() + 15 * 60 * 1000);
+    await setVerificationCode(user.id, code, expires);
+
+    await mailer.sendMail({
+      from: `"SRServi" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Activa tu cuenta SRServi',
+      html: `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+        <h2 style="color:#D4AF37">Activa tu cuenta</h2>
+        <p>Tu nuevo código de activación es:</p>
+        <div style="font-size:36px;font-weight:900;letter-spacing:10px;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px">${code}</div>
+        <p style="color:#888;font-size:12px">Expira en 15 minutos.</p>
+      </div>`
+    });
+
+    res.json({ ok: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -470,6 +578,74 @@ app.post('/api/auth/2fa/reset-password', async (req, res) => {
       return res.status(401).json({ error: 'Token expirado. Vuelve a verificar con tu app.' });
     }
     if (payload.type !== 'password_recovery') return res.status(401).json({ error: 'Token inválido' });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await updateUserPassword(payload.id, hashed);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const email = (req.body.email || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+    const user = await getUserByEmail(email);
+    // Always respond OK to avoid user enumeration
+    if (!user) return res.json({ success: true });
+
+    const resetToken = jwt.sign({ id: user.id, type: 'email_reset' }, JWT_SECRET, { expiresIn: '15m' });
+    const resetUrl = `${BASE_URL}/reset-password?token=${resetToken}`;
+
+    await mailer.sendMail({
+      from: `"SRServi" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Restablecer contraseña — SRServi',
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#fff;border-radius:12px;border:1px solid #e0e0e0">
+          <div style="text-align:center;margin-bottom:24px">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:#000;margin-bottom:12px">
+              <span style="color:#D4AF37;font-weight:900;font-size:20px">SR</span>
+            </div>
+            <h2 style="margin:0;font-size:22px;color:#111">Restablecer contraseña</h2>
+          </div>
+          <p style="color:#444;font-size:15px;line-height:1.6">
+            Recibimos una solicitud para restablecer la contraseña de tu cuenta <strong>${email}</strong>.
+          </p>
+          <div style="text-align:center;margin:28px 0">
+            <a href="${resetUrl}" style="display:inline-block;background:#D4AF37;color:#000;font-weight:800;font-size:16px;padding:14px 32px;border-radius:10px;text-decoration:none">
+              Restablecer contraseña
+            </a>
+          </div>
+          <p style="color:#888;font-size:13px">Este enlace expira en <strong>15 minutos</strong>. Si no solicitaste esto, ignora este correo.</p>
+          <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+          <p style="color:#bbb;font-size:12px;text-align:center">SRServi · support@srautomatic.com</p>
+        </div>
+      `
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error enviando email de reset:', error.message);
+    res.status(500).json({ error: 'No se pudo enviar el correo. Intenta de nuevo.' });
+  }
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) return res.status(400).json({ error: 'Datos incompletos' });
+    if (newPassword.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+
+    let payload;
+    try {
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'El enlace expiró o es inválido. Solicita uno nuevo.' });
+    }
+    if (payload.type !== 'email_reset') return res.status(401).json({ error: 'Token inválido' });
 
     const hashed = await bcrypt.hash(newPassword, 10);
     await updateUserPassword(payload.id, hashed);

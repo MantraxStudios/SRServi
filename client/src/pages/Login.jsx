@@ -2,26 +2,28 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEnvelope, faLock, faDownload, faUserCog, faShieldAlt, faKey } from '@fortawesome/free-solid-svg-icons';
-import { QRCodeCanvas } from 'qrcode.react';
+import { faEnvelope, faLock, faDownload, faUserCog, faKey, faShieldAlt } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
 
 function Login() {
-  const [step, setStep] = useState('login'); // 'login' | 'totp' | 'setup2fa'
+  const [step, setStep] = useState('login'); // 'login' | 'totp' | 'verify'
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [totpCode, setTotpCode] = useState('');
   const [tempToken, setTempToken] = useState('');
-  const [pendingUser, setPendingUser] = useState(null);
-  const [pendingToken, setPendingToken] = useState('');
-  const [setupData, setSetupData] = useState(null); // { secret, otpauthUrl }
-  const [setupCode, setSetupCode] = useState('');
+  const [verifyEmail, setVerifyEmail] = useState('');
+  const [verifyCode, setVerifyCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMsg, setResendMsg] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: name === 'email' ? value.toLowerCase() : value });
+  };
 
   const finishLogin = (user, token) => {
     login(user, token);
@@ -41,27 +43,19 @@ function Login() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al iniciar sesión');
 
+      if (data.requiresVerification) {
+        setVerifyEmail(data.email);
+        setStep('verify');
+        return;
+      }
+
       if (data.requiresTwoFactor) {
         setTempToken(data.tempToken);
         setStep('totp');
         return;
       }
 
-      setPendingUser(data.user);
-      setPendingToken(data.token);
-
-      // Fetch setup QR inline
-      const setupRes = await fetch(API + '/api/auth/2fa/setup', {
-        headers: { 'Authorization': `Bearer ${data.token}` }
-      });
-      const setupJson = await setupRes.json();
-      if (setupRes.ok) {
-        setSetupData(setupJson);
-        setSetupCode('');
-        setStep('setup2fa');
-      } else {
-        finishLogin(data.user, data.token);
-      }
+      finishLogin(data.user, data.token);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -90,24 +84,114 @@ function Login() {
     }
   };
 
-  const handleActivate2FA = async () => {
+  const handleVerifyEmail = async (e) => {
+    e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(API + '/api/auth/2fa/enable', {
+      const res = await fetch(API + '/api/auth/verify-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${pendingToken}` },
-        body: JSON.stringify({ code: setupCode })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: verifyEmail, code: verifyCode })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Código incorrecto');
-      finishLogin(pendingUser, pendingToken);
+      finishLogin(data.user, data.token);
     } catch (err) {
       setError(err.message);
+      setVerifyCode('');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleResend = async () => {
+    setResendMsg('');
+    setResendLoading(true);
+    try {
+      const res = await fetch(API + '/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: verifyEmail })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setResendMsg('Código reenviado');
+    } catch (err) {
+      setResendMsg(err.message);
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  // ── Paso: verificación de correo ───────────────────────────────────────────
+  if (step === 'verify') {
+    return (
+      <div className="auth-container">
+        <div className="auth-card" style={{ maxWidth: '380px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '50%',
+              background: '#000', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', margin: '0 auto 14px'
+            }}>
+              <FontAwesomeIcon icon={faEnvelope} style={{ fontSize: '24px', color: '#D4AF37' }} />
+            </div>
+            <h2 style={{ fontWeight: 800, fontSize: '20px', marginBottom: '6px' }}>Activa tu cuenta</h2>
+            <p style={{ color: '#666', fontSize: '13px' }}>
+              Enviamos un código de 6 dígitos a <strong>{verifyEmail}</strong>
+            </p>
+          </div>
+
+          {error && <div className="error" style={{ marginBottom: '16px' }}>{error}</div>}
+
+          <form onSubmit={handleVerifyEmail}>
+            <div className="form-group">
+              <label>Código de activación</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={verifyCode}
+                onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
+                autoFocus
+                style={{ fontSize: '28px', letterSpacing: '8px', textAlign: 'center', fontWeight: 700 }}
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className="btn btn-primary btn-lg btn-full auth-submit"
+              disabled={loading || verifyCode.length !== 6}
+            >
+              {loading ? 'Verificando...' : 'Activar cuenta'}
+            </button>
+          </form>
+
+          <div style={{ textAlign: 'center', marginTop: '14px' }}>
+            <button
+              onClick={handleResend}
+              disabled={resendLoading}
+              style={{ background: 'none', border: 'none', color: '#D4AF37', fontSize: '13px', cursor: 'pointer' }}
+            >
+              {resendLoading ? 'Enviando...' : 'Reenviar código'}
+            </button>
+            {resendMsg && <p style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>{resendMsg}</p>}
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: '10px' }}>
+            <button
+              onClick={() => { setStep('login'); setError(''); setVerifyCode(''); }}
+              style={{ background: 'none', border: 'none', color: '#888', fontSize: '13px', cursor: 'pointer' }}
+            >
+              Volver al inicio de sesión
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Paso: verificación TOTP al iniciar sesión ──────────────────────────────
   if (step === 'totp') {
@@ -169,96 +253,6 @@ function Login() {
               Recuperar con código de autenticación
             </Link>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Paso: configurar 2FA después de login exitoso ──────────────────────────
-  if (step === 'setup2fa' && setupData) {
-    return (
-      <div className="auth-container">
-        <div className="auth-card" style={{ maxWidth: '420px' }}>
-          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-            <div style={{
-              width: '56px', height: '56px', borderRadius: '50%',
-              background: 'linear-gradient(135deg, #D4AF37, #92400e)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px'
-            }}>
-              <FontAwesomeIcon icon={faShieldAlt} style={{ fontSize: '24px', color: '#fff' }} />
-            </div>
-            <h2 style={{ fontWeight: 800, fontSize: '20px', marginBottom: '6px' }}>Protege tu cuenta</h2>
-            <p style={{ color: '#666', fontSize: '13px', lineHeight: '1.5' }}>
-              Activa la verificación en 2 pasos para que nadie más pueda entrar aunque tenga tu contraseña.
-              Funciona con <strong>Google Authenticator</strong>, <strong>Authy</strong> y otras apps.
-            </p>
-          </div>
-
-          {error && <div className="error" style={{ marginBottom: '12px' }}>{error}</div>}
-
-          <p style={{ fontSize: '13px', color: '#444', marginBottom: '12px', fontWeight: 600 }}>
-            1. Escanea este QR con tu app de autenticación:
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
-            <div style={{ padding: '14px', background: '#fff', border: '2px solid #000', borderRadius: '12px' }}>
-              <QRCodeCanvas value={setupData.otpauthUrl} size={180} level="H" bgColor="#ffffff" fgColor="#000000" />
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: '11px', color: '#999', marginBottom: '4px' }}>¿No puedes escanear? Ingresa este código en la app:</p>
-              <div style={{
-                fontFamily: 'monospace', fontSize: '13px', fontWeight: 700,
-                background: '#f3f4f6', padding: '6px 12px', borderRadius: '8px',
-                letterSpacing: '3px', color: '#1a1a1a', border: '1px solid #e0e0e0',
-                wordBreak: 'break-all'
-              }}>
-                {setupData.secret}
-              </div>
-            </div>
-          </div>
-
-          <p style={{ fontSize: '13px', color: '#444', marginBottom: '8px', fontWeight: 600 }}>
-            2. Ingresa el código de 6 dígitos que muestra la app:
-          </p>
-
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '14px' }}>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={setupCode}
-              onChange={e => { setSetupCode(e.target.value.replace(/\D/g, '')); setError(''); }}
-              placeholder="000000"
-              style={{
-                flex: 1, fontSize: '24px', letterSpacing: '8px', textAlign: 'center',
-                fontWeight: 700, padding: '10px', borderRadius: '10px',
-                border: '2px solid #e0e0e0', outline: 'none'
-              }}
-            />
-            <button
-              onClick={handleActivate2FA}
-              disabled={loading || setupCode.length !== 6}
-              className="btn btn-primary"
-              style={{
-                background: setupCode.length === 6 ? '#D4AF37' : '#e0e0e0',
-                border: 'none', color: setupCode.length === 6 ? '#000' : '#999',
-                fontWeight: 800, padding: '10px 18px', borderRadius: '10px', fontSize: '14px'
-              }}
-            >
-              {loading ? '...' : 'Activar'}
-            </button>
-          </div>
-
-          <button
-            onClick={() => finishLogin(pendingUser, pendingToken)}
-            style={{
-              width: '100%', background: 'transparent', border: '1px solid #ddd',
-              color: '#999', borderRadius: '10px', padding: '10px',
-              cursor: 'pointer', fontSize: '13px'
-            }}
-          >
-            Omitir por ahora
-          </button>
         </div>
       </div>
     );

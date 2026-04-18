@@ -181,6 +181,7 @@ function Store() {
   const [tableNumber, setTableNumber] = useState('');
   const [pendingPaymentMethod, setPendingPaymentMethod] = useState(null);
   const [lastOrderNumber, setLastOrderNumber] = useState(null);
+  const [lastTableNumber, setLastTableNumber] = useState(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
   const [availableTerminals, setAvailableTerminals] = useState([]);
@@ -468,6 +469,7 @@ function Store() {
       setPaymentConfirmed(false);
       setPendingOrderData(null);
       setLastOrderNumber(null);
+      setLastTableNumber(null);
       setCart([]);
       setCartOpen(false);
       setPaymentModalOpen(false);
@@ -1280,6 +1282,7 @@ function Store() {
       return;
     }
 
+    setLastTableNumber(tableNum ? parseInt(tableNum) : null);
     setPaymentMethod(selectedMethod);
     setProcessingPayment(true);
     setPaymentError(null);
@@ -3713,7 +3716,7 @@ function Store() {
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
             <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--success)' }} />
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
-              {t('thankYouPurchase', lang)}
+              {lastTableNumber != null ? `Para servir — Mesa #${lastTableNumber}` : 'Para llevar'}
             </h2>
             <p className="text-muted" style={{ marginBottom: '20px', fontSize: '16px' }}>
               {t('pleaseWait', lang)}
@@ -3837,7 +3840,7 @@ function Store() {
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
             <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--success)' }} />
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
-              {t('thankYouPurchase', lang)}
+              {lastTableNumber != null ? `Para servir — Mesa #${lastTableNumber}` : 'Para llevar'}
             </h2>
             <p className="text-muted" style={{ marginBottom: '20px', fontSize: '16px' }}>
               Acércate a la caja para pagar en efectivo

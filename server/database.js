@@ -724,6 +724,20 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN NOT NULL DEFAULT FALSE');
         console.log('✅ Columna totp_enabled agregada a users');
       }
+      if (!userColNames.includes('email_verified')) {
+        await pool.execute('ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT FALSE');
+        // Mark existing users as already verified so they aren't locked out
+        await pool.execute('UPDATE users SET email_verified = TRUE WHERE email_verified = FALSE');
+        console.log('✅ Columna email_verified agregada a users');
+      }
+      if (!userColNames.includes('verification_code')) {
+        await pool.execute('ALTER TABLE users ADD COLUMN verification_code VARCHAR(6) DEFAULT NULL');
+        console.log('✅ Columna verification_code agregada a users');
+      }
+      if (!userColNames.includes('verification_expires')) {
+        await pool.execute('ALTER TABLE users ADD COLUMN verification_expires DATETIME DEFAULT NULL');
+        console.log('✅ Columna verification_expires agregada a users');
+      }
     } catch (err) {
       if (err.message.includes('Duplicate column')) {
         console.log('ℹ️ Columnas ya existen en users');
@@ -926,7 +940,7 @@ export async function createUser(username, email, password, business_name) {
   }
 
   const [result] = await pool.execute(
-    'INSERT INTO users (username, email, password, code, business_name) VALUES (?, ?, ?, ?, ?)',
+    'INSERT INTO users (username, email, password, code, business_name, email_verified) VALUES (?, ?, ?, ?, ?, FALSE)',
     [username, email, hashedPassword, code, business_name || null]
   );
 
@@ -935,7 +949,8 @@ export async function createUser(username, email, password, business_name) {
     username,
     email,
     code,
-    business_name
+    business_name,
+    email_verified: false
   };
 }
 
@@ -963,7 +978,8 @@ export async function authenticateUser(email, password) {
     business_name: user.business_name,
     is_banned: user.is_banned,
     totp_enabled: Boolean(user.totp_enabled),
-    totp_secret: user.totp_secret || null
+    totp_secret: user.totp_secret || null,
+    email_verified: Boolean(user.email_verified)
   };
 }
 
@@ -986,6 +1002,20 @@ export async function updateUserPassword(userId, hashedPassword) {
 export async function getUserByEmail(email) {
   const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
   return rows[0] || null;
+}
+
+export async function setVerificationCode(userId, code, expires) {
+  await pool.execute(
+    'UPDATE users SET verification_code = ?, verification_expires = ? WHERE id = ?',
+    [code, expires, userId]
+  );
+}
+
+export async function markEmailVerified(userId) {
+  await pool.execute(
+    'UPDATE users SET email_verified = TRUE, verification_code = NULL, verification_expires = NULL WHERE id = ?',
+    [userId]
+  );
 }
 
 export async function getUserByCode(code) {
