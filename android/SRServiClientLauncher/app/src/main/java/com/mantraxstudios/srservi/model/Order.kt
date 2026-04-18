@@ -27,6 +27,8 @@ data class Order(
     @SerializedName("coupon_code") val couponCode: String?,
     @SerializedName("completed_by_name") val completedByName: String?,
     @SerializedName("created_at") val createdAt: String,
+    @SerializedName("table_number") val tableNumber: Int?,
+    @SerializedName("service_type") val serviceType: String?,
     val items: List<OrderItem>
 )
 

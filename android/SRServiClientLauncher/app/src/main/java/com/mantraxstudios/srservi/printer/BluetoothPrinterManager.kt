@@ -242,7 +242,18 @@ class BluetoothPrinterManager(private val context: Context) {
 
         builder.addSeparator()
         builder.alignCenter()
-        builder.addText("Gracias por su compra")
+        builder.setBold(true)
+        builder.setDoubleSize(true)
+        val serviceLabel = if (order.tableNumber != null) "PARA SERVIR" else "PARA LLEVAR"
+        builder.addText(serviceLabel)
+        builder.setDoubleSize(false)
+        builder.setBold(false)
+        if (order.tableNumber != null) {
+            builder.addNewLine()
+            builder.setBold(true)
+            builder.addText("Mesa #${order.tableNumber}")
+            builder.setBold(false)
+        }
         builder.addNewLine()
         builder.addNewLine()
         builder.addNewLine()
