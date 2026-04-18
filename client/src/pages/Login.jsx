@@ -293,6 +293,7 @@ function Login() {
 
   // ── Paso: formulario de login ──────────────────────────────────────────────
   return (
+    <>
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-logo">
@@ -387,6 +388,7 @@ function Login() {
       </div>
     </div>
     {verifyModal}
+    </>
   );
 }
 

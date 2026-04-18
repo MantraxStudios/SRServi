@@ -199,6 +199,7 @@ function Register() {
 
   // ── Paso: formulario de registro ───────────────────────────────────────────
   return (
+    <>
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-logo">
@@ -331,6 +332,7 @@ function Register() {
       </div>
     </div>
     {verifyModal}
+    </>
   );
 }
 
