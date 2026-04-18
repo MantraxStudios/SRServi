@@ -2017,6 +2017,8 @@ export async function getOrders(storeId, todayOnly = false) {
     const ord = {
       ...order,
       total: isNaN(totalValue) ? 0 : totalValue,
+      table_number: order.table_number ?? null,
+      service_type: order.table_number != null ? 'servir' : 'llevar',
       items: await getOrderItems(order.id)
     };
     orders.push(ord);

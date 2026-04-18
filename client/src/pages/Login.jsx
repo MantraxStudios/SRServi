@@ -124,74 +124,107 @@ function Login() {
     }
   };
 
-  // ── Paso: verificación de correo ───────────────────────────────────────────
-  if (step === 'verify') {
-    return (
-      <div className="auth-container">
-        <div className="auth-card" style={{ maxWidth: '380px' }}>
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <div style={{
-              width: '56px', height: '56px', borderRadius: '50%',
-              background: '#000', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', margin: '0 auto 14px'
-            }}>
-              <FontAwesomeIcon icon={faEnvelope} style={{ fontSize: '24px', color: '#D4AF37' }} />
-            </div>
-            <h2 style={{ fontWeight: 800, fontSize: '20px', marginBottom: '6px' }}>Activa tu cuenta</h2>
-            <p style={{ color: '#666', fontSize: '13px' }}>
-              Enviamos un código de 6 dígitos a <strong>{verifyEmail}</strong>
+  // ── Modal: verificación de correo ─────────────────────────────────────────
+  const verifyModal = step === 'verify' && (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000, padding: '16px'
+    }}>
+      <div style={{
+        background: '#fff', borderRadius: '20px', padding: '36px 32px',
+        width: '100%', maxWidth: '380px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '50%',
+            background: '#000', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', margin: '0 auto 16px'
+          }}>
+            <FontAwesomeIcon icon={faEnvelope} style={{ fontSize: '26px', color: '#D4AF37' }} />
+          </div>
+          <h2 style={{ fontWeight: 800, fontSize: '20px', marginBottom: '8px', color: '#111' }}>
+            Activa tu cuenta
+          </h2>
+          <p style={{ color: '#666', fontSize: '13px', lineHeight: 1.5 }}>
+            Enviamos un código de 6 dígitos a<br />
+            <strong style={{ color: '#111' }}>{verifyEmail}</strong>
+          </p>
+        </div>
+
+        {error && (
+          <div className="error" style={{ marginBottom: '16px' }}>{error}</div>
+        )}
+
+        <form onSubmit={handleVerifyEmail}>
+          <div className="form-group">
+            <label style={{ fontWeight: 600, fontSize: '13px', color: '#444', marginBottom: '8px', display: 'block' }}>
+              Código de activación
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={verifyCode}
+              onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="000000"
+              autoFocus
+              style={{
+                width: '100%', fontSize: '32px', letterSpacing: '10px',
+                textAlign: 'center', fontWeight: 700, padding: '14px 8px',
+                border: '2px solid #e0e0e0', borderRadius: '12px',
+                outline: 'none', boxSizing: 'border-box',
+                transition: 'border-color .2s'
+              }}
+              onFocus={e => e.target.style.borderColor = '#D4AF37'}
+              onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            className="btn btn-primary btn-lg btn-full auth-submit"
+            disabled={loading || verifyCode.length !== 6}
+            style={{ marginTop: '4px' }}
+          >
+            {loading ? 'Verificando...' : 'Activar cuenta'}
+          </button>
+        </form>
+
+        <div style={{ textAlign: 'center', marginTop: '16px' }}>
+          <p style={{ fontSize: '13px', color: '#888', marginBottom: '8px' }}>
+            ¿No recibiste el correo?
+          </p>
+          <button
+            onClick={handleResend}
+            disabled={resendLoading}
+            style={{
+              background: 'none', border: '1px solid #D4AF37', color: '#D4AF37',
+              fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+              padding: '8px 20px', borderRadius: '8px',
+              opacity: resendLoading ? 0.6 : 1
+            }}
+          >
+            {resendLoading ? 'Enviando...' : 'Reenviar código'}
+          </button>
+          {resendMsg && (
+            <p style={{ fontSize: '12px', color: resendMsg === 'Código reenviado' ? '#16a34a' : '#dc2626', marginTop: '8px' }}>
+              {resendMsg}
             </p>
-          </div>
+          )}
+        </div>
 
-          {error && <div className="error" style={{ marginBottom: '16px' }}>{error}</div>}
-
-          <form onSubmit={handleVerifyEmail}>
-            <div className="form-group">
-              <label>Código de activación</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={verifyCode}
-                onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000"
-                autoFocus
-                style={{ fontSize: '28px', letterSpacing: '8px', textAlign: 'center', fontWeight: 700 }}
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              className="btn btn-primary btn-lg btn-full auth-submit"
-              disabled={loading || verifyCode.length !== 6}
-            >
-              {loading ? 'Verificando...' : 'Activar cuenta'}
-            </button>
-          </form>
-
-          <div style={{ textAlign: 'center', marginTop: '14px' }}>
-            <button
-              onClick={handleResend}
-              disabled={resendLoading}
-              style={{ background: 'none', border: 'none', color: '#D4AF37', fontSize: '13px', cursor: 'pointer' }}
-            >
-              {resendLoading ? 'Enviando...' : 'Reenviar código'}
-            </button>
-            {resendMsg && <p style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>{resendMsg}</p>}
-          </div>
-
-          <div style={{ textAlign: 'center', marginTop: '10px' }}>
-            <button
-              onClick={() => { setStep('login'); setError(''); setVerifyCode(''); }}
-              style={{ background: 'none', border: 'none', color: '#888', fontSize: '13px', cursor: 'pointer' }}
-            >
-              Volver al inicio de sesión
-            </button>
-          </div>
+        <div style={{ textAlign: 'center', marginTop: '14px' }}>
+          <button
+            onClick={() => { setStep('login'); setError(''); setVerifyCode(''); setResendMsg(''); }}
+            style={{ background: 'none', border: 'none', color: '#bbb', fontSize: '12px', cursor: 'pointer' }}
+          >
+            Volver al inicio de sesión
+          </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
   // ── Paso: verificación TOTP al iniciar sesión ──────────────────────────────
   if (step === 'totp') {
@@ -353,6 +386,7 @@ function Login() {
         </div>
       </div>
     </div>
+    {verifyModal}
   );
 }
 
