@@ -340,21 +340,25 @@ app.post('/api/auth/login', async (req, res) => {
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       const expires = new Date(Date.now() + 15 * 60 * 1000);
       await setVerificationCode(user.id, code, expires);
-      await mailer.sendMail({
-        from: `"SRServi" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Activa tu cuenta SRServi',
-        html: `<div style="font-family:sans-serif;max-width:480px;margin:auto">
-          <h2 style="color:#D4AF37">Activa tu cuenta</h2>
-          <p>Tu código de activación es:</p>
-          <div style="font-size:36px;font-weight:900;letter-spacing:10px;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px">${code}</div>
-          <p style="color:#888;font-size:12px">Expira en 15 minutos.</p>
-        </div>`
-      });
+      try {
+        await mailer.sendMail({
+          from: `"SRServi" <${process.env.EMAIL_USER}>`,
+          to: email,
+          subject: 'Activa tu cuenta SRServi',
+          html: `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+            <h2 style="color:#D4AF37">Activa tu cuenta</h2>
+            <p>Tu código de activación es:</p>
+            <div style="font-size:36px;font-weight:900;letter-spacing:10px;text-align:center;padding:20px;background:#f5f5f5;border-radius:8px">${code}</div>
+            <p style="color:#888;font-size:12px">Expira en 15 minutos.</p>
+          </div>`
+        });
+      } catch (mailErr) {
+        console.error('Error enviando correo de verificación:', mailErr.message);
+      }
       return res.json({ requiresVerification: true, email });
     }
 
-    if (user.totp_enabled) {
+    if (user.totp_enabled && user.totp_secret) {
       const tempToken = jwt.sign({ id: user.id, type: '2fa_pending' }, JWT_SECRET, { expiresIn: '5m' });
       return res.json({ requiresTwoFactor: true, tempToken });
     }
