@@ -2060,16 +2060,16 @@ function Store() {
   const handleComplementsDragEnd = async (event, type) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    const authToken = adminToken || localStorage.getItem('token');
     if (type === 'ingredient') {
       const oldIndex = ingredients.findIndex(i => i.id === active.id);
       const newIndex = ingredients.findIndex(i => i.id === over.id);
       const reordered = arrayMove(ingredients, oldIndex, newIndex);
       setIngredients(reordered);
       try {
-        const token = localStorage.getItem('token');
         await fetch('/api/ingredients/reorder', {
           method: 'PUT',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ store_id: store?.store?.id, items: reordered.map((item, idx) => ({ id: item.id, sort_order: idx })) }),
         });
       } catch (err) { console.error(err); }
@@ -2079,10 +2079,9 @@ function Store() {
       const reordered = arrayMove(extras, oldIndex, newIndex);
       setExtras(reordered);
       try {
-        const token = localStorage.getItem('token');
         await fetch('/api/extras/reorder', {
           method: 'PUT',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ store_id: store?.store?.id, items: reordered.map((item, idx) => ({ id: item.id, sort_order: idx })) }),
         });
       } catch (err) { console.error(err); }
