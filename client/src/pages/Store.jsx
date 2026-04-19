@@ -2921,23 +2921,6 @@ function Store() {
                         {t('soldOut', lang)}
                       </div>
                     )}
-                    {ingredient.unlimited_stock && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '8px',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        backgroundColor: '#28a745',
-                        color: 'white',
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        zIndex: 2,
-                      }}>
-                        <FontAwesomeIcon icon={faInfinity} /> {t('stock', lang)}
-                      </div>
-                    )}
                     {ingredient.image ? (
                       <img
                         src={ingredient.image}
@@ -3126,23 +3109,6 @@ function Store() {
                         zIndex: 2,
                       }}>
                         {t('soldOut', lang)}
-                      </div>
-                    )}
-                    {extra.unlimited_stock && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '8px',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        backgroundColor: '#28a745',
-                        color: 'white',
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        zIndex: 2,
-                      }}>
-                        <FontAwesomeIcon icon={faInfinity} /> {t('stock', lang)}
                       </div>
                     )}
                     {extra.image ? (

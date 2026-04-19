@@ -29,6 +29,8 @@ function Products() {
   const { selectedStore } = useStore();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [extras, setExtras] = useState([]);
+  const [ingredients, setIngredients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -80,7 +82,7 @@ function Products() {
 
     try {
       const token = localStorage.getItem('token');
-      const [productsRes, categoriesRes] = await Promise.all([
+      const [productsRes, categoriesRes, extrasRes, ingredientsRes] = await Promise.all([
         fetch(`/api/products?store_id=${selectedStore.id}`, {
           headers: { 'Authorization': `Bearer ${token}` },
           signal: abortController.signal
@@ -88,12 +90,22 @@ function Products() {
         fetch(`/api/categories?store_id=${selectedStore.id}`, {
           headers: { 'Authorization': `Bearer ${token}` },
           signal: abortController.signal
+        }),
+        fetch(`/api/extras?store_id=${selectedStore.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: abortController.signal
+        }),
+        fetch(`/api/ingredients?store_id=${selectedStore.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: abortController.signal
         })
       ]);
 
-      const [productsData, categoriesData] = await Promise.all([
+      const [productsData, categoriesData, extrasData, ingredientsData] = await Promise.all([
         productsRes.json(),
-        categoriesRes.json()
+        categoriesRes.json(),
+        extrasRes.json(),
+        ingredientsRes.json()
       ]);
 
       const uniqueProducts = productsData.filter((product, index, self) =>
@@ -102,6 +114,8 @@ function Products() {
 
       setProducts(uniqueProducts);
       setCategories(categoriesData);
+      setExtras(Array.isArray(extrasData) ? extrasData : []);
+      setIngredients(Array.isArray(ingredientsData) ? ingredientsData : []);
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error('Error fetching data:', error);
@@ -250,6 +264,54 @@ function Products() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  const handleExtrasDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = extras.findIndex(e => e.id === active.id);
+    const newIndex = extras.findIndex(e => e.id === over.id);
+    const reordered = arrayMove(extras, oldIndex, newIndex);
+    setExtras(reordered);
+    try {
+      const token = localStorage.getItem('token');
+      await fetch('/api/extras/reorder', {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: selectedStore.id, items: reordered.map((item, idx) => ({ id: item.id, sort_order: idx })) }),
+      });
+    } catch (err) { console.error('Error guardando orden extras:', err); }
+  };
+
+  const handleIngredientsDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = ingredients.findIndex(i => i.id === active.id);
+    const newIndex = ingredients.findIndex(i => i.id === over.id);
+    const reordered = arrayMove(ingredients, oldIndex, newIndex);
+    setIngredients(reordered);
+    try {
+      const token = localStorage.getItem('token');
+      await fetch('/api/ingredients/reorder', {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: selectedStore.id, items: reordered.map((item, idx) => ({ id: item.id, sort_order: idx })) }),
+      });
+    } catch (err) { console.error('Error guardando orden ingredientes:', err); }
+  };
+
+  function ComplementSortableRow({ item }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+    const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+    return (
+      <div ref={setNodeRef} style={{ ...style, display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', background: '#f9f9f9', borderRadius: '8px', marginBottom: '4px', border: '1px solid #e0e0e0' }}>
+        <div {...attributes} {...listeners} style={{ cursor: 'grab', color: '#aaa', padding: '0 2px', flexShrink: 0 }}>
+          <FontAwesomeIcon icon={faGripVertical} />
+        </div>
+        <span style={{ flex: 1, fontSize: '13px', fontWeight: '600' }}>{item.name}</span>
+        {Number(item.price) > 0 && <span style={{ fontSize: '12px', color: '#888' }}>${Number(item.price).toFixed(2)}</span>}
+      </div>
+    );
+  }
 
   const handleDragStart = (event) => {
     setActiveId(event.active.id);
@@ -619,16 +681,28 @@ function Products() {
                   </span>
                 </div>
                 {formData.has_extras && (
-                  <div className="form-group" style={{ marginBottom: '12px' }}>
-                    <label>Max. extras por cliente (0 = ilimitado)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.max_extras}
-                      onChange={(e) => setFormData({ ...formData, max_extras: e.target.value })}
-                      placeholder="0"
-                    />
-                  </div>
+                  <>
+                    <div className="form-group" style={{ marginBottom: '8px' }}>
+                      <label>Max. extras por cliente (0 = ilimitado)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.max_extras}
+                        onChange={(e) => setFormData({ ...formData, max_extras: e.target.value })}
+                        placeholder="0"
+                      />
+                    </div>
+                    {extras.length > 0 && (
+                      <div style={{ marginBottom: '12px' }}>
+                        <label style={{ fontSize: '12px', color: '#666', marginBottom: '6px', display: 'block' }}>Orden de extras (arrastra para reordenar)</label>
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleExtrasDragEnd}>
+                          <SortableContext items={extras.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                            {extras.map(item => <ComplementSortableRow key={item.id} item={item} />)}
+                          </SortableContext>
+                        </DndContext>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div className={`stock-toggle ${formData.has_ingredients ? 'active' : 'inactive'}`} style={{ marginBottom: '8px' }}>
@@ -645,16 +719,28 @@ function Products() {
                   </span>
                 </div>
                 {formData.has_ingredients && (
-                  <div className="form-group" style={{ marginBottom: '0' }}>
-                    <label>Max. complementos por cliente (0 = ilimitado)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.max_ingredients}
-                      onChange={(e) => setFormData({ ...formData, max_ingredients: e.target.value })}
-                      placeholder="0"
-                    />
-                  </div>
+                  <>
+                    <div className="form-group" style={{ marginBottom: '8px' }}>
+                      <label>Max. complementos por cliente (0 = ilimitado)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.max_ingredients}
+                        onChange={(e) => setFormData({ ...formData, max_ingredients: e.target.value })}
+                        placeholder="0"
+                      />
+                    </div>
+                    {ingredients.length > 0 && (
+                      <div style={{ marginBottom: '4px' }}>
+                        <label style={{ fontSize: '12px', color: '#666', marginBottom: '6px', display: 'block' }}>Orden de complementos (arrastra para reordenar)</label>
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleIngredientsDragEnd}>
+                          <SortableContext items={ingredients.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                            {ingredients.map(item => <ComplementSortableRow key={item.id} item={item} />)}
+                          </SortableContext>
+                        </DndContext>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
