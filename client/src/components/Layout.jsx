@@ -303,10 +303,11 @@ function Layout() {
                 <NavLink
                   to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`}
                   onClick={(e) => {
-                    setMenuOpen(false);
                     if (isEditorMode) {
                       e.preventDefault();
                       window.location.href = `/admin/editor/${selectedStore.code}?admin_edit=${token}`;
+                    } else {
+                      setMenuOpen(false);
                     }
                   }}
                 >
