@@ -1589,7 +1589,7 @@ async function getProductIngredients(productId, categoryId = null) {
       SELECT i.*, COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
       FROM ingredients i
       INNER JOIN product_ingredients pi ON pi.ingredient_id = i.id AND pi.product_id = ?
-      ORDER BY i.name
+      ORDER BY i.sort_order, i.name
     `;
     params = [productId];
   } else {
@@ -1597,7 +1597,7 @@ async function getProductIngredients(productId, categoryId = null) {
       SELECT i.*, COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
       FROM ingredients i
       WHERE i.store_id = (SELECT store_id FROM products WHERE id = ?)
-      ORDER BY i.name
+      ORDER BY i.sort_order, i.name
     `;
     params = [productId];
   }
@@ -1620,7 +1620,7 @@ async function getProductExtras(productId, categoryId = null) {
       SELECT e.*, COALESCE(e.stock, 0) as stock, COALESCE(e.unlimited_stock, FALSE) as unlimited_stock
       FROM extras e
       INNER JOIN product_extras pe ON pe.extra_id = e.id AND pe.product_id = ?
-      ORDER BY e.name
+      ORDER BY e.sort_order, e.name
     `;
     params = [productId];
   } else {
@@ -1628,7 +1628,7 @@ async function getProductExtras(productId, categoryId = null) {
       SELECT e.*, COALESCE(e.stock, 0) as stock, COALESCE(e.unlimited_stock, FALSE) as unlimited_stock
       FROM extras e
       WHERE e.store_id = (SELECT store_id FROM products WHERE id = ?)
-      ORDER BY e.name
+      ORDER BY e.sort_order, e.name
     `;
     params = [productId];
   }
