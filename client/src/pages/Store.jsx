@@ -55,6 +55,7 @@ import {
   SortableContext,
   useSortable,
   rectSortingStrategy,
+  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import PluginSlot from '../components/PluginSlot';
@@ -144,6 +145,32 @@ function SortableProductCard({ product, onEdit, onDelete, currencySymbol, hideDe
             <span className="store-product-price">{currencySymbol}{hideDecimals && Number(product.price).toFixed(2).endsWith('.00') ? String(Math.round(Number(product.price))) : Number(product.price).toFixed(2)}</span>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SortableComplementRow({ item, active, onToggle, onEdit, onDelete }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+  return (
+    <div ref={setNodeRef} style={{ ...style, display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', marginBottom: '4px', background: active ? 'rgba(0,128,0,0.08)' : '#fafafa', border: active ? '2px solid #2ecc71' : '2px solid transparent' }}>
+      <div {...attributes} {...listeners} style={{ cursor: 'grab', color: '#aaa', flexShrink: 0, padding: '0 2px' }}>
+        <FontAwesomeIcon icon={faGripVertical} />
+      </div>
+      <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, cursor: 'pointer' }}>
+        <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {item.image ? <img src={getImageUrl(item.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FontAwesomeIcon icon={faBox} style={{ color: '#ccc' }} />}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '14px', fontWeight: '600' }}>{item.name}</div>
+          {Number(item.price) > 0 && <div style={{ fontSize: '12px', color: '#888' }}>+${Number(item.price).toFixed(0)}</div>}
+        </div>
+        <FontAwesomeIcon icon={active ? faCheckCircle : faTimesCircle} style={{ fontSize: '20px', color: active ? '#2ecc71' : '#ddd' }} />
+      </div>
+      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+        <button onClick={(ev) => { ev.stopPropagation(); onEdit(); }} style={{ background: 'none', border: 'none', color: 'var(--store-primary)', cursor: 'pointer', padding: '4px', fontSize: '13px' }}><FontAwesomeIcon icon={faEdit} /></button>
+        <button onClick={(ev) => { ev.stopPropagation(); onDelete(); }} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', padding: '4px', fontSize: '13px' }}><FontAwesomeIcon icon={faTrash} /></button>
       </div>
     </div>
   );
@@ -2029,6 +2056,38 @@ function Store() {
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
   );
+
+  const handleComplementsDragEnd = async (event, type) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    if (type === 'ingredient') {
+      const oldIndex = ingredients.findIndex(i => i.id === active.id);
+      const newIndex = ingredients.findIndex(i => i.id === over.id);
+      const reordered = arrayMove(ingredients, oldIndex, newIndex);
+      setIngredients(reordered);
+      try {
+        const token = localStorage.getItem('token');
+        await fetch('/api/ingredients/reorder', {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ store_id: store?.store?.id, items: reordered.map((item, idx) => ({ id: item.id, sort_order: idx })) }),
+        });
+      } catch (err) { console.error(err); }
+    } else {
+      const oldIndex = extras.findIndex(e => e.id === active.id);
+      const newIndex = extras.findIndex(e => e.id === over.id);
+      const reordered = arrayMove(extras, oldIndex, newIndex);
+      setExtras(reordered);
+      try {
+        const token = localStorage.getItem('token');
+        await fetch('/api/extras/reorder', {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ store_id: store?.store?.id, items: reordered.map((item, idx) => ({ id: item.id, sort_order: idx })) }),
+        });
+      } catch (err) { console.error(err); }
+    }
+  };
 
   const handleEditDragStart = (event) => {
     setEditDragActiveId(event.active.id);
@@ -4220,27 +4279,23 @@ function Store() {
                   {ingredients.length === 0 && prodNewComplements.length === 0 && (
                     <p style={{ textAlign: 'center', color: '#999', fontSize: '13px', padding: '16px 0' }}>No hay complementos creados</p>
                   )}
-                  {ingredients.map(ing => {
-                    const active = selectedIngredientIds.includes(ing.id);
-                    return (
-                      <div key={ing.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', marginBottom: '4px', background: active ? 'rgba(0,128,0,0.08)' : '#fafafa', border: active ? '2px solid #2ecc71' : '2px solid transparent' }}>
-                        <div onClick={() => setSelectedIngredientIds(active ? selectedIngredientIds.filter(id => id !== ing.id) : [...selectedIngredientIds, ing.id])} style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, cursor: 'pointer' }}>
-                          <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {ing.image ? <img src={getImageUrl(ing.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FontAwesomeIcon icon={faBox} style={{ color: '#ccc' }} />}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: '14px', fontWeight: '600' }}>{ing.name}</div>
-                            {Number(ing.price) > 0 && <div style={{ fontSize: '12px', color: '#888' }}>+${Number(ing.price).toFixed(0)}</div>}
-                          </div>
-                          <FontAwesomeIcon icon={active ? faCheckCircle : faTimesCircle} style={{ fontSize: '20px', color: active ? '#2ecc71' : '#ddd' }} />
-                        </div>
-                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                          <button onClick={(ev) => { ev.stopPropagation(); setEditingComplement({ id: ing.id, type: 'ingredient', name: ing.name, price: ing.price?.toString() || '', imageFile: null }); }} style={{ background: 'none', border: 'none', color: 'var(--store-primary)', cursor: 'pointer', padding: '4px', fontSize: '13px' }}><FontAwesomeIcon icon={faEdit} /></button>
-                          <button onClick={(ev) => { ev.stopPropagation(); deleteComplementFromModal('ingredient', ing.id); }} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', padding: '4px', fontSize: '13px' }}><FontAwesomeIcon icon={faTrash} /></button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <DndContext sensors={editSensors} collisionDetection={closestCenter} onDragEnd={(e) => handleComplementsDragEnd(e, 'ingredient')}>
+                    <SortableContext items={ingredients.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                      {ingredients.map(ing => {
+                        const active = selectedIngredientIds.includes(ing.id);
+                        return (
+                          <SortableComplementRow
+                            key={ing.id}
+                            item={ing}
+                            active={active}
+                            onToggle={() => setSelectedIngredientIds(active ? selectedIngredientIds.filter(id => id !== ing.id) : [...selectedIngredientIds, ing.id])}
+                            onEdit={() => setEditingComplement({ id: ing.id, type: 'ingredient', name: ing.name, price: ing.price?.toString() || '', imageFile: null })}
+                            onDelete={() => deleteComplementFromModal('ingredient', ing.id)}
+                          />
+                        );
+                      })}
+                    </SortableContext>
+                  </DndContext>
                   {prodNewComplements.map((comp, i) => (
                     <div key={`new-${i}`} style={{ display: 'flex', gap: '6px', marginTop: '6px', alignItems: 'center', padding: '6px', background: '#fffbe6', borderRadius: '8px', border: '1px dashed #e6c200' }}>
                       <label style={{ width: '32px', height: '32px', borderRadius: '6px', background: comp.imageFile ? 'transparent' : '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '1px solid #ddd' }}>
@@ -4263,27 +4318,23 @@ function Store() {
                   {extras.length === 0 && prodNewExtras.length === 0 && (
                     <p style={{ textAlign: 'center', color: '#999', fontSize: '13px', padding: '16px 0' }}>No hay extras creados</p>
                   )}
-                  {extras.map(e => {
-                    const active = selectedExtraIds.includes(e.id);
-                    return (
-                      <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '8px', marginBottom: '4px', background: active ? 'rgba(0,128,0,0.08)' : '#fafafa', border: active ? '2px solid #2ecc71' : '2px solid transparent' }}>
-                        <div onClick={() => setSelectedExtraIds(active ? selectedExtraIds.filter(id => id !== e.id) : [...selectedExtraIds, e.id])} style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, cursor: 'pointer' }}>
-                          <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {e.image ? <img src={getImageUrl(e.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FontAwesomeIcon icon={faBox} style={{ color: '#ccc' }} />}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: '14px', fontWeight: '600' }}>{e.name}</div>
-                            {Number(e.price) > 0 && <div style={{ fontSize: '12px', color: '#888' }}>+${Number(e.price).toFixed(0)}</div>}
-                          </div>
-                          <FontAwesomeIcon icon={active ? faCheckCircle : faTimesCircle} style={{ fontSize: '20px', color: active ? '#2ecc71' : '#ddd' }} />
-                        </div>
-                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                          <button onClick={(ev) => { ev.stopPropagation(); setEditingComplement({ id: e.id, type: 'extra', name: e.name, price: e.price?.toString() || '', imageFile: null }); }} style={{ background: 'none', border: 'none', color: 'var(--store-primary)', cursor: 'pointer', padding: '4px', fontSize: '13px' }}><FontAwesomeIcon icon={faEdit} /></button>
-                          <button onClick={(ev) => { ev.stopPropagation(); deleteComplementFromModal('extra', e.id); }} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', padding: '4px', fontSize: '13px' }}><FontAwesomeIcon icon={faTrash} /></button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <DndContext sensors={editSensors} collisionDetection={closestCenter} onDragEnd={(e) => handleComplementsDragEnd(e, 'extra')}>
+                    <SortableContext items={extras.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                      {extras.map(ex => {
+                        const active = selectedExtraIds.includes(ex.id);
+                        return (
+                          <SortableComplementRow
+                            key={ex.id}
+                            item={ex}
+                            active={active}
+                            onToggle={() => setSelectedExtraIds(active ? selectedExtraIds.filter(id => id !== ex.id) : [...selectedExtraIds, ex.id])}
+                            onEdit={() => setEditingComplement({ id: ex.id, type: 'extra', name: ex.name, price: ex.price?.toString() || '', imageFile: null })}
+                            onDelete={() => deleteComplementFromModal('extra', ex.id)}
+                          />
+                        );
+                      })}
+                    </SortableContext>
+                  </DndContext>
                   {prodNewExtras.map((ext, i) => (
                     <div key={`new-${i}`} style={{ display: 'flex', gap: '6px', marginTop: '6px', alignItems: 'center', padding: '6px', background: '#fffbe6', borderRadius: '8px', border: '1px dashed #e6c200' }}>
                       <label style={{ width: '32px', height: '32px', borderRadius: '6px', background: ext.imageFile ? 'transparent' : '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '1px solid #ddd' }}>
