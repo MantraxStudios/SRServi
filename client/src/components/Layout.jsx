@@ -169,7 +169,7 @@ function Layout() {
   }
 
   return (
-    <StoreContext.Provider value={{ selectedStore, stores, selectStore, fetchStores, colors }}>
+    <StoreContext.Provider value={{ selectedStore, stores, selectStore, fetchStores, colors, menuOpen, setMenuOpen }}>
       <div className="layout-wrapper" style={{
         '--store-primary': colors.primary,
         '--store-secondary': colors.secondary,

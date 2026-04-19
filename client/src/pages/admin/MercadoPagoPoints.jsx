@@ -1194,7 +1194,7 @@ function MercadoPagoPoints() {
               <div ref={qrRef} style={{ padding: '20px', background: '#fff', borderRadius: '16px', border: '2px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
                 <QRCodeCanvas
                   key={selectedStore.id}
-                  value={`${API}/store/${selectedStore.code}`}
+                  value={`${API}/store/${selectedStore.code}?delivery=true`}
                   size={200}
                   bgColor="#ffffff"
                   fgColor="#000000"
@@ -1207,7 +1207,7 @@ function MercadoPagoPoints() {
                   Tienda: <span style={{ color: '#111' }}>{selectedStore.name}</span>
                 </p>
                 <p style={{ margin: 0, fontSize: '12px', fontFamily: 'monospace', color: '#444', wordBreak: 'break-all', padding: '8px 12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                  {API}/store/{selectedStore.code}
+                  {API}/store/{selectedStore.code}?delivery=true
                 </p>
               </div>
               <button

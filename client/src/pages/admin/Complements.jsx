@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faInfinity, faCubes, faFlask } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faInfinity, faCubes, faFlask, faGripVertical } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
+import {
+  DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 function Complements() {
   const { selectedStore } = useStore();
@@ -164,14 +171,75 @@ function Complements() {
     setShowModal(true);
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
   const filteredItems = items.filter(i => i._type === activeTab);
 
-  const groupedItems = filteredItems.reduce((acc, item) => {
-    const key = item.category_id ? (item.category_name || `Categoría ${item.category_id}`) : 'Sin categoría';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {});
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = filteredItems.findIndex(i => i.id === active.id);
+    const newIndex = filteredItems.findIndex(i => i.id === over.id);
+    const reordered = arrayMove(filteredItems, oldIndex, newIndex);
+
+    const otherItems = items.filter(i => i._type !== activeTab);
+    setItems([...otherItems, ...reordered]);
+
+    try {
+      const token = localStorage.getItem('token');
+      const apiPath = activeTab === 'extra' ? '/api/extras/reorder' : '/api/ingredients/reorder';
+      await fetch(apiPath, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          store_id: selectedStore.id,
+          items: reordered.map((item, idx) => ({ id: item.id, sort_order: idx })),
+        }),
+      });
+    } catch (err) {
+      console.error('Error guardando orden:', err);
+    }
+  };
+
+  function SortableRow({ item }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+    const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+    return (
+      <tr ref={setNodeRef} style={style}>
+        <td>
+          <div className="drag-handle" style={{ cursor: 'grab', display: 'flex', alignItems: 'center', padding: '0 4px' }} {...attributes} {...listeners}>
+            <FontAwesomeIcon icon={faGripVertical} style={{ color: '#aaa', fontSize: 14 }} />
+          </div>
+        </td>
+        <td className="font-semibold">{item.name}</td>
+        <td>{item.category_name || 'Sin categoría'}</td>
+        <td>{Number(item.price) > 0 ? `$${Number(item.price).toFixed(2)}` : '-'}</td>
+        <td>
+          {item.unlimited_stock ? (
+            <span className="stock-unlimited"><FontAwesomeIcon icon={faInfinity} /></span>
+          ) : (
+            <span className={`stock-value ${item.stock === 0 ? 'stock-danger' : item.stock < 10 ? 'stock-warning' : 'stock-ok'}`}>
+              {item.stock}
+            </span>
+          )}
+        </td>
+        <td>
+          <div className="action-buttons">
+            <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(item)}>
+              <FontAwesomeIcon icon={faEdit} />
+            </button>
+            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(item)}>
+              <FontAwesomeIcon icon={faTrash} />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
 
   if (loading) {
     return <div className="loading">Cargando...</div>;
@@ -217,58 +285,33 @@ function Complements() {
             </div>
           ) : (
             <div className="admin-table-wrapper">
-              {Object.entries(groupedItems).map(([categoryName, categoryItems]) => (
-                <div key={categoryName} className="category-group">
-                  <h3 className="category-group-title">
-                    {categoryName}
-                  </h3>
+              <div className="drag-hint-bar" style={{ padding: '8px 0 4px' }}>
+                <div className="drag-hint">
+                  <FontAwesomeIcon icon={faGripVertical} className="drag-handle-icon" />
+                  <span className="drag-hint-text">Arrastra para cambiar el orden</span>
+                </div>
+              </div>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={filteredItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
                   <table className="table">
                     <thead>
                       <tr>
+                        <th style={{ width: 32 }}></th>
                         <th>Nombre</th>
+                        <th>Categoría</th>
                         <th>{activeTab === 'extra' ? 'Precio' : 'Precio Adicional'}</th>
                         <th>Stock</th>
                         <th>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {categoryItems.map(item => (
-                        <tr key={`${item._type}-${item.id}`}>
-                          <td className="font-semibold">{item.name}</td>
-                          <td>
-                            {Number(item.price) > 0 ? `$${Number(item.price).toFixed(2)}` : '-'}
-                          </td>
-                          <td>
-                            {item.unlimited_stock ? (
-                              <span className="stock-unlimited"><FontAwesomeIcon icon={faInfinity} /></span>
-                            ) : (
-                              <span className={`stock-value ${item.stock === 0 ? 'stock-danger' : item.stock < 10 ? 'stock-warning' : 'stock-ok'}`}>
-                                {item.stock}
-                              </span>
-                            )}
-                          </td>
-                          <td>
-                            <div className="action-buttons">
-                              <button
-                                className="btn btn-sm btn-secondary"
-                                onClick={() => handleEdit(item)}
-                              >
-                                <FontAwesomeIcon icon={faEdit} />
-                              </button>
-                              <button
-                                className="btn btn-sm btn-danger"
-                                onClick={() => handleDelete(item)}
-                              >
-                                <FontAwesomeIcon icon={faTrash} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                      {filteredItems.map(item => (
+                        <SortableRow key={item.id} item={item} />
                       ))}
                     </tbody>
                   </table>
-                </div>
-              ))}
+                </SortableContext>
+              </DndContext>
             </div>
           )}
         </div>

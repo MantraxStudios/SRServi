@@ -4,7 +4,7 @@ import { useStore } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPaperPlane, faRobot, faUser, faTrash,
-  faChartLine, faBox, faClock, faLightbulb, faTags
+  faChartLine, faBox, faClock, faLightbulb, faTags, faBars
 } from '@fortawesome/free-solid-svg-icons';
 
 const SUGGESTIONS = [
@@ -161,7 +161,7 @@ function TypingIndicator() {
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function LeonIA() {
   const { token } = useAuth();
-  const { selectedStore } = useStore();
+  const { selectedStore, setMenuOpen } = useStore();
   const [messages, setMessages] = useState([{
     role: 'leon',
     text: '¡Hola! Soy **León IA** 🦁, tu asistente de negocios inteligente.\n\nPuedo analizar tus ventas, identificar productos con bajo rendimiento, darte recomendaciones estratégicas y mucho más.\n\n¿En qué puedo ayudarte hoy?',
@@ -238,6 +238,9 @@ export default function LeonIA() {
   return (
     <div className="leon-page">
       <div className="leon-header">
+        <button className="leon-menu-btn" onClick={() => setMenuOpen(true)} title="Abrir menú">
+          <FontAwesomeIcon icon={faBars} />
+        </button>
         <div className="leon-header-brand">
           <div className="leon-avatar-lg"><FontAwesomeIcon icon={faRobot} /></div>
           <div className="leon-header-info">

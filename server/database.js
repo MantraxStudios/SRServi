@@ -639,6 +639,26 @@ async function migrateTables() {
     }
 
     try {
+      const [ingCols2] = await pool.execute('SHOW COLUMNS FROM ingredients');
+      if (!ingCols2.map(c => c.Field).includes('sort_order')) {
+        await pool.execute('ALTER TABLE ingredients ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
+        console.log('✅ Columna sort_order agregada a ingredients');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando sort_order en ingredients:', err.message);
+    }
+
+    try {
+      const [extCols2] = await pool.execute('SHOW COLUMNS FROM extras');
+      if (!extCols2.map(c => c.Field).includes('sort_order')) {
+        await pool.execute('ALTER TABLE extras ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
+        console.log('✅ Columna sort_order agregada a extras');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando sort_order en extras:', err.message);
+    }
+
+    try {
       const [configCols] = await pool.execute('SHOW COLUMNS FROM store_configurations');
       const configColNames = configCols.map(c => c.Field);
       if (!configColNames.includes('accept_cash')) {
@@ -1271,11 +1291,23 @@ export async function deleteCategory(categoryId, storeId) {
   return true;
 }
 
+export async function updateIngredientsOrder(storeId, items) {
+  for (const item of items) {
+    await pool.execute('UPDATE ingredients SET sort_order = ? WHERE id = ? AND store_id = ?', [item.sort_order, item.id, storeId]);
+  }
+}
+
+export async function updateExtrasOrder(storeId, items) {
+  for (const item of items) {
+    await pool.execute('UPDATE extras SET sort_order = ? WHERE id = ? AND store_id = ?', [item.sort_order, item.id, storeId]);
+  }
+}
+
 export async function getIngredients(storeId) {
   const [rows] = await pool.execute(
     `SELECT i.*, c.name AS category_name FROM ingredients i
      LEFT JOIN categories c ON i.category_id = c.id
-     WHERE i.store_id = ? ORDER BY i.category_id, i.name`,
+     WHERE i.store_id = ? ORDER BY i.sort_order, i.name`,
     [storeId]
   );
   return rows.map(ing => ({
@@ -1317,7 +1349,7 @@ export async function getExtras(storeId) {
   const [rows] = await pool.execute(
     `SELECT e.*, c.name AS category_name FROM extras e
      LEFT JOIN categories c ON e.category_id = c.id
-     WHERE e.store_id = ? ORDER BY e.category_id, e.name`,
+     WHERE e.store_id = ? ORDER BY e.sort_order, e.name`,
     [storeId]
   );
   return rows.map(ext => ({

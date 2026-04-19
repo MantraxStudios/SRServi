@@ -64,6 +64,8 @@ import {
   setInventoryStock,
   updateProductsOrder,
   updateCategoriesOrder,
+  updateIngredientsOrder,
+  updateExtrasOrder,
   createOrder,
   getOrders,
   updateUserSettings,
@@ -3104,6 +3106,19 @@ app.post('/api/ingredients', authenticateToken, upload.single('image'), async (r
   }
 });
 
+app.put('/api/ingredients/reorder', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, items } = req.body;
+    if (!store_id || !items) return res.status(400).json({ error: 'store_id e items son requeridos' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    await updateIngredientsOrder(parseInt(store_id), items);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.put('/api/ingredients/:id', authenticateToken, upload.single('image'), async (req, res) => {
   try {
     const { store_id, name, price, category_id, stock, unlimited_stock } = req.body;
@@ -3193,6 +3208,19 @@ app.post('/api/extras', authenticateToken, upload.single('image'), async (req, r
     const extra = await createExtra(parseInt(store_id), { name, price, category_id, image: imageUrl });
     emitProductUpdate(parseInt(store_id), 'extra_created', extra);
     res.json(extra);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/extras/reorder', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, items } = req.body;
+    if (!store_id || !items) return res.status(400).json({ error: 'store_id e items son requeridos' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    await updateExtrasOrder(parseInt(store_id), items);
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
