@@ -4666,13 +4666,7 @@ function Store() {
             <p style={{ margin: '0 0 20px', fontSize: '14px', color: '#666' }}>
               ¿Deseas reiniciar todos los totems para que apliquen los cambios?
             </p>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => { setShowRestartConfirm(false); setEditMode(false); if (adminToken) navigate('/admin/dashboard'); }}
-                style={{ flex: 1, padding: '12px', border: '2px solid #e0e0e0', borderRadius: '8px', background: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
-              >
-                No, solo salir
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button
                 onClick={async () => {
                   setRestartingSending(true);
@@ -4685,13 +4679,17 @@ function Store() {
                   } catch {}
                   setRestartingSending(false);
                   setShowRestartConfirm(false);
-                  setEditMode(false);
-                  if (adminToken) navigate('/admin/dashboard');
                 }}
                 disabled={restartingSending}
                 style={{ flex: 1, padding: '12px', border: 'none', borderRadius: '8px', background: 'var(--store-accent)', color: 'var(--store-primary)', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}
               >
-                {restartingSending ? 'Enviando...' : 'Reiniciar totems'}
+                {restartingSending ? 'Enviando...' : 'Reiniciar totems y regresar al editor'}
+              </button>
+              <button
+                onClick={() => { setShowRestartConfirm(false); setEditMode(false); if (adminToken) navigate('/admin/dashboard'); }}
+                style={{ flex: 1, padding: '12px', border: '2px solid #e0e0e0', borderRadius: '8px', background: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
+              >
+                Reiniciar totems y salir
               </button>
             </div>
           </div>
