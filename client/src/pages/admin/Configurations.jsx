@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle, faDesktop, faHashtag, faPercent } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle, faDesktop, faHashtag, faPercent, faTruck } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 function Configurations() {
@@ -23,7 +23,9 @@ function Configurations() {
     allow_takeout: true,
     hide_decimals: false,
     allow_table_service: false,
-    tip_percentage: 0
+    tip_percentage: 0,
+    delivery_enabled: false,
+    delivery_payment_methods: 'tuu,mercadopago'
   });
   const [error, setError] = useState('');
 
@@ -110,7 +112,9 @@ function Configurations() {
         allow_serve: true,
         allow_takeout: true,
         hide_decimals: false,
-        allow_table_service: false
+        allow_table_service: false,
+        delivery_enabled: false,
+        delivery_payment_methods: 'tuu,mercadopago'
       });
       fetchConfigurations();
     } catch (err) {
@@ -134,7 +138,9 @@ function Configurations() {
       allow_takeout: Boolean(config.allow_takeout),
       hide_decimals: Boolean(config.hide_decimals),
       allow_table_service: Boolean(config.allow_table_service),
-      tip_percentage: parseFloat(config.tip_percentage) || 0
+      tip_percentage: parseFloat(config.tip_percentage) || 0,
+      delivery_enabled: Boolean(config.delivery_enabled),
+      delivery_payment_methods: config.delivery_payment_methods || 'tuu,mercadopago'
     });
     setShowModal(true);
   };
@@ -174,7 +180,9 @@ function Configurations() {
       allow_serve: true,
       allow_takeout: true,
       hide_decimals: false,
-      allow_table_service: false
+      allow_table_service: false,
+      delivery_enabled: false,
+      delivery_payment_methods: 'tuu,mercadopago'
     });
     setShowModal(true);
   };
@@ -528,6 +536,66 @@ function Configurations() {
                     <span style={{ fontWeight: '700', fontSize: '14px', color: '#666' }}>%</span>
                   </div>
                 </div>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontWeight: '700', fontSize: '13px', color: '#555', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FontAwesomeIcon icon={faTruck} style={{ color: '#D4AF37' }} /> Delivery
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormData(p => ({ ...p, delivery_enabled: !p.delivery_enabled }))}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', width: '100%',
+                    borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '10px',
+                    border: `2px solid ${formData.delivery_enabled ? '#D4AF37' : '#e0e0e0'}`,
+                    background: formData.delivery_enabled ? '#fffdf0' : '#fafafa',
+                    color: formData.delivery_enabled ? '#92400e' : '#888'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faTruck} style={{ fontSize: '16px', color: formData.delivery_enabled ? '#D4AF37' : '#ccc' }} />
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: '700', fontSize: '13px' }}>Habilitar delivery</div>
+                    <div style={{ fontSize: '11px', opacity: 0.65 }}>Permite pedidos con entrega a domicilio</div>
+                  </div>
+                  {formData.delivery_enabled && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#D4AF37' }} />}
+                </button>
+                {formData.delivery_enabled && (
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>Métodos de pago para delivery:</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      {[
+                        { key: 'tuu', label: 'TUU', icon: faCreditCard, color: '#2563eb' },
+                        { key: 'mercadopago', label: 'MercadoPago', icon: faMoneyBillWave, color: '#009ee3' }
+                      ].map(({ key, label, icon, color }) => {
+                        const methods = formData.delivery_payment_methods.split(',').map(m => m.trim());
+                        const active = methods.includes(key);
+                        const toggle = () => {
+                          const next = active ? methods.filter(m => m !== key) : [...methods, key];
+                          setFormData(p => ({ ...p, delivery_payment_methods: next.join(',') }));
+                        };
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={toggle}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px',
+                              borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
+                              border: `2px solid ${active ? color : '#e0e0e0'}`,
+                              background: active ? '#f0f7ff' : '#fafafa',
+                              color: active ? color : '#888'
+                            }}
+                          >
+                            <FontAwesomeIcon icon={icon} style={{ fontSize: '16px', color: active ? color : '#ccc' }} />
+                            <span style={{ fontWeight: '700', fontSize: '13px' }}>{label}</span>
+                            {active && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="form-actions">

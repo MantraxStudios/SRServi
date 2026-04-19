@@ -1245,13 +1245,10 @@ function Store() {
     if (cart.length === 0) return;
     setCartOpen(false);
     if (deliveryMode) {
-      if (haulmerNative) {
-        processPayment('haulmer_native');
-      } else if (qrProvider) {
-        processPayment('qr');
-      } else {
-        alert(t('noQRConfigured', lang));
-      }
+      const configTip = parseFloat(selectedConfiguration?.tip_percentage) || 0;
+      setTipPercent(configTip);
+      setTipEnabled(configTip > 0);
+      setPaymentModalOpen(true);
     } else {
       const configTip = parseFloat(selectedConfiguration?.tip_percentage) || 0;
       setTipPercent(configTip);
@@ -1306,7 +1303,7 @@ function Store() {
     if (cart.length === 0) return;
     const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
     const isTuu = selectedMethod === 'card' && (tuuProvider || lastTerminalProvider === 'tuu');
-    if (selectedMethod === 'card' && !isTuu && !selectedTerminalId) {
+    if ((selectedMethod === 'card' && !isTuu && !selectedTerminalId) || (selectedMethod === 'mercadopago_card' && !selectedTerminalId)) {
       alert(t('noTerminalAssigned', lang));
       return;
     }
@@ -1370,6 +1367,24 @@ function Store() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: selectedMethod,
+            items: cartItems, selected_terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
+            coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            table_number: tableNum ? parseInt(tableNum) : null
+          })
+        });
+        if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
+        const result = await response.json();
+        setPendingOrderData({ order: result.order || result, storeId });
+        setPaymentWaiting(true);
+        setPaymentTimeLeft(60);
+
+      // --- MercadoPago card terminal (delivery, explicit MP) ---
+      } else if (selectedMethod === 'mercadopago_card') {
+        const response = await fetch(API + '/api/orders/process-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, selected_terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
             coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null
@@ -1849,14 +1864,21 @@ function Store() {
 
     const grouped = {};
     store.products.forEach(product => {
-      if (!product.category_name) return; // sin categoría solo aparece en "Todo"
+      if (!product.category_name) return;
       if (!grouped[product.category_name]) {
         grouped[product.category_name] = [];
       }
       grouped[product.category_name].push(product);
     });
 
-    return grouped;
+    const categoryOrder = (store?.categories || []).map(c => c.name);
+    const sortedEntries = Object.entries(grouped).sort(([a], [b]) => {
+      const ia = categoryOrder.indexOf(a);
+      const ib = categoryOrder.indexOf(b);
+      return (ia === -1 ? 9999 : ia) - (ib === -1 ? 9999 : ib);
+    });
+
+    return Object.fromEntries(sortedEntries);
   };
 
   // Long-press en cualquier parte: mousedown/touchstart en document → 2s → abre PIN
@@ -2211,6 +2233,20 @@ function Store() {
     );
   }
 
+  if (deliveryMode && !selectedConfiguration?.delivery_enabled) {
+    return (
+      <div className="index-container">
+        <div className="index-card" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '64px', marginBottom: '16px' }}>🚫</div>
+          <h1 className="index-title" style={{ color: 'var(--store-primary, #111)' }}>Delivery no disponible</h1>
+          <p className="index-subtitle" style={{ color: '#666', marginTop: '8px' }}>
+            Esta tienda no tiene servicio de delivery habilitado en este momento.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const groupedProducts = groupProductsByCategory();
   const hasProducts = (store?.products || []).length > 0;
 
@@ -2317,9 +2353,6 @@ function Store() {
               {store?.store?.name}
             </h1>
           </div>
-          <p className="store-header-powered">
-            {t('poweredBy', lang)}
-          </p>
           <div className="store-header-spacer" />
         </div>
       </header>
@@ -3452,74 +3485,89 @@ function Store() {
                   </div>
                 )}
                 <div className="flex flex-col" style={{ gap: '15px' }}>
-                  {selectedConfiguration?.accept_card && (
-                    <button
-                      onClick={() => handlePaymentMethodSelect('card')}
-                      className="btn btn-lg btn-full store-glow-pulse"
-                      style={{
-                        backgroundColor: 'var(--store-secondary)',
-                        color: 'var(--store-primary)',
-                        border: '3px solid #ddd',
-                        borderRadius: '15px'
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '28px' }} />
-                      <span className="font-bold" style={{ fontSize: '18px' }}>{t('card', lang)}</span>
-                    </button>
-                  )}
+                  {(() => {
+                    const delivMethods = (selectedConfiguration?.delivery_payment_methods || 'tuu,mercadopago').split(',').map(m => m.trim());
+                    const delivAllowsTuu = delivMethods.includes('tuu');
+                    const delivAllowsMP = delivMethods.includes('mercadopago');
 
+                    if (deliveryMode) {
+                      return (
+                        <>
+                          {delivAllowsTuu && tuuProvider && (
+                            <button
+                              onClick={() => processPayment('card')}
+                              className="btn btn-lg btn-full store-glow-pulse"
+                              style={{ backgroundColor: 'var(--store-secondary)', color: 'var(--store-primary)', border: '3px solid #2563eb', borderRadius: '15px' }}
+                            >
+                              <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '28px' }} />
+                              <span className="font-bold" style={{ fontSize: '18px' }}>Pagar con TUU</span>
+                            </button>
+                          )}
+                          {delivAllowsMP && haulmerNative && (
+                            <button
+                              onClick={() => processPayment('haulmer_native')}
+                              className="btn btn-lg btn-full store-glow-pulse"
+                              style={{ backgroundColor: 'var(--store-primary)', color: 'var(--store-secondary)', border: '3px solid #009ee3', borderRadius: '15px' }}
+                            >
+                              <FontAwesomeIcon icon={faQrcode} style={{ fontSize: '28px' }} />
+                              <span className="font-bold" style={{ fontSize: '18px' }}>Pagar con MercadoPago</span>
+                            </button>
+                          )}
+                          {delivAllowsMP && !haulmerNative && qrProvider && (
+                            <button
+                              onClick={() => processPayment('qr')}
+                              className="btn btn-lg btn-full store-glow-pulse"
+                              style={{ backgroundColor: 'var(--store-primary)', color: 'var(--store-secondary)', border: '3px solid #009ee3', borderRadius: '15px' }}
+                            >
+                              <FontAwesomeIcon icon={faQrcode} style={{ fontSize: '28px' }} />
+                              <span className="font-bold" style={{ fontSize: '18px' }}>Pagar con MercadoPago</span>
+                            </button>
+                          )}
+                          {delivAllowsMP && !haulmerNative && !qrProvider && selectedTerminalId && (
+                            <button
+                              onClick={() => processPayment('mercadopago_card')}
+                              className="btn btn-lg btn-full store-glow-pulse"
+                              style={{ backgroundColor: 'var(--store-primary)', color: 'var(--store-secondary)', border: '3px solid #009ee3', borderRadius: '15px' }}
+                            >
+                              <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '28px' }} />
+                              <span className="font-bold" style={{ fontSize: '18px' }}>Pagar con MercadoPago</span>
+                            </button>
+                          )}
+                          {!delivAllowsTuu && !delivAllowsMP && (
+                            <p className="text-muted">{t('noPaymentMethods', lang)}</p>
+                          )}
+                        </>
+                      );
+                    }
 
-                  {selectedConfiguration?.accept_cash && (
-                    <button
-                      onClick={() => handlePaymentMethodSelect('cash')}
-                      className="btn btn-lg btn-full store-glow-pulse"
-                      style={{
-                        backgroundColor: 'var(--store-secondary)',
-                        color: 'var(--store-primary)',
-                        border: '3px solid #ddd',
-                        borderRadius: '15px'
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '28px' }} />
-                      <span className="font-bold" style={{ fontSize: '18px' }}>{t('cash', lang)}</span>
-                    </button>
-                  )}
-
-                  {haulmerNative && deliveryMode && (
-                    <button
-                      onClick={() => processPayment('haulmer_native')}
-                      className="btn btn-lg btn-full store-glow-pulse"
-                      style={{
-                        backgroundColor: 'var(--store-primary)',
-                        color: 'var(--store-secondary)',
-                        border: '3px solid #D4AF37',
-                        borderRadius: '15px'
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faQrcode} style={{ fontSize: '28px' }} />
-                      <span className="font-bold" style={{ fontSize: '18px' }}>{t('payWithQR', lang)}</span>
-                    </button>
-                  )}
-
-                  {!haulmerNative && qrProvider && deliveryMode && (
-                    <button
-                      onClick={() => processPayment('qr')}
-                      className="btn btn-lg btn-full store-glow-pulse"
-                      style={{
-                        backgroundColor: 'var(--store-secondary)',
-                        color: 'var(--store-primary)',
-                        border: '3px solid #D4AF37',
-                        borderRadius: '15px'
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faQrcode} style={{ fontSize: '28px' }} />
-                      <span className="font-bold" style={{ fontSize: '18px' }}>{t('payWithQR', lang)}</span>
-                    </button>
-                  )}
-
-                  {!selectedConfiguration?.accept_cash && !selectedConfiguration?.accept_card && !qrProvider && !haulmerNative && (
-                    <p className="text-muted">{t('noPaymentMethods', lang)}</p>
-                  )}
+                    return (
+                      <>
+                        {selectedConfiguration?.accept_card && (
+                          <button
+                            onClick={() => handlePaymentMethodSelect('card')}
+                            className="btn btn-lg btn-full store-glow-pulse"
+                            style={{ backgroundColor: 'var(--store-secondary)', color: 'var(--store-primary)', border: '3px solid #ddd', borderRadius: '15px' }}
+                          >
+                            <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '28px' }} />
+                            <span className="font-bold" style={{ fontSize: '18px' }}>{t('card', lang)}</span>
+                          </button>
+                        )}
+                        {selectedConfiguration?.accept_cash && (
+                          <button
+                            onClick={() => handlePaymentMethodSelect('cash')}
+                            className="btn btn-lg btn-full store-glow-pulse"
+                            style={{ backgroundColor: 'var(--store-secondary)', color: 'var(--store-primary)', border: '3px solid #ddd', borderRadius: '15px' }}
+                          >
+                            <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '28px' }} />
+                            <span className="font-bold" style={{ fontSize: '18px' }}>{t('cash', lang)}</span>
+                          </button>
+                        )}
+                        {!selectedConfiguration?.accept_cash && !selectedConfiguration?.accept_card && !qrProvider && !haulmerNative && (
+                          <p className="text-muted">{t('noPaymentMethods', lang)}</p>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <button

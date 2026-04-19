@@ -2627,7 +2627,7 @@ app.get('/api/store-configurations', authenticateToken, async (req, res) => {
 
 app.post('/api/store-configurations', authenticateToken, async (req, res) => {
   try {
-    const { store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage } = req.body;
+    const { store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
@@ -2638,7 +2638,7 @@ app.post('/api/store-configurations', authenticateToken, async (req, res) => {
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const configuration = await createStoreConfiguration(parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage });
+    const configuration = await createStoreConfiguration(parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods });
     res.json(configuration);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -2647,7 +2647,7 @@ app.post('/api/store-configurations', authenticateToken, async (req, res) => {
 
 app.put('/api/store-configurations/:id', authenticateToken, async (req, res) => {
   try {
-    const { store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage } = req.body;
+    const { store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
@@ -2658,7 +2658,7 @@ app.put('/api/store-configurations/:id', authenticateToken, async (req, res) => 
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
-    const configuration = await updateStoreConfiguration(parseInt(req.params.id), parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage });
+    const configuration = await updateStoreConfiguration(parseInt(req.params.id), parseInt(store_id), { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods });
     res.json(configuration);
   } catch (error) {
     res.status(500).json({ error: error.message });

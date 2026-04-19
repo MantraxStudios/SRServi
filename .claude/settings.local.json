@@ -41,7 +41,9 @@
       "Bash(node_modules/.bin/vite build *)",
       "Bash(cmd /c \"findstr /i faHashtag C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\client\\\\node_modules\\\\@fortawesome\\\\free-solid-svg-icons\\\\index.js 2>&1 | head\")",
       "Bash(cmd /c \"find /c /v \\\\\"\\\\\" \\\\\"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\client\\\\src\\\\pages\\\\admin\\\\Settings.jsx\\\\\"\")",
-      "Bash(node --check index.js)"
+      "Bash(node --check index.js)",
+      "Bash(npx tsc *)",
+      "Bash(node -e ' *)"
     ]
   }
 }

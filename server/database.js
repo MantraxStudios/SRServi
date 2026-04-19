@@ -141,6 +141,8 @@ async function createTables() {
       allow_takeout BOOLEAN NOT NULL DEFAULT TRUE,
       allow_table_service BOOLEAN NOT NULL DEFAULT FALSE,
       tip_percentage DECIMAL(5,2) NOT NULL DEFAULT 0,
+      delivery_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      delivery_payment_methods VARCHAR(255) NOT NULL DEFAULT 'tuu,mercadopago',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )`;
@@ -695,6 +697,12 @@ async function migrateTables() {
         console.log('⚠️ Agregando columna tip_percentage a tabla store_configurations...');
         await pool.execute('ALTER TABLE store_configurations ADD COLUMN tip_percentage DECIMAL(5,2) NOT NULL DEFAULT 0');
         console.log('✅ Columna tip_percentage agregada a store_configurations');
+      }
+      if (!configColNames.includes('delivery_enabled')) {
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN delivery_enabled BOOLEAN NOT NULL DEFAULT FALSE');
+      }
+      if (!configColNames.includes('delivery_payment_methods')) {
+        await pool.execute("ALTER TABLE store_configurations ADD COLUMN delivery_payment_methods VARCHAR(255) NOT NULL DEFAULT 'tuu,mercadopago'");
       }
     } catch (migErr) {
       if (migErr.message.includes('Duplicate column')) {
@@ -1371,8 +1379,9 @@ export async function getStoreConfigurationById(configId, storeId) {
 }
 
 export async function createStoreConfiguration(storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage } = data;
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods } = data;
   const tipPct = parseFloat(tip_percentage) || 0;
+  const delivMethods = Array.isArray(delivery_payment_methods) ? delivery_payment_methods.join(',') : (delivery_payment_methods || 'tuu,mercadopago');
 
   if (is_default) {
     await pool.execute(
@@ -1382,8 +1391,8 @@ export async function createStoreConfiguration(storeId, data) {
   }
 
   const [result] = await pool.execute(
-    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, hide_decimals === true, allow_table_service === true, tipPct]
+    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, hide_decimals === true, allow_table_service === true, tipPct, delivery_enabled === true, delivMethods]
   );
   return {
     id: result.insertId,
@@ -1400,13 +1409,16 @@ export async function createStoreConfiguration(storeId, data) {
     allow_takeout: allow_takeout !== false,
     hide_decimals: hide_decimals === true,
     allow_table_service: allow_table_service === true,
-    tip_percentage: tipPct
+    tip_percentage: tipPct,
+    delivery_enabled: delivery_enabled === true,
+    delivery_payment_methods: delivMethods
   };
 }
 
 export async function updateStoreConfiguration(configId, storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage } = data;
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods } = data;
   const tipPct = parseFloat(tip_percentage) || 0;
+  const delivMethods = Array.isArray(delivery_payment_methods) ? delivery_payment_methods.join(',') : (delivery_payment_methods || 'tuu,mercadopago');
 
   if (is_default) {
     await pool.execute(
@@ -1416,8 +1428,8 @@ export async function updateStoreConfiguration(configId, storeId, data) {
   }
 
   await pool.execute(
-    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ?, allow_serve = ?, allow_takeout = ?, hide_decimals = ?, allow_table_service = ?, tip_percentage = ? WHERE id = ? AND store_id = ?',
-    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, hide_decimals === true, allow_table_service === true, tipPct, configId, storeId]
+    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ?, allow_serve = ?, allow_takeout = ?, hide_decimals = ?, allow_table_service = ?, tip_percentage = ?, delivery_enabled = ?, delivery_payment_methods = ? WHERE id = ? AND store_id = ?',
+    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, hide_decimals === true, allow_table_service === true, tipPct, delivery_enabled === true, delivMethods, configId, storeId]
   );
   return {
     id: configId,
@@ -1434,7 +1446,9 @@ export async function updateStoreConfiguration(configId, storeId, data) {
     allow_takeout: allow_takeout !== false,
     hide_decimals: hide_decimals === true,
     allow_table_service: allow_table_service === true,
-    tip_percentage: tipPct
+    tip_percentage: tipPct,
+    delivery_enabled: delivery_enabled === true,
+    delivery_payment_methods: delivMethods
   };
 }
 
