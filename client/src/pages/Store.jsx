@@ -1303,7 +1303,7 @@ function Store() {
     if (cart.length === 0) return;
     const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
     const isTuu = selectedMethod === 'card' && (tuuProvider || lastTerminalProvider === 'tuu');
-    if ((selectedMethod === 'card' && !isTuu && !selectedTerminalId) || (selectedMethod === 'mercadopago_card' && !selectedTerminalId)) {
+    if (selectedMethod === 'card' && !isTuu && !selectedTerminalId) {
       alert(t('noTerminalAssigned', lang));
       return;
     }
@@ -1379,22 +1379,37 @@ function Store() {
         setPaymentTimeLeft(60);
 
       // --- MercadoPago card terminal (delivery, explicit MP) ---
-      } else if (selectedMethod === 'mercadopago_card') {
-        const response = await fetch(API + '/api/orders/process-payment', {
+      } else if (selectedMethod === 'mp_checkout') {
+        const orderRes = await fetch(API + '/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             store_id: storeId, order_type: orderType, payment_method: 'card',
-            items: cartItems, selected_terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
-            coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
+            total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null
           })
         });
-        if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
-        const result = await response.json();
-        setPendingOrderData({ order: result.order || result, storeId });
+        if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
+        const order = await orderRes.json();
+        setPendingOrderData({ order, storeId });
+
+        const prefRes = await fetch(`/api/store/${code}/qr-payment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_id: order.id,
+            amount: Math.round(Number(finalTotal)),
+            description: `Pedido ${store.store.name || code}`
+          })
+        });
+        const prefData = await prefRes.json();
+        if (!prefRes.ok) throw new Error(prefData.error || 'Error generando link de pago');
+
+        setQrPaymentUrl(prefData.init_point);
         setPaymentWaiting(true);
-        setPaymentTimeLeft(60);
+        setPaymentTimeLeft(600);
+        window.open(prefData.init_point, '_blank', 'noopener,noreferrer');
 
       // --- Haulmer QR Nativo ---
       } else if (selectedMethod === 'haulmer_native') {
@@ -3503,33 +3518,13 @@ function Store() {
                               <span className="font-bold" style={{ fontSize: '18px' }}>Pagar con TUU</span>
                             </button>
                           )}
-                          {delivAllowsMP && haulmerNative && (
+                          {delivAllowsMP && (
                             <button
-                              onClick={() => processPayment('haulmer_native')}
+                              onClick={() => processPayment('mp_checkout')}
                               className="btn btn-lg btn-full store-glow-pulse"
-                              style={{ backgroundColor: 'var(--store-primary)', color: 'var(--store-secondary)', border: '3px solid #009ee3', borderRadius: '15px' }}
+                              style={{ backgroundColor: '#009ee3', color: '#fff', border: '3px solid #009ee3', borderRadius: '15px' }}
                             >
                               <FontAwesomeIcon icon={faQrcode} style={{ fontSize: '28px' }} />
-                              <span className="font-bold" style={{ fontSize: '18px' }}>Pagar con MercadoPago</span>
-                            </button>
-                          )}
-                          {delivAllowsMP && !haulmerNative && qrProvider && (
-                            <button
-                              onClick={() => processPayment('qr')}
-                              className="btn btn-lg btn-full store-glow-pulse"
-                              style={{ backgroundColor: 'var(--store-primary)', color: 'var(--store-secondary)', border: '3px solid #009ee3', borderRadius: '15px' }}
-                            >
-                              <FontAwesomeIcon icon={faQrcode} style={{ fontSize: '28px' }} />
-                              <span className="font-bold" style={{ fontSize: '18px' }}>Pagar con MercadoPago</span>
-                            </button>
-                          )}
-                          {delivAllowsMP && !haulmerNative && !qrProvider && selectedTerminalId && (
-                            <button
-                              onClick={() => processPayment('mercadopago_card')}
-                              className="btn btn-lg btn-full store-glow-pulse"
-                              style={{ backgroundColor: 'var(--store-primary)', color: 'var(--store-secondary)', border: '3px solid #009ee3', borderRadius: '15px' }}
-                            >
-                              <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '28px' }} />
                               <span className="font-bold" style={{ fontSize: '18px' }}>Pagar con MercadoPago</span>
                             </button>
                           )}
