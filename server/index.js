@@ -1255,7 +1255,7 @@ app.get('/api/public/:code/extras', async (req, res) => {
     const store = await getStoreByCode(req.params.code.toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
     const [rows] = await pool.execute(
-      `SELECT e.*, c.name as category_name FROM extras e LEFT JOIN categories c ON e.category_id = c.id WHERE e.store_id = ? ORDER BY e.name`,
+      `SELECT e.*, c.name as category_name FROM extras e LEFT JOIN categories c ON e.category_id = c.id WHERE e.store_id = ? ORDER BY e.sort_order, e.name`,
       [store.id]
     );
     res.json(rows);
@@ -1267,7 +1267,7 @@ app.get('/api/public/:code/ingredients', async (req, res) => {
     const store = await getStoreByCode(req.params.code.toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
     const [rows] = await pool.execute(
-      `SELECT i.*, c.name as category_name FROM ingredients i LEFT JOIN categories c ON i.category_id = c.id WHERE i.store_id = ? ORDER BY i.name`,
+      `SELECT i.*, c.name as category_name FROM ingredients i LEFT JOIN categories c ON i.category_id = c.id WHERE i.store_id = ? ORDER BY i.sort_order, i.name`,
       [store.id]
     );
     res.json(rows);
