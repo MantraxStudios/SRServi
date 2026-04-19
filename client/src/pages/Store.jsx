@@ -177,6 +177,8 @@ function Store() {
   const [addingToCart, setAddingToCart] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('card');
+  const [tipEnabled, setTipEnabled] = useState(false);
+  const [tipPercent, setTipPercent] = useState(0);
   const [tableModalOpen, setTableModalOpen] = useState(false);
   const [tableNumber, setTableNumber] = useState('');
   const [pendingPaymentMethod, setPendingPaymentMethod] = useState(null);
@@ -1217,10 +1219,17 @@ function Store() {
     return cart.reduce((total, item) => total + (item.unit_price * item.quantity), 0);
   };
 
+  const getTipAmount = () => {
+    if (!tipEnabled || !tipPercent) return 0;
+    const subtotal = getCartTotal();
+    const discount = Number(appliedCoupon?.discount_total || 0);
+    return Math.max(subtotal - discount, 0) * (tipPercent / 100);
+  };
+
   const getFinalTotal = () => {
     const subtotal = getCartTotal();
     const discount = Number(appliedCoupon?.discount_total || 0);
-    return Math.max(subtotal - discount, 0);
+    return Math.max(subtotal - discount, 0) + getTipAmount();
   };
 
   const getCartCount = () => {
@@ -1244,6 +1253,9 @@ function Store() {
         alert(t('noQRConfigured', lang));
       }
     } else {
+      const configTip = parseFloat(selectedConfiguration?.tip_percentage) || 0;
+      setTipPercent(configTip);
+      setTipEnabled(configTip > 0);
       setPaymentModalOpen(true);
     }
   };
@@ -3397,6 +3409,48 @@ function Store() {
               </div>
             ) : (
               <>
+                {(parseFloat(selectedConfiguration?.tip_percentage) > 0) && (
+                  <div style={{ marginBottom: '20px', padding: '16px', borderRadius: '14px', background: 'var(--store-secondary)', border: '2px solid var(--store-primary)', textAlign: 'left' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--store-primary)' }}>Propina</span>
+                      <button
+                        onClick={() => setTipEnabled(p => !p)}
+                        style={{ padding: '6px 14px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '13px', background: tipEnabled ? 'var(--store-accent)' : '#e0e0e0', color: tipEnabled ? 'var(--store-primary)' : '#999', transition: 'all 0.2s' }}
+                      >
+                        {tipEnabled ? 'Incluida ✓' : 'No incluir'}
+                      </button>
+                    </div>
+                    {tipEnabled && (
+                      <>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                          {[5, 10, 15, parseFloat(selectedConfiguration.tip_percentage)].filter((v, i, a) => a.indexOf(v) === i).sort((a,b) => a-b).map(pct => (
+                            <button
+                              key={pct}
+                              onClick={() => setTipPercent(pct)}
+                              style={{ flex: 1, minWidth: '52px', padding: '8px 6px', borderRadius: '10px', border: `2px solid ${tipPercent === pct ? 'var(--store-accent)' : '#ddd'}`, background: tipPercent === pct ? 'var(--store-accent)' : '#fff', color: 'var(--store-primary)', fontWeight: '700', fontSize: '14px', cursor: 'pointer' }}
+                            >
+                              {pct}%
+                            </button>
+                          ))}
+                          <button
+                            onClick={() => { const v = prompt('Ingresa el % de propina:'); if (v && !isNaN(parseFloat(v))) setTipPercent(Math.max(0, Math.min(100, parseFloat(v)))); }}
+                            style={{ flex: 1, minWidth: '52px', padding: '8px 6px', borderRadius: '10px', border: '2px solid #ddd', background: '#fff', color: '#666', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}
+                          >
+                            Otro
+                          </button>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#666' }}>
+                          <span>Propina ({tipPercent}%)</span>
+                          <span style={{ fontWeight: '700', color: 'var(--store-primary)' }}>{colors.currency.symbol}{formatPrice(getTipAmount())}</span>
+                        </div>
+                      </>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: '700', color: 'var(--store-primary)', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e0e0e0' }}>
+                      <span>Total</span>
+                      <span>{colors.currency.symbol}{formatPrice(getFinalTotal())}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="flex flex-col" style={{ gap: '15px' }}>
                   {selectedConfiguration?.accept_card && (
                     <button

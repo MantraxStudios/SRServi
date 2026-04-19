@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle, faDesktop, faHashtag } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle, faDesktop, faHashtag, faPercent } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 function Configurations() {
@@ -22,7 +22,8 @@ function Configurations() {
     allow_serve: true,
     allow_takeout: true,
     hide_decimals: false,
-    allow_table_service: false
+    allow_table_service: false,
+    tip_percentage: 0
   });
   const [error, setError] = useState('');
 
@@ -132,7 +133,8 @@ function Configurations() {
       allow_serve: Boolean(config.allow_serve),
       allow_takeout: Boolean(config.allow_takeout),
       hide_decimals: Boolean(config.hide_decimals),
-      allow_table_service: Boolean(config.allow_table_service)
+      allow_table_service: Boolean(config.allow_table_service),
+      tip_percentage: parseFloat(config.tip_percentage) || 0
     });
     setShowModal(true);
   };
@@ -500,6 +502,32 @@ function Configurations() {
                   </div>
                   {formData.allow_table_service && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#D4AF37' }} />}
                 </button>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px',
+                  borderRadius: '10px', border: `2px solid ${formData.tip_percentage > 0 ? '#059669' : '#e0e0e0'}`,
+                  background: formData.tip_percentage > 0 ? '#f0fdf4' : '#fafafa'
+                }}>
+                  <FontAwesomeIcon icon={faPercent} style={{ fontSize: '16px', color: formData.tip_percentage > 0 ? '#059669' : '#ccc', flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '700', fontSize: '13px', color: formData.tip_percentage > 0 ? '#065f46' : '#888' }}>Propina sugerida</div>
+                    <div style={{ fontSize: '11px', color: '#999' }}>0 = sin propina · el cliente puede aceptarla o cambiarla al pagar</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={formData.tip_percentage}
+                      onChange={(e) => setFormData(p => ({ ...p, tip_percentage: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) }))}
+                      style={{ width: '64px', padding: '6px 8px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '14px', fontWeight: '700', textAlign: 'center' }}
+                    />
+                    <span style={{ fontWeight: '700', fontSize: '14px', color: '#666' }}>%</span>
+                  </div>
+                </div>
               </div>
 
               <div className="form-actions">

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { usePlugins } from '../../context/PluginContext';
@@ -14,6 +14,7 @@ import {
 import {
   COUNTRIES, DEFAULT_COUNTRY, getCountry, loadCountry, saveCountry, loadPluginCountries
 } from '../../constants/pos';
+import { QRCodeCanvas } from 'qrcode.react';
 
 // POS nativo integrado: Mercado Pago Point (único built-in).
 const BUILTIN_MP_POINT_COUNTRIES = ['CL', 'AR', 'BR', 'MX', 'PE', 'CO', 'UY'];
@@ -784,6 +785,19 @@ function MercadoPagoPoints() {
     setShowCountryModal(false);
   };
 
+  const qrRef = useRef(null);
+  const downloadQR = () => {
+    const canvas = qrRef.current?.querySelector('canvas');
+    if (!canvas) return;
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `qr-${selectedStore?.code || 'tienda'}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const scrollToMP = () => {
     const el = document.getElementById('mp-point-section');
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -928,164 +942,119 @@ function MercadoPagoPoints() {
       </header>
 
       <div className="admin-main">
-        {/* Selector de país */}
-        <div style={{
-          background: '#fff',
-          border: '1px solid #e5e7eb',
-          borderRadius: '8px',
-          padding: '10px 14px',
-          marginBottom: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          flexWrap: 'wrap',
-          fontSize: '12px'
-        }}>
-          <div style={{
-            width: '32px', height: '32px', borderRadius: '6px',
-            background: GOLD + '22', color: GOLD,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '14px', flexShrink: 0
-          }}>
-            <FontAwesomeIcon icon={faGlobe} />
-          </div>
-          <div style={{ flex: 1, minWidth: '120px' }}>
-            <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              País
-            </div>
-            <div style={{ fontSize: '13px', fontWeight: '700', color: '#111', marginTop: '1px' }}>
-              <span style={{ fontSize: '16px', marginRight: '6px' }}>{activeCountry.flag}</span>
-              {activeCountry.name}
-            </div>
-          </div>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => setShowCountryModal(true)}
-            style={{ whiteSpace: 'nowrap', padding: '6px 12px', fontSize: '11px' }}
-          >
-            Cambiar
-          </button>
-        </div>
-
         {installMessage && (
           <div style={{
-            padding: '8px 12px', marginBottom: '10px', borderRadius: '6px', fontWeight: '600', fontSize: '12px',
-            backgroundColor: installMessage.includes('Error') ? '#f8d7da' : '#d4edda',
-            color: installMessage.includes('Error') ? '#721c24' : '#155724'
+            padding: '10px 14px', marginBottom: '14px', borderRadius: '10px', fontWeight: '600', fontSize: '13px',
+            backgroundColor: installMessage.includes('Error') ? '#fef2f2' : '#f0fdf4',
+            color: installMessage.includes('Error') ? '#dc2626' : '#16a34a',
+            border: `1px solid ${installMessage.includes('Error') ? '#fecaca' : '#bbf7d0'}`
           }}>{installMessage}</div>
         )}
 
-        {/* ==== HEADER UNIFICADO ==== */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', marginTop: '8px' }}>
-          <h2 style={{ fontSize: '16px', color: '#111', margin: 0, fontWeight: '800' }}>Terminales POS</h2>
-          <button onClick={() => { setShowPosModal(true); setPosTab(0); }} className="btn btn-primary btn-sm" style={{ background: '#D4AF37', color: '#000', fontWeight: '800' }}>
+        {/* ==== HEADER TERMINALES ==== */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <div>
+            <h2 style={{ fontSize: '18px', color: '#111', margin: '0 0 4px', fontWeight: '800' }}>Terminales POS</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#888' }}>
+              <span style={{ fontSize: '15px' }}>{activeCountry.flag}</span>
+              <span>{activeCountry.name}</span>
+              <button onClick={() => setShowCountryModal(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GOLD, fontWeight: '700', fontSize: '11px', padding: '0 2px' }}>
+                Cambiar
+              </button>
+            </div>
+          </div>
+          <button onClick={() => { setShowPosModal(true); setPosTab(0); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
             <FontAwesomeIcon icon={faPlus} /> Agregar Terminal
           </button>
         </div>
 
         {/* ==== LISTA UNIFICADA DE POS ==== */}
         {posList.length === 0 ? (
-          <div style={{ padding: '32px', textAlign: 'center', border: '2px dashed #e5e7eb', borderRadius: '12px', background: '#fafafa' }}>
-            <div style={{ fontSize: '32px', marginBottom: '8px' }}>💳</div>
-            <p style={{ color: '#9ca3af', margin: '0 0 8px', fontSize: '14px' }}>Sin terminals POS configurados</p>
+          <div style={{ padding: '48px 24px', textAlign: 'center', border: '2px dashed #e5e7eb', borderRadius: '16px', background: '#fafafa' }}>
+            <div style={{ fontSize: '40px', marginBottom: '12px' }}>💳</div>
+            <p style={{ color: '#6b7280', margin: '0 0 6px', fontSize: '15px', fontWeight: '700' }}>Sin terminales POS configurados</p>
             <p style={{ color: '#bbb', margin: 0, fontSize: '12px' }}>Presiona "Agregar Terminal" para vincular tu primera terminal</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
-            {posList.map(pos => (
-              <div key={pos.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px', position: 'relative' }}>
-                <div style={{ position: 'absolute', top: '10px', right: '10px', display: 'flex', gap: '4px' }}>
-                  <button onClick={() => deletePos(pos)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ccc', fontSize: '14px', padding: '2px 4px' }} title="Eliminar">✕</button>
-                </div>
-                <div style={{ width: '36px', height: '36px', borderRadius: '10px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', background: pos.provider === 'mercadopago' ? '#009EE315' : pos.provider === 'tuu' ? '#9c27b015' : '#3b82f615' }}>
-                  {pos.provider === 'mercadopago' ? '💳' : pos.provider === 'tuu' ? '📱' : '📟'}
-                </div>
-                <div style={{ fontSize: '15px', fontWeight: '800', color: '#111', marginBottom: '2px' }}>{pos.name}</div>
-                <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>
-                  {pos.provider === 'mercadopago' ? 'Mercado Pago Point' : pos.provider === 'tuu' ? 'Tuu POS' : pos.provider === 'square' ? 'Square' : 'Sumup'}
-                </div>
-                {pos.provider === 'tuu' ? (
-                  <div style={{ fontSize: '10px', color: '#999', fontFamily: 'monospace' }}>Serial: {pos.serial || '—'}</div>
-                ) : pos.provider === 'mercadopago' ? (
-                  <div style={{ fontSize: '10px', color: '#999', fontFamily: 'monospace' }}>ID: {pos.terminal_id ? pos.terminal_id.slice(0,12) + '...' : '—'}</div>
-                ) : null}
-                {pos.device_uid && (
-                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: pos.assigned ? '#22c55e' : '#fbbf24' }}></div>
-                    <span style={{ fontSize: '10px', color: '#666' }}>{pos.assigned ? pos.assigned_name : 'Sin asignar'}</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '14px' }}>
+            {posList.map(pos => {
+              const providerColor = pos.provider === 'mercadopago' ? '#009EE3' : pos.provider === 'tuu' ? '#9c27b0' : pos.provider === 'square' ? '#3b82f6' : '#f59e0b';
+              const providerEmoji = pos.provider === 'mercadopago' ? '💳' : pos.provider === 'tuu' ? '📱' : pos.provider === 'square' ? '📟' : '💰';
+              const providerName = pos.provider === 'mercadopago' ? 'Mercado Pago Point' : pos.provider === 'tuu' ? 'Tuu POS' : pos.provider === 'square' ? 'Square Terminal' : 'Sumup';
+              return (
+                <div key={pos.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '18px', position: 'relative', transition: 'box-shadow 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+                  onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.1)'}
+                  onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'}
+                >
+                  <button onClick={() => deletePos(pos)} style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: '16px', padding: '4px', lineHeight: 1 }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                    onMouseLeave={e => e.currentTarget.style.color = '#d1d5db'}
+                    title="Eliminar">✕</button>
+                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', background: providerColor + '15' }}>
+                    {providerEmoji}
                   </div>
-                )}
-              </div>
-            ))}
+                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#111', marginBottom: '3px', paddingRight: '20px' }}>{pos.name}</div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: '700', color: providerColor, background: providerColor + '12', padding: '3px 8px', borderRadius: '20px', marginBottom: '10px' }}>
+                    {providerName}
+                  </div>
+                  {pos.provider === 'tuu' ? (
+                    <div style={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'monospace' }}>Serial: {pos.serial || '—'}</div>
+                  ) : pos.provider === 'mercadopago' ? (
+                    <div style={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'monospace' }}>ID: {pos.terminal_id ? pos.terminal_id.slice(0,14) + '…' : '—'}</div>
+                  ) : null}
+                  {pos.device_uid && (
+                    <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: pos.assigned ? '#22c55e' : '#fbbf24', flexShrink: 0 }}></div>
+                      <span style={{ fontSize: '11px', color: '#6b7280' }}>{pos.assigned ? pos.assigned_name : 'Sin asignar'}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* ==== HAULMER QR NATIVO ==== */}
-        <div style={{ marginTop: '28px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '40px', height: '40px', background: '#000', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
-              🌐
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#111' }}>Haulmer QR</h3>
-                {haulmerLoaded && (
-                  <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', background: '#d1fae5', color: '#065f46' }}>ACTIVO</span>
-                )}
+        {/* ==== QR DE LA TIENDA ==== */}
+        {selectedStore && (
+          <div style={{ marginTop: '28px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '16px', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', background: '#000', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px', fill: '#D4AF37' }}>
+                  <path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zm8-2h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 13h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zm8 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2-2h2v2h-2v-2zm-4 4h2v2h-2v-2zm2 0h2v2h-2v-2zm2-2h2v4h-2v-4zm-4-4h4v2h-4v-2z"/>
+                </svg>
               </div>
-              <p style={{ margin: 0, fontSize: '12px', color: '#888' }}>Pasarela de pago QR para modo delivery</p>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#111' }}>QR de la tienda</h3>
+                <p style={{ margin: 0, fontSize: '12px', color: '#888' }}>Comparte el QR para que tus clientes accedan al menú digital</p>
+              </div>
+            </div>
+            <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+              <div ref={qrRef} style={{ padding: '20px', background: '#fff', borderRadius: '16px', border: '2px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+                <QRCodeCanvas
+                  value={`${API}/store/${selectedStore.code}`}
+                  size={200}
+                  bgColor="#ffffff"
+                  fgColor="#000000"
+                  level="H"
+                  includeMargin={false}
+                />
+              </div>
+              <div style={{ textAlign: 'center', maxWidth: '320px' }}>
+                <p style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '0.5px' }}>URL de la tienda</p>
+                <p style={{ margin: 0, fontSize: '12px', fontFamily: 'monospace', color: '#444', wordBreak: 'break-all', padding: '8px 12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                  {API}/store/{selectedStore.code}
+                </p>
+              </div>
+              <button
+                onClick={downloadQR}
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 28px', background: '#000', color: '#D4AF37', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '14px', cursor: 'pointer', letterSpacing: '0.3px' }}
+              >
+                <FontAwesomeIcon icon={faDownload} />
+                Descargar QR
+              </button>
             </div>
           </div>
-          <div style={{ padding: '20px' }}>
-            <div style={{ display: 'grid', gap: '14px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '5px' }}>Account ID *</label>
-                <input
-                  type="text"
-                  value={haulmerAccountId}
-                  onChange={e => setHaulmerAccountId(e.target.value)}
-                  placeholder="Ej: 12345"
-                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'monospace' }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '5px' }}>
-                  Secret Key * {haulmerLoaded && <span style={{ fontWeight: '400', color: '#aaa' }}>(dejar vacío para mantener el actual)</span>}
-                </label>
-                <input
-                  type="password"
-                  value={haulmerSecretKey}
-                  onChange={e => setHaulmerSecretKey(e.target.value)}
-                  placeholder={haulmerLoaded ? '••••••••••••••••' : 'Tu secret key de Haulmer'}
-                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', fontFamily: 'monospace' }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '5px' }}>Nombre del comercio</label>
-                <input
-                  type="text"
-                  value={haulmerCommerceName}
-                  onChange={e => setHaulmerCommerceName(e.target.value)}
-                  placeholder="Mi Tienda"
-                  style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box' }}
-                />
-              </div>
-            </div>
-            {haulmerMsg && (
-              <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', background: haulmerMsg.includes('Error') || haulmerMsg.includes('requerido') ? '#fef2f2' : '#f0fdf4', color: haulmerMsg.includes('Error') || haulmerMsg.includes('requerido') ? '#dc2626' : '#16a34a' }}>
-                {haulmerMsg}
-              </div>
-            )}
-            <button
-              onClick={saveHaulmerConfig}
-              disabled={haulmerSaving}
-              style={{ marginTop: '14px', padding: '10px 20px', background: haulmerSaving ? '#ccc' : '#000', color: '#D4AF37', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '800', cursor: haulmerSaving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <FontAwesomeIcon icon={haulmerSaving ? faSpinner : faSave} spin={haulmerSaving} />
-              {haulmerSaving ? 'Guardando...' : 'Guardar Credenciales'}
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* ==== MODAL AGREGAR POS ==== */}
         {showPosModal && (
