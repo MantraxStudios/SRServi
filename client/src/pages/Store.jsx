@@ -3459,10 +3459,10 @@ function Store() {
               <>
                 {(parseFloat(selectedConfiguration?.tip_percentage) > 0) && (
                   <div style={{ marginBottom: '20px', padding: '16px', borderRadius: '14px', background: 'var(--store-secondary)', border: '2px solid var(--store-primary)', textAlign: 'left' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
                       <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--store-primary)' }}>Propina</span>
                       <button
-                        onClick={() => setTipEnabled(p => !p)}
+                        onClick={() => { setTipEnabled(p => !p); setTipPercent(tipEnabled ? 0 : 5); }}
                         style={{ padding: '6px 14px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '13px', background: tipEnabled ? 'var(--store-accent)' : '#e0e0e0', color: tipEnabled ? 'var(--store-primary)' : '#999', transition: 'all 0.2s' }}
                       >
                         {tipEnabled ? 'Incluida ✓' : 'No incluir'}
@@ -3470,30 +3470,25 @@ function Store() {
                     </div>
                     {tipEnabled && (
                       <>
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                          {[5, 10, 15, parseFloat(selectedConfiguration.tip_percentage)].filter((v, i, a) => a.indexOf(v) === i).sort((a,b) => a-b).map(pct => (
-                            <button
-                              key={pct}
-                              onClick={() => setTipPercent(pct)}
-                              style={{ flex: 1, minWidth: '52px', padding: '8px 6px', borderRadius: '10px', border: `2px solid ${tipPercent === pct ? 'var(--store-accent)' : '#ddd'}`, background: tipPercent === pct ? 'var(--store-accent)' : '#fff', color: 'var(--store-primary)', fontWeight: '700', fontSize: '14px', cursor: 'pointer' }}
-                            >
-                              {pct}%
-                            </button>
-                          ))}
-                          <button
-                            onClick={() => { const v = prompt('Ingresa el % de propina:'); if (v && !isNaN(parseFloat(v))) setTipPercent(Math.max(0, Math.min(100, parseFloat(v)))); }}
-                            style={{ flex: 1, minWidth: '52px', padding: '8px 6px', borderRadius: '10px', border: '2px solid #ddd', background: '#fff', color: '#666', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}
-                          >
-                            Otro
-                          </button>
+                        <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '32px', fontWeight: '800', color: 'var(--store-accent)' }}>{tipPercent}%</span>
+                          <span style={{ fontSize: '13px', color: '#888', marginLeft: '8px' }}>{colors.currency.symbol}{formatPrice(getTipAmount())}</span>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#666' }}>
-                          <span>Propina ({tipPercent}%)</span>
-                          <span style={{ fontWeight: '700', color: 'var(--store-primary)' }}>{colors.currency.symbol}{formatPrice(getTipAmount())}</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="20"
+                          step="5"
+                          value={tipPercent}
+                          onChange={e => setTipPercent(parseInt(e.target.value))}
+                          style={{ width: '100%', accentColor: 'var(--store-accent)', height: '6px', cursor: 'pointer', marginBottom: '8px' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#aaa', marginBottom: '4px' }}>
+                          {[0, 5, 10, 15, 20].map(v => <span key={v}>{v}%</span>)}
                         </div>
                       </>
                     )}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: '700', color: 'var(--store-primary)', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e0e0e0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: '700', color: 'var(--store-primary)', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e0e0e0' }}>
                       <span>Total</span>
                       <span>{colors.currency.symbol}{formatPrice(getFinalTotal())}</span>
                     </div>
