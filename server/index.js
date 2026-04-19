@@ -2114,6 +2114,267 @@ app.get('/api/analytics/recent-orders', authenticateToken, async (req, res) => {
   }
 });
 
+// ==================== LEÓN IA ====================
+
+function leonDetectIntent(text) {
+  const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const has = (...words) => words.some(w => t.includes(w));
+
+  if (has('hola', 'buenos dias', 'buenas tardes', 'buenas noches', 'como estas', 'quien eres'))
+    return 'greeting';
+  if (has('menos vendido', 'poco vendido', 'no se vende', 'bajo rendimiento', 'peor', 'que hago con', 'descontinuar', 'eliminar producto', 'mal vendido'))
+    return 'worst_products';
+  if (has('mas vendido', 'top', 'mejor vendido', 'estrella', 'popular', 'cuales vendo mas', 'productos top'))
+    return 'top_products';
+  if (has('ingreso', 'ganancia', 'revenue', 'cuanto vendi', 'cuanto gane', 'dinero', 'venta total', 'facturacion'))
+    return 'revenue';
+  if (has('hora', 'cuando vendo', 'pico', 'momento del dia', 'horario', 'mejor hora'))
+    return 'peak_hours';
+  if (has('stock', 'inventario', 'agotado', 'por acabarse', 'sin stock', 'quedan pocos'))
+    return 'stock_alert';
+  if (has('categoria', 'categorias', 'que categoria'))
+    return 'category_analysis';
+  if (has('resumen', 'como voy', 'como estoy', 'estado', 'balance', 'panorama', 'reporte'))
+    return 'summary';
+  if (has('recomienda', 'consejo', 'sugerencia', 'que puedo hacer', 'ayuda', 'estrategia', 'que hago'))
+    return 'recommendations';
+  if (has('pedido', 'orden', 'compra', 'cliente'))
+    return 'orders_summary';
+  return 'unknown';
+}
+
+function leonDetectRange(text) {
+  const t = text.toLowerCase();
+  if (t.includes('hoy') || t.includes('dia') || t.includes('today')) return 'today';
+  if (t.includes('mes') || t.includes('month') || t.includes('30 dias')) return 'month';
+  if (t.includes('año') || t.includes('year') || t.includes('365')) return 'year';
+  return 'week';
+}
+
+function leonRangeLabel(range) {
+  return { today: 'hoy', week: 'esta semana', month: 'este mes', year: 'este año' }[range] || 'esta semana';
+}
+
+async function leonGetAllProducts(storeId) {
+  const [rows] = await pool.execute(
+    `SELECT p.id, p.name, p.price, COALESCE(i.stock,0) as stock, COALESCE(i.unlimited_stock,0) as unlimited_stock
+     FROM products p LEFT JOIN inventory i ON p.id=i.product_id AND i.store_id=?
+     WHERE p.store_id=? ORDER BY p.sort_order ASC`,
+    [storeId, storeId]
+  );
+  return rows;
+}
+
+async function leonGetWorstProducts(storeId, range) {
+  let interval = '7 DAY';
+  if (range === 'today') interval = '1 DAY';
+  else if (range === 'month') interval = '30 DAY';
+  else if (range === 'year') interval = '365 DAY';
+
+  const [sold] = await pool.execute(
+    `SELECT p.id, p.name, p.price, COALESCE(SUM(oi.quantity),0) as total_sold
+     FROM products p
+     LEFT JOIN order_items oi ON oi.product_id=p.id
+     LEFT JOIN orders o ON oi.order_id=o.id AND o.store_id=? AND o.status IN ('paid','processed','completed','approved') AND o.created_at>=DATE_SUB(NOW(),INTERVAL ${interval})
+     WHERE p.store_id=?
+     GROUP BY p.id, p.name, p.price
+     ORDER BY total_sold ASC
+     LIMIT 5`,
+    [storeId, storeId]
+  );
+  return sold;
+}
+
+async function leonGetCategoryRevenue(storeId, range) {
+  let interval = '7 DAY';
+  if (range === 'today') interval = '1 DAY';
+  else if (range === 'month') interval = '30 DAY';
+  else if (range === 'year') interval = '365 DAY';
+
+  const [rows] = await pool.execute(
+    `SELECT COALESCE(c.name,'Sin categoría') as category,
+            COUNT(DISTINCT o.id) as orders,
+            SUM(oi.quantity) as total_sold,
+            SUM(oi.quantity*oi.unit_price) as revenue
+     FROM order_items oi
+     JOIN orders o ON oi.order_id=o.id
+     JOIN products p ON oi.product_id=p.id
+     LEFT JOIN categories c ON p.category_id=c.id
+     WHERE o.store_id=? AND o.status IN ('paid','processed','completed','approved')
+       AND o.created_at>=DATE_SUB(NOW(),INTERVAL ${interval})
+     GROUP BY c.id, c.name
+     ORDER BY revenue DESC`,
+    [storeId]
+  );
+  return rows;
+}
+
+function leonBuildResponse(intent, range, data) {
+  const rl = leonRangeLabel(range);
+  const fmt = (n) => Number(n || 0).toFixed(2);
+
+  switch (intent) {
+    case 'greeting':
+      return `¡Hola! Soy **León IA**, tu asistente de negocios inteligente 🦁\n\nPuedo ayudarte con:\n• Top productos más vendidos\n• Productos con bajo rendimiento y qué hacer\n• Resumen de ingresos y pedidos\n• Análisis por categoría\n• Horas pico de ventas\n• Alertas de stock\n• Recomendaciones estratégicas\n\n¿Qué quieres analizar hoy?`;
+
+    case 'top_products': {
+      const { products } = data;
+      if (!products.length) return `No encontré ventas registradas ${rl}. Asegúrate de tener pedidos completados.`;
+      const list = products.slice(0,5).map((p,i) => `${i+1}. **${p.name}** — ${p.total_sold} unidades vendidas ($${fmt(p.revenue)})`).join('\n');
+      return `**Top productos ${rl}:**\n\n${list}\n\n📈 El líder es **${products[0].name}** con ${products[0].total_sold} unidades. ¡Asegúrate de tener suficiente stock!`;
+    }
+
+    case 'worst_products': {
+      const { worst, all } = data;
+      if (!worst.length) return `No hay datos de ventas ${rl} para analizar.`;
+      const zeroes = worst.filter(p => Number(p.total_sold) === 0);
+      const low = worst.filter(p => Number(p.total_sold) > 0 && Number(p.total_sold) <= 2);
+      let resp = `**Productos con bajo rendimiento ${rl}:**\n\n`;
+      if (zeroes.length) {
+        resp += `🔴 **Sin ninguna venta:**\n${zeroes.map(p => `• ${p.name} ($${fmt(p.price)})`).join('\n')}\n\n`;
+        resp += `💡 **Recomendaciones para estos productos:**\n• Aplica un descuento del 20-30% temporalmente\n• Muévelos a una categoría más visible\n• Considera ofrecerlos como combo con un producto estrella\n• Si llevan +30 días sin venderse, evalúa eliminarlos del menú\n\n`;
+      }
+      if (low.length) {
+        resp += `🟡 **Ventas muy bajas (1-2 unidades):**\n${low.map(p => `• ${p.name} — ${p.total_sold} unid.`).join('\n')}\n\n`;
+        resp += `💡 **Estrategia:** Crea promociones del tipo "lleva 2 y paga 1" o agrégalos como recomendación en el tótem.`;
+      }
+      return resp;
+    }
+
+    case 'revenue': {
+      const { summary, salesByDay } = data;
+      const days = salesByDay.length;
+      const bestDay = salesByDay.length ? salesByDay.reduce((a,b) => Number(a.revenue)>Number(b.revenue)?a:b) : null;
+      let resp = `**Resumen de ingresos ${rl}:**\n\n`;
+      resp += `💰 **Ingresos totales:** $${fmt(summary.revenue)}\n`;
+      resp += `📦 **Pedidos completados:** ${summary.completedOrders}\n`;
+      resp += `📊 **Ticket promedio:** $${fmt(summary.avgOrder)}\n`;
+      if (bestDay) resp += `\n📅 **Mejor día:** ${bestDay.date} con $${fmt(bestDay.revenue)}\n`;
+      if (summary.pendingOrders > 0) resp += `\n⚠️ Tienes **${summary.pendingOrders} pedidos pendientes** por procesar.`;
+      return resp;
+    }
+
+    case 'peak_hours': {
+      const { byHour } = data;
+      if (!byHour.length) return `No hay datos de horarios ${rl}.`;
+      const sorted = [...byHour].sort((a,b) => b.orders-a.orders);
+      const top3 = sorted.slice(0,3).map(h => `${h.hour}:00 hs — ${h.orders} pedidos`).join('\n');
+      const peak = sorted[0];
+      return `**Horas pico de ventas ${rl}:**\n\n⏰ **Top 3 horarios:**\n${top3}\n\n🎯 **Tu hora pico es las ${peak.hour}:00 hs.** Asegúrate de tener todo listo antes de esa hora: stock completo, personal disponible y sistema funcionando.`;
+    }
+
+    case 'stock_alert': {
+      const { allProducts } = data;
+      const outOfStock = allProducts.filter(p => !p.unlimited_stock && Number(p.stock) === 0);
+      const lowStock = allProducts.filter(p => !p.unlimited_stock && Number(p.stock) > 0 && Number(p.stock) <= 3);
+      let resp = `**Alerta de inventario:**\n\n`;
+      if (outOfStock.length) resp += `🔴 **Agotados (${outOfStock.length}):**\n${outOfStock.map(p=>`• ${p.name}`).join('\n')}\n\n`;
+      if (lowStock.length) resp += `🟡 **Stock crítico — 3 o menos unidades (${lowStock.length}):**\n${lowStock.map(p=>`• ${p.name} — ${p.stock} uds`).join('\n')}\n\n`;
+      if (!outOfStock.length && !lowStock.length) resp += `✅ ¡Todo bien! No hay productos en stock crítico.`;
+      else resp += `💡 Actualiza tu inventario desde **Productos** en el panel.`;
+      return resp;
+    }
+
+    case 'category_analysis': {
+      const { catRevenue } = data;
+      if (!catRevenue.length) return `No hay ventas por categoría ${rl}.`;
+      const list = catRevenue.map((c,i)=>`${i+1}. **${c.category}** — $${fmt(c.revenue)} (${c.total_sold} uds)`).join('\n');
+      const top = catRevenue[0];
+      return `**Análisis por categoría ${rl}:**\n\n${list}\n\n🏆 La categoría más rentable es **${top.category}** con $${fmt(top.revenue)} en ventas.`;
+    }
+
+    case 'summary': {
+      const { summary, topProds } = data;
+      const topName = topProds.length ? topProds[0].name : 'N/A';
+      return `**Resumen general ${rl}:**\n\n📦 **${summary.completedOrders}** pedidos completados\n💰 **$${fmt(summary.revenue)}** en ingresos\n🎯 **$${fmt(summary.avgOrder)}** ticket promedio\n⭐ **Producto estrella:** ${topName}\n${summary.pendingOrders>0?`\n⚠️ ${summary.pendingOrders} pedidos pendientes`:'✅ Sin pedidos pendientes'}`;
+    }
+
+    case 'orders_summary': {
+      const { summary, recentOrders } = data;
+      let resp = `**Pedidos ${rl}:**\n\n✅ Completados: **${summary.completedOrders}**\n⏳ Pendientes: **${summary.pendingOrders}**\n❌ Cancelados: **${summary.cancelledOrders}**\n📊 Total: **${summary.totalOrders}**`;
+      if (recentOrders.length) {
+        resp += `\n\n**Últimos pedidos:**\n`;
+        resp += recentOrders.slice(0,5).map(o=>`• Pedido #${o.id} — $${fmt(o.total)} — ${o.status}`).join('\n');
+      }
+      return resp;
+    }
+
+    case 'recommendations': {
+      const { summary, worst, topProds, allProducts } = data;
+      const zeroSales = worst.filter(p => Number(p.total_sold) === 0);
+      const outOfStock = allProducts.filter(p => !p.unlimited_stock && Number(p.stock) === 0);
+      const conversionRate = summary.totalOrders > 0 ? ((summary.completedOrders/summary.totalOrders)*100).toFixed(0) : 0;
+      let resp = `**Recomendaciones estratégicas para tu negocio:**\n\n`;
+      if (Number(conversionRate) < 70) resp += `📉 Tu tasa de conversión es ${conversionRate}%. Considera revisar los precios o el proceso de pago.\n\n`;
+      if (outOfStock.length) resp += `🔴 Tienes ${outOfStock.length} productos agotados — estás perdiendo ventas potenciales. ¡Recarga el inventario!\n\n`;
+      if (zeroSales.length) resp += `💤 ${zeroSales.length} productos no se vendieron esta semana (${zeroSales.slice(0,3).map(p=>p.name).join(', ')}). Considera hacer una promo o eliminarlos.\n\n`;
+      if (topProds.length) resp += `⭐ Tu producto estrella es **${topProds[0].name}**. Asegúrate de que siempre esté disponible y visible al inicio del tótem.\n\n`;
+      if (Number(summary.avgOrder) < 10) resp += `💡 Tu ticket promedio ($${Number(summary.avgOrder).toFixed(2)}) es bajo. Prueba ofrecer combos o "sugeridos" al momento de la compra.`;
+      if (!resp.trim().endsWith('**')) resp = resp || `✅ Tu negocio está funcionando bien. Sigue monitoreando las ventas diariamente.`;
+      return resp.trim();
+    }
+
+    default:
+      return `No entendí bien tu pregunta 🤔. Puedes preguntarme sobre:\n• **"¿Cuáles son los más vendidos esta semana?"**\n• **"¿Qué hago con los menos vendidos?"**\n• **"¿Cuánto ingresé este mes?"**\n• **"¿A qué hora vendo más?"**\n• **"Dame un resumen"**\n• **"¿Qué me recomiendas?"**`;
+  }
+}
+
+app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
+  try {
+    const { question, store_id } = req.body;
+    if (!question || !store_id) return res.status(400).json({ error: 'Faltan parámetros' });
+
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'Sin acceso' });
+
+    const storeId = parseInt(store_id);
+    const intent = leonDetectIntent(question);
+    const range = leonDetectRange(question);
+
+    let data = {};
+
+    if (intent === 'greeting') {
+      // no data needed
+    } else if (intent === 'top_products') {
+      data.products = await getTopProducts(storeId, 5, range);
+    } else if (intent === 'worst_products') {
+      data.worst = await leonGetWorstProducts(storeId, range);
+      data.all = await leonGetAllProducts(storeId);
+    } else if (intent === 'revenue') {
+      data.summary = await getAnalytics(storeId, range);
+      data.salesByDay = await getSalesByDay(storeId, range);
+    } else if (intent === 'peak_hours') {
+      data.byHour = await getOrdersByHour(storeId, range);
+    } else if (intent === 'stock_alert') {
+      data.allProducts = await leonGetAllProducts(storeId);
+    } else if (intent === 'category_analysis') {
+      data.catRevenue = await leonGetCategoryRevenue(storeId, range);
+    } else if (intent === 'summary') {
+      data.summary = await getAnalytics(storeId, range);
+      data.topProds = await getTopProducts(storeId, 1, range);
+    } else if (intent === 'orders_summary') {
+      data.summary = await getAnalytics(storeId, range);
+      data.recentOrders = await getRecentOrders(storeId, 5);
+    } else if (intent === 'recommendations') {
+      data.summary = await getAnalytics(storeId, 'week');
+      data.worst = await leonGetWorstProducts(storeId, 'week');
+      data.topProds = await getTopProducts(storeId, 3, 'week');
+      data.allProducts = await leonGetAllProducts(storeId);
+    } else {
+      data.summary = await getAnalytics(storeId, range);
+      data.topProds = await getTopProducts(storeId, 3, range);
+    }
+
+    const answer = leonBuildResponse(intent, range, data);
+    res.json({ answer, intent, range });
+  } catch (error) {
+    console.error('León IA error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== FIN LEÓN IA ====================
+
 app.post('/api/superadmin/login', async (req, res) => {
   try {
     const { email, password } = req.body;

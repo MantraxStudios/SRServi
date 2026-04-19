@@ -35,6 +35,7 @@ import Devices from './pages/admin/Devices';
 import Tickets from './pages/admin/Tickets';
 import Screensaver from './pages/admin/Screensaver';
 import Tutoriales from './pages/admin/Tutoriales';
+import LeonIA from './pages/admin/LeonIA';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import Store from './pages/Store';
@@ -190,6 +191,7 @@ function App() {
             <Route path="tickets" element={<Tickets />} />
             <Route path="tutoriales" element={<Tutoriales />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="leon-ia" element={<LeonIA />} />
             <Route path="editor/:code" element={<Store />} />
           </Route>
           <Route path="/worker-login" element={<WorkerLogin />} />

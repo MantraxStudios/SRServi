@@ -43,7 +43,8 @@
       "Bash(cmd /c \"find /c /v \\\\\"\\\\\" \\\\\"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\client\\\\src\\\\pages\\\\admin\\\\Settings.jsx\\\\\"\")",
       "Bash(node --check index.js)",
       "Bash(npx tsc *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(xargs grep *)"
     ]
   }
 }
