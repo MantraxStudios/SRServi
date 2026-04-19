@@ -2166,9 +2166,44 @@ function leonDetectIntent(text, history = []) {
     return 'recommendations';
   if (has('pedido', 'orden', 'compra', 'cuantos pedidos', 'cuantas ordenes'))
     return 'orders_summary';
+  // Análisis de producto específico — debe ir antes del fallback
+  if (has('analiza ', 'analiza el ', 'analiza la ', 'analiza los ', 'analiza las ',
+          'como va ', 'como esta ', 'como va el ', 'como esta el ', 'como va la ', 'como esta la ',
+          'dime sobre ', 'info de ', 'informacion de ', 'rendimiento de ',
+          'cuanto vende ', 'cuanto se vende ', 'ventas de ', 'datos de ',
+          'que tal el ', 'que tal la ', 'que tal los ', 'que pasa con ', 'profundiza en '))
+    return 'product_analysis';
+  // Si el contexto anterior pedía analizar un producto específico
+  if (lastIntent === 'action_plan' && words.length >= 2 && !has('no', 'nada', 'no gracias'))
+    return 'product_analysis';
+
   if (has('gracias', 'ok', 'perfecto', 'genial', 'excelente', 'entendido', 'listo'))
     return 'thanks';
   return 'unknown';
+}
+
+function leonExtractProductName(text) {
+  const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const prefixes = [
+    'analiza el producto ', 'analiza la producto ', 'analiza los productos ',
+    'analiza el ', 'analiza la ', 'analiza los ', 'analiza las ', 'analiza ',
+    'como va el producto ', 'como va la ', 'como va el ', 'como va ',
+    'como esta el ', 'como esta la ', 'como esta ',
+    'dime sobre el ', 'dime sobre la ', 'dime sobre ',
+    'informacion de ', 'info de ', 'rendimiento de ',
+    'cuanto vende el ', 'cuanto vende la ', 'cuanto vende ',
+    'cuanto se vende el ', 'cuanto se vende la ', 'cuanto se vende ',
+    'ventas de el ', 'ventas de la ', 'ventas de ',
+    'datos de el ', 'datos de la ', 'datos de ',
+    'que tal el ', 'que tal la ', 'que tal los ', 'que tal ',
+    'que pasa con el ', 'que pasa con la ', 'que pasa con ',
+    'profundiza en el ', 'profundiza en la ', 'profundiza en ',
+  ];
+  for (const p of prefixes) {
+    if (t.startsWith(p)) return t.slice(p.length).trim();
+  }
+  // Quitar artículos sueltos al inicio
+  return t.replace(/^(el|la|los|las|un|una)\s+/, '').trim();
 }
 
 function leonDetectRange(text) {
@@ -2241,8 +2276,8 @@ async function leonGetTopProductsWithRevenue(storeId, range, limit = 5) {
        AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
      GROUP BY p.id, p.name
      ORDER BY total_sold DESC
-     LIMIT ?`,
-    [storeId, limit]
+     LIMIT ${parseInt(limit)}`,
+    [storeId]
   );
   return rows;
 }
@@ -2269,6 +2304,74 @@ async function leonGetCategoryRevenue(storeId, range) {
     [storeId]
   );
   return rows;
+}
+
+async function leonGetProductAnalysis(storeId, productName) {
+  // Buscar producto por nombre (fuzzy)
+  const [prods] = await pool.execute(
+    `SELECT p.id, p.name, p.price, p.description,
+            COALESCE(i.stock, 0) AS stock,
+            COALESCE(i.unlimited_stock, 0) AS unlimited_stock,
+            c.name AS category_name
+     FROM products p
+     LEFT JOIN inventory i ON p.id = i.product_id
+     LEFT JOIN categories c ON p.category_id = c.id
+     WHERE p.store_id = ? AND LOWER(p.name) LIKE ?
+     LIMIT 5`,
+    [storeId, `%${productName.toLowerCase()}%`]
+  );
+  if (!prods.length) return null;
+
+  const prod = prods[0];
+
+  // Ventas por período
+  const periods = { week: '7 DAY', month: '30 DAY', year: '365 DAY' };
+  const salesData = {};
+  for (const [key, interval] of Object.entries(periods)) {
+    const [rows] = await pool.execute(
+      `SELECT COALESCE(SUM(oi.quantity), 0) AS total_sold,
+              COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS revenue,
+              COUNT(DISTINCT o.id) AS orders
+       FROM order_items oi
+       JOIN orders o ON oi.order_id = o.id
+       WHERE oi.product_id = ? AND o.store_id = ?
+         AND o.status IN ('paid','processed','completed','approved')
+         AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})`,
+      [prod.id, storeId]
+    );
+    salesData[key] = rows[0];
+  }
+
+  // Ranking entre todos los productos (semana)
+  const [ranking] = await pool.execute(
+    `SELECT p.id, SUM(oi.quantity) AS total_sold
+     FROM products p
+     LEFT JOIN order_items oi ON oi.product_id = p.id
+     LEFT JOIN orders o ON oi.order_id = o.id
+       AND o.store_id = ? AND o.status IN ('paid','processed','completed','approved')
+       AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+     WHERE p.store_id = ?
+     GROUP BY p.id
+     ORDER BY total_sold DESC`,
+    [storeId, storeId]
+  );
+  const rank = ranking.findIndex(r => r.id === prod.id) + 1;
+  const total = ranking.length;
+
+  // Ventas por día últimos 7 días
+  const [byDay] = await pool.execute(
+    `SELECT DATE(o.created_at) AS date, SUM(oi.quantity) AS qty
+     FROM order_items oi
+     JOIN orders o ON oi.order_id = o.id
+     WHERE oi.product_id = ? AND o.store_id = ?
+       AND o.status IN ('paid','processed','completed','approved')
+       AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+     GROUP BY DATE(o.created_at)
+     ORDER BY date ASC`,
+    [prod.id, storeId]
+  );
+
+  return { prod, salesData, rank, total, byDay, allMatches: prods };
 }
 
 function r(text, chart = null) { return { text, chart }; }
@@ -2555,6 +2658,36 @@ function leonBuildResponse(intent, range, data, storeName) {
       return r(`Recomendaciones para tu negocio esta semana:\n\n${tips.join('\n\n')}\n\n¿Quieres un plan de acción detallado para algún punto?`);
     }
 
+    case 'product_analysis': {
+      const { productAnalysis, productName } = data;
+      if (!productAnalysis)
+        return r(`No encontré ningún producto con el nombre "**${productName}**" en tu tienda. Verifica que el nombre esté bien escrito o usa parte del nombre, por ejemplo "coca" en lugar de "coca cola".`);
+      const { prod, salesData, rank, total, byDay } = productAnalysis;
+      const fmtP = (n) => Number(n||0).toFixed(2);
+      let resp = `Análisis de **${prod.name}**:\n\n`;
+      resp += `💰 **Precio:** $${fmtP(prod.price)}`;
+      if (prod.category_name) resp += ` · 📂 **Categoría:** ${prod.category_name}`;
+      resp += `\n`;
+      resp += Number(prod.unlimited_stock) ? `♾️ Stock ilimitado\n` : `📦 **Stock actual:** ${prod.stock} unidades\n`;
+      resp += `\n**Ventas:**\n`;
+      resp += `• Esta semana: **${salesData.week.total_sold} uds** · $${fmtP(salesData.week.revenue)}\n`;
+      resp += `• Este mes: **${salesData.month.total_sold} uds** · $${fmtP(salesData.month.revenue)}\n`;
+      resp += `• Este año: **${salesData.year.total_sold} uds** · $${fmtP(salesData.year.revenue)}\n`;
+      resp += `\n📊 **Ranking esta semana:** #${rank} de ${total} productos`;
+      if (rank === 1) resp += ` 🥇 ¡Es tu producto estrella!`;
+      else if (rank <= 3) resp += ` 🏆 Está en el top 3.`;
+      else if (rank > total * 0.8) resp += ` ⚠️ Está en el grupo de menor rendimiento.`;
+      const chartPA = byDay && byDay.length ? {
+        type: 'bar', title: `${prod.name} — ventas por día`,
+        labels: byDay.map(d => { const dt = new Date(d.date); return `${dt.getDate()}/${dt.getMonth()+1}`; }),
+        values: byDay.map(d => Number(d.qty)),
+        unit: 'uds', color: '#D4AF37',
+        highlight: byDay.reduce((mi, d, i, a) => Number(d.qty) > Number(a[mi].qty) ? i : mi, 0),
+      } : null;
+      resp += `\n\n¿Quieres recomendaciones específicas para este producto?`;
+      return r(resp, chartPA);
+    }
+
     default:
       return r(`Mmm, no entendí bien esa pregunta 🤔. Puedes preguntarme:\n\n• "¿Cuáles son los más vendidos esta semana?"\n• "¿Qué hago con los productos menos vendidos?"\n• "¿Cuánto ingresé este mes?"\n• "¿A qué hora vendo más?"\n• "¿Tengo productos sin stock?"\n• "Dame un resumen"\n• "¿Qué me recomiendas?"\n• "Análisis por categoría"\n\nIntenta con alguna de esas.`);
   }
@@ -2608,6 +2741,10 @@ app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
       data.worst = await leonGetWorstProducts(storeId, 'week');
       data.topProds = await leonGetTopProductsWithRevenue(storeId, 'week', 3);
       data.allProducts = await leonGetAllProducts(storeId);
+    } else if (intent === 'product_analysis') {
+      const productName = leonExtractProductName(question);
+      data.productName = productName;
+      data.productAnalysis = await leonGetProductAnalysis(storeId, productName);
     } else {
       data.summary = await getAnalytics(storeId, range);
     }

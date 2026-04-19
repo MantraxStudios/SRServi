@@ -2864,10 +2864,10 @@ export async function getTopProducts(storeId, limit = 10, dateRange = 'week') {
       AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
     GROUP BY p.id, p.name, p.image
     ORDER BY total_sold DESC
-    LIMIT ?
+    LIMIT ${parseInt(limit)}
   `;
-  
-  const [rows] = await pool.execute(query, [storeId, limit]);
+
+  const [rows] = await pool.execute(query, [storeId]);
   return rows;
 }
 
@@ -2907,10 +2907,10 @@ export async function getRecentOrders(storeId, limit = 10) {
     WHERE o.store_id = ?
     GROUP BY o.id
     ORDER BY o.created_at DESC
-    LIMIT ?
+    LIMIT ${parseInt(limit)}
   `;
-  
-  const [rows] = await pool.execute(query, [storeId, limit]);
+
+  const [rows] = await pool.execute(query, [storeId]);
   return rows;
 }
 
