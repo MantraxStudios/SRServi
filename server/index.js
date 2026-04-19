@@ -2130,12 +2130,21 @@ function leonDetectIntent(text, history = []) {
   const lastLeonMsg = [...history].reverse().find(m => m.role === 'leon');
   const lastIntent = lastLeonMsg?.intent || null;
 
-  // Pronombres de seguimiento
-  const isFollowUp = has('y ese', 'y esos', 'y ese mes', 'y este mes', 'y hoy', 'y la semana', 'dime mas', 'mas detalles', 'cuales son', 'esos', 'que mas');
+  const words = t.trim().split(/\s+/);
+  const isShort = words.length <= 6;
 
-  if (isFollowUp && lastIntent && lastIntent !== 'greeting' && lastIntent !== 'unknown') {
+  // Plan de acción: detectar afirmativa después de worst_products, o solicitud explícita
+  const isAffirmative = isShort && has('si', 'dale', 'claro', 'adelante', 'bueno', 'ok dale', 'va', 'hazlo', 'hacelo');
+  if (has('plan de accion', 'plan detallado', 'plan de mejora', 'estrategia detallada', 'como lo mejoro paso a paso', 'que pasos sigo'))
+    return 'action_plan';
+  if (isAffirmative && (lastIntent === 'worst_products' || lastIntent === 'action_plan'))
+    return 'action_plan';
+
+  // Follow-up de contexto: frases explícitas o muy cortas con marcadores
+  const hasFollowUpMarker = has('y ese mes', 'y este mes', 'y ayer', 'dime mas', 'mas detalles', 'ampliame', 'profundiza');
+  const isVagueShort = isShort && has('y eso', 'y esos', 'que mas', 'algo mas');
+  if ((hasFollowUpMarker || isVagueShort) && lastIntent && lastIntent !== 'greeting' && lastIntent !== 'unknown' && lastIntent !== 'action_plan')
     return lastIntent;
-  }
 
   if (has('hola', 'buenos dias', 'buenas tardes', 'buenas noches', 'como estas', 'quien eres', 'que eres', 'que puedes hacer', 'que sabes hacer'))
     return 'greeting';
@@ -2262,6 +2271,8 @@ async function leonGetCategoryRevenue(storeId, range) {
   return rows;
 }
 
+function r(text, chart = null) { return { text, chart }; }
+
 function leonBuildResponse(intent, range, data, storeName) {
   const rl = leonRangeLabel(range);
   const fmt = (n) => Number(n || 0).toFixed(2);
@@ -2269,160 +2280,244 @@ function leonBuildResponse(intent, range, data, storeName) {
 
   switch (intent) {
     case 'greeting':
-      return LEON_GREETINGS[Math.floor(Math.random() * LEON_GREETINGS.length)];
+      return r(LEON_GREETINGS[Math.floor(Math.random() * LEON_GREETINGS.length)]);
 
     case 'thanks':
-      return '¡De nada! 😊 Si necesitas analizar algo más, aquí estoy. Puedes preguntarme sobre ventas, stock, ingresos o cualquier cosa de tu negocio.';
+      return r('¡De nada! 😊 Si necesitas analizar algo más, aquí estoy. Puedes preguntarme sobre ventas, stock, ingresos o cualquier cosa de tu negocio.');
 
     case 'top_products': {
       const { products } = data;
       if (!products || !products.length)
-        return `No encontré ventas registradas ${rl}. ¿Tienes pedidos completados en ese período? Si acabas de abrir tu tienda, intenta consultar un rango mayor, por ejemplo "¿cuáles son los más vendidos este mes?".`;
+        return r(`No encontré ventas registradas ${rl}. ¿Tienes pedidos completados en ese período? Intenta con un rango mayor, por ejemplo "¿cuáles son los más vendidos este mes?".`);
       const medals = ['🥇', '🥈', '🥉', '4.', '5.'];
       const list = products.map((p, i) =>
         `${medals[i] || `${i+1}.`} **${p.name}** — ${p.total_sold} unidades · $${fmt(p.revenue)}`
       ).join('\n');
       const leader = products[0];
-      return `Aquí tienes el ranking de productos ${rl}${store}:\n\n${list}\n\n📈 **${leader.name}** es tu producto estrella con **${leader.total_sold} unidades** vendidas. Asegúrate de tener stock suficiente y de que esté bien posicionado en tu tótem.\n\n¿Quieres que te diga cuáles son los peores para compararlos?`;
+      const chart = {
+        type: 'bar',
+        title: `Top productos ${rl}`,
+        labels: products.map(p => p.name.length > 14 ? p.name.slice(0, 13) + '…' : p.name),
+        values: products.map(p => Number(p.total_sold)),
+        unit: 'uds',
+        color: '#D4AF37',
+      };
+      return r(`Ranking de productos ${rl}${store}:\n\n${list}\n\n📈 **${leader.name}** lidera con **${leader.total_sold} unidades** vendidas. ¿Quieres saber cuáles son los que peor van?`, chart);
     }
 
     case 'worst_products': {
       const { worst } = data;
       if (!worst || !worst.length)
-        return `No hay productos registrados todavía. Crea productos desde el **Editor Tótem** para empezar a analizar.`;
+        return r(`No hay productos registrados todavía. Agrega productos desde el **Editor Tótem** para empezar a analizar.`);
       const zeroes = worst.filter(p => Number(p.total_sold) === 0);
       const low = worst.filter(p => Number(p.total_sold) > 0 && Number(p.total_sold) <= 3);
       const rest = worst.filter(p => Number(p.total_sold) > 3);
-
       if (!zeroes.length && !low.length && rest.length)
-        return `Buenas noticias 🎉 — todos tus productos se están vendiendo ${rl}. El de menor rotación es **${rest[0].name}** con ${rest[0].total_sold} unidades, pero sigue activo.\n\nSi quieres mejorar aún más, puedes pedirme recomendaciones estratégicas.`;
-
-      let resp = `Te muestro los productos con menor rendimiento ${rl}:\n\n`;
+        return r(`Buenas noticias 🎉 — todos tus productos se están vendiendo ${rl}. El de menor rotación es **${rest[0].name}** con ${rest[0].total_sold} unidades, pero sigue activo.\n\nSi quieres mejorar aún más, dime "dame recomendaciones".`);
+      let resp = `Productos con bajo rendimiento ${rl}:\n\n`;
       if (zeroes.length) {
         resp += `🔴 **Sin ninguna venta (${zeroes.length}):**\n`;
         resp += zeroes.map(p => `• ${p.name} — $${fmt(p.price)}`).join('\n');
-        resp += `\n\n💡 **Qué puedes hacer:**\n`;
-        resp += `• Aplica un descuento del 20-30% por tiempo limitado\n`;
-        resp += `• Colócalos primero en el tótem como "Oferta del día"\n`;
-        resp += `• Crea un combo con tu producto estrella\n`;
-        resp += `• Si llevan más de 30 días sin venderse, considera eliminarlos\n\n`;
+        resp += `\n\n`;
       }
       if (low.length) {
         resp += `🟡 **Ventas muy bajas — 1 a 3 unidades (${low.length}):**\n`;
         resp += low.map(p => `• ${p.name} — ${p.total_sold} unid.`).join('\n');
-        resp += `\n\n💡 Prueba promociones "2x1" o destácalos en el tótem como recomendados.\n`;
+        resp += `\n\n`;
       }
-      resp += `\n¿Quieres que te dé un plan de acción más detallado para alguno de estos?`;
-      return resp;
+      resp += `¿Quieres que te dé un plan de acción detallado para mejorarlos?`;
+      const chart = {
+        type: 'bar',
+        title: `Ventas ${rl} (menores)`,
+        labels: worst.map(p => p.name.length > 14 ? p.name.slice(0, 13) + '…' : p.name),
+        values: worst.map(p => Number(p.total_sold)),
+        unit: 'uds',
+        color: '#ef4444',
+      };
+      return r(resp, chart);
+    }
+
+    case 'action_plan': {
+      const { worst } = data;
+      const zeroes = (worst || []).filter(p => Number(p.total_sold) === 0);
+      const low = (worst || []).filter(p => Number(p.total_sold) > 0 && Number(p.total_sold) <= 3);
+      let resp = `Plan de acción para tus productos con bajo rendimiento:\n\n`;
+
+      if (zeroes.length) {
+        resp += `**Para los productos sin ninguna venta:**\n\n`;
+        resp += `**Semana 1 — Visibilidad:**\n`;
+        resp += `• Mueve estos productos al inicio del tótem\n`;
+        resp += `• Agrega una foto atractiva si no tienen imagen\n`;
+        resp += `• Aplica un descuento del 25% con etiqueta "Oferta"\n\n`;
+        resp += `**Semana 2 — Promoción activa:**\n`;
+        resp += `• Crea un combo con tu producto estrella (ej: "Lleva X + Y con descuento")\n`;
+        resp += `• Si tienes vendedores, pídeles que lo sugieran al cliente\n\n`;
+        resp += `**Semana 3 — Evaluación:**\n`;
+        resp += `• Si sigue sin venderse, bájale el precio definitivamente\n`;
+        resp += `• Si después de 30 días no se mueve, considera eliminarlo del menú\n\n`;
+      }
+      if (low.length) {
+        resp += `**Para los de ventas muy bajas:**\n\n`;
+        resp += `• Prueba la promoción "2 x 1" o "segunda unidad al 50%"\n`;
+        resp += `• Agrégalos como "sugerido" en el tótem junto a los más vendidos\n`;
+        resp += `• Revisa si el precio es competitivo comparado con productos similares\n`;
+        resp += `• Cambia el nombre o la descripción para hacerlos más atractivos\n\n`;
+      }
+      if (!zeroes.length && !low.length)
+        resp += `No tengo datos recientes de productos con bajo rendimiento. Pregúntame primero "¿qué productos se venden menos?" para obtener el análisis.`;
+
+      resp += `\n¿Quieres que analice algún producto específico en profundidad?`;
+      return r(resp);
     }
 
     case 'revenue': {
       const { summary, salesByDay } = data;
-      if (!summary) return `No pude obtener los ingresos. Intenta de nuevo.`;
+      if (!summary) return r(`No pude obtener los ingresos. Intenta de nuevo.`);
       const bestDay = salesByDay && salesByDay.length
         ? salesByDay.reduce((a, b) => Number(a.revenue) > Number(b.revenue) ? a : b)
         : null;
       const trend = salesByDay && salesByDay.length >= 2
         ? Number(salesByDay[salesByDay.length-1].revenue) > Number(salesByDay[0].revenue) ? '📈 tendencia al alza' : '📉 tendencia a la baja'
         : null;
-
-      let resp = `Estos son tus ingresos ${rl}${store}:\n\n`;
+      let resp = `Ingresos ${rl}${store}:\n\n`;
       resp += `💰 **Total facturado:** $${fmt(summary.revenue)}\n`;
       resp += `📦 **Pedidos completados:** ${summary.completedOrders}\n`;
       resp += `🎯 **Ticket promedio:** $${fmt(summary.avgOrder)}\n`;
       if (bestDay) resp += `📅 **Mejor día:** ${bestDay.date} — $${fmt(bestDay.revenue)}\n`;
-      if (trend) resp += `${trend} en el período\n`;
-      if (summary.pendingOrders > 0)
-        resp += `\n⚠️ Tienes **${summary.pendingOrders} pedidos pendientes** sin procesar. Revísalos para no perder ventas.`;
-      else
-        resp += `\n✅ Sin pedidos pendientes. ¡Todo al día!`;
-      resp += `\n\n¿Quieres comparar con otro período o ver qué productos generaron más ingresos?`;
-      return resp;
+      if (trend) resp += `${trend}\n`;
+      resp += summary.pendingOrders > 0
+        ? `\n⚠️ Tienes **${summary.pendingOrders} pedidos pendientes** sin procesar.`
+        : `\n✅ Sin pedidos pendientes. ¡Todo al día!`;
+      resp += `\n\n¿Quieres ver qué productos generaron más ingresos o comparar con otro período?`;
+      const chart = salesByDay && salesByDay.length ? {
+        type: 'bar',
+        title: `Ingresos por día ${rl}`,
+        labels: salesByDay.map(d => {
+          const dt = new Date(d.date);
+          return `${dt.getDate()}/${dt.getMonth()+1}`;
+        }),
+        values: salesByDay.map(d => Number(d.revenue)),
+        unit: '$',
+        color: '#22c55e',
+        highlight: salesByDay.indexOf(bestDay),
+      } : null;
+      return r(resp, chart);
     }
 
     case 'peak_hours': {
       const { byHour } = data;
       if (!byHour || !byHour.length)
-        return `No hay datos de horarios ${rl}. Necesitas tener pedidos completados para ver este análisis.`;
-      const sorted = [...byHour].sort((a, b) => b.orders - a.orders);
+        return r(`No hay datos de horarios ${rl}. Necesitas tener pedidos completados para ver este análisis.`);
+      // Completar horas faltantes con 0
+      const hourMap = {};
+      byHour.forEach(h => { hourMap[Number(h.hour)] = Number(h.orders); });
+      const allHours = Array.from({ length: 24 }, (_, i) => ({ hour: i, orders: hourMap[i] || 0 }));
+      const sorted = [...byHour].sort((a, b) => Number(b.orders) - Number(a.orders));
       const peak = sorted[0];
-      const top3 = sorted.slice(0, 3).map(h => `• **${h.hour}:00 hs** — ${h.orders} pedidos`).join('\n');
       const quiet = sorted[sorted.length - 1];
-      return `Así se distribuyen tus ventas ${rl} por horario:\n\n⏰ **Horas con más actividad:**\n${top3}\n\n🎯 Tu **hora pico es las ${peak.hour}:00 hs** con ${peak.orders} pedidos. Asegúrate de tener:\n• Stock completo antes de esa hora\n• Personal listo y disponible\n• Sistema funcionando sin interrupciones\n\n💤 Tu hora más tranquila es las ${quiet.hour}:00 hs — ideal para hacer inventario o recargar stock.`;
+      const top3 = sorted.slice(0, 3).map(h => `• **${h.hour}:00 hs** — ${h.orders} pedidos`).join('\n');
+      const resp = `Distribución de ventas por hora ${rl}:\n\n⏰ **Horas pico:**\n${top3}\n\n🎯 Tu **hora pico es las ${peak.hour}:00 hs** con ${peak.orders} pedidos. Ten stock completo, personal disponible y sistema listo antes de esa hora.\n\n💤 La hora más tranquila: **${quiet.hour}:00 hs** — ideal para hacer inventario.`;
+      const activoHours = allHours.filter(h => h.orders > 0);
+      const chart = activoHours.length ? {
+        type: 'bar',
+        title: `Pedidos por hora ${rl}`,
+        labels: activoHours.map(h => `${h.hour}h`),
+        values: activoHours.map(h => h.orders),
+        unit: 'pedidos',
+        color: '#a78bfa',
+        highlight: activoHours.findIndex(h => h.hour === Number(peak.hour)),
+      } : null;
+      return r(resp, chart);
     }
 
     case 'stock_alert': {
       const { allProducts } = data;
       if (!allProducts || !allProducts.length)
-        return `No encontré productos en tu tienda. Agrega productos desde el **Editor Tótem** para ver el inventario.`;
+        return r(`No encontré productos en tu tienda. Agrega productos desde el **Editor Tótem** para ver el inventario.`);
       const outOfStock = allProducts.filter(p => !Number(p.unlimited_stock) && Number(p.stock) === 0);
       const lowStock = allProducts.filter(p => !Number(p.unlimited_stock) && Number(p.stock) > 0 && Number(p.stock) <= 3);
       const unlimited = allProducts.filter(p => Number(p.unlimited_stock));
       const ok = allProducts.filter(p => !Number(p.unlimited_stock) && Number(p.stock) > 3);
-
       let resp = `Estado del inventario${store}:\n\n`;
       if (!outOfStock.length && !lowStock.length) {
-        resp += `✅ Todo en orden. No hay productos agotados ni en stock crítico.\n`;
-        if (unlimited.length) resp += `\n♾️ **${unlimited.length} productos** con stock ilimitado.\n`;
-        if (ok.length) resp += `📦 **${ok.length} productos** con stock normal.\n`;
-        resp += `\n¿Quieres analizar las ventas para anticipar cuándo necesitas reponer?`;
-        return resp;
+        resp += `✅ Todo en orden. Sin agotados ni stock crítico.\n`;
+        if (unlimited.length) resp += `♾️ **${unlimited.length}** con stock ilimitado · `;
+        if (ok.length) resp += `📦 **${ok.length}** con stock normal.`;
+        resp += `\n\n¿Quieres analizar ventas para anticipar cuándo reponer?`;
+        return r(resp);
       }
       if (outOfStock.length) {
-        resp += `🔴 **Agotados — ${outOfStock.length} productos:**\n`;
-        resp += outOfStock.map(p => `• ${p.name}`).join('\n');
-        resp += `\n\n`;
+        resp += `🔴 **Agotados (${outOfStock.length}):**\n` + outOfStock.map(p => `• ${p.name}`).join('\n') + `\n\n`;
       }
       if (lowStock.length) {
-        resp += `🟡 **Stock crítico ≤ 3 unidades — ${lowStock.length} productos:**\n`;
-        resp += lowStock.map(p => `• ${p.name} — queda${p.stock === 1 ? '' : 'n'} **${p.stock}**`).join('\n');
-        resp += `\n\n`;
+        resp += `🟡 **Stock crítico ≤ 3 uds (${lowStock.length}):**\n` + lowStock.map(p => `• ${p.name} — **${p.stock}** uds`).join('\n') + `\n\n`;
       }
-      resp += `💡 Actualiza el stock desde **Productos** en el panel de administración antes de que afecte tus ventas.`;
-      return resp;
+      resp += `💡 Actualiza el stock desde **Productos** en el panel antes de que afecte tus ventas.`;
+      return r(resp);
     }
 
     case 'category_analysis': {
       const { catRevenue } = data;
       if (!catRevenue || !catRevenue.length)
-        return `No hay ventas por categoría ${rl}. Necesitas pedidos completados para ver este análisis.`;
+        return r(`No hay ventas por categoría ${rl}. Necesitas pedidos completados para ver este análisis.`);
       const total = catRevenue.reduce((s, c) => s + Number(c.revenue), 0);
       const list = catRevenue.map((c, i) => {
         const pct = total > 0 ? ((Number(c.revenue) / total) * 100).toFixed(0) : 0;
-        return `${i + 1}. **${c.category}** — $${fmt(c.revenue)} · ${pct}% · ${c.total_sold} uds`;
+        return `${i+1}. **${c.category}** — $${fmt(c.revenue)} · ${pct}% · ${c.total_sold} uds`;
       }).join('\n');
       const top = catRevenue[0];
       const bottom = catRevenue[catRevenue.length - 1];
       let resp = `Análisis por categoría ${rl}:\n\n${list}\n\n`;
-      resp += `🏆 **${top.category}** lidera con $${fmt(top.revenue)} (${catRevenue.length > 1 ? ((Number(top.revenue)/total)*100).toFixed(0) + '%' : '100%'} de los ingresos).\n`;
+      resp += `🏆 **${top.category}** lidera con $${fmt(top.revenue)}.`;
       if (catRevenue.length > 1)
-        resp += `💤 **${bottom.category}** es la categoría con menor rendimiento — considera reforzarla con nuevos productos o promociones.`;
-      return resp;
+        resp += `\n💤 **${bottom.category}** tiene el menor rendimiento — refuérzala con nuevos productos o promociones.`;
+      const chart = {
+        type: 'bar',
+        title: `Ingresos por categoría ${rl}`,
+        labels: catRevenue.map(c => c.category.length > 12 ? c.category.slice(0, 11) + '…' : c.category),
+        values: catRevenue.map(c => Number(c.revenue)),
+        unit: '$',
+        color: '#D4AF37',
+      };
+      return r(resp, chart);
     }
 
     case 'summary': {
-      const { summary, topProds } = data;
-      if (!summary) return `No pude generar el resumen. Intenta de nuevo.`;
-      const topName = topProds && topProds.length ? topProds[0].name : null;
+      const { summary, salesByDay } = data;
+      if (!summary) return r(`No pude generar el resumen. Intenta de nuevo.`);
       const convRate = summary.totalOrders > 0
         ? ((summary.completedOrders / summary.totalOrders) * 100).toFixed(0) : '0';
-      let resp = `Aquí está tu resumen${store} ${rl}:\n\n`;
-      resp += `📦 **${summary.completedOrders}** pedidos completados\n`;
-      resp += `💰 **$${fmt(summary.revenue)}** en ingresos totales\n`;
-      resp += `🎯 **$${fmt(summary.avgOrder)}** ticket promedio\n`;
-      resp += `✅ **${convRate}%** tasa de conversión\n`;
-      if (topName) resp += `⭐ Producto estrella: **${topName}**\n`;
-      if (summary.pendingOrders > 0)
-        resp += `\n⚠️ Hay **${summary.pendingOrders} pedidos pendientes** — revísalos cuanto antes.\n`;
-      resp += `\n¿Quieres profundizar en algún área? Puedo darte más detalles sobre ventas, stock, horarios o recomendaciones.`;
-      return resp;
+      const bestDay = salesByDay && salesByDay.length
+        ? salesByDay.reduce((a, b) => Number(a.revenue) > Number(b.revenue) ? a : b)
+        : null;
+      let resp = `Resumen${store} ${rl}:\n\n`;
+      resp += `📦 **${summary.completedOrders}** pedidos completados · **${convRate}%** conversión\n`;
+      resp += `💰 **$${fmt(summary.revenue)}** ingresos · **$${fmt(summary.avgOrder)}** ticket promedio\n`;
+      if (bestDay) resp += `📅 Mejor día: **${bestDay.date}** — $${fmt(bestDay.revenue)}\n`;
+      resp += summary.pendingOrders > 0
+        ? `\n⚠️ **${summary.pendingOrders} pedidos pendientes** sin procesar.`
+        : `\n✅ Sin pedidos pendientes.`;
+      resp += `\n\n¿Quieres profundizar en ventas, stock, horarios o recomendaciones?`;
+      const chart = salesByDay && salesByDay.length ? {
+        type: 'bar',
+        title: `Ventas por día ${rl}`,
+        labels: salesByDay.map(d => {
+          const dt = new Date(d.date);
+          return `${dt.getDate()}/${dt.getMonth()+1}`;
+        }),
+        values: salesByDay.map(d => Number(d.revenue)),
+        unit: '$',
+        color: '#22c55e',
+        highlight: salesByDay.indexOf(bestDay),
+      } : null;
+      return r(resp, chart);
     }
 
     case 'orders_summary': {
       const { summary, recentOrders } = data;
-      if (!summary) return `No pude obtener los pedidos. Intenta de nuevo.`;
+      if (!summary) return r(`No pude obtener los pedidos. Intenta de nuevo.`);
       const statusMap = { paid:'pagado', processed:'procesado', completed:'completado', approved:'aprobado', pending:'pendiente', cancelled:'cancelado', waiting:'esperando' };
-      let resp = `Estado de pedidos ${rl}:\n\n`;
+      let resp = `Pedidos ${rl}:\n\n`;
       resp += `✅ **Completados:** ${summary.completedOrders}\n`;
       resp += `⏳ **Pendientes:** ${summary.pendingOrders}\n`;
       resp += `❌ **Cancelados:** ${summary.cancelledOrders}\n`;
@@ -2435,37 +2530,33 @@ function leonBuildResponse(intent, range, data, storeName) {
       }
       if (summary.pendingOrders > 0)
         resp += `\n\n⚠️ Tienes ${summary.pendingOrders} pedidos sin procesar. Ve a **Pedidos** para gestionarlos.`;
-      return resp;
+      return r(resp);
     }
 
     case 'recommendations': {
       const { summary, worst, topProds, allProducts } = data;
-      if (!summary) return `No pude generar recomendaciones. Intenta de nuevo.`;
+      if (!summary) return r(`No pude generar recomendaciones. Intenta de nuevo.`);
       const zeroSales = worst ? worst.filter(p => Number(p.total_sold) === 0) : [];
       const outOfStock = allProducts ? allProducts.filter(p => !Number(p.unlimited_stock) && Number(p.stock) === 0) : [];
-      const convRate = summary.totalOrders > 0
-        ? ((summary.completedOrders / summary.totalOrders) * 100)
-        : 100;
-
+      const convRate = summary.totalOrders > 0 ? (summary.completedOrders / summary.totalOrders) * 100 : 100;
       let tips = [];
       if (outOfStock.length > 0)
         tips.push(`🔴 **Urgente — ${outOfStock.length} productos agotados.** Estás perdiendo ventas ahora mismo. Recarga el inventario.`);
       if (zeroSales.length > 0)
         tips.push(`💤 **${zeroSales.length} productos sin ventas esta semana** (${zeroSales.slice(0, 2).map(p => p.name).join(', ')}${zeroSales.length > 2 ? '...' : ''}). Crea promociones o quítalos del tótem.`);
       if (topProds && topProds.length)
-        tips.push(`⭐ **${topProds[0].name}** es tu producto estrella. Asegúrate de que esté siempre visible al inicio del tótem y con stock.`);
+        tips.push(`⭐ **${topProds[0].name}** es tu producto estrella. Mantenlo visible y con stock siempre.`);
       if (convRate < 70)
-        tips.push(`📉 Tu tasa de conversión es ${convRate.toFixed(0)}%. Revisa si hay algún problema con el proceso de pago o los precios.`);
+        tips.push(`📉 Tu tasa de conversión es ${convRate.toFixed(0)}%. Revisa el proceso de pago o los precios.`);
       if (Number(summary.avgOrder) < 8)
-        tips.push(`💡 Tu ticket promedio es bajo ($${fmt(summary.avgOrder)}). Prueba agregar sugeridos o combos en el tótem para aumentarlo.`);
+        tips.push(`💡 Ticket promedio bajo ($${fmt(summary.avgOrder)}). Prueba combos o sugeridos en el tótem.`);
       if (!tips.length)
-        tips.push(`✅ Tu negocio está funcionando bien esta semana. Sigue monitoreando y considera expandir tu catálogo si la demanda lo permite.`);
-
-      return `Mis recomendaciones para tu negocio esta semana:\n\n${tips.join('\n\n')}\n\n¿Quieres que profundice en alguna de estas áreas?`;
+        tips.push(`✅ Tu negocio está funcionando bien esta semana. Considera expandir tu catálogo si la demanda lo permite.`);
+      return r(`Recomendaciones para tu negocio esta semana:\n\n${tips.join('\n\n')}\n\n¿Quieres un plan de acción detallado para algún punto?`);
     }
 
     default:
-      return `Mmm, no entendí bien esa pregunta 🤔. Puedes preguntarme cosas como:\n\n• "¿Cuáles son los más vendidos esta semana?"\n• "¿Qué hago con los productos menos vendidos?"\n• "¿Cuánto ingresé este mes?"\n• "¿A qué hora vendo más?"\n• "¿Tengo productos sin stock?"\n• "Dame un resumen"\n• "¿Qué me recomiendas?"\n• "Análisis por categoría"\n\nIntenta con alguna de esas.`;
+      return r(`Mmm, no entendí bien esa pregunta 🤔. Puedes preguntarme:\n\n• "¿Cuáles son los más vendidos esta semana?"\n• "¿Qué hago con los productos menos vendidos?"\n• "¿Cuánto ingresé este mes?"\n• "¿A qué hora vendo más?"\n• "¿Tengo productos sin stock?"\n• "Dame un resumen"\n• "¿Qué me recomiendas?"\n• "Análisis por categoría"\n\nIntenta con alguna de esas.`);
   }
 }
 
@@ -2482,19 +2573,20 @@ app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
     const storeName = storeData?.name || null;
 
     const intent = leonDetectIntent(question, history);
-    // Si el usuario no especificó rango y hay contexto previo, heredarlo
-    const lastRange = history.find(m => m.range)?.range;
-    const range = leonDetectRange(question) !== 'week'
-      ? leonDetectRange(question)
-      : (lastRange || 'week');
+    const detectedRange = leonDetectRange(question);
+    const lastRange = history.slice().reverse().find(m => m.range && m.role === 'leon')?.range;
+    const isExplicitRange = /\b(hoy|semana|mes|año|ayer)\b/i.test(question);
+    const range = isExplicitRange ? detectedRange : (detectedRange !== 'week' ? detectedRange : 'week');
 
     let data = {};
 
     if (intent === 'greeting' || intent === 'thanks' || intent === 'unknown') {
-      // sin consultas a BD
+      // sin BD
     } else if (intent === 'top_products') {
       data.products = await leonGetTopProductsWithRevenue(storeId, range, 5);
     } else if (intent === 'worst_products') {
+      data.worst = await leonGetWorstProducts(storeId, range);
+    } else if (intent === 'action_plan') {
       data.worst = await leonGetWorstProducts(storeId, range);
     } else if (intent === 'revenue') {
       data.summary = await getAnalytics(storeId, range);
@@ -2507,7 +2599,7 @@ app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
       data.catRevenue = await leonGetCategoryRevenue(storeId, range);
     } else if (intent === 'summary') {
       data.summary = await getAnalytics(storeId, range);
-      data.topProds = await leonGetTopProductsWithRevenue(storeId, range, 1);
+      data.salesByDay = await getSalesByDay(storeId, range);
     } else if (intent === 'orders_summary') {
       data.summary = await getAnalytics(storeId, range);
       data.recentOrders = await getRecentOrders(storeId, 5);
@@ -2518,11 +2610,10 @@ app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
       data.allProducts = await leonGetAllProducts(storeId);
     } else {
       data.summary = await getAnalytics(storeId, range);
-      data.topProds = await leonGetTopProductsWithRevenue(storeId, range, 3);
     }
 
-    const answer = leonBuildResponse(intent, range, data, storeName);
-    res.json({ answer, intent, range });
+    const { text: answer, chart } = leonBuildResponse(intent, range, data, storeName);
+    res.json({ answer, chart: chart || null, intent, range });
   } catch (error) {
     console.error('León IA error:', error);
     res.status(500).json({ error: error.message });
