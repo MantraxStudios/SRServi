@@ -856,7 +856,7 @@ function Store() {
       try {
         const lastTerminalId = localStorage.getItem('srservi_last_terminal_id') || '';
         const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
-        if (!lastTerminalProvider || lastTerminalProvider === 'tuu') {
+        if (!lastTerminalProvider || lastTerminalProvider === 'tuu' || deliveryMode) {
           const tuuRes = await fetch(`/api/tuu/provider?store_id=${data.store.id}&device_uid=${deviceUid}&terminal_id=${lastTerminalId}`);
           const tuuData = await tuuRes.json();
           if (tuuData.available) {
