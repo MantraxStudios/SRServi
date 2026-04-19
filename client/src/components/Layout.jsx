@@ -272,6 +272,13 @@ function Layout() {
               </NavLink>
             </li>
             <li className="sidebar-section-label">Más</li>
+            <li>
+              <NavLink to="/admin/leon-ia" className="leon-ia-nav-link" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faRobot} />
+                <span>León IA</span>
+                <span className="leon-ia-nav-badge">IA</span>
+              </NavLink>
+            </li>
             <li className="dropdown-container">
               <button className={`dropdown-header${openDropdowns['admin'] ? ' open' : ''}`} onClick={() => toggleDropdown('admin')}>
                 <FontAwesomeIcon icon={faCog} />
@@ -280,12 +287,6 @@ function Layout() {
               </button>
               {openDropdowns['admin'] && (
                 <div className="dropdown-content">
-
-                  <NavLink to="/admin/leon-ia" className="dropdown-item leon-ia-nav-link" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faRobot} />
-                    <span>León IA</span>
-                    <span className="leon-ia-nav-badge">IA</span>
-                  </NavLink>
 
                   {/* Sub-dropdown: Operaciones */}
                   <div className="subdropdown-container">

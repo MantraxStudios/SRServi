@@ -33,7 +33,9 @@ import {
   faQrcode,
   faDownload,
   faInfoCircle,
-  faCamera
+  faCamera,
+  faEye,
+  faEyeSlash
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -198,6 +200,7 @@ function Store() {
   const [configurations, setConfigurations] = useState([]);
   const [selectedConfiguration, setSelectedConfiguration] = useState(null);
   const [editMode, setEditMode] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
@@ -2538,13 +2541,23 @@ function Store() {
               <FontAwesomeIcon icon={faPalette} /> Estilos
             </button>
           </div>
-          <button className="store-editor-done" onClick={() => setShowRestartConfirm(true)}>
-            Guardar
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              className="store-editor-done"
+              style={{ background: previewMode ? '#28a745' : 'rgba(255,255,255,0.1)', color: previewMode ? '#fff' : 'rgba(255,255,255,0.8)' }}
+              onClick={() => setPreviewMode(p => !p)}
+            >
+              <FontAwesomeIcon icon={previewMode ? faEyeSlash : faEye} />
+              {previewMode ? 'Salir Preview' : 'Preview'}
+            </button>
+            <button className="store-editor-done" onClick={() => setShowRestartConfirm(true)}>
+              Guardar
+            </button>
+          </div>
         </div>
       )}
 
-      {editMode && editorTab === 'complements' && (
+      {editMode && !previewMode && editorTab === 'complements' && (
         <div className="store-editor-complements">
           <div className="store-editor-comp-header">
             <span>Extras ({extras.length})</span>
@@ -2633,7 +2646,7 @@ function Store() {
         </div>
       )}
 
-      {editMode && editorTab === 'products' && (
+      {editMode && !previewMode && editorTab === 'products' && (
         <>
           <div className="store-edit-cat-filter-bar">
             <button
@@ -2720,7 +2733,7 @@ function Store() {
         </>
       )}
 
-      {editMode && editorTab === 'orders' && (
+      {editMode && !previewMode && editorTab === 'orders' && (
         <div className="store-editor-complements">
           <div className="store-editor-comp-header">
             <span>Pedidos en vivo ({liveOrders.length})</span>
