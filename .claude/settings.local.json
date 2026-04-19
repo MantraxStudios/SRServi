@@ -44,7 +44,9 @@
       "Bash(node --check index.js)",
       "Bash(npx tsc *)",
       "Bash(node -e ' *)",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "Bash(head -n 8869 /c/Users/tupap/OneDrive/Escritorio/SRServi/client/src/styles.css)",
+      "Bash(mv /tmp/styles_base.css /c/Users/tupap/OneDrive/Escritorio/SRServi/client/src/styles.css)"
     ]
   }
 }
