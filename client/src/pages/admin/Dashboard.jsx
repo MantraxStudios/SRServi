@@ -13,12 +13,14 @@ import {
   faDownload
 } from '@fortawesome/free-solid-svg-icons';
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useStore } from '../../components/Layout';
 
 function Dashboard() {
   const { user, token } = useAuth();
-  const { selectedStore } = useStore();
+  const { selectedStore, storeLoading } = useStore();
+  if (!storeLoading && selectedStore) return <Navigate to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`} replace />;
+  if (!storeLoading && !selectedStore) return <Navigate to="/admin/stores" replace />;
   const [stats, setStats] = useState({
     products: 0,
     categories: 0,
