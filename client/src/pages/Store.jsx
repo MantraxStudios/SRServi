@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { detectLanguage, t, LANGUAGES } from '../i18n';
@@ -368,6 +368,15 @@ function Store() {
     });
   }, [qrReturnRef]);
 
+  // Auto-download receipt for successful delivery QR/Haulmer payments
+  useEffect(() => {
+    if (!qrPaymentResult?.success || !deliveryMode) return;
+    const orderNum = qrPaymentResult.order?.order_number;
+    if (orderNum) {
+      downloadReceiptPng(orderNum, qrPaymentResult.amount);
+    }
+  }, [qrPaymentResult]);
+
   // Inactivity timer: only starts AFTER user interacts, then if idle → modal → reload
   useEffect(() => {
     if (editMode || deliveryMode) return;
@@ -480,6 +489,9 @@ function Store() {
   // Auto-close "gracias" modals after 20 seconds
   useEffect(() => {
     if (!paymentConfirmed) return;
+    if (deliveryMode && lastOrderNumber) {
+      downloadReceiptPng(lastOrderNumber, pendingOrderData?.order?.total);
+    }
     const autoCloseTimer = setTimeout(() => {
       setPaymentConfirmed(false);
       setPendingOrderData(null);
@@ -495,6 +507,9 @@ function Store() {
 
   useEffect(() => {
     if (!cashPaymentSuccess) return;
+    if (deliveryMode && lastOrderNumber) {
+      downloadReceiptPng(lastOrderNumber, pendingOrderData?.order?.total);
+    }
     const autoCloseTimer = setTimeout(() => {
       setLastOrderNumber(null);
       setCart([]);
@@ -504,6 +519,54 @@ function Store() {
     }, 20000);
     return () => clearTimeout(autoCloseTimer);
   }, [cashPaymentSuccess]);
+
+  const downloadReceiptPng = useCallback((orderNum, total) => {
+    const storeName = store?.store?.name || 'Tienda';
+    const canvas = document.createElement('canvas');
+    canvas.width = 600;
+    canvas.height = 800;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, 600, 800);
+
+    ctx.strokeStyle = '#D4AF37';
+    ctx.lineWidth = 12;
+    ctx.strokeRect(20, 20, 560, 760);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 28px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('COMPROBANTE DE PAGO', 300, 130);
+
+    ctx.fillStyle = '#D4AF37';
+    const orderText = '#' + orderNum;
+    let fontSize = 220;
+    ctx.font = `bold ${fontSize}px Arial`;
+    while (ctx.measureText(orderText).width > 480 && fontSize > 60) {
+      fontSize -= 10;
+      ctx.font = `bold ${fontSize}px Arial`;
+    }
+    ctx.fillText(orderText, 300, 420);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '24px Arial';
+    ctx.fillText(storeName, 300, 580);
+
+    if (total) {
+      ctx.font = 'bold 32px Arial';
+      ctx.fillText('$' + total, 300, 640);
+    }
+
+    ctx.fillStyle = '#22c55e';
+    ctx.font = 'bold 22px Arial';
+    ctx.fillText('PAGO CONFIRMADO', 300, 700);
+
+    const link = document.createElement('a');
+    link.download = `pedido-${orderNum}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }, [store]);
 
   // Fetch screensaver config (public, no auth needed)
   useEffect(() => {
@@ -2456,10 +2519,7 @@ function Store() {
             <button className={`store-editor-tab${editorTab === 'products' ? ' active' : ''}`} onClick={() => setEditorTab('products')}>
               <FontAwesomeIcon icon={faBox} /> Productos
             </button>
-            <button className={`store-editor-tab${editorTab === 'payment' ? ' active' : ''}`} onClick={() => setEditorTab('payment')}>
-              <FontAwesomeIcon icon={faCreditCard} /> Config. Pago
-            </button>
-            <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => setEditorTab('complements')}>
+<button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => setEditorTab('complements')}>
               <FontAwesomeIcon icon={faPlus} /> Complementos
             </button>
             <button
@@ -2481,100 +2541,6 @@ function Store() {
           <button className="store-editor-done" onClick={() => setShowRestartConfirm(true)}>
             Guardar
           </button>
-        </div>
-      )}
-
-      {editMode && editorTab === 'payment' && (
-        <div className="store-editor-complements">
-          <div className="store-editor-comp-header">
-            <span>Config. Pago — configuraciones de la tienda</span>
-          </div>
-          {configurations.length === 0 ? (
-            <span style={{ color: '#999', fontSize: '13px', padding: '8px' }}>Sin configuraciones</span>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {configurations.map(cfg => (
-                <div key={cfg.id} style={{ border: '1px solid #333', borderRadius: '10px', padding: '12px', background: '#111' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <strong style={{ color: '#D4AF37' }}>{cfg.name}{cfg.is_default ? ' · por defecto' : ''}</strong>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '13px', color: '#eee' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={!!cfg.accept_cash}
-                        onChange={async (e) => {
-                          const v = e.target.checked;
-                          setConfigurations(prev => prev.map(c => c.id === cfg.id ? { ...c, accept_cash: v } : c));
-                          try {
-                            await fetch(`/api/public/${code}/store-configurations/${cfg.id}`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ ...getAuthBody(), ...cfg, accept_cash: v })
-                            });
-                          } catch { /* ignore */ }
-                        }}
-                      /> Efectivo
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={!!cfg.accept_card}
-                        onChange={async (e) => {
-                          const v = e.target.checked;
-                          setConfigurations(prev => prev.map(c => c.id === cfg.id ? { ...c, accept_card: v } : c));
-                          try {
-                            await fetch(`/api/public/${code}/store-configurations/${cfg.id}`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ ...getAuthBody(), ...cfg, accept_card: v })
-                            });
-                          } catch { /* ignore */ }
-                        }}
-                      /> Tarjeta
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={!!cfg.allow_serve}
-                        onChange={async (e) => {
-                          const v = e.target.checked;
-                          setConfigurations(prev => prev.map(c => c.id === cfg.id ? { ...c, allow_serve: v } : c));
-                          try {
-                            await fetch(`/api/public/${code}/store-configurations/${cfg.id}`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ ...getAuthBody(), ...cfg, allow_serve: v })
-                            });
-                          } catch { /* ignore */ }
-                        }}
-                      /> Comer aquí
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={!!cfg.allow_takeout}
-                        onChange={async (e) => {
-                          const v = e.target.checked;
-                          setConfigurations(prev => prev.map(c => c.id === cfg.id ? { ...c, allow_takeout: v } : c));
-                          try {
-                            await fetch(`/api/public/${code}/store-configurations/${cfg.id}`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ ...getAuthBody(), ...cfg, allow_takeout: v })
-                            });
-                          } catch { /* ignore */ }
-                        }}
-                      /> Para llevar
-                    </label>
-                  </div>
-                </div>
-              ))}
-              <div style={{ color: '#888', fontSize: '12px', fontStyle: 'italic', padding: '6px 2px' }}>
-                Los cambios se guardan al instante. Reinicia el tótem para aplicarlos en la pantalla del cliente.
-              </div>
-            </div>
-          )}
         </div>
       )}
 
