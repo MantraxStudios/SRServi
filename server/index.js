@@ -294,7 +294,7 @@ app.post('/api/auth/register', async (req, res) => {
     const user = await createUser(username, email, password, business_name);
 
     const storeName = business_name || username;
-    await createStore(user.id, {
+    const newStore = await createStore(user.id, {
       name: storeName,
       primary_color: '#000000',
       secondary_color: '#FFFFFF',
@@ -303,6 +303,15 @@ app.post('/api/auth/register', async (req, res) => {
       currency_code: 'USD',
       currency_symbol: '$',
       currency_name: 'Dólar Estadounidense'
+    });
+    await createStoreConfiguration(newStore.id, {
+      name: 'Default Config',
+      accept_cash: true,
+      accept_card: true,
+      is_active: true,
+      is_default: true,
+      allow_serve: true,
+      allow_takeout: true
     });
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -966,16 +975,25 @@ app.post('/api/stores', authenticateToken, upload.single('logo'), async (req, re
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
     const logo_url = req.file ? `/uploads/${req.file.filename}` : null;
-    const store = await createStore(req.user.id, { 
-      name, 
-      primary_color, 
-      secondary_color, 
-      accent_color, 
-      header_color, 
-      currency_code, 
-      currency_symbol, 
+    const store = await createStore(req.user.id, {
+      name,
+      primary_color,
+      secondary_color,
+      accent_color,
+      header_color,
+      currency_code,
+      currency_symbol,
       currency_name,
       logo_url
+    });
+    await createStoreConfiguration(store.id, {
+      name: 'Default Config',
+      accept_cash: true,
+      accept_card: true,
+      is_active: true,
+      is_default: true,
+      allow_serve: true,
+      allow_takeout: true
     });
     res.json(store);
   } catch (error) {
