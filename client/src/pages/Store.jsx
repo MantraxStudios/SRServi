@@ -246,6 +246,7 @@ function Store() {
   const [prodNewExtras, setProdNewExtras] = useState([]);
   const [prodNewComplements, setProdNewComplements] = useState([]);
   const [showComplementsModal, setShowComplementsModal] = useState(false);
+  const [editCatFilter, setEditCatFilter] = useState('all');
   const [selectedIngredientIds, setSelectedIngredientIds] = useState([]);
   const [selectedExtraIds, setSelectedExtraIds] = useState([]);
   const [complementsTab, setComplementsTab] = useState('complements');
@@ -2677,6 +2678,24 @@ function Store() {
       )}
 
       {editMode && editorTab === 'products' && (
+        <>
+          <div className="store-edit-cat-filter-bar">
+            <button
+              className={`store-edit-cat-filter-btn${editCatFilter === 'all' ? ' active' : ''}`}
+              onClick={() => setEditCatFilter('all')}
+            >
+              Todas
+            </button>
+            {(store?.categories || []).map(cat => (
+              <button
+                key={cat.id}
+                className={`store-edit-cat-filter-btn${editCatFilter === cat.name ? ' active' : ''}`}
+                onClick={() => setEditCatFilter(cat.name)}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
         <DndContext
           sensors={editSensors}
           collisionDetection={closestCenter}
@@ -2689,6 +2708,7 @@ function Store() {
           >
             <div className="category-sections">
               {(() => {
+                if (editCatFilter !== 'all') return null;
                 const uncategorized = (store?.products || []).filter(p => !p.category_name);
                 return uncategorized.length > 0 ? (
                   <div className="products-grid" style={{ padding: '0 16px' }}>
@@ -2698,7 +2718,9 @@ function Store() {
                   </div>
                 ) : null;
               })()}
-              {Object.entries(groupedProducts).map(([category, products]) => (
+              {Object.entries(groupedProducts)
+                .filter(([category]) => editCatFilter === 'all' || editCatFilter === category)
+                .map(([category, products]) => (
                 <div key={category} className="category-section">
                   <div className="category-section-header">
                     <div className="flex items-center gap-3">
@@ -2739,6 +2761,7 @@ function Store() {
             })() : null}
           </DragOverlay>
         </DndContext>
+        </>
       )}
 
       {editMode && editorTab === 'orders' && (
