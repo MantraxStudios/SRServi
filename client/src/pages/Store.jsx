@@ -221,6 +221,8 @@ function Store() {
   });
   const [adminToken, setAdminToken] = useState(null);
   const [editorTab, setEditorTab] = useState('products');
+  const [liveOrders, setLiveOrders] = useState([]);
+  const [newOrderCount, setNewOrderCount] = useState(0);
   const [extras, setExtras] = useState([]);
   const [ingredients, setIngredients] = useState([]);
   const [complementModal, setComplementModal] = useState(null);
@@ -294,6 +296,16 @@ function Store() {
   useEffect(() => {
     adminTokenRef.current = adminToken;
   }, [adminToken]);
+
+  useEffect(() => {
+    if (!editMode || !store?.store?.id || !adminToken) return;
+    fetch(`/api/orders?store_id=${store.store.id}`, {
+      headers: { 'Authorization': `Bearer ${adminToken}` }
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setLiveOrders(Array.isArray(data) ? data.slice(0, 30) : []))
+      .catch(() => {});
+  }, [editMode, store?.store?.id, adminToken]);
 
   useEffect(() => {
     pendingOrderDataRef.current = pendingOrderData;
@@ -579,6 +591,11 @@ function Store() {
           products: prev.products.filter(p => p.id !== data.id)
         };
       });
+    });
+
+    socket.on('new_order', (order) => {
+      setLiveOrders(prev => [order, ...prev].slice(0, 30));
+      setNewOrderCount(prev => prev + 1);
     });
 
     socket.on('category_created', () => fetchStore());
@@ -2394,6 +2411,18 @@ function Store() {
             <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => setEditorTab('complements')}>
               <FontAwesomeIcon icon={faPlus} /> Complementos
             </button>
+            <button
+              className={`store-editor-tab${editorTab === 'orders' ? ' active' : ''}`}
+              onClick={() => { setEditorTab('orders'); setNewOrderCount(0); }}
+              style={{ position: 'relative' }}
+            >
+              <FontAwesomeIcon icon={faShoppingCart} /> Pedidos
+              {newOrderCount > 0 && (
+                <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#e53e3e', color: '#fff', borderRadius: '50%', fontSize: '10px', fontWeight: '700', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {newOrderCount > 9 ? '9+' : newOrderCount}
+                </span>
+              )}
+            </button>
             <button className="store-editor-tab" onClick={() => { loadStoreStyles(); setStyleEditorOpen(true); }}>
               <FontAwesomeIcon icon={faPalette} /> Estilos
             </button>
@@ -2598,11 +2627,36 @@ function Store() {
             items={(store?.products || []).map(p => p.id)}
             strategy={rectSortingStrategy}
           >
-            <div className="products-grid" style={{ padding: '0 16px' }}>
-              {(store?.products || []).map(product => (
-                <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} />
+            <div className="category-sections">
+              {(() => {
+                const uncategorized = (store?.products || []).filter(p => !p.category_name);
+                return uncategorized.length > 0 ? (
+                  <div className="products-grid" style={{ padding: '0 16px' }}>
+                    {uncategorized.map(product => (
+                      <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} />
+                    ))}
+                  </div>
+                ) : null;
+              })()}
+              {Object.entries(groupedProducts).map(([category, products]) => (
+                <div key={category} className="category-section">
+                  <div className="category-section-header">
+                    <div className="flex items-center gap-3">
+                      <FontAwesomeIcon icon={faTags} className="category-section-icon" />
+                      <h3 className="category-section-title">{category}</h3>
+                    </div>
+                    <div className="category-section-line" />
+                  </div>
+                  <div className="products-grid" style={{ padding: '0 16px' }}>
+                    {products.map(product => (
+                      <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} />
+                    ))}
+                  </div>
+                </div>
               ))}
-              {renderAddProductCard()}
+              <div style={{ padding: '0 16px' }}>
+                {renderAddProductCard()}
+              </div>
             </div>
           </SortableContext>
           <DragOverlay>
@@ -2625,6 +2679,50 @@ function Store() {
             })() : null}
           </DragOverlay>
         </DndContext>
+      )}
+
+      {editMode && editorTab === 'orders' && (
+        <div className="store-editor-complements">
+          <div className="store-editor-comp-header">
+            <span>Pedidos en vivo ({liveOrders.length})</span>
+          </div>
+          {liveOrders.length === 0 ? (
+            <span style={{ color: '#999', fontSize: '13px', padding: '12px 8px', display: 'block', textAlign: 'center' }}>Sin pedidos aún</span>
+          ) : (
+            liveOrders.map(order => (
+              <div key={order.id} style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: '10px', padding: '12px', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                  <div>
+                    <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--store-primary)' }}>
+                      {order.order_number ? `#${order.order_number}` : `Pedido ${order.id}`}
+                    </span>
+                    {order.table_number != null && (
+                      <span style={{ marginLeft: '8px', fontSize: '12px', color: '#666' }}>Mesa {order.table_number}</span>
+                    )}
+                  </div>
+                  <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--store-accent)' }}>
+                    {colors.currency.symbol}{Number(order.total).toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                  {order.payment_method === 'cash' ? '💵 Efectivo' : order.payment_method === 'card' ? '💳 Tarjeta' : order.payment_method}
+                  {' · '}
+                  {order.order_type === 'takeout' ? '🛍 Para llevar' : '🍽 Servir'}
+                </div>
+                {(order.items || []).length > 0 && (
+                  <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {(order.items || []).map((item, i) => (
+                      <div key={i} style={{ fontSize: '12px', color: '#444', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{item.quantity}× {item.product_name || item.name || `Producto ${item.product_id}`}</span>
+                        <span>{colors.currency.symbol}{Number(item.unit_price * item.quantity).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
       )}
 
       <PluginSlot name="store-footer" context={{ storeId: store?.store?.id, code }} />
@@ -4470,7 +4568,7 @@ function Store() {
             </p>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
-                onClick={() => { setShowRestartConfirm(false); setEditMode(false); }}
+                onClick={() => { setShowRestartConfirm(false); setEditMode(false); if (adminToken) navigate('/admin/dashboard'); }}
                 style={{ flex: 1, padding: '12px', border: '2px solid #e0e0e0', borderRadius: '8px', background: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
               >
                 No, solo salir
@@ -4488,6 +4586,7 @@ function Store() {
                   setRestartingSending(false);
                   setShowRestartConfirm(false);
                   setEditMode(false);
+                  if (adminToken) navigate('/admin/dashboard');
                 }}
                 disabled={restartingSending}
                 style={{ flex: 1, padding: '12px', border: 'none', borderRadius: '8px', background: 'var(--store-accent)', color: 'var(--store-primary)', fontSize: '14px', fontWeight: '700', cursor: 'pointer' }}
