@@ -2606,7 +2606,7 @@ function Store() {
       )}
 
 
-      {!editMode && activeCategory === 'all' && hasProducts && (
+      {(!editMode || previewMode) && activeCategory === 'all' && hasProducts && (
         <div className="category-sections">
           {(() => {
             const uncategorized = getSmartProducts().filter(p => !p.category_name);
@@ -2638,7 +2638,7 @@ function Store() {
         </div>
       )}
 
-      {!editMode && activeCategory !== 'all' && hasProducts && (
+      {(!editMode || previewMode) && activeCategory !== 'all' && hasProducts && (
         <div className="products-grid">
           {(store?.products || [])
             .filter(product => product.category_name === activeCategory)
