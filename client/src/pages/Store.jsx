@@ -2915,7 +2915,7 @@ function Store() {
             <div className="store-modal-body">
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))',
                 gap: '10px'
               }}>
                 {selectedProduct.ingredients.map(ingredient => {
@@ -3122,7 +3122,7 @@ function Store() {
             <div className="store-modal-body">
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))',
                 gap: '10px'
               }}>
                 {selectedProduct.extras.map(extra => {
@@ -3516,9 +3516,9 @@ function Store() {
                     if (deliveryMode) {
                       return (
                         <>
-                          {delivAllowsTuu && (
+                          {delivAllowsTuu && haulmerNative && (
                             <button
-                              onClick={() => processPayment('card')}
+                              onClick={() => processPayment('haulmer_native')}
                               className="btn btn-lg btn-full store-glow-pulse"
                               style={{ backgroundColor: 'var(--store-secondary)', color: 'var(--store-primary)', border: '3px solid #2563eb', borderRadius: '15px' }}
                             >
