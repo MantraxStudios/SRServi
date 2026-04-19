@@ -305,6 +305,7 @@ function Layout() {
                   onClick={(e) => {
                     if (isEditorMode) {
                       e.preventDefault();
+                      e.stopPropagation();
                       window.location.href = `/admin/editor/${selectedStore.code}?admin_edit=${token}`;
                     } else {
                       setMenuOpen(false);
