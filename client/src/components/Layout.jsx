@@ -248,13 +248,6 @@ function Layout() {
 
           <ul className="sidebar-nav" onClick={(e) => { if (!e.target.closest('.dropdown-item') && !e.target.closest('.dropdown-header') && !e.target.closest('.dropdown-container')) setMenuOpen(false); }}>
             <li className="sidebar-section-label">Principal</li>
-            <li>
-              <NavLink to="/admin/leon-ia" onClick={() => setMenuOpen(false)} className="leon-ia-nav-link">
-                <FontAwesomeIcon icon={faRobot} />
-                <span>León IA</span>
-                <span className="leon-ia-nav-badge">IA</span>
-              </NavLink>
-            </li>
             {selectedStore && (
               <li>
                 <NavLink
@@ -287,6 +280,12 @@ function Layout() {
               </button>
               {openDropdowns['admin'] && (
                 <div className="dropdown-content">
+
+                  <NavLink to="/admin/leon-ia" className="dropdown-item leon-ia-nav-link" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faRobot} />
+                    <span>León IA</span>
+                    <span className="leon-ia-nav-badge">IA</span>
+                  </NavLink>
 
                   {/* Sub-dropdown: Operaciones */}
                   <div className="subdropdown-container">
