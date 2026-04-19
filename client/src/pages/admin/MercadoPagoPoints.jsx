@@ -1014,6 +1014,125 @@ function MercadoPagoPoints() {
           </div>
         )}
 
+        {/* ==== PAGOS CON QR ==== */}
+        <div style={{ marginTop: '32px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h2 style={{ fontSize: '18px', color: '#111', margin: 0, fontWeight: '800' }}>Pagos con QR</h2>
+          <span style={{ fontSize: '11px', background: '#f0f0f0', color: '#666', padding: '2px 8px', borderRadius: '20px', fontWeight: '700' }}>pasarelas</span>
+        </div>
+        <p style={{ margin: '0 0 16px', fontSize: '12px', color: '#9ca3af' }}>Los clientes escanean un QR en pantalla para pagar desde su app.</p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+          {/* MercadoPago QR */}
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '36px', height: '36px', background: '#009EE315', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>💳</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '800', color: '#111' }}>MercadoPago QR</span>
+                  {terminals.length > 0 && (
+                    <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', background: '#d1fae5', color: '#065f46' }}>ACTIVO</span>
+                  )}
+                </div>
+                <p style={{ margin: 0, fontSize: '11px', color: '#9ca3af' }}>QR por transacción con la cuenta de MP</p>
+              </div>
+            </div>
+            <div style={{ padding: '16px 18px' }}>
+              {terminals.length > 0 ? (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#f0fdf4', borderRadius: '10px', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '16px' }}>✅</span>
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: '700', color: '#15803d' }}>Listo para cobrar con QR</div>
+                      <div style={{ fontSize: '11px', color: '#6b7280' }}>Usa las credenciales del terminal «{terminals[0]?.name}»</div>
+                    </div>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#9ca3af', lineHeight: '1.5' }}>
+                    Al pagar en la tienda, el cliente escanea el QR generado automáticamente con su app de Mercado Pago.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#fef9ee', borderRadius: '10px', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '16px' }}>⚠️</span>
+                    <div style={{ fontSize: '12px', color: '#92400e' }}>Agrega un terminal MercadoPago Point para habilitar QR.</div>
+                  </div>
+                  <button
+                    onClick={() => { setShowPosModal(true); setPosTab(0); }}
+                    style={{ width: '100%', padding: '9px', background: '#009EE3', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '800', fontSize: '12px', cursor: 'pointer' }}
+                  >
+                    + Configurar MercadoPago
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Haulmer QR */}
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '36px', height: '36px', background: '#00000010', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>🌐</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '800', color: '#111' }}>Haulmer QR</span>
+                  {haulmerLoaded && (
+                    <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', background: '#d1fae5', color: '#065f46' }}>ACTIVO</span>
+                  )}
+                </div>
+                <p style={{ margin: 0, fontSize: '11px', color: '#9ca3af' }}>Pasarela QR nativa — Chile (TUU)</p>
+              </div>
+            </div>
+            <div style={{ padding: '16px 18px' }}>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '4px' }}>Account ID *</label>
+                  <input
+                    type="text"
+                    value={haulmerAccountId}
+                    onChange={e => setHaulmerAccountId(e.target.value)}
+                    placeholder="Ej: 12345"
+                    style={{ width: '100%', padding: '8px 11px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'monospace' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '4px' }}>
+                    Secret Key *{haulmerLoaded && <span style={{ fontWeight: '400', color: '#aaa' }}> (vacío = mantener actual)</span>}
+                  </label>
+                  <input
+                    type="password"
+                    value={haulmerSecretKey}
+                    onChange={e => setHaulmerSecretKey(e.target.value)}
+                    placeholder={haulmerLoaded ? '••••••••••••••••' : 'Tu secret key de Haulmer'}
+                    style={{ width: '100%', padding: '8px 11px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'monospace' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '4px' }}>Nombre del comercio</label>
+                  <input
+                    type="text"
+                    value={haulmerCommerceName}
+                    onChange={e => setHaulmerCommerceName(e.target.value)}
+                    placeholder="Mi Tienda"
+                    style={{ width: '100%', padding: '8px 11px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+              {haulmerMsg && (
+                <div style={{ marginTop: '10px', padding: '8px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', background: haulmerMsg.includes('Error') || haulmerMsg.includes('requerido') ? '#fef2f2' : '#f0fdf4', color: haulmerMsg.includes('Error') || haulmerMsg.includes('requerido') ? '#dc2626' : '#16a34a' }}>
+                  {haulmerMsg}
+                </div>
+              )}
+              <button
+                onClick={saveHaulmerConfig}
+                disabled={haulmerSaving}
+                style={{ marginTop: '12px', width: '100%', padding: '9px', background: haulmerSaving ? '#ccc' : '#000', color: '#D4AF37', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '800', cursor: haulmerSaving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                <FontAwesomeIcon icon={haulmerSaving ? faSpinner : faSave} spin={haulmerSaving} />
+                {haulmerSaving ? 'Guardando...' : 'Guardar credenciales'}
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* ==== QR DE LA TIENDA ==== */}
         {selectedStore && (
           <div style={{ marginTop: '28px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '16px', overflow: 'hidden' }}>
@@ -1027,10 +1146,14 @@ function MercadoPagoPoints() {
                 <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#111' }}>QR de la tienda</h3>
                 <p style={{ margin: 0, fontSize: '12px', color: '#888' }}>Comparte el QR para que tus clientes accedan al menú digital</p>
               </div>
+              <div style={{ padding: '6px 12px', background: GOLD + '18', border: `1.5px solid ${GOLD}`, borderRadius: '8px', fontSize: '13px', fontWeight: '800', color: '#111' }}>
+                {selectedStore.name}
+              </div>
             </div>
             <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
               <div ref={qrRef} style={{ padding: '20px', background: '#fff', borderRadius: '16px', border: '2px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
                 <QRCodeCanvas
+                  key={selectedStore.id}
                   value={`${API}/store/${selectedStore.code}`}
                   size={200}
                   bgColor="#ffffff"
@@ -1039,8 +1162,10 @@ function MercadoPagoPoints() {
                   includeMargin={false}
                 />
               </div>
-              <div style={{ textAlign: 'center', maxWidth: '320px' }}>
-                <p style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '0.5px' }}>URL de la tienda</p>
+              <div style={{ textAlign: 'center', maxWidth: '340px' }}>
+                <p style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Tienda: <span style={{ color: '#111' }}>{selectedStore.name}</span>
+                </p>
                 <p style={{ margin: 0, fontSize: '12px', fontFamily: 'monospace', color: '#444', wordBreak: 'break-all', padding: '8px 12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                   {API}/store/{selectedStore.code}
                 </p>
