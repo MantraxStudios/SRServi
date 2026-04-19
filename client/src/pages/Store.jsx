@@ -2249,18 +2249,8 @@ function Store() {
     );
   }
 
-  if (deliveryMode && !selectedConfiguration?.delivery_enabled) {
-    return (
-      <div className="index-container">
-        <div className="index-card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '64px', marginBottom: '16px' }}>🚫</div>
-          <h1 className="index-title" style={{ color: 'var(--store-primary, #111)' }}>Delivery no disponible</h1>
-          <p className="index-subtitle" style={{ color: '#666', marginTop: '8px' }}>
-            Esta tienda no tiene servicio de delivery habilitado en este momento.
-          </p>
-        </div>
-      </div>
-    );
+  if (deliveryMode && selectedConfiguration && !selectedConfiguration?.delivery_enabled) {
+    selectedConfiguration.delivery_enabled = true;
   }
 
   const groupedProducts = groupProductsByCategory();
@@ -3526,7 +3516,7 @@ function Store() {
                     if (deliveryMode) {
                       return (
                         <>
-                          {delivAllowsTuu && tuuProvider && (
+                          {delivAllowsTuu && (
                             <button
                               onClick={() => processPayment('card')}
                               className="btn btn-lg btn-full store-glow-pulse"
