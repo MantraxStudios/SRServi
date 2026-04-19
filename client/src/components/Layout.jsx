@@ -55,10 +55,25 @@ function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [serverDown, setServerDown] = useState(false);
 
   useEffect(() => {
     if (isEditorMode) setMenuOpen(true);
   }, [isEditorMode]);
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch(API + '/api/health', { cache: 'no-store' });
+        setServerDown(!res.ok);
+      } catch {
+        setServerDown(true);
+      }
+    };
+    check();
+    const interval = setInterval(check, 10000);
+    return () => clearInterval(interval);
+  }, []);
   const [openDropdowns, setOpenDropdowns] = useState({});
 
   useEffect(() => {
@@ -170,6 +185,41 @@ function Layout() {
 
   return (
     <StoreContext.Provider value={{ selectedStore, stores, selectStore, fetchStores, colors, menuOpen, setMenuOpen }}>
+      {serverDown && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 99999,
+          background: '#000',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '28px'
+        }}>
+          <div style={{ position: 'relative', width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{
+              position: 'absolute', inset: 0, borderRadius: '50%',
+              border: '4px solid transparent',
+              borderTopColor: '#D4AF37',
+              animation: 'spin 1s linear infinite'
+            }} />
+            <div style={{
+              position: 'absolute', inset: '10px', borderRadius: '50%',
+              border: '3px solid transparent',
+              borderTopColor: 'rgba(212,175,55,0.4)',
+              animation: 'spin 1.6s linear infinite reverse'
+            }} />
+            <span style={{ fontSize: '28px' }}>⚙️</span>
+          </div>
+          <div style={{ textAlign: 'center', maxWidth: '360px', padding: '0 24px' }}>
+            <h2 style={{ margin: '0 0 10px', fontSize: '22px', fontWeight: '800', color: '#fff', fontFamily: 'sans-serif', letterSpacing: '0.3px' }}>
+              Servidor en Mantenimiento
+            </h2>
+            <p style={{ margin: '0 0 6px', fontSize: '15px', color: 'rgba(255,255,255,0.6)', fontFamily: 'sans-serif', lineHeight: 1.5 }}>
+              Esto desaparecerá automáticamente al reconectar comunicación con el servidor.
+            </p>
+            <p style={{ margin: 0, fontSize: '13px', color: '#D4AF37', fontFamily: 'sans-serif', fontWeight: '600', letterSpacing: '0.5px' }}>
+              Por favor espere...
+            </p>
+          </div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
       <div className="layout-wrapper" style={{
         '--store-primary': colors.primary,
         '--store-secondary': colors.secondary,

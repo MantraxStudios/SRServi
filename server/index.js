@@ -744,6 +744,8 @@ app.get('/api/public/lookup/:code', async (req, res) => {
   }
 });
 
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
 app.get('/api/public/:code', async (req, res) => {
   try {
     const { code } = req.params;
