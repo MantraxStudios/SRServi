@@ -302,7 +302,13 @@ function Layout() {
               <li>
                 <NavLink
                   to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`}
-                  onClick={() => setMenuOpen(false)}
+                  onClick={(e) => {
+                    setMenuOpen(false);
+                    if (isEditorMode) {
+                      e.preventDefault();
+                      window.location.href = `/admin/editor/${selectedStore.code}?admin_edit=${token}`;
+                    }
+                  }}
                 >
                   <FontAwesomeIcon icon={faBox} />
                   <span>Editor Totem</span>
