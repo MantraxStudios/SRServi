@@ -184,7 +184,7 @@ function Layout() {
   }
 
   return (
-    <StoreContext.Provider value={{ selectedStore, stores, selectStore, fetchStores, colors, menuOpen, setMenuOpen }}>
+    <StoreContext.Provider value={{ selectedStore, stores, selectStore, fetchStores, colors, menuOpen, setMenuOpen, storeLoading: loading }}>
       {serverDown && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 99999,

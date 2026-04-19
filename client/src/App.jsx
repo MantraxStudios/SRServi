@@ -115,9 +115,10 @@ function TvEntry() {
 }
 
 function AdminEditorRedirect() {
-  const { selectedStore } = useStore();
+  const { selectedStore, storeLoading } = useStore();
   const { token } = useAuth();
-  if (!selectedStore) return <Navigate to="/admin/dashboard" replace />;
+  if (storeLoading) return <div className="loading">Cargando...</div>;
+  if (!selectedStore) return <Navigate to="/admin/stores" replace />;
   return <Navigate to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`} replace />;
 }
 

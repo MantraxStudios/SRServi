@@ -4686,7 +4686,7 @@ function Store() {
                 {restartingSending ? 'Enviando...' : 'Reiniciar totems y regresar al editor'}
               </button>
               <button
-                onClick={() => { setShowRestartConfirm(false); setEditMode(false); if (adminToken) navigate('/admin/dashboard'); }}
+                onClick={() => { setShowRestartConfirm(false); setEditMode(false); if (adminToken) navigate('/admin'); }}
                 style={{ flex: 1, padding: '12px', border: '2px solid #e0e0e0', borderRadius: '8px', background: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
               >
                 Reiniciar totems y salir
