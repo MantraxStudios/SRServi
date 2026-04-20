@@ -169,6 +169,7 @@ function Layout() {
 
   const openDuplicateModal = (e, store) => {
     e.stopPropagation();
+    setStoreDropdownOpen(false);
     setDuplicateModal(store);
     setDuplicateName(`${store.name} (copia)`);
     setDuplicateError('');
@@ -636,33 +637,124 @@ function Layout() {
 
       {/* Duplicate store modal */}
       {duplicateModal && (
-        <div className="modal-overlay" onClick={() => !duplicateLoading && setDuplicateModal(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px' }}>
-            <div className="modal-header">
-              <h2><FontAwesomeIcon icon={faCopy} style={{ marginRight: '8px' }} />Duplicar Tienda</h2>
+        <div
+          onClick={() => !duplicateLoading && setDuplicateModal(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 99000,
+            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#111', border: '1px solid rgba(212,175,55,0.3)',
+              borderRadius: '16px', width: '100%', maxWidth: '420px',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.8)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              padding: '20px 24px 16px',
+              borderBottom: '1px solid rgba(212,175,55,0.15)',
+              display: 'flex', alignItems: 'center', gap: '10px'
+            }}>
+              <div style={{
+                width: '36px', height: '36px', borderRadius: '10px',
+                background: 'rgba(212,175,55,0.12)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                color: '#D4AF37', fontSize: '15px', flexShrink: 0
+              }}>
+                <FontAwesomeIcon icon={faCopy} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: '#fff', fontSize: '16px', fontWeight: '700' }}>Duplicar Tienda</h3>
+                <p style={{ margin: 0, color: '#888', fontSize: '12px' }}>"{duplicateModal.name}"</p>
+              </div>
+              {!duplicateLoading && (
+                <button
+                  onClick={() => setDuplicateModal(null)}
+                  style={{
+                    marginLeft: 'auto', background: 'none', border: 'none',
+                    color: '#666', cursor: 'pointer', fontSize: '18px',
+                    padding: '4px 8px', borderRadius: '6px', lineHeight: 1
+                  }}
+                >×</button>
+              )}
             </div>
-            <div className="modal-body">
-              <p style={{ marginBottom: '16px', color: '#666' }}>
-                Se duplicará <strong>"{duplicateModal.name}"</strong> con todos sus productos, categorías, ingredientes, extras y configuraciones.
+
+            {/* Body */}
+            <div style={{ padding: '20px 24px' }}>
+              <p style={{ margin: '0 0 16px', color: '#aaa', fontSize: '13px', lineHeight: '1.5' }}>
+                Se copiarán todos los productos, categorías, ingredientes, extras, complementos y configuraciones.
               </p>
-              <label className="form-label">Nombre de la nueva tienda</label>
+              <label style={{ display: 'block', color: '#ccc', fontSize: '12px', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Nombre de la nueva tienda
+              </label>
               <input
-                className="form-input"
                 type="text"
                 value={duplicateName}
                 onChange={e => { setDuplicateName(e.target.value); setDuplicateError(''); }}
-                placeholder="Nombre de la tienda duplicada"
+                placeholder="Ej: Mi Tienda (copia)"
                 autoFocus
                 onKeyDown={e => e.key === 'Enter' && !duplicateLoading && handleDuplicate()}
+                style={{
+                  width: '100%', padding: '10px 14px',
+                  background: '#1a1a1a', border: '1px solid rgba(212,175,55,0.25)',
+                  borderRadius: '8px', color: '#fff', fontSize: '14px',
+                  outline: 'none', boxSizing: 'border-box',
+                  transition: 'border-color 0.15s'
+                }}
+                onFocus={e => e.target.style.borderColor = '#D4AF37'}
+                onBlur={e => e.target.style.borderColor = 'rgba(212,175,55,0.25)'}
               />
-              {duplicateError && <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px' }}>{duplicateError}</p>}
+              {duplicateError && (
+                <p style={{ margin: '8px 0 0', color: '#f87171', fontSize: '12px' }}>{duplicateError}</p>
+              )}
             </div>
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setDuplicateModal(null)} disabled={duplicateLoading}>
+
+            {/* Footer */}
+            <div style={{
+              padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.06)',
+              display: 'flex', gap: '10px', justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={() => setDuplicateModal(null)}
+                disabled={duplicateLoading}
+                style={{
+                  padding: '9px 18px', borderRadius: '8px', fontSize: '13px',
+                  fontWeight: '600', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.12)',
+                  background: 'transparent', color: '#aaa',
+                  transition: 'all 0.15s', opacity: duplicateLoading ? 0.5 : 1
+                }}
+              >
                 Cancelar
               </button>
-              <button className="btn-primary" onClick={handleDuplicate} disabled={duplicateLoading || !duplicateName.trim()}>
-                {duplicateLoading ? 'Duplicando...' : 'Duplicar Tienda'}
+              <button
+                onClick={handleDuplicate}
+                disabled={duplicateLoading || !duplicateName.trim()}
+                style={{
+                  padding: '9px 20px', borderRadius: '8px', fontSize: '13px',
+                  fontWeight: '700', cursor: duplicateLoading || !duplicateName.trim() ? 'not-allowed' : 'pointer',
+                  border: 'none', background: duplicateLoading || !duplicateName.trim() ? 'rgba(212,175,55,0.3)' : '#D4AF37',
+                  color: '#000', transition: 'all 0.15s',
+                  display: 'flex', alignItems: 'center', gap: '8px'
+                }}
+              >
+                {duplicateLoading ? (
+                  <>
+                    <div style={{
+                      width: '13px', height: '13px', border: '2px solid rgba(0,0,0,0.3)',
+                      borderTopColor: '#000', borderRadius: '50%',
+                      animation: 'spin 0.7s linear infinite'
+                    }} />
+                    Duplicando...
+                  </>
+                ) : (
+                  <><FontAwesomeIcon icon={faCopy} />Duplicar</>
+                )}
               </button>
             </div>
           </div>
