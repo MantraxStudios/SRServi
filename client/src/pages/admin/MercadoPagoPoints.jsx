@@ -981,501 +981,505 @@ function MercadoPagoPoints() {
 
   const showMPSection = mpInCountry || terminals.length > 0;
 
+  const inputStyle = { width: '100%', padding: '10px 13px', border: '1.5px solid #e2e2e2', borderRadius: '9px', fontSize: '13px', boxSizing: 'border-box', outline: 'none', background: '#fafafa', transition: 'border-color 0.15s', color: '#111' };
+  const labelStyle = { display: 'block', fontSize: '11px', fontWeight: '700', color: '#666', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.4px' };
+  const sectionTitle = { fontSize: '11px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '0.8px', margin: '0 0 14px' };
+  const card = { background: '#fff', border: '1px solid #ebebeb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' };
+  const providerMeta = (p) => ({
+    mercadopago: { color: '#009EE3', bg: '#e8f6fd', emoji: '💳', name: 'Mercado Pago Point' },
+    tuu:         { color: '#7c3aed', bg: '#f5f0ff', emoji: '📱', name: 'Tuu POS' },
+    square:      { color: '#3b82f6', bg: '#eff6ff', emoji: '📟', name: 'Square Terminal' },
+    sumup:       { color: '#f59e0b', bg: '#fef3c7', emoji: '💰', name: 'Sumup' },
+  }[p] || { color: '#888', bg: '#f5f5f5', emoji: '💳', name: p });
+
   return (
     <>
       <header className="admin-header">
-        <h1><FontAwesomeIcon icon={faCashRegister} style={{ marginRight: '10px' }} />Vincular POS</h1>
-        {selectedStore && (
-          <span style={{ fontSize: '13px', color: '#888', marginLeft: '12px', fontWeight: '500' }}>
-            — configurando: <strong style={{ color: '#D4AF37' }}>{selectedStore.name}</strong>
-          </span>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <h1 style={{ margin: 0 }}><FontAwesomeIcon icon={faCashRegister} style={{ marginRight: '10px' }} />Vincular POS</h1>
+          {selectedStore && (
+            <span style={{ fontSize: '12px', color: '#888', fontWeight: '500', background: '#f5f5f5', padding: '4px 10px', borderRadius: '20px' }}>
+              {selectedStore.name}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => setShowCountryModal(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: '#f5f5f5', border: '1px solid #e5e5e5', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#333' }}
+        >
+          <span style={{ fontSize: '16px' }}>{activeCountry.flag}</span>
+          {activeCountry.name}
+        </button>
       </header>
 
-      <div className="admin-main">
+      <div className="admin-main" style={{ maxWidth: '860px' }}>
         {installMessage && (
           <div style={{
-            padding: '10px 14px', marginBottom: '14px', borderRadius: '10px', fontWeight: '600', fontSize: '13px',
+            padding: '10px 14px', marginBottom: '20px', borderRadius: '10px', fontWeight: '600', fontSize: '13px',
             backgroundColor: installMessage.includes('Error') ? '#fef2f2' : '#f0fdf4',
             color: installMessage.includes('Error') ? '#dc2626' : '#16a34a',
             border: `1px solid ${installMessage.includes('Error') ? '#fecaca' : '#bbf7d0'}`
           }}>{installMessage}</div>
         )}
 
-        {/* ==== HEADER TERMINALES ==== */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <div>
-            <h2 style={{ fontSize: '18px', color: '#111', margin: '0 0 4px', fontWeight: '800' }}>Terminales POS</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#888' }}>
-              <span style={{ fontSize: '15px' }}>{activeCountry.flag}</span>
-              <span>{activeCountry.name}</span>
-              <button onClick={() => setShowCountryModal(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GOLD, fontWeight: '700', fontSize: '11px', padding: '0 2px' }}>
-                Cambiar
-              </button>
-            </div>
-          </div>
-          <button onClick={() => { setShowPosModal(true); setPosTab(0); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
-            <FontAwesomeIcon icon={faPlus} /> Agregar Terminal
-          </button>
-        </div>
-
-        {/* ==== LISTA UNIFICADA DE POS ==== */}
-        {posList.length === 0 ? (
-          <div style={{ padding: '48px 24px', textAlign: 'center', border: '2px dashed #e5e7eb', borderRadius: '16px', background: '#fafafa' }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>💳</div>
-            <p style={{ color: '#6b7280', margin: '0 0 6px', fontSize: '15px', fontWeight: '700' }}>Sin terminales POS configurados</p>
-            <p style={{ color: '#bbb', margin: 0, fontSize: '12px' }}>Presiona "Agregar Terminal" para vincular tu primera terminal</p>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '14px' }}>
-            {posList.map(pos => {
-              const providerColor = pos.provider === 'mercadopago' ? '#009EE3' : pos.provider === 'tuu' ? '#9c27b0' : pos.provider === 'square' ? '#3b82f6' : '#f59e0b';
-              const providerEmoji = pos.provider === 'mercadopago' ? '💳' : pos.provider === 'tuu' ? '📱' : pos.provider === 'square' ? '📟' : '💰';
-              const providerName = pos.provider === 'mercadopago' ? 'Mercado Pago Point' : pos.provider === 'tuu' ? 'Tuu POS' : pos.provider === 'square' ? 'Square Terminal' : 'Sumup';
-              return (
-                <div key={pos.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', padding: '18px', position: 'relative', transition: 'box-shadow 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
-                  onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.1)'}
-                  onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'}
-                >
-                  <button onClick={() => deletePos(pos)} style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', fontSize: '16px', padding: '4px', lineHeight: 1 }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                    onMouseLeave={e => e.currentTarget.style.color = '#d1d5db'}
-                    title="Eliminar">✕</button>
-                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', background: providerColor + '15' }}>
-                    {providerEmoji}
-                  </div>
-                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#111', marginBottom: '3px', paddingRight: '20px' }}>{pos.name}</div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: '700', color: providerColor, background: providerColor + '12', padding: '3px 8px', borderRadius: '20px', marginBottom: '10px' }}>
-                    {providerName}
-                  </div>
-                  {pos.provider === 'tuu' ? (
-                    <div style={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'monospace' }}>Serial: {pos.serial || '—'}</div>
-                  ) : pos.provider === 'mercadopago' ? (
-                    <div style={{ fontSize: '11px', color: '#9ca3af', fontFamily: 'monospace' }}>ID: {pos.terminal_id ? pos.terminal_id.slice(0,14) + '…' : '—'}</div>
-                  ) : null}
-                  {pos.device_uid && (
-                    <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: pos.assigned ? '#22c55e' : '#fbbf24', flexShrink: 0 }}></div>
-                      <span style={{ fontSize: '11px', color: '#6b7280' }}>{pos.assigned ? pos.assigned_name : 'Sin asignar'}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ==== PAGOS CON QR ==== */}
-        <div style={{ marginTop: '32px', marginBottom: '16px' }}>
-          <h2 style={{ fontSize: '18px', color: '#111', margin: '0 0 4px', fontWeight: '800' }}>Pagos con QR</h2>
-          <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>El cliente escanea un QR en la pantalla y paga desde su celular.</p>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {/* MercadoPago QR */}
-          <div style={{ background: '#fff', border: '1.5px solid ' + (mpQrConfigured ? '#111' : '#e5e7eb'), borderRadius: '14px', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{ width: '42px', height: '42px', background: '#f5f5f5', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>💳</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                  <span style={{ fontSize: '15px', fontWeight: '800', color: '#111' }}>MercadoPago QR</span>
-                  {mpQrConfigured
-                    ? <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', background: '#111', color: '#fff' }}>ACTIVO</span>
-                    : <span style={{ fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px', background: '#f3f4f6', color: '#6b7280' }}>SIN CONFIGURAR</span>
-                  }
-                </div>
-                <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>
-                  {mpQrConfigured ? `Token: ${mpQrPreview}` : 'Necesitas tu Access Token de MercadoPago'}
-                </p>
-              </div>
-            </div>
-            <div style={{ padding: '0 20px 18px' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="password"
-                  value={mpQrToken}
-                  onChange={e => setMpQrToken(e.target.value)}
-                  placeholder={mpQrConfigured ? 'Nuevo token (dejar vacío para mantener)' : 'APP_USR-xxxx-xxxx-xxxx'}
-                  style={{ flex: 1, padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '13px', fontFamily: 'monospace', outline: 'none' }}
-                />
-                <button
-                  onClick={saveMpQrConfig}
-                  disabled={mpQrSaving || !mpQrToken.trim()}
-                  style={{ padding: '9px 18px', background: mpQrSaving || !mpQrToken.trim() ? '#e5e7eb' : '#111', color: mpQrSaving || !mpQrToken.trim() ? '#9ca3af' : '#fff', border: 'none', borderRadius: '8px', fontWeight: '800', fontSize: '13px', cursor: mpQrSaving || !mpQrToken.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
-                >
-                  {mpQrSaving ? 'Guardando...' : 'Guardar'}
-                </button>
-              </div>
-              {mpQrMsg && (
-                <p style={{ margin: '8px 0 0', fontSize: '12px', fontWeight: '700', color: mpQrMsg.includes('Error') ? '#dc2626' : '#16a34a' }}>{mpQrMsg}</p>
-              )}
-              <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#bbb' }}>
-                Obtén el token en <strong style={{ color: '#888' }}>mercadopago.com/developers</strong> → Tu app → Credenciales de producción
-              </p>
-            </div>
+        {/* ── TERMINALES VINCULADAS ── */}
+        <div style={{ marginBottom: '36px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+            <p style={sectionTitle}>Terminales vinculadas</p>
+            <button
+              onClick={() => { setShowPosModal(true); setPosTab(0); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 16px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: '9px', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}
+            >
+              <FontAwesomeIcon icon={faPlus} /> Agregar Terminal
+            </button>
           </div>
 
-          {/* Haulmer QR */}
-          <div style={{ background: '#fff', border: '1.5px solid ' + (haulmerLoaded ? '#111' : '#e5e7eb'), borderRadius: '14px', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{ width: '42px', height: '42px', background: '#f5f5f5', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>🌐</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                  <span style={{ fontSize: '15px', fontWeight: '800', color: '#111' }}>Haulmer QR</span>
-                  {haulmerLoaded
-                    ? <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '20px', background: '#111', color: '#fff' }}>ACTIVO</span>
-                    : <span style={{ fontSize: '10px', fontWeight: '600', padding: '2px 8px', borderRadius: '20px', background: '#f3f4f6', color: '#6b7280' }}>SIN CONFIGURAR</span>
-                  }
-                </div>
-                <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>Pasarela QR nativa — Chile (TUU / Haulmer)</p>
-              </div>
+          {posList.length === 0 ? (
+            <div style={{ padding: '40px 24px', textAlign: 'center', border: '2px dashed #e5e7eb', borderRadius: '14px', background: '#fafafa' }}>
+              <div style={{ fontSize: '36px', marginBottom: '10px' }}>🔌</div>
+              <p style={{ color: '#555', margin: '0 0 4px', fontSize: '14px', fontWeight: '700' }}>Sin terminales configuradas</p>
+              <p style={{ color: '#aaa', margin: 0, fontSize: '12px' }}>Presiona "Agregar Terminal" para vincular tu primera terminal de pago</p>
             </div>
-            <div style={{ padding: '0 20px 18px', display: 'grid', gap: '10px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '4px' }}>Account ID *</label>
-                  <input
-                    type="text"
-                    value={haulmerAccountId}
-                    onChange={e => setHaulmerAccountId(e.target.value)}
-                    placeholder="Ej: 12345"
-                    style={{ width: '100%', padding: '9px 11px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', fontFamily: 'monospace', outline: 'none' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '4px' }}>Nombre del comercio</label>
-                  <input
-                    type="text"
-                    value={haulmerCommerceName}
-                    onChange={e => setHaulmerCommerceName(e.target.value)}
-                    placeholder="Mi Tienda"
-                    style={{ width: '100%', padding: '9px 11px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '12px', boxSizing: 'border-box', outline: 'none' }}
-                  />
-                </div>
-              </div>
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: '700', color: '#555', display: 'block', marginBottom: '4px' }}>
-                  Secret Key *{haulmerLoaded && <span style={{ fontWeight: '400', color: '#bbb' }}> — dejar vacío para mantener el actual</span>}
-                </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="password"
-                    value={haulmerSecretKey}
-                    onChange={e => setHaulmerSecretKey(e.target.value)}
-                    placeholder={haulmerLoaded ? '••••••••••••••••' : 'Tu secret key de Haulmer'}
-                    style={{ flex: 1, padding: '9px 11px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', outline: 'none' }}
-                  />
-                  <button
-                    onClick={saveHaulmerConfig}
-                    disabled={haulmerSaving}
-                    style={{ padding: '9px 18px', background: haulmerSaving ? '#e5e7eb' : '#111', color: haulmerSaving ? '#9ca3af' : '#fff', border: 'none', borderRadius: '8px', fontWeight: '800', fontSize: '13px', cursor: haulmerSaving ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
+              {posList.map(pos => {
+                const meta = providerMeta(pos.provider);
+                return (
+                  <div key={pos.id} style={{ ...card, padding: '16px', position: 'relative', transition: 'box-shadow 0.18s, transform 0.18s' }}
+                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                   >
-                    {haulmerSaving ? 'Guardando...' : 'Guardar'}
+                    <button onClick={() => deletePos(pos)}
+                      style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#ddd', fontSize: '14px', padding: '3px 6px', borderRadius: '5px', lineHeight: 1, transition: 'color 0.15s, background 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fff0f0'; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = '#ddd'; e.currentTarget.style.background = 'none'; }}
+                      title="Eliminar">
+                      <FontAwesomeIcon icon={faTrash} style={{ fontSize: '11px' }} />
+                    </button>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', background: meta.bg, flexShrink: 0 }}>
+                      {meta.emoji}
+                    </div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#111', marginBottom: '4px', paddingRight: '22px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pos.name}</div>
+                    <span style={{ display: 'inline-block', fontSize: '10px', fontWeight: '700', color: meta.color, background: meta.bg, padding: '2px 8px', borderRadius: '20px', marginBottom: '10px' }}>
+                      {meta.name}
+                    </span>
+                    <div style={{ fontSize: '11px', color: '#aaa', fontFamily: 'monospace' }}>
+                      {pos.provider === 'tuu' ? `Serial: ${pos.serial || '—'}` : pos.provider === 'mercadopago' ? `ID: ${pos.terminal_id ? pos.terminal_id.slice(0,12) + '…' : '—'}` : pos.terminal_id ? pos.terminal_id.slice(0,14) + '…' : '—'}
+                    </div>
+                    {pos.device_uid && (
+                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: pos.assigned ? '#22c55e' : '#fbbf24', flexShrink: 0 }} />
+                        <span style={{ fontSize: '11px', color: '#888' }}>{pos.assigned ? pos.assigned_name : 'Sin asignar'}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── PAGOS CON QR ── */}
+        <div style={{ marginBottom: '36px' }}>
+          <p style={sectionTitle}>Pagos con QR</p>
+          <p style={{ margin: '-8px 0 16px', fontSize: '12px', color: '#aaa' }}>El cliente escanea un QR en pantalla y paga desde su celular.</p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px' }}>
+            {/* MercadoPago QR */}
+            <div style={{ ...card }}>
+              <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #f3f3f3' }}>
+                <div style={{ width: '38px', height: '38px', background: '#e8f6fd', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>💳</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#111' }}>MercadoPago QR</span>
+                    {mpQrConfigured
+                      ? <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '20px', background: '#dcfce7', color: '#15803d' }}>● Activo</span>
+                      : <span style={{ fontSize: '10px', fontWeight: '600', padding: '2px 7px', borderRadius: '20px', background: '#f3f4f6', color: '#9ca3af' }}>Sin configurar</span>
+                    }
+                  </div>
+                  <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {mpQrConfigured ? `Token: ${mpQrPreview}` : 'Access Token de MercadoPago Developers'}
+                  </p>
+                </div>
+              </div>
+              <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input type="password" value={mpQrToken} onChange={e => setMpQrToken(e.target.value)}
+                    placeholder={mpQrConfigured ? 'Nuevo token…' : 'APP_USR-xxxx-xxxx-xxxx'}
+                    style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: '12px' }}
+                    onFocus={e => e.target.style.borderColor = '#D4AF37'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                  />
+                  <button onClick={saveMpQrConfig} disabled={mpQrSaving || !mpQrToken.trim()}
+                    style={{ padding: '10px 16px', background: mpQrSaving || !mpQrToken.trim() ? '#f0f0f0' : '#111', color: mpQrSaving || !mpQrToken.trim() ? '#bbb' : '#fff', border: 'none', borderRadius: '9px', fontWeight: '700', fontSize: '12px', cursor: mpQrSaving || !mpQrToken.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                    {mpQrSaving ? 'Guardando…' : 'Guardar'}
                   </button>
                 </div>
+                {mpQrMsg && <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: mpQrMsg.includes('Error') ? '#dc2626' : '#16a34a' }}>{mpQrMsg}</p>}
+                <p style={{ margin: 0, fontSize: '11px', color: '#bbb' }}>Obtén el token en <strong style={{ color: '#888' }}>mercadopago.com/developers</strong> → Credenciales de producción</p>
               </div>
-              {haulmerMsg && (
-                <p style={{ margin: 0, fontSize: '12px', fontWeight: '700', color: haulmerMsg.includes('Error') || haulmerMsg.includes('requerido') ? '#dc2626' : '#16a34a' }}>{haulmerMsg}</p>
-              )}
+            </div>
+
+            {/* Haulmer QR */}
+            <div style={{ ...card }}>
+              <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #f3f3f3' }}>
+                <div style={{ width: '38px', height: '38px', background: '#f0fdf4', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>🌐</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: '700', color: '#111' }}>Haulmer QR</span>
+                    {haulmerLoaded
+                      ? <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '20px', background: '#dcfce7', color: '#15803d' }}>● Activo</span>
+                      : <span style={{ fontSize: '10px', fontWeight: '600', padding: '2px 7px', borderRadius: '20px', background: '#f3f4f6', color: '#9ca3af' }}>Sin configurar</span>
+                    }
+                  </div>
+                  <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#aaa' }}>Pasarela QR nativa — Chile (TUU / Haulmer)</p>
+                </div>
+              </div>
+              <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div>
+                    <label style={labelStyle}>Account ID *</label>
+                    <input type="text" value={haulmerAccountId} onChange={e => setHaulmerAccountId(e.target.value)}
+                      placeholder="Ej: 12345" style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
+                      onFocus={e => e.target.style.borderColor = '#D4AF37'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Nombre comercio</label>
+                    <input type="text" value={haulmerCommerceName} onChange={e => setHaulmerCommerceName(e.target.value)}
+                      placeholder="Mi Tienda" style={inputStyle}
+                      onFocus={e => e.target.style.borderColor = '#D4AF37'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Secret Key *{haulmerLoaded && <span style={{ fontWeight: '400', color: '#ccc', textTransform: 'none', letterSpacing: 0 }}> — vacío = mantener</span>}</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input type="password" value={haulmerSecretKey} onChange={e => setHaulmerSecretKey(e.target.value)}
+                      placeholder={haulmerLoaded ? '••••••••••' : 'Secret key de Haulmer'}
+                      style={{ ...inputStyle, flex: 1, fontFamily: 'monospace', fontSize: '12px' }}
+                      onFocus={e => e.target.style.borderColor = '#D4AF37'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                    />
+                    <button onClick={saveHaulmerConfig} disabled={haulmerSaving}
+                      style={{ padding: '10px 16px', background: haulmerSaving ? '#f0f0f0' : '#111', color: haulmerSaving ? '#bbb' : '#fff', border: 'none', borderRadius: '9px', fontWeight: '700', fontSize: '12px', cursor: haulmerSaving ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                      {haulmerSaving ? 'Guardando…' : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+                {haulmerMsg && <p style={{ margin: 0, fontSize: '12px', fontWeight: '600', color: haulmerMsg.includes('Error') || haulmerMsg.includes('requerido') ? '#dc2626' : '#16a34a' }}>{haulmerMsg}</p>}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* ==== QR DE LA TIENDA ==== */}
+        {/* ── QR DE LA TIENDA ── */}
         {selectedStore && (
-          <div style={{ marginTop: '28px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '16px', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', background: '#000', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px', fill: '#D4AF37' }}>
-                  <path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zm8-2h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 13h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zm8 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2-2h2v2h-2v-2zm-4 4h2v2h-2v-2zm2 0h2v2h-2v-2zm2-2h2v4h-2v-4zm-4-4h4v2h-4v-2z"/>
-                </svg>
-              </div>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#111' }}>QR de la tienda</h3>
-                <p style={{ margin: 0, fontSize: '12px', color: '#888' }}>Comparte el QR para que tus clientes accedan al menú digital</p>
-              </div>
-              <div style={{ padding: '6px 12px', background: GOLD + '18', border: `1.5px solid ${GOLD}`, borderRadius: '8px', fontSize: '13px', fontWeight: '800', color: '#111' }}>
-                {selectedStore.name}
-              </div>
-            </div>
-            <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-              <div ref={qrRef} style={{ padding: '20px', background: '#fff', borderRadius: '16px', border: '2px solid #e5e7eb', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+          <div style={{ marginBottom: '36px' }}>
+            <p style={sectionTitle}>QR de la tienda</p>
+            <div style={{ ...card, display: 'flex', alignItems: 'center', gap: '32px', padding: '24px 28px', flexWrap: 'wrap' }}>
+              <div ref={qrRef} style={{ padding: '16px', background: '#fff', borderRadius: '12px', border: '1px solid #e5e5e5', flexShrink: 0 }}>
                 <QRCodeCanvas
                   key={selectedStore.id}
                   value={`${API}/store/${selectedStore.code}?delivery=true`}
-                  size={200}
+                  size={140}
                   bgColor="#ffffff"
                   fgColor="#000000"
                   level="H"
                   includeMargin={false}
                 />
               </div>
-              <div style={{ textAlign: 'center', maxWidth: '340px' }}>
-                <p style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Tienda: <span style={{ color: '#111' }}>{selectedStore.name}</span>
-                </p>
-                <p style={{ margin: 0, fontSize: '12px', fontFamily: 'monospace', color: '#444', wordBreak: 'break-all', padding: '8px 12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '15px', fontWeight: '700', color: '#111' }}>{selectedStore.name}</span>
+                  <span style={{ fontSize: '10px', fontWeight: '700', color: '#D4AF37', background: 'rgba(212,175,55,0.12)', padding: '2px 8px', borderRadius: '20px', border: '1px solid rgba(212,175,55,0.3)' }}>
+                    {selectedStore.code}
+                  </span>
+                </div>
+                <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#888' }}>Comparte este QR para que tus clientes accedan al menú digital de tu tienda.</p>
+                <p style={{ margin: '0 0 16px', fontSize: '11px', fontFamily: 'monospace', color: '#666', background: '#f8f8f8', padding: '8px 11px', borderRadius: '7px', border: '1px solid #ebebeb', wordBreak: 'break-all' }}>
                   {API}/store/{selectedStore.code}?delivery=true
                 </p>
+                <button onClick={downloadQR}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', background: '#000', color: '#D4AF37', border: 'none', borderRadius: '9px', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
+                  <FontAwesomeIcon icon={faDownload} /> Descargar QR
+                </button>
               </div>
-              <button
-                onClick={downloadQR}
-                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 28px', background: '#000', color: '#D4AF37', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '14px', cursor: 'pointer', letterSpacing: '0.3px' }}
-              >
-                <FontAwesomeIcon icon={faDownload} />
-                Descargar QR
-              </button>
             </div>
           </div>
         )}
 
-        {/* ==== MODAL AGREGAR POS ==== */}
+        {/* ── MODAL AGREGAR POS ── */}
         {showPosModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-            <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '440px', maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-              <div style={{ padding: '20px 20px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#111' }}>Agregar Terminal</h3>
-                <button onClick={() => setShowPosModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: '#999', padding: '4px' }}>✕</button>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+            onClick={() => setShowPosModal(false)}>
+            <div style={{ background: '#fff', borderRadius: '18px', width: '100%', maxWidth: '460px', maxHeight: '92vh', overflow: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}
+              onClick={e => e.stopPropagation()}>
+              {/* Modal header */}
+              <div style={{ padding: '20px 22px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#111' }}>Agregar Terminal POS</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#aaa' }}>Selecciona tu proveedor y configura la terminal</p>
+                </div>
+                <button onClick={() => setShowPosModal(false)} style={{ background: '#f5f5f5', border: 'none', cursor: 'pointer', width: '30px', height: '30px', borderRadius: '50%', fontSize: '16px', color: '#777', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
               </div>
-              <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb', margin: '16px 0 0', padding: '0 20px' }}>
-                {['Mercado Pago', 'Tuu POS', 'Square', 'Sumup'].map((tab, i) => (
-                  <button key={tab} onClick={() => { setPosTab(i); setMpModalStep('token'); setMpModalDetected([]); setMpModalError(''); }} style={{ padding: '10px 14px', background: 'none', border: 'none', borderBottom: posTab === i ? '3px solid #D4AF37' : '3px solid transparent', cursor: 'pointer', fontSize: '13px', fontWeight: posTab === i ? '800' : '500', color: posTab === i ? '#111' : '#999', whiteSpace: 'nowrap' }}>{tab}</button>
-                ))}
+
+              {/* Provider selector */}
+              <div style={{ padding: '16px 22px', borderBottom: '1px solid #f0f0f0' }}>
+                <p style={{ ...sectionTitle, margin: '0 0 10px' }}>Proveedor</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                  {[
+                    { label: 'Mercado Pago', emoji: '💳', color: '#009EE3', bg: '#e8f6fd' },
+                    { label: 'Tuu POS',      emoji: '📱', color: '#7c3aed', bg: '#f5f0ff' },
+                    { label: 'Square',       emoji: '📟', color: '#3b82f6', bg: '#eff6ff' },
+                    { label: 'Sumup',        emoji: '💰', color: '#f59e0b', bg: '#fef3c7' },
+                  ].map((p, i) => (
+                    <button key={i} onClick={() => { setPosTab(i); setMpModalStep('token'); setMpModalDetected([]); setMpModalError(''); }}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: '10px 4px', background: posTab === i ? p.bg : '#fafafa', border: posTab === i ? `2px solid ${p.color}` : '2px solid transparent', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s', outline: 'none' }}>
+                      <span style={{ fontSize: '20px' }}>{p.emoji}</span>
+                      <span style={{ fontSize: '10px', fontWeight: '700', color: posTab === i ? p.color : '#888', textAlign: 'center', lineHeight: '1.2' }}>{p.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div style={{ padding: '20px' }}>
+
+              {/* Form area */}
+              <div style={{ padding: '20px 22px' }}>
                 {posTab === 0 && (
                   <div>
                     {mpModalStep === 'token' && (
-                      <div>
-                        <div style={{ marginBottom: '14px' }}>
-                          <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Access Token de Mercado Pago</label>
-                          <input value={mpNewToken} onChange={e => setMpNewToken(e.target.value)} placeholder="APP_USR-xxxxxxxx-xxxx-xxxx" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
-                          <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#888' }}>Obténlo en <a href="https://www.mercadopago.com/developers/panel/app" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>mercadopago.com/developers</a> → Tu app → Credenciales</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <div style={{ padding: '12px 14px', background: '#e8f6fd', borderRadius: '10px', fontSize: '12px', color: '#0369a1' }}>
+                          💡 Necesitas el <strong>Access Token de producción</strong> de tu app en MercadoPago Developers
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Access Token *</label>
+                          <input value={mpNewToken} onChange={e => setMpNewToken(e.target.value)}
+                            placeholder="APP_USR-xxxxxxxx-xxxx-xxxx"
+                            style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
+                            onFocus={e => e.target.style.borderColor = '#009EE3'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                          />
+                          <p style={{ margin: '5px 0 0', fontSize: '11px', color: '#aaa' }}>
+                            En <a href="https://www.mercadopago.com/developers/panel/app" target="_blank" rel="noreferrer" style={{ color: '#009EE3', textDecoration: 'none', fontWeight: '600' }}>mercadopago.com/developers</a> → Tu app → Credenciales de producción
+                          </p>
                         </div>
                         <button onClick={async () => {
                           if (!mpNewToken.trim()) { setMpModalError('Ingresa el Access Token'); return; }
-                          setMpModalDetecting(true); setMpModalError('');
-                          setMpModalDetected([]);
+                          setMpModalDetecting(true); setMpModalError(''); setMpModalDetected([]);
                           try {
-                            const res = await fetch(API + '/api/mercado-pago-detect-devices', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-                              body: JSON.stringify({ access_token: mpNewToken.trim() })
-                            });
+                            const res = await fetch(API + '/api/mercado-pago-detect-devices', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ access_token: mpNewToken.trim() }) });
                             const data = await res.json();
                             if (!res.ok) { setMpModalError(data.error || 'Error al consultar'); setMpModalDetecting(false); return; }
                             if (data.length === 0) { setMpModalError('No se encontraron dispositivos Point. Vincula tu Point en la app de Mercado Pago → Tu negocio → Sucursales y cajas'); setMpModalDetecting(false); return; }
-                            setMpModalDetected(data);
-                            setMpModalStep('select');
-                          } catch { setMpModalError('Error de conexion'); }
+                            setMpModalDetected(data); setMpModalStep('select');
+                          } catch { setMpModalError('Error de conexión'); }
                           setMpModalDetecting(false);
-                        }} disabled={mpModalDetecting} className="btn btn-primary" style={{ width: '100%', background: '#009ee3', color: '#fff', fontWeight: '800', padding: '12px', borderRadius: '10px', border: 'none', fontSize: '15px' }}>
-                          {mpModalDetecting ? <><FontAwesomeIcon icon={faSpinner} spin /> Buscando dispositivos...</> : 'Buscar dispositivos Point'}
+                        }} disabled={mpModalDetecting || !mpNewToken.trim()}
+                          style={{ width: '100%', padding: '11px', background: mpModalDetecting || !mpNewToken.trim() ? '#f0f0f0' : '#009EE3', color: mpModalDetecting || !mpNewToken.trim() ? '#bbb' : '#fff', border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '14px', cursor: mpModalDetecting || !mpNewToken.trim() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                          {mpModalDetecting ? <><FontAwesomeIcon icon={faSpinner} spin /> Buscando dispositivos…</> : <><FontAwesomeIcon icon={faSearch} /> Buscar dispositivos Point</>}
                         </button>
-                        {mpModalError && <p style={{ marginTop: '8px', fontSize: '12px', color: '#dc3545' }}>{mpModalError}</p>}
+                        {mpModalError && <p style={{ margin: 0, fontSize: '12px', color: '#dc3545', background: '#fff5f5', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fecaca' }}>{mpModalError}</p>}
                       </div>
                     )}
                     {mpModalStep === 'select' && (
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                          <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#111' }}>Selecciona tus dispositivos Point ({mpModalDetected.length})</p>
-                          <button onClick={() => { setMpModalStep('token'); setMpModalDetected([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#999' }}>← Cambiar token</button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#111' }}>{mpModalDetected.length} dispositivo{mpModalDetected.length !== 1 ? 's' : ''} encontrado{mpModalDetected.length !== 1 ? 's' : ''}</p>
+                          <button onClick={() => { setMpModalStep('token'); setMpModalDetected([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#009EE3', fontWeight: '600' }}>← Cambiar token</button>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '260px', overflowY: 'auto' }}>
                           {mpModalDetected.map(d => (
-                            <div key={d.id} style={{ padding: '12px', background: '#f9fafb', border: '2px solid #e5e7eb', borderRadius: '10px', cursor: 'pointer' }}
+                            <div key={d.id}
+                              style={{ padding: '12px 14px', background: '#fafafa', border: '1.5px solid #e5e7eb', borderRadius: '10px', cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s' }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = '#009EE3'; e.currentTarget.style.background = '#e8f6fd'; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = '#fafafa'; }}
                               onClick={async () => {
                                 setSavingMp(true);
                                 const name = d.external_pos_id ? d.external_pos_id.split('__')[0] : ('Point ' + d.id.slice(0,8));
-                                const res = await fetch(API + '/api/mercado-pago-terminals', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-                                  body: JSON.stringify({ name, mercadopago_access_token: mpNewToken.trim(), mercadopago_terminal_id: d.id, store_id: selectedStore.id })
-                                });
+                                const res = await fetch(API + '/api/mercado-pago-terminals', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ name, mercadopago_access_token: mpNewToken.trim(), mercadopago_terminal_id: d.id, store_id: selectedStore.id }) });
                                 if (res.ok) {
                                   const created = await res.json();
-                                  // Cerrar modal y mostrar banner de espera
-                                  setShowPosModal(false);
-                                  setMpBannerMode(null);
-                                  setMpWorkingBanner(true);
-                                  setMpNewToken('');
-                                  setMpModalStep('token');
-                                  setMpModalDetected([]);
-                                  // Configurar PDV en MercadoPago
+                                  setShowPosModal(false); setMpBannerMode(null); setMpWorkingBanner(true); setMpNewToken(''); setMpModalStep('token'); setMpModalDetected([]);
+                                  try { await fetch(API + `/api/mercado-pago-terminals/${created.id}/mode`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ device_id: d.id, operating_mode: 'PDV' }) }); } catch {}
                                   try {
-                                    await fetch(API + `/api/mercado-pago-terminals/${created.id}/mode`, {
-                                      method: 'PATCH',
-                                      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-                                      body: JSON.stringify({ device_id: d.id, operating_mode: 'PDV' })
-                                    });
-                                  } catch { /* ignore mode error */ }
-                                  // Consultar estado real del dispositivo en MP
-                                  try {
-                                    const statusRes = await fetch(API + `/api/mercado-pago-terminals/${created.id}/status`, {
-                                      headers: { Authorization: 'Bearer ' + token }
-                                    });
-                                    if (statusRes.ok) {
-                                      const statusData = await statusRes.json();
-                                      setMpBannerMode(statusData.operating_mode || 'UNDEFINED');
-                                    } else {
-                                      setMpBannerMode('PDV');
-                                    }
+                                    const statusRes = await fetch(API + `/api/mercado-pago-terminals/${created.id}/status`, { headers: { Authorization: 'Bearer ' + token } });
+                                    if (statusRes.ok) { const statusData = await statusRes.json(); setMpBannerMode(statusData.operating_mode || 'UNDEFINED'); } else { setMpBannerMode('PDV'); }
                                   } catch { setMpBannerMode('PDV'); }
-                                  refreshAll();
-                                  setTimeout(() => setMpWorkingBanner(false), 5000);
-                                } else {
-                                  const err = await res.json();
-                                  setMpModalError(err.error || 'Error al guardar');
-                                }
+                                  refreshAll(); setTimeout(() => setMpWorkingBanner(false), 5000);
+                                } else { const err = await res.json(); setMpModalError(err.error || 'Error al guardar'); }
                                 setSavingMp(false);
                               }}>
-                              <div style={{ fontSize: '14px', fontWeight: '800', color: '#111' }}>{d.external_pos_id ? d.external_pos_id.split('__')[0] : 'Point'}</div>
-                              <div style={{ fontSize: '11px', color: '#888', fontFamily: 'monospace' }}>{d.id}</div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#111' }}>{d.external_pos_id ? d.external_pos_id.split('__')[0] : 'Point'}</div>
+                                  <div style={{ fontSize: '10px', color: '#aaa', fontFamily: 'monospace', marginTop: '2px' }}>{d.id}</div>
+                                </div>
+                                <span style={{ fontSize: '10px', fontWeight: '700', padding: '3px 8px', borderRadius: '20px', background: d.operating_mode === 'PDV' ? '#dcfce7' : '#dbeafe', color: d.operating_mode === 'PDV' ? '#15803d' : '#1d4ed8' }}>{d.operating_mode}</span>
+                              </div>
                             </div>
                           ))}
                         </div>
-                        {savingMp && <p style={{ marginTop: '8px', textAlign: 'center', fontSize: '12px', color: '#666' }}><FontAwesomeIcon icon={faSpinner} spin /> Guardando...</p>}
-                        {mpModalError && <p style={{ marginTop: '8px', fontSize: '12px', color: '#dc3545' }}>{mpModalError}</p>}
+                        {savingMp && <p style={{ margin: 0, textAlign: 'center', fontSize: '12px', color: '#666' }}><FontAwesomeIcon icon={faSpinner} spin /> Guardando…</p>}
+                        {mpModalError && <p style={{ margin: 0, fontSize: '12px', color: '#dc3545', background: '#fff5f5', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fecaca' }}>{mpModalError}</p>}
                       </div>
                     )}
-                    {mpSaveMsg && <p style={{ marginTop: '10px', fontSize: '12px', color: mpSaveMsg.includes('Error') || mpSaveMsg.includes('error') ? '#dc3545' : '#155724' }}>{mpSaveMsg}</p>}
+                    {mpSaveMsg && <p style={{ marginTop: '10px', fontSize: '12px', color: mpSaveMsg.includes('Error') ? '#dc3545' : '#155724' }}>{mpSaveMsg}</p>}
                   </div>
                 )}
+
                 {posTab === 1 && (
-                  <div>
-                    <div style={{ marginBottom: '10px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>API Key de Tuu</label>
-                      <input value={tuuNewApiKey} onChange={e => setTuuNewApiKey(e.target.value)} placeholder="XXXX-XXXX-XXXX-XXXX" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' }} />
-                      <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>La obtienes en integrations.tuu.cl</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ padding: '11px 14px', background: '#f5f0ff', borderRadius: '10px', fontSize: '12px', color: '#7c3aed' }}>
+                      💡 Necesitas las credenciales de tu cuenta en <strong>integrations.tuu.cl</strong>
                     </div>
-                    <div style={{ marginBottom: '10px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Nombre del POS</label>
-                      <input value={tuuNewName} onChange={e => setTuuNewName(e.target.value)} placeholder="Ej: Mostrador" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' }} />
+                    <div>
+                      <label style={labelStyle}>API Key de Tuu *</label>
+                      <input value={tuuNewApiKey} onChange={e => setTuuNewApiKey(e.target.value)} placeholder="XXXX-XXXX-XXXX-XXXX"
+                        style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
+                        onFocus={e => e.target.style.borderColor = '#7c3aed'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                      />
                     </div>
-                    <div style={{ marginBottom: '10px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Serial del POS</label>
-                      <input value={tuuNewSerial} onChange={e => setTuuNewSerial(e.target.value)} placeholder="XXXXXXXXXX" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+                    <div>
+                      <label style={labelStyle}>Nombre del POS</label>
+                      <input value={tuuNewName} onChange={e => setTuuNewName(e.target.value)} placeholder="Ej: Mostrador principal" style={inputStyle}
+                        onFocus={e => e.target.style.borderColor = '#7c3aed'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Serial del POS</label>
+                      <input value={tuuNewSerial} onChange={e => setTuuNewSerial(e.target.value)} placeholder="XXXXXXXXXX"
+                        style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
+                        onFocus={e => e.target.style.borderColor = '#7c3aed'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                      />
                     </div>
                     <input type="hidden" value={tuuNewDeviceId} />
                     <input type="hidden" value={tuuNewDteType} />
-                    <button onClick={saveTuuPos} disabled={savingTuu} className="btn btn-primary" style={{ width: '100%', background: '#6a1b9a', color: '#fff', fontWeight: '800', padding: '12px', borderRadius: '10px', border: 'none', fontSize: '15px' }}>
-                      {savingTuu ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Guardar Tuu POS'}
+                    <button onClick={saveTuuPos} disabled={savingTuu}
+                      style={{ width: '100%', padding: '11px', background: savingTuu ? '#f0f0f0' : '#7c3aed', color: savingTuu ? '#bbb' : '#fff', border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '14px', cursor: savingTuu ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      {savingTuu ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando…</> : 'Guardar Tuu POS'}
                     </button>
-                    {tuuSaveMsg2 && <p style={{ marginTop: '8px', fontSize: '12px', color: tuuSaveMsg2.includes('Error') ? '#dc3545' : '#155724' }}>{tuuSaveMsg2}</p>}
+                    {tuuSaveMsg2 && <p style={{ margin: 0, fontSize: '12px', color: tuuSaveMsg2.includes('Error') ? '#dc3545' : '#155724' }}>{tuuSaveMsg2}</p>}
                   </div>
                 )}
+
                 {posTab === 2 && (
-                  <div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {/* Step 1: Config */}
-                    <div style={{ marginBottom: '14px', padding: '12px', background: squareStep !== 'config' ? '#f9fafb' : '#fff', border: '2px solid ' + (squareStep === 'config' ? '#000' : '#e5e7eb'), borderRadius: '10px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: squareStep === 'config' ? '12px' : '0', cursor: 'pointer' }} onClick={() => setSquareStep('config')}>
-                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#111' }}>① Credenciales Square</span>
-                        {squareCfgSaved && <span style={{ fontSize: '11px', color: '#155724', background: '#d4edda', padding: '2px 8px', borderRadius: '20px', fontWeight: '700' }}>✔ Guardado</span>}
+                    <div style={{ border: `1.5px solid ${squareStep === 'config' ? '#3b82f6' : '#ebebeb'}`, borderRadius: '11px', overflow: 'hidden', opacity: 1 }}>
+                      <div style={{ padding: '12px 14px', background: squareStep === 'config' ? '#eff6ff' : '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setSquareStep('config')}>
+                        <span style={{ fontSize: '13px', fontWeight: '700', color: squareStep === 'config' ? '#1d4ed8' : '#555' }}>① Credenciales Square</span>
+                        {squareCfgSaved && <span style={{ fontSize: '10px', color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '20px', fontWeight: '700' }}>✔ Guardado</span>}
                       </div>
                       {squareStep === 'config' && (
-                        <div>
-                          <div style={{ marginBottom: '10px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Access Token de Square</label>
-                            <input value={squareAccessToken} onChange={e => setSquareAccessToken(e.target.value)} placeholder="EAAl..." style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
-                            <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>Obtén el Production Token en <a href="https://developer.squareup.com" target="_blank" rel="noreferrer" style={{ color: '#0066cc' }}>developer.squareup.com</a> → tu app → Credentials</p>
+                        <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #e5e7eb' }}>
+                          <div>
+                            <label style={labelStyle}>Access Token de Square</label>
+                            <input value={squareAccessToken} onChange={e => setSquareAccessToken(e.target.value)} placeholder="EAAl..."
+                              style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
+                              onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                            />
+                            <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#aaa' }}>En <a href="https://developer.squareup.com" target="_blank" rel="noreferrer" style={{ color: '#3b82f6', fontWeight: '600', textDecoration: 'none' }}>developer.squareup.com</a> → tu app → Credentials</p>
                           </div>
-                          <div style={{ marginBottom: '12px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                              <label style={{ fontSize: '12px', fontWeight: '700', color: '#333' }}>Location ID</label>
-                              <button onClick={squareFetchLocations} disabled={squareLoadingLocs || !squareAccessToken.trim()} style={{ fontSize: '11px', color: '#0066cc', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                                {squareLoadingLocs ? '⏳ Cargando...' : '🔍 Buscar ubicaciones'}
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                              <label style={{ ...labelStyle, margin: 0 }}>Location ID</label>
+                              <button onClick={squareFetchLocations} disabled={squareLoadingLocs || !squareAccessToken.trim()}
+                                style={{ fontSize: '11px', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: '600' }}>
+                                {squareLoadingLocs ? '⏳ Cargando…' : '🔍 Buscar ubicaciones'}
                               </button>
                             </div>
                             {squareLocations.length > 0 ? (
-                              <select value={squareLocationId} onChange={e => setSquareLocationId(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' }}>
-                                <option value="">-- Selecciona una ubicación --</option>
+                              <select value={squareLocationId} onChange={e => setSquareLocationId(e.target.value)} style={{ ...inputStyle }}>
+                                <option value="">— Selecciona una ubicación —</option>
                                 {squareLocations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.id})</option>)}
                               </select>
                             ) : (
-                              <input value={squareLocationId} onChange={e => setSquareLocationId(e.target.value)} placeholder="Ej: LAR6T2M15K5BQ" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+                              <input value={squareLocationId} onChange={e => setSquareLocationId(e.target.value)} placeholder="Ej: LAR6T2M15K5BQ"
+                                style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
+                                onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                              />
                             )}
-                            <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>O ingrésalo manualmente desde tu Square Dashboard → Ajustes → Ubicaciones</p>
                           </div>
-                          <button onClick={async () => { await squareSaveConfig(); if (!squareError) setSquareStep('code'); }} disabled={squareSavingCfg || !squareAccessToken.trim() || !squareLocationId.trim()} style={{ width: '100%', padding: '11px', background: '#000', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '14px', cursor: 'pointer' }}>
-                            {squareSavingCfg ? '⏳ Guardando...' : 'Guardar y continuar →'}
+                          <button onClick={async () => { await squareSaveConfig(); if (!squareError) setSquareStep('code'); }}
+                            disabled={squareSavingCfg || !squareAccessToken.trim() || !squareLocationId.trim()}
+                            style={{ width: '100%', padding: '11px', background: squareSavingCfg || !squareAccessToken.trim() || !squareLocationId.trim() ? '#f0f0f0' : '#3b82f6', color: squareSavingCfg || !squareAccessToken.trim() || !squareLocationId.trim() ? '#bbb' : '#fff', border: 'none', borderRadius: '9px', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
+                            {squareSavingCfg ? '⏳ Guardando…' : 'Guardar y continuar →'}
                           </button>
                         </div>
                       )}
                     </div>
 
                     {/* Step 2: Generate code */}
-                    <div style={{ marginBottom: '14px', padding: '12px', background: squareStep !== 'code' ? '#f9fafb' : '#fff', border: '2px solid ' + (squareStep === 'code' ? '#000' : '#e5e7eb'), borderRadius: '10px', opacity: squareCfgSaved ? 1 : 0.5 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: squareStep === 'code' ? '12px' : '0', cursor: squareCfgSaved ? 'pointer' : 'default' }} onClick={() => squareCfgSaved && setSquareStep('code')}>
-                        <span style={{ fontSize: '13px', fontWeight: '800', color: '#111' }}>② Vincular terminal Square</span>
+                    <div style={{ border: `1.5px solid ${squareStep === 'code' ? '#3b82f6' : '#ebebeb'}`, borderRadius: '11px', overflow: 'hidden', opacity: squareCfgSaved ? 1 : 0.45 }}>
+                      <div style={{ padding: '12px 14px', background: squareStep === 'code' ? '#eff6ff' : '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: squareCfgSaved ? 'pointer' : 'default' }} onClick={() => squareCfgSaved && setSquareStep('code')}>
+                        <span style={{ fontSize: '13px', fontWeight: '700', color: squareStep === 'code' ? '#1d4ed8' : '#555' }}>② Vincular terminal Square</span>
                       </div>
                       {squareStep === 'code' && (
-                        <div>
-                          <div style={{ marginBottom: '10px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#333', display: 'block', marginBottom: '4px' }}>Nombre del terminal (opcional)</label>
-                            <input value={squareDeviceName} onChange={e => setSquareDeviceName(e.target.value)} placeholder="Ej: Caja Principal" style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: '10px', fontSize: '14px', boxSizing: 'border-box' }} />
+                        <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #e5e7eb' }}>
+                          <div>
+                            <label style={labelStyle}>Nombre del terminal (opcional)</label>
+                            <input value={squareDeviceName} onChange={e => setSquareDeviceName(e.target.value)} placeholder="Ej: Caja Principal"
+                              style={inputStyle} onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                            />
                           </div>
-                          <button onClick={squareGenerateCode} disabled={squareGenerating || squarePolling} style={{ width: '100%', padding: '12px', background: '#000', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '800', fontSize: '15px', cursor: 'pointer', marginBottom: '14px' }}>
-                            {squareGenerating ? '⏳ Generando...' : '🔲 Generar código de inicio de sesión'}
+                          <button onClick={squareGenerateCode} disabled={squareGenerating || squarePolling}
+                            style={{ width: '100%', padding: '11px', background: squareGenerating || squarePolling ? '#f0f0f0' : '#3b82f6', color: squareGenerating || squarePolling ? '#bbb' : '#fff', border: 'none', borderRadius: '9px', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
+                            {squareGenerating ? '⏳ Generando…' : '🔲 Generar código de inicio de sesión'}
                           </button>
                           {squareCode && (
-                            <div style={{ background: '#fefce8', border: '2px solid #D4AF37', borderRadius: '12px', padding: '16px', textAlign: 'center', marginBottom: '12px' }}>
-                              <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#666' }}>Ingresa este código en el terminal Square:</p>
-                              <div style={{ fontSize: '36px', fontWeight: '900', letterSpacing: '6px', color: '#000', fontFamily: 'monospace' }}>{squareCode}</div>
+                            <div style={{ background: '#fffbeb', border: '1.5px solid #D4AF37', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                              <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#92400e' }}>Ingresa este código en el terminal Square:</p>
+                              <div style={{ fontSize: '32px', fontWeight: '900', letterSpacing: '6px', color: '#000', fontFamily: 'monospace' }}>{squareCode}</div>
                               <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#888' }}>Terminal → Iniciar sesión → Usar código de dispositivo</p>
-                              {squareCodeExpiry && <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#999' }}>Expira: {new Date(squareCodeExpiry).toLocaleTimeString('es-CL')}</p>}
+                              {squareCodeExpiry && <p style={{ margin: '4px 0 0', fontSize: '10px', color: '#aaa' }}>Expira: {new Date(squareCodeExpiry).toLocaleTimeString('es-CL')}</p>}
                             </div>
                           )}
                           {squarePolling && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#f0f9ff', borderRadius: '8px', fontSize: '12px', color: '#0369a1' }}>
-                              <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span>
-                              {squarePollMsg || 'Esperando emparejamiento...'}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#eff6ff', borderRadius: '8px', fontSize: '12px', color: '#1d4ed8' }}>
+                              <FontAwesomeIcon icon={faSpinner} spin /> {squarePollMsg || 'Esperando emparejamiento…'}
                             </div>
-                          )}
-                          {squareStep === 'paired' && (
-                            <div style={{ padding: '10px 12px', background: '#d1fae5', borderRadius: '8px', fontSize: '13px', color: '#065f46', fontWeight: '700' }}>{squarePollMsg}</div>
                           )}
                         </div>
                       )}
                     </div>
 
-                    {/* Paired success */}
                     {squareStep === 'paired' && (
-                      <div style={{ padding: '12px 14px', background: '#d1fae5', border: '2px solid #6ee7b7', borderRadius: '10px', fontSize: '13px', color: '#065f46', fontWeight: '700', textAlign: 'center' }}>
+                      <div style={{ padding: '12px 14px', background: '#dcfce7', border: '1.5px solid #86efac', borderRadius: '10px', fontSize: '13px', color: '#15803d', fontWeight: '700', textAlign: 'center' }}>
                         ✔ {squarePollMsg || 'Terminal vinculado exitosamente'}
                         <div style={{ marginTop: '8px' }}>
-                          <button onClick={() => { setSquareStep('code'); setSquareCode(''); setSquareCodeId(''); setSquarePollMsg(''); }} style={{ fontSize: '12px', color: '#0369a1', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>+ Vincular otro terminal</button>
+                          <button onClick={() => { setSquareStep('code'); setSquareCode(''); setSquareCodeId(''); setSquarePollMsg(''); }} style={{ fontSize: '12px', color: '#1d4ed8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>+ Vincular otro terminal</button>
                         </div>
                       </div>
                     )}
 
-                    {/* Devices list */}
                     {squareDevices.length > 0 && (
-                      <div style={{ marginTop: '14px' }}>
-                        <p style={{ fontSize: '12px', fontWeight: '700', color: '#555', margin: '0 0 6px' }}>Terminales Square vinculados:</p>
+                      <div>
+                        <p style={{ ...sectionTitle, margin: '4px 0 8px' }}>Terminales vinculadas</p>
                         {squareDevices.map(d => (
-                          <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', marginBottom: '4px' }}>
+                          <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: '#fafafa', border: '1px solid #ebebeb', borderRadius: '8px', marginBottom: '6px' }}>
                             <div>
                               <span style={{ fontSize: '13px', fontWeight: '700', color: '#111' }}>{d.name}</span>
-                              <span style={{ fontSize: '11px', color: '#888', marginLeft: '8px', fontFamily: 'monospace' }}>{d.device_id?.slice(0, 16)}...</span>
+                              <span style={{ fontSize: '10px', color: '#aaa', marginLeft: '8px', fontFamily: 'monospace' }}>{d.device_id?.slice(0, 14)}…</span>
                             </div>
-                            <button onClick={async () => { if (!confirm('¿Desvincular ' + d.name + '?')) return; await fetch(API + '/api/square/devices/' + d.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } }); refreshAll(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545', fontSize: '16px' }}>🗑</button>
+                            <button onClick={async () => { if (!confirm('¿Desvincular ' + d.name + '?')) return; await fetch(API + '/api/square/devices/' + d.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } }); refreshAll(); }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ddd', padding: '3px 6px', borderRadius: '5px', transition: 'color 0.15s' }}
+                              onMouseEnter={e => e.currentTarget.style.color = '#ef4444'} onMouseLeave={e => e.currentTarget.style.color = '#ddd'}>
+                              <FontAwesomeIcon icon={faTrash} style={{ fontSize: '12px' }} />
+                            </button>
                           </div>
                         ))}
                       </div>
                     )}
 
-                    {squareError && <p style={{ marginTop: '10px', fontSize: '12px', color: '#dc3545', fontWeight: '700' }}>⚠ {squareError}</p>}
+                    {squareError && <p style={{ margin: 0, fontSize: '12px', color: '#dc3545', background: '#fff5f5', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fecaca' }}>⚠ {squareError}</p>}
                   </div>
                 )}
+
                 {posTab === 3 && (
-                  <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                    <div style={{ fontSize: '36px', marginBottom: '12px' }}>📱</div>
-                    <p style={{ color: '#666', fontSize: '13px' }}>Sumup próximamente</p>
-                    <p style={{ color: '#bbb', fontSize: '12px' }}>Las credenciales se configuran desde <a href="#" style={{ color: '#0066cc' }}>sumup.com</a></p>
+                  <div style={{ textAlign: 'center', padding: '28px 0' }}>
+                    <div style={{ width: '56px', height: '56px', background: '#fef3c7', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px', margin: '0 auto 14px' }}>💰</div>
+                    <p style={{ color: '#333', fontSize: '14px', fontWeight: '700', margin: '0 0 6px' }}>Sumup — Próximamente</p>
+                    <p style={{ color: '#bbb', fontSize: '12px', margin: 0 }}>Estamos trabajando en la integración con Sumup</p>
                   </div>
                 )}
-                {posTab === 0 && mpSaveMsg && <p style={{ marginTop: '10px', fontSize: '12px', color: mpSaveMsg.includes('Error') ? '#dc3545' : '#155724' }}>{mpSaveMsg}</p>}
-                {posTab === 1 && tuuSaveMsg2 && <p style={{ marginTop: '10px', fontSize: '12px', color: tuuSaveMsg2.includes('Error') ? '#dc3545' : '#155724' }}>{tuuSaveMsg2}</p>}
               </div>
             </div>
           </div>
