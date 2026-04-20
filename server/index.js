@@ -121,6 +121,7 @@ import {
   getUserByEmail,
   setVerificationCode,
   markEmailVerified,
+  updateUserHeartbeat,
   pool
 } from './database.js';
 
@@ -745,6 +746,26 @@ app.get('/api/public/lookup/:code', async (req, res) => {
 });
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+app.post('/api/auth/heartbeat', authenticateToken, async (req, res) => {
+  try {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '';
+    let country = null;
+    if (ip && ip !== '::1' && ip !== '127.0.0.1') {
+      try {
+        const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=country`);
+        if (geoRes.ok) {
+          const geo = await geoRes.json();
+          if (geo.country) country = geo.country;
+        }
+      } catch {}
+    }
+    await updateUserHeartbeat(req.user.id, country);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.get('/api/public/:code', async (req, res) => {
   try {
@@ -6095,8 +6116,7 @@ async function startServer() {
             const [storeRows2] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [parseInt(store_id)]);
             if (!storeRows2[0]) return res.status(400).json({ error: 'Tienda no encontrada' });
             const sqUserId = storeRows2[0].user_id;
-            const [sqCfgRows] = await pool.execute('SELECT * FROM square_config WHERE user_id = ?', [sqUserId]);
-            const sqCfg = sqCfgRows[0];
+            const sqCfg = await squareGetConfig(sqUserId, parseInt(store_id));
             if (!sqCfg?.access_token) return res.status(400).json({ error: 'Square no configurado. Ve al admin > Vincular POS > Square.' });
 
             // Find device
@@ -6262,10 +6282,10 @@ async function startServer() {
               const [storeRows] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [storeId]);
               const userId = storeRows[0]?.user_id;
               if (userId) {
-                const [cfgRows] = await pool.execute('SELECT access_token FROM square_config WHERE user_id = ?', [userId]);
-                if (cfgRows[0]?.access_token) {
+                const cfg = await squareGetConfig(userId, storeId);
+                if (cfg?.access_token) {
                   const pollRes = await fetch('https://connect.squareup.com/v2/terminals/checkouts/' + encodeURIComponent(key), {
-                    headers: { 'Authorization': 'Bearer ' + cfgRows[0].access_token, 'Square-Version': '2026-01-22' }
+                    headers: { 'Authorization': 'Bearer ' + cfg.access_token, 'Square-Version': '2026-01-22' }
                   });
                   const pollData = await pollRes.json();
                   const freshStatus = pollData?.checkout?.status || 'UNKNOWN';
@@ -6306,11 +6326,11 @@ async function startServer() {
           const [storeRows] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [storeId]);
           const userId = storeRows[0]?.user_id;
           if (userId) {
-            const [cfgRows] = await pool.execute('SELECT access_token FROM square_config WHERE user_id = ?', [userId]);
-            if (cfgRows[0]?.access_token) {
+            const cfg = await squareGetConfig(userId, sqRows[0].store_id);
+            if (cfg?.access_token) {
               await fetch('https://connect.squareup.com/v2/terminals/checkouts/' + encodeURIComponent(key) + '/cancel', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfgRows[0].access_token, 'Square-Version': '2026-01-22' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.access_token, 'Square-Version': '2026-01-22' },
                 body: '{}'
               });
             }
@@ -6393,12 +6413,18 @@ async function startServer() {
       try {
         await pool.execute(`CREATE TABLE IF NOT EXISTS square_config (
           id INT AUTO_INCREMENT PRIMARY KEY,
-          user_id INT NOT NULL UNIQUE,
+          user_id INT NOT NULL,
+          store_id INT DEFAULT NULL,
           access_token TEXT NOT NULL,
           location_id VARCHAR(255) NOT NULL DEFAULT '',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )`);
+        // Migration: add store_id if missing
+        try {
+          await pool.execute('ALTER TABLE square_config ADD COLUMN store_id INT DEFAULT NULL');
+          console.log('✅ Columna store_id agregada a square_config');
+        } catch (e) { if (!e.message.includes('Duplicate column')) console.error('[Square] migration:', e.message); }
         await pool.execute(`CREATE TABLE IF NOT EXISTS square_devices (
           id INT AUTO_INCREMENT PRIMARY KEY,
           user_id INT NOT NULL,
@@ -6421,9 +6447,13 @@ async function startServer() {
       return decoded.id;
     }
 
-    // Helper: get Square config for user
-    async function squareGetConfig(userId) {
-      const [rows] = await pool.execute('SELECT * FROM square_config WHERE user_id = ?', [userId]);
+    // Helper: get Square config by store_id first, fallback to user global
+    async function squareGetConfig(userId, storeId = null) {
+      if (storeId) {
+        const [rows] = await pool.execute('SELECT * FROM square_config WHERE store_id = ? LIMIT 1', [storeId]);
+        if (rows[0]) return rows[0];
+      }
+      const [rows] = await pool.execute('SELECT * FROM square_config WHERE user_id = ? AND store_id IS NULL LIMIT 1', [userId]);
       return rows[0] || null;
     }
 
@@ -6431,7 +6461,8 @@ async function startServer() {
     app.get('/api/square/config', async (req, res) => {
       try {
         const userId = await squareGetUserId(req);
-        const cfg = await squareGetConfig(userId);
+        const storeId = req.query.store_id ? parseInt(req.query.store_id) : null;
+        const cfg = await squareGetConfig(userId, storeId);
         res.json(cfg ? { access_token: cfg.access_token ? '***' : '', location_id: cfg.location_id, hasToken: !!cfg.access_token } : { access_token: '', location_id: '', hasToken: false });
       } catch (e) { res.status(401).json({ error: e.message }); }
     });
@@ -6440,12 +6471,20 @@ async function startServer() {
     app.post('/api/square/config', async (req, res) => {
       try {
         const userId = await squareGetUserId(req);
-        const { access_token, location_id } = req.body;
+        const { access_token, location_id, store_id } = req.body;
         if (!access_token) return res.status(400).json({ error: 'access_token requerido' });
-        await pool.execute(
-          'INSERT INTO square_config (user_id, access_token, location_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE access_token = ?, location_id = ?',
-          [userId, access_token, location_id || '', access_token, location_id || '']
+        const sid = store_id ? parseInt(store_id) : null;
+        const [existing] = await pool.execute(
+          sid ? 'SELECT id FROM square_config WHERE store_id = ? LIMIT 1' : 'SELECT id FROM square_config WHERE user_id = ? AND store_id IS NULL LIMIT 1',
+          [sid || userId]
         );
+        if (existing[0]) {
+          await pool.execute('UPDATE square_config SET access_token=?, location_id=?, updated_at=NOW() WHERE id=?',
+            [access_token, location_id || '', existing[0].id]);
+        } else {
+          await pool.execute('INSERT INTO square_config (user_id, store_id, access_token, location_id) VALUES (?,?,?,?)',
+            [userId, sid, access_token, location_id || '']);
+        }
         res.json({ success: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -6454,7 +6493,8 @@ async function startServer() {
     app.get('/api/square/locations', async (req, res) => {
       try {
         const userId = await squareGetUserId(req);
-        const cfg = await squareGetConfig(userId);
+        const storeId = req.query.store_id ? parseInt(req.query.store_id) : null;
+        const cfg = await squareGetConfig(userId, storeId);
         if (!cfg?.access_token) return res.status(400).json({ error: 'Configura el Access Token primero' });
         const sqRes = await fetch('https://connect.squareup.com/v2/locations', {
           headers: { 'Authorization': 'Bearer ' + cfg.access_token, 'Square-Version': '2026-01-22' }
@@ -6469,7 +6509,8 @@ async function startServer() {
     app.post('/api/square/device-code', async (req, res) => {
       try {
         const userId = await squareGetUserId(req);
-        const cfg = await squareGetConfig(userId);
+        const storeId = req.body.store_id ? parseInt(req.body.store_id) : null;
+        const cfg = await squareGetConfig(userId, storeId);
         if (!cfg?.access_token) return res.status(400).json({ error: 'Configura el Access Token primero' });
         const locationId = req.body.location_id || cfg.location_id;
         if (!locationId) return res.status(400).json({ error: 'Se requiere Location ID' });
@@ -6490,7 +6531,8 @@ async function startServer() {
     app.get('/api/square/device-code/:id', async (req, res) => {
       try {
         const userId = await squareGetUserId(req);
-        const cfg = await squareGetConfig(userId);
+        const storeId = req.query.store_id ? parseInt(req.query.store_id) : null;
+        const cfg = await squareGetConfig(userId, storeId);
         if (!cfg?.access_token) return res.status(400).json({ error: 'No config' });
         const sqRes = await fetch('https://connect.squareup.com/v2/devices/codes/' + encodeURIComponent(req.params.id), {
           headers: { 'Authorization': 'Bearer ' + cfg.access_token, 'Square-Version': '2026-01-22' }
@@ -6543,7 +6585,7 @@ async function startServer() {
         const terminalId = parseInt(req.query.terminal_id);
         const terminalProvider = req.query.terminal_provider || '';
         if (terminalProvider && terminalProvider !== 'square') return res.json({ available: false });
-        const cfg = await squareGetConfig(userId);
+        const cfg = await squareGetConfig(userId, storeId || null);
         if (!cfg?.access_token) return res.json({ available: false, reason: 'No Square config' });
         let device = null;
         if (terminalId) {
@@ -6568,12 +6610,18 @@ async function startServer() {
       try {
         await pool.execute(`CREATE TABLE IF NOT EXISTS haulmer_native_config (
           id INT AUTO_INCREMENT PRIMARY KEY,
-          user_id INT NOT NULL UNIQUE,
+          user_id INT NOT NULL,
+          store_id INT DEFAULT NULL,
           account_id VARCHAR(255) NOT NULL,
           secret_key VARCHAR(500) NOT NULL,
           commerce_name VARCHAR(255) DEFAULT 'Mi Tienda',
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )`);
+        // Migration: add store_id if missing
+        try {
+          await pool.execute('ALTER TABLE haulmer_native_config ADD COLUMN store_id INT DEFAULT NULL');
+          console.log('✅ Columna store_id agregada a haulmer_native_config');
+        } catch (e) { if (!e.message.includes('Duplicate column')) console.error('[Haulmer] migration:', e.message); }
         await pool.execute(`CREATE TABLE IF NOT EXISTS haulmer_native_transactions (
           id INT AUTO_INCREMENT PRIMARY KEY,
           store_id INT NOT NULL,
@@ -6596,9 +6644,14 @@ async function startServer() {
     // GET /api/haulmer/config
     app.get('/api/haulmer/config', authenticateToken, async (req, res) => {
       try {
-        const [rows] = await pool.execute(
-          'SELECT account_id, commerce_name FROM haulmer_native_config WHERE user_id = ?', [req.user.id]
-        );
+        const storeId = req.query.store_id ? parseInt(req.query.store_id) : null;
+        let rows;
+        if (storeId) {
+          [rows] = await pool.execute('SELECT account_id, commerce_name FROM haulmer_native_config WHERE store_id = ? LIMIT 1', [storeId]);
+          if (!rows[0]) [rows] = await pool.execute('SELECT account_id, commerce_name FROM haulmer_native_config WHERE user_id = ? AND store_id IS NULL LIMIT 1', [req.user.id]);
+        } else {
+          [rows] = await pool.execute('SELECT account_id, commerce_name FROM haulmer_native_config WHERE user_id = ? AND store_id IS NULL LIMIT 1', [req.user.id]);
+        }
         res.json(rows[0] || {});
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -6606,14 +6659,20 @@ async function startServer() {
     // POST /api/haulmer/config
     app.post('/api/haulmer/config', authenticateToken, async (req, res) => {
       try {
-        const { account_id, secret_key, commerce_name } = req.body;
+        const { account_id, secret_key, commerce_name, store_id } = req.body;
         if (!account_id) return res.status(400).json({ error: 'account_id requerido' });
-        await pool.execute(`
-          INSERT INTO haulmer_native_config (user_id, account_id, secret_key, commerce_name)
-          VALUES (?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE account_id = VALUES(account_id), secret_key = VALUES(secret_key),
-            commerce_name = VALUES(commerce_name), updated_at = NOW()
-        `, [req.user.id, account_id.trim(), (secret_key || '').trim(), (commerce_name || 'Mi Tienda').trim()]);
+        const sid = store_id ? parseInt(store_id) : null;
+        const [existing] = await pool.execute(
+          sid ? 'SELECT id FROM haulmer_native_config WHERE store_id = ? LIMIT 1' : 'SELECT id FROM haulmer_native_config WHERE user_id = ? AND store_id IS NULL LIMIT 1',
+          [sid || req.user.id]
+        );
+        if (existing[0]) {
+          await pool.execute('UPDATE haulmer_native_config SET account_id=?, secret_key=?, commerce_name=?, updated_at=NOW() WHERE id=?',
+            [account_id.trim(), (secret_key || '').trim(), (commerce_name || 'Mi Tienda').trim(), existing[0].id]);
+        } else {
+          await pool.execute('INSERT INTO haulmer_native_config (user_id, store_id, account_id, secret_key, commerce_name) VALUES (?,?,?,?,?)',
+            [req.user.id, sid, account_id.trim(), (secret_key || '').trim(), (commerce_name || 'Mi Tienda').trim()]);
+        }
         res.json({ success: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -6624,9 +6683,8 @@ async function startServer() {
         const storeId = parseInt(req.query.store_id);
         const [storeRows] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [storeId]);
         if (!storeRows[0]) return res.json({ available: false });
-        const [rows] = await pool.execute(
-          'SELECT account_id, secret_key FROM haulmer_native_config WHERE user_id = ?', [storeRows[0].user_id]
-        );
+        let [rows] = await pool.execute('SELECT account_id, secret_key FROM haulmer_native_config WHERE store_id = ? LIMIT 1', [storeId]);
+        if (!rows[0]) [rows] = await pool.execute('SELECT account_id, secret_key FROM haulmer_native_config WHERE user_id = ? AND store_id IS NULL LIMIT 1', [storeRows[0].user_id]);
         const cfg = rows[0];
         res.json({ available: !!(cfg?.account_id && cfg?.secret_key) });
       } catch (e) { res.status(500).json({ error: e.message }); }
@@ -6638,9 +6696,8 @@ async function startServer() {
         const { store_id, order_id, amount, description } = req.body;
         const [storeRows] = await pool.execute('SELECT user_id, code FROM stores WHERE id = ?', [store_id]);
         if (!storeRows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
-        const [cfgRows] = await pool.execute(
-          'SELECT * FROM haulmer_native_config WHERE user_id = ?', [storeRows[0].user_id]
-        );
+        let [cfgRows] = await pool.execute('SELECT * FROM haulmer_native_config WHERE store_id = ? LIMIT 1', [store_id]);
+        if (!cfgRows[0]) [cfgRows] = await pool.execute('SELECT * FROM haulmer_native_config WHERE user_id = ? AND store_id IS NULL LIMIT 1', [storeRows[0].user_id]);
         const config = cfgRows[0];
         if (!config?.account_id || !config?.secret_key) return res.status(400).json({ error: 'Haulmer no configurado' });
 

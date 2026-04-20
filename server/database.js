@@ -772,6 +772,10 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE users ADD COLUMN verification_expires DATETIME DEFAULT NULL');
         console.log('✅ Columna verification_expires agregada a users');
       }
+      if (!userColNames.includes('country')) {
+        await pool.execute('ALTER TABLE users ADD COLUMN country VARCHAR(100) DEFAULT NULL');
+        console.log('✅ Columna country agregada a users');
+      }
     } catch (err) {
       if (err.message.includes('Duplicate column')) {
         console.log('ℹ️ Columnas ya existen en users');
@@ -2502,7 +2506,7 @@ export async function authenticateSuperadmin(email, password) {
 
 export async function getAllUsers() {
   const [rows] = await pool.execute(`
-    SELECT u.id, u.username, u.email, u.business_name, u.code, u.is_banned, u.created_at, u.last_active,
+    SELECT u.id, u.username, u.email, u.business_name, u.code, u.is_banned, u.created_at, u.last_active, u.country,
            COUNT(s.id) as store_count
     FROM users u
     LEFT JOIN stores s ON u.id = s.user_id
@@ -2510,6 +2514,14 @@ export async function getAllUsers() {
     ORDER BY u.last_active DESC
   `);
   return rows;
+}
+
+export async function updateUserHeartbeat(userId, country) {
+  if (country) {
+    await pool.execute('UPDATE users SET last_active = NOW(), country = ? WHERE id = ?', [country, userId]);
+  } else {
+    await pool.execute('UPDATE users SET last_active = NOW() WHERE id = ?', [userId]);
+  }
 }
 
 export async function updateUserBySuperadmin(userId, data) {

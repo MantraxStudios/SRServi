@@ -119,6 +119,12 @@ function SuperadminDashboard() {
     fetchData();
   }, [activeTab]);
 
+  useEffect(() => {
+    if (activeTab !== 'users') return;
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, [activeTab]);
+
   // Socket.io for realtime ticket messages
   useEffect(() => {
     const socket = io(API);
@@ -682,13 +688,18 @@ function SuperadminDashboard() {
                       <th>Email</th>
                       <th className="hide-mobile">Empresa</th>
                       <th className="text-center">Tiendas</th>
-                      <th className="text-center hide-mobile">Ultima Actividad</th>
+                      <th className="text-center hide-mobile">Última Actividad</th>
+                      <th className="text-center hide-mobile">País</th>
+                      <th className="text-center">En línea</th>
                       <th className="text-center">Estado</th>
                       <th className="text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.map(user => (
+                    {filteredUsers.map(user => {
+                      const actStatus = getActivityStatus(user.last_active);
+                      const isOnline = actStatus === 'online';
+                      return (
                       <tr key={user.id}>
                         <td>
                           <div className="font-bold">{user.username}</div>
@@ -702,8 +713,26 @@ function SuperadminDashboard() {
                           </span>
                         </td>
                         <td className="text-center hide-mobile">
-                          <span className={`badge badge-activity-${getActivityStatus(user.last_active)}`}>
+                          <span className={`badge badge-activity-${actStatus}`}>
                             {formatLastActive(user.last_active)}
+                          </span>
+                        </td>
+                        <td className="text-center hide-mobile" style={{ fontSize: '13px' }}>
+                          {user.country || '—'}
+                        </td>
+                        <td className="text-center">
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                            padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600',
+                            background: isOnline ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.15)',
+                            color: isOnline ? '#22c55e' : '#9ca3af'
+                          }}>
+                            <span style={{
+                              width: '7px', height: '7px', borderRadius: '50%',
+                              background: isOnline ? '#22c55e' : '#9ca3af',
+                              boxShadow: isOnline ? '0 0 6px #22c55e' : 'none'
+                            }} />
+                            {isOnline ? 'Online' : 'Offline'}
                           </span>
                         </td>
                         <td className="text-center">
@@ -737,7 +766,8 @@ function SuperadminDashboard() {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
                 {filteredUsers.length === 0 && (

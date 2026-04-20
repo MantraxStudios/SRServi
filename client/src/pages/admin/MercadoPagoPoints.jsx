@@ -361,7 +361,7 @@ function MercadoPagoPoints() {
   const fetchSquareData = async () => {
     if (!selectedStore?.id || !token) return;
     try {
-      const res = await fetch(API + '/api/square/config', { headers: { Authorization: 'Bearer ' + token } });
+      const res = await fetch(API + `/api/square/config?store_id=${selectedStore.id}`, { headers: { Authorization: 'Bearer ' + token } });
       if (res.ok) {
         const data = await res.json();
         setSquareCfgSaved(data.hasToken);
@@ -375,9 +375,9 @@ function MercadoPagoPoints() {
   };
 
   const fetchHaulmerConfig = async () => {
-    if (!token) return;
+    if (!token || !selectedStore?.id) return;
     try {
-      const res = await fetch(API + '/api/haulmer/config', { headers: { Authorization: 'Bearer ' + token } });
+      const res = await fetch(API + `/api/haulmer/config?store_id=${selectedStore.id}`, { headers: { Authorization: 'Bearer ' + token } });
       if (res.ok) {
         const data = await res.json();
         setHaulmerAccountId(data.account_id || '');
@@ -400,7 +400,8 @@ function MercadoPagoPoints() {
         body: JSON.stringify({
           account_id: haulmerAccountId.trim(),
           secret_key: haulmerSecretKey.trim(),
-          commerce_name: haulmerCommerceName.trim() || 'Mi Tienda'
+          commerce_name: haulmerCommerceName.trim() || 'Mi Tienda',
+          store_id: selectedStore?.id || null
         })
       });
       if (res.ok) {
@@ -423,7 +424,7 @@ function MercadoPagoPoints() {
       const res = await fetch(API + '/api/square/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ access_token: squareAccessToken.trim(), location_id: squareLocationId.trim() })
+        body: JSON.stringify({ access_token: squareAccessToken.trim(), location_id: squareLocationId.trim(), store_id: selectedStore?.id || null })
       });
       if (res.ok) { setSquareCfgSaved(true); setSquareStep('code'); setSquareError(''); }
       else { const d = await res.json(); setSquareError(d.error || 'Error al guardar'); }
@@ -435,7 +436,8 @@ function MercadoPagoPoints() {
     setSquareLoadingLocs(true); setSquareError('');
     if (!squareCfgSaved) { await squareSaveConfig(); }
     try {
-      const res = await fetch(API + '/api/square/locations', { headers: { Authorization: 'Bearer ' + token } });
+      const storeParam = selectedStore?.id ? `?store_id=${selectedStore.id}` : '';
+      const res = await fetch(API + `/api/square/locations${storeParam}`, { headers: { Authorization: 'Bearer ' + token } });
       if (res.ok) { const locs = await res.json(); setSquareLocations(locs); }
       else { const d = await res.json(); setSquareError(d.error || 'Error al cargar ubicaciones'); }
     } catch { setSquareError('Error de conexión'); }
@@ -451,13 +453,13 @@ function MercadoPagoPoints() {
       const cfgRes = await fetch(API + '/api/square/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ access_token: squareAccessToken.trim() || undefined, location_id: squareLocationId.trim() })
+        body: JSON.stringify({ access_token: squareAccessToken.trim() || undefined, location_id: squareLocationId.trim(), store_id: selectedStore?.id || null })
       });
       if (!cfgRes.ok && squareAccessToken.trim()) { const d = await cfgRes.json(); setSquareError(d.error || 'Error al guardar config'); setSquareGenerating(false); return; }
       const res = await fetch(API + '/api/square/device-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ location_id: squareLocationId.trim(), device_name: squareDeviceName.trim() || 'Square Terminal' })
+        body: JSON.stringify({ location_id: squareLocationId.trim(), device_name: squareDeviceName.trim() || 'Square Terminal', store_id: selectedStore?.id || null })
       });
       const data = await res.json();
       if (!res.ok) { setSquareError(data.error || 'Error al generar código'); setSquareGenerating(false); return; }
@@ -480,7 +482,7 @@ function MercadoPagoPoints() {
       attempts++;
       if (attempts > maxAttempts) { clearInterval(intervalId); setSquarePolling(false); setSquarePollMsg('Código expirado. Genera uno nuevo.'); return; }
       try {
-        const res = await fetch(API + '/api/square/device-code/' + encodeURIComponent(codeId), { headers: { Authorization: 'Bearer ' + token } });
+        const res = await fetch(API + `/api/square/device-code/${encodeURIComponent(codeId)}?store_id=${selectedStore?.id || ''}`, { headers: { Authorization: 'Bearer ' + token } });
         const data = await res.json();
         setSquareCodeStatus(data.status || '');
         if (data.status === 'PAIRED' && data.device_id) {
@@ -849,7 +851,8 @@ function MercadoPagoPoints() {
   // ==== Mercado Pago Point (flujo original) ====
   const fetchTerminals = async () => {
     try {
-      const response = await fetch(API + '/api/mercado-pago-terminals', { headers: { Authorization: 'Bearer ' + token } });
+      const storeParam = selectedStore?.id ? `?store_id=${selectedStore.id}` : '';
+      const response = await fetch(API + '/api/mercado-pago-terminals' + storeParam, { headers: { Authorization: 'Bearer ' + token } });
       const data = await response.json();
       const list = Array.isArray(data) ? data : [];
       setTerminals(list);
@@ -982,6 +985,11 @@ function MercadoPagoPoints() {
     <>
       <header className="admin-header">
         <h1><FontAwesomeIcon icon={faCashRegister} style={{ marginRight: '10px' }} />Vincular POS</h1>
+        {selectedStore && (
+          <span style={{ fontSize: '13px', color: '#888', marginLeft: '12px', fontWeight: '500' }}>
+            — configurando: <strong style={{ color: '#D4AF37' }}>{selectedStore.name}</strong>
+          </span>
+        )}
       </header>
 
       <div className="admin-main">

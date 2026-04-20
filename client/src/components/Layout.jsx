@@ -83,6 +83,16 @@ function Layout() {
   }, []);
 
   useEffect(() => {
+    if (!token) return;
+    const sendHeartbeat = () => {
+      fetch(API + '/api/auth/heartbeat', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
+    };
+    sendHeartbeat();
+    const hbInterval = setInterval(sendHeartbeat, 60000);
+    return () => clearInterval(hbInterval);
+  }, [token]);
+
+  useEffect(() => {
     if (token) {
       fetchStores();
       fetch(API + '/api/my-plan', { headers: { 'Authorization': 'Bearer ' + token } })

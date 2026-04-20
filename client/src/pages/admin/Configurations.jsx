@@ -519,7 +519,7 @@ function Configurations() {
 
               <div style={{ marginBottom: '16px' }}>
                 <div style={{ fontWeight: '700', fontSize: '13px', color: '#555', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <FontAwesomeIcon icon={faTruck} style={{ color: '#D4AF37' }} /> Delivery
+                  <FontAwesomeIcon icon={faTruck} style={{ color: '#D4AF37' }} /> Pedidos por QR
                 </div>
                 <button
                   type="button"
@@ -534,14 +534,14 @@ function Configurations() {
                 >
                   <FontAwesomeIcon icon={faTruck} style={{ fontSize: '16px', color: formData.delivery_enabled ? '#D4AF37' : '#ccc' }} />
                   <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px' }}>Habilitar delivery</div>
-                    <div style={{ fontSize: '11px', opacity: 0.65 }}>Permite pedidos con entrega a domicilio</div>
+                    <div style={{ fontWeight: '700', fontSize: '13px' }}>Habilitar pedidos por QR</div>
+                    <div style={{ fontSize: '11px', opacity: 0.65 }}>Permite pedidos desde el teléfono con el QR de la tienda</div>
                   </div>
                   {formData.delivery_enabled && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#D4AF37' }} />}
                 </button>
                 {formData.delivery_enabled && (
                   <div>
-                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>Métodos de pago para delivery:</div>
+                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>Métodos de pago para pedidos por QR:</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                       {[
                         { key: 'tuu', label: 'TUU', icon: faCreditCard, color: '#2563eb' },
