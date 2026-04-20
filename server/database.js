@@ -2284,15 +2284,28 @@ export async function getMercadoPagoTerminals(userId) {
 }
 
 export async function getMercadoPagoTerminalsByStore(storeId) {
-  const [rows] = await pool.execute(
-    `SELECT m.id, m.name, m.mercadopago_terminal_id
-     FROM mercado_pago_terminals m
-     JOIN stores s ON s.user_id = m.user_id
-     WHERE s.id = ?
-     ORDER BY m.created_at DESC`,
-    [storeId]
-  );
-  return rows;
+  try {
+    const [rows] = await pool.execute(
+      `SELECT m.id, m.name, m.mercadopago_terminal_id
+       FROM mercado_pago_terminals m
+       JOIN mercadopago_terminal_stores ms ON ms.mercadopago_terminal_id = m.id
+       WHERE ms.store_id = ?
+       ORDER BY m.created_at DESC`,
+      [storeId]
+    );
+    return rows;
+  } catch {
+    // Fallback if junction table doesn't exist
+    const [rows] = await pool.execute(
+      `SELECT m.id, m.name, m.mercadopago_terminal_id
+       FROM mercado_pago_terminals m
+       JOIN stores s ON s.user_id = m.user_id
+       WHERE s.id = ?
+       ORDER BY m.created_at DESC`,
+      [storeId]
+    );
+    return rows;
+  }
 }
 
 export async function getMercadoPagoTerminalForStore(storeId, terminalId) {

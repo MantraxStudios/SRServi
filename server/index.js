@@ -864,26 +864,38 @@ app.get('/api/public/pos-devices/:storeCode', async (req, res) => {
     let mpLinked = [];
     try {
       const [rows] = await pool.execute(
-        `SELECT id, name, mercadopago_terminal_id, 'mercadopago' as provider
-         FROM mercado_pago_terminals
-         WHERE user_id = ?`,
-        [store.user_id]
+        `SELECT m.id, m.name, m.mercadopago_terminal_id, 'mercadopago' as provider
+         FROM mercado_pago_terminals m
+         JOIN mercadopago_terminal_stores ms ON ms.mercadopago_terminal_id = m.id
+         WHERE ms.store_id = ?`,
+        [store.id]
       );
       mpLinked = rows;
-    } catch (e) { console.log('[pos-devices] MP query error:', e.message); }
+    } catch (e) {
+      // Fallback: show all user terminals if junction table missing
+      try {
+        const [rows] = await pool.execute('SELECT id, name, mercadopago_terminal_id FROM mercado_pago_terminals WHERE user_id = ?', [store.user_id]);
+        mpLinked = rows;
+      } catch {}
+    }
 
     let tuuDevices = [];
     try {
       const [tuuRows] = await pool.execute(
-        `SELECT id, name, serial, 'tuu' as provider
-         FROM tuu_devices
-         WHERE user_id = ?`,
-        [store.user_id]
+        `SELECT DISTINCT d.id, d.name, d.serial, 'tuu' as provider
+         FROM tuu_devices d
+         JOIN tuu_device_pos dp ON dp.tuu_device_id = d.id
+         WHERE dp.store_id = ?`,
+        [store.id]
       );
       tuuDevices = tuuRows;
-    } catch (e) { console.log('[pos-devices] Tuu query error:', e.message); }
-
-    console.log('[pos-devices] storeCode:', storeCode, 'store.id:', store.id, 'user_id:', store.user_id, 'mpLinked:', mpLinked.length, 'tuuDevices:', tuuDevices.length);
+    } catch (e) {
+      // Fallback: show all user TUU devices if join table missing
+      try {
+        const [tuuRows] = await pool.execute('SELECT id, name, serial FROM tuu_devices WHERE user_id = ?', [store.user_id]);
+        tuuDevices = tuuRows;
+      } catch {}
+    }
 
     const mpFormatted = mpLinked.map(t => ({ id: t.id, name: t.name, device_id: t.mercadopago_terminal_id, provider: 'mercadopago' }));
     const tuuFormatted = tuuDevices.map(d => ({ id: d.id, name: d.name, serial: d.serial, provider: 'tuu' }));
