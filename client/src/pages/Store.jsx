@@ -3011,9 +3011,8 @@ function Store() {
             <div className="store-modal-body">
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 130px))',
-                gap: '10px',
-                justifyContent: 'center'
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '10px'
               }}>
                 {selectedProduct.ingredients.map(ingredient => {
                   const ingredientIsOutOfStock = !ingredient.unlimited_stock && ingredient.stock === 0;
@@ -3204,9 +3203,8 @@ function Store() {
             <div className="store-modal-body">
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 130px))',
-                gap: '10px',
-                justifyContent: 'center'
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '10px'
               }}>
                 {selectedProduct.extras.map(extra => {
                   const extraIsOutOfStock = !extra.unlimited_stock && extra.stock === 0;
