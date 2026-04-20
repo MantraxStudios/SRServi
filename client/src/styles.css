@@ -1126,6 +1126,29 @@ h1, h2, h3, h4, h5, h6 {
   background-color: rgba(212, 175, 55, 0.18);
 }
 
+.store-dropdown-duplicate-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  transition: color 0.15s, background 0.15s;
+  opacity: 0;
+}
+
+.store-dropdown-item:hover .store-dropdown-duplicate-btn,
+.store-dropdown-item.active .store-dropdown-duplicate-btn {
+  opacity: 1;
+}
+
+.store-dropdown-duplicate-btn:hover {
+  color: #D4AF37;
+  background: rgba(212, 175, 55, 0.15);
+}
+
 .store-dropdown-dot {
   width: 8px;
   height: 8px;

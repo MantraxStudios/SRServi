@@ -26,6 +26,7 @@ import {
   createStore,
   updateStore,
   deleteStore,
+  duplicateStore,
   getStoreById,
   getStoreByCode,
   verifyStoreOwnership,
@@ -1084,6 +1085,20 @@ app.delete('/api/stores/:id', authenticateToken, async (req, res) => {
     await deleteStore(req.params.id, req.user.id);
     res.json({ success: true });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/stores/:id/duplicate', authenticateToken, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Nombre es requerido' });
+    const store = await duplicateStore(req.params.id, req.user.id, name);
+    res.json(store);
+  } catch (error) {
+    if (error.code === 'STORE_LIMIT_REACHED') {
+      return res.status(403).json({ error: error.message, code: 'STORE_LIMIT_REACHED', maxStores: error.maxStores, currentPlan: error.currentPlan });
+    }
     res.status(500).json({ error: error.message });
   }
 });

@@ -35,7 +35,8 @@ import {
   faChevronLeft,
   faChevronRight,
   faUserCog,
-  faRobot
+  faRobot,
+  faCopy
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -56,6 +57,10 @@ function Layout() {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [serverDown, setServerDown] = useState(false);
+  const [duplicateModal, setDuplicateModal] = useState(null);
+  const [duplicateName, setDuplicateName] = useState('');
+  const [duplicateLoading, setDuplicateLoading] = useState(false);
+  const [duplicateError, setDuplicateError] = useState('');
 
   useEffect(() => {
     if (isEditorMode) setMenuOpen(true);
@@ -160,6 +165,35 @@ function Layout() {
     setSelectedStore(store);
     localStorage.setItem('selectedStoreId', store.id.toString());
     setStoreDropdownOpen(false);
+  };
+
+  const openDuplicateModal = (e, store) => {
+    e.stopPropagation();
+    setDuplicateModal(store);
+    setDuplicateName(`${store.name} (copia)`);
+    setDuplicateError('');
+  };
+
+  const handleDuplicate = async () => {
+    if (!duplicateName.trim()) { setDuplicateError('El nombre es requerido'); return; }
+    setDuplicateLoading(true);
+    setDuplicateError('');
+    try {
+      const res = await fetch(`${API}/api/stores/${duplicateModal.id}/duplicate`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: duplicateName.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al duplicar');
+      setDuplicateModal(null);
+      await fetchStores();
+      selectStore(data);
+    } catch (err) {
+      setDuplicateError(err.message);
+    } finally {
+      setDuplicateLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -292,6 +326,13 @@ function Layout() {
                         <div className="store-dropdown-name">{store.name}</div>
                         <div className="store-dropdown-code">Código: {store.code}</div>
                       </div>
+                      <button
+                        className="store-dropdown-duplicate-btn"
+                        title="Duplicar tienda"
+                        onClick={(e) => openDuplicateModal(e, store)}
+                      >
+                        <FontAwesomeIcon icon={faCopy} />
+                      </button>
                     </div>
                   ))}
                   <div
@@ -592,6 +633,41 @@ function Layout() {
           <span style={{ position: 'absolute', top: '-2px', right: '-2px', background: '#D4AF37', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '700', color: '#000', border: '2px solid #fff' }}>2</span>
         </button>
       </div>
+
+      {/* Duplicate store modal */}
+      {duplicateModal && (
+        <div className="modal-overlay" onClick={() => !duplicateLoading && setDuplicateModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <h2><FontAwesomeIcon icon={faCopy} style={{ marginRight: '8px' }} />Duplicar Tienda</h2>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginBottom: '16px', color: '#666' }}>
+                Se duplicará <strong>"{duplicateModal.name}"</strong> con todos sus productos, categorías, ingredientes, extras y configuraciones.
+              </p>
+              <label className="form-label">Nombre de la nueva tienda</label>
+              <input
+                className="form-input"
+                type="text"
+                value={duplicateName}
+                onChange={e => { setDuplicateName(e.target.value); setDuplicateError(''); }}
+                placeholder="Nombre de la tienda duplicada"
+                autoFocus
+                onKeyDown={e => e.key === 'Enter' && !duplicateLoading && handleDuplicate()}
+              />
+              {duplicateError && <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px' }}>{duplicateError}</p>}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setDuplicateModal(null)} disabled={duplicateLoading}>
+                Cancelar
+              </button>
+              <button className="btn-primary" onClick={handleDuplicate} disabled={duplicateLoading || !duplicateName.trim()}>
+                {duplicateLoading ? 'Duplicando...' : 'Duplicar Tienda'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </StoreContext.Provider>
   );

@@ -1206,6 +1206,134 @@ export async function verifyStoreOwnership(storeId, userId) {
   return rows.length > 0;
 }
 
+export async function duplicateStore(storeId, userId, newName) {
+  const canCreate = await canUserCreateStore(userId);
+  if (!canCreate.canCreate) {
+    const error = new Error(`Has alcanzado el límite de ${canCreate.maxStores} tiendas. Actualiza tu plan para crear más tiendas.`);
+    error.code = 'STORE_LIMIT_REACHED';
+    error.maxStores = canCreate.maxStores;
+    error.currentPlan = canCreate.currentPlan;
+    throw error;
+  }
+
+  const [origRows] = await pool.execute('SELECT * FROM stores WHERE id = ? AND user_id = ?', [storeId, userId]);
+  if (!origRows.length) throw new Error('Tienda no encontrada');
+  const orig = origRows[0];
+
+  let code = generateCode();
+  while (true) {
+    const [ex] = await pool.execute('SELECT id FROM stores WHERE code = ?', [code]);
+    if (!ex.length) break;
+    code = generateCode();
+  }
+
+  const [storeResult] = await pool.execute(
+    `INSERT INTO stores (user_id, code, name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, worker_accept_cash, worker_accept_card)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [userId, code, newName, orig.primary_color, orig.secondary_color, orig.accent_color, orig.header_color,
+     orig.currency_code, orig.currency_symbol, orig.currency_name, orig.logo_url,
+     orig.smart_mode ?? 1, orig.inactivity_timeout ?? 120, orig.hide_decimals ?? 0,
+     orig.show_top_selling ?? 1, orig.worker_accept_cash ?? null, orig.worker_accept_card ?? null]
+  );
+  const newStoreId = storeResult.insertId;
+
+  // Copy categories
+  const [cats] = await pool.execute('SELECT * FROM categories WHERE store_id = ?', [storeId]);
+  const catMap = {};
+  for (const cat of cats) {
+    const [r] = await pool.execute(
+      'INSERT INTO categories (store_id, user_id, name, description) VALUES (?, ?, ?, ?)',
+      [newStoreId, cat.user_id, cat.name, cat.description]
+    );
+    catMap[cat.id] = r.insertId;
+  }
+
+  // Copy ingredients
+  const [ings] = await pool.execute('SELECT * FROM ingredients WHERE store_id = ?', [storeId]);
+  const ingMap = {};
+  for (const ing of ings) {
+    const newCatId = ing.category_id ? (catMap[ing.category_id] ?? null) : null;
+    const [r] = await pool.execute(
+      'INSERT INTO ingredients (store_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?)',
+      [newStoreId, ing.name, ing.price, newCatId, ing.image]
+    );
+    ingMap[ing.id] = r.insertId;
+  }
+
+  // Copy extras
+  const [exts] = await pool.execute('SELECT * FROM extras WHERE store_id = ?', [storeId]);
+  const extMap = {};
+  for (const ext of exts) {
+    const newCatId = ext.category_id ? (catMap[ext.category_id] ?? null) : null;
+    const [r] = await pool.execute(
+      'INSERT INTO extras (store_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?)',
+      [newStoreId, ext.name, ext.price, newCatId, ext.image]
+    );
+    extMap[ext.id] = r.insertId;
+  }
+
+  // Copy products
+  const [prods] = await pool.execute('SELECT * FROM products WHERE store_id = ?', [storeId]);
+  const prodMap = {};
+  for (const prod of prods) {
+    const newCatId = prod.category_id ? (catMap[prod.category_id] ?? null) : null;
+    const [r] = await pool.execute(
+      'INSERT INTO products (store_id, category_id, name, description, price, image, sort_order, complements_configured) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [newStoreId, newCatId, prod.name, prod.description, prod.price, prod.image, prod.sort_order, prod.complements_configured ?? 0]
+    );
+    prodMap[prod.id] = r.insertId;
+
+    // Copy product_ingredients
+    const [pings] = await pool.execute('SELECT * FROM product_ingredients WHERE product_id = ?', [prod.id]);
+    for (const pi of pings) {
+      const newIngId = ingMap[pi.ingredient_id];
+      if (newIngId) {
+        await pool.execute(
+          'INSERT INTO product_ingredients (product_id, ingredient_id, is_required, max_selections) VALUES (?, ?, ?, ?)',
+          [prodMap[prod.id], newIngId, pi.is_required, pi.max_selections]
+        );
+      }
+    }
+
+    // Copy product_extras
+    const [pexts] = await pool.execute('SELECT * FROM product_extras WHERE product_id = ?', [prod.id]);
+    for (const pe of pexts) {
+      const newExtId = extMap[pe.extra_id];
+      if (newExtId) {
+        await pool.execute(
+          'INSERT INTO product_extras (product_id, extra_id) VALUES (?, ?)',
+          [prodMap[prod.id], newExtId]
+        );
+      }
+    }
+
+    // Copy inventory
+    const [invRows] = await pool.execute('SELECT * FROM inventory WHERE product_id = ?', [prod.id]);
+    if (invRows.length) {
+      const inv = invRows[0];
+      await pool.execute(
+        'INSERT INTO inventory (product_id, stock, min_stock, unlimited_stock) VALUES (?, ?, ?, ?)',
+        [prodMap[prod.id], inv.stock, inv.min_stock, inv.unlimited_stock]
+      );
+    }
+  }
+
+  // Copy store configurations
+  const [configs] = await pool.execute('SELECT * FROM store_configurations WHERE store_id = ?', [storeId]);
+  for (const cfg of configs) {
+    await pool.execute(
+      `INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [newStoreId, cfg.name, cfg.description, cfg.accept_cash, cfg.accept_card, cfg.is_active, cfg.is_default,
+       cfg.is_minimarket, cfg.allow_serve, cfg.allow_takeout, cfg.hide_decimals, cfg.allow_table_service,
+       cfg.tip_percentage, cfg.delivery_enabled, cfg.delivery_payment_methods]
+    );
+  }
+
+  const [newStore] = await pool.execute('SELECT * FROM stores WHERE id = ?', [newStoreId]);
+  return newStore[0];
+}
+
 export async function getStoreById(storeId) {
   const [rows] = await pool.execute(
     'SELECT * FROM stores WHERE id = ?',
