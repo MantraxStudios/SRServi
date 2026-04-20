@@ -3011,8 +3011,9 @@ function Store() {
             <div className="store-modal-body">
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))',
-                gap: '10px'
+                gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 130px))',
+                gap: '10px',
+                justifyContent: 'center'
               }}>
                 {selectedProduct.ingredients.map(ingredient => {
                   const ingredientIsOutOfStock = !ingredient.unlimited_stock && ingredient.stock === 0;
@@ -3057,7 +3058,7 @@ function Store() {
                         alt={ingredient.name}
                         style={{
                           width: '100%',
-                          height: '140px',
+                          height: '110px',
                           objectFit: 'cover',
                           borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
                         }}
@@ -3065,7 +3066,7 @@ function Store() {
                     ) : (
                       <div style={{
                         width: '100%',
-                        height: '140px',
+                        height: '110px',
                         backgroundColor: 'var(--store-primary)',
                         display: 'flex',
                         alignItems: 'center',
@@ -3078,12 +3079,14 @@ function Store() {
                     <div className="text-center" style={{ padding: '8px' }}>
                       <div style={{
                         fontWeight: '600',
-                        fontSize: '13px',
+                        fontSize: '12px',
                         color: isSelected ? '#fff' : 'var(--store-primary)',
                         marginBottom: '2px',
                         overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        lineHeight: '1.3'
                       }}>
                         {ingredient.name}
                       </div>
@@ -3201,8 +3204,9 @@ function Store() {
             <div className="store-modal-body">
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))',
-                gap: '10px'
+                gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 130px))',
+                gap: '10px',
+                justifyContent: 'center'
               }}>
                 {selectedProduct.extras.map(extra => {
                   const extraIsOutOfStock = !extra.unlimited_stock && extra.stock === 0;
@@ -3247,7 +3251,7 @@ function Store() {
                         alt={extra.name}
                         style={{
                           width: '100%',
-                          height: '140px',
+                          height: '110px',
                           objectFit: 'cover',
                           borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
                         }}
@@ -3255,7 +3259,7 @@ function Store() {
                     ) : (
                       <div style={{
                         width: '100%',
-                        height: '140px',
+                        height: '110px',
                         backgroundColor: 'var(--store-primary)',
                         display: 'flex',
                         alignItems: 'center',
@@ -3268,12 +3272,14 @@ function Store() {
                     <div className="text-center" style={{ padding: '8px' }}>
                       <div style={{
                         fontWeight: '600',
-                        fontSize: '13px',
+                        fontSize: '12px',
                         color: isSelected ? '#fff' : 'var(--store-primary)',
                         marginBottom: '2px',
                         overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        lineHeight: '1.3'
                       }}>
                         {extra.name}
                       </div>
