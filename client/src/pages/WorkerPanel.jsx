@@ -22,7 +22,9 @@ function WorkerPanel() {
   const [switchingWorker, setSwitchingWorker] = useState(null);
   const [activeTab, setActiveTab] = useState('active');
   const [showNewOrder, setShowNewOrder] = useState(false);
-  const [storeCode, setStoreCode] = useState('');
+  const [storeCode, setStoreCode] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('worker') || '{}').store_code || ''; } catch { return ''; }
+  });
   const [showPayModal, setShowPayModal] = useState(false);
   const [paySearch, setPaySearch] = useState('');
   const [payResult, setPayResult] = useState(null);

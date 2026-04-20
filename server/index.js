@@ -1000,13 +1000,16 @@ app.get('/api/stores', authenticateToken, async (req, res) => {
 app.get('/api/stores/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    console.log('Fetching store:', id);
-    const stores = await getStores(req.user.id);
-    console.log('Stores found:', stores.length);
-    const store = stores.find(s => s.id === parseInt(id));
-    if (!store) {
-      return res.status(404).json({ error: 'Tienda no encontrada' });
+    const storeId = parseInt(id);
+    if (req.user.type === 'worker') {
+      if (req.user.store_id !== storeId) return res.status(403).json({ error: 'Sin acceso' });
+      const store = await getStoreById(storeId);
+      if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+      return res.json(store);
     }
+    const stores = await getStores(req.user.id);
+    const store = stores.find(s => s.id === storeId);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
     res.json(store);
   } catch (error) {
     console.error('Error fetching store:', error);
