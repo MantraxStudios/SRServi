@@ -241,6 +241,7 @@ function Store() {
   const [qrProvider, setQrProvider] = useState(null);
   const [qrPaymentUrl, setQrPaymentUrl] = useState(null);
   const [tuuPaymentKey, setTuuPaymentKey] = useState(null);
+  const [squarePaymentKey, setSquarePaymentKey] = useState(null);
   const [haulmerNative, setHaulmerNative] = useState(false);
   const [haulmerReference, setHaulmerReference] = useState(null);
   const [deviceUid] = useState(() => {
@@ -761,6 +762,21 @@ function Store() {
           setCartOpen(false);
         } else if (['Canceled', 'Failed', 'Timeout'].includes(data.status)) {
           setPaymentWaiting(false); setQrPaymentUrl(null); setTuuPaymentKey(null);
+          setPaymentCancelled(true);
+        }
+      }
+    });
+
+    socket.on('square_payment_update', (data) => {
+      if (data.orderId && pendingOrderDataRef?.current?.order?.id === data.orderId) {
+        if (data.status === 'Completed') {
+          setPaymentWaiting(false); setQrPaymentUrl(null); setSquarePaymentKey(null);
+          setPaymentConfirmed(true);
+          setLastOrderNumber(pendingOrderDataRef.current.order.order_number || null);
+          setCart([]);
+          setCartOpen(false);
+        } else if (['Canceled', 'Timeout'].includes(data.status)) {
+          setPaymentWaiting(false); setQrPaymentUrl(null); setSquarePaymentKey(null);
           setPaymentCancelled(true);
         }
       }
@@ -1398,8 +1414,9 @@ function Store() {
   const processPayment = async (selectedMethod = paymentMethod, tableNum = null) => {
     if (cart.length === 0) return;
     const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
-    const isTuu = selectedMethod === 'card' && (tuuProvider || lastTerminalProvider === 'tuu');
-    if (selectedMethod === 'card' && !isTuu && !selectedTerminalId) {
+    const isTuu = selectedMethod === 'card' && lastTerminalProvider === 'tuu';
+    const isSquare = selectedMethod === 'card' && lastTerminalProvider === 'square';
+    if (selectedMethod === 'card' && !isTuu && !isSquare && !selectedTerminalId) {
       alert(t('noTerminalAssigned', lang));
       return;
     }
@@ -1453,6 +1470,40 @@ function Store() {
         if (!chargeData.success) throw new Error(chargeData.error || 'Error al enviar cobro al POS');
 
         setTuuPaymentKey(chargeData.paymentKey);
+        setPaymentWaiting(true);
+        setPaymentTimeLeft(300);
+
+      // --- Square Terminal ---
+      } else if (isSquare) {
+        const orderRes = await fetch(API + '/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId, order_type: orderType, payment_method: 'card',
+            items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
+            total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
+            table_number: tableNum ? parseInt(tableNum) : null
+          })
+        });
+        if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
+        const order = await orderRes.json();
+        setPendingOrderData({ order, storeId });
+
+        const chargeRes = await fetch('/api/plugins/payments/charge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId, order_id: order.id,
+            amount: Math.round(Number(finalTotal)),
+            description: `Pedido #${order.order_number || order.id}`,
+            terminal_id: parseInt(localStorage.getItem('srservi_last_terminal_id')) || null,
+            terminal_provider: 'square'
+          })
+        });
+        const chargeData = await chargeRes.json();
+        if (!chargeData.success) throw new Error(chargeData.error || 'Error al enviar cobro al terminal Square');
+
+        setSquarePaymentKey(chargeData.paymentKey);
         setPaymentWaiting(true);
         setPaymentTimeLeft(300);
 
@@ -1619,6 +1670,7 @@ function Store() {
       setPaymentModalOpen(false);
       setPaymentWaiting(false); setQrPaymentUrl(null);
       setTuuPaymentKey(null);
+      setSquarePaymentKey(null);
       setHaulmerReference(null);
     };
 
@@ -1626,6 +1678,7 @@ function Store() {
       setPaymentWaiting(false); setQrPaymentUrl(null);
       setPaymentCancelled(true);
       setTuuPaymentKey(null);
+      setSquarePaymentKey(null);
       setHaulmerReference(null);
     };
 
@@ -1718,7 +1771,7 @@ function Store() {
       clearInterval(pollInterval);
       clearInterval(timerInterval);
     };
-  }, [paymentWaiting, pendingOrderData, tuuPaymentKey, haulmerReference]);
+  }, [paymentWaiting, pendingOrderData, tuuPaymentKey, squarePaymentKey, haulmerReference]);
 
   useEffect(() => {
     setAppliedCoupon(null);
@@ -4811,13 +4864,9 @@ function Store() {
                   setPosSelectLoading(true);
                   setPosSelectModalOpen(true);
                   try {
-                    const res = await fetch(`/api/public/${code}/mercado-pago-terminals`);
-                    const mpList = res.ok ? await res.json() : [];
-                    const tuuRes = await fetch(`/api/tuu/provider?store_id=${store?.store?.id}&device_uid=${deviceUid}`);
-                    const tuuData = tuuRes.ok ? await tuuRes.json() : {};
-                    const list = [...(Array.isArray(mpList) ? mpList.map(mp => ({ ...mp, provider: 'mercadopago' })) : [])];
-                    if (tuuData.available) list.push({ id: tuuData.deviceUid || 'tuu', name: tuuData.name || 'TUU POS', provider: 'tuu' });
-                    setPosSelectList(list);
+                    const res = await fetch(`/api/public/pos-devices/${code}`);
+                    const list = res.ok ? await res.json() : [];
+                    setPosSelectList(Array.isArray(list) ? list : []);
                   } catch { setPosSelectList([]); }
                   setPosSelectLoading(false);
                 }}
@@ -4904,7 +4953,7 @@ function Store() {
                   >
                     <span>{pos.name}</span>
                     <span style={{ fontSize: '12px', color: '#888', fontWeight: '400' }}>
-                      {pos.provider === 'mercadopago' ? 'MercadoPago' : 'TUU'}
+                      {pos.provider === 'mercadopago' ? 'MercadoPago' : pos.provider === 'square' ? 'Square' : 'TUU'}
                     </span>
                   </button>
                 ))}

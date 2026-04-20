@@ -898,10 +898,20 @@ app.get('/api/public/pos-devices/:storeCode', async (req, res) => {
       } catch {}
     }
 
+    let squareDevicesList = [];
+    try {
+      const [sqRows] = await pool.execute(
+        `SELECT id, name, device_id FROM square_devices WHERE store_id = ?`,
+        [store.id]
+      );
+      squareDevicesList = sqRows;
+    } catch {}
+
     const mpFormatted = mpLinked.map(t => ({ id: t.id, name: t.name, device_id: t.mercadopago_terminal_id, provider: 'mercadopago' }));
     const tuuFormatted = tuuDevices.map(d => ({ id: d.id, name: d.name, serial: d.serial, provider: 'tuu' }));
+    const squareFormatted = squareDevicesList.map(d => ({ id: d.id, name: d.name, device_id: d.device_id, provider: 'square' }));
 
-    res.json([...mpFormatted, ...tuuFormatted]);
+    res.json([...mpFormatted, ...tuuFormatted, ...squareFormatted]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
