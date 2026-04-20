@@ -1254,8 +1254,8 @@ export async function duplicateStore(storeId, userId, newName) {
   for (const ing of ings) {
     const newCatId = ing.category_id ? (catMap[ing.category_id] ?? null) : null;
     const [r] = await pool.execute(
-      'INSERT INTO ingredients (store_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?)',
-      [newStoreId, ing.name, ing.price, newCatId, ing.image]
+      'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?, ?)',
+      [newStoreId, userId, ing.name, ing.price, newCatId, ing.image]
     );
     ingMap[ing.id] = r.insertId;
   }
@@ -1266,8 +1266,8 @@ export async function duplicateStore(storeId, userId, newName) {
   for (const ext of exts) {
     const newCatId = ext.category_id ? (catMap[ext.category_id] ?? null) : null;
     const [r] = await pool.execute(
-      'INSERT INTO extras (store_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?)',
-      [newStoreId, ext.name, ext.price, newCatId, ext.image]
+      'INSERT INTO extras (store_id, user_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?, ?)',
+      [newStoreId, userId, ext.name, ext.price, newCatId, ext.image]
     );
     extMap[ext.id] = r.insertId;
   }
@@ -1278,8 +1278,8 @@ export async function duplicateStore(storeId, userId, newName) {
   for (const prod of prods) {
     const newCatId = prod.category_id ? (catMap[prod.category_id] ?? null) : null;
     const [r] = await pool.execute(
-      'INSERT INTO products (store_id, category_id, name, description, price, image, sort_order, complements_configured) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [newStoreId, newCatId, prod.name, prod.description, prod.price, prod.image, prod.sort_order, prod.complements_configured ?? 0]
+      'INSERT INTO products (store_id, user_id, category_id, name, description, price, image, sort_order, complements_configured) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [newStoreId, userId, newCatId, prod.name, prod.description, prod.price, prod.image, prod.sort_order, prod.complements_configured ?? 0]
     );
     prodMap[prod.id] = r.insertId;
 
