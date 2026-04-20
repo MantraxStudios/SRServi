@@ -457,11 +457,7 @@ function Store() {
     setCashPaymentSuccess(false);
   };
 
-  useEffect(() => {
-    if (selectedConfiguration?.is_minimarket && store?.store?.code) {
-      navigate(`/market/${store.store.code}${configFromUrl ? `?config=${configFromUrl}` : ''}`);
-    }
-  }, [selectedConfiguration, store]);
+  // minimarket redirect removed — handled within the store view directly
 
   // If only one order type is allowed, auto-select it (don't ask the user)
   useEffect(() => {
@@ -906,6 +902,12 @@ function Store() {
       // Auto-enter edit mode if admin token
       if (adminEditToken) {
         try {
+          const localToken = localStorage.getItem('token');
+          if (!localToken || localToken !== adminEditToken) {
+            // Token in URL doesn't match local session — strip it and redirect to login
+            window.location.href = '/login';
+            return;
+          }
           const vRes = await fetch(`/api/public/${code}/validate-admin`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
