@@ -3,31 +3,33 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUtensils, faBell, faClock, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import NoSleep from 'nosleep.js';
 
 const TV_CODE_KEY = 'srservi_tv_code';
 
-function useWakeLock() {
-  const wakeLockRef = useRef(null);
-
-  const acquire = async () => {
-    if ('wakeLock' in navigator) {
-      try {
-        wakeLockRef.current = await navigator.wakeLock.request('screen');
-        wakeLockRef.current.addEventListener('release', () => {
-          // Re-acquire when released (e.g. tab was hidden then shown)
-          if (document.visibilityState === 'visible') acquire();
-        });
-      } catch {}
-    }
-  };
-
+function useNoSleep() {
   useEffect(() => {
-    acquire();
-    const onVisible = () => { if (document.visibilityState === 'visible') acquire(); };
+    const noSleep = new NoSleep();
+
+    const enable = () => {
+      noSleep.enable();
+      document.removeEventListener('click', enable);
+      document.removeEventListener('touchstart', enable);
+    };
+
+    // NoSleep requires a user gesture on some browsers — try immediately,
+    // fall back to first interaction if that fails.
+    noSleep.enable().catch(() => {
+      document.addEventListener('click', enable, { once: true });
+      document.addEventListener('touchstart', enable, { once: true });
+    });
+
+    const onVisible = () => { if (document.visibilityState === 'visible') noSleep.enable().catch(() => {}); };
     document.addEventListener('visibilitychange', onVisible);
+
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
-      wakeLockRef.current?.release().catch(() => {});
+      noSleep.disable();
     };
   }, []);
 }
@@ -43,7 +45,7 @@ function TvDisplay() {
   const prevReadyRef = useRef([]);
   const audioRef = useRef(null);
 
-  useWakeLock();
+  useNoSleep();
 
   const fetchOrders = async () => {
     try {
