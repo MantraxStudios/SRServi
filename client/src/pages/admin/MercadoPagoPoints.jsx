@@ -190,20 +190,23 @@ function MercadoPagoPoints() {
       terminal_id: t.mercadopago_terminal_id,
       store_id: t.store_id,
     }));
-    const tuuList = (Array.isArray(tuuDevices) ? tuuDevices : []).map(d => {
-      const assign = (Array.isArray(tuuAssignments) ? tuuAssignments : []).find(a => a.tuu_device_id === d.id);
-      const storeDev = (Array.isArray(tuuStoreDevs) ? tuuStoreDevs : []).find(s => s.device_uid === assign?.device_uid);
-      return {
-        id: d.id,
-        provider: 'tuu',
-        name: d.name,
-        serial: d.serial,
-        device_uid: assign?.device_uid || null,
-        assigned: !!storeDev,
-        assigned_name: storeDev?.device_name || null,
-        store_id: d.store_id,
-      };
-    });
+    const assignments = Array.isArray(tuuAssignments) ? tuuAssignments : [];
+    const tuuList = (Array.isArray(tuuDevices) ? tuuDevices : [])
+      .filter(d => assignments.some(a => a.tuu_device_id === d.id))
+      .map(d => {
+        const assign = assignments.find(a => a.tuu_device_id === d.id);
+        const storeDev = (Array.isArray(tuuStoreDevs) ? tuuStoreDevs : []).find(s => s.device_uid === assign?.device_uid);
+        return {
+          id: d.id,
+          provider: 'tuu',
+          name: d.name,
+          serial: d.serial,
+          device_uid: assign?.device_uid || null,
+          assigned: !!storeDev,
+          assigned_name: storeDev?.device_name || null,
+          store_id: d.store_id,
+        };
+      });
     const squareList = (Array.isArray(squareDevsList) ? squareDevsList : []).map(d => ({
       id: d.id,
       provider: 'square',
