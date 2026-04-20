@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faStore, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle, faDesktop, faHashtag, faPercent, faTruck } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle, faDesktop, faHashtag, faPercent, faTruck } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 function Configurations() {
@@ -16,8 +16,6 @@ function Configurations() {
     accept_card: true,
     is_active: true,
     is_default: false,
-    is_minimarket: false,
-    default_minimarket_terminal: '',
     default_terminal: '',
     allow_serve: true,
     allow_takeout: true,
@@ -107,8 +105,6 @@ function Configurations() {
         accept_card: true,
         is_active: true,
         is_default: false,
-        is_minimarket: false,
-        default_minimarket_terminal: '',
         allow_serve: true,
         allow_takeout: true,
         hide_decimals: false,
@@ -131,8 +127,6 @@ function Configurations() {
       accept_card: Boolean(config.accept_card),
       is_active: Boolean(config.is_active),
       is_default: Boolean(config.is_default),
-      is_minimarket: Boolean(config.is_minimarket),
-      default_minimarket_terminal: config.default_minimarket_terminal || '',
       default_terminal: config.default_terminal || '',
       allow_serve: Boolean(config.allow_serve),
       allow_takeout: Boolean(config.allow_takeout),
@@ -423,22 +417,7 @@ function Configurations() {
                 )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-                <button
-                  type="button"
-                  onClick={() => setFormData(p => ({ ...p, is_minimarket: !p.is_minimarket }))}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px',
-                    borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
-                    border: `2px solid ${formData.is_minimarket ? '#D4AF37' : '#e0e0e0'}`,
-                    background: formData.is_minimarket ? '#fffbeb' : '#fafafa',
-                    color: formData.is_minimarket ? '#92400e' : '#666'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faStore} style={{ fontSize: '18px', color: formData.is_minimarket ? '#D4AF37' : '#aaa' }} />
-                  <span style={{ fontSize: '12px', fontWeight: '700' }}>Minimarket</span>
-                </button>
-
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
                 <button
                   type="button"
                   onClick={() => setFormData(p => ({ ...p, is_active: !p.is_active }))}
