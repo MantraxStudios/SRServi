@@ -6,6 +6,32 @@ import { faUtensils, faBell, faClock, faCheckCircle } from '@fortawesome/free-so
 
 const TV_CODE_KEY = 'srservi_tv_code';
 
+function useWakeLock() {
+  const wakeLockRef = useRef(null);
+
+  const acquire = async () => {
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+        wakeLockRef.current.addEventListener('release', () => {
+          // Re-acquire when released (e.g. tab was hidden then shown)
+          if (document.visibilityState === 'visible') acquire();
+        });
+      } catch {}
+    }
+  };
+
+  useEffect(() => {
+    acquire();
+    const onVisible = () => { if (document.visibilityState === 'visible') acquire(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      wakeLockRef.current?.release().catch(() => {});
+    };
+  }, []);
+}
+
 function TvDisplay() {
   const { code } = useParams();
   const navigate = useNavigate();
@@ -16,6 +42,8 @@ function TvDisplay() {
   const [highlightOrder, setHighlightOrder] = useState(null);
   const prevReadyRef = useRef([]);
   const audioRef = useRef(null);
+
+  useWakeLock();
 
   const fetchOrders = async () => {
     try {
