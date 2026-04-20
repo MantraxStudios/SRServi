@@ -1338,10 +1338,14 @@ function Store() {
     return Math.max(subtotal - discount, 0) * (tipPercent / 100);
   };
 
-  const getFinalTotal = () => {
+  const getCartSubtotal = () => {
     const subtotal = getCartTotal();
     const discount = Number(appliedCoupon?.discount_total || 0);
-    return Math.max(subtotal - discount, 0) + getTipAmount();
+    return Math.max(subtotal - discount, 0);
+  };
+
+  const getFinalTotal = () => {
+    return getCartSubtotal() + getTipAmount();
   };
 
   const getCartCount = () => {
@@ -3339,7 +3343,7 @@ function Store() {
 
 
       {cartOpen && (
-        <div className="cart-overlay" onClick={() => setCartOpen(false)} />
+        <div className="cart-overlay" onClick={() => { setCartOpen(false); setTipEnabled(false); setTipPercent(0); }} />
       )}
 
       <div className={`store-cart-sheet${cartOpen ? ' open' : ''}`}>
@@ -3417,7 +3421,7 @@ function Store() {
                 )}
                 <div className="store-cart-summary-total">
                   <span>{t('total', lang)}</span>
-                  <span>{colors.currency.symbol}{formatPrice(getFinalTotal())}</span>
+                  <span>{colors.currency.symbol}{formatPrice(getCartSubtotal())}</span>
                 </div>
                 <div className="store-cart-coupon">
                   <input
@@ -3466,7 +3470,7 @@ function Store() {
 
             <button onClick={handleCheckout} className="store-cart-checkout-btn store-glow-pulse">
               <FontAwesomeIcon icon={faCheck} />
-              {t('confirmOrder', lang)} - {colors.currency.symbol}{formatPrice(getFinalTotal())}
+              {t('confirmOrder', lang)} - {colors.currency.symbol}{formatPrice(getCartSubtotal())}
             </button>
 
             <button
