@@ -836,36 +836,37 @@ function WorkerPanel() {
 
       {showPayModal && (
         <div className="worker-modal-overlay" onClick={closePayModal}>
-          <div className="worker-modal" onClick={e => e.stopPropagation()}>
+          <div className="worker-modal" style={{ display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <div className="worker-modal-header">
               <h2 className="worker-modal-title">Cobrar Pedido</h2>
               <button className="worker-modal-close" onClick={closePayModal}>x</button>
             </div>
 
-            <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', color: colors.secondary }}>Número de Pedido</label>
-              <input
-                type="text"
-                value={paySearch}
-                onChange={e => handlePaySearch(e.target.value)}
-                placeholder="Ej: A01, B12..."
-                autoFocus
-                style={{
-                  width: '100%', padding: '10px 14px', fontSize: '1.1rem',
-                  background: '#1a1a1a', color: '#fff', border: `1px solid ${colors.accent}`,
-                  borderRadius: '8px', outline: 'none', boxSizing: 'border-box'
-                }}
-              />
-            </div>
-
-            {paySearch.trim() && payResult === undefined && (
-              <div style={{ color: '#ef4444', textAlign: 'center', padding: '12px' }}>
-                No se encontró ningún pedido con ese número
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', color: colors.secondary }}>Número de Pedido</label>
+                <input
+                  type="text"
+                  inputMode="text"
+                  value={paySearch}
+                  onChange={e => handlePaySearch(e.target.value)}
+                  placeholder="Ej: A01, B12..."
+                  autoFocus
+                  style={{
+                    width: '100%', padding: '12px 14px', fontSize: '1.2rem',
+                    background: '#1a1a1a', color: '#fff', border: `1px solid ${colors.accent}`,
+                    borderRadius: '8px', outline: 'none', boxSizing: 'border-box'
+                  }}
+                />
               </div>
-            )}
 
-            {payResult && (
-              <div>
+              {paySearch.trim() && payResult === undefined && (
+                <div style={{ color: '#ef4444', textAlign: 'center', padding: '12px' }}>
+                  No se encontró ningún pedido con ese número
+                </div>
+              )}
+
+              {payResult && (
                 <div style={{ background: '#1a1a1a', borderRadius: '8px', padding: '14px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>Pedido:</span>
@@ -896,25 +897,26 @@ function WorkerPanel() {
                     </div>
                   )}
                 </div>
+              )}
+            </div>
 
-                {payResult._isPendingCash ? (
+            <div style={{ paddingTop: '12px', flexShrink: 0 }}>
+              {payResult && (
+                payResult._isPendingCash ? (
                   <button
                     className="worker-action-btn approve"
-                    style={{ width: '100%', justifyContent: 'center', fontSize: '1rem', padding: '12px' }}
+                    style={{ width: '100%', justifyContent: 'center', fontSize: '1.05rem', padding: '14px', marginBottom: '10px' }}
                     onClick={handleApprovePay}
                   >
                     <FontAwesomeIcon icon={faCheck} /> Marcar como Pagado
                   </button>
                 ) : (
-                  <div style={{ color: '#f59e0b', textAlign: 'center', padding: '8px' }}>
+                  <div style={{ color: '#f59e0b', textAlign: 'center', padding: '8px', marginBottom: '10px' }}>
                     Este pedido ya está procesado (estado: {payResult.status})
                   </div>
-                )}
-              </div>
-            )}
-
-            <div className="worker-modal-actions modal-close-actions" style={{ marginTop: '12px' }}>
-              <button className="worker-action-btn close" onClick={closePayModal}>Cerrar</button>
+                )
+              )}
+              <button className="worker-action-btn close" style={{ width: '100%', justifyContent: 'center' }} onClick={closePayModal}>Cerrar</button>
             </div>
           </div>
         </div>

@@ -4515,13 +4515,16 @@ app.put('/api/orders/:id/status', authenticateToken, async (req, res) => {
     const { status, worker_id, worker_name } = req.body;
     const { id } = req.params;
     const { store_id } = req.query;
-    
+
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
-    
-    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
-    if (!isOwner) {
+
+    const isWorker = req.user.type === 'worker';
+    const hasAccess = isWorker
+      ? req.user.store_id === parseInt(store_id)
+      : await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!hasAccess) {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     
@@ -4541,13 +4544,16 @@ app.put('/api/orders/:id/approve-cash', authenticateToken, async (req, res) => {
     const { worker_id, worker_name } = req.body;
     const { id } = req.params;
     const { store_id } = req.query;
-    
+
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
-    
-    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
-    if (!isOwner) {
+
+    const isWorker = req.user.type === 'worker';
+    const hasAccess = isWorker
+      ? req.user.store_id === parseInt(store_id)
+      : await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!hasAccess) {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
     
