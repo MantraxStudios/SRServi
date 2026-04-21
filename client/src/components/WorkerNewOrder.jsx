@@ -64,6 +64,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const [lastOrderNumber, setLastOrderNumber] = useState(null);
   const [pendingOrderData, setPendingOrderData] = useState(null);
   const [paymentTimeLeft, setPaymentTimeLeft] = useState(90);
+  const [mobileTab, setMobileTab] = useState('products');
 
   const categoryScrollRef = useRef(null);
 
@@ -601,10 +602,31 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
           </div>
         </div>
 
+        {/* Mobile tab bar */}
+        <div className="worker-pos-tab-bar">
+          <button
+            className={`worker-pos-tab-btn${mobileTab === 'products' ? ' active' : ''}`}
+            onClick={() => setMobileTab('products')}
+          >
+            <FontAwesomeIcon icon={faUtensils} />
+            Productos
+          </button>
+          <button
+            className={`worker-pos-tab-btn${mobileTab === 'cart' ? ' active' : ''}`}
+            onClick={() => setMobileTab('cart')}
+          >
+            <FontAwesomeIcon icon={faShoppingCart} />
+            Carrito
+            {getCartCount() > 0 && (
+              <span className="worker-pos-tab-badge">{getCartCount()}</span>
+            )}
+          </button>
+        </div>
+
         {/* Body */}
         <div className="worker-pos-body">
           {/* Left side - Products */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div className={`worker-pos-products-panel${mobileTab === 'products' ? ' mobile-active' : ''}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             {/* Search */}
             <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <div style={{ position: 'relative' }}>
@@ -689,7 +711,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
           </div>
 
           {/* Right side - Cart */}
-          <div className="worker-pos-cart">
+          <div className={`worker-pos-cart${mobileTab === 'cart' ? ' mobile-active' : ''}`}>
             <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <FontAwesomeIcon icon={faShoppingCart} style={{ color: '#D4AF37' }} />
               Carrito ({getCartCount()})
