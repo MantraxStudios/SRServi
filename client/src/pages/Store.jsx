@@ -60,6 +60,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import PluginSlot from '../components/PluginSlot';
 import { PluginProvider } from '../context/PluginContext';
+import { useStore } from '../components/Layout';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -183,6 +184,7 @@ function Store() {
   const terminalFromUrl = searchParams.get('terminal');
   const configFromUrl = searchParams.get('config');
   const adminEditToken = searchParams.get('admin_edit');
+  const { setMenuOpen } = useStore() || {};
   const deliveryMode = searchParams.get('delivery') === 'true';
   const qrReturnResult = searchParams.get('x_result');
   const qrReturnRef = searchParams.get('x_reference');
@@ -2540,6 +2542,7 @@ function Store() {
     <div
       className="store-container"
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom }}
+      onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
     >
       <header className="store-header">
         <div className="store-header-content">
