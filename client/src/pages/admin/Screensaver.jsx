@@ -54,9 +54,11 @@ export default function Screensaver() {
 
   // Load config
   useEffect(() => {
-    if (!token) return;
+    if (!token || !selectedStore?.id) return;
     setLoading(true);
-    fetch(API + '/api/screensaver/config', { headers: { Authorization: 'Bearer ' + token } })
+    setPendingFile(null);
+    setPendingPreviewUrl(null);
+    fetch(API + '/api/screensaver/config?store_id=' + selectedStore.id, { headers: { Authorization: 'Bearer ' + token } })
       .then(r => r.ok ? r.json() : {})
       .then(data => {
         setEnabled(!!data.enabled);
@@ -65,7 +67,7 @@ export default function Screensaver() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, selectedStore?.id]);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -80,6 +82,7 @@ export default function Screensaver() {
       const fd = new FormData();
       fd.append('enabled', enabled ? 'true' : 'false');
       fd.append('timeout_seconds', timeoutSeconds);
+      if (selectedStore?.id) fd.append('store_id', selectedStore.id);
       if (pendingFile) fd.append('media', pendingFile);
       else if (mediaUrl) fd.append('media_url', mediaUrl);
       const res = await fetch(API + '/api/screensaver/config', {
@@ -106,7 +109,7 @@ export default function Screensaver() {
     if (!confirm('¿Eliminar imagen/gif personalizado?')) return;
     setDeleting(true);
     try {
-      await fetch(API + '/api/screensaver/media', {
+      await fetch(API + '/api/screensaver/media?store_id=' + (selectedStore?.id || 0), {
         method: 'DELETE',
         headers: { Authorization: 'Bearer ' + token }
       });

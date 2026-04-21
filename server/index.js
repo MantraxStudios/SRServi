@@ -4857,12 +4857,13 @@ async function ensureScreensaverTable() {
     CREATE TABLE IF NOT EXISTS screensaver_config (
       id INT AUTO_INCREMENT PRIMARY KEY,
       user_id INT NOT NULL,
+      store_id INT NOT NULL DEFAULT 0,
       enabled BOOLEAN DEFAULT FALSE,
       media_url VARCHAR(500) DEFAULT NULL,
       timeout_seconds INT DEFAULT 60,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_screensaver_user (user_id)
+      UNIQUE KEY uq_screensaver_store (user_id, store_id)
     )
   `);
   _screensaverTableReady = true;
@@ -4872,7 +4873,8 @@ async function ensureScreensaverTable() {
 app.get('/api/screensaver/config', authenticateToken, async (req, res) => {
   try {
     await ensureScreensaverTable();
-    const [rows] = await pool.execute('SELECT * FROM screensaver_config WHERE user_id = ?', [req.user.id]);
+    const store_id = parseInt(req.query.store_id) || 0;
+    const [rows] = await pool.execute('SELECT * FROM screensaver_config WHERE user_id = ? AND store_id = ?', [req.user.id, store_id]);
     res.json(rows[0] || { enabled: false, media_url: null, timeout_seconds: 60 });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -4885,13 +4887,14 @@ app.post('/api/screensaver/config', authenticateToken, upload.single('media'), a
     const timeout_seconds = parseInt(req.body.timeout_seconds) || 60;
     let media_url = req.body.media_url || null;
     if (req.file) media_url = '/uploads/' + req.file.filename;
+    const store_id = parseInt(req.body.store_id) || 0;
     await pool.execute(
-      `INSERT INTO screensaver_config (user_id, enabled, media_url, timeout_seconds)
-       VALUES (?, ?, ?, ?)
+      `INSERT INTO screensaver_config (user_id, store_id, enabled, media_url, timeout_seconds)
+       VALUES (?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), media_url = COALESCE(VALUES(media_url), media_url), timeout_seconds = VALUES(timeout_seconds), updated_at = NOW()`,
-      [req.user.id, enabled, media_url, timeout_seconds]
+      [req.user.id, store_id, enabled, media_url, timeout_seconds]
     );
-    const [rows] = await pool.execute('SELECT * FROM screensaver_config WHERE user_id = ?', [req.user.id]);
+    const [rows] = await pool.execute('SELECT * FROM screensaver_config WHERE user_id = ? AND store_id = ?', [req.user.id, store_id]);
     res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -4900,7 +4903,8 @@ app.post('/api/screensaver/config', authenticateToken, upload.single('media'), a
 app.delete('/api/screensaver/media', authenticateToken, async (req, res) => {
   try {
     await ensureScreensaverTable();
-    await pool.execute('UPDATE screensaver_config SET media_url = NULL, updated_at = NOW() WHERE user_id = ?', [req.user.id]);
+    const store_id = parseInt(req.query.store_id) || 0;
+    await pool.execute('UPDATE screensaver_config SET media_url = NULL, updated_at = NOW() WHERE user_id = ? AND store_id = ?', [req.user.id, store_id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
