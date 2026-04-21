@@ -278,7 +278,7 @@ function Layout() {
           <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
         )}
 
-        <nav className={`admin-sidebar ${isEditorMode ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : (menuOpen ? 'mobile-open' : 'mobile-closed')}`}>
+        <nav className={`admin-sidebar ${isEditorMode ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : (menuOpen ? 'mobile-open' : 'mobile-closed')}${!isEditorMode && menuOpen && !isMobile ? ' desktop-sidebar-open' : ''}`}>
           <div className="sidebar-header">
             <div className="sidebar-brand">
               <div className="sidebar-brand-logo">
