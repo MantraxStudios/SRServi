@@ -682,25 +682,20 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 return (
                   <div
                     key={product.id}
-                    className="worker-pos-product"
+                    className={`worker-pos-product-wrapper${outOfStock ? ' out-of-stock' : ''}`}
                     onClick={() => !outOfStock && openProductModal(product)}
-                    style={{ opacity: outOfStock ? 0.4 : 1, cursor: outOfStock ? 'not-allowed' : 'pointer' }}
                   >
-                    <div className="worker-pos-product-img">
+                    <div className="worker-pos-product-card">
                       {product.image ? (
-                        <img src={getImageUrl(product.image)} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px 8px 0 0' }} />
+                        <img src={getImageUrl(product.image)} alt={product.name} />
                       ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.04)', borderRadius: '8px 8px 0 0' }}>
-                          <FontAwesomeIcon icon={faUtensils} style={{ fontSize: '1.5rem', color: 'rgba(255,255,255,0.2)' }} />
-                        </div>
+                        <FontAwesomeIcon icon={faUtensils} />
                       )}
                       {outOfStock && (
-                        <div style={{ position: 'absolute', top: '4px', right: '4px', background: '#ef4444', color: '#fff', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                          Agotado
-                        </div>
+                        <span className="worker-pos-out-of-stock-badge">Agotado</span>
                       )}
                     </div>
-                    <div style={{ padding: '0.5rem' }}>
+                    <div className="worker-pos-product-info">
                       <div className="worker-pos-product-name">{product.name}</div>
                       <div className="worker-pos-product-price">{currencySymbol}{Number(product.price).toFixed(2)}</div>
                     </div>
