@@ -63,8 +63,8 @@ function Layout() {
   const [duplicateError, setDuplicateError] = useState('');
 
   useEffect(() => {
-    if (isEditorMode) setMenuOpen(true);
-  }, [isEditorMode]);
+    if (isEditorMode) setMenuOpen(prev => prev === false ? true : prev);
+  }, []);  // Solo al montar — no re-abrir si el usuario lo cerró manualmente
 
   useEffect(() => {
     const check = async () => {
@@ -274,7 +274,7 @@ function Layout() {
         '--store-accent': colors.accent,
         '--sidebar-w': (isEditorMode && menuOpen && !isMobile) ? '270px' : '0px'
       }}>
-        {menuOpen && (!isEditorMode || isMobile) && (
+        {menuOpen && (
           <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
         )}
 
