@@ -2178,9 +2178,15 @@ h1, h2, h3, h4, h5, h6 {
 
 .category-tabs-list {
   display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.category-tabs-list::-webkit-scrollbar {
+  display: none;
 }
 
 .category-tab {
