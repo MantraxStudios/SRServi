@@ -1779,6 +1779,7 @@ function Store() {
 
   useEffect(() => {
     setAppliedCoupon(null);
+    setCouponCodeInput('');
   }, [cart]);
 
   const fetchComplements = async () => {
