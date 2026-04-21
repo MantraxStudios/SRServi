@@ -165,6 +165,9 @@ function Layout() {
     setSelectedStore(store);
     localStorage.setItem('selectedStoreId', store.id.toString());
     setStoreDropdownOpen(false);
+    if (isEditorMode) {
+      window.location.href = `/admin/editor/${store.code}?admin_edit=${token}`;
+    }
   };
 
   const openDuplicateModal = (e, store) => {
