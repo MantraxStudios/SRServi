@@ -10,9 +10,13 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.WindowManager
+import android.webkit.DownloadListener
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -20,17 +24,24 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.mantraxstudios.srservi.R
 import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
+import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 class SellActivity : AppCompatActivity() {
 
@@ -142,6 +153,10 @@ class SellActivity : AppCompatActivity() {
                 return true
             }
         }
+
+        webView.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
+            downloadFile(url, userAgent, contentDisposition, mimeType, contentLength)
+        })
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView, newProgress: Int) {
@@ -259,6 +274,145 @@ class SellActivity : AppCompatActivity() {
             am.appTasks.firstOrNull()?.moveToFront()
         } catch (_: Exception) {
         }
+    }
+
+    // ── Descarga de archivos ─────────────────────────────────────────────────
+
+    private fun downloadFile(
+        url: String,
+        userAgent: String,
+        contentDisposition: String,
+        mimeType: String,
+        contentLength: Long
+    ) {
+        val fileName = parseFileName(contentDisposition, url)
+
+        val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            isIndeterminate = contentLength <= 0
+        }
+        val tvPercent = TextView(this).apply {
+            text = "0%"
+            gravity = Gravity.CENTER
+            setPadding(0, 8, 0, 0)
+        }
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(64, 32, 64, 16)
+            addView(progressBar, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(tvPercent, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
+
+        stopKioskLock()
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Descargando $fileName…")
+            .setView(container)
+            .setCancelable(false)
+            .create()
+        dialog.show()
+
+        Thread {
+            try {
+                val destFile = File(cacheDir, fileName)
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.setRequestProperty("User-Agent", userAgent)
+                connection.connect()
+
+                val total = if (contentLength > 0) contentLength else connection.contentLengthLong
+                val input = connection.inputStream
+                val output = FileOutputStream(destFile)
+                val buffer = ByteArray(8192)
+                var downloaded = 0L
+                var bytes: Int
+
+                while (input.read(buffer).also { bytes = it } != -1) {
+                    output.write(buffer, 0, bytes)
+                    downloaded += bytes
+                    if (total > 0) {
+                        val percent = (downloaded * 100 / total).toInt()
+                        runOnUiThread {
+                            progressBar.isIndeterminate = false
+                            progressBar.progress = percent
+                            tvPercent.text = "$percent%"
+                        }
+                    }
+                }
+                output.flush()
+                output.close()
+                input.close()
+
+                runOnUiThread {
+                    dialog.dismiss()
+                    showShareDialog(destFile, mimeType)
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    dialog.dismiss()
+                    Toast.makeText(this, "Error al descargar: ${e.message}", Toast.LENGTH_LONG).show()
+                    startKioskLock()
+                }
+            }
+        }.start()
+    }
+
+    private fun showShareDialog(file: File, mimeType: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Descarga completada")
+            .setMessage(file.name)
+            .setPositiveButton("Compartir archivo") { _, _ ->
+                shareViaBluetooth(file, mimeType)
+            }
+            .setNegativeButton("Cerrar") { _, _ ->
+                startKioskLock()
+            }
+            .setOnCancelListener {
+                startKioskLock()
+            }
+            .show()
+    }
+
+    private fun shareViaBluetooth(file: File, mimeType: String) {
+        val fileUri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        val resolvedMime = mimeType.ifBlank { "*/*" }
+
+        // Intentar abrir directamente Bluetooth OPP
+        val btIntent = Intent(Intent.ACTION_SEND).apply {
+            type = resolvedMime
+            putExtra(Intent.EXTRA_STREAM, fileUri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            setPackage("com.android.bluetooth")
+        }
+        val hasBtOpp = packageManager.queryIntentActivities(btIntent, PackageManager.MATCH_DEFAULT_ONLY).isNotEmpty()
+        if (hasBtOpp) {
+            grantUriPermission("com.android.bluetooth", fileUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            try {
+                startActivity(btIntent)
+                return
+            } catch (_: Exception) { }
+        }
+
+        // Fallback: hoja de compartir estándar (incluye Bluetooth)
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = resolvedMime
+            putExtra(Intent.EXTRA_STREAM, fileUri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(shareIntent, "Compartir archivo"))
+    }
+
+    private fun parseFileName(contentDisposition: String, url: String): String {
+        return try {
+            if (contentDisposition.contains("filename=", ignoreCase = true)) {
+                contentDisposition
+                    .substringAfter("filename=", "")
+                    .trim('"', '\'', ' ')
+                    .substringBefore(";")
+                    .trim()
+                    .ifBlank { null }
+            } else null
+        } catch (_: Exception) { null }
+            ?: Uri.parse(url).lastPathSegment?.takeIf { it.isNotBlank() }
+            ?: "archivo_${System.currentTimeMillis()}"
     }
 
     override fun onDestroy() {
