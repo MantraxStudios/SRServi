@@ -233,6 +233,9 @@ function Layout() {
 
   return (
     <StoreContext.Provider value={{ selectedStore, stores, selectStore, fetchStores, colors, menuOpen, setMenuOpen, storeLoading: loading }}>
+      {menuOpen && (
+        <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
+      )}
       {serverDown && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 99999,
@@ -274,10 +277,6 @@ function Layout() {
         '--store-accent': colors.accent,
         '--sidebar-w': (isEditorMode && menuOpen && !isMobile) ? '270px' : '0px'
       }}>
-        {menuOpen && (
-          <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
-        )}
-
         <nav className={`admin-sidebar ${isEditorMode ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : (menuOpen ? 'mobile-open' : 'mobile-closed')}${!isEditorMode && menuOpen && !isMobile ? ' desktop-sidebar-open' : ''}`}>
           <div className="sidebar-header">
             <div className="sidebar-brand">
