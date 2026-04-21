@@ -2,18 +2,26 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faEnvelope, faLock, faStore, faDownload, faUserCog } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faEnvelope, faLock, faStore, faDownload, faUserCog, faGlobe } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
 
 function Register() {
   const [step, setStep] = useState('form'); // 'form' | 'verify'
+  const COUNTRIES = [
+    'Argentina','Bolivia','Brasil','Chile','Colombia','Costa Rica','Cuba',
+    'Ecuador','El Salvador','España','Guatemala','Honduras','México',
+    'Nicaragua','Panamá','Paraguay','Perú','Puerto Rico','República Dominicana',
+    'Uruguay','Venezuela','Otro'
+  ];
+
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
     confirmPassword: '',
-    business_name: ''
+    business_name: '',
+    country: ''
   });
   const [verifyEmail, setVerifyEmail] = useState('');
   const [verifyCode, setVerifyCode] = useState('');
@@ -33,6 +41,10 @@ function Register() {
     e.preventDefault();
     setError('');
 
+    if (!formData.country) {
+      setError('Por favor selecciona tu país');
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       setError('Las contraseñas no coinciden');
       return;
@@ -51,7 +63,8 @@ function Register() {
           username: formData.username,
           email: formData.email,
           password: formData.password,
-          business_name: formData.business_name
+          business_name: formData.business_name,
+          country: formData.country
         })
       });
       const data = await res.json();
@@ -239,6 +252,25 @@ function Register() {
                 onChange={handleChange}
                 placeholder="Nombre de tu restaurante (opcional)"
               />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>País <span style={{ color: '#e53e3e' }}>*</span></label>
+            <div className="input-icon-wrapper">
+              <FontAwesomeIcon icon={faGlobe} className="input-icon" />
+              <select
+                name="country"
+                value={formData.country}
+                onChange={handleChange}
+                required
+                style={{ paddingLeft: '36px', width: '100%', appearance: 'none' }}
+              >
+                <option value="">Selecciona tu país...</option>
+                {COUNTRIES.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
           </div>
 

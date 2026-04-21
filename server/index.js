@@ -272,10 +272,10 @@ const authenticateToken = (req, res, next) => {
 
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { username, password, business_name } = req.body;
+    const { username, password, business_name, country } = req.body;
     const email = (req.body.email || '').toLowerCase().trim();
 
-    if (!username || !email || !password) {
+    if (!username || !email || !password || !country) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
 
@@ -293,7 +293,7 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Ese nombre de usuario ya está en uso' });
     }
 
-    const user = await createUser(username, email, password, business_name);
+    const user = await createUser(username, email, password, business_name, country);
 
     const storeName = business_name || username;
     const newStore = await createStore(user.id, {

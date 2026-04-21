@@ -966,7 +966,7 @@ function generateCode() {
   return code;
 }
 
-export async function createUser(username, email, password, business_name) {
+export async function createUser(username, email, password, business_name, country) {
   const hashedPassword = await bcrypt.hash(password, 10);
   let code = generateCode();
   
@@ -978,8 +978,8 @@ export async function createUser(username, email, password, business_name) {
   }
 
   const [result] = await pool.execute(
-    'INSERT INTO users (username, email, password, code, business_name, email_verified) VALUES (?, ?, ?, ?, ?, FALSE)',
-    [username, email, hashedPassword, code, business_name || null]
+    'INSERT INTO users (username, email, password, code, business_name, country, email_verified) VALUES (?, ?, ?, ?, ?, ?, FALSE)',
+    [username, email, hashedPassword, code, business_name || null, country || null]
   );
 
   return {
