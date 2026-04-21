@@ -1103,6 +1103,8 @@ function Store() {
       // Allow the dedicated hidden barcodeInput (it has a className we can detect)
       const isDedicated = active?.classList?.contains('barcode-input');
       if (isEditable && !isDedicated) return;
+      // Si el foco está en el input dedicado, él mismo maneja el scan — no duplicar
+      if (isDedicated) return;
 
       const now = Date.now();
       const gap = now - lastTime;
