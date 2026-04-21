@@ -708,51 +708,56 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 );
               })}
             </div>
+
+            {/* Floating cart button - mobile only */}
+            {cart.length > 0 && (
+              <button className="worker-pos-float-cart" onClick={() => setMobileTab('cart')}>
+                <span className="worker-pos-float-cart-count">{getCartCount()}</span>
+                <span>Ver carrito</span>
+                <span className="worker-pos-float-cart-total">{currencySymbol}{getCartTotal().toFixed(2)}</span>
+              </button>
+            )}
           </div>
 
           {/* Right side - Cart */}
           <div className={`worker-pos-cart${mobileTab === 'cart' ? ' mobile-active' : ''}`}>
-            <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <FontAwesomeIcon icon={faShoppingCart} style={{ color: '#D4AF37' }} />
-              Carrito ({getCartCount()})
-            </div>
 
-            {/* Cart items */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem' }}>
+            {/* Cart items - min-height:0 critical for flex shrink */}
+            <div className="worker-pos-cart-items-scroll">
               {cart.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'rgba(255,255,255,0.3)', fontSize: '0.9rem' }}>
-                  <FontAwesomeIcon icon={faShoppingBag} style={{ fontSize: '2rem', marginBottom: '0.75rem', display: 'block' }} />
-                  Carrito vacio
+                <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'rgba(255,255,255,0.3)', fontSize: '0.9rem' }}>
+                  <FontAwesomeIcon icon={faShoppingBag} style={{ fontSize: '2.5rem', marginBottom: '0.75rem', display: 'block' }} />
+                  Carrito vacío
                 </div>
               )}
               {cart.map(item => (
                 <div key={item.id} className="worker-pos-cart-item">
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {item.product_name}
                     </div>
                     {(item.selected_ingredients?.length > 0 || item.selected_extras?.length > 0) && (
-                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem', marginTop: '2px' }}>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', marginTop: '2px' }}>
                         {[...(item.selected_ingredients || []), ...(item.selected_extras || [])].join(', ')}
                       </div>
                     )}
-                    <div style={{ color: '#D4AF37', fontSize: '0.8rem', fontWeight: 600, marginTop: '4px' }}>
+                    <div style={{ color: '#D4AF37', fontSize: '0.85rem', fontWeight: 600, marginTop: '4px' }}>
                       {currencySymbol}{(item.unit_price * item.quantity).toFixed(2)}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
                     <button
                       onClick={() => item.quantity === 1 ? removeFromCart(item.id) : updateQuantity(item.id, -1)}
-                      style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: item.quantity === 1 ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)', color: item.quantity === 1 ? '#ef4444' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}
+                      style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: item.quantity === 1 ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)', color: item.quantity === 1 ? '#ef4444' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}
                     >
                       <FontAwesomeIcon icon={item.quantity === 1 ? faTrash : faMinus} />
                     </button>
-                    <span style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 600, minWidth: '20px', textAlign: 'center' }}>
+                    <span style={{ color: '#fff', fontSize: '1rem', fontWeight: 700, minWidth: '22px', textAlign: 'center' }}>
                       {item.quantity}
                     </span>
                     <button
                       onClick={() => updateQuantity(item.id, 1)}
-                      style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: 'rgba(212,175,55,0.15)', color: '#D4AF37', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}
+                      style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: 'rgba(212,175,55,0.15)', color: '#D4AF37', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}
                     >
                       <FontAwesomeIcon icon={faPlus} />
                     </button>
@@ -761,21 +766,21 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
               ))}
             </div>
 
-            {/* Cart footer */}
+            {/* Cart footer - always visible at bottom */}
             <div className="worker-pos-cart-footer">
               <div className="worker-pos-summary-total">
                 <span>Total</span>
                 <span>{currencySymbol}{getCartTotal().toFixed(2)}</span>
               </div>
 
-              {/* Order type - centered */}
+              {/* Order type */}
               <div className="worker-pos-order-type-center">
                 <button
                   onClick={() => setOrderType('serve')}
                   className={`worker-pos-type-btn${orderType === 'serve' ? ' active' : ''}`}
                 >
                   <FontAwesomeIcon icon={faUtensils} />
-                  <span>Servir aqui</span>
+                  <span>Servir aquí</span>
                 </button>
                 <button
                   onClick={() => setOrderType('takeout')}
@@ -792,7 +797,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 onClick={() => setShowPayModal(true)}
               >
                 <FontAwesomeIcon icon={faShoppingCart} />
-                Cobrar - {currencySymbol}{getCartTotal().toFixed(2)}
+                Cobrar — {currencySymbol}{getCartTotal().toFixed(2)}
               </button>
             </div>
           </div>
