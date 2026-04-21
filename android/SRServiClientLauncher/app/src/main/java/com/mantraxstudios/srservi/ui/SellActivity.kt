@@ -359,8 +359,8 @@ class SellActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Descarga completada")
             .setMessage(file.name)
-            .setPositiveButton("Compartir archivo") { _, _ ->
-                shareViaBluetooth(file, mimeType)
+            .setPositiveButton("Abrir archivo") { _, _ ->
+                openDownloadedFile(file, mimeType)
             }
             .setNegativeButton("Cerrar") { _, _ ->
                 startKioskLock()
@@ -371,33 +371,20 @@ class SellActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun shareViaBluetooth(file: File, mimeType: String) {
+    private fun openDownloadedFile(file: File, mimeType: String) {
         val fileUri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         val resolvedMime = mimeType.ifBlank { "*/*" }
-
-        // Intentar abrir directamente Bluetooth OPP
-        val btIntent = Intent(Intent.ACTION_SEND).apply {
-            type = resolvedMime
-            putExtra(Intent.EXTRA_STREAM, fileUri)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(fileUri, resolvedMime)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            setPackage("com.android.bluetooth")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        val hasBtOpp = packageManager.queryIntentActivities(btIntent, PackageManager.MATCH_DEFAULT_ONLY).isNotEmpty()
-        if (hasBtOpp) {
-            grantUriPermission("com.android.bluetooth", fileUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            try {
-                startActivity(btIntent)
-                return
-            } catch (_: Exception) { }
+        try {
+            startActivity(intent)
+        } catch (_: Exception) {
+            Toast.makeText(this, "No hay app para abrir este tipo de archivo", Toast.LENGTH_LONG).show()
+            startKioskLock()
         }
-
-        // Fallback: hoja de compartir estándar (incluye Bluetooth)
-        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = resolvedMime
-            putExtra(Intent.EXTRA_STREAM, fileUri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        startActivity(Intent.createChooser(shareIntent, "Compartir archivo"))
     }
 
     private fun parseFileName(contentDisposition: String, url: String): String {
