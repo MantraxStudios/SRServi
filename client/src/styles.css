@@ -7762,99 +7762,73 @@ html body .store-container .store-product-card * {
 
 /* Mobile responsive */
 @media (max-width: 768px) {
+
+  /* ── Contenedores raíz: nada se sale del viewport ── */
+  .worker-pos-overlay,
+  .worker-pos-container {
+    width: 100vw;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* ── Tab bar ── */
   .worker-pos-tab-bar {
     display: flex;
+    width: 100%;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     flex-shrink: 0;
   }
 
-  /* Body fills remaining space, no overflow */
+  /* ── Body: columna, ocupa el espacio restante ── */
   .worker-pos-body {
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    width: 100%;
     overflow: hidden;
   }
 
-  /* Products panel: hidden unless active */
+  /* ── Panel de productos ── */
   .worker-pos-products-panel {
     display: none !important;
   }
   .worker-pos-products-panel.mobile-active {
     display: flex !important;
+    flex-direction: column;
     flex: 1;
+    width: 100%;
     min-height: 0;
     overflow: hidden;
     position: relative;
   }
 
-  /* Cart panel: hidden unless active, fills full height with flex column */
+  /* ── Panel del carrito ── */
   .worker-pos-cart {
     display: none !important;
-    width: 100% !important;
-    max-height: none !important;
-    border-left: none;
-    border-top: none;
-    flex-direction: column;
   }
   .worker-pos-cart.mobile-active {
     display: flex !important;
+    flex-direction: column;
     flex: 1;
+    width: 100%;
     min-height: 0;
     overflow: hidden;
+    border: none;
   }
 
-  /* Cart items - scrollable, shrinkable */
-  .worker-pos-cart-items-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 8px;
-  }
-
-  /* Cart item rows - bigger touch targets */
-  .worker-pos-cart-item {
-    padding: 10px 8px;
-    gap: 12px;
-  }
-
-  /* Footer always at bottom, never pushed off screen */
-  .worker-pos-cart-footer {
+  /* ── Categorías: scroll horizontal, sin desbordar ── */
+  .worker-pos-categories {
+    padding: 8px 12px;
     flex-shrink: 0;
-    padding: 12px 14px;
-    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
-    border-top: 1px solid rgba(255,255,255,0.1);
-    gap: 10px;
   }
 
-  .worker-pos-summary-total {
-    font-size: 16px;
-    font-weight: 700;
-    margin-bottom: 2px;
-  }
-
-  .worker-pos-order-type-center {
-    gap: 8px;
-  }
-
-  .worker-pos-order-type-center .worker-pos-type-btn {
-    font-size: 12px;
-    padding: 8px 6px;
-    gap: 5px;
-  }
-
-  .worker-pos-checkout-btn {
-    padding: 15px;
-    font-size: 16px;
-    font-weight: 800;
-    margin-top: 2px;
-  }
-
-  /* Products grid: 3 columnas en móvil (igual que Store) */
+  /* ── Grid de productos: 3 columnas, contenido dentro ── */
   .worker-pos-products {
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    padding: 10px 10px 80px 10px;
+    gap: 8px;
+    padding: 8px 8px 80px 8px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .worker-pos-product-name {
@@ -7865,7 +7839,55 @@ html body .store-container .store-product-card * {
     font-size: 12px;
   }
 
-  /* Floating "Ver carrito" button on products tab */
+  /* ── Items del carrito ── */
+  .worker-pos-cart-items-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px 12px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .worker-pos-cart-item {
+    padding: 10px 4px;
+    gap: 10px;
+  }
+
+  /* ── Footer del carrito: pegado al fondo ── */
+  .worker-pos-cart-footer {
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+    border-top: 1px solid rgba(255,255,255,0.1);
+    gap: 10px;
+  }
+
+  .worker-pos-summary-total {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .worker-pos-order-type-center {
+    gap: 8px;
+  }
+
+  .worker-pos-order-type-center .worker-pos-type-btn {
+    font-size: 12px;
+    padding: 8px 4px;
+  }
+
+  .worker-pos-checkout-btn {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  /* ── Botón flotante "Ver carrito" ── */
   .worker-pos-float-cart {
     display: flex;
     align-items: center;
@@ -7885,6 +7907,7 @@ html body .store-container .store-product-card * {
     box-shadow: 0 6px 24px rgba(212,175,55,0.45);
     z-index: 10;
     animation: floatCartIn 0.2s ease;
+    box-sizing: border-box;
   }
 
   @keyframes floatCartIn {
