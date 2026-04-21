@@ -1135,16 +1135,26 @@ function Store() {
       setNotification({ name: found.name, image: found.image });
       setTimeout(() => setNotification(null), 2000);
       const unitPrice = found.price;
-      const cartItem = {
-        id: Date.now(),
-        product_id: found.id,
-        product_name: found.name,
-        product_image: found.image,
-        unit_price: unitPrice,
-        quantity: 1,
-        total: unitPrice
-      };
-      setCart([...cart, cartItem]);
+      setCart(prev => {
+        const existingIndex = prev.findIndex(item => item.product_id === found.id);
+        if (existingIndex !== -1) {
+          return prev.map((item, idx) =>
+            idx === existingIndex
+              ? { ...item, quantity: item.quantity + 1, total: item.unit_price * (item.quantity + 1) }
+              : item
+          );
+        }
+        const cartItem = {
+          id: Date.now(),
+          product_id: found.id,
+          product_name: found.name,
+          product_image: found.image,
+          unit_price: unitPrice,
+          quantity: 1,
+          total: unitPrice
+        };
+        return [...prev, cartItem];
+      });
     } else if (barcodeValue.length > 0) {
       setNotification({ name: 'Producto no encontrado', image: null });
       setTimeout(() => setNotification(null), 2000);
