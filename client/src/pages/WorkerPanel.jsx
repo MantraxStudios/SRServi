@@ -442,11 +442,18 @@ function WorkerPanel() {
     );
   }
 
+  const avgPrepTime = (() => {
+    const done = completedOrders.filter(o => o.created_at && o.completed_at);
+    if (!done.length) return null;
+    const avg = done.reduce((sum, o) => sum + (new Date(o.completed_at) - new Date(o.created_at)), 0) / done.length;
+    const mins = Math.round(avg / 60000);
+    return mins < 1 ? '< 1 min' : `${mins} min`;
+  })();
+
   const stats = {
-    pending: orders.filter(o => o.status === 'pending').length,
-    preparing: orders.filter(o => o.status === 'preparing').length,
+    pending: orders.filter(o => o.status === 'pending').length + pendingCashOrders.length,
     ready: orders.filter(o => o.status === 'ready').length,
-    total: orders.length
+    total: orders.length + pendingCashOrders.length
   };
 
   return (
@@ -479,8 +486,10 @@ function WorkerPanel() {
             <span className="worker-stat-label">Pendientes</span>
           </div>
           <div className="worker-stat preparing">
-            <span className="worker-stat-num">{stats.preparing}</span>
-            <span className="worker-stat-label">Preparando</span>
+            <span className="worker-stat-num" style={{ fontSize: avgPrepTime ? '1rem' : undefined }}>
+              {avgPrepTime ?? '—'}
+            </span>
+            <span className="worker-stat-label">T. Promedio</span>
           </div>
           <div className="worker-stat ready">
             <span className="worker-stat-num">{stats.ready}</span>
