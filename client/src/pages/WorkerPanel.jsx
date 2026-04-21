@@ -452,7 +452,7 @@ function WorkerPanel() {
 
   const stats = {
     pending: orders.filter(o => o.status === 'pending').length + pendingCashOrders.length,
-    ready: orders.filter(o => o.status === 'ready').length,
+    ready: completedOrders.length,
     total: orders.length + pendingCashOrders.length
   };
 
