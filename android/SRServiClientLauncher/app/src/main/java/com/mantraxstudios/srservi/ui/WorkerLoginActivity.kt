@@ -29,7 +29,6 @@ class WorkerLoginActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
-    private lateinit var toolbar: MaterialToolbar
     private lateinit var popupContainer: View
     private lateinit var webViewPopup: WebView
     private lateinit var toolbarPopup: MaterialToolbar
@@ -53,24 +52,11 @@ class WorkerLoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_worker_login)
 
-        toolbar = findViewById(R.id.toolbar)
         progressBar = findViewById(R.id.progressBar)
         webView = findViewById(R.id.webView)
         popupContainer = findViewById(R.id.popupContainer)
         webViewPopup = findViewById(R.id.webViewPopup)
         toolbarPopup = findViewById(R.id.toolbarPopup)
-
-        // Toolbar: kiosk desde el inicio, solo boton Salir con PIN
-        toolbar.navigationIcon = null
-        toolbar.inflateMenu(R.menu.menu_worker_panel)
-        toolbar.menu.findItem(R.id.action_exit_kiosk)?.isVisible = true
-        toolbar.setOnMenuItemClickListener { item ->
-            if (item.itemId == R.id.action_exit_kiosk) {
-                stopKioskLock()
-                finish()
-                true
-            } else false
-        }
 
         // Toolbar del popup: volver al panel del trabajador
         toolbarPopup.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
