@@ -44,11 +44,7 @@ function WorkerLogin() {
   return (
     <div className="worker-login-container">
       <div className="worker-login-card">
-        <button onClick={() => navigate('/')} className="worker-back-btn">
-          <FontAwesomeIcon icon={faArrowLeft} /> Volver
-        </button>
-
-        <div className="worker-login-header">
+<div className="worker-login-header">
           <div className="worker-login-icon">
             <FontAwesomeIcon icon={faUserCog} />
           </div>
