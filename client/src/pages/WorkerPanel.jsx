@@ -453,7 +453,7 @@ function WorkerPanel() {
   const stats = {
     pending: orders.filter(o => o.status === 'pending').length + pendingCashOrders.length,
     ready: completedOrders.length,
-    total: orders.length + pendingCashOrders.length
+    total: [...orders, ...completedOrders, ...pendingCashOrders].reduce((s, o) => s + Number(o.total || 0), 0).toFixed(1)
   };
 
   return (
@@ -496,8 +496,8 @@ function WorkerPanel() {
             <span className="worker-stat-label">Listos</span>
           </div>
           <div className="worker-stat total">
-            <span className="worker-stat-num">{stats.total}</span>
-            <span className="worker-stat-label">Total</span>
+            <span className="worker-stat-num" style={{ fontSize: '1rem', letterSpacing: 0 }}>${stats.total}</span>
+            <span className="worker-stat-label">Vendido</span>
           </div>
         </div>
 
