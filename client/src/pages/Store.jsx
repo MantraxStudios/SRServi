@@ -312,6 +312,7 @@ function Store() {
   const screensaverTimerRef = useRef(null);
   const longPressTimerRef = useRef(null);
   const categoryRef = useRef(null);
+  const productsAreaRef = useRef(null);
   const storeIdRef = useRef(null);
   const socketRef = useRef(null);
   const pendingOrderDataRef = useRef(null);
@@ -501,6 +502,102 @@ function Store() {
       mutationObserver.disconnect();
     };
   }, []);
+
+  // Touch drag-to-scroll en las categorías
+  useEffect(() => {
+    const container = categoryRef.current;
+    if (!container) return;
+
+    let startX = 0;
+    let startScrollLeft = 0;
+    let isDragging = false;
+    let moved = false;
+
+    const onTouchStart = (e) => {
+      startX = e.touches[0].clientX;
+      startScrollLeft = container.scrollLeft;
+      isDragging = true;
+      moved = false;
+    };
+
+    const onTouchMove = (e) => {
+      if (!isDragging) return;
+      const dx = startX - e.touches[0].clientX;
+      if (Math.abs(dx) > 5) {
+        moved = true;
+        container.scrollLeft = startScrollLeft + dx;
+      }
+    };
+
+    const onTouchEnd = () => {
+      isDragging = false;
+    };
+
+    // Bloquear click en los tabs si fue un drag (no un tap)
+    const onClickCapture = (e) => {
+      if (moved) {
+        e.stopPropagation();
+        e.preventDefault();
+        moved = false;
+      }
+    };
+
+    container.addEventListener('touchstart', onTouchStart, { passive: true });
+    container.addEventListener('touchmove', onTouchMove, { passive: true });
+    container.addEventListener('touchend', onTouchEnd, { passive: true });
+    container.addEventListener('click', onClickCapture, true);
+
+    return () => {
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
+      container.removeEventListener('click', onClickCapture, true);
+    };
+  }, []);
+
+  // Swipe horizontal sobre el área de productos para cambiar categoría
+  useEffect(() => {
+    const el = productsAreaRef.current;
+    if (!el) return;
+    let startX = 0;
+    let startY = 0;
+
+    const onTouchStart = (e) => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    };
+
+    const onTouchEnd = (e) => {
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      // Solo swipe horizontal claro (más horizontal que vertical y mínimo 60px)
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+
+      setActiveCategory(prev => {
+        const cats = ['all', ...(store?.categories || []).map(c => c.name)];
+        const idx = cats.indexOf(prev);
+        if (dx < 0) return cats[Math.min(idx + 1, cats.length - 1)]; // swipe izquierda → siguiente
+        return cats[Math.max(idx - 1, 0)];                            // swipe derecha  → anterior
+      });
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [store?.categories]);
+
+  // Auto-scroll del tab de categoría activa al cambiar con swipe
+  useEffect(() => {
+    const container = categoryRef.current;
+    if (!container) return;
+    const activeTab = container.querySelector('.category-tab.active');
+    if (activeTab) {
+      activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, [activeCategory]);
 
   const [paymentWaiting, setPaymentWaiting] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
@@ -2740,7 +2837,7 @@ function Store() {
 
 
       {(!editMode || previewMode) && activeCategory === 'all' && hasProducts && (
-        <div className="category-sections">
+        <div className="category-sections" ref={productsAreaRef}>
           {(() => {
             const uncategorized = getSmartProducts().filter(p => !p.category_name);
             return uncategorized.length > 0 ? (
@@ -2808,7 +2905,7 @@ function Store() {
             items={(store?.products || []).map(p => p.id)}
             strategy={rectSortingStrategy}
           >
-            <div className="category-sections">
+            <div className="category-sections" ref={productsAreaRef}>
               {(() => {
                 if (editCatFilter !== 'all') return null;
                 const uncategorized = (store?.products || []).filter(p => !p.category_name);
