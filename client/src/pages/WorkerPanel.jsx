@@ -622,8 +622,23 @@ function WorkerPanel() {
                       ))}
                     </div>
                   )}
-                  <div className="worker-order-total">
-                    ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+                    <div className="worker-order-total" style={{ margin: 0 }}>
+                      ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); updateOrderStatus(order.id, 'completed'); }}
+                      title="Marcar como completado"
+                      style={{
+                        width: '34px', height: '34px', borderRadius: '50%',
+                        background: 'rgba(34,197,94,0.15)', border: '1.5px solid #22c55e',
+                        color: '#22c55e', cursor: 'pointer', display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem',
+                        flexShrink: 0
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faCheck} />
+                    </button>
                   </div>
                 </div>
               ))}

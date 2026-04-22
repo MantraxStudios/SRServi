@@ -20,7 +20,8 @@ import {
   faExclamationTriangle,
   faMotorcycle,
   faConciergeBell,
-  faBuilding
+  faBuilding,
+  faPen
 } from '@fortawesome/free-solid-svg-icons';
 import { getImageUrl } from '../config.js';
 
@@ -65,6 +66,8 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const [pendingOrderData, setPendingOrderData] = useState(null);
   const [paymentTimeLeft, setPaymentTimeLeft] = useState(90);
   const [mobileTab, setMobileTab] = useState('products');
+  const [customTotal, setCustomTotal] = useState(null);
+  const [editingTotal, setEditingTotal] = useState(false);
 
   const categoryScrollRef = useRef(null);
 
@@ -230,8 +233,8 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const openProductModal = (product) => {
     if (!product.unlimited_stock && product.stock === 0) return;
 
-    const hasIngredients = product.ingredients && product.ingredients.length > 0;
-    const hasExtras = product.extras && product.extras.length > 0;
+    const hasIngredients = product.has_ingredients && product.ingredients && product.ingredients.length > 0;
+    const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
 
     if (!hasIngredients && !hasExtras) {
       // Add directly to cart
@@ -300,7 +303,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       return;
     }
 
-    if (selectedProduct.extras && selectedProduct.extras.length > 0) {
+    if (selectedProduct.has_extras && selectedProduct.extras && selectedProduct.extras.length > 0) {
       setModalStep('extras');
     } else {
       addToCart();
@@ -339,12 +342,18 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   };
 
   const removeFromCart = (itemId) => {
-    setCart(prev => prev.filter(item => item.id !== itemId));
+    setCart(prev => {
+      const next = prev.filter(item => item.id !== itemId);
+      if (next.length === 0) setCustomTotal(null);
+      return next;
+    });
   };
 
   const getCartTotal = () => {
     return cart.reduce((total, item) => total + (item.unit_price * item.quantity), 0);
   };
+
+  const getEffectiveTotal = () => customTotal !== null ? customTotal : getCartTotal();;
 
   const getCartCount = () => {
     return cart.reduce((count, item) => count + item.quantity, 0);
@@ -363,7 +372,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
     setPaymentConfirmed(false);
     setPaymentCancelled(false);
 
-    const total = getCartTotal();
+    const total = getEffectiveTotal();
     const orderData = {
       store_id: storeId,
       order_type: orderType,
@@ -765,7 +774,43 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
             <div className="worker-pos-cart-footer">
               <div className="worker-pos-summary-total">
                 <span>Total</span>
-                <span>{currencySymbol}{getCartTotal().toFixed(2)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {editingTotal ? (
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      autoFocus
+                      value={customTotal !== null ? customTotal : getCartTotal().toFixed(2)}
+                      onChange={e => setCustomTotal(e.target.value === '' ? null : parseFloat(e.target.value) || 0)}
+                      onBlur={() => setEditingTotal(false)}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingTotal(false); }}
+                      style={{
+                        width: '100px', textAlign: 'right', background: 'rgba(255,255,255,0.08)',
+                        border: '1px solid #D4AF37', borderRadius: '6px', color: '#D4AF37',
+                        fontSize: '1rem', fontWeight: 700, padding: '2px 6px', outline: 'none'
+                      }}
+                    />
+                  ) : (
+                    <span style={{ color: customTotal !== null ? '#D4AF37' : undefined }}>
+                      {currencySymbol}{getEffectiveTotal().toFixed(2)}
+                      {customTotal !== null && (
+                        <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginLeft: '4px' }}>
+                          (orig. {currencySymbol}{getCartTotal().toFixed(2)})
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {!editingTotal && (
+                    <button
+                      onClick={() => { setEditingTotal(true); if (customTotal === null) setCustomTotal(parseFloat(getCartTotal().toFixed(2))); }}
+                      title="Editar total"
+                      style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '2px 4px', fontSize: '0.75rem' }}
+                    >
+                      <FontAwesomeIcon icon={faPen} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Order type */}
@@ -792,7 +837,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 onClick={() => setShowPayModal(true)}
               >
                 <FontAwesomeIcon icon={faShoppingCart} />
-                Cobrar — {currencySymbol}{getCartTotal().toFixed(2)}
+                Cobrar — {currencySymbol}{getEffectiveTotal().toFixed(2)}
               </button>
             </div>
           </div>
@@ -949,7 +994,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                   }}
                   style={{ flex: 1, padding: '0.65rem 1rem', borderRadius: '8px', border: 'none', background: '#D4AF37', color: '#000', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                 >
-                  {modalStep === 'ingredients' && selectedProduct.extras && selectedProduct.extras.length > 0 ? (
+                  {modalStep === 'ingredients' && selectedProduct.has_extras && selectedProduct.extras && selectedProduct.extras.length > 0 ? (
                     <>
                       Extras
                       <FontAwesomeIcon icon={faArrowRight} />
