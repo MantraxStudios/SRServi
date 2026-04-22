@@ -3754,13 +3754,13 @@ html body .store-container .store-product-card * {
 /* ── Stats row en el header ── */
 .worker-stats-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 6px;
 }
 
 .worker-stat {
   text-align: center;
-  padding: 8px 4px;
+  padding: 10px 8px;
   border-radius: 8px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.06);
@@ -3773,7 +3773,7 @@ html body .store-container .store-product-card * {
 
 .worker-stat-num {
   display: block;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
   color: #D4AF37;
   line-height: 1;
@@ -3785,12 +3785,12 @@ html body .store-container .store-product-card * {
 .worker-stat.total    .worker-stat-num { color: #fff; }
 
 .worker-stat-label {
-  color: rgba(255,255,255,0.4);
-  font-size: 10px;
+  color: rgba(255,255,255,0.5);
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  margin-top: 3px;
+  margin-top: 4px;
 }
 
 /* ── Fila de acciones ── */
@@ -9620,12 +9620,8 @@ html body .store-container .store-product-card * {
 
 /* ── Phones muy pequeños: stats en 2×2 ── */
 @media (max-width: 380px) {
-  .worker-stats-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .worker-stat-num {
-    font-size: 18px;
+    font-size: 20px;
   }
 
   .worker-header-title {
@@ -9727,8 +9723,8 @@ html body .store-container .store-product-card * {
     font-size: 24px;
   }
 
-  .worker-stat-label {
-    font-size: 11px;
+  .worker-stats-row {
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .worker-action-primary {
