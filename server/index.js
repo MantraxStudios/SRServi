@@ -4031,14 +4031,14 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number } = req.body;
+    const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number, custom_total } = req.body;
 
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
     }
 
     console.log('Creating order:', { store_id, order_type, payment_method, items, from_worker, delivery, table_number });
-    const order = await createOrder(parseInt(store_id), { order_type, payment_method, items, coupon_code, from_worker, delivery, table_number });
+    const order = await createOrder(parseInt(store_id), { order_type, payment_method, items, coupon_code, from_worker, delivery, table_number, custom_total });
 
     const socketId = userSockets.get(parseInt(store_id));
     if (socketId) {
@@ -4061,7 +4061,7 @@ app.post('/api/orders', async (req, res) => {
 
 app.post('/api/orders/process-payment', async (req, res) => {
   try {
-    const { store_id, items, order_type, payment_method, selected_terminal_id, coupon_code, table_number } = req.body;
+    const { store_id, items, order_type, payment_method, selected_terminal_id, coupon_code, table_number, custom_total } = req.body;
 
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
@@ -4087,7 +4087,8 @@ app.post('/api/orders/process-payment', async (req, res) => {
         external_reference: mpResult.external_reference,
         coupon_code,
         terminal_id: selected_terminal_id ? parseInt(selected_terminal_id) : null,
-        table_number
+        table_number,
+        custom_total
       });
       
       const socketId = userSockets.get(parseInt(store_id));

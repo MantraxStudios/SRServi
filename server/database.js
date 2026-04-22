@@ -2128,7 +2128,7 @@ export async function createOrder(storeId, orderData) {
   });
 
   const couponData = await resolveCouponForOrder(storeId, coupon_code, subtotal);
-  const total = couponData.total;
+  const total = orderData.custom_total != null ? Number(orderData.custom_total) : couponData.total;
 
   const fromWorker = orderData.from_worker === true;
   const cashApproved = payment_method === 'card' ? true : fromWorker;

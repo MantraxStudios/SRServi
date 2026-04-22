@@ -388,6 +388,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       })),
       selected_terminal_id: method === 'card' && selectedTerminalId ? parseInt(selectedTerminalId) : null,
       total: Number(total).toFixed(2),
+      custom_total: customTotal !== null ? Number(customTotal) : null,
       from_worker: true
     };
 
