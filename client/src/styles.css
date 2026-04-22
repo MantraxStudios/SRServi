@@ -4003,11 +4003,7 @@ html body .store-container .store-product-card * {
 
 /* ── Filtros ── */
 .worker-filters {
-  display: flex;
-  gap: 6px;
-  padding: 8px 12px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  display: none;
 }
 .worker-filters::-webkit-scrollbar { display: none; }
 
@@ -4262,6 +4258,16 @@ html body .store-container .store-product-card * {
   .worker-modal-overlay {
     align-items: center;
   }
+}
+
+.pay-modal-overlay {
+  align-items: flex-start !important;
+  padding-top: 16px;
+}
+.pay-modal-overlay .worker-modal {
+  border-radius: var(--radius-xl);
+  width: 90%;
+  max-height: 80dvh;
 }
 
 .worker-modal {
@@ -9704,7 +9710,6 @@ html body .store-container .store-product-card * {
   .worker-stat-num       { font-size: 34px; }
   .worker-orders-list    { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
   .worker-orders         { padding: 16px 20px; }
-  .worker-filters        { padding: 10px 16px; }
   .worker-modal          { max-width: 640px; }
 }
 

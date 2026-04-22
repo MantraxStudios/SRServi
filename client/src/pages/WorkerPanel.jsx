@@ -852,7 +852,7 @@ function WorkerPanel() {
       )}
 
       {showPayModal && (
-        <div className="worker-modal-overlay">
+        <div className="worker-modal-overlay pay-modal-overlay">
           <div className="worker-modal" style={{ display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <div className="worker-modal-header">
               <h2 className="worker-modal-title">Cobrar Pedido</h2>
