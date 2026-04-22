@@ -782,7 +782,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                       step="0.01"
                       autoFocus
                       value={customTotal !== null ? customTotal : getCartTotal().toFixed(2)}
-                      onChange={e => setCustomTotal(e.target.value === '' ? null : parseFloat(e.target.value) || 0)}
+                      onChange={e => setCustomTotal(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                       onBlur={() => setEditingTotal(false)}
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingTotal(false); }}
                       style={{
@@ -842,8 +842,9 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Product configuration modal (ingredients/extras) */}
+      {/* Product configuration modal (ingredients/extras) */}
         {selectedProduct && (
           <div className="worker-pos-modal" onClick={(e) => { if (e.target === e.currentTarget) closeProductModal(); }}>
             <div style={{ background: '#1a1a1a', borderRadius: '16px', width: '90%', maxWidth: '480px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -1023,8 +1024,36 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
               </div>
 
               <div className="worker-pos-pay-modal-total">
-                <span>Total a cobrar</span>
-                <span className="worker-pos-pay-modal-amount">{currencySymbol}{getCartTotal().toFixed(2)}</span>
+                <div>
+                  <span>Total a cobrar</span>
+                  <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Toque para editar</div>
+                </div>
+                {editingTotal ? (
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    autoFocus
+                    value={customTotal !== null ? customTotal : getCartTotal()}
+                    onChange={e => setCustomTotal(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                    onBlur={() => setEditingTotal(false)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingTotal(false); }}
+                    style={{
+                      width: '120px', textAlign: 'right', background: 'rgba(255,255,255,0.08)',
+                      border: '1px solid #D4AF37', borderRadius: '6px', color: '#D4AF37',
+                      fontSize: '1.2rem', fontWeight: 700, padding: '4px 8px', outline: 'none'
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="worker-pos-pay-modal-amount"
+                    onClick={() => { setEditingTotal(true); if (customTotal === null) setCustomTotal(parseFloat(getCartTotal().toFixed(2))); }}
+                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    {currencySymbol}{getEffectiveTotal().toFixed(2)}
+                    <FontAwesomeIcon icon={faPen} style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }} />
+                  </span>
+                )}
               </div>
 
               <div className="worker-pos-pay-modal-options">
@@ -1099,7 +1128,6 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }
