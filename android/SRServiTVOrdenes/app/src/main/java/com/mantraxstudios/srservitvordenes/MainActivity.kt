@@ -98,12 +98,26 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         webView.onResume()
         CookieManager.getInstance().flush()
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (!wakeLock.isHeld) wakeLock.acquire()
     }
 
     override fun onPause() {
         super.onPause()
         webView.onPause()
         CookieManager.getInstance().flush()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            )
+        }
     }
 
     override fun onDestroy() {
