@@ -157,8 +157,17 @@ function WorkerPanel() {
         const exts = Array.isArray(i.selected_extras) ? i.selected_extras.map(x=>x.name||x).join(', ') : '';
         return '<div style="margin-bottom:3px"><strong>'+i.quantity+'x</strong> '+(i.product_name||i.name||'Producto')+(ings?'<br><span style="color:#666;font-size:11px">'+ings+'</span>':'')+(exts?'<br><span style="color:#888;font-size:11px">+ '+exts+'</span>':'')+'</div>';
       }).join('');
+      const originalTotal = (o.items||[]).reduce((s,i) => s + Number(i.unit_price||0)*Number(i.quantity||1), 0);
+      const finalTotal = Number(o.total||0);
+      const priceModified = Math.abs(finalTotal - originalTotal) > 0.01;
+      const totalCell = priceModified
+        ? '<span style="color:#16a34a;font-weight:800;font-size:13px">✓</span> '
+          + '<span style="text-decoration:line-through;color:#999;font-size:11px;margin-right:4px">$'+originalTotal.toFixed(2)+'</span>'
+          + '<span style="font-weight:800;color:#15803d">$'+finalTotal.toFixed(2)+'</span>'
+        : '<span style="color:#dc2626;font-size:12px;margin-right:3px">✗</span>'
+          + '<span style="font-weight:800">$'+finalTotal.toFixed(2)+'</span>';
       const bg = o.status==='completed'?'#f0fff4':o.status==='preparing'?'#fffbeb':'#fff';
-      return '<tr style="background:'+bg+'"><td style="font-weight:800;font-size:15px">'+getOrderDisplayNumber(o)+'</td><td>'+tl(o.order_type)+(o.table_number!=null?'<br><small>Mesa '+o.table_number+'</small>':'')+'</td><td>'+fmt(o.created_at)+'</td><td>'+(o.completed_at?fmt(o.completed_at):'—')+'</td><td style="font-weight:700">'+fmtPrep(o.created_at,o.completed_at)+'</td><td>'+sl(o.status)+'</td><td style="font-weight:600">'+(o.completed_by_name||'—')+'</td><td style="font-size:12px">'+(items||'—')+'</td><td style="font-weight:800;text-align:right">$'+Number(o.total||0).toFixed(2)+'</td></tr>';
+      return '<tr style="background:'+bg+'"><td style="font-weight:800;font-size:15px">'+getOrderDisplayNumber(o)+'</td><td>'+tl(o.order_type)+(o.table_number!=null?'<br><small>Mesa '+o.table_number+'</small>':'')+'</td><td>'+fmt(o.created_at)+'</td><td>'+(o.completed_at?fmt(o.completed_at):'—')+'</td><td style="font-weight:700">'+fmtPrep(o.created_at,o.completed_at)+'</td><td>'+sl(o.status)+'</td><td style="font-weight:600">'+(o.completed_by_name||'—')+'</td><td style="font-size:12px">'+(items||'—')+'</td><td style="text-align:right;white-space:nowrap">'+totalCell+'</td></tr>';
     }).join('');
     const ds = new Date().toLocaleDateString('es-ES',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     const sn = worker?.store_name||'Tienda';
