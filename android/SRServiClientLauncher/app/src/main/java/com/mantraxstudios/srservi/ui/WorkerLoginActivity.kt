@@ -60,11 +60,10 @@ class WorkerLoginActivity : AppCompatActivity() {
         webViewPopup = findViewById(R.id.webViewPopup)
         toolbarPopup = findViewById(R.id.toolbarPopup)
 
-        // Toolbar principal: antes del kiosk vuelve atras, en kiosk tiene boton Salir
-        toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
-        toolbar.setNavigationOnClickListener { finish() }
+        // Toolbar: kiosk desde el inicio, solo boton Salir con PIN
+        toolbar.navigationIcon = null
         toolbar.inflateMenu(R.menu.menu_worker_panel)
-        toolbar.menu.findItem(R.id.action_exit_kiosk)?.isVisible = false
+        toolbar.menu.findItem(R.id.action_exit_kiosk)?.isVisible = true
         toolbar.setOnMenuItemClickListener { item ->
             if (item.itemId == R.id.action_exit_kiosk) {
                 stopKioskLock()
@@ -155,9 +154,6 @@ class WorkerLoginActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                if (!url.contains("/worker-login") && !inKiosk) {
-                    startKioskLock()
-                }
             }
 
             override fun onReceivedError(
@@ -175,6 +171,7 @@ class WorkerLoginActivity : AppCompatActivity() {
             }
         }
 
+        startKioskLock()
         webView.loadUrl("https://srservi2.srautomatic.com/worker-login")
     }
 
@@ -193,18 +190,10 @@ class WorkerLoginActivity : AppCompatActivity() {
             webView.post {
                 startLockTask()
                 inKiosk = true
-                applyKioskToolbar()
             }
         } catch (_: Exception) {
             inKiosk = true
-            applyKioskToolbar()
         }
-    }
-
-    private fun applyKioskToolbar() {
-        toolbar.title = getString(R.string.worker_panel_title)
-        toolbar.navigationIcon = null
-        toolbar.menu.findItem(R.id.action_exit_kiosk)?.isVisible = true
     }
 
     private fun stopKioskLock() {
