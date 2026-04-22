@@ -1028,10 +1028,10 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 <span>Total a cobrar</span>
                 {editingTotal ? (
                   <input
+                    ref={payEditInputRef}
                     type="number"
                     min="0"
                     step="0.01"
-                    autoFocus
                     value={customTotal !== null ? customTotal : getCartTotal()}
                     onChange={e => setCustomTotal(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                     onBlur={() => setEditingTotal(false)}
@@ -1050,7 +1050,12 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                       {currencySymbol}{getEffectiveTotal().toFixed(2)}
                     </span>
                     <button
-                      onClick={e => { e.stopPropagation(); setEditingTotal(true); if (customTotal === null) setCustomTotal(parseFloat(getCartTotal().toFixed(2))); }}
+                      onClick={e => {
+                        e.stopPropagation();
+                        if (customTotal === null) setCustomTotal(parseFloat(getCartTotal().toFixed(2)));
+                        setEditingTotal(true);
+                        setTimeout(() => payEditInputRef.current?.focus(), 0);
+                      }}
                       style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: 'rgba(255,255,255,0.5)', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', flexShrink: 0 }}
                     >
                       <FontAwesomeIcon icon={faPen} />
