@@ -31,4 +31,7 @@
     <string name="refresh">Actualizar</string>
     <string name="print">Imprimir</string>
     <string name="print_all_pending">Imprimir Pendientes</string>
+    <string name="btn_admin_panel">Panel Administrador</string>
+    <string name="worker_panel_title">Panel Trabajador</string>
+    <string name="exit_kiosk">Salir</string>
 </resources>

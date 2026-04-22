@@ -12,6 +12,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
 import com.mantraxstudios.srservi.printer.BluetoothPrinterManager
 import com.mantraxstudios.srservi.printer.PrinterForegroundService
+import com.mantraxstudios.srservi.ui.AdminPanelActivity
 import com.mantraxstudios.srservi.ui.SellActivity
 import com.mantraxstudios.srservi.ui.SettingsActivity
 import com.mantraxstudios.srservi.ui.WorkerLoginActivity
@@ -43,6 +44,10 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.btnWorkerLogin).setOnClickListener {
             startActivity(Intent(this, WorkerLoginActivity::class.java))
+        }
+
+        findViewById<View>(R.id.btnAdminPanel).setOnClickListener {
+            startActivity(Intent(this, AdminPanelActivity::class.java))
         }
 
         findViewById<View>(R.id.btnAppSettings).setOnClickListener {

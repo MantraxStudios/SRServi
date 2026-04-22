@@ -533,7 +533,7 @@ function WorkerPanel() {
               onClick={() => setActiveTab('active')}
             >
               <FontAwesomeIcon icon={faClock} />
-              Activos <span className="worker-tab-count">{orders.length}</span>
+              Pendientes <span className="worker-tab-count">{orders.length}</span>
             </button>
             <button
               className={`worker-tab ${activeTab === 'completed' ? 'active' : ''}`}

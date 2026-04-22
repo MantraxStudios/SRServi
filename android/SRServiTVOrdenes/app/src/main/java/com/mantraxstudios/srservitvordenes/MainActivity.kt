@@ -2,8 +2,10 @@ package com.mantraxstudios.srservitvordenes
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.os.PowerManager
 import android.view.KeyEvent
 import android.view.View
+import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -15,10 +17,21 @@ import androidx.activity.ComponentActivity
 class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var wakeLock: PowerManager.WakeLock
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint("SetJavaScriptEnabled", "WakelockTimeout")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Mantener pantalla siempre encendida
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+            "SRServi::ScreenWakeLock"
+        )
+        wakeLock.acquire()
 
         // Pantalla completa inmersiva
         window.decorView.systemUiVisibility = (
@@ -96,6 +109,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         webView.destroy()
+        if (wakeLock.isHeld) wakeLock.release()
     }
 
     // Manejar boton atras del control remoto

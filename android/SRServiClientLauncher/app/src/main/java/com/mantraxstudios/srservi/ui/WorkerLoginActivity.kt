@@ -4,8 +4,12 @@ import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.os.Message
+import android.print.PrintAttributes
+import android.print.PrintManager
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -26,6 +30,9 @@ class WorkerLoginActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
     private lateinit var toolbar: MaterialToolbar
+    private lateinit var popupContainer: View
+    private lateinit var webViewPopup: WebView
+    private lateinit var toolbarPopup: MaterialToolbar
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var inKiosk = false
 
@@ -47,28 +54,65 @@ class WorkerLoginActivity : AppCompatActivity() {
         setContentView(R.layout.activity_worker_login)
 
         toolbar = findViewById(R.id.toolbar)
-        toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
-        toolbar.setNavigationOnClickListener { finish() }
-
         progressBar = findViewById(R.id.progressBar)
         webView = findViewById(R.id.webView)
+        popupContainer = findViewById(R.id.popupContainer)
+        webViewPopup = findViewById(R.id.webViewPopup)
+        toolbarPopup = findViewById(R.id.toolbarPopup)
 
-        // Cookies persistentes
+        // Toolbar principal: antes del kiosk vuelve atras, en kiosk tiene boton Salir
+        toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
+        toolbar.setNavigationOnClickListener { finish() }
+        toolbar.inflateMenu(R.menu.menu_worker_panel)
+        toolbar.menu.findItem(R.id.action_exit_kiosk)?.isVisible = false
+        toolbar.setOnMenuItemClickListener { item ->
+            if (item.itemId == R.id.action_exit_kiosk) {
+                stopKioskLock()
+                finish()
+                true
+            } else false
+        }
+
+        // Toolbar del popup: volver al panel del trabajador
+        toolbarPopup.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material)
+        toolbarPopup.setNavigationOnClickListener { closePopup() }
+
         val cookieManager = CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webView, true)
 
         webView.settings.apply {
             javaScriptEnabled = true
-            domStorageEnabled = true          // localStorage y sessionStorage
-            databaseEnabled = true            // Web SQL (algunos sitios lo usan)
-            cacheMode = WebSettings.LOAD_DEFAULT  // usa cache cuando es posible
+            domStorageEnabled = true
+            databaseEnabled = true
+            cacheMode = WebSettings.LOAD_DEFAULT
             loadWithOverviewMode = true
             useWideViewPort = true
             setSupportZoom(false)
-            // Permitir que el sitio guarde datos entre sesiones
             allowFileAccess = true
             javaScriptCanOpenWindowsAutomatically = true
+            setSupportMultipleWindows(true)
+        }
+
+        // WebView del popup para informes/PDFs generados con window.open()
+        webViewPopup.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            loadWithOverviewMode = true
+            useWideViewPort = true
+            setSupportZoom(true)
+            builtInZoomControls = true
+            displayZoomControls = false
+        }
+        webViewPopup.addJavascriptInterface(PopupPrintInterface(), "AndroidPrint")
+        webViewPopup.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String) {
+                // Reemplazar window.print() para usar el sistema de impresion de Android
+                view.evaluateJavascript(
+                    "if(typeof window.print==='function'){window.print=function(){AndroidPrint.print();}}",
+                    null
+                )
+            }
         }
 
         webView.webChromeClient = object : WebChromeClient() {
@@ -87,14 +131,31 @@ class WorkerLoginActivity : AppCompatActivity() {
                 fileChooserLauncher.launch(fileChooserParams.createIntent())
                 return true
             }
+
+            // Maneja window.open() — muestra el contenido en el overlay de popup
+            override fun onCreateWindow(
+                view: WebView,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: Message?
+            ): Boolean {
+                if (resultMsg == null) return false
+                val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
+                transport.webView = webViewPopup
+                resultMsg.sendToTarget()
+                popupContainer.visibility = View.VISIBLE
+                return true
+            }
+
+            override fun onCloseWindow(window: WebView) {
+                if (window === webViewPopup) closePopup()
+            }
         }
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                // Login exitoso cuando el sitio navega fuera de /worker-login
                 if (!url.contains("/worker-login") && !inKiosk) {
-                    toolbar.visibility = View.GONE
                     startKioskLock()
                 }
             }
@@ -117,6 +178,11 @@ class WorkerLoginActivity : AppCompatActivity() {
         webView.loadUrl("https://srservi2.srautomatic.com/worker-login")
     }
 
+    private fun closePopup() {
+        popupContainer.visibility = View.GONE
+        webViewPopup.loadUrl("about:blank")
+    }
+
     private fun startKioskLock() {
         try {
             val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
@@ -127,10 +193,18 @@ class WorkerLoginActivity : AppCompatActivity() {
             webView.post {
                 startLockTask()
                 inKiosk = true
+                applyKioskToolbar()
             }
         } catch (_: Exception) {
             inKiosk = true
+            applyKioskToolbar()
         }
+    }
+
+    private fun applyKioskToolbar() {
+        toolbar.title = getString(R.string.worker_panel_title)
+        toolbar.navigationIcon = null
+        toolbar.menu.findItem(R.id.action_exit_kiosk)?.isVisible = true
     }
 
     private fun stopKioskLock() {
@@ -156,14 +230,24 @@ class WorkerLoginActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (inKiosk) {
-            // Bloqueado en modo kiosk
-            return
+        when {
+            popupContainer.visibility == View.VISIBLE -> closePopup()
+            inKiosk -> { /* Bloqueado en modo kiosk */ }
+            webView.canGoBack() -> webView.goBack()
+            else -> @Suppress("DEPRECATION") super.onBackPressed()
         }
-        if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
+    }
+
+    inner class PopupPrintInterface {
+        @JavascriptInterface
+        fun print() {
+            runOnUiThread {
+                try {
+                    val pm = getSystemService(Context.PRINT_SERVICE) as PrintManager
+                    val adapter = webViewPopup.createPrintDocumentAdapter("Informe SRServi")
+                    pm.print("Informe SRServi", adapter, PrintAttributes.Builder().build())
+                } catch (_: Exception) { }
+            }
         }
     }
 }
