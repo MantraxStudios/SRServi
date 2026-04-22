@@ -470,6 +470,27 @@ function WorkerPanel() {
             <p className="worker-header-subtitle">{worker?.name || worker?.username || 'Trabajador'}</p>
           </div>
           <div className="worker-header-right">
+            <button className="worker-action-primary" onClick={() => setShowNewOrder(true)} title="Nuevo pedido">
+              <FontAwesomeIcon icon={faPlus} />
+              <span className="worker-btn-label">Nuevo</span>
+            </button>
+            <button className="worker-action-primary green" onClick={() => setShowPayModal(true)} title="Cobrar">
+              <FontAwesomeIcon icon={faMoneyBillWave} />
+              <span className="worker-btn-label">Cobrar</span>
+            </button>
+            <button
+              className="worker-header-icon-btn"
+              onClick={downloadTodayPDF}
+              disabled={!(orders.length || completedOrders.length || pendingCashOrders.length)}
+              title="Generar PDF"
+            >
+              <FontAwesomeIcon icon={faPrint} />
+            </button>
+            {storeCode && (
+              <button className="worker-header-icon-btn" onClick={() => window.open(`/store/${storeCode}`, '_blank')} title="Ver tienda">
+                <FontAwesomeIcon icon={faExternalLinkAlt} />
+              </button>
+            )}
             <button className="worker-switch-btn" onClick={() => setShowWorkerSwitch(true)} title="Cambiar usuario">
               <FontAwesomeIcon icon={faUserCog} />
             </button>
@@ -481,51 +502,16 @@ function WorkerPanel() {
 
         {/* Stats en el header */}
         <div className="worker-stats-row">
-          <div className="worker-stat pending">
-            <span className="worker-stat-num">{stats.pending}</span>
-            <span className="worker-stat-label">Pendientes</span>
-          </div>
           <div className="worker-stat preparing">
             <span className="worker-stat-num" style={{ fontSize: avgPrepTime ? '1rem' : undefined }}>
               {avgPrepTime ?? '—'}
             </span>
             <span className="worker-stat-label">T. Promedio</span>
           </div>
-          <div className="worker-stat ready">
-            <span className="worker-stat-num">{stats.ready}</span>
-            <span className="worker-stat-label">Listos</span>
-          </div>
           <div className="worker-stat total">
             <span className="worker-stat-num" style={{ fontSize: '1rem', letterSpacing: 0 }}>${stats.total}</span>
             <span className="worker-stat-label">Vendido</span>
           </div>
-        </div>
-
-        {/* Acciones principales */}
-        <div className="worker-actions-row">
-          <button className="worker-action-primary" onClick={() => setShowNewOrder(true)}>
-            <FontAwesomeIcon icon={faPlus} />
-            <span>Nuevo pedido</span>
-          </button>
-          <button className="worker-action-primary green" onClick={() => setShowPayModal(true)}>
-            <FontAwesomeIcon icon={faMoneyBillWave} />
-            <span>Cobrar</span>
-          </button>
-          <button
-            className="worker-action-secondary"
-            onClick={downloadTodayPDF}
-            disabled={!(orders.length || completedOrders.length || pendingCashOrders.length)}
-            title="Generar PDF del día"
-          >
-            <FontAwesomeIcon icon={faPrint} />
-            <span>PDF</span>
-          </button>
-          {storeCode && (
-            <button className="worker-action-secondary" onClick={() => window.open(`/store/${storeCode}`, '_blank')} title="Ver tienda">
-              <FontAwesomeIcon icon={faExternalLinkAlt} />
-              <span>Tienda</span>
-            </button>
-          )}
         </div>
       </header>
 
