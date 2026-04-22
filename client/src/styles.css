@@ -3733,6 +3733,10 @@ html body .store-container .store-product-card * {
   font-size: 16px;
   font-weight: 800;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 55vw;
 }
 
 .worker-header-subtitle {
@@ -3794,10 +3798,12 @@ html body .store-container .store-product-card * {
   display: flex;
   gap: 6px;
   padding-bottom: 10px;
+  flex-wrap: wrap;
 }
 
 .worker-action-primary {
   flex: 1;
+  min-width: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3882,8 +3888,7 @@ html body .store-container .store-product-card * {
 }
 
 .worker-search {
-  position: relative;
-  padding: 10px 12px 0;
+  display: none;
 }
 
 .worker-search-icon {
@@ -4097,7 +4102,7 @@ html body .store-container .store-product-card * {
 }
 
 .worker-order-customer {
-  color: rgba(255,255,255,0.8);
+  color: #333;
   font-size: 14px;
   font-weight: 500;
 }
@@ -4152,17 +4157,17 @@ html body .store-container .store-product-card * {
 .worker-order-item-name {
   color: #333;
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
 }
 
 .worker-order-item-addons {
   font-size: 11px;
   color: #999;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
 }
 
 .worker-order-total {
@@ -6475,7 +6480,7 @@ html body .store-container .store-product-card * {
 
 .worker-order-completed-by {
   font-size: 12px;
-  color: rgba(255,255,255,0.35);
+  color: #888;
   margin-top: var(--space-2);
 }
 
@@ -9607,4 +9612,305 @@ html body .store-container .store-product-card * {
   height: 100vh !important;
   z-index: 1001 !important;
   box-shadow: 4px 0 32px rgba(0,0,0,0.5) !important;
+}
+
+/* ============================================
+   Worker Panel — Responsive (Mobile & Tablet)
+   ============================================ */
+
+/* ── Phones muy pequeños: stats en 2×2 ── */
+@media (max-width: 380px) {
+  .worker-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .worker-stat-num {
+    font-size: 18px;
+  }
+
+  .worker-header-title {
+    font-size: 14px;
+    max-width: 48vw;
+  }
+
+  .worker-header-subtitle {
+    font-size: 11px;
+  }
+
+  .worker-action-primary,
+  .worker-action-secondary {
+    font-size: 12px;
+    padding: 9px 6px;
+  }
+
+  .worker-switch-btn,
+  .worker-logout-btn {
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+
+  .worker-tab {
+    font-size: 12px;
+    padding: 9px 4px;
+    gap: 4px;
+  }
+}
+
+/* ── Phones normales: mejoras generales ── */
+@media (max-width: 480px) {
+  .worker-header {
+    padding: 8px 12px 0;
+  }
+
+  .worker-header-right {
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
+  .worker-orders-list {
+    grid-template-columns: 1fr;
+  }
+
+  .worker-order-card {
+    padding: 12px 14px;
+  }
+
+  .worker-order-number {
+    font-size: 15px;
+  }
+
+  .worker-order-total {
+    font-size: 18px;
+  }
+
+  .worker-modal {
+    padding: 16px;
+  }
+
+  .worker-modal-title {
+    font-size: 17px;
+  }
+}
+
+/* ── Tablet portrait (601–767px): 2 columnas ── */
+@media (min-width: 601px) and (max-width: 767px) {
+  .worker-orders-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .worker-stats-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .worker-header {
+    padding: 12px 16px 0;
+  }
+}
+
+/* ── Tablet landscape / desktop pequeño (768px+) ── */
+@media (min-width: 768px) {
+  .worker-header {
+    padding: 14px 20px 0;
+    gap: 12px;
+  }
+
+  .worker-header-title {
+    font-size: 18px;
+    max-width: 60vw;
+  }
+
+  .worker-header-subtitle {
+    font-size: 13px;
+  }
+
+  .worker-stat-num {
+    font-size: 24px;
+  }
+
+  .worker-stat-label {
+    font-size: 11px;
+  }
+
+  .worker-action-primary {
+    font-size: 14px;
+    padding: 11px 14px;
+  }
+
+  .worker-action-secondary {
+    font-size: 13px;
+    padding: 11px 14px;
+  }
+
+  .worker-switch-btn,
+  .worker-logout-btn {
+    padding: 9px 14px;
+    font-size: 14px;
+  }
+
+  .worker-orders-list {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+  }
+
+  .worker-order-card {
+    padding: 14px 16px;
+  }
+
+  .worker-search input {
+    font-size: 15px;
+    padding: 10px 12px 10px 38px;
+  }
+
+  .worker-tab {
+    font-size: 14px;
+    padding: 12px 12px;
+  }
+
+  .worker-filter-btn {
+    font-size: 13px;
+    padding: 6px 14px;
+  }
+
+  .worker-modal {
+    max-width: 600px;
+    padding: 28px;
+  }
+
+  .worker-modal-title {
+    font-size: 22px;
+  }
+
+  /* Header en 2 filas optimizado para tablet */
+  .worker-actions-row {
+    flex-wrap: nowrap;
+  }
+
+  .worker-action-primary {
+    min-width: auto;
+    flex: 1;
+  }
+}
+
+/* ── Desktop (1024px+): layout más cómodo ── */
+@media (min-width: 1024px) {
+  .worker-header {
+    padding: 16px 24px 0;
+  }
+
+  .worker-orders-list {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .worker-orders {
+    padding: 16px 20px;
+  }
+
+  .worker-search {
+    padding: 12px 16px 0;
+  }
+
+  .worker-filters {
+    padding: 10px 16px;
+  }
+
+  .worker-stat {
+    padding: 10px 8px;
+  }
+
+  .worker-stat-num {
+    font-size: 26px;
+  }
+
+  .worker-modal {
+    max-width: 640px;
+  }
+}
+
+/* ============================================
+   WorkerNewOrder (POS) — Responsive
+   ============================================ */
+
+/* ── Phones muy pequeños: 2 columnas de productos ── */
+@media (max-width: 380px) {
+  .worker-pos-products {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 8px 8px 80px 8px;
+  }
+
+  .worker-pos-product-name {
+    font-size: 11px;
+  }
+
+  .worker-pos-header {
+    padding: 10px 12px;
+  }
+
+  .worker-pos-header h2 {
+    font-size: 16px;
+  }
+
+  .worker-pos-category-btn {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .worker-pos-type-btn {
+    font-size: 11px;
+    padding: 6px 4px;
+    gap: 4px;
+  }
+
+  .worker-pos-pay-btn {
+    font-size: 13px;
+    padding: 10px;
+  }
+}
+
+/* ── Tablet portrait (601–900px): carrito más estrecho ── */
+@media (min-width: 769px) and (max-width: 900px) {
+  .worker-pos-cart {
+    width: 320px;
+  }
+
+  .worker-pos-products {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .worker-pos-pay-btn {
+    font-size: 13px;
+  }
+}
+
+/* ── Tablet landscape / desktop (901px+) ── */
+@media (min-width: 901px) {
+  .worker-pos-products {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .worker-pos-cart {
+    width: 380px;
+  }
+
+  .worker-pos-product-name {
+    font-size: 13px;
+  }
+
+  .worker-pos-product-price {
+    font-size: 14px;
+  }
+}
+
+/* ── Desktop grande (1200px+) ── */
+@media (min-width: 1200px) {
+  .worker-pos-products {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
+  .worker-pos-cart {
+    width: 420px;
+  }
 }
