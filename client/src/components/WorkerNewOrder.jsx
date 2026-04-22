@@ -1024,10 +1024,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
               </div>
 
               <div className="worker-pos-pay-modal-total">
-                <div>
-                  <span>Total a cobrar</span>
-                  <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginTop: '2px' }}>Toque para editar</div>
-                </div>
+                <span>Total a cobrar</span>
                 {editingTotal ? (
                   <input
                     type="number"
@@ -1039,21 +1036,24 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                     onBlur={() => setEditingTotal(false)}
                     onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingTotal(false); }}
                     style={{
-                      width: '120px', textAlign: 'right', background: 'rgba(255,255,255,0.08)',
-                      border: '1px solid #D4AF37', borderRadius: '6px', color: '#D4AF37',
-                      fontSize: '1.2rem', fontWeight: 700, padding: '4px 8px', outline: 'none'
+                      display: 'block', margin: '6px auto 0', width: '160px', textAlign: 'center',
+                      background: 'rgba(255,255,255,0.08)', border: '1px solid #D4AF37',
+                      borderRadius: '8px', color: '#D4AF37', fontSize: '2rem', fontWeight: 800,
+                      padding: '6px 10px', outline: 'none', letterSpacing: '-0.02em'
                     }}
                   />
                 ) : (
-                  <span
-                    className="worker-pos-pay-modal-amount"
+                  <div
                     onClick={() => { setEditingTotal(true); if (customTotal === null) setCustomTotal(parseFloat(getCartTotal().toFixed(2))); }}
-                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    style={{ cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '2px' }}
                   >
-                    {currencySymbol}{getEffectiveTotal().toFixed(2)}
-                    <FontAwesomeIcon icon={faPen} style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }} />
-                  </span>
+                    <span className="worker-pos-pay-modal-amount">
+                      {currencySymbol}{getEffectiveTotal().toFixed(2)}
+                    </span>
+                    <FontAwesomeIcon icon={faPen} style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.35)' }} />
+                  </div>
                 )}
+                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.35)', marginTop: '6px' }}>Toque el precio para editar</div>
               </div>
 
               <div className="worker-pos-pay-modal-options">
