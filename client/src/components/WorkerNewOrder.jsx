@@ -70,6 +70,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const [editingTotal, setEditingTotal] = useState(false);
 
   const categoryScrollRef = useRef(null);
+  const payEditInputRef = useRef(null);
 
   const token = localStorage.getItem('workerToken');
   const authHeaders = {
@@ -460,6 +461,14 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
     if (onOrderCreated) onOrderCreated();
     if (onClose) onClose();
   };
+
+  // Focus pay modal price input when editing is activated
+  useEffect(() => {
+    if (editingTotal && showPayModal && payEditInputRef.current) {
+      const t = setTimeout(() => payEditInputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [editingTotal, showPayModal]);
 
   // Auto-close success after 3 seconds
   useEffect(() => {
@@ -1023,18 +1032,14 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 </button>
               </div>
 
-              <div
-                className="worker-pos-pay-modal-total"
-                onClick={() => { if (!editingTotal) { setEditingTotal(true); if (customTotal === null) setCustomTotal(parseFloat(getCartTotal().toFixed(2))); } }}
-                style={{ cursor: 'pointer' }}
-              >
+              <div className="worker-pos-pay-modal-total">
                 <span>Total a cobrar</span>
                 {editingTotal ? (
                   <input
+                    ref={payEditInputRef}
                     type="number"
                     min="0"
                     step="0.01"
-                    autoFocus
                     value={customTotal !== null ? customTotal : getCartTotal()}
                     onChange={e => setCustomTotal(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                     onBlur={() => setEditingTotal(false)}
@@ -1048,15 +1053,18 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                     }}
                   />
                 ) : (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+                  <button
+                    onClick={() => { setEditingTotal(true); if (customTotal === null) setCustomTotal(parseFloat(getCartTotal().toFixed(2))); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', width: '100%', padding: '4px 0', marginTop: '2px' }}
+                  >
                     <span style={{ fontSize: '36px', fontWeight: 800, color: '#D4AF37', letterSpacing: '-0.02em' }}>
                       {currencySymbol}{getEffectiveTotal().toFixed(2)}
                     </span>
                     <FontAwesomeIcon icon={faPen} style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.3)' }} />
-                  </div>
+                  </button>
                 )}
                 {!editingTotal && (
-                  <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.3)', marginTop: '6px' }}>Toque para editar</div>
+                  <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>Toque para editar</div>
                 )}
               </div>
 
