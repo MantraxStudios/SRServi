@@ -1026,30 +1026,36 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
 
               <div className="worker-pos-pay-modal-total">
                 <span>Total a cobrar</span>
-                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '4px' }}>
+                {editingTotal ? (
                   <input
                     type="number"
                     min="0"
                     step="0.01"
+                    autoFocus
                     value={customTotal !== null ? customTotal : getCartTotal()}
                     onChange={e => setCustomTotal(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                    onFocus={() => { if (customTotal === null) setCustomTotal(parseFloat(getCartTotal().toFixed(2))); setEditingTotal(true); }}
                     onBlur={() => setEditingTotal(false)}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur(); }}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingTotal(false); }}
                     onClick={e => e.stopPropagation()}
                     style={{
-                      textAlign: 'center', background: 'transparent', outline: 'none', cursor: 'pointer',
-                      border: 'none', borderBottom: editingTotal ? '2px solid #D4AF37' : '2px solid transparent',
-                      color: '#D4AF37', fontSize: '36px', fontWeight: 800,
-                      letterSpacing: '-0.02em', padding: '4px 32px 4px 10px', width: '220px'
+                      display: 'block', margin: '6px auto 0', width: '180px', textAlign: 'center',
+                      background: 'rgba(255,255,255,0.08)', border: '2px solid #D4AF37',
+                      borderRadius: '10px', color: '#D4AF37', fontSize: '2rem', fontWeight: 800,
+                      padding: '8px 10px', outline: 'none', letterSpacing: '-0.02em'
                     }}
                   />
-                  {!editingTotal && (
-                    <FontAwesomeIcon icon={faPen} style={{ position: 'absolute', right: '8px', fontSize: '0.85rem', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none' }} />
-                  )}
-                </div>
-                {!editingTotal && (
-                  <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>Toque para editar</div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+                    <span className="worker-pos-pay-modal-amount">
+                      {currencySymbol}{getEffectiveTotal().toFixed(2)}
+                    </span>
+                    <button
+                      onClick={e => { e.stopPropagation(); setEditingTotal(true); if (customTotal === null) setCustomTotal(parseFloat(getCartTotal().toFixed(2))); }}
+                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: 'rgba(255,255,255,0.5)', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', flexShrink: 0 }}
+                    >
+                      <FontAwesomeIcon icon={faPen} />
+                    </button>
+                  </div>
                 )}
               </div>
 
