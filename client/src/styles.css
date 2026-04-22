@@ -7406,7 +7406,7 @@ html body .store-container .store-product-card * {
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-.worker-pos-pay-modal-total span:first-child {
+.worker-pos-pay-modal-total > span:first-child {
   display: block;
   color: rgba(255,255,255,0.4);
   font-size: 13px;
