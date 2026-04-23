@@ -897,33 +897,29 @@ function WorkerPanel() {
                 </div>
 
                 {/* Nombre del día seleccionado */}
-                {(() => {
-                  const DAY_NAMES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-                  const isToday = new Date().getDay() === selectedDay;
-                  return isToday ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0 14px' }}>
-                      <span style={{
-                        fontSize: '22px', fontWeight: 900, textTransform: 'uppercase',
-                        letterSpacing: '3px', color: '#D4AF37',
-                        textShadow: '0 0 10px rgba(212,175,55,0.9), 0 0 22px rgba(212,175,55,0.5)'
-                      }}>
-                        {DAY_NAMES[selectedDay]}
-                      </span>
-                      <span style={{
-                        fontSize: '10px', fontWeight: 800, color: '#000',
-                        background: '#D4AF37', borderRadius: '5px',
-                        padding: '2px 7px', textTransform: 'uppercase', letterSpacing: '1px'
-                      }}>HOY</span>
-                    </div>
-                  ) : (
-                    <div style={{
-                      fontSize: '14px', fontWeight: 700, textTransform: 'uppercase',
-                      letterSpacing: '2px', color: '#555', margin: '4px 0 14px'
+                {new Date().getDay() === selectedDay ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0 14px' }}>
+                    <span style={{
+                      fontSize: '22px', fontWeight: 900, textTransform: 'uppercase',
+                      letterSpacing: '3px', color: '#D4AF37',
+                      textShadow: '0 0 10px rgba(212,175,55,0.9), 0 0 22px rgba(212,175,55,0.5)'
                     }}>
-                      {DAY_NAMES[selectedDay]}
-                    </div>
-                  );
-                })()}
+                      {['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][selectedDay]}
+                    </span>
+                    <span style={{
+                      fontSize: '10px', fontWeight: 800, color: '#000',
+                      background: '#D4AF37', borderRadius: '5px',
+                      padding: '2px 7px', textTransform: 'uppercase', letterSpacing: '1px'
+                    }}>HOY</span>
+                  </div>
+                ) : (
+                  <div style={{
+                    fontSize: '14px', fontWeight: 700, textTransform: 'uppercase',
+                    letterSpacing: '2px', color: '#555', margin: '4px 0 14px'
+                  }}>
+                    {['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][selectedDay]}
+                  </div>
+                )}
 
                 {/* Tareas del día seleccionado */}
                 {tasks.filter(t => t.day_of_week === selectedDay).length === 0 ? (
