@@ -1029,7 +1029,7 @@ function WorkerPanel() {
               ))}
             </div>
           )
-        ) : (
+        ) : activeTab === 'completed' ? (
           filteredCompletedOrders.length === 0 ? (
             <div className="empty-state">
               <p>No hay pedidos completados</p>
@@ -1104,7 +1104,7 @@ function WorkerPanel() {
               ))}
             </div>
           )
-        )}
+        ) : null}
         {activeTab === 'tasks' && (
           <div style={{ maxWidth: '600px', margin: '0 auto', paddingTop: '16px' }}>
             <TasksTab
