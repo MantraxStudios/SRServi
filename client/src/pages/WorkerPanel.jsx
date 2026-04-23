@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
 import WorkerNewOrder from '../components/WorkerNewOrder';
 
@@ -28,6 +28,11 @@ function WorkerPanel() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [paySearch, setPaySearch] = useState('');
   const [payResult, setPayResult] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [completingTask, setCompletingTask] = useState(null);
+  const [taskError, setTaskError] = useState('');
+  const [, setTick] = useState(0);
 
   const colors = storeColors || {
     primary: '#0a0a0a',
@@ -48,6 +53,7 @@ function WorkerPanel() {
     fetchStoreColors(parsedWorker.store_id);
     fetchOrders(parsedWorker.store_id);
     fetchWorkers(parsedWorker.store_id);
+    fetchTasks();
 
     // Socket con reconexion automatica
     const socket = io(SOCKET_URL, {
@@ -96,19 +102,25 @@ function WorkerPanel() {
       fetchOrders(parsedWorker.store_id);
     });
 
+    // Countdown timer for active tasks (every second)
+    const tickInterval = setInterval(() => setTick(t => t + 1), 1000);
+
     // Polling de respaldo cada 30 segundos
     const pollInterval = setInterval(() => {
       fetchOrders(parsedWorker.store_id);
+      fetchTasks();
     }, 30000);
 
     // Recargar cuando la ventana recupera el foco
     const handleFocus = () => {
       fetchOrders(parsedWorker.store_id);
+      fetchTasks();
     };
     window.addEventListener('focus', handleFocus);
 
     return () => {
       socket.disconnect();
+      clearInterval(tickInterval);
       clearInterval(pollInterval);
       window.removeEventListener('focus', handleFocus);
     };
@@ -256,6 +268,70 @@ function WorkerPanel() {
     }
   };
 
+  const fetchTasks = async () => {
+    const token = localStorage.getItem('workerToken');
+    if (!token) return;
+    setTasksLoading(true);
+    try {
+      const res = await fetch('/api/worker-tasks', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTasks(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.error('Error fetching tasks:', e);
+    } finally {
+      setTasksLoading(false);
+    }
+  };
+
+  const completeTask = async (taskId) => {
+    const token = localStorage.getItem('workerToken');
+    setCompletingTask(taskId); setTaskError('');
+    try {
+      const res = await fetch(`/api/worker-tasks/${taskId}/complete`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) { setTaskError(data.error || 'Error al marcar tarea'); return; }
+      fetchTasks();
+    } catch (e) {
+      setTaskError('Error de conexión');
+    } finally {
+      setCompletingTask(null);
+    }
+  };
+
+  const getTaskStatus = (task) => {
+    if (task.completed_at) return 'completed';
+    const now = new Date();
+    const todayDow = now.getDay();
+    if (todayDow < task.day_of_week) return 'upcoming';
+    if (todayDow === task.day_of_week) {
+      const [h, m] = task.due_time.split(':').map(Number);
+      const due = new Date(); due.setHours(h, m, 0, 0);
+      const expire = new Date(due.getTime() + 3600000);
+      if (now < due) return 'upcoming';
+      if (now <= expire) return 'active';
+      return 'expired';
+    }
+    return 'expired';
+  };
+
+  const getCountdown = (task) => {
+    const [h, m] = task.due_time.split(':').map(Number);
+    const due = new Date(); due.setHours(h, m, 0, 0);
+    const expire = new Date(due.getTime() + 3600000);
+    const remaining = expire - new Date();
+    if (remaining <= 0) return null;
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const switchWorker = (newWorker) => {
     const workerData = {
       ...newWorker,
@@ -266,6 +342,7 @@ function WorkerPanel() {
     setShowWorkerSwitch(false);
     setSwitchingWorker(null);
     fetchOrders(newWorker.store_id);
+    fetchTasks();
   };
 
   const updateOrderStatus = async (orderId, status) => {
@@ -551,7 +628,17 @@ function WorkerPanel() {
               <FontAwesomeIcon icon={faCheck} />
               Completados <span className="worker-tab-count">{completedOrders.length}</span>
             </button>
+            <button
+              className={`worker-tab ${activeTab === 'tasks' ? 'active' : ''}`}
+              onClick={() => { setActiveTab('tasks'); setTaskError(''); }}
+            >
+              <FontAwesomeIcon icon={faClipboardList} />
+              Tareas{tasks.filter(t => !t.completed_at).length > 0 && (
+                <span className="worker-tab-count">{tasks.filter(t => !t.completed_at).length}</span>
+              )}
+            </button>
           </div>
+          {activeTab !== 'tasks' && (
           <div className="worker-filters">
             {['all', 'pending', 'preparing', 'ready'].map(f => (
               <button
@@ -563,6 +650,7 @@ function WorkerPanel() {
               </button>
             ))}
           </div>
+          )}
         </div>
       </div>
 
@@ -728,6 +816,127 @@ function WorkerPanel() {
               ))}
             </div>
           )
+        )}
+        {activeTab === 'tasks' && (
+          <div style={{ padding: '16px', maxWidth: '600px', margin: '0 auto' }}>
+            {taskError && (
+              <div style={{
+                background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626',
+                borderRadius: '10px', padding: '10px 14px', marginBottom: '14px', fontSize: '13px',
+                display: 'flex', alignItems: 'center', gap: '8px'
+              }}>
+                <FontAwesomeIcon icon={faExclamationTriangle} />
+                {taskError}
+                <button onClick={() => setTaskError('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '16px' }}>×</button>
+              </div>
+            )}
+            {tasksLoading ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>Cargando tareas...</div>
+            ) : tasks.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '48px 24px', color: '#888' }}>
+                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: '36px', marginBottom: '12px', display: 'block', margin: '0 auto 12px' }} />
+                <p style={{ margin: 0 }}>No tienes tareas asignadas esta semana</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {[0,1,2,3,4,5,6].map(dow => {
+                  const dayTasks = tasks.filter(t => t.day_of_week === dow);
+                  if (!dayTasks.length) return null;
+                  const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+                  const isToday = new Date().getDay() === dow;
+                  return (
+                    <div key={dow}>
+                      <div style={{
+                        fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                        letterSpacing: '1px', color: isToday ? '#D4AF37' : '#666',
+                        padding: '4px 0 8px'
+                      }}>
+                        {dayNames[dow]}{isToday ? ' — Hoy' : ''}
+                      </div>
+                      {dayTasks.map(task => {
+                        const status = getTaskStatus(task);
+                        const countdown = status === 'active' ? getCountdown(task) : null;
+                        const [h, m] = task.due_time.split(':').map(Number);
+                        const due = new Date(); due.setHours(h, m, 0, 0);
+                        const expireTime = new Date(due.getTime() + 3600000);
+                        const expireStr = expireTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                        return (
+                          <div key={task.id} style={{
+                            background: status === 'completed' ? 'rgba(22,163,74,0.06)'
+                              : status === 'active' ? 'rgba(217,119,6,0.06)'
+                              : status === 'expired' ? 'rgba(220,38,38,0.04)'
+                              : 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${
+                              status === 'completed' ? 'rgba(22,163,74,0.2)'
+                              : status === 'active' ? 'rgba(217,119,6,0.3)'
+                              : status === 'expired' ? 'rgba(220,38,38,0.15)'
+                              : 'rgba(255,255,255,0.08)'}`,
+                            borderRadius: '12px', padding: '14px 16px', marginBottom: '6px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                              <div style={{
+                                width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px',
+                                background: status === 'completed' ? 'rgba(22,163,74,0.15)'
+                                  : status === 'active' ? 'rgba(217,119,6,0.15)'
+                                  : 'rgba(255,255,255,0.05)',
+                                color: status === 'completed' ? '#16a34a' : status === 'active' ? '#d97706' : '#666'
+                              }}>
+                                {status === 'completed' ? <FontAwesomeIcon icon={faCheck} />
+                                  : status === 'expired' ? <FontAwesomeIcon icon={faTimes} />
+                                  : <FontAwesomeIcon icon={faClock} />}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '3px' }}>{task.name}</div>
+                                {task.description && (
+                                  <div style={{ fontSize: '12px', color: '#888', marginBottom: '5px' }}>{task.description}</div>
+                                )}
+                                <div style={{ fontSize: '12px', color: '#aaa' }}>
+                                  Disponible: {task.due_time} — {expireStr}
+                                  {task.completed_at && (
+                                    <span style={{ color: '#16a34a', marginLeft: 8 }}>
+                                      · Marcada a las {new Date(task.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {status === 'active' && (
+                              <div style={{ marginTop: '12px' }}>
+                                {countdown && (
+                                  <div style={{
+                                    textAlign: 'center', fontSize: '13px', color: '#d97706',
+                                    fontWeight: 700, marginBottom: '8px'
+                                  }}>
+                                    <FontAwesomeIcon icon={faClock} style={{ marginRight: 6 }} />
+                                    Tiempo restante: {countdown}
+                                  </div>
+                                )}
+                                <button
+                                  onClick={() => completeTask(task.id)}
+                                  disabled={completingTask === task.id}
+                                  style={{
+                                    width: '100%', padding: '11px', borderRadius: '10px',
+                                    background: completingTask === task.id ? 'rgba(212,175,55,0.3)' : '#D4AF37',
+                                    color: '#000', border: 'none', fontWeight: 800, fontSize: '14px',
+                                    cursor: completingTask === task.id ? 'not-allowed' : 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                                  }}
+                                >
+                                  <FontAwesomeIcon icon={faCheck} />
+                                  {completingTask === task.id ? 'Marcando...' : 'Marcar como completada'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

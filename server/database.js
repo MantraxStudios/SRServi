@@ -947,6 +947,44 @@ async function migrateTables() {
       console.error('❌ Error creando tabla apk_releases:', err.message);
     }
 
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS tasks (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          store_id INT NOT NULL,
+          worker_id INT NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          description TEXT,
+          day_of_week TINYINT NOT NULL,
+          due_time VARCHAR(5) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
+          FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE
+        )
+      `);
+      console.log('ℹ️ Tabla tasks verificada/creada');
+    } catch (err) {
+      console.error('❌ Error creando tabla tasks:', err.message);
+    }
+
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS task_completions (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          task_id INT NOT NULL,
+          week_start DATE NOT NULL,
+          completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          completed_by_worker_id INT,
+          UNIQUE KEY unique_task_week (task_id, week_start),
+          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+          FOREIGN KEY (completed_by_worker_id) REFERENCES workers(id) ON DELETE SET NULL
+        )
+      `);
+      console.log('ℹ️ Tabla task_completions verificada/creada');
+    } catch (err) {
+      console.error('❌ Error creando tabla task_completions:', err.message);
+    }
+
     console.log('✅ Migración de tablas completada');
   } catch (error) {
     console.error('❌ Error en migración:', error.message);

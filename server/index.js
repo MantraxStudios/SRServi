@@ -4685,13 +4685,160 @@ app.get('/api/workers/orders', authenticateToken, async (req, res) => {
     if (req.user.type !== 'worker') {
       return res.status(403).json({ error: 'Acceso solo para trabajadores' });
     }
-    
+
     const orders = await getWorkerOrders(req.user.store_id);
     res.json(orders);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
+// =================== TAREAS SEMANALES ===================
+
+function getWeekStart() {
+  const now = new Date();
+  const d = new Date(now);
+  d.setDate(d.getDate() - d.getDay());
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().split('T')[0];
+}
+
+app.get('/api/tasks', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
+    const storeId = req.query.store_id;
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const weekStart = getWeekStart();
+    const [tasks] = await pool.execute(`
+      SELECT t.*, w.name as worker_name, w.username as worker_username,
+             tc.completed_at, tc.completed_by_worker_id,
+             cw.name as completed_by_name
+      FROM tasks t
+      JOIN workers w ON t.worker_id = w.id
+      LEFT JOIN task_completions tc ON tc.task_id = t.id AND tc.week_start = ?
+      LEFT JOIN workers cw ON tc.completed_by_worker_id = cw.id
+      WHERE t.store_id = ?
+      ORDER BY t.worker_id, t.day_of_week, t.due_time
+    `, [weekStart, storeId]);
+    res.json(tasks);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/tasks', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
+    const { store_id, worker_id, name, description, day_of_week, due_time } = req.body;
+    if (!store_id || !worker_id || !name || day_of_week === undefined || !due_time) {
+      return res.status(400).json({ error: 'Faltan campos requeridos' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const [result] = await pool.execute(
+      'INSERT INTO tasks (store_id, worker_id, name, description, day_of_week, due_time) VALUES (?, ?, ?, ?, ?, ?)',
+      [store_id, worker_id, name, description || null, day_of_week, due_time]
+    );
+    const [rows] = await pool.execute(
+      'SELECT t.*, w.name as worker_name, w.username as worker_username FROM tasks t JOIN workers w ON t.worker_id = w.id WHERE t.id = ?',
+      [result.insertId]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/tasks/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
+    const { name, description, day_of_week, due_time, worker_id } = req.body;
+    const [existing] = await pool.execute('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
+    if (!existing[0]) return res.status(404).json({ error: 'Tarea no encontrada' });
+    const isOwner = await verifyStoreOwnership(existing[0].store_id, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    await pool.execute(
+      'UPDATE tasks SET name = ?, description = ?, day_of_week = ?, due_time = ?, worker_id = ? WHERE id = ?',
+      [name, description || null, day_of_week, due_time, worker_id, req.params.id]
+    );
+    const [rows] = await pool.execute(
+      'SELECT t.*, w.name as worker_name, w.username as worker_username FROM tasks t JOIN workers w ON t.worker_id = w.id WHERE t.id = ?',
+      [req.params.id]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
+    const [existing] = await pool.execute('SELECT * FROM tasks WHERE id = ?', [req.params.id]);
+    if (!existing[0]) return res.status(404).json({ error: 'Tarea no encontrada' });
+    const isOwner = await verifyStoreOwnership(existing[0].store_id, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    await pool.execute('DELETE FROM tasks WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/worker-tasks', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'worker') return res.status(403).json({ error: 'Acceso denegado' });
+    const weekStart = getWeekStart();
+    const [tasks] = await pool.execute(`
+      SELECT t.*, tc.completed_at, tc.completed_by_worker_id,
+             cw.name as completed_by_name
+      FROM tasks t
+      LEFT JOIN task_completions tc ON tc.task_id = t.id AND tc.week_start = ?
+      LEFT JOIN workers cw ON tc.completed_by_worker_id = cw.id
+      WHERE t.worker_id = ?
+      ORDER BY t.day_of_week, t.due_time
+    `, [weekStart, req.user.id]);
+    res.json(tasks);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/worker-tasks/:taskId/complete', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'worker') return res.status(403).json({ error: 'Acceso denegado' });
+    const taskId = parseInt(req.params.taskId);
+    const [tasks] = await pool.execute('SELECT * FROM tasks WHERE id = ? AND worker_id = ?', [taskId, req.user.id]);
+    if (!tasks[0]) return res.status(404).json({ error: 'Tarea no encontrada' });
+    const task = tasks[0];
+    const now = new Date();
+    const todayDow = now.getDay();
+    if (todayDow !== task.day_of_week) {
+      return res.status(400).json({ error: 'Esta tarea no corresponde al día de hoy' });
+    }
+    const [dueH, dueM] = task.due_time.split(':').map(Number);
+    const dueDate = new Date();
+    dueDate.setHours(dueH, dueM, 0, 0);
+    const expireDate = new Date(dueDate.getTime() + 60 * 60 * 1000);
+    if (now < dueDate) return res.status(400).json({ error: 'La tarea aún no está disponible' });
+    if (now > expireDate) return res.status(400).json({ error: 'El plazo de 1 hora para marcar esta tarea ha expirado' });
+    const weekStart = getWeekStart();
+    await pool.execute(
+      'INSERT IGNORE INTO task_completions (task_id, week_start, completed_by_worker_id) VALUES (?, ?, ?)',
+      [taskId, weekStart, req.user.id]
+    );
+    io.to(`store_${task.store_id}`).emit('task_completed', {
+      task_id: taskId, worker_id: req.user.id, week_start: weekStart, completed_at: now
+    });
+    res.json({ success: true, completed_at: now });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =================== FIN TAREAS ===================
 
 app.get('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
   try {
