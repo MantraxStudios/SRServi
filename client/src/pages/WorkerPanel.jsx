@@ -196,7 +196,7 @@ function TasksTab({ tasks, selectedDay, setSelectedDay, completeTask, completing
       {/* Selector de días */}
       <div style={{
         display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px',
-        marginBottom: '20px', scrollbarWidth: 'none'
+        marginBottom: '20px', scrollbarWidth: 'none', justifyContent: 'center'
       }}>
         {WEEK_ORDER.map(dow => {
           const isToday = todayDow === dow;
