@@ -32,6 +32,7 @@ function WorkerPanel() {
   const [tasksLoading, setTasksLoading] = useState(false);
   const [completingTask, setCompletingTask] = useState(null);
   const [taskError, setTaskError] = useState('');
+  const [selectedDay, setSelectedDay] = useState(new Date().getDay());
   const [, setTick] = useState(0);
 
   const colors = storeColors || {
@@ -838,147 +839,192 @@ function WorkerPanel() {
                 <p style={{ margin: 0 }}>No tienes tareas asignadas esta semana</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-                {[1,2,3,4,5,6,0].map(dow => {
-                  const dayTasks = tasks.filter(t => t.day_of_week === dow);
-                  const DAY_NAMES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-                  const isToday = new Date().getDay() === dow;
-                  return (
-                    <div key={dow} style={{
-                      marginBottom: '18px',
-                      borderLeft: isToday ? '3px solid #D4AF37' : '3px solid rgba(255,255,255,0.07)',
-                      paddingLeft: '14px'
-                    }}>
-                      {/* Encabezado del día */}
-                      {isToday ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <>
+                {/* Selector horizontal de días */}
+                <div style={{
+                  display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '12px',
+                  scrollbarWidth: 'none', msOverflowStyle: 'none'
+                }}>
+                  {[1,2,3,4,5,6,0].map(dow => {
+                    const DAY_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+                    const isToday = new Date().getDay() === dow;
+                    const isSelected = selectedDay === dow;
+                    const count = tasks.filter(t => t.day_of_week === dow).length;
+                    const doneCount = tasks.filter(t => t.day_of_week === dow && t.completed_at).length;
+                    return (
+                      <button
+                        key={dow}
+                        onClick={() => setSelectedDay(dow)}
+                        style={{
+                          flexShrink: 0, minWidth: '60px', padding: '10px 8px',
+                          borderRadius: '12px', border: 'none', cursor: 'pointer',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                          background: isSelected
+                            ? (isToday ? '#D4AF37' : 'rgba(255,255,255,0.12)')
+                            : (isToday ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)'),
+                          boxShadow: isToday && isSelected ? '0 0 16px rgba(212,175,55,0.5)' : 'none',
+                          outline: isToday ? `2px solid ${isSelected ? '#D4AF37' : 'rgba(212,175,55,0.4)'}` : 'none',
+                          outlineOffset: '1px',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        <span style={{
+                          fontSize: '11px', fontWeight: 800, textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          color: isSelected
+                            ? (isToday ? '#000' : '#fff')
+                            : (isToday ? '#D4AF37' : '#666')
+                        }}>
+                          {DAY_SHORT[dow]}
+                        </span>
+                        {isToday && (
                           <span style={{
-                            fontSize: '22px', fontWeight: 900, textTransform: 'uppercase',
-                            letterSpacing: '3px', color: '#D4AF37',
-                            textShadow: '0 0 10px rgba(212,175,55,0.9), 0 0 22px rgba(212,175,55,0.5), 0 0 40px rgba(212,175,55,0.2)'
-                          }}>
-                            {DAY_NAMES[dow]}
-                          </span>
-                          <span style={{
-                            fontSize: '10px', fontWeight: 800, textTransform: 'uppercase',
-                            letterSpacing: '1.5px', color: '#000',
-                            background: '#D4AF37', borderRadius: '5px', padding: '2px 7px'
+                            fontSize: '9px', fontWeight: 700,
+                            color: isSelected ? '#000' : '#D4AF37'
                           }}>HOY</span>
-                        </div>
-                      ) : (
-                        <div style={{
-                          fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
-                          letterSpacing: '1.5px', color: '#444', marginBottom: '8px'
-                        }}>
-                          {DAY_NAMES[dow]}
-                        </div>
-                      )}
+                        )}
+                        {count > 0 && (
+                          <span style={{
+                            fontSize: '10px', fontWeight: 700,
+                            color: isSelected ? (isToday ? '#000' : '#ccc') : '#555'
+                          }}>
+                            {doneCount}/{count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
 
-                      {/* Tareas del día */}
-                      {dayTasks.length === 0 ? (
-                        <div style={{
-                          fontSize: '12px', color: '#333', fontStyle: 'italic',
-                          padding: '8px 0 2px'
-                        }}>
-                          Sin tareas
-                        </div>
-                      ) : (
-                        dayTasks.map(task => {
-                          const status = getTaskStatus(task);
-                          const countdown = status === 'active' ? getCountdown(task) : null;
-                          const [h, m] = task.due_time.split(':').map(Number);
-                          const due = new Date(); due.setHours(h, m, 0, 0);
-                          const expireStr = new Date(due.getTime() + 3600000)
-                            .toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-                          return (
-                            <div key={task.id} style={{
-                              background: status === 'completed' ? 'rgba(22,163,74,0.07)'
-                                : status === 'active' ? 'rgba(212,175,55,0.07)'
-                                : status === 'expired' ? 'rgba(220,38,38,0.05)'
-                                : 'rgba(255,255,255,0.03)',
-                              border: `1px solid ${
-                                status === 'completed' ? 'rgba(22,163,74,0.25)'
-                                : status === 'active' ? 'rgba(212,175,55,0.35)'
-                                : status === 'expired' ? 'rgba(220,38,38,0.18)'
-                                : 'rgba(255,255,255,0.07)'}`,
-                              borderRadius: '10px', padding: '12px 14px', marginBottom: '6px'
-                            }}>
-                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                                <div style={{
-                                  width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px',
-                                  background: status === 'completed' ? 'rgba(22,163,74,0.18)'
-                                    : status === 'active' ? 'rgba(212,175,55,0.18)'
-                                    : 'rgba(255,255,255,0.06)',
-                                  color: status === 'completed' ? '#16a34a'
-                                    : status === 'active' ? '#D4AF37'
-                                    : '#444'
-                                }}>
-                                  {status === 'completed'
-                                    ? <FontAwesomeIcon icon={faCheck} />
-                                    : status === 'expired'
-                                    ? <FontAwesomeIcon icon={faTimes} />
-                                    : <FontAwesomeIcon icon={faClock} />}
-                                </div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{
-                                    fontWeight: 700, fontSize: '14px', marginBottom: '2px',
-                                    color: status === 'completed' ? '#16a34a'
-                                      : status === 'active' ? '#D4AF37'
-                                      : status === 'expired' ? '#666'
-                                      : '#ccc'
-                                  }}>
-                                    {task.name}
-                                  </div>
-                                  {task.description && (
-                                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-                                      {task.description}
-                                    </div>
-                                  )}
-                                  <div style={{ fontSize: '11px', color: '#555' }}>
-                                    {task.due_time} — {expireStr}
-                                    {task.completed_at && (
-                                      <span style={{ color: '#16a34a', marginLeft: 6, fontWeight: 600 }}>
-                                        · completada {new Date(task.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              {status === 'active' && (
-                                <div style={{ marginTop: '10px' }}>
-                                  {countdown && (
-                                    <div style={{
-                                      textAlign: 'center', fontSize: '12px', color: '#D4AF37',
-                                      fontWeight: 700, marginBottom: '8px', letterSpacing: '0.5px'
-                                    }}>
-                                      <FontAwesomeIcon icon={faClock} style={{ marginRight: 5 }} />
-                                      Tiempo restante: {countdown}
-                                    </div>
-                                  )}
-                                  <button
-                                    onClick={() => completeTask(task.id)}
-                                    disabled={completingTask === task.id}
-                                    style={{
-                                      width: '100%', padding: '10px', borderRadius: '8px',
-                                      background: completingTask === task.id ? 'rgba(212,175,55,0.3)' : '#D4AF37',
-                                      color: '#000', border: 'none', fontWeight: 800, fontSize: '13px',
-                                      cursor: completingTask === task.id ? 'not-allowed' : 'pointer',
-                                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px'
-                                    }}
-                                  >
-                                    <FontAwesomeIcon icon={faCheck} />
-                                    {completingTask === task.id ? 'Marcando...' : 'Marcar como completada'}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
+                {/* Nombre del día seleccionado */}
+                {(() => {
+                  const DAY_NAMES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+                  const isToday = new Date().getDay() === selectedDay;
+                  return isToday ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0 14px' }}>
+                      <span style={{
+                        fontSize: '22px', fontWeight: 900, textTransform: 'uppercase',
+                        letterSpacing: '3px', color: '#D4AF37',
+                        textShadow: '0 0 10px rgba(212,175,55,0.9), 0 0 22px rgba(212,175,55,0.5)'
+                      }}>
+                        {DAY_NAMES[selectedDay]}
+                      </span>
+                      <span style={{
+                        fontSize: '10px', fontWeight: 800, color: '#000',
+                        background: '#D4AF37', borderRadius: '5px',
+                        padding: '2px 7px', textTransform: 'uppercase', letterSpacing: '1px'
+                      }}>HOY</span>
+                    </div>
+                  ) : (
+                    <div style={{
+                      fontSize: '14px', fontWeight: 700, textTransform: 'uppercase',
+                      letterSpacing: '2px', color: '#555', margin: '4px 0 14px'
+                    }}>
+                      {DAY_NAMES[selectedDay]}
                     </div>
                   );
-                })}
+                })()}
+
+                {/* Tareas del día seleccionado */}
+                {tasks.filter(t => t.day_of_week === selectedDay).length === 0 ? (
+                  <div style={{
+                    textAlign: 'center', padding: '32px 16px', color: '#444',
+                    fontSize: '13px', fontStyle: 'italic'
+                  }}>
+                    Sin tareas este día
+                  </div>
+                ) : (
+                  tasks.filter(t => t.day_of_week === selectedDay).map(task => {
+                    const status = getTaskStatus(task);
+                    const countdown = status === 'active' ? getCountdown(task) : null;
+                    const [h, m] = task.due_time.split(':').map(Number);
+                    const due = new Date(); due.setHours(h, m, 0, 0);
+                    const expireStr = new Date(due.getTime() + 3600000)
+                      .toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <div key={task.id} style={{
+                        background: status === 'completed' ? 'rgba(22,163,74,0.07)'
+                          : status === 'active' ? 'rgba(212,175,55,0.07)'
+                          : status === 'expired' ? 'rgba(220,38,38,0.05)'
+                          : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${
+                          status === 'completed' ? 'rgba(22,163,74,0.25)'
+                          : status === 'active' ? 'rgba(212,175,55,0.4)'
+                          : status === 'expired' ? 'rgba(220,38,38,0.18)'
+                          : 'rgba(255,255,255,0.07)'}`,
+                        borderRadius: '10px', padding: '12px 14px', marginBottom: '8px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                          <div style={{
+                            width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px',
+                            background: status === 'completed' ? 'rgba(22,163,74,0.18)'
+                              : status === 'active' ? 'rgba(212,175,55,0.18)'
+                              : 'rgba(255,255,255,0.06)',
+                            color: status === 'completed' ? '#16a34a'
+                              : status === 'active' ? '#D4AF37' : '#444'
+                          }}>
+                            {status === 'completed' ? <FontAwesomeIcon icon={faCheck} />
+                              : status === 'expired' ? <FontAwesomeIcon icon={faTimes} />
+                              : <FontAwesomeIcon icon={faClock} />}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontWeight: 700, fontSize: '14px', marginBottom: '2px',
+                              color: status === 'completed' ? '#16a34a'
+                                : status === 'active' ? '#D4AF37'
+                                : status === 'expired' ? '#555' : '#ccc'
+                            }}>
+                              {task.name}
+                            </div>
+                            {task.description && (
+                              <div style={{ fontSize: '12px', color: '#555', marginBottom: '4px' }}>
+                                {task.description}
+                              </div>
+                            )}
+                            <div style={{ fontSize: '11px', color: '#444' }}>
+                              {task.due_time} — {expireStr}
+                              {task.completed_at && (
+                                <span style={{ color: '#16a34a', marginLeft: 6, fontWeight: 600 }}>
+                                  · completada {new Date(task.completed_at)
+                                    .toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {status === 'active' && (
+                          <div style={{ marginTop: '10px' }}>
+                            {countdown && (
+                              <div style={{
+                                textAlign: 'center', fontSize: '12px', color: '#D4AF37',
+                                fontWeight: 700, marginBottom: '8px'
+                              }}>
+                                <FontAwesomeIcon icon={faClock} style={{ marginRight: 5 }} />
+                                Tiempo restante: {countdown}
+                              </div>
+                            )}
+                            <button
+                              onClick={() => completeTask(task.id)}
+                              disabled={completingTask === task.id}
+                              style={{
+                                width: '100%', padding: '10px', borderRadius: '8px',
+                                background: completingTask === task.id ? 'rgba(212,175,55,0.3)' : '#D4AF37',
+                                color: '#000', border: 'none', fontWeight: 800, fontSize: '13px',
+                                cursor: completingTask === task.id ? 'not-allowed' : 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px'
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faCheck} />
+                              {completingTask === task.id ? 'Marcando...' : 'Marcar como completada'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </>
               </div>
             )}
           </div>
