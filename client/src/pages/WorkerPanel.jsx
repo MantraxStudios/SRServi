@@ -1021,7 +1021,6 @@ function WorkerPanel() {
                   })
                 )}
               </>
-              </div>
             )}
           </div>
         )}
