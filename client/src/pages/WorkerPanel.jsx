@@ -839,20 +839,41 @@ function WorkerPanel() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {[0,1,2,3,4,5,6].map(dow => {
+                {[1,2,3,4,5,6,0].map(dow => {
                   const dayTasks = tasks.filter(t => t.day_of_week === dow);
                   if (!dayTasks.length) return null;
                   const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
                   const isToday = new Date().getDay() === dow;
                   return (
                     <div key={dow}>
-                      <div style={{
-                        fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
-                        letterSpacing: '1px', color: isToday ? '#D4AF37' : '#666',
-                        padding: '4px 0 8px'
-                      }}>
-                        {dayNames[dow]}{isToday ? ' — Hoy' : ''}
-                      </div>
+                      {isToday ? (
+                        <div style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '8px',
+                          marginBottom: '10px', marginTop: '2px'
+                        }}>
+                          <span style={{
+                            fontSize: '20px', fontWeight: 900, textTransform: 'uppercase',
+                            letterSpacing: '2px', color: '#D4AF37',
+                            textShadow: '0 0 12px rgba(212,175,55,0.8), 0 0 24px rgba(212,175,55,0.4)',
+                            filter: 'brightness(1.15)'
+                          }}>
+                            {dayNames[dow]}
+                          </span>
+                          <span style={{
+                            fontSize: '10px', fontWeight: 800, textTransform: 'uppercase',
+                            letterSpacing: '1.5px', color: '#000',
+                            background: '#D4AF37', borderRadius: '6px',
+                            padding: '2px 8px'
+                          }}>HOY</span>
+                        </div>
+                      ) : (
+                        <div style={{
+                          fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                          letterSpacing: '1px', color: '#555', padding: '4px 0 8px'
+                        }}>
+                          {dayNames[dow]}
+                        </div>
+                      )}
                       {dayTasks.map(task => {
                         const status = getTaskStatus(task);
                         const countdown = status === 'active' ? getCountdown(task) : null;
