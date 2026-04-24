@@ -2211,7 +2211,7 @@ app.get('/api/analytics/recent-orders', authenticateToken, async (req, res) => {
 // ==================== LEÓN IA ====================
 
 const LEON_GREETINGS = [
-  '¡Hola! Soy **León IA** 🦁, tu asistente de negocios.\n\nEstoy aquí para ayudarte a entender tus ventas y tomar mejores decisiones. ¿Qué quieres analizar?\n\n• Productos más vendidos 📈\n• Qué hacer con los menos vendidos 📉\n• Ingresos y estadísticas 💰\n• Alertas de stock 📦\n• Recomendaciones estratégicas 🎯',
+  '¡Hola! Soy **León IA** 🦁, tu asistente de negocios.\n\nEstoy aquí para ayudarte a entender tus ventas y tomar mejores decisiones. ¿Qué quieres analizar?\n\n• Productos más vendidos 📈\n• Qué hacer con los menos vendidos 📉\n• Ingresos y estadísticas 💰\n• Alertas de stock 📦\n• Extras y complementos más pedidos 🔥\n• Recomendaciones estratégicas 🎯',
   '¡Buenas! Soy **León IA** 🦁. Listo para analizar tu negocio.\n\n¿En qué te puedo ayudar hoy?',
   'Hola de nuevo 👋. Soy **León IA**, tu asesor de ventas inteligente.\n\nDime qué necesitas analizar y lo resuelvo al instante.',
 ];
@@ -2260,6 +2260,14 @@ function leonDetectIntent(text, history = []) {
     return 'recommendations';
   if (has('pedido', 'orden', 'compra', 'cuantos pedidos', 'cuantas ordenes'))
     return 'orders_summary';
+  if (has('extras mas pedidos', 'extras mas solicitados', 'que extras piden', 'extras populares', 'extra mas elegido', 'que extra eligen', 'extras top', 'extras mas vendidos'))
+    return 'extras_analysis';
+  if (has('complementos mas pedidos', 'complementos mas solicitados', 'que complementos piden', 'complementos populares', 'complemento mas elegido', 'que complemento eligen', 'ingredientes mas pedidos', 'ingredientes populares'))
+    return 'ingredients_analysis';
+  if (has('que extras tengo', 'lista de extras', 'mis extras', 'ver extras', 'cuales son mis extras', 'extras de mi tienda', 'extras disponibles'))
+    return 'extras_catalog';
+  if (has('que complementos tengo', 'lista de complementos', 'mis complementos', 'ver complementos', 'cuales son mis complementos', 'complementos de mi tienda', 'complementos disponibles', 'que ingredientes tengo', 'lista de ingredientes', 'mis ingredientes'))
+    return 'ingredients_catalog';
   // Análisis de producto específico — debe ir antes del fallback
   if (has('analiza ', 'analiza el ', 'analiza la ', 'analiza los ', 'analiza las ',
           'como va ', 'como esta ', 'como va el ', 'como esta el ', 'como va la ', 'como esta la ',
@@ -2398,6 +2406,86 @@ async function leonGetCategoryRevenue(storeId, range) {
     [storeId]
   );
   return rows;
+}
+
+async function leonGetAllExtras(storeId) {
+  const [rows] = await pool.execute(
+    `SELECT id, name, price FROM extras WHERE store_id = ? ORDER BY sort_order ASC, name ASC`,
+    [storeId]
+  );
+  return rows;
+}
+
+async function leonGetAllIngredients(storeId) {
+  const [rows] = await pool.execute(
+    `SELECT id, name, price FROM ingredients WHERE store_id = ? ORDER BY sort_order ASC, name ASC`,
+    [storeId]
+  );
+  return rows;
+}
+
+async function leonGetTopExtras(storeId, range) {
+  let interval = '7 DAY';
+  if (range === 'today') interval = '1 DAY';
+  else if (range === 'month') interval = '30 DAY';
+  else if (range === 'year') interval = '365 DAY';
+
+  const [items] = await pool.execute(
+    `SELECT oi.selected_extras
+     FROM order_items oi
+     JOIN orders o ON oi.order_id = o.id
+     WHERE o.store_id = ?
+       AND o.status IN ('paid','processed','completed','approved')
+       AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
+       AND oi.selected_extras IS NOT NULL AND oi.selected_extras != '[]'`,
+    [storeId]
+  );
+  const counts = {};
+  for (const row of items) {
+    try {
+      const arr = JSON.parse(row.selected_extras || '[]');
+      for (const entry of arr) {
+        const name = typeof entry === 'string' ? entry : (entry.name || '');
+        if (name) counts[name] = (counts[name] || 0) + 1;
+      }
+    } catch {}
+  }
+  return Object.entries(counts)
+    .map(([name, total]) => ({ name, total }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10);
+}
+
+async function leonGetTopIngredients(storeId, range) {
+  let interval = '7 DAY';
+  if (range === 'today') interval = '1 DAY';
+  else if (range === 'month') interval = '30 DAY';
+  else if (range === 'year') interval = '365 DAY';
+
+  const [items] = await pool.execute(
+    `SELECT oi.selected_ingredients
+     FROM order_items oi
+     JOIN orders o ON oi.order_id = o.id
+     WHERE o.store_id = ?
+       AND o.status IN ('paid','processed','completed','approved')
+       AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
+       AND oi.selected_ingredients IS NOT NULL AND oi.selected_ingredients != '[]'`,
+    [storeId]
+  );
+  const counts = {};
+  for (const row of items) {
+    try {
+      const arr = JSON.parse(row.selected_ingredients || '[]');
+      for (const entry of arr) {
+        const name = typeof entry === 'string' ? entry : (entry.name || '');
+        if (name) counts[name] = (counts[name] || 0) + 1;
+      }
+    } catch {}
+  }
+  return Object.entries(counts)
+    .map(([name, total]) => ({ name, total }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10);
 }
 
 async function leonGetProductAnalysis(storeId, productName) {
@@ -2782,8 +2870,64 @@ function leonBuildResponse(intent, range, data, storeName) {
       return r(resp, chartPA);
     }
 
+    case 'extras_analysis': {
+      const { topExtras } = data;
+      if (!topExtras || !topExtras.length)
+        return r(`No encontré extras solicitados ${rl}. Asegúrate de tener pedidos completados en ese período donde los clientes hayan elegido extras.`);
+      const medals = ['🥇', '🥈', '🥉', '4.', '5.', '6.', '7.', '8.', '9.', '10.'];
+      const list = topExtras.map((e, i) => `${medals[i] || `${i+1}.`} **${e.name}** — pedido ${e.total} ${e.total === 1 ? 'vez' : 'veces'}`).join('\n');
+      const chart = {
+        type: 'bar',
+        title: `Extras más pedidos ${rl}`,
+        labels: topExtras.map(e => e.name.length > 14 ? e.name.slice(0, 13) + '…' : e.name),
+        values: topExtras.map(e => e.total),
+        unit: 'veces',
+        color: '#D4AF37',
+      };
+      return r(`Extras más solicitados por tus clientes ${rl}:\n\n${list}\n\n💡 Asegúrate de tener siempre disponibles los más pedidos. ¿Quieres ver los complementos también?`, chart);
+    }
+
+    case 'ingredients_analysis': {
+      const { topIngredients } = data;
+      if (!topIngredients || !topIngredients.length)
+        return r(`No encontré complementos solicitados ${rl}. Asegúrate de tener pedidos completados donde los clientes hayan elegido complementos.`);
+      const medals = ['🥇', '🥈', '🥉', '4.', '5.', '6.', '7.', '8.', '9.', '10.'];
+      const list = topIngredients.map((i, idx) => `${medals[idx] || `${idx+1}.`} **${i.name}** — pedido ${i.total} ${i.total === 1 ? 'vez' : 'veces'}`).join('\n');
+      const chart = {
+        type: 'bar',
+        title: `Complementos más pedidos ${rl}`,
+        labels: topIngredients.map(i => i.name.length > 14 ? i.name.slice(0, 13) + '…' : i.name),
+        values: topIngredients.map(i => i.total),
+        unit: 'veces',
+        color: '#a78bfa',
+      };
+      return r(`Complementos más solicitados por tus clientes ${rl}:\n\n${list}\n\n💡 Los más elegidos son los que no deben faltar. ¿Quieres ver los extras también?`, chart);
+    }
+
+    case 'extras_catalog': {
+      const { allExtras } = data;
+      if (!allExtras || !allExtras.length)
+        return r(`Tu tienda no tiene extras configurados todavía. Puedes agregarlos desde el **Editor Tótem** en la sección de Extras.`);
+      const list = allExtras.map(e => {
+        const price = Number(e.price) > 0 ? ` — $${Number(e.price).toFixed(2)}` : ' — sin costo adicional';
+        return `• **${e.name}**${price}`;
+      }).join('\n');
+      return r(`Extras disponibles en tu tienda (${allExtras.length}):\n\n${list}\n\n¿Quieres saber cuáles son los más pedidos por tus clientes?`);
+    }
+
+    case 'ingredients_catalog': {
+      const { allIngredients } = data;
+      if (!allIngredients || !allIngredients.length)
+        return r(`Tu tienda no tiene complementos configurados todavía. Puedes agregarlos desde el **Editor Tótem** en la sección de Complementos.`);
+      const list = allIngredients.map(i => {
+        const price = Number(i.price) > 0 ? ` — $${Number(i.price).toFixed(2)}` : ' — sin costo adicional';
+        return `• **${i.name}**${price}`;
+      }).join('\n');
+      return r(`Complementos disponibles en tu tienda (${allIngredients.length}):\n\n${list}\n\n¿Quieres saber cuáles son los más pedidos por tus clientes?`);
+    }
+
     default:
-      return r(`Mmm, no entendí bien esa pregunta 🤔. Puedes preguntarme:\n\n• "¿Cuáles son los más vendidos esta semana?"\n• "¿Qué hago con los productos menos vendidos?"\n• "¿Cuánto ingresé este mes?"\n• "¿A qué hora vendo más?"\n• "¿Tengo productos sin stock?"\n• "Dame un resumen"\n• "¿Qué me recomiendas?"\n• "Análisis por categoría"\n\nIntenta con alguna de esas.`);
+      return r(`Mmm, no entendí bien esa pregunta 🤔. Puedes preguntarme:\n\n• "¿Cuáles son los más vendidos esta semana?"\n• "¿Qué hago con los productos menos vendidos?"\n• "¿Cuánto ingresé este mes?"\n• "¿A qué hora vendo más?"\n• "¿Tengo productos sin stock?"\n• "Extras más pedidos"\n• "Complementos más pedidos"\n• "Qué extras tengo"\n• "Dame un resumen"\n• "¿Qué me recomiendas?"\n\nIntenta con alguna de esas.`);
   }
 }
 
@@ -2839,6 +2983,14 @@ app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
       const productName = leonExtractProductName(question);
       data.productName = productName;
       data.productAnalysis = await leonGetProductAnalysis(storeId, productName);
+    } else if (intent === 'extras_analysis') {
+      data.topExtras = await leonGetTopExtras(storeId, range);
+    } else if (intent === 'ingredients_analysis') {
+      data.topIngredients = await leonGetTopIngredients(storeId, range);
+    } else if (intent === 'extras_catalog') {
+      data.allExtras = await leonGetAllExtras(storeId);
+    } else if (intent === 'ingredients_catalog') {
+      data.allIngredients = await leonGetAllIngredients(storeId);
     } else {
       data.summary = await getAnalytics(storeId, range);
     }
