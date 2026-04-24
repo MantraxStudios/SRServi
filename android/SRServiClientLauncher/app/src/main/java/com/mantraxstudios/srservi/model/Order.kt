@@ -29,6 +29,7 @@ data class Order(
     @SerializedName("created_at") val createdAt: String,
     @SerializedName("table_number") val tableNumber: Int?,
     @SerializedName("service_type") val serviceType: String?,
+    @SerializedName("reprint_count") val reprintCount: Int = 0,
     val items: List<OrderItem>
 )
 

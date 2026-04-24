@@ -759,6 +759,18 @@ function WorkerPanel() {
     return `${letter}${num.toString().padStart(2, '0')}`;
   };
 
+  const reprintOrder = async (orderId) => {
+    try {
+      const token = localStorage.getItem('workerToken');
+      await fetch(`/api/orders/${orderId}/reprint?store_id=${worker.store_id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error('Error al solicitar reimpresión:', error);
+    }
+  };
+
   const closePayModal = () => {
     setShowPayModal(false);
     setPaySearch('');
@@ -1011,19 +1023,32 @@ function WorkerPanel() {
                     <div className="worker-order-total" style={{ margin: 0 }}>
                       ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
                     </div>
-                    <button
-                      onClick={e => { e.stopPropagation(); updateOrderStatus(order.id, 'completed'); }}
-                      title="Marcar como completado"
-                      style={{
-                        width: '34px', height: '34px', borderRadius: '50%',
-                        background: 'rgba(34,197,94,0.15)', border: '1.5px solid #22c55e',
-                        color: '#22c55e', cursor: 'pointer', display: 'flex',
-                        alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem',
-                        flexShrink: 0
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faCheck} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                      <button
+                        onClick={e => { e.stopPropagation(); reprintOrder(order.id); }}
+                        title="Reimprimir"
+                        style={{
+                          width: '34px', height: '34px', borderRadius: '50%',
+                          background: 'rgba(212,175,55,0.15)', border: '1.5px solid #D4AF37',
+                          color: '#D4AF37', cursor: 'pointer', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem'
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faPrint} />
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); updateOrderStatus(order.id, 'completed'); }}
+                        title="Marcar como completado"
+                        style={{
+                          width: '34px', height: '34px', borderRadius: '50%',
+                          background: 'rgba(34,197,94,0.15)', border: '1.5px solid #22c55e',
+                          color: '#22c55e', cursor: 'pointer', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem'
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faCheck} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1092,8 +1117,23 @@ function WorkerPanel() {
                       ))}
                     </div>
                   )}
-                  <div className="worker-order-total">
-                    ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+                    <div className="worker-order-total" style={{ margin: 0 }}>
+                      ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); reprintOrder(order.id); }}
+                      title="Reimprimir"
+                      style={{
+                        width: '34px', height: '34px', borderRadius: '50%',
+                        background: 'rgba(212,175,55,0.15)', border: '1.5px solid #D4AF37',
+                        color: '#D4AF37', cursor: 'pointer', display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem',
+                        flexShrink: 0
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faPrint} />
+                    </button>
                   </div>
                   {order.completed_by_name && (
                     <p className="worker-order-completed-by">

@@ -13,6 +13,7 @@ import fs from 'fs';
 import speakeasy from 'speakeasy';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
+import * as XLSX from 'xlsx';
 import PluginManager from './plugins/PluginManager.js';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
@@ -229,6 +230,16 @@ const apkStorage = multer.diskStorage({
   }
 });
 const apkUpload = multer({ storage: apkStorage, limits: { fileSize: 500 * 1024 * 1024 } });
+
+const excelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (['.xlsx', '.xls', '.csv'].includes(ext)) cb(null, true);
+    else cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls) o CSV (.csv)'));
+  }
+});
 
 app.use('/uploads', express.static('uploads', {
   setHeaders: (res, filePath) => {
@@ -3927,6 +3938,117 @@ app.put('/api/products/order', authenticateToken, async (req, res) => {
   }
 });
 
+// --- Excel import endpoints ---
+
+app.get('/api/products/excel-template', authenticateToken, (req, res) => {
+  const wb = XLSX.utils.book_new();
+  const rows = [
+    ['Nombre', 'Descripcion', 'Precio', 'Categoria', 'Codigo_Barras'],
+    ['Ejemplo Pizza', 'Pizza napolitana grande', '10.99', 'Comidas', ''],
+    ['Ejemplo Bebida', 'Gaseosa 500ml', '2.50', 'Bebidas', '7891234567890']
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 28 }, { wch: 35 }, { wch: 12 }, { wch: 20 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Disposition', 'attachment; filename="plantilla_productos.xlsx"');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
+});
+
+app.post('/api/products/excel-preview', authenticateToken, excelUpload.single('file'), async (req, res) => {
+  try {
+    const { store_id } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
+
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+    if (raw.length < 2) return res.status(400).json({ error: 'El archivo está vacío o solo tiene encabezados' });
+
+    const header = raw[0].map(h => String(h).trim().toLowerCase());
+    const colIdx = {
+      nombre: header.findIndex(h => h === 'nombre'),
+      descripcion: header.findIndex(h => h === 'descripcion' || h === 'descripción'),
+      precio: header.findIndex(h => h === 'precio'),
+      categoria: header.findIndex(h => h === 'categoria' || h === 'categoría'),
+      barcode: header.findIndex(h => h === 'codigo_barras' || h === 'código_barras' || h === 'barcode' || h === 'codigo barras')
+    };
+
+    if (colIdx.nombre === -1 || colIdx.precio === -1) {
+      return res.status(400).json({ error: 'El archivo debe tener columnas "Nombre" y "Precio"' });
+    }
+
+    const rows = [];
+    for (let i = 1; i < raw.length; i++) {
+      const row = raw[i];
+      const name = String(row[colIdx.nombre] ?? '').trim();
+      const price = parseFloat(String(row[colIdx.precio] ?? '').replace(',', '.'));
+      if (!name) continue;
+      rows.push({
+        name,
+        description: colIdx.descripcion >= 0 ? String(row[colIdx.descripcion] ?? '').trim() : '',
+        price: isNaN(price) ? 0 : price,
+        category: colIdx.categoria >= 0 ? String(row[colIdx.categoria] ?? '').trim() : '',
+        barcode: colIdx.barcode >= 0 ? String(row[colIdx.barcode] ?? '').trim() : ''
+      });
+    }
+
+    res.json({ rows, total: rows.length });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al leer el archivo: ' + error.message });
+  }
+});
+
+app.post('/api/products/excel-import', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, rows } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: 'No hay productos para importar' });
+
+    const [cats] = await pool.execute('SELECT id, name FROM categories WHERE store_id = ?', [parseInt(store_id)]);
+    const catMap = {};
+    cats.forEach(c => { catMap[c.name.trim().toLowerCase()] = c.id; });
+
+    const results = { created: 0, skipped: 0, errors: [] };
+
+    for (const row of rows) {
+      try {
+        if (!row.name || row.price === undefined) { results.skipped++; continue; }
+        const catId = row.category ? (catMap[row.category.toLowerCase()] ?? null) : null;
+        await createProduct(parseInt(store_id), {
+          name: row.name,
+          description: row.description || '',
+          price: parseFloat(row.price) || 0,
+          category_id: catId,
+          barcode: row.barcode || null,
+          image: null,
+          has_extras: false,
+          has_ingredients: false,
+          max_extras: 0,
+          max_ingredients: 0
+        });
+        results.created++;
+      } catch (err) {
+        results.errors.push({ name: row.name, error: err.message });
+        results.skipped++;
+      }
+    }
+
+    res.json(results);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- end Excel import ---
+
 app.post('/api/products', authenticateToken, upload.single('image'), async (req, res) => {
   try {
     const { store_id, name, barcode, description, price, category_id, has_extras, has_ingredients, max_extras, max_ingredients } = req.body;
@@ -4428,6 +4550,7 @@ app.get('/api/store/:code/orders', async (req, res) => {
         completed_by_name: order.completed_by_name,
         created_at: order.created_at,
         table_number: order.table_number ?? null,
+        reprint_count: order.reprint_count || 0,
         service_type: order.order_type === 'takeout' ? 'llevar' : 'servir',
         items: items.map(item => ({
           id: item.id,
@@ -4571,6 +4694,37 @@ app.put('/api/orders/:id/approve-cash', authenticateToken, async (req, res) => {
     res.json(order);
   } catch (error) {
     console.error('approve-cash error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/orders/:id/reprint', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { store_id } = req.query;
+
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+
+    const isWorker = req.user.type === 'worker';
+    const hasAccess = isWorker
+      ? req.user.store_id === parseInt(store_id)
+      : await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!hasAccess) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+
+    try {
+      await pool.execute('SHOW COLUMNS FROM orders LIKE ?', ['reprint_count']).then(async ([cols]) => {
+        if (cols.length === 0) await pool.execute('ALTER TABLE orders ADD COLUMN reprint_count INT DEFAULT 0');
+      });
+    } catch {}
+
+    await pool.execute(
+      'UPDATE orders SET reprint_count = COALESCE(reprint_count, 0) + 1 WHERE id = ? AND store_id = ?',
+      [parseInt(id), parseInt(store_id)]
+    );
+
+    const [[order]] = await pool.execute('SELECT reprint_count FROM orders WHERE id = ?', [parseInt(id)]);
+    res.json({ reprint_count: order?.reprint_count || 1 });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });

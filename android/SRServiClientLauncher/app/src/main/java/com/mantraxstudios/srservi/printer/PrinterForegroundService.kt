@@ -32,6 +32,7 @@ class PrinterForegroundService : Service() {
         const val ACTION_ORDERS_UPDATED = "com.mantraxstudios.srservi.ORDERS_UPDATED"
         const val PREFS_NAME = "srservi_prefs"
         const val KEY_PRINTED_IDS = "printed_order_ids"
+        const val KEY_REPRINT_COUNTS = "reprint_counts"
         const val KEY_PRINTER_ADDRESS = "printer_mac_address"
         private const val POLL_INTERVAL = 3000L
 
@@ -212,16 +213,43 @@ class PrinterForegroundService : Service() {
                 }
 
                 // Imprimir cuando cash_approved == 1 (la orden fue aprobada para impresion).
-                // No usar "status" porque varia segun el flujo de pago.
                 val toPrint = response.orders.filter {
                     it.cashApproved == 1 && it.id !in printedIds
                 }
-                if (toPrint.isEmpty()) return@Thread
+
+                // Detectar solicitudes de reimpresion comparando reprint_count
+                val reprintCountsStr = prefs.getString(KEY_REPRINT_COUNTS, "") ?: ""
+                val storedReprintCounts = mutableMapOf<Int, Int>()
+                if (reprintCountsStr.isNotEmpty()) {
+                    reprintCountsStr.split(",").forEach { entry ->
+                        val parts = entry.split(":")
+                        if (parts.size == 2) {
+                            parts[0].toIntOrNull()?.let { id ->
+                                parts[1].toIntOrNull()?.let { count -> storedReprintCounts[id] = count }
+                            }
+                        }
+                    }
+                }
+
+                val toReprint = response.orders.filter { order ->
+                    val stored = storedReprintCounts[order.id] ?: 0
+                    order.reprintCount > stored
+                }
+
+                // Actualizar contadores de reimpresion
+                if (toReprint.isNotEmpty()) {
+                    for (order in toReprint) storedReprintCounts[order.id] = order.reprintCount
+                    val newStr = storedReprintCounts.entries.joinToString(",") { "${it.key}:${it.value}" }
+                    prefs.edit().putString(KEY_REPRINT_COUNTS, newStr).apply()
+                }
+
+                val allToPrint = (toPrint + toReprint).distinctBy { it.id }
+                if (allToPrint.isEmpty()) return@Thread
 
                 // Marcar como impresos ANTES de encolar para evitar doble impresion
                 for (order in toPrint) printedIds.add(order.id)
                 prefs.edit().putString(KEY_PRINTED_IDS, printedIds.joinToString(",")).apply()
-                printerManager.addAllToQueue(toPrint)
+                printerManager.addAllToQueue(allToPrint)
             } finally {
                 isFetching = false
             }
