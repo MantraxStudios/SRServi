@@ -2242,6 +2242,21 @@ function leonDetectIntent(text, history = []) {
 
   if (has('hola', 'buenos dias', 'buenas tardes', 'buenas noches', 'como estas', 'quien eres', 'que eres', 'que puedes hacer', 'que sabes hacer'))
     return 'greeting';
+
+  // Extras e ingredientes — van ANTES que top_products para evitar colisión con "más vendidos"
+  if (has('extra') && has('mas vendido', 'mas pedido', 'mas solicitado', 'popular', 'top', 'mas elegido', 'mas piden', 'eligen', 'solicitado'))
+    return 'extras_analysis';
+  if (has('extras mas pedidos', 'extras mas solicitados', 'que extras piden', 'extras populares', 'extra mas elegido', 'que extra eligen', 'extras top', 'extras mas vendidos'))
+    return 'extras_analysis';
+  if ((has('complemento') || has('ingrediente')) && has('mas vendido', 'mas pedido', 'mas solicitado', 'popular', 'top', 'mas elegido', 'mas piden', 'eligen', 'solicitado'))
+    return 'ingredients_analysis';
+  if (has('complementos mas pedidos', 'complementos mas solicitados', 'que complementos piden', 'complementos populares', 'complemento mas elegido', 'que complemento eligen', 'ingredientes mas pedidos', 'ingredientes populares', 'complementos mas vendidos', 'ingredientes mas vendidos'))
+    return 'ingredients_analysis';
+  if (has('que extras tengo', 'lista de extras', 'mis extras', 'ver extras', 'cuales son mis extras', 'extras de mi tienda', 'extras disponibles'))
+    return 'extras_catalog';
+  if (has('que complementos tengo', 'lista de complementos', 'mis complementos', 'ver complementos', 'cuales son mis complementos', 'complementos de mi tienda', 'complementos disponibles', 'que ingredientes tengo', 'lista de ingredientes', 'mis ingredientes'))
+    return 'ingredients_catalog';
+
   if (has('menos vendido', 'poco vendido', 'no se vende', 'bajo rendimiento', 'peor', 'que hago con', 'descontinuar', 'eliminar producto', 'mal vendido', 'baja rotacion', 'no vendo'))
     return 'worst_products';
   if (has('mas vendido', 'top producto', 'mejor vendido', 'estrella', 'popular', 'cuales vendo mas', 'productos top', 'mas exitoso', 'que se vende mas', 'lider', 'numero uno'))
@@ -2260,14 +2275,6 @@ function leonDetectIntent(text, history = []) {
     return 'recommendations';
   if (has('pedido', 'orden', 'compra', 'cuantos pedidos', 'cuantas ordenes'))
     return 'orders_summary';
-  if (has('extras mas pedidos', 'extras mas solicitados', 'que extras piden', 'extras populares', 'extra mas elegido', 'que extra eligen', 'extras top', 'extras mas vendidos'))
-    return 'extras_analysis';
-  if (has('complementos mas pedidos', 'complementos mas solicitados', 'que complementos piden', 'complementos populares', 'complemento mas elegido', 'que complemento eligen', 'ingredientes mas pedidos', 'ingredientes populares'))
-    return 'ingredients_analysis';
-  if (has('que extras tengo', 'lista de extras', 'mis extras', 'ver extras', 'cuales son mis extras', 'extras de mi tienda', 'extras disponibles'))
-    return 'extras_catalog';
-  if (has('que complementos tengo', 'lista de complementos', 'mis complementos', 'ver complementos', 'cuales son mis complementos', 'complementos de mi tienda', 'complementos disponibles', 'que ingredientes tengo', 'lista de ingredientes', 'mis ingredientes'))
-    return 'ingredients_catalog';
   // Análisis de producto específico — debe ir antes del fallback
   if (has('analiza ', 'analiza el ', 'analiza la ', 'analiza los ', 'analiza las ',
           'como va ', 'como esta ', 'como va el ', 'como esta el ', 'como va la ', 'como esta la ',
