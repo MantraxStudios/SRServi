@@ -2,7 +2,8 @@ import { useState, useEffect, useContext } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faTrash, faPencilAlt, faCheck, faClock, faUser,
-  faExclamationTriangle, faClipboardList, faTimes, faCopy, faClone
+  faExclamationTriangle, faClipboardList, faTimes, faCopy, faClone,
+  faChartBar, faChevronLeft, faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 import { StoreContext } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
@@ -10,6 +11,16 @@ import { useAuth } from '../../context/AuthContext';
 const API = 'https://srservi2.srautomatic.com';
 
 const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function formatWeekRange(weekStartStr) {
+  const start = new Date(weekStartStr + 'T12:00:00');
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const fmt = d => `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  const yearSuffix = end.getFullYear() !== new Date().getFullYear() ? ` ${end.getFullYear()}` : '';
+  return `${fmt(start)} – ${fmt(end)}${yearSuffix}`;
+}
 
 function getWeekStart() {
   const now = new Date();
@@ -73,9 +84,13 @@ export default function Tasks() {
   const [saving, setSaving] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [filterWorker, setFilterWorker] = useState('all');
-  const [dupAllModal, setDupAllModal] = useState(null); // { sourceWorkerId, sourceName }
+  const [dupAllModal, setDupAllModal] = useState(null);
   const [dupAllTarget, setDupAllTarget] = useState('');
   const [dupAllSaving, setDupAllSaving] = useState(false);
+  const [historyModal, setHistoryModal] = useState(null); // { workerId, workerName, initials }
+  const [historyData, setHistoryData] = useState(null);  // { tasks, weeks }
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyWeekIdx, setHistoryWeekIdx] = useState(0);
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -197,6 +212,24 @@ export default function Tasks() {
       fetchTasks();
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const openHistory = async (workerId, workerName, initials) => {
+    setHistoryModal({ workerId, workerName, initials });
+    setHistoryData(null);
+    setHistoryWeekIdx(0);
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`${API}/api/tasks/worker-history?store_id=${selectedStore.id}&worker_id=${workerId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setHistoryData(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -384,22 +417,37 @@ export default function Tasks() {
                         </div>
                       </div>
 
-                      {/* Botón duplicar todas */}
-                      {workers.length > 1 && (
+                      {/* Botones: historial + duplicar todas */}
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <button
-                          onClick={() => openDupAll(parseInt(wid), group.name)}
-                          title="Duplicar todas las tareas a otro trabajador"
+                          onClick={() => openHistory(parseInt(wid), group.name, initials)}
+                          title="Ver historial de tareas"
                           style={{
-                            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                            width: 36, height: 36, borderRadius: 10,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)',
-                            color: '#D4AF37', cursor: 'pointer', fontSize: 13,
+                            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                            color: '#aaa', cursor: 'pointer', fontSize: 13,
                             boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
                           }}
                         >
-                          <FontAwesomeIcon icon={faClone} />
+                          <FontAwesomeIcon icon={faChartBar} />
                         </button>
-                      )}
+                        {workers.length > 1 && (
+                          <button
+                            onClick={() => openDupAll(parseInt(wid), group.name)}
+                            title="Duplicar todas las tareas a otro trabajador"
+                            style={{
+                              width: 36, height: 36, borderRadius: 10,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)',
+                              color: '#D4AF37', cursor: 'pointer', fontSize: 13,
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faClone} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -504,6 +552,185 @@ export default function Tasks() {
           </div>
         )}
       </div>
+
+      {historyModal && (
+        <div className="modal-overlay" onClick={() => setHistoryModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 540, width: '100%' }}>
+
+            {/* Header */}
+            <div className="modal-header" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', paddingBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+                  background: 'linear-gradient(135deg, #D4AF37, #8B6914)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 15, fontWeight: 900, color: '#000'
+                }}>
+                  {historyModal.initials}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{historyModal.workerName}</div>
+                  <div style={{ fontSize: 12, color: '#666' }}>Historial de tareas</div>
+                </div>
+              </div>
+              <button className="modal-close" onClick={() => setHistoryModal(null)}>
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+
+            {historyLoading ? (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: '#555' }}>Cargando historial...</div>
+            ) : !historyData || historyData.weeks.length === 0 ? (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: '#555' }}>
+                <FontAwesomeIcon icon={faChartBar} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
+                Sin registros de historial aún
+              </div>
+            ) : (() => {
+              const week = historyData.weeks[historyWeekIdx];
+              const completedCount = Object.keys(week.completions).length;
+              const totalCount = historyData.tasks.length;
+              const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+              const isCurrentWeek = historyWeekIdx === 0;
+
+              return (
+                <>
+                  {/* Week navigator */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '14px 0 10px', borderBottom: '1px solid rgba(255,255,255,0.06)'
+                  }}>
+                    <button
+                      onClick={() => setHistoryWeekIdx(i => Math.min(i + 1, historyData.weeks.length - 1))}
+                      disabled={historyWeekIdx >= historyData.weeks.length - 1}
+                      style={{
+                        width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer',
+                        background: 'rgba(255,255,255,0.05)', color: historyWeekIdx >= historyData.weeks.length - 1 ? '#333' : '#aaa',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
+                    </button>
+                    <div style={{ flex: 1, textAlign: 'center' }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>
+                        {formatWeekRange(week.week_start)}
+                      </div>
+                      {isCurrentWeek && (
+                        <div style={{ fontSize: 10, color: '#D4AF37', fontWeight: 600, marginTop: 2, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                          Semana actual
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setHistoryWeekIdx(i => Math.max(i - 1, 0))}
+                      disabled={historyWeekIdx === 0}
+                      style={{
+                        width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer',
+                        background: 'rgba(255,255,255,0.05)', color: historyWeekIdx === 0 ? '#333' : '#aaa',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 11 }} />
+                    </button>
+                  </div>
+
+                  {/* Progress summary */}
+                  <div style={{
+                    padding: '16px 0 14px',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    display: 'flex', alignItems: 'center', gap: 16
+                  }}>
+                    {/* Big number */}
+                    <div style={{ textAlign: 'center', flexShrink: 0, minWidth: 70 }}>
+                      <div style={{ fontSize: 36, fontWeight: 900, color: pct === 100 ? '#4ade80' : pct > 0 ? '#fbbf24' : '#444', lineHeight: 1 }}>
+                        {pct}<span style={{ fontSize: 16, fontWeight: 600 }}>%</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>
+                        {completedCount}/{totalCount} tareas
+                      </div>
+                    </div>
+                    {/* Progress bar */}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 8,
+                          width: `${pct}%`,
+                          background: pct === 100
+                            ? 'linear-gradient(90deg, #16a34a, #4ade80)'
+                            : pct > 0
+                            ? 'linear-gradient(90deg, #92400e, #fbbf24)'
+                            : 'transparent',
+                          transition: 'width 0.4s ease'
+                        }} />
+                      </div>
+                      <div style={{ fontSize: 11, color: '#555', marginTop: 6 }}>
+                        {pct === 100 ? '¡Todas completadas!' : pct === 0 ? 'Sin completar esta semana' : `${totalCount - completedCount} pendiente${totalCount - completedCount !== 1 ? 's' : ''}`}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Task list */}
+                  <div style={{ maxHeight: 340, overflowY: 'auto', padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {historyData.tasks.map(task => {
+                      const comp = week.completions[task.id];
+                      return (
+                        <div key={task.id} style={{
+                          display: 'flex', alignItems: 'center', gap: 12,
+                          padding: '10px 14px', borderRadius: 12,
+                          background: comp ? 'rgba(74,222,128,0.05)' : 'rgba(255,255,255,0.02)',
+                          border: `1px solid ${comp ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.05)'}`,
+                          borderLeft: `3px solid ${comp ? '#4ade80' : '#2a2a2a'}`
+                        }}>
+                          {/* Check / X */}
+                          <div style={{
+                            width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: comp ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.04)',
+                            color: comp ? '#4ade80' : '#333', fontSize: 12
+                          }}>
+                            <FontAwesomeIcon icon={comp ? faCheck : faTimes} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: comp ? '#e0e0e0' : '#555' }}>
+                              {task.name}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#444', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <span>{DAYS[task.day_of_week]} · {task.due_time}</span>
+                              {comp && (
+                                <span style={{ color: '#4ade80' }}>
+                                  completada {new Date(comp.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                  {comp.completed_by_name && ` · ${comp.completed_by_name}`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Week dots navigator */}
+                  {historyData.weeks.length > 1 && (
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 6, paddingTop: 14 }}>
+                      {historyData.weeks.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setHistoryWeekIdx(i)}
+                          style={{
+                            width: i === historyWeekIdx ? 20 : 8,
+                            height: 8, borderRadius: 4, border: 'none', cursor: 'pointer',
+                            background: i === historyWeekIdx ? '#D4AF37' : 'rgba(255,255,255,0.1)',
+                            transition: 'all 0.2s ease', padding: 0
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {dupAllModal && (
         <div className="modal-overlay" onClick={() => !dupAllSaving && setDupAllModal(null)}>

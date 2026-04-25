@@ -5131,6 +5131,56 @@ app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/tasks/worker-history', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
+    const { store_id, worker_id } = req.query;
+    if (!store_id || !worker_id) return res.status(400).json({ error: 'Faltan parámetros' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'Acceso denegado' });
+
+    const [tasks] = await pool.execute(
+      'SELECT id, name, description, day_of_week, due_time FROM tasks WHERE store_id = ? AND worker_id = ? ORDER BY day_of_week, due_time',
+      [store_id, worker_id]
+    );
+
+    if (tasks.length === 0) return res.json({ tasks: [], weeks: [] });
+
+    const taskIds = tasks.map(t => t.id);
+    const placeholders = taskIds.map(() => '?').join(',');
+    const [completions] = await pool.execute(
+      `SELECT tc.task_id, tc.week_start, tc.completed_at, tc.completed_by_worker_id,
+              w.name as completed_by_name
+       FROM task_completions tc
+       LEFT JOIN workers w ON tc.completed_by_worker_id = w.id
+       WHERE tc.task_id IN (${placeholders})
+       ORDER BY tc.week_start DESC`,
+      taskIds
+    );
+
+    const weekMap = {};
+    for (const c of completions) {
+      const ws = c.week_start instanceof Date
+        ? c.week_start.toISOString().split('T')[0]
+        : String(c.week_start).split('T')[0];
+      if (!weekMap[ws]) weekMap[ws] = { week_start: ws, completions: {} };
+      weekMap[ws].completions[c.task_id] = {
+        completed_at: c.completed_at,
+        completed_by_name: c.completed_by_name
+      };
+    }
+
+    // Always include current week even with no completions yet
+    const currentWS = getWeekStart().toISOString().split('T')[0];
+    if (!weekMap[currentWS]) weekMap[currentWS] = { week_start: currentWS, completions: {} };
+
+    const weeks = Object.values(weekMap).sort((a, b) => b.week_start.localeCompare(a.week_start));
+    res.json({ tasks, weeks });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/worker-tasks', authenticateToken, async (req, res) => {
   try {
     if (req.user.type !== 'worker') return res.status(403).json({ error: 'Acceso denegado' });
