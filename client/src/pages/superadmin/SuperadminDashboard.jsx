@@ -102,7 +102,14 @@ function SuperadminDashboard() {
   const navigate = useNavigate();
   const selectedTicketRef = useRef(null);
   const saMsgEndRef = useRef(null);
+  const saMsgContainerRef = useRef(null);
   const [saMobileChat, setSaMobileChat] = useState(false);
+
+  const scrollChatToBottom = () => {
+    if (saMsgContainerRef.current) {
+      saMsgContainerRef.current.scrollTop = saMsgContainerRef.current.scrollHeight;
+    }
+  };
 
   useEffect(() => { selectedTicketRef.current = selectedTicketId; }, [selectedTicketId]);
 
@@ -134,7 +141,7 @@ function SuperadminDashboard() {
       if (!tk) return;
       try {
         const res = await fetch(API + `/api/superadmin/tickets/${ticketId}/messages`, { headers: { Authorization: 'Bearer ' + tk } });
-        if (res.ok) { const d = await res.json(); setTicketDetail(d.ticket); setTicketMessages(d.messages); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); }
+        if (res.ok) { const d = await res.json(); setTicketDetail(d.ticket); setTicketMessages(d.messages); setTimeout(scrollChatToBottom, 80); }
       } catch {}
     };
     socket.on('ticket_message', (data) => {
@@ -1216,7 +1223,7 @@ function SuperadminDashboard() {
                             const d = await res.json();
                             setTicketDetail(d.ticket);
                             setTicketMessages(d.messages);
-                            setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+                            setTimeout(scrollChatToBottom, 80);
                           }
                         }}
                         style={{
@@ -1289,7 +1296,7 @@ function SuperadminDashboard() {
                       </div>
 
                       {/* Mensajes */}
-                      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div ref={saMsgContainerRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {ticketMessages.map(m => (
                           <div
                             key={m.id}
@@ -1363,7 +1370,7 @@ function SuperadminDashboard() {
                                 fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd })
                                   .then(() => fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } }))
                                   .then(r => r.json())
-                                  .then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); })
+                                  .then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); setTimeout(scrollChatToBottom, 80); })
                                   .finally(() => setTicketSending(false));
                               }
                             }}
@@ -1381,7 +1388,7 @@ function SuperadminDashboard() {
                               fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd })
                                 .then(() => fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } }))
                                 .then(r => r.json())
-                                .then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); })
+                                .then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); setTimeout(scrollChatToBottom, 80); })
                                 .finally(() => setTicketSending(false));
                             }}
                             style={{ background: '#333', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 14px', cursor: 'pointer', flexShrink: 0 }}
