@@ -50,6 +50,7 @@ function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const isEditorMode = location.pathname.startsWith('/admin/editor');
+  const isLeonIA = location.pathname.startsWith('/admin/leon-ia');
   const [stores, setStores] = useState([]);
   const [selectedStore, setSelectedStore] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -575,7 +576,7 @@ function Layout() {
               </button>
             </div>
           )}
-          <div className="mobile-header" style={isEditorMode ? { display: 'none' } : {}}>
+          <div className="mobile-header" style={(isEditorMode || isLeonIA) ? { display: 'none' } : {}}>
             <button className="mobile-header-btn" onClick={() => setMenuOpen(true)}>
               <FontAwesomeIcon icon={faBars} />
             </button>

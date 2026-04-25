@@ -9269,7 +9269,7 @@ html body .store-container .store-product-card * {
 .leon-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 60px);
+  height: 100vh;
   background: #0d0d0d;
   color: #fff;
   overflow: hidden;
@@ -9574,7 +9574,6 @@ html body .store-container .store-product-card * {
 
 /* Responsive 768px */
 @media (max-width: 768px) {
-  .leon-page { height: calc(100vh - 56px); }
   .leon-header { padding: 10px 14px; }
   .leon-header-name { font-size: 15px; }
   .leon-chat { padding: 14px 12px; gap: 10px; }
