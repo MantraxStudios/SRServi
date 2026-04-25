@@ -317,76 +317,97 @@ export default function Tasks() {
             )}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gap: '20px',
+            alignItems: 'start'
+          }}>
             {Object.entries(grouped).map(([wid, group]) => (
               <div key={wid} style={{
-                background: 'rgba(255,255,255,0.03)',
+                background: 'var(--card)',
                 border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '14px', overflow: 'hidden'
+                borderRadius: '16px',
+                overflow: 'hidden',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.18)'
               }}>
+                {/* Worker card header */}
                 <div style={{
-                  padding: '14px 20px', background: 'rgba(212,175,55,0.07)',
-                  borderBottom: '1px solid rgba(255,255,255,0.08)',
-                  display: 'flex', alignItems: 'center', gap: '10px'
+                  padding: '16px 18px',
+                  background: 'linear-gradient(135deg, rgba(212,175,55,0.12) 0%, rgba(212,175,55,0.04) 100%)',
+                  borderBottom: '1px solid rgba(212,175,55,0.15)',
                 }}>
-                  <div style={{
-                    width: '32px', height: '32px', borderRadius: '50%',
-                    background: 'rgba(212,175,55,0.15)', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', color: '#D4AF37', flexShrink: 0
-                  }}>
-                    <FontAwesomeIcon icon={faUser} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: workers.length > 1 ? 12 : 0 }}>
+                    <div style={{
+                      width: 42, height: 42, borderRadius: '50%',
+                      background: 'rgba(212,175,55,0.18)',
+                      border: '2px solid rgba(212,175,55,0.35)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#D4AF37', fontSize: 16, flexShrink: 0
+                    }}>
+                      <FontAwesomeIcon icon={faUser} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {group.name}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#D4AF37', marginTop: 2 }}>
+                        {group.tasks.length} tarea{group.tasks.length !== 1 ? 's' : ''} asignada{group.tasks.length !== 1 ? 's' : ''}
+                      </div>
+                    </div>
                   </div>
-                  <span style={{ fontWeight: 700, fontSize: '15px' }}>{group.name}</span>
-                  <span style={{ fontSize: '12px', color: '#888' }}>
-                    {group.tasks.length} tarea{group.tasks.length !== 1 ? 's' : ''}
-                  </span>
                   {workers.length > 1 && (
                     <button
                       onClick={() => openDupAll(parseInt(wid), group.name)}
-                      title="Duplicar todas las tareas a otro trabajador"
                       style={{
-                        marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                        background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.3)',
-                        color: '#D4AF37', cursor: 'pointer'
+                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                        padding: '7px 0', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                        background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.25)',
+                        color: '#D4AF37', cursor: 'pointer', transition: 'background 0.15s'
                       }}
                     >
                       <FontAwesomeIcon icon={faClone} />
-                      Duplicar todas
+                      Duplicar todas las tareas
                     </button>
                   )}
                 </div>
 
+                {/* Task list */}
                 <div style={{ padding: '8px 0' }}>
-                  {group.tasks.map(task => (
+                  {group.tasks.map((task, idx) => (
                     <div key={task.id} style={{
-                      display: 'flex', alignItems: 'center', gap: '12px',
-                      padding: '12px 20px',
-                      borderBottom: '1px solid rgba(255,255,255,0.04)',
+                      padding: '12px 18px',
+                      borderBottom: idx < group.tasks.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                      display: 'flex', flexDirection: 'column', gap: 6
                     }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 600, fontSize: '14px' }}>{task.name}</span>
-                          <StatusBadge task={task} />
-                        </div>
-                        {task.description && (
-                          <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#888' }}>{task.description}</p>
-                        )}
-                        <div style={{ display: 'flex', gap: '16px', marginTop: '5px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '12px', color: '#aaa' }}>
-                            <FontAwesomeIcon icon={faClock} style={{ marginRight: 4, color: '#D4AF37' }} />
-                            {DAYS[task.day_of_week]} {task.due_time}
-                          </span>
-                          {task.completed_at && (
-                            <span style={{ fontSize: '12px', color: '#16a34a' }}>
-                              <FontAwesomeIcon icon={faCheck} style={{ marginRight: 4 }} />
-                              Marcada a las {new Date(task.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                              {task.completed_by_name && ` por ${task.completed_by_name}`}
-                            </span>
-                          )}
-                        </div>
+                      {/* Task name + status */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 600, fontSize: 14, flex: 1, minWidth: 0 }}>{task.name}</span>
+                        <StatusBadge task={task} />
                       </div>
-                      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+
+                      {/* Description */}
+                      {task.description && (
+                        <p style={{ margin: 0, fontSize: 12, color: '#888', lineHeight: 1.4 }}>{task.description}</p>
+                      )}
+
+                      {/* Day + time */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                        <span style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37' }} />
+                          {DAYS[task.day_of_week]} · {task.due_time}
+                        </span>
+                        {task.completed_at && (
+                          <span style={{ fontSize: 11, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <FontAwesomeIcon icon={faCheck} />
+                            {new Date(task.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                            {task.completed_by_name && ` · ${task.completed_by_name}`}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 2 }}>
                         <button
                           className="btn btn-ghost btn-icon btn-sm"
                           onClick={() => openDuplicate(task)}
