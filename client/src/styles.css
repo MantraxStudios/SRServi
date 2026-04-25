@@ -10040,12 +10040,18 @@ html body .store-container .store-product-card * {
   overflow-x: hidden;
   padding: 24px;
   -webkit-overflow-scrolling: touch;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .product-form {
   display: flex;
   flex-direction: column;
   gap: 0;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .product-form-section {
@@ -10053,6 +10059,9 @@ html body .store-container .store-product-card * {
   flex-direction: column;
   gap: 16px;
   margin-bottom: 24px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .product-form-section:last-of-type {
@@ -10136,6 +10145,9 @@ html body .store-container .store-product-card * {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .input-with-prefix {
@@ -10239,6 +10251,17 @@ html body .store-container .store-product-card * {
 
 .product-form-actions .btn {
   flex: 1;
+}
+
+/* Asegurar que los inputs y selects en product-modal no salgan del contenedor */
+.product-modal .form-group,
+.product-modal .form-group input,
+.product-modal .form-group textarea,
+.product-modal .form-group select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 /* ============================================
