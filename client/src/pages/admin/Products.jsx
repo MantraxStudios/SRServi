@@ -609,7 +609,7 @@ function Products() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="product-modal-overlay" onClick={() => setShowModal(false)}>
           <div className="product-modal" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="product-modal-header">
