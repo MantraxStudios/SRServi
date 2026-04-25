@@ -916,7 +916,9 @@ h1, h2, h3, h4, h5, h6 {
   width: 270px;
   background: linear-gradient(180deg, #0a0a0a 0%, #131313 50%, #0a0a0a 100%);
   color: #e8e8e8;
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   padding: 0;
   position: relative;
   left: 0;
