@@ -437,12 +437,15 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: var(--radius-xl);
   width: 100%;
   max-width: 520px;
-  overflow: visible;
+  overflow: auto;
+  max-height: 90vh;
   padding: var(--space-6);
   box-shadow: var(--shadow-2xl);
   border: 1px solid var(--border);
   margin: auto;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -5117,8 +5120,9 @@ html body .store-container .store-product-card * {
 .file-input { padding: 10px; border: 2px dashed var(--border); border-radius: var(--radius-md); width: 100%; cursor: pointer; }
 .image-preview { width: 100px; height: 100px; object-fit: cover; border-radius: var(--radius-sm); border: 2px solid var(--gold); }
 .image-preview-current { width: 100px; height: 100px; object-fit: cover; border-radius: var(--radius-sm); border: 2px solid var(--border); }
-.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 .form-grid-2 > .stock-toggle { grid-column: 1 / -1; margin-top: 0; }
+@media (max-width: 768px) { .form-grid-2 { grid-template-columns: 1fr; gap: 12px; } }
 @media (max-width: 540px) { .form-grid-2 { grid-template-columns: 1fr; gap: 12px; } }
 .stock-toggle { display: flex; align-items: center; gap: 12px; margin-top: 20px; padding: 16px; border-radius: var(--radius-md); border: 2px solid var(--border); }
 .stock-toggle.active { background-color: var(--success-bg); border-color: var(--success); }
@@ -5392,14 +5396,17 @@ html body .store-container .store-product-card * {
 
   .modal {
     max-height: 95vh;
+    max-width: 95vw;
     border-radius: var(--radius-lg);
     margin: var(--space-2);
-    padding: var(--space-4);
+    padding: var(--space-3);
     width: calc(100% - 16px);
+    overflow: auto;
   }
 
   .modal-overlay {
     padding: var(--space-2);
+    justify-content: center;
   }
 
   .cart-drawer {
@@ -9829,5 +9836,142 @@ html body .store-container .store-product-card * {
 
   .worker-pos-cart {
     width: 420px;
+  }
+}
+
+/* ============================================
+   Modal Responsive Improvements
+   ============================================ */
+
+/* Tablets (768px - 900px) */
+@media (max-width: 900px) {
+  .modal {
+    max-width: 90vw;
+    padding: var(--space-5);
+  }
+  
+  .modal-overlay {
+    padding: var(--space-3);
+  }
+  
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-size: 16px;
+    padding: 12px 14px;
+  }
+}
+
+/* Phones (max 767px) */
+@media (max-width: 767px) {
+  .modal {
+    max-width: 95vw;
+    max-height: 92vh;
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+  }
+  
+  .modal-overlay {
+    padding: var(--space-2);
+    justify-content: center;
+  }
+  
+  .modal-header {
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-3);
+  }
+  
+  .modal-title {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .form-group {
+    margin-bottom: var(--space-4);
+  }
+  
+  .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-size: 16px;
+    padding: 12px 12px;
+    border-radius: var(--radius-md);
+  }
+  
+  .btn {
+    font-size: 15px;
+    padding: 12px 16px;
+  }
+  
+  .btn-full {
+    width: 100%;
+  }
+}
+
+/* Small phones (max 480px) */
+@media (max-width: 480px) {
+  .modal {
+    max-width: 98vw;
+    max-height: 95vh;
+    padding: var(--space-3);
+  }
+  
+  .modal-overlay {
+    padding: var(--space-1);
+  }
+  
+  .modal-header {
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-2);
+  }
+  
+  .modal-title {
+    font-size: 15px;
+  }
+  
+  .modal-close {
+    font-size: 24px;
+    padding: 4px 8px;
+  }
+  
+  .form-group {
+    margin-bottom: var(--space-3);
+  }
+  
+  .form-group label {
+    font-size: 12px;
+    margin-bottom: var(--space-1);
+  }
+  
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-size: 16px;
+    padding: 11px 11px;
+  }
+  
+  .stock-toggle {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
+  }
+  
+  .stock-toggle label {
+    flex-wrap: wrap;
   }
 }
