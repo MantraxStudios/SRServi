@@ -52,10 +52,10 @@ function getTaskStatus(task) {
 function StatusBadge({ task }) {
   const status = getTaskStatus(task);
   const cfg = {
-    completed: { label: 'Completada', color: '#4ade80', bg: 'rgba(22,163,74,0.15)',  border: 'rgba(74,222,128,0.2)',  icon: faCheck },
-    active:    { label: 'En plazo',   color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.25)', icon: faClock },
-    upcoming:  { label: 'Pendiente',  color: '#9ca3af', bg: 'rgba(156,163,175,0.1)', border: 'rgba(156,163,175,0.2)', icon: null },
-    expired:   { label: 'Expirada',   color: '#f87171', bg: 'rgba(248,113,113,0.12)',border: 'rgba(248,113,113,0.25)',icon: faExclamationTriangle },
+    completed: { label: 'Completada', color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', icon: faCheck },
+    active:    { label: 'En plazo',   color: '#92400e', bg: '#fffbeb', border: '#fcd34d', icon: faClock },
+    upcoming:  { label: 'Pendiente',  color: '#374151', bg: '#f3f4f6', border: '#d1d5db', icon: null },
+    expired:   { label: 'Expirada',   color: '#991b1b', bg: '#fef2f2', border: '#fca5a5', icon: faExclamationTriangle },
   }[status];
   return (
     <span style={{
@@ -362,28 +362,28 @@ export default function Tasks() {
               const completedCount = group.tasks.filter(t => getTaskStatus(t) === 'completed').length;
               return (
                 <div key={wid} style={{
-                  background: '#111',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  borderRadius: '20px',
+                  background: '#fff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '18px',
                   overflow: 'hidden',
-                  boxShadow: '0 8px 40px rgba(0,0,0,0.7)',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
                 }}>
 
                   {/* ── Worker header ── */}
                   <div style={{
-                    padding: '20px 20px 16px',
-                    background: 'linear-gradient(150deg, #1c1700 0%, #111 55%)',
-                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    padding: '18px 18px 14px',
+                    background: 'linear-gradient(135deg, #fffbeb 0%, #fff 70%)',
+                    borderBottom: '1px solid #f0e6b0',
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 13 }}>
 
-                      {/* Avatar con iniciales */}
+                      {/* Avatar iniciales */}
                       <div style={{
-                        width: 50, height: 50, borderRadius: 14, flexShrink: 0,
-                        background: 'linear-gradient(135deg, #D4AF37 0%, #8B6914 100%)',
+                        width: 48, height: 48, borderRadius: 13, flexShrink: 0,
+                        background: 'linear-gradient(135deg, #D4AF37 0%, #a07c20 100%)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 19, fontWeight: 900, color: '#000',
-                        boxShadow: '0 4px 14px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,175,55,0.3)',
+                        fontSize: 18, fontWeight: 900, color: '#000',
+                        boxShadow: '0 3px 10px rgba(0,0,0,0.15)',
                         letterSpacing: '-0.5px'
                       }}>
                         {initials}
@@ -391,45 +391,42 @@ export default function Tasks() {
 
                       {/* Info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 16, color: '#fff', lineHeight: 1.2, marginBottom: 3 }}>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: '#111', lineHeight: 1.2, marginBottom: 2 }}>
                           {group.name}
                         </div>
                         {worker?.username && (
-                          <div style={{ fontSize: 11, color: '#555', fontFamily: 'monospace', marginBottom: 10 }}>
+                          <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace', marginBottom: 8 }}>
                             {worker.username}
                           </div>
                         )}
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           <span style={{
                             fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-                            background: 'rgba(255,255,255,0.06)', color: '#888',
-                            border: '1px solid rgba(255,255,255,0.08)'
+                            background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb'
                           }}>
                             {group.tasks.length} tarea{group.tasks.length !== 1 ? 's' : ''}
                           </span>
                           {completedCount > 0 && (
                             <span style={{
                               fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-                              background: 'rgba(74,222,128,0.1)', color: '#4ade80',
-                              border: '1px solid rgba(74,222,128,0.18)'
+                              background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0'
                             }}>
-                              {completedCount} ✓
+                              {completedCount} completada{completedCount !== 1 ? 's' : ''}
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Botones: historial + duplicar todas */}
+                      {/* Botones: historial + duplicar */}
                       <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <button
                           onClick={() => openHistory(parseInt(wid), group.name, initials)}
                           title="Ver historial de tareas"
                           style={{
-                            width: 36, height: 36, borderRadius: 10,
+                            width: 34, height: 34, borderRadius: 9,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                            color: '#aaa', cursor: 'pointer', fontSize: 13,
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+                            background: '#f3f4f6', border: '1px solid #e5e7eb',
+                            color: '#6b7280', cursor: 'pointer', fontSize: 13
                           }}
                         >
                           <FontAwesomeIcon icon={faChartBar} />
@@ -437,13 +434,12 @@ export default function Tasks() {
                         {workers.length > 1 && (
                           <button
                             onClick={() => openDupAll(parseInt(wid), group.name)}
-                            title="Duplicar todas las tareas a otro trabajador"
+                            title="Duplicar todas las tareas"
                             style={{
-                              width: 36, height: 36, borderRadius: 10,
+                              width: 34, height: 34, borderRadius: 9,
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)',
-                              color: '#D4AF37', cursor: 'pointer', fontSize: 13,
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+                              background: '#fffbeb', border: '1px solid #fcd34d',
+                              color: '#92400e', cursor: 'pointer', fontSize: 13
                             }}
                           >
                             <FontAwesomeIcon icon={faClone} />
@@ -457,90 +453,54 @@ export default function Tasks() {
                   <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
                     {group.tasks.map(task => {
                       const status = getTaskStatus(task);
-                      const accent = { completed: '#4ade80', active: '#fbbf24', upcoming: '#374151', expired: '#f87171' }[status];
+                      const accent = { completed: '#16a34a', active: '#d97706', upcoming: '#d1d5db', expired: '#ef4444' }[status];
+                      const taskBg = { completed: '#f9fefb', active: '#fffcf5', upcoming: '#fafafa', expired: '#fff9f9' }[status];
                       return (
                         <div key={task.id} style={{
-                          background: 'rgba(255,255,255,0.03)',
-                          border: `1px solid rgba(255,255,255,0.05)`,
+                          background: taskBg,
+                          border: '1px solid #e5e7eb',
                           borderLeft: `3px solid ${accent}`,
-                          borderRadius: '12px',
-                          padding: '11px 13px',
+                          borderRadius: '11px',
+                          padding: '11px 12px',
                           display: 'flex', gap: 10, alignItems: 'flex-start',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
                         }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            {/* Nombre */}
-                            <div style={{ fontWeight: 600, fontSize: 13, color: '#f0f0f0', marginBottom: 4, lineHeight: 1.3 }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: '#111', marginBottom: 3, lineHeight: 1.3 }}>
                               {task.name}
                             </div>
-                            {/* Descripción */}
                             {task.description && (
-                              <p style={{ margin: '0 0 6px', fontSize: 11, color: '#555', lineHeight: 1.45 }}>
+                              <p style={{ margin: '0 0 5px', fontSize: 11, color: '#6b7280', lineHeight: 1.45 }}>
                                 {task.description}
                               </p>
                             )}
-                            {/* Día · hora · badge */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                              <span style={{
-                                fontSize: 11, color: '#666',
-                                display: 'flex', alignItems: 'center', gap: 4
-                              }}>
+                              <span style={{ fontSize: 11, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37', fontSize: 9 }} />
                                 {DAYS[task.day_of_week]} · {task.due_time}
                               </span>
                               <StatusBadge task={task} />
                             </div>
-                            {/* Completado */}
                             {task.completed_at && (
-                              <div style={{
-                                marginTop: 6, fontSize: 11, color: '#4ade80',
-                                display: 'flex', alignItems: 'center', gap: 5
-                              }}>
+                              <div style={{ marginTop: 5, fontSize: 11, color: '#15803d', display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <FontAwesomeIcon icon={faCheck} style={{ fontSize: 9 }} />
                                 {new Date(task.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                                {task.completed_by_name && (
-                                  <span style={{ color: '#555' }}>· {task.completed_by_name}</span>
-                                )}
+                                {task.completed_by_name && <span style={{ color: '#9ca3af' }}> · {task.completed_by_name}</span>}
                               </div>
                             )}
                           </div>
 
                           {/* Acciones */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
-                            <button
-                              onClick={() => openDuplicate(task)}
-                              title="Duplicar"
-                              style={{
-                                width: 28, height: 28, borderRadius: 8, border: 'none',
-                                background: 'rgba(255,255,255,0.05)', color: '#666',
-                                cursor: 'pointer', fontSize: 11, display: 'flex',
-                                alignItems: 'center', justifyContent: 'center'
-                              }}
-                            >
+                            <button onClick={() => openDuplicate(task)} title="Duplicar"
+                              style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#9ca3af', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <FontAwesomeIcon icon={faCopy} />
                             </button>
-                            <button
-                              onClick={() => openEdit(task)}
-                              title="Editar"
-                              style={{
-                                width: 28, height: 28, borderRadius: 8, border: 'none',
-                                background: 'rgba(255,255,255,0.05)', color: '#666',
-                                cursor: 'pointer', fontSize: 11, display: 'flex',
-                                alignItems: 'center', justifyContent: 'center'
-                              }}
-                            >
+                            <button onClick={() => openEdit(task)} title="Editar"
+                              style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <FontAwesomeIcon icon={faPencilAlt} />
                             </button>
-                            <button
-                              onClick={() => handleDelete(task.id)}
-                              title="Eliminar"
-                              style={{
-                                width: 28, height: 28, borderRadius: 8, border: 'none',
-                                background: 'rgba(220,38,38,0.1)', color: '#f87171',
-                                cursor: 'pointer', fontSize: 11, display: 'flex',
-                                alignItems: 'center', justifyContent: 'center'
-                              }}
-                            >
+                            <button onClick={() => handleDelete(task.id)} title="Eliminar"
+                              style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid #fca5a5', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <FontAwesomeIcon icon={faTrash} />
                             </button>
                           </div>
@@ -643,7 +603,7 @@ export default function Tasks() {
                   }}>
                     {/* Big number */}
                     <div style={{ textAlign: 'center', flexShrink: 0, minWidth: 70 }}>
-                      <div style={{ fontSize: 36, fontWeight: 900, color: pct === 100 ? '#4ade80' : pct > 0 ? '#fbbf24' : '#444', lineHeight: 1 }}>
+                      <div style={{ fontSize: 36, fontWeight: 900, color: pct === 100 ? '#15803d' : pct > 0 ? '#d97706' : '#9ca3af', lineHeight: 1 }}>
                         {pct}<span style={{ fontSize: 16, fontWeight: 600 }}>%</span>
                       </div>
                       <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>
@@ -652,7 +612,7 @@ export default function Tasks() {
                     </div>
                     {/* Progress bar */}
                     <div style={{ flex: 1 }}>
-                      <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden' }}>
+                      <div style={{ height: 8, background: '#f3f4f6', borderRadius: 8, overflow: 'hidden' }}>
                         <div style={{
                           height: '100%', borderRadius: 8,
                           width: `${pct}%`,
@@ -664,7 +624,7 @@ export default function Tasks() {
                           transition: 'width 0.4s ease'
                         }} />
                       </div>
-                      <div style={{ fontSize: 11, color: '#555', marginTop: 6 }}>
+                      <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>
                         {pct === 100 ? '¡Todas completadas!' : pct === 0 ? 'Sin completar esta semana' : `${totalCount - completedCount} pendiente${totalCount - completedCount !== 1 ? 's' : ''}`}
                       </div>
                     </div>
@@ -678,27 +638,27 @@ export default function Tasks() {
                         <div key={task.id} style={{
                           display: 'flex', alignItems: 'center', gap: 12,
                           padding: '10px 14px', borderRadius: 12,
-                          background: comp ? 'rgba(74,222,128,0.05)' : 'rgba(255,255,255,0.02)',
-                          border: `1px solid ${comp ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.05)'}`,
-                          borderLeft: `3px solid ${comp ? '#4ade80' : '#2a2a2a'}`
+                          background: comp ? '#f9fefb' : '#fafafa',
+                          border: `1px solid ${comp ? '#bbf7d0' : '#e5e7eb'}`,
+                          borderLeft: `3px solid ${comp ? '#16a34a' : '#d1d5db'}`
                         }}>
                           {/* Check / X */}
                           <div style={{
                             width: 28, height: 28, borderRadius: 8, flexShrink: 0,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            background: comp ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.04)',
-                            color: comp ? '#4ade80' : '#333', fontSize: 12
+                            background: comp ? '#f0fdf4' : '#f3f4f6',
+                            color: comp ? '#15803d' : '#9ca3af', fontSize: 12
                           }}>
                             <FontAwesomeIcon icon={comp ? faCheck : faTimes} />
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 600, fontSize: 13, color: comp ? '#e0e0e0' : '#555' }}>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: comp ? '#111' : '#6b7280' }}>
                               {task.name}
                             </div>
-                            <div style={{ fontSize: 11, color: '#444', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                               <span>{DAYS[task.day_of_week]} · {task.due_time}</span>
                               {comp && (
-                                <span style={{ color: '#4ade80' }}>
+                                <span style={{ color: '#15803d' }}>
                                   completada {new Date(comp.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                                   {comp.completed_by_name && ` · ${comp.completed_by_name}`}
                                 </span>
