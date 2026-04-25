@@ -41,20 +41,18 @@ function getTaskStatus(task) {
 function StatusBadge({ task }) {
   const status = getTaskStatus(task);
   const cfg = {
-    completed: { label: 'Completada', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-    active:    { label: 'En plazo',   color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
-    upcoming:  { label: 'Pendiente',  color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
-    expired:   { label: 'Expirada',   color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+    completed: { label: 'Completada', color: '#4ade80', bg: 'rgba(22,163,74,0.15)',  border: 'rgba(74,222,128,0.2)',  icon: faCheck },
+    active:    { label: 'En plazo',   color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.25)', icon: faClock },
+    upcoming:  { label: 'Pendiente',  color: '#9ca3af', bg: 'rgba(156,163,175,0.1)', border: 'rgba(156,163,175,0.2)', icon: null },
+    expired:   { label: 'Expirada',   color: '#f87171', bg: 'rgba(248,113,113,0.12)',border: 'rgba(248,113,113,0.25)',icon: faExclamationTriangle },
   }[status];
   return (
     <span style={{
-      fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '20px',
+      fontSize: '10px', fontWeight: 700, padding: '3px 9px', borderRadius: '20px',
       color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`,
-      whiteSpace: 'nowrap'
+      display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', letterSpacing: '0.02em'
     }}>
-      {status === 'completed' && <FontAwesomeIcon icon={faCheck} style={{ marginRight: 4 }} />}
-      {status === 'expired' && <FontAwesomeIcon icon={faExclamationTriangle} style={{ marginRight: 4 }} />}
-      {status === 'active' && <FontAwesomeIcon icon={faClock} style={{ marginRight: 4 }} />}
+      {cfg.icon && <FontAwesomeIcon icon={cfg.icon} style={{ fontSize: 9 }} />}
       {cfg.label}
     </span>
   );
@@ -319,122 +317,190 @@ export default function Tasks() {
         ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-            gap: '20px',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
+            gap: '22px',
             alignItems: 'start'
           }}>
-            {Object.entries(grouped).map(([wid, group]) => (
-              <div key={wid} style={{
-                background: 'var(--card)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '16px',
-                overflow: 'hidden',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.18)'
-              }}>
-                {/* Worker card header */}
-                <div style={{
-                  padding: '16px 18px',
-                  background: 'linear-gradient(135deg, rgba(212,175,55,0.12) 0%, rgba(212,175,55,0.04) 100%)',
-                  borderBottom: '1px solid rgba(212,175,55,0.15)',
+            {Object.entries(grouped).map(([wid, group]) => {
+              const worker = workers.find(w => w.id === parseInt(wid));
+              const initials = group.name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase();
+              const completedCount = group.tasks.filter(t => getTaskStatus(t) === 'completed').length;
+              return (
+                <div key={wid} style={{
+                  background: '#111',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  borderRadius: '20px',
+                  overflow: 'hidden',
+                  boxShadow: '0 8px 40px rgba(0,0,0,0.7)',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: workers.length > 1 ? 12 : 0 }}>
-                    <div style={{
-                      width: 42, height: 42, borderRadius: '50%',
-                      background: 'rgba(212,175,55,0.18)',
-                      border: '2px solid rgba(212,175,55,0.35)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#D4AF37', fontSize: 16, flexShrink: 0
-                    }}>
-                      <FontAwesomeIcon icon={faUser} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 15, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {group.name}
+
+                  {/* ── Worker header ── */}
+                  <div style={{
+                    padding: '20px 20px 16px',
+                    background: 'linear-gradient(150deg, #1c1700 0%, #111 55%)',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+
+                      {/* Avatar con iniciales */}
+                      <div style={{
+                        width: 50, height: 50, borderRadius: 14, flexShrink: 0,
+                        background: 'linear-gradient(135deg, #D4AF37 0%, #8B6914 100%)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 19, fontWeight: 900, color: '#000',
+                        boxShadow: '0 4px 14px rgba(0,0,0,0.5), 0 0 0 1px rgba(212,175,55,0.3)',
+                        letterSpacing: '-0.5px'
+                      }}>
+                        {initials}
                       </div>
-                      <div style={{ fontSize: 12, color: '#D4AF37', marginTop: 2 }}>
-                        {group.tasks.length} tarea{group.tasks.length !== 1 ? 's' : ''} asignada{group.tasks.length !== 1 ? 's' : ''}
+
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 16, color: '#fff', lineHeight: 1.2, marginBottom: 3 }}>
+                          {group.name}
+                        </div>
+                        {worker?.username && (
+                          <div style={{ fontSize: 11, color: '#555', fontFamily: 'monospace', marginBottom: 10 }}>
+                            {worker.username}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{
+                            fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
+                            background: 'rgba(255,255,255,0.06)', color: '#888',
+                            border: '1px solid rgba(255,255,255,0.08)'
+                          }}>
+                            {group.tasks.length} tarea{group.tasks.length !== 1 ? 's' : ''}
+                          </span>
+                          {completedCount > 0 && (
+                            <span style={{
+                              fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
+                              background: 'rgba(74,222,128,0.1)', color: '#4ade80',
+                              border: '1px solid rgba(74,222,128,0.18)'
+                            }}>
+                              {completedCount} ✓
+                            </span>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Botón duplicar todas */}
+                      {workers.length > 1 && (
+                        <button
+                          onClick={() => openDupAll(parseInt(wid), group.name)}
+                          title="Duplicar todas las tareas a otro trabajador"
+                          style={{
+                            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)',
+                            color: '#D4AF37', cursor: 'pointer', fontSize: 13,
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faClone} />
+                        </button>
+                      )}
                     </div>
                   </div>
-                  {workers.length > 1 && (
-                    <button
-                      onClick={() => openDupAll(parseInt(wid), group.name)}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                        padding: '7px 0', borderRadius: 10, fontSize: 12, fontWeight: 600,
-                        background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.25)',
-                        color: '#D4AF37', cursor: 'pointer', transition: 'background 0.15s'
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faClone} />
-                      Duplicar todas las tareas
-                    </button>
-                  )}
+
+                  {/* ── Task list ── */}
+                  <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                    {group.tasks.map(task => {
+                      const status = getTaskStatus(task);
+                      const accent = { completed: '#4ade80', active: '#fbbf24', upcoming: '#374151', expired: '#f87171' }[status];
+                      return (
+                        <div key={task.id} style={{
+                          background: 'rgba(255,255,255,0.03)',
+                          border: `1px solid rgba(255,255,255,0.05)`,
+                          borderLeft: `3px solid ${accent}`,
+                          borderRadius: '12px',
+                          padding: '11px 13px',
+                          display: 'flex', gap: 10, alignItems: 'flex-start',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                        }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {/* Nombre */}
+                            <div style={{ fontWeight: 600, fontSize: 13, color: '#f0f0f0', marginBottom: 4, lineHeight: 1.3 }}>
+                              {task.name}
+                            </div>
+                            {/* Descripción */}
+                            {task.description && (
+                              <p style={{ margin: '0 0 6px', fontSize: 11, color: '#555', lineHeight: 1.45 }}>
+                                {task.description}
+                              </p>
+                            )}
+                            {/* Día · hora · badge */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <span style={{
+                                fontSize: 11, color: '#666',
+                                display: 'flex', alignItems: 'center', gap: 4
+                              }}>
+                                <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37', fontSize: 9 }} />
+                                {DAYS[task.day_of_week]} · {task.due_time}
+                              </span>
+                              <StatusBadge task={task} />
+                            </div>
+                            {/* Completado */}
+                            {task.completed_at && (
+                              <div style={{
+                                marginTop: 6, fontSize: 11, color: '#4ade80',
+                                display: 'flex', alignItems: 'center', gap: 5
+                              }}>
+                                <FontAwesomeIcon icon={faCheck} style={{ fontSize: 9 }} />
+                                {new Date(task.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                {task.completed_by_name && (
+                                  <span style={{ color: '#555' }}>· {task.completed_by_name}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Acciones */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                            <button
+                              onClick={() => openDuplicate(task)}
+                              title="Duplicar"
+                              style={{
+                                width: 28, height: 28, borderRadius: 8, border: 'none',
+                                background: 'rgba(255,255,255,0.05)', color: '#666',
+                                cursor: 'pointer', fontSize: 11, display: 'flex',
+                                alignItems: 'center', justifyContent: 'center'
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faCopy} />
+                            </button>
+                            <button
+                              onClick={() => openEdit(task)}
+                              title="Editar"
+                              style={{
+                                width: 28, height: 28, borderRadius: 8, border: 'none',
+                                background: 'rgba(255,255,255,0.05)', color: '#666',
+                                cursor: 'pointer', fontSize: 11, display: 'flex',
+                                alignItems: 'center', justifyContent: 'center'
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faPencilAlt} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(task.id)}
+                              title="Eliminar"
+                              style={{
+                                width: 28, height: 28, borderRadius: 8, border: 'none',
+                                background: 'rgba(220,38,38,0.1)', color: '#f87171',
+                                cursor: 'pointer', fontSize: 11, display: 'flex',
+                                alignItems: 'center', justifyContent: 'center'
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faTrash} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-
-                {/* Task list */}
-                <div style={{ padding: '8px 0' }}>
-                  {group.tasks.map((task, idx) => (
-                    <div key={task.id} style={{
-                      padding: '12px 18px',
-                      borderBottom: idx < group.tasks.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                      display: 'flex', flexDirection: 'column', gap: 6
-                    }}>
-                      {/* Task name + status */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 600, fontSize: 14, flex: 1, minWidth: 0 }}>{task.name}</span>
-                        <StatusBadge task={task} />
-                      </div>
-
-                      {/* Description */}
-                      {task.description && (
-                        <p style={{ margin: 0, fontSize: 12, color: '#888', lineHeight: 1.4 }}>{task.description}</p>
-                      )}
-
-                      {/* Day + time */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-                        <span style={{ fontSize: 12, color: '#aaa', display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37' }} />
-                          {DAYS[task.day_of_week]} · {task.due_time}
-                        </span>
-                        {task.completed_at && (
-                          <span style={{ fontSize: 11, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <FontAwesomeIcon icon={faCheck} />
-                            {new Date(task.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                            {task.completed_by_name && ` · ${task.completed_by_name}`}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 2 }}>
-                        <button
-                          className="btn btn-ghost btn-icon btn-sm"
-                          onClick={() => openDuplicate(task)}
-                          title="Duplicar a otro trabajador"
-                        >
-                          <FontAwesomeIcon icon={faCopy} />
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-icon btn-sm"
-                          onClick={() => openEdit(task)}
-                          title="Editar"
-                        >
-                          <FontAwesomeIcon icon={faPencilAlt} />
-                        </button>
-                        <button
-                          className="btn btn-danger btn-icon btn-sm"
-                          onClick={() => handleDelete(task.id)}
-                          title="Eliminar"
-                        >
-                          <FontAwesomeIcon icon={faTrash} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
