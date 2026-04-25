@@ -225,9 +225,11 @@ export default function Tasks() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al cargar historial');
       setHistoryData(data);
     } catch (e) {
       console.error(e);
+      setHistoryData({ tasks: [], weeks: [] });
     } finally {
       setHistoryLoading(false);
     }
@@ -580,7 +582,7 @@ export default function Tasks() {
 
             {historyLoading ? (
               <div style={{ padding: '40px 0', textAlign: 'center', color: '#555' }}>Cargando historial...</div>
-            ) : !historyData || historyData.weeks.length === 0 ? (
+            ) : !historyData?.weeks?.length ? (
               <div style={{ padding: '40px 0', textAlign: 'center', color: '#555' }}>
                 <FontAwesomeIcon icon={faChartBar} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
                 Sin registros de historial aún

@@ -5147,15 +5147,14 @@ app.get('/api/tasks/worker-history', authenticateToken, async (req, res) => {
     if (tasks.length === 0) return res.json({ tasks: [], weeks: [] });
 
     const taskIds = tasks.map(t => t.id);
-    const placeholders = taskIds.map(() => '?').join(',');
-    const [completions] = await pool.execute(
+    const [completions] = await pool.query(
       `SELECT tc.task_id, tc.week_start, tc.completed_at, tc.completed_by_worker_id,
               w.name as completed_by_name
        FROM task_completions tc
        LEFT JOIN workers w ON tc.completed_by_worker_id = w.id
-       WHERE tc.task_id IN (${placeholders})
+       WHERE tc.task_id IN (?)
        ORDER BY tc.week_start DESC`,
-      taskIds
+      [taskIds]
     );
 
     const weekMap = {};
@@ -5171,12 +5170,14 @@ app.get('/api/tasks/worker-history', authenticateToken, async (req, res) => {
     }
 
     // Always include current week even with no completions yet
-    const currentWS = getWeekStart().toISOString().split('T')[0];
+    const cwd = getWeekStart();
+    const currentWS = `${cwd.getFullYear()}-${String(cwd.getMonth()+1).padStart(2,'0')}-${String(cwd.getDate()).padStart(2,'0')}`;
     if (!weekMap[currentWS]) weekMap[currentWS] = { week_start: currentWS, completions: {} };
 
     const weeks = Object.values(weekMap).sort((a, b) => b.week_start.localeCompare(a.week_start));
     res.json({ tasks, weeks });
   } catch (err) {
+    console.error('❌ worker-history error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
