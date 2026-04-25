@@ -37,7 +37,6 @@ import {
   faRobot,
   faCopy,
   faClipboardList,
-  faDownload
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -530,22 +529,6 @@ function Layout() {
           </ul>
 
           <div className="sidebar-footer">
-            <a
-              href="/api/download/launcher"
-              className="sidebar-logout-btn"
-              style={{ color: '#D4AF37', textDecoration: 'none' }}
-            >
-              <FontAwesomeIcon icon={faDownload} />
-              <span>App Android</span>
-            </a>
-            <a
-              href="/api/download/tv"
-              className="sidebar-logout-btn"
-              style={{ color: '#D4AF37', textDecoration: 'none' }}
-            >
-              <FontAwesomeIcon icon={faDownload} />
-              <span>App TV Órdenes</span>
-            </a>
             <button onClick={handleLogout} className="sidebar-logout-btn">
               <FontAwesomeIcon icon={faSignOutAlt} />
               <span>Cerrar Sesión</span>

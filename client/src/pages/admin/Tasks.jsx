@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faTrash, faPencilAlt, faCheck, faClock, faUser,
-  faExclamationTriangle, faClipboardList, faTimes
+  faExclamationTriangle, faClipboardList, faTimes, faCopy
 } from '@fortawesome/free-solid-svg-icons';
 import { StoreContext } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
@@ -73,6 +73,7 @@ export default function Tasks() {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const [filterWorker, setFilterWorker] = useState('all');
   const [, tick] = useState(0);
 
@@ -121,6 +122,7 @@ export default function Tasks() {
 
   const openCreate = () => {
     setEditingTask(null);
+    setIsDuplicating(false);
     setForm({ ...emptyForm, worker_id: workers[0]?.id?.toString() || '' });
     setError('');
     setShowModal(true);
@@ -128,8 +130,23 @@ export default function Tasks() {
 
   const openEdit = (task) => {
     setEditingTask(task);
+    setIsDuplicating(false);
     setForm({
       worker_id: task.worker_id.toString(),
+      name: task.name,
+      description: task.description || '',
+      day_of_week: task.day_of_week.toString(),
+      due_time: task.due_time,
+    });
+    setError('');
+    setShowModal(true);
+  };
+
+  const openDuplicate = (task) => {
+    setEditingTask(null);
+    setIsDuplicating(true);
+    setForm({
+      worker_id: workers[0]?.id?.toString() || '',
       name: task.name,
       description: task.description || '',
       day_of_week: task.day_of_week.toString(),
@@ -323,6 +340,13 @@ export default function Tasks() {
                       <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                         <button
                           className="btn btn-ghost btn-icon btn-sm"
+                          onClick={() => openDuplicate(task)}
+                          title="Duplicar a otro trabajador"
+                        >
+                          <FontAwesomeIcon icon={faCopy} />
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-icon btn-sm"
                           onClick={() => openEdit(task)}
                           title="Editar"
                         >
@@ -350,7 +374,7 @@ export default function Tasks() {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
-                {editingTask ? 'Editar Tarea' : 'Nueva Tarea'}
+                {editingTask ? 'Editar Tarea' : isDuplicating ? 'Duplicar Tarea' : 'Nueva Tarea'}
               </h2>
               <button className="modal-close" onClick={() => !saving && setShowModal(false)}>
                 <FontAwesomeIcon icon={faTimes} />
@@ -433,7 +457,7 @@ export default function Tasks() {
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary flex-1" disabled={saving}>
-                  {saving ? 'Guardando...' : editingTask ? 'Guardar cambios' : 'Crear tarea'}
+                  {saving ? 'Guardando...' : editingTask ? 'Guardar cambios' : isDuplicating ? 'Duplicar tarea' : 'Crear tarea'}
                 </button>
               </div>
             </form>

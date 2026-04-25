@@ -80,10 +80,11 @@ async function createTables() {
     CREATE TABLE IF NOT EXISTS workers (
       id INT PRIMARY KEY AUTO_INCREMENT,
       store_id INT NOT NULL,
-      username VARCHAR(255) UNIQUE NOT NULL,
+      username VARCHAR(255) NOT NULL,
       password VARCHAR(255) NOT NULL,
       name VARCHAR(255) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_store_username (store_id, username),
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )`;
 
@@ -831,6 +832,22 @@ async function migrateTables() {
       }
     }
 
+    // Migrate workers: drop global unique on username, add composite unique per store
+    try {
+      const [indexes] = await pool.execute("SHOW INDEX FROM workers WHERE Key_name = 'username'");
+      if (indexes.length > 0) {
+        await pool.execute('ALTER TABLE workers DROP INDEX username');
+        console.log('✅ Índice único global username en workers eliminado');
+      }
+      const [compIdx] = await pool.execute("SHOW INDEX FROM workers WHERE Key_name = 'unique_store_username'");
+      if (compIdx.length === 0) {
+        await pool.execute('ALTER TABLE workers ADD UNIQUE KEY unique_store_username (store_id, username)');
+        console.log('✅ Índice único compuesto (store_id, username) en workers creado');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando índice workers:', err.message);
+    }
+
     try {
       await pool.execute(`
         CREATE TABLE IF NOT EXISTS plans (
@@ -1148,14 +1165,24 @@ export async function createStore(userId, data) {
   }
 
   const [result] = await pool.execute(
-    `INSERT INTO stores (user_id, code, name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url) 
+    `INSERT INTO stores (user_id, code, name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [userId, code, name, primary_color || '#000000', secondary_color || '#FFFFFF', accent_color || '#D4AF37', header_color || '#000000', currency_code || 'USD', currency_symbol || '$', currency_name || 'Dólar Estadounidense', logo_url || null]
   );
-  return { 
-    id: result.insertId, 
-    user_id: userId, 
-    code, 
+
+  const storeId = result.insertId;
+  const [userRows] = await pool.execute('SELECT email FROM users WHERE id = ?', [userId]);
+  const ownerEmail = userRows[0]?.email || 'admin';
+  const defaultPassword = await bcrypt.hash('12345', 10);
+  await pool.execute(
+    'INSERT INTO workers (store_id, username, password, name) VALUES (?, ?, ?, ?)',
+    [storeId, ownerEmail, defaultPassword, 'Vendedor']
+  );
+
+  return {
+    id: storeId,
+    user_id: userId,
+    code,
     name,
     primary_color: primary_color || '#000000',
     secondary_color: secondary_color || '#FFFFFF',
