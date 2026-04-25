@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faTrash, faPencilAlt, faCheck, faClock, faUser,
-  faExclamationTriangle, faClipboardList, faTimes, faCopy
+  faExclamationTriangle, faClipboardList, faTimes, faCopy, faClone
 } from '@fortawesome/free-solid-svg-icons';
 import { StoreContext } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
@@ -75,6 +75,9 @@ export default function Tasks() {
   const [saving, setSaving] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [filterWorker, setFilterWorker] = useState('all');
+  const [dupAllModal, setDupAllModal] = useState(null); // { sourceWorkerId, sourceName }
+  const [dupAllTarget, setDupAllTarget] = useState('');
+  const [dupAllSaving, setDupAllSaving] = useState(false);
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -199,6 +202,37 @@ export default function Tasks() {
     }
   };
 
+  const openDupAll = (workerId, workerName) => {
+    const others = workers.filter(w => w.id !== workerId);
+    setDupAllModal({ sourceWorkerId: workerId, sourceName: workerName });
+    setDupAllTarget(others[0]?.id?.toString() || '');
+    setDupAllSaving(false);
+  };
+
+  const handleDupAll = async () => {
+    if (!dupAllTarget || !dupAllModal) return;
+    setDupAllSaving(true);
+    try {
+      const res = await fetch(`${API}/api/tasks/duplicate-worker`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          store_id: selectedStore.id,
+          source_worker_id: dupAllModal.sourceWorkerId,
+          target_worker_id: parseInt(dupAllTarget),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al duplicar');
+      setDupAllModal(null);
+      fetchTasks();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setDupAllSaving(false);
+    }
+  };
+
   const displayedTasks = filterWorker === 'all'
     ? tasks
     : tasks.filter(t => t.worker_id === parseInt(filterWorker));
@@ -303,9 +337,24 @@ export default function Tasks() {
                     <FontAwesomeIcon icon={faUser} />
                   </div>
                   <span style={{ fontWeight: 700, fontSize: '15px' }}>{group.name}</span>
-                  <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#888' }}>
+                  <span style={{ fontSize: '12px', color: '#888' }}>
                     {group.tasks.length} tarea{group.tasks.length !== 1 ? 's' : ''}
                   </span>
+                  {workers.length > 1 && (
+                    <button
+                      onClick={() => openDupAll(parseInt(wid), group.name)}
+                      title="Duplicar todas las tareas a otro trabajador"
+                      style={{
+                        marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                        background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.3)',
+                        color: '#D4AF37', cursor: 'pointer'
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faClone} />
+                      Duplicar todas
+                    </button>
+                  )}
                 </div>
 
                 <div style={{ padding: '8px 0' }}>
@@ -368,6 +417,46 @@ export default function Tasks() {
           </div>
         )}
       </div>
+
+      {dupAllModal && (
+        <div className="modal-overlay" onClick={() => !dupAllSaving && setDupAllModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Duplicar todas las tareas</h2>
+              <button className="modal-close" onClick={() => !dupAllSaving && setDupAllModal(null)}>
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+            <p style={{ fontSize: 14, color: '#aaa', marginBottom: 16 }}>
+              Se copiarán todas las tareas de <strong style={{ color: '#fff' }}>{dupAllModal.sourceName}</strong> al trabajador seleccionado.
+            </p>
+            <div className="form-group">
+              <label>Trabajador destino</label>
+              <select value={dupAllTarget} onChange={e => setDupAllTarget(e.target.value)}>
+                {workers.filter(w => w.id !== dupAllModal.sourceWorkerId).map(w => (
+                  <option key={w.id} value={w.id}>{w.name} ({w.username})</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-3" style={{ marginTop: 8 }}>
+              <button
+                className="btn btn-secondary flex-1"
+                onClick={() => setDupAllModal(null)}
+                disabled={dupAllSaving}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary flex-1"
+                onClick={handleDupAll}
+                disabled={dupAllSaving || !dupAllTarget}
+              >
+                {dupAllSaving ? 'Duplicando...' : 'Duplicar tareas'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay" onClick={() => !saving && setShowModal(false)}>

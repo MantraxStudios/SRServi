@@ -5092,6 +5092,31 @@ app.put('/api/tasks/:id', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/api/tasks/duplicate-worker', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
+    const { store_id, source_worker_id, target_worker_id } = req.body;
+    if (!store_id || !source_worker_id || !target_worker_id) {
+      return res.status(400).json({ error: 'Faltan campos requeridos' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const [sourceTasks] = await pool.execute(
+      'SELECT name, description, day_of_week, due_time FROM tasks WHERE store_id = ? AND worker_id = ?',
+      [store_id, source_worker_id]
+    );
+    for (const t of sourceTasks) {
+      await pool.execute(
+        'INSERT INTO tasks (store_id, worker_id, name, description, day_of_week, due_time) VALUES (?, ?, ?, ?, ?, ?)',
+        [store_id, target_worker_id, t.name, t.description, t.day_of_week, t.due_time]
+      );
+    }
+    res.json({ success: true, count: sourceTasks.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
   try {
     if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
