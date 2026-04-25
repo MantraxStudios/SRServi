@@ -35,7 +35,9 @@ import {
   faInfoCircle,
   faCamera,
   faEye,
-  faEyeSlash
+  faEyeSlash,
+  faFileExcel,
+  faUpload
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -272,7 +274,7 @@ function Store() {
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
-  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '' });
+  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '', image_url: '' });
   const [prodImageFile, setProdImageFile] = useState(null);
   const [prodCameraOpen, setProdCameraOpen] = useState(false);
   const [prodSaving, setProdSaving] = useState(false);
@@ -285,6 +287,13 @@ function Store() {
   const [complementsTab, setComplementsTab] = useState('complements');
   const [editingComplement, setEditingComplement] = useState(null);
   const [styleEditorOpen, setStyleEditorOpen] = useState(false);
+  const [showExcelModal, setShowExcelModal] = useState(false);
+  const [excelStep, setExcelStep] = useState('upload');
+  const [excelRows, setExcelRows] = useState([]);
+  const [excelLoading, setExcelLoading] = useState(false);
+  const [excelError, setExcelError] = useState('');
+  const [excelResults, setExcelResults] = useState(null);
+  const excelFileRef = useRef(null);
   const [styleTab, setStyleTab] = useState('visual');
   const [visualSettings, setVisualSettings] = useState({
     fontFamily: '', fontSize: '', titleSize: '', priceSize: '',
@@ -2360,6 +2369,76 @@ function Store() {
     }
   };
 
+  const openExcelModal = () => {
+    setExcelStep('upload');
+    setExcelRows([]);
+    setExcelError('');
+    setExcelResults(null);
+    setShowExcelModal(true);
+  };
+
+  const downloadTemplate = () => {
+    fetch('/api/products/excel-template', { headers: { 'Authorization': `Bearer ${adminToken}` } })
+      .then(r => r.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'plantilla_productos.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+  };
+
+  const handleExcelFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setExcelError('');
+    setExcelLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('store_id', store?.store?.id);
+      const res = await fetch('/api/products/excel-preview', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${adminToken}` },
+        body: fd
+      });
+      const data = await res.json();
+      if (!res.ok) { setExcelError(data.error || 'Error al leer el archivo'); return; }
+      setExcelRows(data.rows);
+      setExcelStep('preview');
+    } catch {
+      setExcelError('Error de conexión al leer el archivo');
+    } finally {
+      setExcelLoading(false);
+      if (excelFileRef.current) excelFileRef.current.value = '';
+    }
+  };
+
+  const handleExcelImport = async () => {
+    setExcelLoading(true);
+    setExcelError('');
+    try {
+      const res = await fetch('/api/products/excel-import', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: store?.store?.id, rows: excelRows })
+      });
+      const data = await res.json();
+      if (!res.ok) { setExcelError(data.error || 'Error al importar'); return; }
+      setExcelResults(data);
+      setExcelStep('results');
+      fetchStore();
+    } catch {
+      setExcelError('Error de conexión al importar');
+    } finally {
+      setExcelLoading(false);
+    }
+  };
+
   const openProdModal = (product = null) => {
     setEditingProd(product);
     setProdForm({
@@ -2373,7 +2452,8 @@ function Store() {
       has_extras: product?.has_extras || false,
       has_ingredients: product?.has_ingredients || false,
       max_extras: product?.max_extras?.toString() || '',
-      max_ingredients: product?.max_ingredients?.toString() || ''
+      max_ingredients: product?.max_ingredients?.toString() || '',
+      image_url: (product?.image?.startsWith('http') ? product.image : '') || ''
     });
     setProdImageFile(null);
     setProdNewExtras([]);
@@ -2418,6 +2498,8 @@ function Store() {
       formData.append('max_ingredients', prodForm.has_ingredients ? (parseInt(prodForm.max_ingredients) || 0) : 0);
       if (prodImageFile) {
         formData.append('image', prodImageFile);
+      } else if (prodForm.image_url) {
+        formData.append('image_url', prodForm.image_url);
       } else if (editingProd) {
         formData.append('keep_image', 'true');
       }
@@ -2878,6 +2960,15 @@ function Store() {
 
       {editMode && !previewMode && editorTab === 'products' && (
         <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 16px 0' }}>
+            <button
+              onClick={openExcelModal}
+              style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}
+            >
+              <FontAwesomeIcon icon={faFileExcel} />
+              Importar Excel
+            </button>
+          </div>
           <div className="store-edit-cat-filter-bar">
             <button
               className={`store-edit-cat-filter-btn${editCatFilter === 'all' ? ' active' : ''}`}
@@ -4273,6 +4364,8 @@ function Store() {
             <div className="store-prod-modal-image-area">
               {prodImageFile ? (
                 <img src={URL.createObjectURL(prodImageFile)} alt="Preview" className="store-prod-modal-preview" />
+              ) : prodForm.image_url ? (
+                <img src={prodForm.image_url} alt="Preview URL" className="store-prod-modal-preview" />
               ) : editingProd?.image ? (
                 <img src={getImageUrl(editingProd.image)} alt="Actual" className="store-prod-modal-preview" />
               ) : (
@@ -4282,11 +4375,11 @@ function Store() {
               )}
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <label className="store-prod-modal-image-btn">
-                  <FontAwesomeIcon icon={faEdit} /> {prodImageFile || editingProd?.image ? 'Cambiar' : 'Agregar imagen'}
+                  <FontAwesomeIcon icon={faEdit} /> {prodImageFile || prodForm.image_url || editingProd?.image ? 'Cambiar' : 'Agregar imagen'}
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => { if (e.target.files[0]) setProdImageFile(e.target.files[0]); }}
+                    onChange={(e) => { if (e.target.files[0]) { setProdImageFile(e.target.files[0]); setProdForm({ ...prodForm, image_url: '' }); } }}
                     style={{ display: 'none' }}
                   />
                 </label>
@@ -4298,6 +4391,17 @@ function Store() {
                 >
                   <FontAwesomeIcon icon={faCamera} /> Tomar foto
                 </button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <span style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap' }}>O URL:</span>
+                <input
+                  type="url"
+                  value={prodForm.image_url}
+                  onChange={(e) => { setProdForm({ ...prodForm, image_url: e.target.value }); setProdImageFile(null); }}
+                  placeholder="https://ejemplo.com/imagen.jpg"
+                  className="store-prod-modal-input"
+                  style={{ flex: 1, padding: '6px 10px', fontSize: 13 }}
+                />
               </div>
             </div>
 
@@ -5321,6 +5425,158 @@ function Store() {
         </div>
       )}
     </div>
+
+      {showExcelModal && (
+        <div className="modal-overlay" onClick={() => setShowExcelModal(false)}>
+          <div className="modal" style={{ maxWidth: '680px', width: '95%' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">
+                <FontAwesomeIcon icon={faFileExcel} style={{ marginRight: '8px', color: '#16a34a' }} />
+                Importar Productos desde Excel
+              </h2>
+              <button className="modal-close" onClick={() => setShowExcelModal(false)}>&times;</button>
+            </div>
+
+            {excelError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '13px' }}>
+                {excelError}
+              </div>
+            )}
+
+            {excelStep === 'upload' && (
+              <div>
+                <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
+                  <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: '600', color: '#15803d' }}>Formato del archivo Excel:</p>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                      <thead>
+                        <tr style={{ background: '#16a34a', color: '#fff' }}>
+                          {['Nombre *', 'Descripcion', 'Precio *', 'Categoria', 'Codigo_Barras', 'Imagen_URL'].map(h => (
+                            <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: '700' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr style={{ background: '#f0fdf4' }}>
+                          <td style={{ padding: '5px 10px', color: '#374151' }}>Pizza napolitana</td>
+                          <td style={{ padding: '5px 10px', color: '#6b7280' }}>Grande con mozzarella</td>
+                          <td style={{ padding: '5px 10px', color: '#374151' }}>10.99</td>
+                          <td style={{ padding: '5px 10px', color: '#6b7280' }}>Comidas</td>
+                          <td style={{ padding: '5px 10px', color: '#6b7280' }}></td>
+                          <td style={{ padding: '5px 10px', color: '#6b7280' }}></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p style={{ margin: '8px 0 0', fontSize: '11px', color: '#15803d' }}>* Columnas requeridas. La categoría debe coincidir con una existente en tu tienda.</p>
+                </div>
+
+                <button
+                  onClick={downloadTemplate}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: '#fff', border: '1.5px solid #16a34a', color: '#16a34a', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '13px', marginBottom: '20px' }}
+                >
+                  <FontAwesomeIcon icon={faDownload} />
+                  Descargar plantilla Excel
+                </button>
+
+                <div
+                  style={{ border: '2px dashed #d1d5db', borderRadius: '12px', padding: '32px', textAlign: 'center', cursor: 'pointer', background: excelLoading ? '#f9fafb' : '#fff' }}
+                  onClick={() => !excelLoading && excelFileRef.current?.click()}
+                >
+                  {excelLoading ? (
+                    <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>Leyendo archivo...</p>
+                  ) : (
+                    <>
+                      <FontAwesomeIcon icon={faUpload} style={{ fontSize: '28px', color: '#9ca3af', marginBottom: '10px', display: 'block' }} />
+                      <p style={{ margin: '0 0 4px', fontWeight: '600', color: '#374151' }}>Haz clic para seleccionar tu archivo</p>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>.xlsx, .xls o .csv</p>
+                    </>
+                  )}
+                  <input ref={excelFileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleExcelFileChange} />
+                </div>
+              </div>
+            )}
+
+            {excelStep === 'preview' && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <p style={{ margin: 0, fontWeight: '600', color: '#374151' }}>
+                    {excelRows.length} producto{excelRows.length !== 1 ? 's' : ''} encontrado{excelRows.length !== 1 ? 's' : ''}
+                  </p>
+                  <button onClick={() => { setExcelStep('upload'); setExcelRows([]); }} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline' }}>
+                    Cambiar archivo
+                  </button>
+                </div>
+                <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', marginBottom: '16px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                    <thead style={{ position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>
+                      <tr>
+                        {['Nombre', 'Precio', 'Categoria', 'Descripcion', 'Codigo Barras', 'Imagen URL'].map(h => (
+                          <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#374151', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {excelRows.map((row, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                          <td style={{ padding: '6px 10px', fontWeight: '600', color: '#111' }}>{row.name}</td>
+                          <td style={{ padding: '6px 10px', color: '#16a34a', fontWeight: '700' }}>${Number(row.price).toFixed(2)}</td>
+                          <td style={{ padding: '6px 10px', color: '#6b7280' }}>{row.category || '—'}</td>
+                          <td style={{ padding: '6px 10px', color: '#6b7280', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.description || '—'}</td>
+                          <td style={{ padding: '6px 10px', color: '#6b7280' }}>{row.barcode || '—'}</td>
+                          <td style={{ padding: '6px 10px', color: '#6b7280', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.image_url || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <button
+                  onClick={handleExcelImport}
+                  disabled={excelLoading}
+                  style={{ width: '100%', padding: '12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '14px', cursor: excelLoading ? 'default' : 'pointer', opacity: excelLoading ? 0.6 : 1 }}
+                >
+                  {excelLoading ? 'Importando...' : `Importar ${excelRows.length} producto${excelRows.length !== 1 ? 's' : ''}`}
+                </button>
+              </div>
+            )}
+
+            {excelStep === 'results' && excelResults && (
+              <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginBottom: '24px', flexWrap: 'wrap' }}>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '12px', padding: '20px 28px' }}>
+                    <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '28px', color: '#16a34a', marginBottom: '6px', display: 'block' }} />
+                    <div style={{ fontSize: '32px', fontWeight: '800', color: '#15803d' }}>{excelResults.created}</div>
+                    <div style={{ fontSize: '13px', color: '#16a34a', fontWeight: '600' }}>Importados</div>
+                  </div>
+                  {excelResults.skipped > 0 && (
+                    <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: '12px', padding: '20px 28px' }}>
+                      <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '28px', color: '#ca8a04', marginBottom: '6px', display: 'block' }} />
+                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#a16207' }}>{excelResults.skipped}</div>
+                      <div style={{ fontSize: '13px', color: '#ca8a04', fontWeight: '600' }}>Omitidos</div>
+                    </div>
+                  )}
+                </div>
+                {excelResults.errors?.length > 0 && (
+                  <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '12px', marginBottom: '16px', textAlign: 'left' }}>
+                    <p style={{ margin: '0 0 8px', fontWeight: '700', color: '#b91c1c', fontSize: '13px' }}>Errores:</p>
+                    {excelResults.errors.map((e, i) => (
+                      <p key={i} style={{ margin: '0 0 4px', fontSize: '12px', color: '#b91c1c' }}>
+                        <strong>{e.name}</strong>: {e.error}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={() => setShowExcelModal(false)}
+                  style={{ padding: '11px 32px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '14px', cursor: 'pointer' }}
+                >
+                  Listo
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
     </PluginProvider>
   );

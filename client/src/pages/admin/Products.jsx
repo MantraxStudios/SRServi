@@ -41,6 +41,7 @@ function Products() {
     price: '',
     category_id: '',
     image: '',
+    image_url: '',
     stock: '',
     unlimited_stock: false,
     has_extras: false,
@@ -158,6 +159,8 @@ function Products() {
 
       if (formData.imageFile) {
         formDataToSend.append('image', formData.imageFile);
+      } else if (formData.image_url) {
+        formDataToSend.append('image_url', formData.image_url);
       }
 
       const response = await fetch(url, {
@@ -213,6 +216,7 @@ function Products() {
       price: product.price?.toString() || '0',
       category_id: product.category_id || '',
       image: product.image || '',
+      image_url: product.image?.startsWith('http') ? product.image : '',
       stock: product.stock?.toString() || '0',
       unlimited_stock: product.unlimited_stock || false,
       has_extras: product.has_extras || false,
@@ -628,10 +632,10 @@ function Products() {
                 {/* Sección de Imagen */}
                 <div className="product-form-section">
                   <div className="product-image-box">
-                    {(formData.imageFile || (editingProduct && formData.image)) ? (
+                    {(formData.imageFile || (editingProduct && formData.image) || formData.image_url) ? (
                       <>
                         <img
-                          src={formData.imageFile ? URL.createObjectURL(formData.imageFile) : formData.image}
+                          src={formData.imageFile ? URL.createObjectURL(formData.imageFile) : (formData.image || formData.image_url)}
                           alt="Preview"
                           className="product-image-preview"
                         />
@@ -685,6 +689,16 @@ function Products() {
                             <FontAwesomeIcon icon={faCamera} style={{ marginRight: '6px' }} />
                             Tomar foto
                           </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                            <span style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap' }}>O URL:</span>
+                            <input
+                              type="url"
+                              value={formData.image_url}
+                              onChange={(e) => setFormData({ ...formData, image_url: e.target.value, imageFile: null })}
+                              placeholder="https://ejemplo.com/imagen.jpg"
+                              style={{ flex: 1, padding: '6px 10px', border: '1px solid #ddd', borderRadius: 8, fontSize: 13 }}
+                            />
+                          </div>
                         </div>
                       </div>
                     )}
@@ -916,7 +930,7 @@ function Products() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                       <thead>
                         <tr style={{ background: '#16a34a', color: '#fff' }}>
-                          {['Nombre *', 'Descripcion', 'Precio *', 'Categoria', 'Codigo_Barras'].map(h => (
+                          {['Nombre *', 'Descripcion', 'Precio *', 'Categoria', 'Codigo_Barras', 'Imagen_URL'].map(h => (
                             <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: '700' }}>{h}</th>
                           ))}
                         </tr>
@@ -927,6 +941,7 @@ function Products() {
                           <td style={{ padding: '5px 10px', color: '#6b7280' }}>Grande con mozzarella</td>
                           <td style={{ padding: '5px 10px', color: '#374151' }}>10.99</td>
                           <td style={{ padding: '5px 10px', color: '#6b7280' }}>Comidas</td>
+                          <td style={{ padding: '5px 10px', color: '#6b7280' }}></td>
                           <td style={{ padding: '5px 10px', color: '#6b7280' }}></td>
                         </tr>
                       </tbody>
@@ -981,7 +996,7 @@ function Products() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                     <thead style={{ position: 'sticky', top: 0, background: '#f9fafb', zIndex: 1 }}>
                       <tr>
-                        {['Nombre', 'Precio', 'Categoria', 'Descripcion', 'Codigo Barras'].map(h => (
+                        {['Nombre', 'Precio', 'Categoria', 'Descripcion', 'Codigo Barras', 'Imagen URL'].map(h => (
                           <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#374151', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
@@ -994,6 +1009,7 @@ function Products() {
                           <td style={{ padding: '6px 10px', color: '#6b7280' }}>{row.category || '—'}</td>
                           <td style={{ padding: '6px 10px', color: '#6b7280', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.description || '—'}</td>
                           <td style={{ padding: '6px 10px', color: '#6b7280' }}>{row.barcode || '—'}</td>
+                          <td style={{ padding: '6px 10px', color: '#6b7280', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.image_url || '—'}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -1565,7 +1565,7 @@ app.post('/api/public/:code/products', upload.single('image'), async (req, res) 
     if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
     if (!req.body.name || !req.body.price) return res.status(400).json({ error: 'Nombre y precio requeridos' });
 
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : (req.body.image_url || null);
     const product = await createProduct(auth.store.id, {
       name: req.body.name, description: req.body.description || '',
       barcode: req.body.barcode || null,
@@ -1595,6 +1595,8 @@ app.put('/api/public/:code/products/:id', upload.single('image'), async (req, re
     let imageUrl;
     if (req.file) {
       imageUrl = `/uploads/${req.file.filename}`;
+    } else if (req.body.image_url) {
+      imageUrl = req.body.image_url;
     } else if (req.body.keep_image === 'true') {
       const existing = await getProductById(req.params.id);
       imageUrl = existing?.image || null;
@@ -4102,12 +4104,12 @@ app.put('/api/products/order', authenticateToken, async (req, res) => {
 app.get('/api/products/excel-template', authenticateToken, (req, res) => {
   const wb = XLSX.utils.book_new();
   const rows = [
-    ['Nombre', 'Descripcion', 'Precio', 'Categoria', 'Codigo_Barras'],
-    ['Ejemplo Pizza', 'Pizza napolitana grande', '10.99', 'Comidas', ''],
-    ['Ejemplo Bebida', 'Gaseosa 500ml', '2.50', 'Bebidas', '7891234567890']
+    ['Nombre', 'Descripcion', 'Precio', 'Categoria', 'Codigo_Barras', 'Imagen_URL'],
+    ['Ejemplo Pizza', 'Pizza napolitana grande', '10.99', 'Comidas', '', 'https://ejemplo.com/pizza.jpg'],
+    ['Ejemplo Bebida', 'Gaseosa 500ml', '2.50', 'Bebidas', '7891234567890', '']
   ];
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 28 }, { wch: 35 }, { wch: 12 }, { wch: 20 }, { wch: 20 }];
+  ws['!cols'] = [{ wch: 28 }, { wch: 35 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 40 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Productos');
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
   res.setHeader('Content-Disposition', 'attachment; filename="plantilla_productos.xlsx"');
@@ -4135,7 +4137,8 @@ app.post('/api/products/excel-preview', authenticateToken, excelUpload.single('f
       descripcion: header.findIndex(h => h === 'descripcion' || h === 'descripción'),
       precio: header.findIndex(h => h === 'precio'),
       categoria: header.findIndex(h => h === 'categoria' || h === 'categoría'),
-      barcode: header.findIndex(h => h === 'codigo_barras' || h === 'código_barras' || h === 'barcode' || h === 'codigo barras')
+      barcode: header.findIndex(h => h === 'codigo_barras' || h === 'código_barras' || h === 'barcode' || h === 'codigo barras'),
+      image_url: header.findIndex(h => h === 'imagen_url' || h === 'image_url' || h === 'imagen' || h === 'url_imagen')
     };
 
     if (colIdx.nombre === -1 || colIdx.precio === -1) {
@@ -4153,7 +4156,8 @@ app.post('/api/products/excel-preview', authenticateToken, excelUpload.single('f
         description: colIdx.descripcion >= 0 ? String(row[colIdx.descripcion] ?? '').trim() : '',
         price: isNaN(price) ? 0 : price,
         category: colIdx.categoria >= 0 ? String(row[colIdx.categoria] ?? '').trim() : '',
-        barcode: colIdx.barcode >= 0 ? String(row[colIdx.barcode] ?? '').trim() : ''
+        barcode: colIdx.barcode >= 0 ? String(row[colIdx.barcode] ?? '').trim() : '',
+        image_url: colIdx.image_url >= 0 ? String(row[colIdx.image_url] ?? '').trim() : ''
       });
     }
 
@@ -4187,7 +4191,7 @@ app.post('/api/products/excel-import', authenticateToken, async (req, res) => {
           price: parseFloat(row.price) || 0,
           category_id: catId,
           barcode: row.barcode || null,
-          image: null,
+          image: row.image_url || null,
           has_extras: false,
           has_ingredients: false,
           max_extras: 0,
@@ -4223,7 +4227,7 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
       return res.status(400).json({ error: 'Nombre y precio son requeridos' });
     }
 
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : (req.body.image_url || null);
 
     const product = await createProduct(parseInt(store_id), {
       name,
@@ -4264,6 +4268,8 @@ app.put('/api/products/:id', authenticateToken, upload.single('image'), async (r
     let imageUrl;
     if (req.file) {
       imageUrl = `/uploads/${req.file.filename}`;
+    } else if (req.body.image_url) {
+      imageUrl = req.body.image_url;
     } else {
       const existingProduct = await getProductById(req.params.id);
       imageUrl = existingProduct?.image || null;
