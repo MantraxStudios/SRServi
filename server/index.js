@@ -5435,6 +5435,61 @@ async function ensureTicketTables() {
   } catch (e) { console.error('Ticket tables error:', e.message); }
 }
 
+// Helper: genera el HTML del email de notificación de tickets
+function ticketEmailHtml({ badge, badgeColor = '#D4AF37', title, ticketId, user, extra = '', body }) {
+  return `<div style="font-family:sans-serif;max-width:540px;margin:auto;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
+    <div style="background:#000;padding:20px 28px">
+      <span style="font-size:20px;font-weight:900;color:#D4AF37;letter-spacing:1px">SRServi</span>
+      <span style="color:#666;font-size:13px;margin-left:8px">· Soporte</span>
+    </div>
+    <div style="padding:28px">
+      <p style="margin:0 0 6px;font-size:11px;color:${badgeColor};text-transform:uppercase;letter-spacing:1px;font-weight:800">${badge}</p>
+      <h2 style="margin:0 0 20px;font-size:18px;color:#111;line-height:1.4">${title}</h2>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+        <tr>
+          <td style="padding:7px 0;font-size:13px;color:#888;width:110px">Ticket</td>
+          <td style="padding:7px 0;font-size:13px;font-weight:700;color:#111">#${ticketId}</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 0;font-size:13px;color:#888">Usuario</td>
+          <td style="padding:7px 0;font-size:13px;color:#111">${user}</td>
+        </tr>
+        ${extra}
+      </table>
+      ${body ? `<div style="background:#f5f5f5;border-radius:8px;padding:16px;margin-bottom:24px;font-size:14px;color:#333;line-height:1.6;border-left:4px solid #D4AF37;word-break:break-word">${String(body).replace(/\n/g, '<br>')}</div>` : ''}
+      <a href="${BASE_URL}/superadmin" style="display:inline-block;background:#D4AF37;color:#000;font-weight:900;font-size:13px;padding:11px 22px;border-radius:8px;text-decoration:none">
+        Ver en el panel →
+      </a>
+    </div>
+    <div style="padding:14px 28px;background:#fafafa;border-top:1px solid #e0e0e0;font-size:11px;color:#aaa">
+      Enviado automáticamente · SRServi Soporte
+    </div>
+  </div>`;
+}
+
+// Helper: enviar email a todos los superadmins (fire-and-forget, sin bloquear el request)
+function notifySuperadmins(subject, html) {
+  setImmediate(async () => {
+    try {
+      const [admins] = await pool.execute('SELECT email FROM superadmin WHERE email IS NOT NULL');
+      for (const sa of admins) {
+        try {
+          await mailer.sendMail({
+            from: `"SRServi Soporte" <${process.env.EMAIL_USER}>`,
+            to: sa.email,
+            subject,
+            html
+          });
+        } catch (err) {
+          console.error(`Error enviando email a ${sa.email}:`, err.message);
+        }
+      }
+    } catch (err) {
+      console.error('Error consultando superadmins para email:', err.message);
+    }
+  });
+}
+
 // User: create ticket
 app.post('/api/tickets', authenticateToken, async (req, res) => {
   try {
@@ -5459,56 +5514,22 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
     io.emit('ticket_created', { ticket_id: result.insertId });
     res.json({ id: result.insertId, support_pin: pin });
 
-    // Notificar a todos los superadmins por correo (no bloquea la respuesta)
-    try {
-      const [superadmins] = await pool.execute('SELECT email FROM superadmin');
-      if (superadmins.length > 0) {
-        const prioridades = { low: 'Leve', normal: 'Normal', important: 'Importante', urgent: 'Urgente' };
-        const prLabel = prioridades[priority || 'normal'] || priority || 'Normal';
-        const ticketUrl = `${BASE_URL}/superadmin`;
-        const senderName = req.user.business_name || req.user.username || req.user.email;
-        await mailer.sendMail({
-          from: `"SRServi Soporte" <${process.env.EMAIL_USER}>`,
-          to: superadmins.map(s => s.email).join(', '),
-          subject: `[Ticket #${result.insertId}] ${subject}`,
-          html: `<div style="font-family:sans-serif;max-width:540px;margin:auto;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
-            <div style="background:#000;padding:24px 28px;display:flex;align-items:center;gap:12px">
-              <span style="font-size:22px;font-weight:900;color:#D4AF37;letter-spacing:1px">SRServi</span>
-              <span style="color:#888;font-size:14px">· Soporte</span>
-            </div>
-            <div style="padding:28px">
-              <p style="margin:0 0 6px;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Nuevo ticket de soporte</p>
-              <h2 style="margin:0 0 20px;font-size:20px;color:#111">${subject}</h2>
-              <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
-                <tr>
-                  <td style="padding:8px 0;font-size:13px;color:#888;width:110px">Ticket</td>
-                  <td style="padding:8px 0;font-size:13px;font-weight:700;color:#111">#${result.insertId}</td>
-                </tr>
-                <tr>
-                  <td style="padding:8px 0;font-size:13px;color:#888">Usuario</td>
-                  <td style="padding:8px 0;font-size:13px;color:#111">${senderName} (${req.user.email})</td>
-                </tr>
-                <tr>
-                  <td style="padding:8px 0;font-size:13px;color:#888">Prioridad</td>
-                  <td style="padding:8px 0;font-size:13px;font-weight:700;color:${priority === 'urgent' ? '#e74c3c' : priority === 'important' ? '#f39c12' : '#3498db'}">${prLabel}</td>
-                </tr>
-              </table>
-              <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin-bottom:24px;font-size:14px;color:#333;line-height:1.6;border-left:4px solid #D4AF37">
-                ${message.replace(/\n/g, '<br>')}
-              </div>
-              <a href="${ticketUrl}" style="display:inline-block;background:#D4AF37;color:#000;font-weight:900;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none;letter-spacing:0.3px">
-                Ver en el panel →
-              </a>
-            </div>
-            <div style="padding:16px 28px;background:#fafafa;border-top:1px solid #e0e0e0;font-size:11px;color:#aaa">
-              Este correo fue enviado automáticamente porque eres superadministrador de SRServi.
-            </div>
-          </div>`
-        });
-      }
-    } catch (mailErr) {
-      console.error('Error enviando email de ticket a superadmins:', mailErr.message);
-    }
+    const prioridades = { low: 'Leve', normal: 'Normal', important: 'Importante', urgent: 'Urgente' };
+    const prLabel = prioridades[priority || 'normal'] || priority || 'Normal';
+    const prColor = priority === 'urgent' ? '#e74c3c' : priority === 'important' ? '#f39c12' : '#3498db';
+    const senderName = req.user.business_name || req.user.username || req.user.email;
+    notifySuperadmins(
+      `[Ticket #${result.insertId}] ${subject}`,
+      ticketEmailHtml({
+        badge: 'Nuevo ticket de soporte',
+        badgeColor: '#D4AF37',
+        title: subject,
+        ticketId: result.insertId,
+        user: `${senderName} (${req.user.email})`,
+        extra: `<tr><td style="padding:8px 0;font-size:13px;color:#888;width:110px">Prioridad</td><td style="padding:8px 0;font-size:13px;font-weight:700;color:${prColor}">${prLabel}</td></tr>`,
+        body: message,
+      })
+    );
   } catch (error) { console.error('Error creating ticket:', error); res.status(500).json({ error: error.message }); }
 });
 
@@ -5553,6 +5574,19 @@ app.post('/api/tickets/:id/messages', authenticateToken, upload.single('image'),
     await pool.execute('UPDATE support_tickets SET status = "open", updated_at = NOW() WHERE id = ?', [req.params.id]);
     io.emit('ticket_message', { ticket_id: parseInt(req.params.id), message_id: result.insertId, sender_type: 'user', sender_name: req.user.username || 'Usuario', message: msg });
     res.json({ id: result.insertId });
+
+    const senderName = req.user.business_name || req.user.username || req.user.email;
+    notifySuperadmins(
+      `[Ticket #${req.params.id}] Nuevo mensaje — ${ticket[0].subject}`,
+      ticketEmailHtml({
+        badge: 'Nuevo mensaje de usuario',
+        badgeColor: '#3498db',
+        title: ticket[0].subject,
+        ticketId: req.params.id,
+        user: `${senderName} (${req.user.email})`,
+        body: msg || '(imagen adjunta)',
+      })
+    );
   } catch (error) { console.error('Error sending ticket message:', error); res.status(500).json({ error: error.message }); }
 });
 
