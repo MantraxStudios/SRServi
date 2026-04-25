@@ -1133,135 +1133,259 @@ function SuperadminDashboard() {
             ) : activeTab === 'tickets' ? (
               <>
               <style>{`
+                .sa-ticket-layout {
+                  display: flex;
+                  gap: 12px;
+                  height: calc(100vh - 220px);
+                  min-height: 400px;
+                  overflow: hidden;
+                  width: 100%;
+                  box-sizing: border-box;
+                }
+                .sa-ticket-list {
+                  width: 260px;
+                  min-width: 200px;
+                  flex-shrink: 0;
+                  overflow-y: auto;
+                  overflow-x: hidden;
+                }
+                .sa-ticket-chat {
+                  flex: 1;
+                  min-width: 0;
+                  display: flex;
+                  flex-direction: column;
+                  background: #fff;
+                  border-radius: 12px;
+                  border: 1px solid #e0e0e0;
+                  overflow: hidden;
+                }
+                .sa-ticket-back { display: none; }
+                .sa-ticket-input-row {
+                  display: flex;
+                  gap: 8px;
+                  align-items: center;
+                  padding: 10px 12px;
+                  border-top: 1px solid #e0e0e0;
+                  flex-wrap: nowrap;
+                }
+                .sa-ticket-input-row input[type="text"] {
+                  flex: 1;
+                  min-width: 0;
+                  padding: 10px;
+                  border: 2px solid #e0e0e0;
+                  border-radius: 10px;
+                  outline: none;
+                  font-size: 14px;
+                }
+                /* Tablet: sidebar visible (≥769px) + pantalla estrecha */
+                @media (max-width: 1100px) and (min-width: 769px) {
+                  .sa-ticket-list { width: 210px; min-width: 160px; }
+                }
+                /* Mobile: mostrar solo uno a la vez */
                 @media (max-width: 768px) {
-                  .sa-ticket-layout { height: calc(100vh - 60px) !important; }
-                  .sa-ticket-list { ${saMobileChat ? 'display: none !important;' : 'width: 100% !important; flex: 1 !important;'} }
-                  .sa-ticket-chat { ${saMobileChat ? 'display: flex !important; flex: 1 !important; width: 100% !important;' : 'display: none !important;'} }
+                  .sa-ticket-layout {
+                    height: calc(100vh - 130px);
+                    gap: 0;
+                  }
+                  .sa-ticket-list {
+                    ${saMobileChat ? 'display: none !important;' : 'width: 100% !important; min-width: 0 !important;'}
+                  }
+                  .sa-ticket-chat {
+                    ${saMobileChat ? 'display: flex !important; width: 100% !important;' : 'display: none !important;'}
+                  }
                   .sa-ticket-back { display: inline-flex !important; }
-                  .sa-ticket-input-row { flex-wrap: wrap; }
-                  .sa-ticket-input-row label { font-size: 9px !important; }
+                  .sa-ticket-input-row label { font-size: 10px; }
                 }
               `}</style>
-              <div className="sa-ticket-layout" style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 200px)' }}>
-                <div className="sa-ticket-list" style={{ width: '320px', flexShrink: 0, overflowY: 'auto' }}>
+
+              <div className="sa-ticket-layout">
+                {/* ── Lista de tickets ── */}
+                <div className="sa-ticket-list">
                   {tickets.map(t => {
                     const prColors = { low: '#95a5a6', normal: '#3498db', important: '#f39c12', urgent: '#e74c3c' };
                     const prLabels = { low: 'Leve', normal: 'Normal', important: 'Importante', urgent: 'Urgente' };
                     return (
-                      <div key={t.id} onClick={async () => {
-                        setSelectedTicketId(t.id); setSaMobileChat(true);
-                        const token = localStorage.getItem('superadminToken');
-                        const res = await fetch(API + `/api/superadmin/tickets/${t.id}/messages`, { headers: { Authorization: 'Bearer ' + token } });
-                        if (res.ok) { const d = await res.json(); setTicketDetail(d.ticket); setTicketMessages(d.messages); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); }
-                      }} style={{ padding: '12px', borderRadius: '10px', marginBottom: '6px', cursor: 'pointer', border: selectedTicketId === t.id ? '2px solid #333' : '2px solid transparent', background: selectedTicketId === t.id ? '#f0f4ff' : '#fafafa' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <span style={{ fontWeight: '700', fontSize: '13px' }}>#{t.id} - {t.username}</span>
-                          <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', fontWeight: '700', background: (prColors[t.priority] || '#3498db') + '22', color: prColors[t.priority] || '#3498db' }}>{prLabels[t.priority] || t.priority}</span>
+                      <div
+                        key={t.id}
+                        onClick={async () => {
+                          setSelectedTicketId(t.id);
+                          setSaMobileChat(true);
+                          const token = localStorage.getItem('superadminToken');
+                          const res = await fetch(API + `/api/superadmin/tickets/${t.id}/messages`, { headers: { Authorization: 'Bearer ' + token } });
+                          if (res.ok) {
+                            const d = await res.json();
+                            setTicketDetail(d.ticket);
+                            setTicketMessages(d.messages);
+                            setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+                          }
+                        }}
+                        style={{
+                          padding: '10px 12px', borderRadius: '10px', marginBottom: '6px', cursor: 'pointer',
+                          border: selectedTicketId === t.id ? '2px solid #333' : '2px solid transparent',
+                          background: selectedTicketId === t.id ? '#f0f4ff' : '#fafafa'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', gap: '6px' }}>
+                          <span style={{ fontWeight: '700', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>#{t.id} {t.username}</span>
+                          <span style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '10px', fontWeight: '700', flexShrink: 0, background: (prColors[t.priority] || '#3498db') + '22', color: prColors[t.priority] || '#3498db' }}>
+                            {prLabels[t.priority] || t.priority}
+                          </span>
                         </div>
-                        <div style={{ fontSize: '13px', fontWeight: '600' }}>{t.subject}</div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#888', marginTop: '4px' }}>
-                          <span style={{ color: t.status === 'open' ? '#2ecc71' : t.status === 'resolved' ? '#9b59b6' : '#95a5a6' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.subject}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#888', marginTop: '4px', gap: '4px' }}>
+                          <span style={{ color: t.status === 'open' ? '#2ecc71' : t.status === 'resolved' ? '#9b59b6' : '#95a5a6', flexShrink: 0 }}>
                             <FontAwesomeIcon icon={faCircle} style={{ fontSize: '6px', marginRight: '3px' }} />
                             {t.status === 'open' ? 'Abierto' : t.status === 'resolved' ? 'Resuelto' : 'Cerrado'}
                           </span>
-                          <span>{t.business_name || t.email}</span>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.business_name || t.email}</span>
                         </div>
                       </div>
                     );
                   })}
-                  {tickets.length === 0 && <p style={{ textAlign: 'center', color: '#999' }}>Sin tickets</p>}
+                  {tickets.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px 0' }}>Sin tickets</p>}
                 </div>
 
-                <div className="sa-ticket-chat" style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff', borderRadius: '12px', border: '1px solid #e0e0e0', overflow: 'hidden' }}>
+                {/* ── Panel de chat ── */}
+                <div className="sa-ticket-chat">
                   {!selectedTicketId ? (
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc' }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc', flexDirection: 'column', gap: '12px' }}>
                       <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: '48px' }} />
+                      <span style={{ fontSize: '14px' }}>Selecciona un ticket</span>
                     </div>
                   ) : (
                     <>
-                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #e0e0e0', background: '#fafafa', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <button className="sa-ticket-back" onClick={() => { setSaMobileChat(false); setSelectedTicketId(null); }} style={{ display: 'none', background: '#eee', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer' }}><FontAwesomeIcon icon={faArrowLeft} /></button>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: '700' }}>#{ticketDetail?.id} - {ticketDetail?.subject}</div>
-                          <div style={{ fontSize: '11px', color: '#888' }}>{ticketDetail?.username} ({ticketDetail?.email}) | <FontAwesomeIcon icon={faLock} /> PIN: {ticketDetail?.support_pin}</div>
+                      {/* Header del chat */}
+                      <div style={{ padding: '10px 14px', borderBottom: '1px solid #e0e0e0', background: '#fafafa', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        <button
+                          className="sa-ticket-back"
+                          onClick={() => { setSaMobileChat(false); setSelectedTicketId(null); }}
+                          style={{ background: '#eee', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', flexShrink: 0 }}
+                        >
+                          <FontAwesomeIcon icon={faArrowLeft} />
+                        </button>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: '700', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            #{ticketDetail?.id} - {ticketDetail?.subject}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {ticketDetail?.username} ({ticketDetail?.email}) | PIN: {ticketDetail?.support_pin}
+                          </div>
                         </div>
                         {ticketDetail?.status !== 'resolved' && (
-                          <button onClick={async () => {
-                            const token = localStorage.getItem('superadminToken');
-                            await fetch(API + `/api/superadmin/tickets/${selectedTicketId}/resolve`, { method: 'PUT', headers: { Authorization: 'Bearer ' + token } });
-                            fetchData();
-                            const res = await fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } });
-                            if (res.ok) { const d = await res.json(); setTicketDetail(d.ticket); }
-                          }} className="btn btn-sm" style={{ background: '#9b59b6', color: '#fff', border: 'none', whiteSpace: 'nowrap' }}>
+                          <button
+                            onClick={async () => {
+                              const token = localStorage.getItem('superadminToken');
+                              await fetch(API + `/api/superadmin/tickets/${selectedTicketId}/resolve`, { method: 'PUT', headers: { Authorization: 'Bearer ' + token } });
+                              fetchData();
+                              const res = await fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } });
+                              if (res.ok) { const d = await res.json(); setTicketDetail(d.ticket); }
+                            }}
+                            className="btn btn-sm"
+                            style={{ background: '#9b59b6', color: '#fff', border: 'none', whiteSpace: 'nowrap', flexShrink: 0, fontSize: '12px' }}
+                          >
                             <FontAwesomeIcon icon={faCheck} /> Resolver
                           </button>
                         )}
                       </div>
-                      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+                      {/* Mensajes */}
+                      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {ticketMessages.map(m => (
-                          <div key={m.id} style={{ alignSelf: m.sender_type === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '80%', display: 'flex', gap: '8px', flexDirection: m.sender_type === 'admin' ? 'row-reverse' : 'row' }}>
+                          <div
+                            key={m.id}
+                            style={{
+                              alignSelf: m.sender_type === 'admin' ? 'flex-end' : 'flex-start',
+                              maxWidth: '78%',
+                              display: 'flex',
+                              gap: '6px',
+                              flexDirection: m.sender_type === 'admin' ? 'row-reverse' : 'row'
+                            }}
+                          >
                             {m.sender_avatar && (
                               <div style={{ flexShrink: 0, marginTop: '2px' }}>
-                                <img src={API + m.sender_avatar} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                                <img src={API + m.sender_avatar} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} />
                               </div>
                             )}
                             {!m.sender_avatar && m.sender_type === 'admin' && (
-                              <div style={{ flexShrink: 0, marginTop: '2px', width: '28px', height: '28px', borderRadius: '50%', background: m.sender_name === 'SRServi Bot' ? '#e8f5e9' : '#f3e5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: m.sender_name === 'SRServi Bot' ? '#4caf50' : '#9b59b6' }}>
+                              <div style={{ flexShrink: 0, marginTop: '2px', width: '26px', height: '26px', borderRadius: '50%', background: m.sender_name === 'SRServi Bot' ? '#e8f5e9' : '#f3e5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: m.sender_name === 'SRServi Bot' ? '#4caf50' : '#9b59b6' }}>
                                 <FontAwesomeIcon icon={faShieldAlt} />
                               </div>
                             )}
-                            <div style={{ flex: 1 }}>
-                              <div style={{ padding: '10px 14px', borderRadius: m.sender_type === 'admin' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: m.sender_type === 'admin' ? '#333' : m.sender_name === 'SRServi Bot' ? '#e8f5e9' : '#f0f0f0', color: m.sender_type === 'admin' ? '#fff' : '#333', fontSize: '14px' }}>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{
+                                padding: '9px 13px',
+                                borderRadius: m.sender_type === 'admin' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                                background: m.sender_type === 'admin' ? '#333' : m.sender_name === 'SRServi Bot' ? '#e8f5e9' : '#f0f0f0',
+                                color: m.sender_type === 'admin' ? '#fff' : '#333',
+                                fontSize: '13px',
+                                wordBreak: 'break-word'
+                              }}>
                                 {m.message}
                                 {m.image && (
-                                  <div>
-                                    <img src={API + m.image} alt="" style={{ maxWidth: '200px', borderRadius: '8px', marginTop: '6px' }} />
-                                    {m.image_admin_only ? <span style={{ fontSize: '10px', color: '#ff6b6b' }}> (solo admin)</span> : null}
+                                  <div style={{ marginTop: '6px' }}>
+                                    <img src={API + m.image} alt="" style={{ maxWidth: '100%', borderRadius: '8px' }} />
+                                    {m.image_admin_only && <span style={{ fontSize: '10px', color: '#ff6b6b' }}> (solo admin)</span>}
                                   </div>
                                 )}
                               </div>
                               <div style={{ fontSize: '10px', color: '#aaa', marginTop: '2px', textAlign: m.sender_type === 'admin' ? 'right' : 'left' }}>
-                                {m.sender_name} - {new Date(m.created_at).toLocaleTimeString()}
+                                {m.sender_name} · {new Date(m.created_at).toLocaleTimeString()}
                               </div>
                             </div>
                           </div>
                         ))}
                         <div ref={saMsgEndRef} />
                       </div>
+
+                      {/* Input de respuesta */}
                       {ticketDetail?.status !== 'resolved' && (
-                        <div className="sa-ticket-input-row" style={{ padding: '12px', borderTop: '1px solid #e0e0e0', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <label style={{ cursor: 'pointer', color: '#888', fontSize: '18px' }}>
+                        <div className="sa-ticket-input-row">
+                          <label style={{ cursor: 'pointer', color: ticketImg ? '#D4AF37' : '#888', fontSize: '18px', flexShrink: 0 }}>
                             <FontAwesomeIcon icon={faImage} />
                             <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setTicketImg(e.target.files[0]); }} style={{ display: 'none' }} />
                           </label>
-                          <label style={{ fontSize: '11px', color: ticketAdminOnly ? '#e74c3c' : '#aaa', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          <label style={{ fontSize: '11px', color: ticketAdminOnly ? '#e74c3c' : '#aaa', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
                             <input type="checkbox" checked={ticketAdminOnly} onChange={(e) => setTicketAdminOnly(e.target.checked)} style={{ marginRight: '3px' }} />
                             Solo admin
                           </label>
-                          <input type="text" value={ticketMsg} onChange={(e) => setTicketMsg(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') {
-                            const token = localStorage.getItem('superadminToken');
-                            const fd = new FormData();
-                            fd.append('message', ticketMsg.trim());
-                            if (ticketImg) fd.append('image', ticketImg);
-                            fd.append('admin_only', ticketAdminOnly ? 'true' : 'false');
-                            setTicketSending(true);
-                            fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd })
-                              .then(() => fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } }))
-                              .then(r => r.json()).then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); })
-                              .finally(() => setTicketSending(false));
-                          }}} placeholder="Responder..." style={{ flex: 1, padding: '10px', border: '2px solid #e0e0e0', borderRadius: '10px', outline: 'none', minWidth: 0 }} />
-                          <button disabled={ticketSending || (!ticketMsg.trim() && !ticketImg)} onClick={() => {
-                            const token = localStorage.getItem('superadminToken');
-                            const fd = new FormData();
-                            fd.append('message', ticketMsg.trim());
-                            if (ticketImg) fd.append('image', ticketImg);
-                            fd.append('admin_only', ticketAdminOnly ? 'true' : 'false');
-                            setTicketSending(true);
-                            fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd })
-                              .then(() => fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } }))
-                              .then(r => r.json()).then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); })
-                              .finally(() => setTicketSending(false));
-                          }} style={{ background: '#333', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 16px', cursor: 'pointer' }}>
+                          <input
+                            type="text"
+                            value={ticketMsg}
+                            onChange={(e) => setTicketMsg(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && (ticketMsg.trim() || ticketImg)) {
+                                const token = localStorage.getItem('superadminToken');
+                                const fd = new FormData();
+                                fd.append('message', ticketMsg.trim());
+                                if (ticketImg) fd.append('image', ticketImg);
+                                fd.append('admin_only', ticketAdminOnly ? 'true' : 'false');
+                                setTicketSending(true);
+                                fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd })
+                                  .then(() => fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } }))
+                                  .then(r => r.json())
+                                  .then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); })
+                                  .finally(() => setTicketSending(false));
+                              }
+                            }}
+                            placeholder="Responder..."
+                          />
+                          <button
+                            disabled={ticketSending || (!ticketMsg.trim() && !ticketImg)}
+                            onClick={() => {
+                              const token = localStorage.getItem('superadminToken');
+                              const fd = new FormData();
+                              fd.append('message', ticketMsg.trim());
+                              if (ticketImg) fd.append('image', ticketImg);
+                              fd.append('admin_only', ticketAdminOnly ? 'true' : 'false');
+                              setTicketSending(true);
+                              fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd })
+                                .then(() => fetch(API + `/api/superadmin/tickets/${selectedTicketId}/messages`, { headers: { Authorization: 'Bearer ' + token } }))
+                                .then(r => r.json())
+                                .then(d => { setTicketMessages(d.messages); setTicketMsg(''); setTicketImg(null); setTicketAdminOnly(false); setTimeout(() => saMsgEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); })
+                                .finally(() => setTicketSending(false));
+                            }}
+                            style={{ background: '#333', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 14px', cursor: 'pointer', flexShrink: 0 }}
+                          >
                             <FontAwesomeIcon icon={faPaperPlane} />
                           </button>
                         </div>
