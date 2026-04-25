@@ -4310,7 +4310,7 @@ function Store() {
                 autoFocus={false}
                 className="store-prod-modal-input main"
               />
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <input
                   type="number"
                   step="0.01"
@@ -4318,13 +4318,13 @@ function Store() {
                   onChange={(e) => setProdForm({ ...prodForm, price: e.target.value })}
                   placeholder="Precio"
                   className="store-prod-modal-input"
-                  style={{ flex: 1 }}
+                  style={{ flex: '1 1 48%', minWidth: '120px' }}
                 />
                 <select
                   value={prodForm.category_id}
                   onChange={(e) => setProdForm({ ...prodForm, category_id: e.target.value })}
                   className="store-prod-modal-input"
-                  style={{ flex: 1 }}
+                  style={{ flex: '1 1 48%', minWidth: '120px' }}
                 >
                   <option value="">Sin categoría</option>
                   {(store?.categories || []).map(cat => (
