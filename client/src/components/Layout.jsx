@@ -279,7 +279,7 @@ function Layout() {
         '--store-accent': colors.accent,
         '--sidebar-w': (isEditorMode && menuOpen && !isMobile) ? '270px' : '0px'
       }}>
-        <nav className={`admin-sidebar ${isEditorMode ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : (menuOpen ? 'mobile-open' : 'mobile-closed')}${!isEditorMode && menuOpen && !isMobile ? ' desktop-sidebar-open' : ''}`}>
+        <nav className={`admin-sidebar ${(isEditorMode || isLeonIA) ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : (menuOpen ? 'mobile-open' : 'mobile-closed')}${(!isEditorMode && !isLeonIA) && menuOpen && !isMobile ? ' desktop-sidebar-open' : ''}`}>
           <div className="sidebar-header">
             <div className="sidebar-brand">
               <div className="sidebar-brand-logo">
@@ -593,7 +593,7 @@ function Layout() {
       </div>
 
       {/* WhatsApp floating button */}
-      <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 99999 }}>
+      {!isLeonIA && <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 99999 }}>
         {whatsappOpen && (
           <>
             <div style={{ position: 'fixed', inset: 0 }} onClick={() => setWhatsappOpen(false)} />
@@ -648,7 +648,7 @@ function Layout() {
           </svg>
           <span style={{ position: 'absolute', top: '-2px', right: '-2px', background: '#D4AF37', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '700', color: '#000', border: '2px solid #fff' }}>2</span>
         </button>
-      </div>
+      </div>}
 
       {/* Duplicate store modal */}
       {duplicateModal && (
