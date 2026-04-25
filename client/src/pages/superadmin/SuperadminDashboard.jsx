@@ -1153,6 +1153,7 @@ function SuperadminDashboard() {
                   width: 260px;
                   min-width: 200px;
                   flex-shrink: 0;
+                  min-height: 0;
                   overflow-y: auto;
                   overflow-x: hidden;
                 }

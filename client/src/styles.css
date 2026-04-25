@@ -9149,6 +9149,14 @@ html body .store-container .store-product-card * {
   .admin-sidebar {
     overflow: hidden;
   }
+  /* Ocultar header mobile en desktop — el sidebar ya es visible */
+  .mobile-header {
+    display: none !important;
+  }
+  /* Ocultar botón hamburguesa del superadmin en desktop */
+  .btn.mobile-menu-btn {
+    display: none !important;
+  }
 }
 
 .admin-sidebar.sidebar-collapsed {
