@@ -5330,13 +5330,14 @@ html body .store-container .store-product-card * {
 
   /* Sidebar mobile */
   .admin-sidebar {
-    width: 280px;
+    width: min(280px, 85vw);
     position: fixed;
     left: -290px;
     top: 0;
     bottom: 0;
     min-height: 100vh;
     max-height: 100vh;
+    max-width: 85vw;
     z-index: 1001;
     transition: left var(--transition-slow);
     box-shadow: none;

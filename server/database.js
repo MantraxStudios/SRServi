@@ -2731,10 +2731,12 @@ export async function getAllStores() {
   const [rows] = await pool.execute(`
     SELECT s.*, u.username, u.email as user_email, u.business_name as user_business,
            (SELECT COUNT(*) FROM products WHERE store_id = s.id) as product_count,
-           (SELECT COUNT(*) FROM orders WHERE store_id = s.id) as order_count
+           (SELECT COUNT(*) FROM orders WHERE store_id = s.id) as order_count,
+           (SELECT COUNT(*) FROM orders WHERE store_id = s.id AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)) as orders_30d,
+           (SELECT MAX(created_at) FROM orders WHERE store_id = s.id) as last_order_at
     FROM stores s
     JOIN users u ON s.user_id = u.id
-    ORDER BY s.created_at DESC
+    ORDER BY last_order_at DESC, s.created_at DESC
   `);
   return rows;
 }

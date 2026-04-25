@@ -34,10 +34,10 @@ import {
   faCashRegister,
   faChevronLeft,
   faChevronRight,
-  faUserCog,
   faRobot,
   faCopy,
-  faClipboardList
+  faClipboardList,
+  faDownload
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -529,9 +529,21 @@ function Layout() {
           </ul>
 
           <div className="sidebar-footer">
-            <a href="https://srservi2.srautomatic.com/worker-login" target="_blank" rel="noopener noreferrer" className="sidebar-logout-btn" style={{ color: '#D4AF37', textDecoration: 'none' }}>
-              <FontAwesomeIcon icon={faUserCog} />
-              <span>Panel Vendedor</span>
+            <a
+              href="/api/download/launcher"
+              className="sidebar-logout-btn"
+              style={{ color: '#D4AF37', textDecoration: 'none' }}
+            >
+              <FontAwesomeIcon icon={faDownload} />
+              <span>App Android</span>
+            </a>
+            <a
+              href="/api/download/tv"
+              className="sidebar-logout-btn"
+              style={{ color: '#D4AF37', textDecoration: 'none' }}
+            >
+              <FontAwesomeIcon icon={faDownload} />
+              <span>App TV Órdenes</span>
             </a>
             <button onClick={handleLogout} className="sidebar-logout-btn">
               <FontAwesomeIcon icon={faSignOutAlt} />
@@ -568,15 +580,6 @@ function Layout() {
               <FontAwesomeIcon icon={faBars} />
             </button>
             {isMobile && <h1>SRServi</h1>}
-            <a
-              href="https://srservi2.srautomatic.com/worker-login"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', textDecoration: 'none' }}
-            >
-              <FontAwesomeIcon icon={faUserCog} />
-              <span>Panel Vendedor</span>
-            </a>
             {user?.support_pin && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0f0f0', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', color: '#666' }}>
                 <FontAwesomeIcon icon={faLock} style={{ color: '#9b59b6' }} />

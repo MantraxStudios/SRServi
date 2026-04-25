@@ -59,6 +59,7 @@ function SuperadminDashboard() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [storeActivityFilter, setStoreActivityFilter] = useState('all');
   const [editingUser, setEditingUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ email: '', password: '', is_banned: false });
@@ -440,10 +441,20 @@ function SuperadminDashboard() {
     user.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredStores = stores.filter(store =>
-    store.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    store.user_email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const now = Date.now();
+  const DAY_MS = 86400000;
+  const isStoreActive7d = (store) => store.last_order_at && (now - new Date(store.last_order_at).getTime()) < 7 * DAY_MS;
+  const isStoreActive30d = (store) => store.last_order_at && (now - new Date(store.last_order_at).getTime()) < 30 * DAY_MS;
+
+  const filteredStores = stores.filter(store => {
+    const matchesSearch = store.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      store.user_email?.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+    if (storeActivityFilter === '7d') return isStoreActive7d(store);
+    if (storeActivityFilter === '30d') return isStoreActive30d(store);
+    if (storeActivityFilter === 'inactive') return !store.last_order_at;
+    return true;
+  });
 
   const stats = {
     totalUsers: users.length,
@@ -451,7 +462,10 @@ function SuperadminDashboard() {
     totalStores: stores.length,
     bannedStores: stores.filter(s => s.is_banned).length,
     activeUsers: users.filter(u => !u.is_banned).length,
-    activeStores: stores.filter(s => !s.is_banned).length
+    activeStores: stores.filter(s => !s.is_banned).length,
+    storesActive7d: stores.filter(isStoreActive7d).length,
+    storesActive30d: stores.filter(isStoreActive30d).length,
+    storesInactive: stores.filter(s => !s.last_order_at).length
   };
 
   const formatLastActive = (date) => {
@@ -778,72 +792,110 @@ function SuperadminDashboard() {
                 )}
               </div>
             ) : activeTab === 'stores' ? (
-              <div className="admin-table-wrapper">
-                <table className="table admin-table">
-                  <thead>
-                    <tr>
-                      <th className="hide-mobile">Tienda</th>
-                      <th>Propietario</th>
-                      <th className="text-center hide-mobile">Productos</th>
-                      <th className="text-center hide-mobile">Ordenes</th>
-                      <th className="text-center">Estado</th>
-                      <th className="text-center">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredStores.map(store => (
-                      <tr key={store.id}>
-                        <td className="hide-mobile">
-                          <div className="font-bold">{store.name}</div>
-                          <div className="text-sm text-muted">Code: {store.code}</div>
-                        </td>
-                        <td>
-                          <div className="text-muted">{store.user_email}</div>
-                          <div className="text-sm text-muted hide-mobile">{store.user_business || '-'}</div>
-                        </td>
-                        <td className="text-center hide-mobile">
-                          <span className="badge badge-gold">
-                            {store.product_count}
-                          </span>
-                        </td>
-                        <td className="text-center hide-mobile">
-                          <span className="badge badge-dark">
-                            {store.order_count}
-                          </span>
-                        </td>
-                        <td className="text-center">
-                          {store.is_banned ? (
-                            <span className="badge badge-danger">Baneada</span>
-                          ) : (
-                            <span className="badge badge-success">Activa</span>
-                          )}
-                        </td>
-                        <td className="text-center">
-                          <button
-                            className={`btn btn-sm btn-icon ${store.is_banned ? 'btn-unban' : 'btn-ban'}`}
-                            onClick={() => handleToggleBanStore(store)}
-                            title={store.is_banned ? 'Desbanear' : 'Banear'}
-                          >
-                            <FontAwesomeIcon icon={store.is_banned ? faCheck : faBan} />
-                          </button>
-                          <button
-                            className="btn btn-sm btn-icon btn-delete"
-                            onClick={() => setShowDeleteConfirm({ type: 'store', id: store.id, name: store.name })}
-                            title="Eliminar"
-                          >
-                            <FontAwesomeIcon icon={faTrash} />
-                          </button>
-                        </td>
+              <div>
+                {/* Activity summary cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                  {[
+                    { label: 'Total tiendas', value: stats.totalStores, color: '#D4AF37', filter: 'all' },
+                    { label: 'Activas 7 días', value: stats.storesActive7d, color: '#22c55e', filter: '7d' },
+                    { label: 'Activas 30 días', value: stats.storesActive30d, color: '#3b82f6', filter: '30d' },
+                    { label: 'Sin actividad', value: stats.storesInactive, color: '#6b7280', filter: 'inactive' },
+                  ].map(card => (
+                    <button
+                      key={card.filter}
+                      onClick={() => setStoreActivityFilter(storeActivityFilter === card.filter ? 'all' : card.filter)}
+                      style={{
+                        background: storeActivityFilter === card.filter ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${storeActivityFilter === card.filter ? card.color : 'rgba(255,255,255,0.08)'}`,
+                        borderRadius: '12px',
+                        padding: '14px 12px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{ fontSize: '26px', fontWeight: '800', color: card.color, lineHeight: 1 }}>{card.value}</div>
+                      <div style={{ fontSize: '11px', color: '#888', marginTop: '4px', fontWeight: '600' }}>{card.label}</div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="admin-table-wrapper">
+                  <table className="table admin-table">
+                    <thead>
+                      <tr>
+                        <th className="hide-mobile">Tienda</th>
+                        <th>Propietario</th>
+                        <th className="text-center hide-mobile">Prods.</th>
+                        <th className="text-center hide-mobile">Pedidos</th>
+                        <th className="text-center hide-mobile">Últ. pedido</th>
+                        <th className="text-center">Estado</th>
+                        <th className="text-center">Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {filteredStores.length === 0 && (
-                  <div className="empty-state">
-                    <FontAwesomeIcon icon={faStore} className="empty-state-icon" />
-                    <div>No se encontraron tiendas</div>
-                  </div>
-                )}
+                    </thead>
+                    <tbody>
+                      {filteredStores.map(store => {
+                        const lastOrder = store.last_order_at ? new Date(store.last_order_at) : null;
+                        const diffDays = lastOrder ? Math.floor((now - lastOrder.getTime()) / DAY_MS) : null;
+                        const actColor = diffDays === null ? '#6b7280' : diffDays < 7 ? '#22c55e' : diffDays < 30 ? '#3b82f6' : '#f59e0b';
+                        const actLabel = diffDays === null ? 'Sin pedidos' : diffDays === 0 ? 'Hoy' : diffDays === 1 ? 'Ayer' : `Hace ${diffDays}d`;
+                        return (
+                          <tr key={store.id}>
+                            <td className="hide-mobile">
+                              <div className="font-bold">{store.name}</div>
+                              <div className="text-sm text-muted">Code: {store.code}</div>
+                            </td>
+                            <td>
+                              <div className="text-muted">{store.user_email}</div>
+                              <div className="text-sm text-muted hide-mobile">{store.user_business || '-'}</div>
+                            </td>
+                            <td className="text-center hide-mobile">
+                              <span className="badge badge-gold">{store.product_count}</span>
+                            </td>
+                            <td className="text-center hide-mobile">
+                              <div><span className="badge badge-dark">{store.order_count}</span></div>
+                              {store.orders_30d > 0 && (
+                                <div style={{ fontSize: '10px', color: '#3b82f6', marginTop: '3px' }}>+{store.orders_30d} (30d)</div>
+                              )}
+                            </td>
+                            <td className="text-center hide-mobile">
+                              <span style={{ fontSize: '12px', fontWeight: '700', color: actColor }}>{actLabel}</span>
+                            </td>
+                            <td className="text-center">
+                              {store.is_banned ? (
+                                <span className="badge badge-danger">Baneada</span>
+                              ) : (
+                                <span className="badge badge-success">Activa</span>
+                              )}
+                            </td>
+                            <td className="text-center">
+                              <button
+                                className={`btn btn-sm btn-icon ${store.is_banned ? 'btn-unban' : 'btn-ban'}`}
+                                onClick={() => handleToggleBanStore(store)}
+                                title={store.is_banned ? 'Desbanear' : 'Banear'}
+                              >
+                                <FontAwesomeIcon icon={store.is_banned ? faCheck : faBan} />
+                              </button>
+                              <button
+                                className="btn btn-sm btn-icon btn-delete"
+                                onClick={() => setShowDeleteConfirm({ type: 'store', id: store.id, name: store.name })}
+                                title="Eliminar"
+                              >
+                                <FontAwesomeIcon icon={faTrash} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {filteredStores.length === 0 && (
+                    <div className="empty-state">
+                      <FontAwesomeIcon icon={faStore} className="empty-state-icon" />
+                      <div>No se encontraron tiendas</div>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : activeTab === 'subscriptions' ? (
               <div className="admin-table-wrapper">
