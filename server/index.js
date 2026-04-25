@@ -5170,8 +5170,9 @@ app.get('/api/tasks/worker-history', authenticateToken, async (req, res) => {
     }
 
     // Always include current week even with no completions yet
-    const cwd = getWeekStart();
-    const currentWS = `${cwd.getFullYear()}-${String(cwd.getMonth()+1).padStart(2,'0')}-${String(cwd.getDate()).padStart(2,'0')}`;
+    const _now = new Date();
+    _now.setDate(_now.getDate() - _now.getDay());
+    const currentWS = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
     if (!weekMap[currentWS]) weekMap[currentWS] = { week_start: currentWS, completions: {} };
 
     const weeks = Object.values(weekMap).sort((a, b) => b.week_start.localeCompare(a.week_start));
