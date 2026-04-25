@@ -610,232 +610,276 @@ function Products() {
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} ref={(el) => { if (el) setTimeout(() => { if (document.activeElement) document.activeElement.blur(); }, 50); }}>
-            <div className="modal-header">
-              <h2 className="modal-title">
+          <div className="product-modal" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="product-modal-header">
+              <h2 className="product-modal-title">
                 {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
               </h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>
+              <button className="product-modal-close" onClick={() => setShowModal(false)}>
                 &times;
               </button>
             </div>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Nombre</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  autoFocus={false}
-                  placeholder="Nombre del producto"
-                />
-              </div>
 
-              <div className="form-group">
-                <label>Codigo de Barras</label>
-                <input
-                  type="text"
-                  value={formData.barcode}
-                  onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                  placeholder="Escanea o escribe el codigo de barras"
-                />
-              </div>
+            {/* Contenedor scrolleable */}
+            <div className="product-modal-body">
+              <form onSubmit={handleSubmit} className="product-form">
+                
+                {/* Sección de Imagen */}
+                <div className="product-form-section">
+                  <div className="product-image-box">
+                    {(formData.imageFile || (editingProduct && formData.image)) ? (
+                      <>
+                        <img
+                          src={formData.imageFile ? URL.createObjectURL(formData.imageFile) : formData.image}
+                          alt="Preview"
+                          className="product-image-preview"
+                        />
+                        <div className="product-image-actions">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) setFormData({ ...formData, imageFile: file });
+                            }}
+                            id="file-input-main"
+                            style={{ display: 'none' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById('file-input-main')?.click()}
+                            className="btn-image-action"
+                          >
+                            <FontAwesomeIcon icon={faCamera} style={{ marginRight: '6px' }} />
+                            Cambiar
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="product-image-placeholder">
+                        <div style={{ display: 'flex', gap: 8, flexDirection: 'column', width: '100%' }}>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) setFormData({ ...formData, imageFile: file });
+                            }}
+                            id="file-input"
+                            style={{ display: 'none' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById('file-input')?.click()}
+                            className="btn btn-outline btn-full"
+                          >
+                            <FontAwesomeIcon icon={faCamera} style={{ marginRight: '6px' }} />
+                            Seleccionar imagen
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCameraOpen(true)}
+                            className="btn btn-outline btn-full"
+                          >
+                            <FontAwesomeIcon icon={faCamera} style={{ marginRight: '6px' }} />
+                            Tomar foto
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-              <div className="form-group">
-                <label>Descripcion</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows="2"
-                  placeholder="Descripcion del producto"
-                />
-              </div>
+                {/* Sección Info Básica */}
+                <div className="product-form-section">
+                  <h3 className="form-section-title">Información Básica</h3>
+                  
+                  <div className="form-group">
+                    <label>Nombre del Producto *</label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
+                      placeholder="Ej: Pizza Napolitana"
+                    />
+                  </div>
 
-              <div className="form-group">
-                <label>Imagen del Producto</label>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) setFormData({ ...formData, imageFile: file });
-                    }}
-                    className="file-input"
-                    style={{ flex: 1, minWidth: 0 }}
-                  />
+                  <div className="form-group">
+                    <label>Descripción</label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      rows="3"
+                      placeholder="Detalles del producto..."
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Código de Barras</label>
+                    <input
+                      type="text"
+                      value={formData.barcode}
+                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                      placeholder="Escanea o escribe el código"
+                    />
+                  </div>
+                </div>
+
+                {/* Sección Precio y Stock */}
+                <div className="product-form-section">
+                  <h3 className="form-section-title">Precio y Stock</h3>
+                  
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label>Precio *</label>
+                      <div className="input-with-prefix">
+                        <span className="input-prefix">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.price}
+                          onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                          required
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Stock</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.stock}
+                        onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Categoría</label>
+                    <select
+                      value={formData.category_id}
+                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                    >
+                      <option value="">Sin categoría</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-toggle-simple">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={formData.unlimited_stock}
+                        onChange={(e) => setFormData({ ...formData, unlimited_stock: e.target.checked })}
+                      />
+                      <span>Stock ilimitado</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Sección Complementos */}
+                <div className="product-form-section">
+                  <h3 className="form-section-title">Complementos</h3>
+
+                  <div className="form-toggle-card">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={formData.has_extras}
+                        onChange={(e) => setFormData({ ...formData, has_extras: e.target.checked })}
+                      />
+                      <span className="toggle-card-title">Este producto lleva Extras</span>
+                    </label>
+                  </div>
+
+                  {formData.has_extras && (
+                    <>
+                      <div className="form-group">
+                        <label>Máx. extras por cliente (0 = ilimitado)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.max_extras}
+                          onChange={(e) => setFormData({ ...formData, max_extras: e.target.value })}
+                          placeholder="0"
+                        />
+                      </div>
+                      {extras.length > 0 && (
+                        <div className="form-group">
+                          <label style={{ fontSize: '13px' }}>Orden de extras (arrastra para reordenar)</label>
+                          <div className="complementos-list">
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleExtrasDragEnd}>
+                              <SortableContext items={extras.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                                {extras.map(item => <ComplementSortableRow key={item.id} item={item} />)}
+                              </SortableContext>
+                            </DndContext>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  <div className="form-toggle-card">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={formData.has_ingredients}
+                        onChange={(e) => setFormData({ ...formData, has_ingredients: e.target.checked })}
+                      />
+                      <span className="toggle-card-title">Este producto lleva Complementos</span>
+                    </label>
+                  </div>
+
+                  {formData.has_ingredients && (
+                    <>
+                      <div className="form-group">
+                        <label>Máx. complementos por cliente (0 = ilimitado)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={formData.max_ingredients}
+                          onChange={(e) => setFormData({ ...formData, max_ingredients: e.target.value })}
+                          placeholder="0"
+                        />
+                      </div>
+                      {ingredients.length > 0 && (
+                        <div className="form-group">
+                          <label style={{ fontSize: '13px' }}>Orden de complementos (arrastra para reordenar)</label>
+                          <div className="complementos-list">
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleIngredientsDragEnd}>
+                              <SortableContext items={ingredients.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                                {ingredients.map(item => <ComplementSortableRow key={item.id} item={item} />)}
+                              </SortableContext>
+                            </DndContext>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Botones Acción */}
+                <div className="product-form-actions">
                   <button
                     type="button"
-                    onClick={() => setCameraOpen(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#111', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: '700', fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
+                    onClick={() => setShowModal(false)}
+                    className="btn btn-secondary btn-full"
                   >
-                    <FontAwesomeIcon icon={faCamera} />
-                    Tomar foto
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn btn-primary btn-full">
+                    {editingProduct ? 'Actualizar Producto' : 'Crear Producto'}
                   </button>
                 </div>
-                {formData.imageFile && (
-                  <div className="image-preview">
-                    <img
-                      src={URL.createObjectURL(formData.imageFile)}
-                      alt="Preview"
-                      className="image-preview-img"
-                    />
-                    <span className="text-muted text-sm">
-                      {formData.imageFile.name}
-                    </span>
-                  </div>
-                )}
-                {editingProduct && !formData.imageFile && formData.image && (
-                  <div className="image-preview">
-                    <img
-                      src={formData.image}
-                      alt="Imagen actual"
-                      className="image-preview-img--current"
-                    />
-                    <p className="text-muted text-xs">Imagen actual</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label>Precio</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    required
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Stock</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.stock}
-                    onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                    placeholder="0"
-                  />
-                </div>
-
-                <div className={`stock-toggle ${formData.unlimited_stock ? 'active' : 'inactive'}`}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={formData.unlimited_stock}
-                      onChange={(e) => setFormData({ ...formData, unlimited_stock: e.target.checked })}
-                    />
-                    <span className="stock-toggle-label">
-                      Stock Ilimitado
-                    </span>
-                  </label>
-                  <span className="stock-toggle-status">
-                    {formData.unlimited_stock ? 'Stock Ilimitado' : 'Con limite de stock'}
-                  </span>
-                </div>
-
-                <div className="form-group">
-                  <label>Categoria</label>
-                  <select
-                    value={formData.category_id}
-                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                  >
-                    <option value="">Sin categoria</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ border: '2px solid #e0e0e0', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
-                <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: '700' }}>Complementos del producto</h4>
-
-                <div className={`stock-toggle ${formData.has_extras ? 'active' : 'inactive'}`} style={{ marginBottom: '8px' }}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={formData.has_extras}
-                      onChange={(e) => setFormData({ ...formData, has_extras: e.target.checked })}
-                    />
-                    <span className="stock-toggle-label">Lleva Extras</span>
-                  </label>
-                  <span className="stock-toggle-status">
-                    {formData.has_extras ? 'Activado' : 'Desactivado'}
-                  </span>
-                </div>
-                {formData.has_extras && (
-                  <>
-                    <div className="form-group" style={{ marginBottom: '8px' }}>
-                      <label>Max. extras por cliente (0 = ilimitado)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.max_extras}
-                        onChange={(e) => setFormData({ ...formData, max_extras: e.target.value })}
-                        placeholder="0"
-                      />
-                    </div>
-                    {extras.length > 0 && (
-                      <div style={{ marginBottom: '12px' }}>
-                        <label style={{ fontSize: '12px', color: '#666', marginBottom: '6px', display: 'block' }}>Orden de extras (arrastra para reordenar)</label>
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleExtrasDragEnd}>
-                          <SortableContext items={extras.map(e => e.id)} strategy={verticalListSortingStrategy}>
-                            {extras.map(item => <ComplementSortableRow key={item.id} item={item} />)}
-                          </SortableContext>
-                        </DndContext>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                <div className={`stock-toggle ${formData.has_ingredients ? 'active' : 'inactive'}`} style={{ marginBottom: '8px' }}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={formData.has_ingredients}
-                      onChange={(e) => setFormData({ ...formData, has_ingredients: e.target.checked })}
-                    />
-                    <span className="stock-toggle-label">Lleva Complementos</span>
-                  </label>
-                  <span className="stock-toggle-status">
-                    {formData.has_ingredients ? 'Activado' : 'Desactivado'}
-                  </span>
-                </div>
-                {formData.has_ingredients && (
-                  <>
-                    <div className="form-group" style={{ marginBottom: '8px' }}>
-                      <label>Max. complementos por cliente (0 = ilimitado)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.max_ingredients}
-                        onChange={(e) => setFormData({ ...formData, max_ingredients: e.target.value })}
-                        placeholder="0"
-                      />
-                    </div>
-                    {ingredients.length > 0 && (
-                      <div style={{ marginBottom: '4px' }}>
-                        <label style={{ fontSize: '12px', color: '#666', marginBottom: '6px', display: 'block' }}>Orden de complementos (arrastra para reordenar)</label>
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleIngredientsDragEnd}>
-                          <SortableContext items={ingredients.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                            {ingredients.map(item => <ComplementSortableRow key={item.id} item={item} />)}
-                          </SortableContext>
-                        </DndContext>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <button type="submit" className="btn btn-primary btn-full">
-                {editingProduct ? 'Actualizar' : 'Crear'}
-              </button>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
