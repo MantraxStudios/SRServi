@@ -5458,6 +5458,57 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
     );
     io.emit('ticket_created', { ticket_id: result.insertId });
     res.json({ id: result.insertId, support_pin: pin });
+
+    // Notificar a todos los superadmins por correo (no bloquea la respuesta)
+    try {
+      const [superadmins] = await pool.execute('SELECT email FROM superadmin');
+      if (superadmins.length > 0) {
+        const prioridades = { low: 'Leve', normal: 'Normal', important: 'Importante', urgent: 'Urgente' };
+        const prLabel = prioridades[priority || 'normal'] || priority || 'Normal';
+        const ticketUrl = `${BASE_URL}/superadmin`;
+        const senderName = req.user.business_name || req.user.username || req.user.email;
+        await mailer.sendMail({
+          from: `"SRServi Soporte" <${process.env.EMAIL_USER}>`,
+          to: superadmins.map(s => s.email).join(', '),
+          subject: `[Ticket #${result.insertId}] ${subject}`,
+          html: `<div style="font-family:sans-serif;max-width:540px;margin:auto;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden">
+            <div style="background:#000;padding:24px 28px;display:flex;align-items:center;gap:12px">
+              <span style="font-size:22px;font-weight:900;color:#D4AF37;letter-spacing:1px">SRServi</span>
+              <span style="color:#888;font-size:14px">· Soporte</span>
+            </div>
+            <div style="padding:28px">
+              <p style="margin:0 0 6px;font-size:13px;color:#888;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Nuevo ticket de soporte</p>
+              <h2 style="margin:0 0 20px;font-size:20px;color:#111">${subject}</h2>
+              <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+                <tr>
+                  <td style="padding:8px 0;font-size:13px;color:#888;width:110px">Ticket</td>
+                  <td style="padding:8px 0;font-size:13px;font-weight:700;color:#111">#${result.insertId}</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;font-size:13px;color:#888">Usuario</td>
+                  <td style="padding:8px 0;font-size:13px;color:#111">${senderName} (${req.user.email})</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;font-size:13px;color:#888">Prioridad</td>
+                  <td style="padding:8px 0;font-size:13px;font-weight:700;color:${priority === 'urgent' ? '#e74c3c' : priority === 'important' ? '#f39c12' : '#3498db'}">${prLabel}</td>
+                </tr>
+              </table>
+              <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin-bottom:24px;font-size:14px;color:#333;line-height:1.6;border-left:4px solid #D4AF37">
+                ${message.replace(/\n/g, '<br>')}
+              </div>
+              <a href="${ticketUrl}" style="display:inline-block;background:#D4AF37;color:#000;font-weight:900;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none;letter-spacing:0.3px">
+                Ver en el panel →
+              </a>
+            </div>
+            <div style="padding:16px 28px;background:#fafafa;border-top:1px solid #e0e0e0;font-size:11px;color:#aaa">
+              Este correo fue enviado automáticamente porque eres superadministrador de SRServi.
+            </div>
+          </div>`
+        });
+      }
+    } catch (mailErr) {
+      console.error('Error enviando email de ticket a superadmins:', mailErr.message);
+    }
   } catch (error) { console.error('Error creating ticket:', error); res.status(500).json({ error: error.message }); }
 });
 
