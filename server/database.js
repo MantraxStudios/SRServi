@@ -1302,6 +1302,15 @@ export async function duplicateStore(storeId, userId, newName) {
   );
   const newStoreId = storeResult.insertId;
 
+  // Create default vendor worker for the new store
+  const [userRows] = await pool.execute('SELECT email FROM users WHERE id = ?', [userId]);
+  const ownerEmail = userRows[0]?.email || 'admin';
+  const defaultPassword = await bcrypt.hash('12345', 10);
+  await pool.execute(
+    'INSERT INTO workers (store_id, username, password, name) VALUES (?, ?, ?, ?)',
+    [newStoreId, ownerEmail, defaultPassword, 'Vendedor']
+  );
+
   // Copy categories
   const [cats] = await pool.execute('SELECT * FROM categories WHERE store_id = ?', [storeId]);
   const catMap = {};
