@@ -121,8 +121,8 @@ function Workers() {
       // Guardar objeto worker completo para que WorkerPanel lo lea correctamente
       localStorage.setItem('worker', JSON.stringify(data.worker));
 
-      // Redirigir al panel de trabajador
-      window.location.href = '/worker-panel';
+      // Abrir panel de trabajador en nueva pestaña
+      window.open('/worker-panel', '_blank');
     } catch (error) {
       console.error('Error logging in as worker:', error);
       alert('Error al iniciar sesión como trabajador: ' + error.message);
