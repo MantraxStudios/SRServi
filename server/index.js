@@ -3851,12 +3851,11 @@ app.get('/api/inventory/store/:storeId', authenticateToken, async (req, res) => 
 
     const [products] = await pool.execute(`
       SELECT p.id, p.name, p.price, c.name AS category_name,
-             COALESCE(i.stock, 0) AS stock,
-             COALESCE(i.min_stock, 0) AS min_stock,
-             CASE WHEN i.product_id IS NULL THEN FALSE ELSE COALESCE(i.unlimited_stock, FALSE) END AS unlimited_stock
+             COALESCE((SELECT stock        FROM inventory WHERE product_id = p.id LIMIT 1), 0)     AS stock,
+             COALESCE((SELECT min_stock    FROM inventory WHERE product_id = p.id LIMIT 1), 0)     AS min_stock,
+             COALESCE((SELECT unlimited_stock FROM inventory WHERE product_id = p.id LIMIT 1), 0)  AS unlimited_stock
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
-      LEFT JOIN inventory i ON p.id = i.product_id
       WHERE p.store_id = ?
       ORDER BY p.name ASC
     `, [storeId]);
