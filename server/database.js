@@ -1021,6 +1021,17 @@ function generateCode() {
   return code;
 }
 
+function generateUniqueVendorUsername() {
+  // Genera un username único: "vendor_XXXXX" donde X es aleatorio
+  // Formato: vendor_ABC123 (vendor_ + 6 caracteres aleatorios)
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let suffix = '';
+  for (let i = 0; i < 8; i++) {
+    suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `vendor_${suffix}`;
+}
+
 export async function createUser(username, email, password, business_name, country) {
   const hashedPassword = await bcrypt.hash(password, 10);
   let code = generateCode();
@@ -1171,12 +1182,21 @@ export async function createStore(userId, data) {
   );
 
   const storeId = result.insertId;
-  const [userRows] = await pool.execute('SELECT email FROM users WHERE id = ?', [userId]);
-  const ownerEmail = userRows[0]?.email || 'admin';
+  
+  // Generar username único y aleatorio para el vendedor
+  let vendorUsername = generateUniqueVendorUsername();
+  let [existingWorker] = await pool.execute('SELECT id FROM workers WHERE username = ?', [vendorUsername]);
+  
+  // Asegurar que el username sea realmente único
+  while (existingWorker.length > 0) {
+    vendorUsername = generateUniqueVendorUsername();
+    [existingWorker] = await pool.execute('SELECT id FROM workers WHERE username = ?', [vendorUsername]);
+  }
+  
   const defaultPassword = await bcrypt.hash('12345', 10);
   await pool.execute(
     'INSERT INTO workers (store_id, username, password, name) VALUES (?, ?, ?, ?)',
-    [storeId, ownerEmail, defaultPassword, 'Vendedor']
+    [storeId, vendorUsername, defaultPassword, 'Vendedor']
   );
 
   return {
@@ -1302,13 +1322,20 @@ export async function duplicateStore(storeId, userId, newName) {
   );
   const newStoreId = storeResult.insertId;
 
-  // Create default vendor worker for the new store
-  const [userRows] = await pool.execute('SELECT email FROM users WHERE id = ?', [userId]);
-  const ownerEmail = userRows[0]?.email || 'admin';
+  // Create default vendor worker for the new store with unique username
+  let vendorUsername = generateUniqueVendorUsername();
+  let [existingWorker] = await pool.execute('SELECT id FROM workers WHERE username = ?', [vendorUsername]);
+  
+  // Asegurar que el username sea realmente único
+  while (existingWorker.length > 0) {
+    vendorUsername = generateUniqueVendorUsername();
+    [existingWorker] = await pool.execute('SELECT id FROM workers WHERE username = ?', [vendorUsername]);
+  }
+  
   const defaultPassword = await bcrypt.hash('12345', 10);
   await pool.execute(
     'INSERT INTO workers (store_id, username, password, name) VALUES (?, ?, ?, ?)',
-    [newStoreId, ownerEmail, defaultPassword, 'Vendedor']
+    [newStoreId, vendorUsername, defaultPassword, 'Vendedor']
   );
 
   // Copy categories
