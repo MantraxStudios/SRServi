@@ -118,6 +118,9 @@ function Workers() {
       localStorage.setItem('workerId', data.worker.id);
       localStorage.setItem('workerName', data.worker.name);
 
+      // Guardar objeto worker completo para que WorkerPanel lo lea correctamente
+      localStorage.setItem('worker', JSON.stringify(data.worker));
+
       // Redirigir al panel de trabajador
       window.location.href = '/worker-panel';
     } catch (error) {
