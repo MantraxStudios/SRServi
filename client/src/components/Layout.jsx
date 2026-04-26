@@ -117,7 +117,16 @@ function Layout() {
       const response = await fetch(API + '/api/stores', {
         headers: { 'Authorization': 'Bearer ' + token }
       });
+
+      if (response.status === 401 || response.status === 403) {
+        logout();
+        navigate('/login');
+        return;
+      }
+
       const data = await response.json();
+
+      if (!Array.isArray(data)) return;
 
       if (Array.isArray(data) && data.length === 0) {
         const response2 = await fetch(API + '/api/stores', {
