@@ -3842,6 +3842,74 @@ app.get('/api/products/search/:query', authenticateToken, async (req, res) => {
   }
 });
 
+// Get all inventory for a store (products + ingredients + extras)
+app.get('/api/inventory/store/:storeId', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+
+    const [products] = await pool.execute(`
+      SELECT p.id, p.name, p.price, c.name AS category_name,
+             COALESCE(i.stock, 0) AS stock,
+             COALESCE(i.min_stock, 0) AS min_stock,
+             CASE WHEN i.product_id IS NULL THEN FALSE ELSE COALESCE(i.unlimited_stock, FALSE) END AS unlimited_stock
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN inventory i ON p.id = i.product_id
+      WHERE p.store_id = ?
+      ORDER BY p.name ASC
+    `, [storeId]);
+
+    const ingredients = await getIngredients(storeId);
+    const extras = await getExtras(storeId);
+
+    res.json({ products, ingredients, extras });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update ingredient stock/unlimited
+app.put('/api/inventory/ingredient/:id/stock', authenticateToken, async (req, res) => {
+  try {
+    const { stock, unlimited_stock, store_id } = req.body;
+    const ingId = parseInt(req.params.id);
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const s = Math.max(0, parseInt(stock) || 0);
+    const u = unlimited_stock ? 1 : 0;
+    await pool.execute(
+      'UPDATE ingredients SET stock = ?, unlimited_stock = ? WHERE id = ? AND store_id = ?',
+      [s, u, ingId, parseInt(store_id)]
+    );
+    req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { ingredient_id: ingId, stock: s, unlimited_stock: !!unlimited_stock });
+    res.json({ stock: s, unlimited_stock: !!unlimited_stock });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update extra stock/unlimited
+app.put('/api/inventory/extra/:id/stock', authenticateToken, async (req, res) => {
+  try {
+    const { stock, unlimited_stock, store_id } = req.body;
+    const extId = parseInt(req.params.id);
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const s = Math.max(0, parseInt(stock) || 0);
+    const u = unlimited_stock ? 1 : 0;
+    await pool.execute(
+      'UPDATE extras SET stock = ?, unlimited_stock = ? WHERE id = ? AND store_id = ?',
+      [s, u, extId, parseInt(store_id)]
+    );
+    req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { extra_id: extId, stock: s, unlimited_stock: !!unlimited_stock });
+    res.json({ stock: s, unlimited_stock: !!unlimited_stock });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/inventory/:productId', authenticateToken, async (req, res) => {
   try {
     const { productId } = req.params;

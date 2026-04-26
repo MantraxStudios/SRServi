@@ -2248,14 +2248,58 @@ export async function createOrder(storeId, orderData) {
     await pool.execute(
       'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras) VALUES (?, ?, ?, ?, ?, ?)',
       [
-        orderId, 
-        item.product_id, 
-        item.quantity, 
-        item.unit_price, 
+        orderId,
+        item.product_id,
+        item.quantity,
+        item.unit_price,
         JSON.stringify(item.selected_ingredients || []),
         JSON.stringify(item.selected_extras || [])
       ]
     );
+
+    // Deduct product stock
+    const [invRows] = await pool.execute(
+      'SELECT unlimited_stock FROM inventory WHERE product_id = ?',
+      [item.product_id]
+    );
+    if (invRows.length > 0 && !invRows[0].unlimited_stock) {
+      await pool.execute(
+        'UPDATE inventory SET stock = GREATEST(0, stock - ?) WHERE product_id = ?',
+        [item.quantity, item.product_id]
+      );
+    }
+
+    // Deduct complement (ingredient) stock — selected_ingredients can be strings or {id,name} objects
+    for (const ing of (item.selected_ingredients || [])) {
+      const ingName = typeof ing === 'string' ? ing : ing?.name;
+      if (!ingName) continue;
+      const [ingRows] = await pool.execute(
+        'SELECT id, unlimited_stock FROM ingredients WHERE store_id = ? AND name = ? LIMIT 1',
+        [storeId, ingName]
+      );
+      if (ingRows.length > 0 && !ingRows[0].unlimited_stock) {
+        await pool.execute(
+          'UPDATE ingredients SET stock = GREATEST(0, stock - 1) WHERE id = ?',
+          [ingRows[0].id]
+        );
+      }
+    }
+
+    // Deduct extra stock
+    for (const ext of (item.selected_extras || [])) {
+      const extName = typeof ext === 'string' ? ext : ext?.name;
+      if (!extName) continue;
+      const [extRows] = await pool.execute(
+        'SELECT id, unlimited_stock FROM extras WHERE store_id = ? AND name = ? LIMIT 1',
+        [storeId, extName]
+      );
+      if (extRows.length > 0 && !extRows[0].unlimited_stock) {
+        await pool.execute(
+          'UPDATE extras SET stock = GREATEST(0, stock - 1) WHERE id = ?',
+          [extRows[0].id]
+        );
+      }
+    }
   }
 
   return finalOrder;

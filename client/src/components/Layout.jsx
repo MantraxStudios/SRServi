@@ -37,6 +37,7 @@ import {
   faRobot,
   faCopy,
   faClipboardList,
+  faWarehouse,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -429,6 +430,10 @@ function Layout() {
                         <NavLink to="/admin/tasks" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faClipboardList} />
                           <span>Tareas</span>
+                        </NavLink>
+                        <NavLink to="/admin/inventory" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                          <FontAwesomeIcon icon={faWarehouse} />
+                          <span>Inventario</span>
                         </NavLink>
                       </div>
                     )}
