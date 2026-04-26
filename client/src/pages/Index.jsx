@@ -345,47 +345,197 @@ function Index() {
   }
 
   return (
-    <div className="index-container">
-      <div className="index-card">
-        <h1 className="index-title">SRServi</h1>
-        <p className="index-subtitle">Ingresa el codigo de tu negocio o cliente para hacer tu pedido</p>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(160deg, #0a0a0a 0%, #111111 50%, #0f0f0f 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '24px 16px',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* fondo decorativo */}
+      <div style={{
+        position: 'absolute', top: '-120px', left: '50%', transform: 'translateX(-50%)',
+        width: '600px', height: '600px',
+        background: 'radial-gradient(circle, rgba(212,175,55,0.08) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
 
-        {error && <div className="error">{error}</div>}
-
-        <form onSubmit={handleCodeSubmit}>
-          <div className="form-group">
-            <input
-              type="text"
-              value={code}
-              onChange={handleCodeChange}
-              className="code-input"
-              placeholder="ABC123"
-              maxLength={6}
-              autoFocus
-              required
-            />
+      <div style={{
+        width: '100%',
+        maxWidth: '440px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '20px',
+      }}>
+        {/* Card principal */}
+        <div style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(212,175,55,0.25)',
+          borderRadius: '24px',
+          padding: '44px 36px',
+          backdropFilter: 'blur(12px)',
+          boxShadow: '0 32px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(212,175,55,0.08)',
+          textAlign: 'center',
+        }}>
+          {/* Logo / título */}
+          <div style={{ marginBottom: '8px' }}>
+            <span style={{
+              display: 'inline-block',
+              background: 'linear-gradient(135deg, #D4AF37 0%, #f5d676 50%, #D4AF37 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              fontSize: '42px',
+              fontWeight: '900',
+              letterSpacing: '-1px',
+              lineHeight: 1,
+            }}>
+              SRServi
+            </span>
           </div>
 
-          <button
-            type="submit"
-            className="btn btn-primary btn-lg btn-full"
-            disabled={loading || code.length !== 6}
-          >
-            {loading ? 'Buscando...' : 'Continuar'}
-          </button>
-        </form>
+          <div style={{
+            width: '48px', height: '3px',
+            background: 'linear-gradient(90deg, #D4AF37, #f5d676)',
+            borderRadius: '2px',
+            margin: '14px auto 20px',
+          }} />
 
-        <div style={{ marginTop: '28px', textAlign: 'center' }}>
-          <p style={{ color: '#D4AF37', fontSize: '13px', marginBottom: '10px', fontWeight: '600', letterSpacing: '0.5px' }}>
+          <p style={{
+            color: 'rgba(255,255,255,0.65)',
+            fontSize: '15px',
+            lineHeight: '1.6',
+            marginBottom: '32px',
+            fontWeight: '400',
+          }}>
+            Ingresa el código de tu negocio para continuar
+          </p>
+
+          {error && (
+            <div style={{
+              background: 'rgba(239,68,68,0.12)',
+              border: '1px solid rgba(239,68,68,0.35)',
+              color: '#f87171',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              fontSize: '14px',
+              marginBottom: '20px',
+            }}>
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleCodeSubmit}>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'block',
+                color: 'rgba(212,175,55,0.85)',
+                fontSize: '11px',
+                fontWeight: '700',
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase',
+                marginBottom: '10px',
+              }}>
+                Código de tienda
+              </label>
+              <input
+                type="text"
+                value={code}
+                onChange={handleCodeChange}
+                placeholder="ABC123"
+                maxLength={6}
+                autoFocus
+                required
+                style={{
+                  width: '100%',
+                  fontSize: '34px',
+                  fontWeight: '800',
+                  textAlign: 'center',
+                  letterSpacing: '12px',
+                  textTransform: 'uppercase',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '2px solid rgba(212,175,55,0.3)',
+                  borderRadius: '14px',
+                  color: '#ffffff',
+                  padding: '18px 12px',
+                  outline: 'none',
+                  transition: 'border-color 0.2s, box-shadow 0.2s',
+                  boxSizing: 'border-box',
+                }}
+                onFocus={e => {
+                  e.target.style.borderColor = '#D4AF37';
+                  e.target.style.boxShadow = '0 0 0 4px rgba(212,175,55,0.12)';
+                }}
+                onBlur={e => {
+                  e.target.style.borderColor = 'rgba(212,175,55,0.3)';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || code.length !== 6}
+              style={{
+                width: '100%',
+                padding: '16px',
+                fontSize: '16px',
+                fontWeight: '700',
+                letterSpacing: '0.5px',
+                borderRadius: '14px',
+                border: 'none',
+                cursor: loading || code.length !== 6 ? 'not-allowed' : 'pointer',
+                background: loading || code.length !== 6
+                  ? 'rgba(255,255,255,0.08)'
+                  : 'linear-gradient(135deg, #D4AF37 0%, #f0cc5a 100%)',
+                color: loading || code.length !== 6 ? 'rgba(255,255,255,0.3)' : '#0a0a0a',
+                transition: 'all 0.2s',
+                boxShadow: loading || code.length !== 6 ? 'none' : '0 8px 24px rgba(212,175,55,0.35)',
+              }}
+            >
+              {loading ? 'Buscando...' : 'Continuar'}
+            </button>
+          </form>
+        </div>
+
+        {/* Card de instrucciones */}
+        <div style={{
+          background: 'rgba(255,255,255,0.02)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '20px',
+          padding: '24px 28px',
+          textAlign: 'center',
+        }}>
+          <p style={{
+            color: '#D4AF37',
+            fontSize: '13px',
+            fontWeight: '700',
+            letterSpacing: '1px',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          }}>
             ¿Dónde encuentro mi código?
           </p>
-          <p style={{ color: '#aaa', fontSize: '12px', marginBottom: '12px', lineHeight: '1.5' }}>
-            Inicia sesión en el panel de administración → haz clic en <strong style={{ color: '#fff' }}>Tiendas</strong> → ahí verás el código de cada tienda
+          <p style={{
+            color: 'rgba(255,255,255,0.5)',
+            fontSize: '13px',
+            lineHeight: '1.7',
+            marginBottom: '18px',
+          }}>
+            Inicia sesión en el <span style={{ color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>panel de administración</span> → clic en <span style={{ color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>Tiendas</span> → ahí verás el código de cada tienda
           </p>
           <img
             src="/how.png"
             alt="Instrucciones para encontrar el código de tienda"
-            style={{ width: '100%', maxWidth: '380px', borderRadius: '10px', border: '1px solid #333', opacity: 0.92 }}
+            style={{
+              width: '100%',
+              borderRadius: '12px',
+              border: '1px solid rgba(255,255,255,0.1)',
+              display: 'block',
+            }}
           />
         </div>
       </div>
