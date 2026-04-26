@@ -279,6 +279,53 @@ const styles = `
     z-index: 1;
   }
 
+  /* ── MOBILE ── */
+  @media (max-width: 640px) {
+    .idx-root {
+      flex-direction: column;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    .idx-left {
+      flex: 0 0 auto;
+      width: 100%;
+      padding: 28px 24px 20px;
+      border-right: none;
+      border-bottom: 1px solid rgba(212,175,55,0.1);
+      justify-content: flex-start;
+    }
+
+    .idx-logo { font-size: 32px; }
+
+    .idx-tagline { font-size: 10px; margin-bottom: 16px; }
+
+    .idx-divider { margin-bottom: 16px; }
+
+    .idx-input { font-size: 26px; letter-spacing: 8px; padding: 12px 8px; }
+
+    .idx-btn { padding: 13px; font-size: 13px; }
+
+    .idx-hint { margin-top: 14px; padding-top: 14px; }
+
+    .idx-right {
+      flex: 1;
+      min-height: 0;
+      padding: 16px 20px 20px;
+    }
+
+    .idx-img-label { margin-bottom: 10px; }
+
+    .idx-img-frame {
+      width: 100%;
+      height: 100%;
+    }
+
+    .idx-img {
+      border-radius: 10px;
+    }
+  }
+
   /* Picker views */
   .idx-picker-root {
     font-family: 'DM Sans', sans-serif;
