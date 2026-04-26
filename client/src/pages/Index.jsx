@@ -759,7 +759,7 @@ function Index() {
       <div className="idx-root">
         <div className="idx-left">
           <div className="idx-top-bar" />
-          <div className="idx-logo">SRServi</div>
+          <div className="idx-logo">SRservi</div>
           <div className="idx-tagline">Sistema de pedidos</div>
           <div className="idx-divider" />
           {error && <div className="idx-error">{error}</div>}
