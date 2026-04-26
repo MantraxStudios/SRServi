@@ -4997,6 +4997,55 @@ app.post('/api/workers/login', async (req, res) => {
   }
 });
 
+// Endpoint para que el admin pueda acceder como un worker específico
+app.post('/api/admin/login-as-worker/:workerId', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') {
+      return res.status(403).json({ error: 'Solo admins pueden usar esta función' });
+    }
+
+    const workerId = parseInt(req.params.workerId);
+    const [workerRows] = await pool.execute('SELECT * FROM workers WHERE id = ?', [workerId]);
+    
+    if (!workerRows.length) {
+      return res.status(404).json({ error: 'Trabajador no encontrado' });
+    }
+
+    const worker = workerRows[0];
+
+    // Verificar que el admin es dueño de la tienda del worker
+    const isOwner = await verifyStoreOwnership(worker.store_id, req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a este trabajador' });
+    }
+
+    // Obtener datos de la tienda
+    const [storeRows] = await pool.execute('SELECT code, name FROM stores WHERE id = ?', [worker.store_id]);
+    const store = storeRows[0];
+
+    // Generar token para el worker
+    const token = jwt.sign(
+      { id: worker.id, type: 'worker', store_id: worker.store_id },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      worker: {
+        id: worker.id,
+        username: worker.username,
+        name: worker.name,
+        store_id: worker.store_id,
+        store_name: store?.name,
+        store_code: store?.code
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/workers', authenticateToken, async (req, res) => {
   try {
     if (req.user.type !== 'user' && req.user.type !== 'worker') {

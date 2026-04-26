@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserPlus, faTrash, faUser, faEnvelope } from '@fortawesome/free-solid-svg-icons';
+import { faUserPlus, faTrash, faUser, faEnvelope, faSignInAlt } from '@fortawesome/free-solid-svg-icons';
 import { StoreContext } from '../../components/Layout';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -91,6 +91,42 @@ function Workers() {
     }
   };
 
+  const handleLoginAsWorker = async (worker) => {
+    try {
+      setLoading(true);
+      const adminToken = localStorage.getItem('token');
+      
+      // Usar el endpoint especial del admin para acceder como worker
+      const response = await fetch(API + `/api/admin/login-as-worker/${worker.id}`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'No se pudo iniciar sesión como trabajador');
+      }
+
+      const data = await response.json();
+      
+      // Guardar token de worker
+      localStorage.setItem('workerToken', data.token);
+      localStorage.setItem('workerStoreCode', data.worker.store_code);
+      localStorage.setItem('workerId', data.worker.id);
+      localStorage.setItem('workerName', data.worker.name);
+
+      // Redirigir al panel de trabajador
+      window.location.href = '/worker-panel';
+    } catch (error) {
+      console.error('Error logging in as worker:', error);
+      alert('Error al iniciar sesión como trabajador: ' + error.message);
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return <div className="loading">Cargando trabajadores...</div>;
   }
@@ -144,9 +180,21 @@ function Workers() {
                     Creado: {new Date(worker.created_at).toLocaleDateString('es-ES')}
                   </p>
                 </div>
-                <button className="btn btn-danger btn-icon" onClick={() => handleDelete(worker.id)}>
-                  <FontAwesomeIcon icon={faTrash} />
-                </button>
+                <div className="worker-actions">
+                  <button 
+                    className="btn btn-primary btn-icon" 
+                    title="Acceder como trabajador"
+                    onClick={() => handleLoginAsWorker(worker)}
+                  >
+                    <FontAwesomeIcon icon={faSignInAlt} />
+                  </button>
+                  <button 
+                    className="btn btn-danger btn-icon" 
+                    onClick={() => handleDelete(worker.id)}
+                  >
+                    <FontAwesomeIcon icon={faTrash} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
