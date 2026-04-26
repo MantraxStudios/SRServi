@@ -374,6 +374,20 @@ function Index() {
             {loading ? 'Buscando...' : 'Continuar'}
           </button>
         </form>
+
+        <div style={{ marginTop: '28px', textAlign: 'center' }}>
+          <p style={{ color: '#D4AF37', fontSize: '13px', marginBottom: '10px', fontWeight: '600', letterSpacing: '0.5px' }}>
+            ¿Dónde encuentro mi código?
+          </p>
+          <p style={{ color: '#aaa', fontSize: '12px', marginBottom: '12px', lineHeight: '1.5' }}>
+            Inicia sesión en el panel de administración → haz clic en <strong style={{ color: '#fff' }}>Tiendas</strong> → ahí verás el código de cada tienda
+          </p>
+          <img
+            src="/how.png"
+            alt="Instrucciones para encontrar el código de tienda"
+            style={{ width: '100%', maxWidth: '380px', borderRadius: '10px', border: '1px solid #333', opacity: 0.92 }}
+          />
+        </div>
       </div>
     </div>
   );
