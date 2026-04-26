@@ -92,14 +92,16 @@ function Workers() {
   };
 
   const handleLoginAsWorker = async (worker) => {
+    // Abrir ventana inmediatamente (gesto de usuario sincrónico) para evitar bloqueo de popup
+    const workerWindow = window.open('', `worker-panel-${worker.id}`);
+
     try {
       setLoading(true);
       const adminToken = localStorage.getItem('token');
-      
-      // Usar el endpoint especial del admin para acceder como worker
+
       const response = await fetch(API + `/api/admin/login-as-worker/${worker.id}`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
         }
@@ -107,22 +109,23 @@ function Workers() {
 
       if (!response.ok) {
         const data = await response.json();
+        workerWindow.close();
         throw new Error(data.error || 'No se pudo iniciar sesión como trabajador');
       }
 
       const data = await response.json();
-      
-      // Guardar token de worker
+
+      // Guardar datos del worker en clave específica por worker para evitar conflictos entre tabs
+      const workerKey = `worker_session_${worker.id}`;
+      localStorage.setItem(workerKey, JSON.stringify(data.worker));
       localStorage.setItem('workerToken', data.token);
       localStorage.setItem('workerStoreCode', data.worker.store_code);
       localStorage.setItem('workerId', data.worker.id);
       localStorage.setItem('workerName', data.worker.name);
-
-      // Guardar objeto worker completo para que WorkerPanel lo lea correctamente
       localStorage.setItem('worker', JSON.stringify(data.worker));
 
-      // Abrir panel de trabajador en nueva pestaña
-      window.open('/worker-panel', '_blank');
+      // Navegar la ventana ya abierta al panel del worker
+      workerWindow.location.href = '/worker-panel';
     } catch (error) {
       console.error('Error logging in as worker:', error);
       alert('Error al iniciar sesión como trabajador: ' + error.message);

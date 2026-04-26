@@ -1253,6 +1253,10 @@ function MercadoPagoPoints() {
                         <div style={{ padding: '12px 14px', background: '#e8f6fd', borderRadius: '10px', fontSize: '12px', color: '#0369a1' }}>
                           💡 Necesitas el <strong>Access Token de producción</strong> de tu app en MercadoPago Developers
                         </div>
+                        <a href="https://www.youtube.com/watch?v=KC9NjZ2OMP0" target="_blank" rel="noreferrer"
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: '#e8f6fd', border: '1px solid #bae6fd', borderRadius: '10px', textDecoration: 'none', color: '#0369a1', fontSize: '12px', fontWeight: '600' }}>
+                          ▶ Ver tutorial: Cómo vincular Mercado Pago Point
+                        </a>
                         <div>
                           <label style={labelStyle}>Access Token *</label>
                           <input value={mpNewToken} onChange={e => setMpNewToken(e.target.value)}
@@ -1331,8 +1335,13 @@ function MercadoPagoPoints() {
                 {posTab === 1 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ padding: '11px 14px', background: '#f5f0ff', borderRadius: '10px', fontSize: '12px', color: '#7c3aed' }}>
-                      💡 Necesitas las credenciales de tu cuenta en <strong>integrations.tuu.cl</strong>
+                      💡 Necesitas las credenciales de tu cuenta en{' '}
+                      <a href="https://espacio.haulmer.com" target="_blank" rel="noreferrer" style={{ color: '#7c3aed', fontWeight: '700' }}>espacio.haulmer.com</a>
                     </div>
+                    <a href="https://www.youtube.com/watch?v=mO2LgD1uoBs" target="_blank" rel="noreferrer"
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: '#fff0ff', border: '1px solid #e9d5ff', borderRadius: '10px', textDecoration: 'none', color: '#7c3aed', fontSize: '12px', fontWeight: '600' }}>
+                      ▶ Ver tutorial: Cómo vincular Tuu POS
+                    </a>
                     <div>
                       <label style={labelStyle}>API Key de Tuu *</label>
                       <input value={tuuNewApiKey} onChange={e => setTuuNewApiKey(e.target.value)} placeholder="XXXX-XXXX-XXXX-XXXX"
