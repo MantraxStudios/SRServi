@@ -126,7 +126,7 @@ export default function Inventory() {
                     + data.extras.filter(e => !e.unlimited_stock && e.stock > 0 && e.stock <= 5).length;
 
   return (
-    <div style={{ background: '#0a0a0a', color: '#fff', padding: '24px', fontFamily: 'sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', padding: '24px', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
