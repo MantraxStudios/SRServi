@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useNavigate } from 'react-router-dom';
-import { faPlus, faEdit, faTrash, faCopy, faStore, faExclamationTriangle, faImage, faChevronDown, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faCopy, faClone, faStore, faExclamationTriangle, faImage, faChevronDown, faCheck, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { getImageUrl } from '../../config.js';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -32,6 +32,10 @@ function Stores() {
   const [storeLimitError, setStoreLimitError] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
+  const [duplicateModal, setDuplicateModal] = useState(null);
+  const [duplicateName, setDuplicateName] = useState('');
+  const [duplicateLoading, setDuplicateLoading] = useState(false);
+  const [duplicateError, setDuplicateError] = useState('');
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -212,6 +216,34 @@ function Stores() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
+  const openDuplicateModal = (store) => {
+    setDuplicateModal(store);
+    setDuplicateName(`${store.name} (copia)`);
+    setDuplicateError('');
+  };
+
+  const handleDuplicate = async () => {
+    if (!duplicateName.trim()) { setDuplicateError('El nombre es requerido'); return; }
+    setDuplicateLoading(true);
+    setDuplicateError('');
+    try {
+      const res = await fetch(`${API}/api/stores/${duplicateModal.id}/duplicate`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: duplicateName.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al duplicar');
+      setDuplicateModal(null);
+      fetchStores();
+      fetchPlanInfo();
+    } catch (err) {
+      setDuplicateError(err.message);
+    } finally {
+      setDuplicateLoading(false);
+    }
+  };
+
   if (loading && stores.length === 0) {
     return <div className="loading">Cargando...</div>;
   }
@@ -289,6 +321,13 @@ function Stores() {
                     <FontAwesomeIcon icon={faCopy} />
                   </button>
                   <button
+                    onClick={() => openDuplicateModal(store)}
+                    className="store-action-btn"
+                    title="Duplicar tienda"
+                  >
+                    <FontAwesomeIcon icon={faClone} />
+                  </button>
+                  <button
                     onClick={() => openModal(store)}
                     className="store-action-btn"
                   >
@@ -341,6 +380,61 @@ function Stores() {
           </div>
         )}
       </div>
+
+      {duplicateModal && (
+        <div className="modal-overlay" onClick={() => !duplicateLoading && setDuplicateModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+            <div className="store-modal-header">
+              <div>
+                <h3 style={{ margin: 0, color: '#fff', fontSize: '16px', fontWeight: '700' }}>Duplicar Tienda</h3>
+                <p style={{ margin: 0, color: '#888', fontSize: '12px' }}>"{duplicateModal.name}"</p>
+              </div>
+              {!duplicateLoading && (
+                <button onClick={() => setDuplicateModal(null)} className="store-modal-close">×</button>
+              )}
+            </div>
+            <div style={{ padding: '20px' }}>
+              <div className="form-group">
+                <label>Nombre de la nueva tienda</label>
+                <input
+                  type="text"
+                  value={duplicateName}
+                  onChange={e => { setDuplicateName(e.target.value); setDuplicateError(''); }}
+                  placeholder="Nombre de la copia"
+                  onKeyDown={e => e.key === 'Enter' && !duplicateLoading && handleDuplicate()}
+                  autoFocus
+                />
+                {duplicateError && (
+                  <p style={{ margin: '6px 0 0', color: '#f87171', fontSize: '12px' }}>{duplicateError}</p>
+                )}
+              </div>
+              <div className="store-form-actions">
+                <button
+                  type="button"
+                  onClick={() => setDuplicateModal(null)}
+                  disabled={duplicateLoading}
+                  className="btn btn-secondary flex-1"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDuplicate}
+                  disabled={duplicateLoading || !duplicateName.trim()}
+                  className="btn btn-primary flex-1"
+                  style={{ background: duplicateLoading || !duplicateName.trim() ? 'rgba(212,175,55,0.3)' : '#D4AF37', color: '#000', border: 'none' }}
+                >
+                  {duplicateLoading ? (
+                    <><FontAwesomeIcon icon={faSpinner} spin /> Duplicando...</>
+                  ) : (
+                    <><FontAwesomeIcon icon={faClone} /> Duplicar</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
