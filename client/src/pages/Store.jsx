@@ -1564,7 +1564,8 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null
+            table_number: tableNum ? parseInt(tableNum) : null,
+            terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -1598,7 +1599,8 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null
+            table_number: tableNum ? parseInt(tableNum) : null,
+            terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -1750,7 +1752,8 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: selectedMethod,
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null
+            table_number: tableNum ? parseInt(tableNum) : null,
+            terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null
           })
         });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
