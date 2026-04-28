@@ -973,32 +973,24 @@ function Store() {
 
       // Welcome/language modal disabled — no longer shown on page load
 
-      const terminalsResponse = await fetch(`/api/public/${code}/mercado-pago-terminals`);
+      const terminalsResponse = await fetch(`/api/public/${code}/pos-terminals`);
       if (terminalsResponse.ok) {
         const terminalsData = await terminalsResponse.json();
         const safeTerminals = Array.isArray(terminalsData) ? terminalsData : [];
-        setAvailableTerminals(safeTerminals);
+        // Only MP terminals are relevant for the POS selector in the store
+        const mpTerminals = safeTerminals.filter(t => t.provider === 'mercadopago');
+        setAvailableTerminals(mpTerminals);
         const hasTerminalFromUrl = terminalFromUrl && safeTerminals.some(terminal => String(terminal.id) === String(terminalFromUrl));
-        // FIX: If the user already selected a non-MercadoPago terminal (e.g. Tuu) in the
-        // Index screen, its ID won't appear in safeTerminals (which is a MercadoPago-only
-        // list). We must NOT fall back to safeTerminals[0] in that case, or we would
-        // silently switch the user to a random MercadoPago device.
         const savedProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
         const savedTerminalId = localStorage.getItem('srservi_last_terminal_id') || '';
         setSelectedTerminalId(prev => {
-          // 1. URL parameter wins when the terminal belongs to MercadoPago
           if (hasTerminalFromUrl) return String(terminalFromUrl);
-          // 2. Current value is already a valid MercadoPago terminal — keep it
           if (prev && safeTerminals.some(terminal => String(terminal.id) === String(prev))) return prev;
-          // 3. The user picked a non-MercadoPago terminal in Index — preserve it
           if (savedProvider && savedProvider !== 'mercadopago' && savedTerminalId) return savedTerminalId;
-          // 4. No valid selection yet — default to the first MercadoPago terminal
-          return safeTerminals[0]?.id ? String(safeTerminals[0].id) : '';
+          return mpTerminals[0]?.id ? String(mpTerminals[0].id) : '';
         });
       } else {
         setAvailableTerminals([]);
-        // FIX: Only clear the selectedTerminalId if the saved provider was MercadoPago.
-        // If it was another provider (e.g. Tuu), keep the stored selection.
         const savedProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
         if (!savedProvider || savedProvider === 'mercadopago') {
           setSelectedTerminalId('');

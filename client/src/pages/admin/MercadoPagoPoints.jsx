@@ -182,50 +182,27 @@ function MercadoPagoPoints() {
   const [savingSetup, setSavingSetup] = useState(false);
 
   // ==== Unified POS helpers ====
-  const buildPosList = (mpTerminals, tuuDevices, tuuAssignments, tuuStoreDevs, squareDevsList = []) => {
-    const mpList = (Array.isArray(mpTerminals) ? mpTerminals : []).map(t => ({
+  // terminals viene de /api/pos-terminals — ya unificado, todos los providers
+  const buildPosList = (posTerminals) => {
+    return (Array.isArray(posTerminals) ? posTerminals : []).map(t => ({
       id: t.id,
-      provider: 'mercadopago',
+      provider: t.provider,
       name: t.name,
-      terminal_id: t.mercadopago_terminal_id,
+      terminal_id: t.device_id,
+      device_id: t.device_id,
       store_id: t.store_id,
       pos_pin: t.pos_pin || null,
     }));
-    const assignments = Array.isArray(tuuAssignments) ? tuuAssignments : [];
-    const tuuList = (Array.isArray(tuuDevices) ? tuuDevices : [])
-      .filter(d => assignments.some(a => a.tuu_device_id === d.id))
-      .map(d => {
-        const assign = assignments.find(a => a.tuu_device_id === d.id);
-        const storeDev = (Array.isArray(tuuStoreDevs) ? tuuStoreDevs : []).find(s => s.device_uid === assign?.device_uid);
-        return {
-          id: d.id,
-          provider: 'tuu',
-          name: d.name,
-          serial: d.serial,
-          device_uid: assign?.device_uid || null,
-          assigned: !!storeDev,
-          assigned_name: storeDev?.device_name || null,
-          store_id: d.store_id,
-        };
-      });
-    const squareList = (Array.isArray(squareDevsList) ? squareDevsList : []).map(d => ({
-      id: d.id,
-      provider: 'square',
-      name: d.name,
-      terminal_id: d.device_id,
-      store_id: d.store_id,
-    }));
-    return [...mpList, ...tuuList, ...squareList];
   };
 
   const saveMpPos = async () => {
     if (!mpNewName.trim() || !mpNewToken.trim() || !mpNewTerminalId.trim()) { setMpSaveMsg('Completa todos los campos'); return; }
     setSavingMp(true); setMpSaveMsg('');
     try {
-      const res = await fetch(API + '/api/mercado-pago-terminals', {
+      const res = await fetch(API + '/api/pos-terminals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ name: mpNewName.trim(), mercadopago_access_token: mpNewToken.trim(), mercadopago_terminal_id: mpNewTerminalId.trim(), store_id: selectedStore.id })
+        body: JSON.stringify({ store_id: selectedStore.id, provider: 'mercadopago', name: mpNewName.trim(), api_key: mpNewToken.trim(), device_id: mpNewTerminalId.trim() })
       });
       const data = await res.json();
       if (res.ok) {
@@ -242,13 +219,13 @@ function MercadoPagoPoints() {
     if (!tuuNewName.trim() || !tuuNewSerial.trim()) { setTuuSaveMsg2('Completa todos los campos'); return; }
     setSavingTuu(true); setTuuSaveMsg2('');
     try {
-      const res = await fetch(API + '/api/tuu/devices', {
+      const res = await fetch(API + '/api/pos-terminals', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store_id: selectedStore.id, name: tuuNewName.trim(), serial: tuuNewSerial.trim(), device_id: tuuNewDeviceId.trim(), api_key: tuuNewApiKey.trim(), dte_type: tuuNewDteType })
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ store_id: selectedStore.id, provider: 'tuu', name: tuuNewName.trim(), api_key: tuuNewApiKey.trim(), device_id: tuuNewSerial.trim() })
       });
       const data = await res.json();
-      if (res.ok || data.success) {
+      if (res.ok) {
         setTuuSaveMsg2('✔ Guardado');
         setTuuNewName(''); setTuuNewSerial(''); setTuuNewDeviceId(''); setTuuNewApiKey('');
         refreshAll();
@@ -260,13 +237,7 @@ function MercadoPagoPoints() {
 
   const deletePos = async (pos) => {
     if (!confirm('¿Eliminar este terminal?')) return;
-    if (pos.provider === 'mercadopago') {
-      await fetch(API + '/api/mercado-pago-terminals/' + pos.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
-    } else if (pos.provider === 'tuu') {
-      await fetch(API + '/api/tuu/devices/' + pos.id, { method: 'DELETE' });
-    } else if (pos.provider === 'square') {
-      await fetch(API + '/api/square/devices/' + pos.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
-    }
+    await fetch(API + '/api/pos-terminals/' + pos.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
     refreshAll();
   };
 
@@ -327,10 +298,10 @@ function MercadoPagoPoints() {
     setPluginCountriesMap(loadPluginCountries());
   }, [selectedStore?.id]);
 
-  // Reconstruir la lista unificada cada vez que cambien los datos de algún proveedor
+  // Reconstruir la lista unificada — terminals ya viene de /api/pos-terminals (todos los providers)
   useEffect(() => {
-    setPosList(buildPosList(terminals, tuuPosDevices, tuuAssignments, tuuStoreDevices, squareDevices));
-  }, [terminals, tuuPosDevices, tuuAssignments, tuuStoreDevices, squareDevices]);
+    setPosList(buildPosList(terminals));
+  }, [terminals]);
 
   const fetchWorkshopPlugins = async () => {
     setLoadingWorkshop(true);
@@ -493,11 +464,11 @@ function MercadoPagoPoints() {
           clearInterval(intervalId); setSquarePolling(false);
           setSquarePollMsg('✔ Terminal emparejado. Device ID: ' + data.device_id);
           setSquareStep('paired');
-          // Auto-save device
-          await fetch(API + '/api/square/devices', {
+          // Auto-save device to unified pos_terminals
+          await fetch(API + '/api/pos-terminals', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body: JSON.stringify({ store_id: selectedStore.id, name: squareDeviceName.trim() || 'Square Terminal', device_id: data.device_id, device_code_id: codeId, location_id: squareLocationId })
+            body: JSON.stringify({ store_id: selectedStore.id, provider: 'square', name: squareDeviceName.trim() || 'Square Terminal', api_key: squareAccessToken, device_id: data.device_id })
           });
           fetchSquareData();
           refreshAll();
@@ -856,11 +827,12 @@ function MercadoPagoPoints() {
   const fetchTerminals = async () => {
     try {
       const storeParam = selectedStore?.id ? `?store_id=${selectedStore.id}` : '';
-      const response = await fetch(API + '/api/mercado-pago-terminals' + storeParam, { headers: { Authorization: 'Bearer ' + token } });
+      const response = await fetch(API + '/api/pos-terminals' + storeParam, { headers: { Authorization: 'Bearer ' + token } });
       const data = await response.json();
       const list = Array.isArray(data) ? data : [];
       setTerminals(list);
-      list.forEach(t => fetchDevices(t.id));
+      // Only fetch MP devices for mercadopago terminals
+      list.filter(t => t.provider === 'mercadopago').forEach(t => fetchDevices(t.id));
     } catch { setTerminals([]); }
     finally { setLoading(false); }
   };
@@ -1070,7 +1042,7 @@ function MercadoPagoPoints() {
                     <div style={{ fontSize: '11px', color: '#aaa', fontFamily: 'monospace' }}>
                       {pos.provider === 'tuu' ? `Serial: ${pos.serial || '—'}` : pos.provider === 'mercadopago' ? `ID: ${pos.terminal_id ? pos.terminal_id.slice(0,12) + '…' : '—'}` : pos.terminal_id ? pos.terminal_id.slice(0,14) + '…' : '—'}
                     </div>
-                    {pos.provider === 'mercadopago' && pos.pos_pin && (
+                    {pos.pos_pin && (
                       <div style={{ marginTop: '10px', background: '#f9f6ee', border: '1px solid #e8d99a', borderRadius: '8px', padding: '8px 10px' }}>
                         <div style={{ fontSize: '10px', color: '#9a8000', fontWeight: '700', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PIN de acceso</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

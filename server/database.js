@@ -424,6 +424,24 @@ async function createTables() {
     )
   `);
 
+  // Tabla unificada de terminales POS (todos los proveedores)
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS pos_terminals (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      store_id INT NOT NULL,
+      provider VARCHAR(50) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      api_key VARCHAR(500) NOT NULL DEFAULT '',
+      device_id VARCHAR(200) NOT NULL DEFAULT '',
+      pos_pin VARCHAR(8) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
+  await migrateToUnifiedPos();
   await migrateTables();
 
   console.log('✅ Tablas creadas/verificadas correctamente');
@@ -3272,6 +3290,167 @@ export async function getRecentOrders(storeId, limit = 10) {
 
   const [rows] = await pool.execute(query, [storeId]);
   return rows;
+}
+
+// ============================================================
+// MIGRACIÓN A TABLA UNIFICADA pos_terminals
+// ============================================================
+
+async function migrateToUnifiedPos() {
+  try {
+    // ── Mercado Pago ──
+    const [mpTerminals] = await pool.execute('SELECT * FROM mercado_pago_terminals').catch(() => [[]]);
+    for (const t of mpTerminals) {
+      const [storeRows] = await pool.execute(
+        'SELECT store_id FROM mercadopago_terminal_stores WHERE mercadopago_terminal_id = ? LIMIT 1', [t.id]
+      ).catch(() => [[]]);
+      let storeId = storeRows[0]?.store_id;
+      if (!storeId) {
+        const [s] = await pool.execute('SELECT id FROM stores WHERE user_id = ? LIMIT 1', [t.user_id]).catch(() => [[]]);
+        storeId = s[0]?.id;
+      }
+      if (!storeId) continue;
+      const [ex] = await pool.execute('SELECT id FROM pos_terminals WHERE provider = "mercadopago" AND device_id = ?', [t.mercadopago_terminal_id]);
+      if (ex.length > 0) continue;
+      const pin = t.pos_pin || String(Math.floor(100000 + Math.random() * 900000));
+      await pool.execute(
+        `INSERT INTO pos_terminals (user_id, store_id, provider, name, api_key, device_id, pos_pin) VALUES (?, ?, 'mercadopago', ?, ?, ?, ?)`,
+        [t.user_id, storeId, t.name, t.mercadopago_access_token, t.mercadopago_terminal_id, pin]
+      );
+    }
+
+    // ── TUU ──
+    const [tuuDevices] = await pool.execute('SELECT * FROM tuu_devices').catch(() => [[]]);
+    for (const d of tuuDevices) {
+      const [dpRows] = await pool.execute(
+        'SELECT store_id FROM tuu_device_pos WHERE tuu_device_id = ? LIMIT 1', [d.id]
+      ).catch(() => [[]]);
+      let storeId = dpRows[0]?.store_id;
+      if (!storeId) {
+        const [s] = await pool.execute('SELECT id FROM stores WHERE user_id = ? LIMIT 1', [d.user_id]).catch(() => [[]]);
+        storeId = s[0]?.id;
+      }
+      if (!storeId) continue;
+      const [cfgRows] = await pool.execute('SELECT api_key FROM tuu_config WHERE user_id = ? LIMIT 1', [d.user_id]).catch(() => [[]]);
+      const apiKey = cfgRows[0]?.api_key || '';
+      const serial = d.serial || d.device_id || '';
+      const [ex] = await pool.execute('SELECT id FROM pos_terminals WHERE provider = "tuu" AND device_id = ?', [serial]);
+      if (ex.length > 0) continue;
+      const pin = String(Math.floor(100000 + Math.random() * 900000));
+      await pool.execute(
+        `INSERT INTO pos_terminals (user_id, store_id, provider, name, api_key, device_id, pos_pin) VALUES (?, ?, 'tuu', ?, ?, ?, ?)`,
+        [d.user_id, storeId, d.name, apiKey, serial, pin]
+      );
+    }
+
+    // ── Square ──
+    const [sqDevices] = await pool.execute('SELECT * FROM square_devices').catch(() => [[]]);
+    for (const d of sqDevices) {
+      const [cfgRows] = await pool.execute(
+        'SELECT access_token FROM square_config WHERE user_id = ? AND (store_id = ? OR store_id IS NULL) ORDER BY store_id DESC LIMIT 1',
+        [d.user_id, d.store_id]
+      ).catch(() => [[]]);
+      const apiKey = cfgRows[0]?.access_token || '';
+      const [ex] = await pool.execute('SELECT id FROM pos_terminals WHERE provider = "square" AND device_id = ?', [d.device_id]);
+      if (ex.length > 0) continue;
+      const pin = String(Math.floor(100000 + Math.random() * 900000));
+      await pool.execute(
+        `INSERT INTO pos_terminals (user_id, store_id, provider, name, api_key, device_id, pos_pin) VALUES (?, ?, 'square', ?, ?, ?, ?)`,
+        [d.user_id, d.store_id, d.name, apiKey, d.device_id, pin]
+      );
+    }
+
+    // Auto-PIN para terminales sin PIN
+    const [unpinned] = await pool.execute('SELECT id FROM pos_terminals WHERE pos_pin IS NULL OR pos_pin = ""');
+    for (const row of unpinned) {
+      let pin;
+      let attempts = 0;
+      do {
+        pin = String(Math.floor(100000 + Math.random() * 900000));
+        const [ex2] = await pool.execute('SELECT id FROM pos_terminals WHERE pos_pin = ? AND id != ?', [pin, row.id]);
+        if (ex2.length === 0) break;
+        attempts++;
+      } while (attempts < 10);
+      await pool.execute('UPDATE pos_terminals SET pos_pin = ? WHERE id = ?', [pin, row.id]);
+    }
+
+    console.log('✅ Migración pos_terminals completada');
+  } catch (e) {
+    console.error('⚠️ migrateToUnifiedPos:', e.message);
+  }
+}
+
+// ============================================================
+// CRUD pos_terminals
+// ============================================================
+
+export async function createPosTerminal(data) {
+  const { user_id, store_id, provider, name, api_key, device_id, pos_pin } = data;
+  const [result] = await pool.execute(
+    `INSERT INTO pos_terminals (user_id, store_id, provider, name, api_key, device_id, pos_pin) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [user_id, store_id, provider, name, api_key || '', device_id || '', pos_pin || null]
+  );
+  return { id: result.insertId, user_id, store_id, provider, name, api_key: api_key || '', device_id: device_id || '', pos_pin: pos_pin || null };
+}
+
+export async function getPosTerminals(userId, storeId = null) {
+  if (storeId) {
+    const [rows] = await pool.execute(
+      'SELECT * FROM pos_terminals WHERE user_id = ? AND store_id = ? ORDER BY created_at DESC',
+      [userId, storeId]
+    );
+    return rows;
+  }
+  const [rows] = await pool.execute(
+    'SELECT * FROM pos_terminals WHERE user_id = ? ORDER BY created_at DESC', [userId]
+  );
+  return rows;
+}
+
+export async function getPosTerminalsByStore(storeId) {
+  const [rows] = await pool.execute(
+    'SELECT id, provider, name, device_id, pos_pin FROM pos_terminals WHERE store_id = ? ORDER BY created_at DESC',
+    [storeId]
+  );
+  return rows;
+}
+
+export async function getPosTerminalById(id) {
+  const [rows] = await pool.execute('SELECT * FROM pos_terminals WHERE id = ? LIMIT 1', [id]);
+  return rows[0] || null;
+}
+
+export async function getPosTerminalByPin(pin) {
+  const [rows] = await pool.execute('SELECT * FROM pos_terminals WHERE pos_pin = ? LIMIT 1', [pin]);
+  return rows[0] || null;
+}
+
+export async function getPosTerminalForStore(storeId, terminalId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM pos_terminals WHERE id = ? AND store_id = ? LIMIT 1',
+    [terminalId, storeId]
+  );
+  if (rows.length > 0) return rows[0];
+  const [rows2] = await pool.execute(
+    `SELECT pt.* FROM pos_terminals pt
+     JOIN stores s ON s.user_id = pt.user_id
+     WHERE pt.id = ? AND s.id = ? LIMIT 1`,
+    [terminalId, storeId]
+  );
+  return rows2[0] || null;
+}
+
+export async function updatePosTerminal(id, userId, data) {
+  const { name, api_key, device_id } = data;
+  await pool.execute(
+    'UPDATE pos_terminals SET name = ?, api_key = ?, device_id = ? WHERE id = ? AND user_id = ?',
+    [name, api_key || '', device_id || '', id, userId]
+  );
+  return { id, ...data };
+}
+
+export async function deletePosTerminal(id, userId) {
+  await pool.execute('DELETE FROM pos_terminals WHERE id = ? AND user_id = ?', [id, userId]);
 }
 
 export { pool };

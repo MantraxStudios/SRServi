@@ -90,6 +90,14 @@ import {
   getMercadoPagoTerminalForStore,
   updateMercadoPagoTerminal,
   deleteMercadoPagoTerminal,
+  createPosTerminal,
+  getPosTerminals,
+  getPosTerminalsByStore,
+  getPosTerminalById,
+  getPosTerminalByPin,
+  getPosTerminalForStore,
+  updatePosTerminal,
+  deletePosTerminal,
   authenticateSuperadmin,
   getAllUsers,
   updateUserBySuperadmin,
@@ -4483,20 +4491,23 @@ app.post('/api/mercadopago/print-cash-receipt', async (req, res) => {
       return res.status(400).json({ error: 'store_id, terminal_db_id y content requeridos' });
     }
 
-    const terminal = await getMercadoPagoTerminalForStore(parseInt(store_id), parseInt(terminal_db_id));
-    if (!terminal) {
-      return res.status(404).json({ error: 'Terminal no encontrada para esta tienda' });
+    // Try unified pos_terminals first, then legacy table
+    let apiKey, mpDeviceId;
+    const posTerminal = await getPosTerminalForStore(parseInt(store_id), parseInt(terminal_db_id));
+    if (posTerminal && posTerminal.provider === 'mercadopago') {
+      apiKey = posTerminal.api_key;
+      mpDeviceId = posTerminal.device_id;
+    } else {
+      const legacyTerminal = await getMercadoPagoTerminalForStore(parseInt(store_id), parseInt(terminal_db_id));
+      if (!legacyTerminal) return res.status(404).json({ error: 'Terminal no encontrada para esta tienda' });
+      apiKey = legacyTerminal.mercadopago_access_token;
+      mpDeviceId = legacyTerminal.mercadopago_terminal_id;
     }
 
     const payload = {
       type: 'print',
       external_reference: `cash-${terminal_db_id}-${Date.now()}`,
-      config: {
-        point: {
-          terminal_id: terminal.mercadopago_terminal_id,
-          subtype: 'image'
-        }
-      },
+      config: { point: { terminal_id: mpDeviceId, subtype: 'image' } },
       content
     };
 
@@ -4505,7 +4516,7 @@ app.post('/api/mercadopago/print-cash-receipt', async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'X-Idempotency-Key': `cash-print-${terminal_db_id}-${Date.now()}`,
-        'Authorization': `Bearer ${terminal.mercadopago_access_token}`
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify(payload)
     });
@@ -5407,32 +5418,23 @@ app.get('/api/getCashOrders', async (req, res) => {
     const { pin } = req.query;
     if (!pin) return res.status(400).json({ error: 'PIN requerido' });
 
-    const terminal = await getMercadoPagoTerminalByPin(String(pin).trim());
-    if (!terminal) return res.status(401).json({ error: 'PIN inválido' });
-
-    // Find store associated with this terminal
-    const [storeRows] = await pool.execute(
-      `SELECT s.id, s.name FROM stores s
-       JOIN mercadopago_terminal_stores ms ON ms.store_id = s.id
-       WHERE ms.mercadopago_terminal_id = ?
-       LIMIT 1`,
-      [terminal.id]
-    );
-
+    // Try unified pos_terminals first, then legacy mercado_pago_terminals
+    let terminal = await getPosTerminalByPin(String(pin).trim());
     let storeId;
-    if (storeRows.length > 0) {
-      storeId = storeRows[0].id;
+
+    if (terminal) {
+      storeId = terminal.store_id;
     } else {
-      // Fallback: get store by user_id
-      const [fallbackRows] = await pool.execute(
-        'SELECT id, name FROM stores WHERE user_id = ? LIMIT 1',
-        [terminal.user_id]
+      const legacyTerminal = await getMercadoPagoTerminalByPin(String(pin).trim());
+      if (!legacyTerminal) return res.status(401).json({ error: 'PIN inválido' });
+      terminal = legacyTerminal;
+      const [storeRows] = await pool.execute(
+        'SELECT id FROM stores WHERE user_id = ? LIMIT 1', [terminal.user_id]
       );
-      if (fallbackRows.length === 0) return res.status(404).json({ error: 'Tienda no encontrada' });
-      storeId = fallbackRows[0].id;
+      if (!storeRows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
+      storeId = storeRows[0].id;
     }
 
-    // Get cash orders from last 24 hours
     const [orders] = await pool.execute(
       `SELECT o.id, o.order_number, o.order_type, o.total, o.status, o.cash_approved,
               o.table_number, o.created_at
@@ -5443,7 +5445,6 @@ app.get('/api/getCashOrders', async (req, res) => {
       [storeId]
     );
 
-    // Attach items to each order
     for (const order of orders) {
       const [items] = await pool.execute(
         `SELECT oi.quantity, oi.unit_price,
@@ -5462,6 +5463,65 @@ app.get('/api/getCashOrders', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
+
+// =================== pos_terminals UNIFICADO ===================
+
+app.get('/api/pos-terminals', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id ? parseInt(req.query.store_id) : null;
+    const terminals = await getPosTerminals(req.user.id, storeId);
+    res.json(terminals);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/pos-terminals', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, provider, name, api_key, device_id } = req.body;
+    if (!store_id || !provider || !name) {
+      return res.status(400).json({ error: 'store_id, provider y name son requeridos' });
+    }
+    let pos_pin;
+    let attempts = 0;
+    do {
+      pos_pin = String(Math.floor(100000 + Math.random() * 900000));
+      const existing = await getPosTerminalByPin(pos_pin);
+      if (!existing) break;
+      attempts++;
+    } while (attempts < 10);
+    const terminal = await createPosTerminal({
+      user_id: req.user.id, store_id: parseInt(store_id), provider,
+      name: name.trim(), api_key: api_key || '', device_id: device_id || '', pos_pin
+    });
+    res.json(terminal);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/pos-terminals/:id', authenticateToken, async (req, res) => {
+  try {
+    const { name, api_key, device_id } = req.body;
+    if (!name) return res.status(400).json({ error: 'name requerido' });
+    const result = await updatePosTerminal(parseInt(req.params.id), req.user.id, { name, api_key, device_id });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/pos-terminals/:id', authenticateToken, async (req, res) => {
+  try {
+    await deletePosTerminal(parseInt(req.params.id), req.user.id);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/public/:code/pos-terminals', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const terminals = await getPosTerminalsByStore(store.id);
+    res.json(terminals);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// =================== FIN pos_terminals UNIFICADO ===================
 
 app.get('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
   try {
@@ -6843,6 +6903,14 @@ async function startServer() {
         if (terminal_id) {
           const [rows] = await pool.execute('SELECT * FROM tuu_devices WHERE id = ? AND user_id = ?', [parseInt(terminal_id), userId]);
           device = rows[0] || null;
+          // Fallback: try pos_terminals (new unified table)
+          if (!device) {
+            const posTerm = await getPosTerminalById(parseInt(terminal_id)).catch(() => null);
+            if (posTerm && posTerm.provider === 'tuu') {
+              device = { serial: posTerm.device_id, name: posTerm.name };
+              if (posTerm.api_key) config = { ...config, api_key: posTerm.api_key };
+            }
+          }
         }
         if (!device && device_uid) device = await tuuGetDeviceForUid(device_uid, parseInt(store_id));
         if (!device) device = await tuuGetAnyDeviceForStore(parseInt(store_id));
@@ -7041,6 +7109,14 @@ async function startServer() {
             if (terminal_id) {
               const [sqDevRows] = await pool.execute('SELECT * FROM square_devices WHERE id = ? AND user_id = ?', [parseInt(terminal_id), sqUserId]);
               sqDevice = sqDevRows[0] || null;
+              // Fallback: try pos_terminals (new unified table)
+              if (!sqDevice) {
+                const posTerm = await getPosTerminalById(parseInt(terminal_id)).catch(() => null);
+                if (posTerm && posTerm.provider === 'square') {
+                  sqDevice = { device_id: posTerm.device_id, name: posTerm.name };
+                  if (posTerm.api_key) sqCfg = { ...sqCfg, access_token: posTerm.api_key };
+                }
+              }
             }
             if (!sqDevice) {
               const [sqDevRows] = await pool.execute('SELECT * FROM square_devices WHERE user_id = ? AND store_id = ? ORDER BY created_at DESC LIMIT 1', [sqUserId, parseInt(store_id)]);
