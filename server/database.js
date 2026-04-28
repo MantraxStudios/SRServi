@@ -269,6 +269,22 @@ async function createTables() {
   // Migration: add pos_pin column if not exists
   await pool.execute(`ALTER TABLE mercado_pago_terminals ADD COLUMN IF NOT EXISTS pos_pin VARCHAR(8) NULL`).catch(() => {});
 
+  // Auto-generate PINs for existing terminals that don't have one
+  try {
+    const [unpinned] = await pool.execute('SELECT id FROM mercado_pago_terminals WHERE pos_pin IS NULL OR pos_pin = ""');
+    for (const row of unpinned) {
+      let pin;
+      let attempts = 0;
+      do {
+        pin = String(Math.floor(100000 + Math.random() * 900000));
+        const [existing] = await pool.execute('SELECT id FROM mercado_pago_terminals WHERE pos_pin = ? AND id != ?', [pin, row.id]);
+        if (existing.length === 0) break;
+        attempts++;
+      } while (attempts < 10);
+      await pool.execute('UPDATE mercado_pago_terminals SET pos_pin = ? WHERE id = ?', [pin, row.id]);
+    }
+  } catch { /* silently ignore if column didn't exist yet in first run */ }
+
   const createMpTerminalStoresTable = `
     CREATE TABLE IF NOT EXISTS mercadopago_terminal_stores (
       id INT PRIMARY KEY AUTO_INCREMENT,

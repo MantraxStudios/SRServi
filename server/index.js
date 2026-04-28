@@ -5475,7 +5475,7 @@ app.get('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
       }
       try {
         const [rows] = await pool.execute(
-          `SELECT m.id, m.name, m.mercadopago_terminal_id, m.mercadopago_access_token, m.user_id, m.created_at
+          `SELECT m.id, m.name, m.mercadopago_terminal_id, m.mercadopago_access_token, m.user_id, m.created_at, m.pos_pin
            FROM mercado_pago_terminals m
            JOIN mercadopago_terminal_stores ms ON ms.mercadopago_terminal_id = m.id
            WHERE ms.store_id = ? AND m.user_id = ?`,
