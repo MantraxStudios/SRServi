@@ -6899,7 +6899,7 @@ async function startServer() {
         const { store_id, order_id, amount, description, device_uid, terminal_id } = req.body;
         if (!store_id || !amount) return res.status(400).json({ error: 'store_id y amount requeridos' });
         const userId = await tuuGetUserIdFromStore(parseInt(store_id));
-        const config = await tuuGetConfig(userId);
+        let config = await tuuGetConfig(userId);
         if (!config?.api_key) return res.status(400).json({ error: 'API Key de TUU no configurada. Ve al admin > Vincular POS > TUU.' });
         let device = null;
         if (terminal_id) {

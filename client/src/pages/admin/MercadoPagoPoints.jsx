@@ -1026,10 +1026,10 @@ function MercadoPagoPoints() {
                     onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                   >
                     <button onClick={() => deletePos(pos)}
-                      style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#ddd', fontSize: '14px', padding: '3px 6px', borderRadius: '5px', lineHeight: 1, transition: 'color 0.15s, background 0.15s' }}
-                      onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fff0f0'; }}
-                      onMouseLeave={e => { e.currentTarget.style.color = '#ddd'; e.currentTarget.style.background = 'none'; }}
-                      title="Eliminar">
+                      style={{ position: 'absolute', top: '10px', right: '10px', background: '#fff0f0', border: '1px solid #fdd', cursor: 'pointer', color: '#e57373', fontSize: '12px', padding: '4px 7px', borderRadius: '6px', lineHeight: 1, transition: 'color 0.15s, background 0.15s, border-color 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#c0392b'; e.currentTarget.style.background = '#ffe0e0'; e.currentTarget.style.borderColor = '#f5a0a0'; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = '#e57373'; e.currentTarget.style.background = '#fff0f0'; e.currentTarget.style.borderColor = '#fdd'; }}
+                      title="Eliminar terminal">
                       <FontAwesomeIcon icon={faTrash} style={{ fontSize: '11px' }} />
                     </button>
                     <div style={{ width: '40px', height: '40px', borderRadius: '10px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', background: meta.bg, flexShrink: 0 }}>
