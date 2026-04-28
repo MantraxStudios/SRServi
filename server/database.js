@@ -530,6 +530,10 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE orders ADD COLUMN table_number INT DEFAULT NULL');
         console.log('✅ Columna table_number agregada a orders');
       }
+      if (!orderColumnNames.includes('pos_pin')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN pos_pin VARCHAR(8) DEFAULT NULL');
+        console.log('✅ Columna pos_pin agregada a orders');
+      }
     } catch (orderMigrationError) {
       console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
     }
@@ -2274,9 +2278,17 @@ export async function createOrder(storeId, orderData) {
 
   const store = await getStoreById(storeId);
   const initialStatus = paymentProcess === 1 ? 'preparing' : 'pending';
+
+  // Resolve pos_pin from terminal_id if not provided directly
+  let posPin = orderData.pos_pin || null;
+  if (!posPin && orderData.terminal_id) {
+    const [pinRows] = await pool.execute('SELECT pos_pin FROM pos_terminals WHERE id = ? LIMIT 1', [orderData.terminal_id]).catch(() => [[]]);
+    posPin = pinRows[0]?.pos_pin || null;
+  }
+
   const [result] = await pool.execute(
-    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, payment_process, status, table_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, paymentProcess, initialStatus, table_number || null]
+    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, paymentProcess, initialStatus, table_number || null]
   );
   const orderId = result.insertId;
 

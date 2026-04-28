@@ -5396,16 +5396,16 @@ app.get('/api/getCashOrders', async (req, res) => {
       storeId = storeRows[0].id;
     }
 
-    const terminalId = terminal.id;
+    const pinStr = String(pin).trim();
     const [orders] = await pool.execute(
       `SELECT o.id, o.order_number, o.order_type, o.total, o.status, o.cash_approved,
-              o.table_number, o.terminal_id, o.created_at
+              o.table_number, o.terminal_id, o.pos_pin, o.created_at
        FROM orders o
        WHERE o.store_id = ? AND o.payment_method = 'cash'
-         AND o.terminal_id = ?
+         AND o.pos_pin = ?
          AND o.created_at >= NOW() - INTERVAL 24 HOUR
        ORDER BY o.created_at DESC`,
-      [storeId, terminalId]
+      [storeId, pinStr]
     );
 
     for (const order of orders) {
@@ -5420,7 +5420,7 @@ app.get('/api/getCashOrders', async (req, res) => {
       order.items = items;
     }
 
-    res.json({ store_id: storeId, terminal_id: terminalId, terminal_name: terminal.name, pos_pin: terminal.pos_pin, orders });
+    res.json({ store_id: storeId, terminal_id: terminal.id, terminal_name: terminal.name, pos_pin: pinStr, orders });
   } catch (err) {
     console.error('Error getCashOrders:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
