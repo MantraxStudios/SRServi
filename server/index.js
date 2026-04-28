@@ -883,56 +883,17 @@ app.get('/api/public/pos-devices/:storeCode', async (req, res) => {
     const store = await getStoreByCode((storeCode || '').toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
 
-    let mpLinked = [];
-    try {
-      const [rows] = await pool.execute(
-        `SELECT m.id, m.name, m.mercadopago_terminal_id, 'mercadopago' as provider
-         FROM mercado_pago_terminals m
-         JOIN mercadopago_terminal_stores ms ON ms.mercadopago_terminal_id = m.id
-         WHERE ms.store_id = ?`,
-        [store.id]
-      );
-      mpLinked = rows;
-    } catch (e) {
-      // Fallback: show all user terminals if junction table missing
-      try {
-        const [rows] = await pool.execute('SELECT id, name, mercadopago_terminal_id FROM mercado_pago_terminals WHERE user_id = ?', [store.user_id]);
-        mpLinked = rows;
-      } catch {}
-    }
+    const terminals = await getPosTerminalsByStore(store.id);
+    const formatted = terminals.map(t => ({
+      id: t.id,
+      name: t.name,
+      provider: t.provider,
+      device_id: t.device_id,
+      serial: t.device_id,
+      pos_pin: t.pos_pin
+    }));
 
-    let tuuDevices = [];
-    try {
-      const [tuuRows] = await pool.execute(
-        `SELECT DISTINCT d.id, d.name, d.serial, 'tuu' as provider
-         FROM tuu_devices d
-         JOIN tuu_device_pos dp ON dp.tuu_device_id = d.id
-         WHERE dp.store_id = ?`,
-        [store.id]
-      );
-      tuuDevices = tuuRows;
-    } catch (e) {
-      // Fallback: show all user TUU devices if join table missing
-      try {
-        const [tuuRows] = await pool.execute('SELECT id, name, serial FROM tuu_devices WHERE user_id = ?', [store.user_id]);
-        tuuDevices = tuuRows;
-      } catch {}
-    }
-
-    let squareDevicesList = [];
-    try {
-      const [sqRows] = await pool.execute(
-        `SELECT id, name, device_id FROM square_devices WHERE store_id = ?`,
-        [store.id]
-      );
-      squareDevicesList = sqRows;
-    } catch {}
-
-    const mpFormatted = mpLinked.map(t => ({ id: t.id, name: t.name, device_id: t.mercadopago_terminal_id, provider: 'mercadopago' }));
-    const tuuFormatted = tuuDevices.map(d => ({ id: d.id, name: d.name, serial: d.serial, provider: 'tuu' }));
-    const squareFormatted = squareDevicesList.map(d => ({ id: d.id, name: d.name, device_id: d.device_id, provider: 'square' }));
-
-    res.json([...mpFormatted, ...tuuFormatted, ...squareFormatted]);
+    res.json(formatted);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
