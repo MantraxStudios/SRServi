@@ -6899,24 +6899,43 @@ async function startServer() {
         const { store_id, order_id, amount, description, device_uid, terminal_id } = req.body;
         if (!store_id || !amount) return res.status(400).json({ error: 'store_id y amount requeridos' });
         const userId = await tuuGetUserIdFromStore(parseInt(store_id));
-        let config = await tuuGetConfig(userId);
-        if (!config?.api_key) return res.status(400).json({ error: 'API Key de TUU no configurada. Ve al admin > Vincular POS > TUU.' });
+
+        let apiKey = null;
+        let dteType = 0;
         let device = null;
+
+        // 1. Buscar terminal por ID en pos_terminals (fuente principal)
         if (terminal_id) {
-          const [rows] = await pool.execute('SELECT * FROM tuu_devices WHERE id = ? AND user_id = ?', [parseInt(terminal_id), userId]);
-          device = rows[0] || null;
-          // Fallback: try pos_terminals (new unified table)
-          if (!device) {
-            const posTerm = await getPosTerminalById(parseInt(terminal_id)).catch(() => null);
-            if (posTerm && posTerm.provider === 'tuu') {
-              device = { serial: posTerm.device_id, name: posTerm.name };
-              if (posTerm.api_key) config = { ...config, api_key: posTerm.api_key };
-            }
+          const posTerm = await getPosTerminalById(parseInt(terminal_id)).catch(() => null);
+          if (posTerm && posTerm.provider === 'tuu') {
+            apiKey = posTerm.api_key || null;
+            device = { serial: posTerm.device_id, name: posTerm.name };
+            console.log(`[tuu/charge] pos_terminals → serial="${device.serial}" apiKey="${apiKey ? apiKey.slice(0,8) + '…' : 'VACÍO'}"`);
+          } else {
+            // fallback legacy: tuu_devices
+            const [rows] = await pool.execute('SELECT * FROM tuu_devices WHERE id = ? AND user_id = ?', [parseInt(terminal_id), userId]);
+            if (rows[0]) device = rows[0];
           }
         }
+
+        // 2. Si no hay device aún, buscar por device_uid o cualquiera de la tienda
         if (!device && device_uid) device = await tuuGetDeviceForUid(device_uid, parseInt(store_id));
         if (!device) device = await tuuGetAnyDeviceForStore(parseInt(store_id));
         if (!device) return res.status(400).json({ error: 'No hay POS TUU configurado. Ve al admin > Vincular POS.' });
+
+        // 3. Si no se obtuvo apiKey desde pos_terminals, usar tuu_config como fallback
+        if (!apiKey) {
+          const config = await tuuGetConfig(userId);
+          apiKey = config?.api_key || null;
+          dteType = config?.dte_type || 0;
+          console.log(`[tuu/charge] tuu_config fallback → apiKey="${apiKey ? apiKey.slice(0,8) + '…' : 'VACÍO'}"`);
+        } else {
+          const config = await tuuGetConfig(userId);
+          dteType = config?.dte_type || 0;
+        }
+
+        if (!apiKey) return res.status(400).json({ error: 'API Key de TUU no configurada. Ve al admin > Vincular POS > TUU.' });
+        console.log(`[tuu/charge] enviando → serial="${device.serial}" amount=${amount}`);
         let orderNumber = null;
         if (order_id) {
           const [orRows] = await pool.execute('SELECT order_number, store_id FROM orders WHERE id = ?', [order_id]).catch(() => [[]]);
@@ -6941,12 +6960,12 @@ async function startServer() {
             orderNumber = orderNum;
           }
         }
-        const payment = await tuuCreatePayment(config.api_key, amount, device.serial, description || '', config.dte_type, orderNumber);
+        const payment = await tuuCreatePayment(apiKey, amount, device.serial, description || '', dteType, orderNumber);
         await pool.execute(
           'INSERT INTO tuu_transactions (store_id, order_id, idempotency_key, amount, status, device_serial) VALUES (?, ?, ?, ?, ?, ?)',
           [parseInt(store_id), order_id || null, payment.idempotencyKey, Math.round(amount), 'Pending', device.serial]
         );
-        tuuStartPolling(config.api_key, payment.idempotencyKey, parseInt(store_id), order_id);
+        tuuStartPolling(apiKey, payment.idempotencyKey, parseInt(store_id), order_id);
         res.json({ success: true, paymentKey: payment.idempotencyKey, status: payment.status, deviceName: device.name });
       } catch (e) {
         console.error('[tuu/charge]', e.message);
