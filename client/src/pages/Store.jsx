@@ -1767,6 +1767,85 @@ function Store() {
         setLastOrderNumber(order.order_number);
         setCashPaymentSuccess(true);
         setPaymentModalOpen(false);
+
+        // Si hay terminal MP activa, enviar print al POS después de 3 segundos
+        const mpTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
+        const mpTerminalDbId = selectedTerminalId;
+        if (mpTerminalProvider === 'mercadopago' && mpTerminalDbId) {
+          const cartSnapshot = [...cart];
+          const snapStoreName = store?.store?.name || 'Tienda';
+          const snapOrderNumber = order.order_number;
+          const snapTotal = finalTotal;
+          const snapStoreId = storeId;
+          setTimeout(() => {
+            const W = 384;
+            const lineH = 30;
+            const pad = 16;
+            const H = 240 + cartSnapshot.length * lineH + 120;
+            const canvas = document.createElement('canvas');
+            canvas.width = W;
+            canvas.height = H;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 22px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(snapStoreName, W / 2, 40);
+
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(pad, 54); ctx.lineTo(W - pad, 54); ctx.stroke();
+
+            ctx.font = 'bold 34px Arial';
+            ctx.fillText(`Pedido #${snapOrderNumber}`, W / 2, 92);
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('es-AR') + '  ' + now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+            ctx.font = '16px Arial';
+            ctx.fillText(dateStr, W / 2, 118);
+
+            ctx.beginPath(); ctx.moveTo(pad, 132); ctx.lineTo(W - pad, 132); ctx.stroke();
+
+            let y = 160;
+            ctx.font = '16px Arial';
+            for (const item of cartSnapshot) {
+              const itemName = item.product_name || item.name || `Producto ${item.product_id}`;
+              ctx.textAlign = 'left';
+              ctx.fillText(`${item.quantity}x ${itemName}`, pad, y);
+              ctx.textAlign = 'right';
+              ctx.fillText(`$${Number(item.unit_price * item.quantity).toFixed(0)}`, W - pad, y);
+              y += lineH;
+            }
+
+            ctx.beginPath(); ctx.moveTo(pad, y + 4); ctx.lineTo(W - pad, y + 4); ctx.stroke();
+            y += 28;
+
+            ctx.font = 'bold 22px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('TOTAL', pad, y);
+            ctx.textAlign = 'right';
+            ctx.fillText(`$${Number(snapTotal).toFixed(0)}`, W - pad, y);
+            y += 44;
+
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('*** PAGAR EN EFECTIVO ***', W / 2, y);
+            y += 28;
+            ctx.font = '16px Arial';
+            ctx.fillText('Acércate a la caja para pagar', W / 2, y);
+
+            const base64 = canvas.toDataURL('image/png').replace('data:image/png;base64,', '');
+            fetch('/api/mercadopago/print-cash-receipt', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ store_id: snapStoreId, terminal_db_id: parseInt(mpTerminalDbId), content: base64 })
+            }).catch(err => console.error('[MP Print] Error al enviar print de efectivo:', err));
+          }, 3000);
+        }
+
         setCart([]);
         setCartOpen(false);
       }

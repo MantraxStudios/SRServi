@@ -86,6 +86,7 @@ import {
   getMercadoPagoTerminals,
   getMercadoPagoTerminalsByStore,
   getMercadoPagoTerminalById,
+  getMercadoPagoTerminalForStore,
   updateMercadoPagoTerminal,
   deleteMercadoPagoTerminal,
   authenticateSuperadmin,
@@ -4471,6 +4472,53 @@ app.post('/api/orders/process-payment', async (req, res) => {
       'Cupón'
     ].some(text => String(error.message || '').includes(text));
     res.status(isValidationError ? 400 : 500).json({ error: error.message });
+  }
+});
+
+app.post('/api/mercadopago/print-cash-receipt', async (req, res) => {
+  try {
+    const { store_id, terminal_db_id, content } = req.body;
+    if (!store_id || !terminal_db_id || !content) {
+      return res.status(400).json({ error: 'store_id, terminal_db_id y content requeridos' });
+    }
+
+    const terminal = await getMercadoPagoTerminalForStore(parseInt(store_id), parseInt(terminal_db_id));
+    if (!terminal) {
+      return res.status(404).json({ error: 'Terminal no encontrada para esta tienda' });
+    }
+
+    const payload = {
+      type: 'print',
+      external_reference: `cash-${terminal_db_id}-${Date.now()}`,
+      config: {
+        point: {
+          terminal_id: terminal.mercadopago_terminal_id,
+          subtype: 'image'
+        }
+      },
+      content
+    };
+
+    const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/actions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': `cash-print-${terminal_db_id}-${Date.now()}`,
+        'Authorization': `Bearer ${terminal.mercadopago_access_token}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const mpData = await mpRes.json();
+    if (!mpRes.ok) {
+      console.error('MP print-cash-receipt error:', mpData);
+      return res.status(mpRes.status).json({ error: mpData.message || 'Error al imprimir en terminal', details: mpData });
+    }
+
+    return res.json({ success: true, data: mpData });
+  } catch (err) {
+    console.error('Error print-cash-receipt:', err);
+    return res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
