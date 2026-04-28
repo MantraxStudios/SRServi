@@ -266,6 +266,9 @@ async function createTables() {
   
   await pool.execute(createMercadoPagoTerminalsTable);
 
+  // Migration: add pos_pin column if not exists
+  await pool.execute(`ALTER TABLE mercado_pago_terminals ADD COLUMN IF NOT EXISTS pos_pin VARCHAR(8) NULL`).catch(() => {});
+
   const createMpTerminalStoresTable = `
     CREATE TABLE IF NOT EXISTS mercadopago_terminal_stores (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -2531,21 +2534,30 @@ export async function getWorkerOrders(storeId) {
 }
 
 export async function createMercadoPagoTerminal(userId, data) {
-  const { name, mercadopago_access_token, mercadopago_terminal_id } = data;
-  
+  const { name, mercadopago_access_token, mercadopago_terminal_id, pos_pin } = data;
+
   const [result] = await pool.execute(
-    `INSERT INTO mercado_pago_terminals (user_id, name, mercadopago_access_token, mercadopago_terminal_id) 
-     VALUES (?, ?, ?, ?)`,
-    [userId, name, mercadopago_access_token, mercadopago_terminal_id]
+    `INSERT INTO mercado_pago_terminals (user_id, name, mercadopago_access_token, mercadopago_terminal_id, pos_pin)
+     VALUES (?, ?, ?, ?, ?)`,
+    [userId, name, mercadopago_access_token, mercadopago_terminal_id, pos_pin || null]
   );
-  
+
   return {
     id: result.insertId,
     user_id: userId,
     name,
     mercadopago_access_token,
-    mercadopago_terminal_id
+    mercadopago_terminal_id,
+    pos_pin: pos_pin || null
   };
+}
+
+export async function getMercadoPagoTerminalByPin(pin) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM mercado_pago_terminals WHERE pos_pin = ? LIMIT 1',
+    [pin]
+  );
+  return rows.length > 0 ? rows[0] : null;
 }
 
 export async function getMercadoPagoTerminals(userId) {

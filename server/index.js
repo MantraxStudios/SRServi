@@ -86,6 +86,7 @@ import {
   getMercadoPagoTerminals,
   getMercadoPagoTerminalsByStore,
   getMercadoPagoTerminalById,
+  getMercadoPagoTerminalByPin,
   getMercadoPagoTerminalForStore,
   updateMercadoPagoTerminal,
   deleteMercadoPagoTerminal,
@@ -5400,6 +5401,68 @@ app.post('/api/worker-tasks/:taskId/complete', authenticateToken, async (req, re
 
 // =================== FIN TAREAS ===================
 
+// Public endpoint: get cash orders by POS PIN (for Android apps)
+app.get('/api/getCashOrders', async (req, res) => {
+  try {
+    const { pin } = req.query;
+    if (!pin) return res.status(400).json({ error: 'PIN requerido' });
+
+    const terminal = await getMercadoPagoTerminalByPin(String(pin).trim());
+    if (!terminal) return res.status(401).json({ error: 'PIN inválido' });
+
+    // Find store associated with this terminal
+    const [storeRows] = await pool.execute(
+      `SELECT s.id, s.name FROM stores s
+       JOIN mercadopago_terminal_stores ms ON ms.store_id = s.id
+       WHERE ms.mercadopago_terminal_id = ?
+       LIMIT 1`,
+      [terminal.id]
+    );
+
+    let storeId;
+    if (storeRows.length > 0) {
+      storeId = storeRows[0].id;
+    } else {
+      // Fallback: get store by user_id
+      const [fallbackRows] = await pool.execute(
+        'SELECT id, name FROM stores WHERE user_id = ? LIMIT 1',
+        [terminal.user_id]
+      );
+      if (fallbackRows.length === 0) return res.status(404).json({ error: 'Tienda no encontrada' });
+      storeId = fallbackRows[0].id;
+    }
+
+    // Get cash orders from last 24 hours
+    const [orders] = await pool.execute(
+      `SELECT o.id, o.order_number, o.order_type, o.total, o.status, o.cash_approved,
+              o.table_number, o.created_at
+       FROM orders o
+       WHERE o.store_id = ? AND o.payment_method = 'cash'
+         AND o.created_at >= NOW() - INTERVAL 24 HOUR
+       ORDER BY o.created_at DESC`,
+      [storeId]
+    );
+
+    // Attach items to each order
+    for (const order of orders) {
+      const [items] = await pool.execute(
+        `SELECT oi.quantity, oi.unit_price,
+                COALESCE(p.name, 'Producto eliminado') AS product_name
+         FROM order_items oi
+         LEFT JOIN products p ON oi.product_id = p.id
+         WHERE oi.order_id = ?`,
+        [order.id]
+      );
+      order.items = items;
+    }
+
+    res.json({ store_id: storeId, terminal_name: terminal.name, orders });
+  } catch (err) {
+    console.error('Error getCashOrders:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 app.get('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id ? parseInt(req.query.store_id) : null;
@@ -5434,15 +5497,26 @@ app.get('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
 app.post('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
   try {
     const { name, mercadopago_access_token, mercadopago_terminal_id, store_id } = req.body;
-    
+
     if (!name || !mercadopago_access_token || !mercadopago_terminal_id) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
-    
+
+    // Generate unique 6-digit PIN
+    let pos_pin;
+    let attempts = 0;
+    do {
+      pos_pin = String(Math.floor(100000 + Math.random() * 900000));
+      const existing = await getMercadoPagoTerminalByPin(pos_pin);
+      if (!existing) break;
+      attempts++;
+    } while (attempts < 10);
+
     const terminal = await createMercadoPagoTerminal(req.user.id, {
       name,
       mercadopago_access_token,
-      mercadopago_terminal_id
+      mercadopago_terminal_id,
+      pos_pin
     });
 
     if (store_id) {
@@ -5451,7 +5525,7 @@ app.post('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
         [terminal.id, store_id]
       );
     }
-    
+
     res.json(terminal);
   } catch (error) {
     res.status(500).json({ error: error.message });

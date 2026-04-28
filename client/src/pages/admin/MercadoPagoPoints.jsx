@@ -189,6 +189,7 @@ function MercadoPagoPoints() {
       name: t.name,
       terminal_id: t.mercadopago_terminal_id,
       store_id: t.store_id,
+      pos_pin: t.pos_pin || null,
     }));
     const assignments = Array.isArray(tuuAssignments) ? tuuAssignments : [];
     const tuuList = (Array.isArray(tuuDevices) ? tuuDevices : [])
@@ -1069,6 +1070,20 @@ function MercadoPagoPoints() {
                     <div style={{ fontSize: '11px', color: '#aaa', fontFamily: 'monospace' }}>
                       {pos.provider === 'tuu' ? `Serial: ${pos.serial || '—'}` : pos.provider === 'mercadopago' ? `ID: ${pos.terminal_id ? pos.terminal_id.slice(0,12) + '…' : '—'}` : pos.terminal_id ? pos.terminal_id.slice(0,14) + '…' : '—'}
                     </div>
+                    {pos.provider === 'mercadopago' && pos.pos_pin && (
+                      <div style={{ marginTop: '10px', background: '#f9f6ee', border: '1px solid #e8d99a', borderRadius: '8px', padding: '8px 10px' }}>
+                        <div style={{ fontSize: '10px', color: '#9a8000', fontWeight: '700', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PIN de acceso</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: '800', color: '#5a4500', letterSpacing: '0.15em' }}>{pos.pos_pin}</span>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(pos.pos_pin); }}
+                            title="Copiar PIN"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9a8000', padding: '2px 4px', fontSize: '13px', lineHeight: 1 }}
+                          >📋</button>
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#aaa', marginTop: '3px' }}>Usa este PIN en la app Android para ver pedidos en efectivo</div>
+                      </div>
+                    )}
                     {pos.device_uid && (
                       <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: pos.assigned ? '#22c55e' : '#fbbf24', flexShrink: 0 }} />
