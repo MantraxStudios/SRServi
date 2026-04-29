@@ -6655,7 +6655,7 @@ async function startServer() {
       return rows[0] || null;
     }
 
-    async function tuuCreatePayment(apiKey, amount, deviceSerial, description, dteType, orderNumber, tableNumber) {
+    async function tuuCreatePayment(apiKey, amount, deviceSerial, description, dteType, orderNumber, tableNumber, tipAmount, tipPercent) {
       const idempotencyKey = crypto.randomUUID();
       const extraData = {
         sourceName: 'SRServi',
@@ -6664,6 +6664,7 @@ async function startServer() {
       const customFields = [];
       if (orderNumber) customFields.push({ name: 'ORDEN:', value: String(orderNumber), print: true });
       if (tableNumber) customFields.push({ name: 'MESA:', value: String(tableNumber), print: true });
+      if (tipAmount > 0) customFields.push({ name: 'PROPINA:', value: `$${Math.round(tipAmount)}${tipPercent ? ` (${tipPercent}%)` : ''}`, print: true });
       if (customFields.length > 0) extraData.customFields = customFields;
       const response = await fetch(`${TUU_API}/Create`, {
         method: 'POST',
@@ -6866,7 +6867,7 @@ async function startServer() {
 
     app.post('/api/tuu/charge', async (req, res) => {
       try {
-        const { store_id, order_id, amount, description, device_uid, terminal_id } = req.body;
+        const { store_id, order_id, amount, description, device_uid, terminal_id, tip_amount, tip_percent } = req.body;
         if (!store_id || !amount) return res.status(400).json({ error: 'store_id y amount requeridos' });
         const userId = await tuuGetUserIdFromStore(parseInt(store_id));
 
@@ -6930,7 +6931,7 @@ async function startServer() {
             orderNumber = orderNum;
           }
         }
-        const payment = await tuuCreatePayment(apiKey, amount, device.serial, description || '', dteType, orderNumber, tableNumber);
+        const payment = await tuuCreatePayment(apiKey, amount, device.serial, description || '', dteType, orderNumber, tableNumber, tip_amount || 0, tip_percent || 0);
         await pool.execute(
           'INSERT INTO tuu_transactions (store_id, order_id, idempotency_key, amount, status, device_serial) VALUES (?, ?, ?, ?, ?, ?)',
           [parseInt(store_id), order_id || null, payment.idempotencyKey, Math.round(amount), 'Pending', device.serial]

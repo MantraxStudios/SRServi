@@ -1580,7 +1580,9 @@ function Store() {
             amount: Math.round(Number(finalTotal)),
             description: `Pedido #${order.order_number || order.id}`,
             device_uid: tuuProvider?.deviceUid || deviceUid,
-            terminal_id: localStorage.getItem('srservi_last_terminal_id') || null
+            terminal_id: localStorage.getItem('srservi_last_terminal_id') || null,
+            tip_amount: Math.round(getTipAmount()),
+            tip_percent: tipPercent
           })
         });
         const chargeData = await chargeRes.json();
@@ -1771,12 +1773,16 @@ function Store() {
           const snapStoreName = store?.store?.name || 'Tienda';
           const snapOrderNumber = order.order_number;
           const snapTotal = finalTotal;
+          const snapTipAmount = getTipAmount();
+          const snapSubtotal = getCartSubtotal();
+          const snapTipPercent = tipPercent;
           const snapStoreId = storeId;
           setTimeout(() => {
             const W = 384;
             const lineH = 30;
             const pad = 16;
-            const H = 240 + cartSnapshot.length * lineH + 120;
+            const tipLines = snapTipAmount > 0 ? 2 : 0;
+            const H = 240 + cartSnapshot.length * lineH + 120 + tipLines * lineH;
             const canvas = document.createElement('canvas');
             canvas.width = W;
             canvas.height = H;
@@ -1818,6 +1824,19 @@ function Store() {
             ctx.beginPath(); ctx.moveTo(pad, y + 4); ctx.lineTo(W - pad, y + 4); ctx.stroke();
             y += 28;
 
+            if (snapTipAmount > 0) {
+              ctx.font = '18px Arial';
+              ctx.textAlign = 'left';
+              ctx.fillText('Subtotal', pad, y);
+              ctx.textAlign = 'right';
+              ctx.fillText(`$${Number(snapSubtotal).toFixed(0)}`, W - pad, y);
+              y += lineH;
+              ctx.textAlign = 'left';
+              ctx.fillText(`Propina (${snapTipPercent}%)`, pad, y);
+              ctx.textAlign = 'right';
+              ctx.fillText(`$${Number(snapTipAmount).toFixed(0)}`, W - pad, y);
+              y += lineH;
+            }
             ctx.font = 'bold 22px Arial';
             ctx.textAlign = 'left';
             ctx.fillText('TOTAL', pad, y);
