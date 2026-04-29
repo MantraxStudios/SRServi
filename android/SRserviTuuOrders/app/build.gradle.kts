@@ -56,4 +56,5 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation(files("libs/com.pos.sdk-print.jar"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

@@ -4356,14 +4356,16 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number, custom_total, terminal_id } = req.body;
+    const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number, custom_total, total, terminal_id } = req.body;
 
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
     }
 
-    console.log('Creating order:', { store_id, order_type, payment_method, items, from_worker, delivery, table_number, terminal_id });
-    const order = await createOrder(parseInt(store_id), { order_type, payment_method, items, coupon_code, from_worker, delivery, table_number, custom_total, terminal_id: terminal_id ? parseInt(terminal_id) : null });
+    // custom_total overrides computed total; fallback to `total` sent by client (includes tip)
+    const resolvedTotal = custom_total ?? total ?? null;
+    console.log('Creating order:', { store_id, order_type, payment_method, table_number, terminal_id, resolvedTotal });
+    const order = await createOrder(parseInt(store_id), { order_type, payment_method, items, coupon_code, from_worker, delivery, table_number, custom_total: resolvedTotal, terminal_id: terminal_id ? parseInt(terminal_id) : null });
 
     const socketId = userSockets.get(parseInt(store_id));
     if (socketId) {
@@ -5410,14 +5412,22 @@ app.get('/api/getCashOrders', async (req, res) => {
 
     for (const order of orders) {
       const [items] = await pool.execute(
-        `SELECT oi.quantity, oi.unit_price,
+        `SELECT oi.id, oi.quantity, oi.unit_price,
+                oi.selected_extras, oi.selected_ingredients,
                 COALESCE(p.name, 'Producto eliminado') AS product_name
          FROM order_items oi
          LEFT JOIN products p ON oi.product_id = p.id
          WHERE oi.order_id = ?`,
         [order.id]
       );
-      order.items = items;
+      order.items = items.map(item => ({
+        ...item,
+        selected_extras: (() => { try { return JSON.parse(item.selected_extras || '[]'); } catch { return []; } })(),
+        selected_ingredients: (() => { try { return JSON.parse(item.selected_ingredients || '[]'); } catch { return []; } })()
+      }));
+      order.display_number = order.order_number
+        ? (order.table_number ? `${order.order_number} (Mesa: ${order.table_number})` : order.order_number)
+        : (order.table_number ? `Mesa: ${order.table_number}` : `#${order.id}`);
     }
 
     res.json({ store_id: storeId, terminal_id: terminal.id, terminal_name: terminal.name, pos_pin: pinStr, orders });
@@ -6645,17 +6655,16 @@ async function startServer() {
       return rows[0] || null;
     }
 
-    async function tuuCreatePayment(apiKey, amount, deviceSerial, description, dteType, orderNumber) {
+    async function tuuCreatePayment(apiKey, amount, deviceSerial, description, dteType, orderNumber, tableNumber) {
       const idempotencyKey = crypto.randomUUID();
       const extraData = {
         sourceName: 'SRServi',
         sourceVersion: '1.1.0'
       };
-      if (orderNumber) {
-        extraData.customFields = [
-          { name: 'ORDEN:', value: String(orderNumber), print: true }
-        ];
-      }
+      const customFields = [];
+      if (orderNumber) customFields.push({ name: 'ORDEN:', value: String(orderNumber), print: true });
+      if (tableNumber) customFields.push({ name: 'MESA:', value: String(tableNumber), print: true });
+      if (customFields.length > 0) extraData.customFields = customFields;
       const response = await fetch(`${TUU_API}/Create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
@@ -6898,11 +6907,11 @@ async function startServer() {
         if (!apiKey) return res.status(400).json({ error: 'API Key de TUU no configurada. Ve al admin > Vincular POS > TUU.' });
         console.log(`[tuu/charge] enviando → serial="${device.serial}" amount=${amount}`);
         let orderNumber = null;
+        let tableNumber = null;
         if (order_id) {
-          const [orRows] = await pool.execute('SELECT order_number, store_id FROM orders WHERE id = ?', [order_id]).catch(() => [[]]);
+          const [orRows] = await pool.execute('SELECT order_number, store_id, table_number FROM orders WHERE id = ?', [order_id]).catch(() => [[]]);
           orderNumber = orRows[0]?.order_number || null;
-          // Si la orden aún no tiene order_number, generarlo y asignarlo ahora
-          // para que quede impreso en la boleta TUU
+          tableNumber = orRows[0]?.table_number || null;
           if (orRows[0] && !orderNumber) {
             const orderStoreId = orRows[0].store_id || store_id;
             const [usedRows] = await pool.execute(
@@ -6921,7 +6930,7 @@ async function startServer() {
             orderNumber = orderNum;
           }
         }
-        const payment = await tuuCreatePayment(apiKey, amount, device.serial, description || '', dteType, orderNumber);
+        const payment = await tuuCreatePayment(apiKey, amount, device.serial, description || '', dteType, orderNumber, tableNumber);
         await pool.execute(
           'INSERT INTO tuu_transactions (store_id, order_id, idempotency_key, amount, status, device_serial) VALUES (?, ?, ?, ?, ?, ?)',
           [parseInt(store_id), order_id || null, payment.idempotencyKey, Math.round(amount), 'Pending', device.serial]
