@@ -1609,14 +1609,14 @@ function Store() {
         const order = await orderRes.json();
         setPendingOrderData({ order, storeId });
 
-        const chargeRes = await fetch('/api/plugins/payments/charge', {
+        const chargeRes = await fetch(API + '/api/plugins/payments/charge', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             store_id: storeId, order_id: order.id,
             amount: Math.round(Number(finalTotal)),
             description: `Pedido #${order.order_number || order.id}`,
-            terminal_id: parseInt(localStorage.getItem('srservi_last_terminal_id')) || null,
+            terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
             terminal_provider: 'square'
           })
         });

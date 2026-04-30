@@ -60,8 +60,10 @@ class PluginManager {
     // native integrations in index.js can take over.
     app.post('/api/plugins/payments/charge', async (req, res, next) => {
       try {
-        const { store_id, order_id, amount, description } = req.body;
+        const { store_id, order_id, amount, description, terminal_provider } = req.body;
         if (!store_id || !amount) return next();
+        // Native providers (square, tuu-native) bypass plugin lookup
+        if (terminal_provider === 'square' || terminal_provider === 'tuu-native') return next();
 
         // Find available provider
         let activeProvider = null;

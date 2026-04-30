@@ -7053,8 +7053,10 @@ async function startServer() {
     app.post('/api/plugins/payments/charge', async (req, res) => {
       try {
         const { store_id, order_id, amount, description, device_uid, terminal_id, terminal_provider } = req.body;
-        console.log('[charge] store_id:', store_id, 'terminal_id:', terminal_id, 'terminal_provider:', terminal_provider, 'device_uid:', device_uid);
-        if (!store_id || !amount) return res.status(400).json({ error: 'store_id y amount requeridos' });
+        console.log('[charge] body:', JSON.stringify({ store_id, amount, terminal_id, terminal_provider, device_uid }));
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        if (amount === undefined || amount === null || amount === '') return res.status(400).json({ error: 'amount requerido' });
+        if (Number(amount) === 0) return res.status(400).json({ error: 'El monto no puede ser cero' });
         let userId;
         try {
           userId = await tuuGetUserIdFromStore(parseInt(store_id));
