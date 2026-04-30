@@ -394,7 +394,6 @@ function MercadoPagoPoints() {
 
   const squareSaveConfig = async () => {
     if (!squareAccessToken.trim()) { setSquareError('Ingresa el Access Token'); return; }
-    if (!squareLocationId.trim()) { setSquareError('Ingresa el Location ID'); return; }
     setSquareSavingCfg(true); setSquareError('');
     try {
       const res = await fetch(API + '/api/square/config', {
