@@ -394,6 +394,7 @@ function MercadoPagoPoints() {
 
   const squareSaveConfig = async () => {
     if (!squareAccessToken.trim()) { setSquareError('Ingresa el Access Token'); return; }
+    if (!squareLocationId.trim()) { setSquareError('Ingresa el Location ID'); return; }
     setSquareSavingCfg(true); setSquareError('');
     try {
       const res = await fetch(API + '/api/square/config', {
@@ -401,7 +402,7 @@ function MercadoPagoPoints() {
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ access_token: squareAccessToken.trim(), location_id: squareLocationId.trim(), store_id: selectedStore?.id || null })
       });
-      if (res.ok) { setSquareCfgSaved(true); setSquareStep('code'); setSquareError(''); }
+      if (res.ok) { setSquareCfgSaved(true); setSquareError(''); }
       else { const d = await res.json(); setSquareError(d.error || 'Error al guardar'); }
     } catch { setSquareError('Error de conexión'); }
     setSquareSavingCfg(false);
@@ -1361,104 +1362,136 @@ function MercadoPagoPoints() {
 
                 {posTab === 2 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {/* Step 1: Config */}
-                    <div style={{ border: `1.5px solid ${squareStep === 'config' ? '#3b82f6' : '#ebebeb'}`, borderRadius: '11px', overflow: 'hidden', opacity: 1 }}>
-                      <div style={{ padding: '12px 14px', background: squareStep === 'config' ? '#eff6ff' : '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setSquareStep('config')}>
-                        <span style={{ fontSize: '13px', fontWeight: '700', color: squareStep === 'config' ? '#1d4ed8' : '#555' }}>① Credenciales Square</span>
-                        {squareCfgSaved && <span style={{ fontSize: '10px', color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '20px', fontWeight: '700' }}>✔ Guardado</span>}
-                      </div>
-                      {squareStep === 'config' && (
-                        <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #e5e7eb' }}>
-                          <div>
-                            <label style={labelStyle}>Access Token de Square</label>
-                            <input value={squareAccessToken} onChange={e => setSquareAccessToken(e.target.value)} placeholder="EAAl..."
-                              style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
-                              onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
-                            />
-                            <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#aaa' }}>En <a href="https://developer.squareup.com" target="_blank" rel="noreferrer" style={{ color: '#3b82f6', fontWeight: '600', textDecoration: 'none' }}>developer.squareup.com</a> → tu app → Credentials</p>
-                          </div>
-                          <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                              <label style={{ ...labelStyle, margin: 0 }}>Location ID</label>
-                              <button onClick={squareFetchLocations} disabled={squareLoadingLocs || !squareAccessToken.trim()}
-                                style={{ fontSize: '11px', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: '600' }}>
-                                {squareLoadingLocs ? '⏳ Cargando…' : '🔍 Buscar ubicaciones'}
-                              </button>
-                            </div>
-                            {squareLocations.length > 0 ? (
-                              <select value={squareLocationId} onChange={e => setSquareLocationId(e.target.value)} style={{ ...inputStyle }}>
-                                <option value="">— Selecciona una ubicación —</option>
-                                {squareLocations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.id})</option>)}
-                              </select>
-                            ) : (
-                              <input value={squareLocationId} onChange={e => setSquareLocationId(e.target.value)} placeholder="Ej: LAR6T2M15K5BQ"
-                                style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
-                                onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
-                              />
-                            )}
-                          </div>
-                          <button onClick={async () => { await squareSaveConfig(); if (!squareError) setSquareStep('code'); }}
-                            disabled={squareSavingCfg || !squareAccessToken.trim() || !squareLocationId.trim()}
-                            style={{ width: '100%', padding: '11px', background: squareSavingCfg || !squareAccessToken.trim() || !squareLocationId.trim() ? '#f0f0f0' : '#3b82f6', color: squareSavingCfg || !squareAccessToken.trim() || !squareLocationId.trim() ? '#bbb' : '#fff', border: 'none', borderRadius: '9px', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
-                            {squareSavingCfg ? '⏳ Guardando…' : 'Guardar y continuar →'}
-                          </button>
-                        </div>
-                      )}
+
+                    {/* Instrucciones */}
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '11px 13px', fontSize: '12px', color: '#1e40af', lineHeight: '1.6' }}>
+                      <strong>¿Cómo configurar?</strong><br />
+                      1. Ve a <a href="https://developer.squareup.com/console/en/apps" target="_blank" rel="noreferrer" style={{ color: '#1d4ed8', fontWeight: '700' }}>developer.squareup.com/console/en/apps</a> → tu app → <strong>Credentials</strong> y copia el <strong>Access Token</strong>.<br />
+                      2. En la misma app ve a <strong>Locations</strong> o usa el botón "Buscar ubicaciones" para obtener el <strong>Location ID</strong>.<br />
+                      3. Llena los campos y presiona <strong>Guardar y generar código</strong> — el terminal recibirá la solicitud automáticamente.
                     </div>
 
-                    {/* Step 2: Generate code */}
-                    <div style={{ border: `1.5px solid ${squareStep === 'code' ? '#3b82f6' : '#ebebeb'}`, borderRadius: '11px', overflow: 'hidden', opacity: squareCfgSaved ? 1 : 0.45 }}>
-                      <div style={{ padding: '12px 14px', background: squareStep === 'code' ? '#eff6ff' : '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: squareCfgSaved ? 'pointer' : 'default' }} onClick={() => squareCfgSaved && setSquareStep('code')}>
-                        <span style={{ fontSize: '13px', fontWeight: '700', color: squareStep === 'code' ? '#1d4ed8' : '#555' }}>② Vincular terminal Square</span>
-                      </div>
-                      {squareStep === 'code' && (
+                    {/* Formulario de configuración + generación de código */}
+                    {squareStep !== 'paired' && (
+                      <div style={{ border: '1.5px solid #3b82f6', borderRadius: '11px', overflow: 'hidden' }}>
+                        <div style={{ padding: '11px 14px', background: '#eff6ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#1d4ed8' }}>
+                            {squareCode ? '② Ingresa el código en el terminal' : '① Credenciales y terminal'}
+                          </span>
+                          {squareCfgSaved && !squareCode && <span style={{ fontSize: '10px', color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '20px', fontWeight: '700' }}>✔ Configurado</span>}
+                        </div>
                         <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #e5e7eb' }}>
-                          <div>
-                            <label style={labelStyle}>Nombre del terminal (opcional)</label>
-                            <input value={squareDeviceName} onChange={e => setSquareDeviceName(e.target.value)} placeholder="Ej: Caja Principal"
-                              style={inputStyle} onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
-                            />
-                          </div>
-                          <button onClick={squareGenerateCode} disabled={squareGenerating || squarePolling}
-                            style={{ width: '100%', padding: '11px', background: squareGenerating || squarePolling ? '#f0f0f0' : '#3b82f6', color: squareGenerating || squarePolling ? '#bbb' : '#fff', border: 'none', borderRadius: '9px', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
-                            {squareGenerating ? '⏳ Generando…' : '🔲 Generar código de inicio de sesión'}
-                          </button>
+
+                          {/* Campos de config — solo visibles si aún no se generó el código */}
+                          {!squareCode && (
+                            <>
+                              <div>
+                                <label style={labelStyle}>Access Token</label>
+                                <input value={squareAccessToken} onChange={e => setSquareAccessToken(e.target.value)}
+                                  placeholder="EAAl..."
+                                  style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
+                                  onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                                />
+                                <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#aaa' }}>
+                                  Obtenlo en <a href="https://developer.squareup.com/console/en/apps" target="_blank" rel="noreferrer" style={{ color: '#3b82f6', fontWeight: '600', textDecoration: 'none' }}>developer.squareup.com/console/en/apps</a> → tu app → Credentials
+                                </p>
+                              </div>
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                                  <label style={{ ...labelStyle, margin: 0 }}>Location ID</label>
+                                  <button onClick={squareFetchLocations} disabled={squareLoadingLocs || !squareAccessToken.trim()}
+                                    style={{ fontSize: '11px', color: '#3b82f6', background: 'none', border: 'none', cursor: squareLoadingLocs || !squareAccessToken.trim() ? 'not-allowed' : 'pointer', padding: 0, fontWeight: '600', opacity: !squareAccessToken.trim() ? 0.4 : 1 }}>
+                                    {squareLoadingLocs ? '⏳ Cargando…' : '🔍 Buscar ubicaciones'}
+                                  </button>
+                                </div>
+                                {squareLocations.length > 0 ? (
+                                  <select value={squareLocationId} onChange={e => setSquareLocationId(e.target.value)} style={{ ...inputStyle }}>
+                                    <option value="">— Selecciona una ubicación —</option>
+                                    {squareLocations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.id})</option>)}
+                                  </select>
+                                ) : (
+                                  <input value={squareLocationId} onChange={e => setSquareLocationId(e.target.value)}
+                                    placeholder="Ej: LAR6T2M15K5BQ"
+                                    style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
+                                    onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                                  />
+                                )}
+                              </div>
+                              <div>
+                                <label style={labelStyle}>Nombre del terminal</label>
+                                <input value={squareDeviceName} onChange={e => setSquareDeviceName(e.target.value)}
+                                  placeholder="Ej: Caja Principal"
+                                  style={inputStyle}
+                                  onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                                />
+                              </div>
+                              <button
+                                onClick={squareGenerateCode}
+                                disabled={squareGenerating || squarePolling || !squareAccessToken.trim() || !squareLocationId.trim()}
+                                style={{
+                                  width: '100%', padding: '11px',
+                                  background: squareGenerating || squarePolling || !squareAccessToken.trim() || !squareLocationId.trim() ? '#f0f0f0' : '#3b82f6',
+                                  color: squareGenerating || squarePolling || !squareAccessToken.trim() || !squareLocationId.trim() ? '#bbb' : '#fff',
+                                  border: 'none', borderRadius: '9px', fontWeight: '700', fontSize: '13px', cursor: 'pointer'
+                                }}>
+                                {squareGenerating ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando y generando…</> : '🔲 Guardar y generar código de inicio de sesión'}
+                              </button>
+                            </>
+                          )}
+
+                          {/* Código generado */}
                           {squareCode && (
-                            <div style={{ background: '#fffbeb', border: '1.5px solid #D4AF37', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-                              <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#92400e' }}>Ingresa este código en el terminal Square:</p>
-                              <div style={{ fontSize: '32px', fontWeight: '900', letterSpacing: '6px', color: '#000', fontFamily: 'monospace' }}>{squareCode}</div>
-                              <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#888' }}>Terminal → Iniciar sesión → Usar código de dispositivo</p>
+                            <div style={{ background: '#fffbeb', border: '1.5px solid #D4AF37', borderRadius: '10px', padding: '16px', textAlign: 'center' }}>
+                              <p style={{ margin: '0 0 6px', fontSize: '12px', color: '#92400e', fontWeight: '600' }}>Ingresa este código en el terminal Square:</p>
+                              <div style={{ fontSize: '36px', fontWeight: '900', letterSpacing: '8px', color: '#000', fontFamily: 'monospace', margin: '8px 0' }}>{squareCode}</div>
+                              <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#888' }}>En el terminal: <strong>Iniciar sesión → Usar código de dispositivo</strong></p>
                               {squareCodeExpiry && <p style={{ margin: '4px 0 0', fontSize: '10px', color: '#aaa' }}>Expira: {new Date(squareCodeExpiry).toLocaleTimeString('es-CL')}</p>}
                             </div>
                           )}
+
+                          {/* Estado del polling */}
                           {squarePolling && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', background: '#eff6ff', borderRadius: '8px', fontSize: '12px', color: '#1d4ed8' }}>
-                              <FontAwesomeIcon icon={faSpinner} spin /> {squarePollMsg || 'Esperando emparejamiento…'}
+                              <FontAwesomeIcon icon={faSpinner} spin /> {squarePollMsg || 'Esperando que ingreses el código en el terminal…'}
                             </div>
                           )}
-                        </div>
-                      )}
-                    </div>
 
-                    {squareStep === 'paired' && (
-                      <div style={{ padding: '12px 14px', background: '#dcfce7', border: '1.5px solid #86efac', borderRadius: '10px', fontSize: '13px', color: '#15803d', fontWeight: '700', textAlign: 'center' }}>
-                        ✔ {squarePollMsg || 'Terminal vinculado exitosamente'}
-                        <div style={{ marginTop: '8px' }}>
-                          <button onClick={() => { setSquareStep('code'); setSquareCode(''); setSquareCodeId(''); setSquarePollMsg(''); }} style={{ fontSize: '12px', color: '#1d4ed8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>+ Vincular otro terminal</button>
+                          {/* Botón para generar nuevo código si el actual expiró */}
+                          {squareCode && !squarePolling && squareStep !== 'paired' && (
+                            <button onClick={() => { setSquareCode(''); setSquareCodeId(''); setSquarePollMsg(''); setSquareStep('config'); }}
+                              style={{ fontSize: '12px', color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: '7px', padding: '7px 12px', cursor: 'pointer', fontWeight: '600' }}>
+                              ↩ Volver a configurar / generar nuevo código
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
 
+                    {/* Éxito de emparejamiento */}
+                    {squareStep === 'paired' && (
+                      <div style={{ padding: '14px 16px', background: '#dcfce7', border: '1.5px solid #86efac', borderRadius: '10px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '22px', marginBottom: '6px' }}>✅</div>
+                        <p style={{ margin: '0 0 4px', fontSize: '14px', color: '#15803d', fontWeight: '700' }}>Terminal vinculado exitosamente</p>
+                        <p style={{ margin: '0 0 10px', fontSize: '11px', color: '#166534' }}>{squarePollMsg}</p>
+                        <button onClick={() => { setSquareStep('config'); setSquareCode(''); setSquareCodeId(''); setSquarePollMsg(''); setSquareDeviceName(''); }}
+                          style={{ fontSize: '12px', color: '#1d4ed8', background: '#fff', border: '1px solid #bfdbfe', borderRadius: '7px', padding: '6px 14px', cursor: 'pointer', fontWeight: '600' }}>
+                          + Vincular otro terminal
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Lista de terminales vinculados */}
                     {squareDevices.length > 0 && (
                       <div>
-                        <p style={{ ...sectionTitle, margin: '4px 0 8px' }}>Terminales vinculadas</p>
+                        <p style={{ ...sectionTitle, margin: '4px 0 8px' }}>Terminales vinculados</p>
                         {squareDevices.map(d => (
                           <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: '#fafafa', border: '1px solid #ebebeb', borderRadius: '8px', marginBottom: '6px' }}>
                             <div>
                               <span style={{ fontSize: '13px', fontWeight: '700', color: '#111' }}>{d.name}</span>
-                              <span style={{ fontSize: '10px', color: '#aaa', marginLeft: '8px', fontFamily: 'monospace' }}>{d.device_id?.slice(0, 14)}…</span>
+                              <span style={{ fontSize: '10px', color: '#aaa', marginLeft: '8px', fontFamily: 'monospace' }}>{d.device_id?.slice(0, 16)}…</span>
                             </div>
-                            <button onClick={async () => { if (!confirm('¿Desvincular ' + d.name + '?')) return; await fetch(API + '/api/square/devices/' + d.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } }); refreshAll(); }}
+                            <button
+                              onClick={async () => { if (!confirm('¿Desvincular ' + d.name + '?')) return; await fetch(API + '/api/square/devices/' + d.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } }); refreshAll(); }}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ddd', padding: '3px 6px', borderRadius: '5px', transition: 'color 0.15s' }}
                               onMouseEnter={e => e.currentTarget.style.color = '#ef4444'} onMouseLeave={e => e.currentTarget.style.color = '#ddd'}>
                               <FontAwesomeIcon icon={faTrash} style={{ fontSize: '12px' }} />
