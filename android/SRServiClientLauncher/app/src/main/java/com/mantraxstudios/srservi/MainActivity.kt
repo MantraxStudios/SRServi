@@ -5,14 +5,15 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.view.WindowManager
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
 import com.mantraxstudios.srservi.printer.BluetoothPrinterManager
 import com.mantraxstudios.srservi.printer.PrinterForegroundService
-import com.mantraxstudios.srservi.ui.AdminPanelActivity
 import com.mantraxstudios.srservi.ui.SellActivity
 import com.mantraxstudios.srservi.ui.SettingsActivity
 import com.mantraxstudios.srservi.ui.WorkerLoginActivity
@@ -28,6 +29,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -46,8 +49,8 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, WorkerLoginActivity::class.java))
         }
 
-        findViewById<View>(R.id.btnAdminPanel).setOnClickListener {
-            startActivity(Intent(this, AdminPanelActivity::class.java))
+        findViewById<View>(R.id.btnClearCache).setOnClickListener {
+            clearAppCache()
         }
 
         findViewById<View>(R.id.btnAppSettings).setOnClickListener {
@@ -108,5 +111,11 @@ class MainActivity : AppCompatActivity() {
         } else {
             tvPrinterStatus.text = getString(R.string.disconnected)
         }
+    }
+
+    private fun clearAppCache() {
+        cacheDir.deleteRecursively()
+        externalCacheDir?.deleteRecursively()
+        Toast.makeText(this, getString(R.string.cache_cleared), Toast.LENGTH_SHORT).show()
     }
 }
