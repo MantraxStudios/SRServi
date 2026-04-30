@@ -7065,12 +7065,7 @@ async function startServer() {
           config = await tuuGetConfig(userId);
           console.log('[charge] config:', config ? JSON.stringify({api_key: config.api_key ? '***' : 'null'}) : 'null');
         } catch (e) { console.error('[charge] config error:', e.message); return res.status(500).json({ error: 'Error al obtener config Tuu' }); }
-        if (!config?.api_key) {
-          console.log('[charge] FAIL: no api_key for userId:', userId);
-          return res.status(400).json({ error: 'API Key de Tuu no configurada. Ve al admin > Tuu POS > Configuración y guarda tu API Key.' });
-        }
         // Si el terminal es Square, lo maneja el bloque Square de abajo.
-        // Si es otro proveedor no-Tuu (ej: MercadoPago), rechazar aquí.
         if (terminal_provider && terminal_provider === 'square') {
           // ── SQUARE TERMINAL CHARGE ──────────────────────────────────────
           console.log('[charge-square] starting - store_id:', store_id, 'terminal_id:', terminal_id, 'amount:', amount);
@@ -7093,7 +7088,7 @@ async function startServer() {
             const [storeRows2] = await pool.execute('SELECT user_id FROM stores WHERE id = ?', [parseInt(store_id)]);
             if (!storeRows2[0]) return res.status(400).json({ error: 'Tienda no encontrada' });
             const sqUserId = storeRows2[0].user_id;
-            const sqCfg = await squareGetConfig(sqUserId, parseInt(store_id));
+            let sqCfg = await squareGetConfig(sqUserId, parseInt(store_id));
             if (!sqCfg?.access_token) return res.status(400).json({ error: 'Square no configurado. Ve al admin > Vincular POS > Square.' });
 
             // Find device
@@ -7218,6 +7213,10 @@ async function startServer() {
         if (terminal_provider && terminal_provider !== 'tuu') {
           console.log('[charge] SKIP: terminal_provider is', terminal_provider, '- not Tuu');
           return res.status(400).json({ error: 'Terminal seleccionado no es Tuu. Usa el flujo de MercadoPago.' });
+        }
+        if (!config?.api_key) {
+          console.log('[charge] FAIL: no api_key for userId:', userId);
+          return res.status(400).json({ error: 'API Key de Tuu no configurada. Ve al admin > Tuu POS > Configuración y guarda tu API Key.' });
         }
         let device = null;
         if (terminal_id && terminal_provider === 'tuu') {
