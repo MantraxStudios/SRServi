@@ -1614,7 +1614,7 @@ function Store() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             store_id: storeId, order_id: order.id,
-            amount: Math.round(Number(finalTotal)),
+            amount: Number(finalTotal),
             description: `Pedido #${order.order_number || order.id}`,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
             terminal_provider: 'square'
