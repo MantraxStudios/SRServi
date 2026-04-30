@@ -7114,13 +7114,19 @@ async function startServer() {
             // Strip device: prefix if present (legacy)
             const sqDeviceId = sqDevice.device_id.startsWith('device:') ? sqDevice.device_id.slice(7) : sqDevice.device_id;
 
-            // Square amounts are always in cents USD
-            const sqAmount = Math.round(Number(amount));
+            // Read store currency to convert amount correctly
+            // Square always needs the smallest currency unit (cents for USD/EUR/etc, whole units for JPY/CLP/etc)
+            const ZERO_DECIMAL_CURRENCIES = new Set(['JPY', 'KRW', 'CLP', 'GNF', 'ISK', 'KMF', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'BIF']);
+            const [cfgRows] = await pool.execute('SELECT currency_code FROM store_configurations WHERE store_id = ? LIMIT 1', [parseInt(store_id)]).catch(() => [[]]);
+            const storeCurrency = cfgRows[0]?.currency_code || 'USD';
+            const sqAmount = ZERO_DECIMAL_CURRENCIES.has(storeCurrency)
+              ? Math.round(Number(amount))
+              : Math.round(Number(amount) * 100);
 
             const sqPayload = {
               idempotency_key: 'sq_' + Date.now() + '_' + Math.random().toString(36).slice(2),
               checkout: {
-                amount_money: { amount: sqAmount, currency: 'USD' },
+                amount_money: { amount: sqAmount, currency: storeCurrency },
                 device_options: { device_id: sqDeviceId },
                 reference_id: String(order_id || ''),
                 note: description || ('Orden #' + (order_id || '')),
