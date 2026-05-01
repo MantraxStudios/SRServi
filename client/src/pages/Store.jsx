@@ -223,6 +223,9 @@ function Store() {
   const [selectedTerminalId, setSelectedTerminalId] = useState(
     localStorage.getItem('srservi_last_terminal_id') || ''
   );
+  const [selectedTerminalProvider, setSelectedTerminalProvider] = useState(
+    localStorage.getItem('srservi_last_terminal_provider') || ''
+  );
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponLoading, setCouponLoading] = useState(false);
@@ -3740,6 +3743,26 @@ function Store() {
                   <span>{t('total', lang)}</span>
                   <span>{colors.currency.symbol}{formatPrice(getCartSubtotal())}</span>
                 </div>
+                {selectedTerminalProvider === 'square' && (
+                  <div style={{
+                    marginTop: '10px',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    background: '#fff8e1',
+                    border: '1.5px solid #f59e0b',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '8px',
+                    fontSize: '12px',
+                    color: '#92400e',
+                    lineHeight: '1.5'
+                  }}>
+                    <span style={{ fontSize: '15px', flexShrink: 0 }}>⚠️</span>
+                    <span>
+                      Al pagar con <strong>Square POS</strong> se agregará un <strong>8.6%</strong> adicional al total por concepto de impuesto y comisión del terminal.
+                    </span>
+                  </div>
+                )}
                 <div className="store-cart-coupon">
                   <input
                     type="text"
@@ -5272,6 +5295,7 @@ function Store() {
                       localStorage.setItem('srservi_last_terminal_name', pos.name || '');
                       localStorage.setItem('srservi_last_terminal_provider', pos.provider || '');
                       setSelectedTerminalId(String(pos.id));
+                      setSelectedTerminalProvider(pos.provider || '');
                       if (pos.provider === 'tuu' && tuuProvider) {
                         setTuuProvider({ ...tuuProvider, deviceUid: pos.id });
                       }
