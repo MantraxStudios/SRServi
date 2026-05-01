@@ -3748,17 +3748,17 @@ function Store() {
                   </div>
                 )}
                 <div className="store-cart-summary-total">
-                  <span>{selectedTerminalProvider === 'square' ? 'Subtotal' : t('total', lang)}</span>
+                  <span>{selectedTerminalProvider === 'square' ? t('subtotal', lang) : t('total', lang)}</span>
                   <span>{colors.currency.symbol}{formatPrice(getCartSubtotal())}</span>
                 </div>
                 {selectedTerminalProvider === 'square' && (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#92400e', padding: '4px 0' }}>
-                      <span>Comisión Square (8.6%)</span>
+                      <span>{t('squareCommission', lang)}</span>
                       <span>+{colors.currency.symbol}{formatPrice(getSquareCommission())}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '15px', color: 'var(--store-primary)', padding: '6px 0', borderTop: '1.5px solid #f59e0b' }}>
-                      <span>Total</span>
+                      <span>{t('total', lang)}</span>
                       <span>{colors.currency.symbol}{formatPrice(getFinalTotal())}</span>
                     </div>
                     <div style={{
@@ -3774,7 +3774,7 @@ function Store() {
                       color: '#92400e',
                     }}>
                       <span style={{ flexShrink: 0 }}>⚠️</span>
-                      <span>Incluye impuesto + comisión del terminal Square POS</span>
+                      <span>{t('squareCommissionNote', lang)}</span>
                     </div>
                   </>
                 )}
@@ -3890,12 +3890,12 @@ function Store() {
                 {(parseFloat(selectedConfiguration?.tip_percentage) > 0) && (
                   <div style={{ marginBottom: '20px', padding: '16px', borderRadius: '14px', background: 'var(--store-secondary)', border: '2px solid var(--store-primary)', textAlign: 'left' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                      <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--store-primary)' }}>Propina</span>
+                      <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--store-primary)' }}>{t('tip', lang)}</span>
                       <button
                         onClick={() => { setTipEnabled(p => !p); setTipPercent(tipEnabled ? 0 : 5); }}
                         style={{ padding: '6px 14px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontWeight: '700', fontSize: '13px', background: tipEnabled ? 'var(--store-accent)' : '#e0e0e0', color: tipEnabled ? 'var(--store-primary)' : '#999', transition: 'all 0.2s' }}
                       >
-                        {tipEnabled ? 'Incluida ✓' : 'No incluir'}
+                        {tipEnabled ? t('tipIncluded', lang) : t('tipExclude', lang)}
                       </button>
                     </div>
                     {tipEnabled && (
@@ -3919,7 +3919,7 @@ function Store() {
                       </>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: '700', color: 'var(--store-primary)', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #e0e0e0' }}>
-                      <span>Total</span>
+                      <span>{t('total', lang)}</span>
                       <span>{colors.currency.symbol}{formatPrice(getFinalTotal())}</span>
                     </div>
                   </div>
@@ -3940,7 +3940,7 @@ function Store() {
                               style={{ backgroundColor: 'var(--store-secondary)', color: 'var(--store-primary)', border: '3px solid #2563eb', borderRadius: '15px' }}
                             >
                               <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '28px' }} />
-                              <span className="font-bold" style={{ fontSize: '18px' }}>Pagar con TUU</span>
+                              <span className="font-bold" style={{ fontSize: '18px' }}>{t('payWithTuu', lang)}</span>
                             </button>
                           )}
                           {delivAllowsMP && (
@@ -3950,7 +3950,7 @@ function Store() {
                               style={{ backgroundColor: '#009ee3', color: '#fff', border: '3px solid #009ee3', borderRadius: '15px' }}
                             >
                               <FontAwesomeIcon icon={faQrcode} style={{ fontSize: '28px' }} />
-                              <span className="font-bold" style={{ fontSize: '18px' }}>Pagar con MercadoPago</span>
+                              <span className="font-bold" style={{ fontSize: '18px' }}>{t('payWithMercadopago', lang)}</span>
                             </button>
                           )}
                           {!delivAllowsTuu && !delivAllowsMP && (
@@ -4014,10 +4014,10 @@ function Store() {
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '360px' }}>
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '6px', fontSize: '22px', fontWeight: 800 }}>
-              ¿A qué mesa?
+              {t('whichTable', lang)}
             </h2>
             <p className="text-muted" style={{ marginBottom: '18px', fontSize: '14px' }}>
-              Ingresa el número de mesa
+              {t('enterTableNumber', lang)}
             </p>
 
             <div style={{
@@ -4083,7 +4083,7 @@ function Store() {
                 marginBottom: '10px', opacity: tableNumber ? 1 : 0.5
               }}
             >
-              Confirmar Mesa {tableNumber}
+              {t('confirmTable', lang)} {tableNumber}
             </button>
 
             <button
@@ -4093,7 +4093,7 @@ function Store() {
                 fontSize: '14px', cursor: 'pointer', opacity: 0.6
               }}
             >
-              Volver
+              {t('back', lang)}
             </button>
           </div>
         </div>
@@ -4336,7 +4336,7 @@ function Store() {
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
             <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--success)' }} />
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
-              {lastTableNumber != null ? `Para servir — Mesa #${lastTableNumber}` : 'Para llevar'}
+              {lastTableNumber != null ? `${t('serveAtTable', lang)} #${lastTableNumber}` : t('takeout', lang)}
             </h2>
             <p className="text-muted" style={{ marginBottom: '20px', fontSize: '16px' }}>
               {t('pleaseWait', lang)}
@@ -4460,10 +4460,10 @@ function Store() {
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
             <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '60px', marginBottom: '20px', color: 'var(--success)' }} />
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
-              {lastTableNumber != null ? `Para servir — Mesa #${lastTableNumber}` : 'Para llevar'}
+              {lastTableNumber != null ? `${t('serveAtTable', lang)} #${lastTableNumber}` : t('takeout', lang)}
             </h2>
             <p className="text-muted" style={{ marginBottom: '20px', fontSize: '16px' }}>
-              Acércate a la caja para pagar en efectivo
+              {t('cashAtCounter', lang)}
             </p>
             {lastOrderNumber && (
               <div style={{
