@@ -1459,8 +1459,16 @@ function Store() {
     return Math.max(subtotal - discount, 0);
   };
 
+  const SQUARE_COMMISSION_RATE = 0.086;
+
+  const getSquareCommission = () => {
+    if (selectedTerminalProvider !== 'square') return 0;
+    return (getCartSubtotal() + getTipAmount()) * SQUARE_COMMISSION_RATE;
+  };
+
   const getFinalTotal = () => {
-    return getCartSubtotal() + getTipAmount();
+    const base = getCartSubtotal() + getTipAmount();
+    return base + getSquareCommission();
   };
 
   const getCartCount = () => {
@@ -3740,28 +3748,35 @@ function Store() {
                   </div>
                 )}
                 <div className="store-cart-summary-total">
-                  <span>{t('total', lang)}</span>
+                  <span>{selectedTerminalProvider === 'square' ? 'Subtotal' : t('total', lang)}</span>
                   <span>{colors.currency.symbol}{formatPrice(getCartSubtotal())}</span>
                 </div>
                 {selectedTerminalProvider === 'square' && (
-                  <div style={{
-                    marginTop: '10px',
-                    padding: '10px 12px',
-                    borderRadius: '10px',
-                    background: '#fff8e1',
-                    border: '1.5px solid #f59e0b',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '8px',
-                    fontSize: '12px',
-                    color: '#92400e',
-                    lineHeight: '1.5'
-                  }}>
-                    <span style={{ fontSize: '15px', flexShrink: 0 }}>⚠️</span>
-                    <span>
-                      Al pagar con <strong>Square POS</strong> se agregará un <strong>8.6%</strong> adicional al total por concepto de impuesto y comisión del terminal.
-                    </span>
-                  </div>
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#92400e', padding: '4px 0' }}>
+                      <span>Comisión Square (8.6%)</span>
+                      <span>+{colors.currency.symbol}{formatPrice(getSquareCommission())}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '15px', color: 'var(--store-primary)', padding: '6px 0', borderTop: '1.5px solid #f59e0b' }}>
+                      <span>Total</span>
+                      <span>{colors.currency.symbol}{formatPrice(getFinalTotal())}</span>
+                    </div>
+                    <div style={{
+                      marginTop: '6px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      background: '#fff8e1',
+                      border: '1.5px solid #f59e0b',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '11px',
+                      color: '#92400e',
+                    }}>
+                      <span style={{ flexShrink: 0 }}>⚠️</span>
+                      <span>Incluye impuesto + comisión del terminal Square POS</span>
+                    </div>
+                  </>
                 )}
                 <div className="store-cart-coupon">
                   <input
@@ -3810,7 +3825,7 @@ function Store() {
 
             <button onClick={handleCheckout} className="store-cart-checkout-btn store-glow-pulse">
               <FontAwesomeIcon icon={faCheck} />
-              {t('confirmOrder', lang)} - {colors.currency.symbol}{formatPrice(getCartSubtotal())}
+              {t('confirmOrder', lang)} - {colors.currency.symbol}{formatPrice(selectedTerminalProvider === 'square' ? getFinalTotal() : getCartSubtotal())}
             </button>
 
             <button
