@@ -1878,6 +1878,8 @@ function Store() {
     const storeId = pendingOrderData.storeId;
     const isTuuPayment = !!tuuPaymentKey;
     const isHaulmerNative = !!haulmerReference;
+    const isSquarePayment = !!squarePaymentKey;
+    const squareKey = squarePaymentKey;
 
     const onPaymentSuccess = (orderNumberOverride) => {
       setPaymentConfirmed(true);
@@ -1926,6 +1928,20 @@ function Store() {
             clearInterval(timerInterval);
             onPaymentSuccess(data.order_number || null);
           } else if (['Canceled', 'Failed', 'Timeout'].includes(data.status)) {
+            clearInterval(pollInterval);
+            clearInterval(timerInterval);
+            onPaymentFail();
+          }
+        } else if (isSquarePayment) {
+          // --- Square Terminal polling ---
+          const res = await fetch(`/api/plugins/payments/status/${encodeURIComponent(squareKey)}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.status === 'Completed') {
+            clearInterval(pollInterval);
+            clearInterval(timerInterval);
+            onPaymentSuccess();
+          } else if (['Canceled', 'Timeout'].includes(data.status)) {
             clearInterval(pollInterval);
             clearInterval(timerInterval);
             onPaymentFail();

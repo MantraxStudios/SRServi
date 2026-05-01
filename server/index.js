@@ -7183,6 +7183,7 @@ async function startServer() {
                     await pool.execute("UPDATE orders SET status = 'preparing', payment_process = 1, cash_approved = TRUE WHERE id = ?", [order_id]).catch(() => {});
                   }
                   const socketId = userSockets.get(parseInt(store_id));
+                  console.log('[charge-square] COMPLETED - store_id:', store_id, 'socketId:', socketId || 'NOT FOUND');
                   if (socketId) io.to(socketId).emit('square_payment_update', { checkoutId, orderId: order_id, status: 'Completed' });
                 } else if (sqStatus === 'CANCELED' || sqStatus === 'CANCEL_REQUESTED') {
                   clearInterval(sqPollId); squareActivePolls.delete(checkoutId);
