@@ -6662,9 +6662,9 @@ async function startServer() {
         sourceVersion: '1.1.0'
       };
       const customFields = [];
-      if (orderNumber) customFields.push({ name: 'ORDEN:', value: String(orderNumber), print: true });
-      if (tableNumber) customFields.push({ name: 'MESA:', value: String(tableNumber), print: true });
-      if (tipAmount > 0) customFields.push({ name: 'PROPINA:', value: `$${Math.round(tipAmount)}${tipPercent ? ` (${tipPercent}%)` : ''}`, print: true });
+      if (orderNumber) customFields.push({ name: 'ORDEN', value: String(orderNumber), print: true });
+      if (tableNumber) customFields.push({ name: 'MESA', value: String(tableNumber), print: true });
+      if (tipAmount > 0) customFields.push({ name: 'PROPINA', value: String(Math.round(tipAmount)), print: true });
       if (customFields.length > 0) extraData.customFields = customFields;
       const response = await fetch(`${TUU_API}/Create`, {
         method: 'POST',
