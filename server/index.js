@@ -7862,6 +7862,43 @@ async function startServer() {
       } catch (e) { console.error('[Haulmer confirm]', e); res.status(500).json({ error: e.message }); }
     });
 
+    // ── Ratings ─────────────────────────────────────────────────────────────
+    // Public: submit a rating for a store
+    app.post('/api/public/:code/ratings', async (req, res) => {
+      try {
+        const store = await getStoreByCode(req.params.code);
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+        const { rating, comment, order_id, source } = req.body;
+        const r = parseInt(rating);
+        if (isNaN(r) || r < 0 || r > 10) return res.status(400).json({ error: 'La calificación debe ser entre 0 y 10' });
+        await pool.execute(
+          'INSERT INTO store_ratings (store_id, order_id, rating, comment, source) VALUES (?, ?, ?, ?, ?)',
+          [store.id, order_id || null, r, comment?.trim() || null, source || 'qr']
+        );
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: get ratings for selected store
+    app.get('/api/ratings', authenticateToken, async (req, res) => {
+      try {
+        const { store_id } = req.query;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        // Verify ownership
+        const [storeRows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!storeRows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const [ratings] = await pool.execute(
+          'SELECT * FROM store_ratings WHERE store_id = ? ORDER BY created_at DESC LIMIT 200',
+          [store_id]
+        );
+        const [summary] = await pool.execute(
+          'SELECT COUNT(*) as total, AVG(rating) as avg_rating FROM store_ratings WHERE store_id = ?',
+          [store_id]
+        );
+        res.json({ ratings, summary: summary[0] });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
     // Background removal endpoint
     app.post('/api/remove-background', upload.single('image'), async (req, res) => {
       try {

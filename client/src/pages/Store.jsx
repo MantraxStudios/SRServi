@@ -284,6 +284,11 @@ function Store() {
   const [bgRemoveDialog, setBgRemoveDialog] = useState(false);
   const [bgRemoving, setBgRemoving] = useState(false);
   const [pendingImageFile, setPendingImageFile] = useState(null);
+  const [showRatingStep, setShowRatingStep] = useState(false);
+  const [orderRating, setOrderRating] = useState(null);
+  const [orderComment, setOrderComment] = useState('');
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [pendingRatingOrderId, setPendingRatingOrderId] = useState(null);
   const [prodNewExtras, setProdNewExtras] = useState([]);
   const [prodNewComplements, setProdNewComplements] = useState([]);
   const [showComplementsModal, setShowComplementsModal] = useState(false);
@@ -627,23 +632,19 @@ function Store() {
     (navigator.maxTouchPoints && navigator.maxTouchPoints > 0)
   );
 
-  // Auto-close "gracias" modals after 20 seconds
+  // Auto-advance to rating step after 3 seconds, then auto-close after 20 more seconds
   useEffect(() => {
     if (!paymentConfirmed) return;
     if (deliveryMode && lastOrderNumber) {
       downloadReceiptPng(lastOrderNumber, pendingOrderData?.order?.total);
     }
-    const autoCloseTimer = setTimeout(() => {
+    const toRatingTimer = setTimeout(() => {
       setPaymentConfirmed(false);
-      setPendingOrderData(null);
-      setLastOrderNumber(null);
-      setLastTableNumber(null);
-      setCart([]);
-      setCartOpen(false);
-      setPaymentModalOpen(false);
-      setCashPaymentSuccess(false);
-    }, 20000);
-    return () => clearTimeout(autoCloseTimer);
+      setOrderRating(null);
+      setOrderComment('');
+      setShowRatingStep(true);
+    }, 3000);
+    return () => clearTimeout(toRatingTimer);
   }, [paymentConfirmed]);
 
   useEffect(() => {
@@ -660,6 +661,20 @@ function Store() {
     }, 20000);
     return () => clearTimeout(autoCloseTimer);
   }, [cashPaymentSuccess]);
+
+  // Auto-close rating step after 20 seconds
+  useEffect(() => {
+    if (!showRatingStep) return;
+    const timer = setTimeout(() => {
+      setShowRatingStep(false);
+      setPendingOrderData(null);
+      setLastOrderNumber(null);
+      setOrderRating(null);
+      setOrderComment('');
+      showWelcomeAfterOrder();
+    }, 20000);
+    return () => clearTimeout(timer);
+  }, [showRatingStep]);
 
   const downloadReceiptPng = useCallback((orderNum, total) => {
     const storeName = store?.store?.name || 'Tienda';
@@ -1168,7 +1183,7 @@ function Store() {
     setExtrasModalOpen(false);
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep;
 
   useEffect(() => {
     anyModalOpenRef.current = anyModalOpen;
@@ -2860,6 +2875,7 @@ function Store() {
               {store?.store?.name}
             </h1>
           </div>
+          <p className="store-header-powered">{t('poweredBy', lang)}</p>
           <div className="store-header-spacer" />
         </div>
       </header>
@@ -4359,9 +4375,9 @@ function Store() {
             <button
               onClick={() => {
                 setPaymentConfirmed(false);
-                setPendingOrderData(null);
-                setLastOrderNumber(null);
-                showWelcomeAfterOrder();
+                setOrderRating(null);
+                setOrderComment('');
+                setShowRatingStep(true);
               }}
               className="btn btn-lg btn-full"
               style={{
@@ -4372,6 +4388,57 @@ function Store() {
             >
               {t('confirm', lang)}
             </button>
+          </div>
+        </div>
+      )}
+
+      {showRatingStep && (
+        <div className="modal-overlay">
+          <div className="modal text-center" style={{ maxWidth: '420px', padding: '36px 32px' }}>
+            <p style={{ fontSize: '28px', margin: '0 0 6px' }}>⭐</p>
+            <h2 style={{ color: 'var(--store-primary)', marginBottom: '6px', fontSize: '22px' }}>¿Cómo fue tu experiencia?</h2>
+            <p style={{ color: '#888', fontSize: '14px', marginBottom: '24px' }}>Toca un número para calificar</p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              {[0,1,2,3,4,5,6,7,8,9,10].map(val => {
+                const col = val <= 3 ? '#ef4444' : val <= 6 ? '#f59e0b' : '#22c55e';
+                return (
+                  <button
+                    key={val}
+                    disabled={ratingSubmitting}
+                    onClick={async () => {
+                      setRatingSubmitting(true);
+                      try {
+                        await fetch(`/api/public/${code}/ratings`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            rating: val,
+                            order_id: pendingOrderData?.order?.id || null,
+                            source: 'post_order',
+                          }),
+                        });
+                      } catch { /* silent */ }
+                      setRatingSubmitting(false);
+                      setShowRatingStep(false);
+                      setPendingOrderData(null);
+                      setLastOrderNumber(null);
+                      showWelcomeAfterOrder();
+                    }}
+                    style={{
+                      width: 52, height: 52, borderRadius: 12,
+                      border: `2px solid ${col}`,
+                      background: col,
+                      color: '#fff',
+                      fontWeight: 800, fontSize: 20, cursor: 'pointer',
+                      opacity: ratingSubmitting ? 0.5 : 1,
+                      transition: 'transform 0.1s',
+                    }}
+                  >
+                    {val}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

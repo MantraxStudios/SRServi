@@ -49,7 +49,9 @@
       "Bash(mv /tmp/styles_base.css /c/Users/tupap/OneDrive/Escritorio/SRServi/client/src/styles.css)",
       "Bash(grep -E \"\\\\.\\(tsx|ts|jsx|js\\)$\")",
       "Bash(node *)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(awk '/ALTER TABLE orders ADD COLUMN/ {found=1} found {print; count++; if \\(count >= 30\\) exit}' server/database.js)",
+      "Bash(awk '/if \\\\\\(!orderColumnNames.includes/ {found=1} found {print; if \\(/^      \\\\}/\\) exit}' server/database.js)"
     ]
   }
 }

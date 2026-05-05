@@ -43,6 +43,8 @@ import Index from './pages/Index';
 import Store from './pages/Store';
 import TvDisplay from './pages/TvDisplay';
 import Docs from './pages/Docs';
+import Rate from './pages/Rate';
+import Ratings from './pages/admin/Ratings';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 
@@ -159,6 +161,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/store/:code" element={<Store />} />
+          <Route path="/rate/:code" element={<Rate />} />
           <Route path="/tv" element={<TvEntry />} />
           <Route path="/tv/:code" element={<TvDisplay />} />
           <Route path="/market/:code" element={<Minimarket />} />
@@ -197,6 +200,7 @@ function App() {
             <Route path="leon-ia" element={<LeonIA />} />
             <Route path="tasks" element={<Tasks />} />
             <Route path="inventory" element={<Inventory />} />
+            <Route path="ratings" element={<Ratings />} />
             <Route path="editor/:code" element={<Store />} />
           </Route>
           <Route path="/worker-login" element={<WorkerLogin />} />

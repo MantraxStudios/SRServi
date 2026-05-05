@@ -253,6 +253,19 @@ async function createTables() {
   await pool.execute(createOrderItemsTable);
   await pool.execute(createWorkersTable);
 
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS store_ratings (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      order_id INT DEFAULT NULL,
+      rating TINYINT NOT NULL,
+      comment TEXT,
+      source VARCHAR(20) DEFAULT 'qr',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
   const createMercadoPagoTerminalsTable = `
     CREATE TABLE IF NOT EXISTS mercado_pago_terminals (
       id INT PRIMARY KEY AUTO_INCREMENT,
