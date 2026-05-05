@@ -4409,35 +4409,31 @@ function Store() {
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 5, background: colors.accent }} />
 
           {/* contenido */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '0 24px', zIndex: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '0 16px', zIndex: 1, width: '100%', maxWidth: 520, boxSizing: 'border-box' }}>
             {/* logo / inicial */}
             <div style={{
-              width: 70, height: 70, borderRadius: 18,
+              width: 60, height: 60, borderRadius: 16,
               background: colors.accent,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 28, fontWeight: 900, color: colors.primary,
+              fontSize: 24, fontWeight: 900, color: colors.primary,
               boxShadow: `0 4px 24px ${colors.accent}66`,
-              marginBottom: 6,
             }}>
               {(store?.store?.name || '★')[0]?.toUpperCase() || '★'}
             </div>
 
-            <h2 style={{ color: '#fff', fontSize: 26, fontWeight: 900, margin: 0, textAlign: 'center', lineHeight: 1.2 }}>
+            <h2 style={{ color: '#fff', fontSize: 24, fontWeight: 900, margin: 0, textAlign: 'center', lineHeight: 1.2 }}>
               ¿Cómo fue tu experiencia?
             </h2>
-            <p style={{ color: colors.accent, fontSize: 13, fontWeight: 700, margin: 0, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-              Califica tu visita
-            </p>
-            <p style={{ color: colors.accent, fontSize: 20, margin: '2px 0 16px', letterSpacing: 6 }}>★ ★ ★ ★ ★</p>
+            <p style={{ color: colors.accent, fontSize: 18, margin: 0, letterSpacing: 5 }}>★ ★ ★ ★ ★</p>
 
             {/* tarjeta de emojis */}
             <div style={{
               background: '#fff',
-              borderRadius: 24,
-              padding: '24px 28px 20px',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-              display: 'flex', gap: 8, justifyContent: 'center',
-              width: '100%', maxWidth: 460,
+              borderRadius: 28,
+              padding: '28px 20px 24px',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.45)',
+              display: 'flex', gap: 4, justifyContent: 'space-between',
+              width: '100%', boxSizing: 'border-box',
             }}>
               {[
                 { emoji: '😡', label: 'Muy malo',  value: 2  },
@@ -4469,29 +4465,30 @@ function Store() {
                     showWelcomeAfterOrder();
                   }}
                   style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                    background: 'transparent', border: `2.5px solid transparent`, borderRadius: 16,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                    background: 'transparent', border: '2.5px solid transparent', borderRadius: 16,
                     cursor: ratingSubmitting ? 'not-allowed' : 'pointer',
                     opacity: ratingSubmitting ? 0.5 : 1,
-                    padding: '10px 8px', transition: 'all 0.15s', outline: 'none', flex: 1,
+                    padding: '12px 6px', transition: 'all 0.15s', outline: 'none', flex: 1,
+                    minWidth: 0,
                   }}
                   onMouseEnter={e => { e.currentTarget.style.background = `${colors.primary}12`; e.currentTarget.style.borderColor = colors.primary; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; }}
                 >
                   <span style={{
-                    fontSize: 52, lineHeight: 1, display: 'block',
+                    fontSize: 'clamp(36px, 8vw, 56px)', lineHeight: 1, display: 'block',
                     filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.15))',
                     transition: 'transform 0.15s',
                   }}
-                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.25)'}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                   >{emoji}</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3, color: '#6b7280' }}>{label}</span>
+                  <span style={{ fontSize: 'clamp(9px, 2vw, 11px)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3, color: '#6b7280', textAlign: 'center' }}>{label}</span>
                 </button>
               ))}
             </div>
 
-            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, margin: '16px 0 0', letterSpacing: 1 }}>
+            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, margin: 0, letterSpacing: 1 }}>
               Powered by SRAutomatic.cl
             </p>
           </div>
