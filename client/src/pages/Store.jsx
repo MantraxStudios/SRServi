@@ -4396,50 +4396,56 @@ function Store() {
 
       {showRatingStep && (
         <div className="modal-overlay" style={{ zIndex: 9999 }}>
-          <div className="modal text-center" style={{ maxWidth: '420px', padding: '36px 32px' }}>
-            <p style={{ fontSize: '28px', margin: '0 0 6px' }}>⭐</p>
+          <div className="modal text-center" style={{ maxWidth: '440px', padding: '40px 32px' }}>
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '6px', fontSize: '22px' }}>¿Cómo fue tu experiencia?</h2>
-            <p style={{ color: '#888', fontSize: '14px', marginBottom: '24px' }}>Toca un número para calificar</p>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              {[0,1,2,3,4,5,6,7,8,9,10].map(val => {
-                const col = val <= 3 ? '#ef4444' : val <= 6 ? '#f59e0b' : '#22c55e';
-                return (
-                  <button
-                    key={val}
-                    disabled={ratingSubmitting}
-                    onClick={async () => {
-                      setRatingSubmitting(true);
-                      try {
-                        await fetch(`/api/public/${code}/ratings`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            rating: val,
-                            order_id: pendingOrderData?.order?.id || null,
-                            source: 'post_order',
-                          }),
-                        });
-                      } catch { /* silent */ }
-                      setRatingSubmitting(false);
-                      setShowRatingStep(false);
-                      setPendingOrderData(null);
-                      setLastOrderNumber(null);
-                      showWelcomeAfterOrder();
-                    }}
-                    style={{
-                      width: 52, height: 52, borderRadius: 12,
-                      border: `2px solid ${col}`,
-                      background: col,
-                      color: '#fff',
-                      fontWeight: 800, fontSize: 20, cursor: 'pointer',
-                      opacity: ratingSubmitting ? 0.5 : 1,
-                      transition: 'transform 0.1s',
-                    }}
-                  >
-                    {val}
-                  </button>
-                );
-              })}
+            <p style={{ color: '#888', fontSize: '14px', marginBottom: '28px' }}>Toca un emoji para calificar</p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              {[
+                { emoji: '😡', label: 'Muy malo',  value: 2  },
+                { emoji: '😕', label: 'Malo',      value: 4  },
+                { emoji: '😐', label: 'Regular',   value: 6  },
+                { emoji: '😊', label: 'Bueno',     value: 8  },
+                { emoji: '🤩', label: 'Excelente', value: 10 },
+              ].map(({ emoji, label, value }) => (
+                <button
+                  key={value}
+                  disabled={ratingSubmitting}
+                  onClick={async () => {
+                    setRatingSubmitting(true);
+                    try {
+                      await fetch(`/api/public/${code}/ratings`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          rating: value,
+                          order_id: pendingOrderData?.order?.id || null,
+                          source: 'post_order',
+                        }),
+                      });
+                    } catch { /* silent */ }
+                    setRatingSubmitting(false);
+                    setShowRatingStep(false);
+                    setPendingOrderData(null);
+                    setLastOrderNumber(null);
+                    showWelcomeAfterOrder();
+                  }}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                    background: 'none', border: 'none', cursor: ratingSubmitting ? 'not-allowed' : 'pointer',
+                    opacity: ratingSubmitting ? 0.5 : 1, padding: '8px 4px',
+                  }}
+                >
+                  <span style={{
+                    fontSize: 52, lineHeight: 1,
+                    filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.15))',
+                    transition: 'transform 0.15s',
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.25)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                  >{emoji}</span>
+                  <span style={{ fontSize: 11, color: '#888', fontWeight: 600 }}>{label}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>

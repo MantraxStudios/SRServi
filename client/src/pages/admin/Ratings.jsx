@@ -7,22 +7,33 @@ import { QRCodeCanvas } from 'qrcode.react';
 
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
+const EMOJIS = [
+  { emoji: '😡', label: 'Muy malo',  min: 0,  max: 2  },
+  { emoji: '😕', label: 'Malo',      min: 3,  max: 4  },
+  { emoji: '😐', label: 'Regular',   min: 5,  max: 6  },
+  { emoji: '😊', label: 'Bueno',     min: 7,  max: 8  },
+  { emoji: '🤩', label: 'Excelente', min: 9,  max: 10 },
+];
+
+function getEmoji(val) {
+  return EMOJIS.find(e => val >= e.min && val <= e.max) || EMOJIS[2];
+}
+
 function getRatingColor(r) {
-  if (r <= 3) return '#ef4444';
+  if (r <= 2) return '#ef4444';
+  if (r <= 4) return '#f97316';
   if (r <= 6) return '#f59e0b';
+  if (r <= 8) return '#84cc16';
   return '#22c55e';
 }
 
 function RatingBadge({ value }) {
+  const e = getEmoji(value);
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      width: 36, height: 36, borderRadius: '50%',
-      background: getRatingColor(value), color: '#fff',
-      fontWeight: 800, fontSize: 15,
-    }}>
-      {value}
-    </span>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 44 }}>
+      <span style={{ fontSize: 28, lineHeight: 1 }}>{e.emoji}</span>
+      <span style={{ fontSize: 10, color: '#6b7280', fontWeight: 600 }}>{value}/10</span>
+    </div>
   );
 }
 
@@ -158,32 +169,25 @@ export default function Ratings() {
       const shortUrl = ratingUrl.replace('https://', '').replace('http://', '');
       ctx.fillText(shortUrl, W / 2, cardY + cardH + 44);
 
-      // ── Escala de valoración ─────────────────────────────────────────────
-      const scaleY = cardY + cardH + 80;
-      const dotSize = 40;
-      const totalDots = 11;
-      const spacing = (W - 80) / (totalDots - 1);
-      ctx.font = 'bold 15px Arial';
+      // ── Escala de emojis ─────────────────────────────────────────────────
+      const scaleY = cardY + cardH + 90;
+      const emojiList = ['😡','😕','😐','😊','🤩'];
+      const emojiLabels = ['Muy malo','Malo','Regular','Bueno','Excelente'];
+      const emojiSpacing = (W - 120) / (emojiList.length - 1);
+      ctx.font = '52px serif';
+      ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      for (let i = 0; i <= 10; i++) {
-        const x = 40 + i * spacing;
-        const col = i <= 3 ? '#ef4444' : i <= 6 ? '#f59e0b' : '#22c55e';
-        ctx.fillStyle = col;
-        ctx.beginPath();
-        ctx.arc(x, scaleY, dotSize / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';
-        ctx.fillText(String(i), x, scaleY);
-      }
-
-      // Etiquetas escala
-      ctx.font = '14px Arial';
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.textAlign = 'left';
-      ctx.fillText('Muy malo', 40, scaleY + 34);
-      ctx.textAlign = 'right';
-      ctx.fillText('Excelente', W - 40, scaleY + 34);
+      emojiList.forEach((em, i) => {
+        const x = 60 + i * emojiSpacing;
+        ctx.fillText(em, x, scaleY);
+      });
+      ctx.font = '13px Arial';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.textBaseline = 'top';
+      emojiLabels.forEach((lb, i) => {
+        const x = 60 + i * emojiSpacing;
+        ctx.fillText(lb, x, scaleY + 36);
+      });
 
       // ── Línea dorada inferior ─────────────────────────────────────────────
       ctx.fillStyle = accentColor;
@@ -253,14 +257,16 @@ export default function Ratings() {
           ) : summary && summary.total > 0 ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
-                <div style={{
-                  width: 72, height: 72, borderRadius: '50%',
-                  background: getRatingColor(Math.round(parseFloat(summary.avg_rating) || 0)),
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontWeight: 900, fontSize: 28,
-                  boxShadow: `0 4px 20px ${getRatingColor(Math.round(parseFloat(summary.avg_rating) || 0))}55`,
-                }}>
-                  {parseFloat(summary.avg_rating).toFixed(1)}
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 48, lineHeight: 1 }}>
+                    {getEmoji(Math.round(parseFloat(summary.avg_rating) || 0)).emoji}
+                  </div>
+                  <div style={{
+                    fontSize: 13, fontWeight: 800, marginTop: 2,
+                    color: getRatingColor(Math.round(parseFloat(summary.avg_rating) || 0)),
+                  }}>
+                    {parseFloat(summary.avg_rating).toFixed(1)}/10
+                  </div>
                 </div>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Promedio</p>
@@ -329,15 +335,10 @@ export default function Ratings() {
                 excavate: false,
               }}
             />
-            {/* Escala mini */}
-            <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-              {[0,1,2,3,4,5,6,7,8,9,10].map(v => (
-                <div key={v} style={{
-                  width: 16, height: 16, borderRadius: '50%',
-                  background: v <= 3 ? '#ef4444' : v <= 6 ? '#f59e0b' : '#22c55e',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 8, fontWeight: 800, color: '#fff',
-                }}>{v}</div>
+            {/* Escala mini emojis */}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
+              {EMOJIS.map(e => (
+                <span key={e.label} style={{ fontSize: 20 }} title={e.label}>{e.emoji}</span>
               ))}
             </div>
           </div>
