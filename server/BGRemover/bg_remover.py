@@ -10,9 +10,17 @@ from pathlib import Path
 
 def instalar_dependencias():
     import subprocess
-    print("📦 Instalando dependencias...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "rembg", "pillow"])
+    print("📦 Instalando rembg[cpu] (solo CPU, sin GPU)...")
+    subprocess.check_call([
+        sys.executable, "-m", "pip", "install",
+        "rembg[cpu]", "pillow", "onnxruntime",
+        "--user", "--quiet", "--no-warn-script-location"
+    ])
     print("✅ Dependencias instaladas\n")
+
+# Forzar CPU para evitar errores en servidores sin GPU
+os.environ.setdefault("ONNXRUNTIME_EXECUTION_PROVIDERS", "CPUExecutionProvider")
+os.environ.setdefault("ORT_LOGGING_LEVEL_FATAL", "3")
 
 try:
     from rembg import remove

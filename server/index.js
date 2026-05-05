@@ -7899,33 +7899,88 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Background removal endpoint
+    // ── Background Removal ───────────────────────────────────────────────────
+    let _pythonExec = null;  // cached python path
+    let _rembgReady = false; // cached install check
+
+    const runCmd = (cmd, args, opts = {}) => new Promise((resolve, reject) => {
+      execFile(cmd, args, { timeout: 30000, ...opts }, (err, stdout, stderr) => {
+        if (err) reject(err); else resolve({ stdout, stderr });
+      });
+    });
+
+    async function findPython() {
+      if (_pythonExec) return _pythonExec;
+      for (const cmd of ['python3', 'python', 'python3.12', 'python3.11', 'python3.10', 'python3.9']) {
+        try {
+          await runCmd(cmd, ['--version']);
+          _pythonExec = cmd;
+          console.log(`[bg_remover] Python encontrado: ${cmd}`);
+          return cmd;
+        } catch {}
+      }
+      return null;
+    }
+
+    async function ensureRembg(python) {
+      if (_rembgReady) return true;
+      // Check if rembg is already importable
+      try {
+        await runCmd(python, ['-c', 'import rembg']);
+        _rembgReady = true;
+        return true;
+      } catch {}
+      // Install rembg[cpu] + pillow (CPU-only, no GPU required)
+      console.log('[bg_remover] Instalando rembg[cpu]...');
+      try {
+        await runCmd(python, [
+          '-m', 'pip', 'install',
+          'rembg[cpu]', 'pillow', 'onnxruntime',
+          '--user', '--quiet', '--no-warn-script-location'
+        ], { timeout: 300000 });
+        // Verify install succeeded
+        await runCmd(python, ['-c', 'import rembg']);
+        _rembgReady = true;
+        console.log('[bg_remover] rembg instalado correctamente');
+        return true;
+      } catch (e) {
+        console.error('[bg_remover] Error instalando rembg:', e.message);
+        return false;
+      }
+    }
+
     app.post('/api/remove-background', upload.single('image'), async (req, res) => {
       try {
         if (!req.file) return res.status(400).json({ error: 'No se recibió imagen' });
+
+        const python = await findPython();
+        if (!python) return res.status(500).json({ error: 'Python no está disponible en el servidor' });
+
+        const ready = await ensureRembg(python);
+        if (!ready) return res.status(500).json({ error: 'No se pudo instalar rembg' });
 
         const inputPath = path.resolve(req.file.path);
         const outputFilename = req.file.filename.replace(/\.[^.]+$/, '') + '_sin_fondo.png';
         const outputPath = path.resolve('uploads', outputFilename);
         const scriptPath = path.join(__serverDir, 'BGRemover', 'bg_remover.py');
 
-        execFile('python', [scriptPath, inputPath, outputPath], (err) => {
-          if (err) {
-            // Try python3 if python fails
-            execFile('python3', [scriptPath, inputPath, outputPath], (err2) => {
-              if (err2) {
-                console.error('[bg_remover]', err2);
-                return res.status(500).json({ error: 'Error al remover el fondo' });
-              }
-              res.json({ url: `/uploads/${outputFilename}` });
-            });
-            return;
-          }
-          res.json({ url: `/uploads/${outputFilename}` });
+        // Env vars: force CPU, suppress ONNX verbose logs
+        const childEnv = {
+          ...process.env,
+          ONNXRUNTIME_EXECUTION_PROVIDERS: 'CPUExecutionProvider',
+          ORT_LOGGING_LEVEL_FATAL: '3',
+          U2NET_HOME: path.join(__serverDir, 'BGRemover', 'models'),
+        };
+
+        await runCmd(python, [scriptPath, inputPath, outputPath], {
+          env: childEnv,
+          timeout: 120000,
         });
+
+        res.json({ url: `/uploads/${outputFilename}` });
       } catch (e) {
-        console.error('[remove-background]', e);
-        res.status(500).json({ error: e.message });
+        console.error('[remove-background]', e.message);
+        res.status(500).json({ error: 'Error al remover el fondo' });
       }
     });
 

@@ -4395,7 +4395,7 @@ function Store() {
       )}
 
       {showRatingStep && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
           <div className="modal text-center" style={{ maxWidth: '420px', padding: '36px 32px' }}>
             <p style={{ fontSize: '28px', margin: '0 0 6px' }}>⭐</p>
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '6px', fontSize: '22px' }}>¿Cómo fue tu experiencia?</h2>
@@ -4558,8 +4558,9 @@ function Store() {
             </p>
             <button
               onClick={() => {
-                setLastOrderNumber(null);
-                showWelcomeAfterOrder();
+                setCashPaymentSuccess(false);
+                setOrderRating(null);
+                setShowRatingStep(true);
               }}
               className="btn btn-lg btn-full"
               style={{
