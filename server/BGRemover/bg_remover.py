@@ -8,27 +8,12 @@ import sys
 import os
 from pathlib import Path
 
-def instalar_dependencias():
-    import subprocess
-    print("📦 Instalando rembg[cpu] (solo CPU, sin GPU)...")
-    subprocess.check_call([
-        sys.executable, "-m", "pip", "install",
-        "rembg[cpu]", "pillow", "onnxruntime",
-        "--user", "--quiet", "--no-warn-script-location"
-    ])
-    print("✅ Dependencias instaladas\n")
-
-# Forzar CPU para evitar errores en servidores sin GPU
+# Forzar CPU — el venv ya tiene rembg[cpu] instalado
 os.environ.setdefault("ONNXRUNTIME_EXECUTION_PROVIDERS", "CPUExecutionProvider")
 os.environ.setdefault("ORT_LOGGING_LEVEL_FATAL", "3")
 
-try:
-    from rembg import remove
-    from PIL import Image
-except ImportError:
-    instalar_dependencias()
-    from rembg import remove
-    from PIL import Image
+from rembg import remove
+from PIL import Image
 
 
 def eliminar_fondo(entrada: str, salida: str = None) -> str:

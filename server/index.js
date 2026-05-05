@@ -7900,71 +7900,81 @@ async function startServer() {
     });
 
     // ── Background Removal ───────────────────────────────────────────────────
-    let _pythonExec = null;  // cached python path
-    let _rembgReady = false; // cached install check
+    const VENV_DIR  = path.join(__serverDir, 'BGRemover', 'venv');
+    const VENV_PY   = path.join(VENV_DIR, 'bin', 'python3');
+    const VENV_PIP  = path.join(VENV_DIR, 'bin', 'pip');
+    let _bgReady = false; // true once venv+rembg confirmed
 
     const runCmd = (cmd, args, opts = {}) => new Promise((resolve, reject) => {
-      execFile(cmd, args, { timeout: 30000, ...opts }, (err, stdout, stderr) => {
-        if (err) reject(err); else resolve({ stdout, stderr });
+      execFile(cmd, args, { timeout: 60000, ...opts }, (err, stdout, stderr) => {
+        if (err) reject(Object.assign(err, { stdout, stderr }));
+        else resolve({ stdout, stderr });
       });
     });
 
-    async function findPython() {
-      if (_pythonExec) return _pythonExec;
-      for (const cmd of ['python3', 'python', 'python3.12', 'python3.11', 'python3.10', 'python3.9']) {
-        try {
-          await runCmd(cmd, ['--version']);
-          _pythonExec = cmd;
-          console.log(`[bg_remover] Python encontrado: ${cmd}`);
-          return cmd;
-        } catch {}
+    // Find a system python3 to bootstrap the venv
+    async function findSystemPython() {
+      for (const cmd of ['python3', 'python3.12', 'python3.11', 'python3.10', 'python3.9', 'python']) {
+        try { await runCmd(cmd, ['--version']); return cmd; } catch {}
       }
       return null;
     }
 
-    async function ensureRembg(python) {
-      if (_rembgReady) return true;
-      // Check if rembg is already importable
+    async function ensureBgEnv() {
+      if (_bgReady) return true;
       try {
-        await runCmd(python, ['-c', 'import rembg']);
-        _rembgReady = true;
-        return true;
-      } catch {}
-      // Install rembg[cpu] + pillow (CPU-only, no GPU required)
-      console.log('[bg_remover] Instalando rembg[cpu]...');
-      try {
-        await runCmd(python, [
-          '-m', 'pip', 'install',
-          'rembg[cpu]', 'pillow', 'onnxruntime',
-          '--user', '--quiet', '--no-warn-script-location'
-        ], { timeout: 300000 });
-        // Verify install succeeded
-        await runCmd(python, ['-c', 'import rembg']);
-        _rembgReady = true;
-        console.log('[bg_remover] rembg instalado correctamente');
+        // 1 — If venv already exists and rembg importable, we're done
+        if (fs.existsSync(VENV_PY)) {
+          try {
+            await runCmd(VENV_PY, ['-c', 'import rembg']);
+            _bgReady = true;
+            console.log('[bg_remover] Entorno listo (venv existente)');
+            return true;
+          } catch {}
+        }
+
+        // 2 — Create venv if needed
+        if (!fs.existsSync(VENV_DIR)) {
+          const sysPy = await findSystemPython();
+          if (!sysPy) throw new Error('Python3 no encontrado en el sistema');
+          console.log(`[bg_remover] Creando venv con ${sysPy}...`);
+          await runCmd(sysPy, ['-m', 'venv', VENV_DIR], { timeout: 60000 });
+          console.log('[bg_remover] Venv creado');
+        }
+
+        // 3 — Install rembg[cpu] inside the venv
+        console.log('[bg_remover] Instalando rembg[cpu] en el venv...');
+        await runCmd(VENV_PIP, [
+          'install', 'rembg[cpu]', 'pillow', 'onnxruntime',
+          '--quiet', '--no-warn-script-location'
+        ], { timeout: 600000 }); // 10 min max
+
+        // 4 — Verify
+        await runCmd(VENV_PY, ['-c', 'import rembg']);
+        _bgReady = true;
+        console.log('[bg_remover] rembg[cpu] instalado correctamente en venv');
         return true;
       } catch (e) {
-        console.error('[bg_remover] Error instalando rembg:', e.message);
+        console.error('[bg_remover] Error preparando entorno:', e.message || e.stderr || e);
         return false;
       }
     }
+
+    // Start setup in background so first request isn't cold
+    ensureBgEnv().catch(() => {});
 
     app.post('/api/remove-background', upload.single('image'), async (req, res) => {
       try {
         if (!req.file) return res.status(400).json({ error: 'No se recibió imagen' });
 
-        const python = await findPython();
-        if (!python) return res.status(500).json({ error: 'Python no está disponible en el servidor' });
+        const ready = await ensureBgEnv();
+        if (!ready) return res.status(500).json({ error: 'El entorno de remoción de fondo no está disponible' });
 
-        const ready = await ensureRembg(python);
-        if (!ready) return res.status(500).json({ error: 'No se pudo instalar rembg' });
-
-        const inputPath = path.resolve(req.file.path);
+        const inputPath  = path.resolve(req.file.path);
         const outputFilename = req.file.filename.replace(/\.[^.]+$/, '') + '_sin_fondo.png';
         const outputPath = path.resolve('uploads', outputFilename);
         const scriptPath = path.join(__serverDir, 'BGRemover', 'bg_remover.py');
 
-        // Env vars: force CPU, suppress ONNX verbose logs
         const childEnv = {
           ...process.env,
           ONNXRUNTIME_EXECUTION_PROVIDERS: 'CPUExecutionProvider',
@@ -7972,7 +7982,7 @@ async function startServer() {
           U2NET_HOME: path.join(__serverDir, 'BGRemover', 'models'),
         };
 
-        await runCmd(python, [scriptPath, inputPath, outputPath], {
+        await runCmd(VENV_PY, [scriptPath, inputPath, outputPath], {
           env: childEnv,
           timeout: 120000,
         });
