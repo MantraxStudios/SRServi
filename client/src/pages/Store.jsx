@@ -281,6 +281,9 @@ function Store() {
   const [prodImageFile, setProdImageFile] = useState(null);
   const [prodCameraOpen, setProdCameraOpen] = useState(false);
   const [prodSaving, setProdSaving] = useState(false);
+  const [bgRemoveDialog, setBgRemoveDialog] = useState(false);
+  const [bgRemoving, setBgRemoving] = useState(false);
+  const [pendingImageFile, setPendingImageFile] = useState(null);
   const [prodNewExtras, setProdNewExtras] = useState([]);
   const [prodNewComplements, setProdNewComplements] = useState([]);
   const [showComplementsModal, setShowComplementsModal] = useState(false);
@@ -4526,7 +4529,7 @@ function Store() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => { if (e.target.files[0]) { setProdImageFile(e.target.files[0]); setProdForm({ ...prodForm, image_url: '' }); } }}
+                    onChange={(e) => { if (e.target.files[0]) { setProdForm({ ...prodForm, image_url: '' }); setPendingImageFile(e.target.files[0]); setBgRemoveDialog(true); } }}
                     style={{ display: 'none' }}
                   />
                 </label>
@@ -4676,9 +4679,57 @@ function Store() {
 
       {prodCameraOpen && (
         <CameraModal
-          onCapture={(file) => { setProdImageFile(file); setProdCameraOpen(false); }}
+          onCapture={(file) => { setProdCameraOpen(false); setPendingImageFile(file); setBgRemoveDialog(true); }}
           onClose={() => setProdCameraOpen(false)}
         />
+      )}
+
+      {bgRemoveDialog && pendingImageFile && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 999998, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: '#fff', borderRadius: 18, padding: 28, maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: '0 8px 40px rgba(0,0,0,0.25)' }}>
+            <img src={URL.createObjectURL(pendingImageFile)} alt="Preview" style={{ width: '100%', maxHeight: 200, objectFit: 'contain', borderRadius: 10, marginBottom: 16 }} />
+            <p style={{ fontWeight: '700', fontSize: 17, margin: '0 0 6px' }}>¿Remover el fondo?</p>
+            <p style={{ fontSize: 13, color: '#666', margin: '0 0 20px' }}>Puedes eliminar el fondo de la imagen automáticamente con IA.</p>
+            {bgRemoving ? (
+              <p style={{ color: '#888', fontSize: 14 }}>Procesando...</p>
+            ) : (
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                <button
+                  onClick={() => { setProdImageFile(pendingImageFile); setPendingImageFile(null); setBgRemoveDialog(false); }}
+                  style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: '2px solid #e0e0e0', background: '#fff', color: '#444', fontWeight: '700', fontSize: 14, cursor: 'pointer' }}
+                >
+                  No, usar tal cual
+                </button>
+                <button
+                  onClick={async () => {
+                    setBgRemoving(true);
+                    try {
+                      const fd = new FormData();
+                      fd.append('image', pendingImageFile);
+                      const res = await fetch('/api/remove-background', { method: 'POST', body: fd });
+                      if (!res.ok) throw new Error('Error del servidor');
+                      const data = await res.json();
+                      const imgRes = await fetch(data.url);
+                      const blob = await imgRes.blob();
+                      const file = new File([blob], 'sin_fondo.png', { type: 'image/png' });
+                      setProdImageFile(file);
+                    } catch {
+                      alert('No se pudo remover el fondo. Se usará la imagen original.');
+                      setProdImageFile(pendingImageFile);
+                    } finally {
+                      setBgRemoving(false);
+                      setPendingImageFile(null);
+                      setBgRemoveDialog(false);
+                    }
+                  }}
+                  style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--store-primary, #D4AF37)', color: '#fff', fontWeight: '700', fontSize: 14, cursor: 'pointer' }}
+                >
+                  Sí, remover fondo
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {showComplementsModal && (

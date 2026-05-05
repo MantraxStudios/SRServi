@@ -10,6 +10,7 @@ import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
+import { execFile } from 'child_process';
 import speakeasy from 'speakeasy';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
@@ -7859,6 +7860,36 @@ async function startServer() {
         }
         res.json({ success: true, order_number: orderNumber });
       } catch (e) { console.error('[Haulmer confirm]', e); res.status(500).json({ error: e.message }); }
+    });
+
+    // Background removal endpoint
+    app.post('/api/remove-background', upload.single('image'), async (req, res) => {
+      try {
+        if (!req.file) return res.status(400).json({ error: 'No se recibió imagen' });
+
+        const inputPath = path.resolve(req.file.path);
+        const outputFilename = req.file.filename.replace(/\.[^.]+$/, '') + '_sin_fondo.png';
+        const outputPath = path.resolve('uploads', outputFilename);
+        const scriptPath = path.join(__serverDir, 'BGRemover', 'bg_remover.py');
+
+        execFile('python', [scriptPath, inputPath, outputPath], (err) => {
+          if (err) {
+            // Try python3 if python fails
+            execFile('python3', [scriptPath, inputPath, outputPath], (err2) => {
+              if (err2) {
+                console.error('[bg_remover]', err2);
+                return res.status(500).json({ error: 'Error al remover el fondo' });
+              }
+              res.json({ url: `/uploads/${outputFilename}` });
+            });
+            return;
+          }
+          res.json({ url: `/uploads/${outputFilename}` });
+        });
+      } catch (e) {
+        console.error('[remove-background]', e);
+        res.status(500).json({ error: e.message });
+      }
     });
 
     server.listen(PORT, HOST, () => {
