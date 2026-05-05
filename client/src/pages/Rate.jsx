@@ -30,6 +30,12 @@ export default function Rate() {
       .finally(() => setLoading(false));
   }, [code]);
 
+  useEffect(() => {
+    if (!done) return;
+    const t = setTimeout(() => window.location.reload(), 3000);
+    return () => clearTimeout(t);
+  }, [done]);
+
   const submit = async () => {
     if (selected === null) return;
     setSubmitting(true);
@@ -64,12 +70,6 @@ export default function Rate() {
       <p style={{ color: '#ef4444', fontSize: 16 }}>{error}</p>
     </div>
   );
-
-  useEffect(() => {
-    if (!done) return;
-    const t = setTimeout(() => window.location.reload(), 3000);
-    return () => clearTimeout(t);
-  }, [done]);
 
   /* ── pantalla de agradecimiento ─────────────────────────────────────── */
   if (done) {
