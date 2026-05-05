@@ -311,17 +311,18 @@ function TvDisplay() {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 12px;
-          padding: 12px 20px;
+          gap: 16px;
+          padding: 14px 28px;
           background: #000;
           border-bottom: 3px solid var(--tv-accent);
         }
 
         .tv-logo {
-          width: 44px;
-          height: 44px;
-          border-radius: 10px;
-          object-fit: cover;
+          height: 72px;
+          width: auto;
+          max-width: 160px;
+          border-radius: 14px;
+          object-fit: contain;
           border: 2px solid var(--tv-accent);
         }
 
