@@ -4411,15 +4411,28 @@ function Store() {
           {/* contenido */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '0 16px', zIndex: 1, width: '100%', maxWidth: 520, boxSizing: 'border-box' }}>
             {/* logo / inicial */}
-            <div style={{
-              width: 60, height: 60, borderRadius: 16,
-              background: colors.accent,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 24, fontWeight: 900, color: colors.primary,
-              boxShadow: `0 4px 24px ${colors.accent}66`,
-            }}>
-              {(store?.store?.name || '★')[0]?.toUpperCase() || '★'}
-            </div>
+            {store?.store?.logo_url ? (
+              <img
+                src={store.store.logo_url}
+                alt={store.store.name}
+                style={{
+                  width: 70, height: 70, borderRadius: 18,
+                  objectFit: 'cover',
+                  border: `3px solid ${colors.accent}`,
+                  boxShadow: `0 4px 24px ${colors.accent}66`,
+                }}
+              />
+            ) : (
+              <div style={{
+                width: 60, height: 60, borderRadius: 16,
+                background: colors.accent,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 24, fontWeight: 900, color: colors.primary,
+                boxShadow: `0 4px 24px ${colors.accent}66`,
+              }}>
+                {(store?.store?.name || '★')[0]?.toUpperCase() || '★'}
+              </div>
+            )}
 
             <h2 style={{ color: '#fff', fontSize: 24, fontWeight: 900, margin: 0, textAlign: 'center', lineHeight: 1.2 }}>
               ¿Cómo fue tu experiencia?
