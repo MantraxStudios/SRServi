@@ -34,6 +34,8 @@
     <string name="btn_admin_panel">Panel Administrador</string>
     <string name="btn_clear_cache">Limpiar Caché</string>
     <string name="cache_cleared">Caché limpiado correctamente</string>
+    <string name="btn_rate">Calificar Tienda</string>
+    <string name="rate_no_code">Configura el código de tienda primero</string>
     <string name="worker_panel_title">Panel Trabajador</string>
     <string name="exit_kiosk">Salir</string>
 </resources>

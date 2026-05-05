@@ -3,6 +3,7 @@ package com.mantraxstudios.srservi
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
@@ -47,6 +48,17 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.btnWorkerLogin).setOnClickListener {
             startActivity(Intent(this, WorkerLoginActivity::class.java))
+        }
+
+        findViewById<View>(R.id.btnRate).setOnClickListener {
+            val prefs = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
+            val storeCode = prefs.getString("store_code", "")
+            if (storeCode.isNullOrBlank()) {
+                Toast.makeText(this, getString(R.string.rate_no_code), Toast.LENGTH_SHORT).show()
+            } else {
+                val url = "https://srservi2.srautomatic.com/rate/$storeCode"
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            }
         }
 
         findViewById<View>(R.id.btnClearCache).setOnClickListener {

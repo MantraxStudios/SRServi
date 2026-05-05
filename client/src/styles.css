@@ -2236,28 +2236,44 @@ h1, h2, h3, h4, h5, h6 {
 .category-section-header {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-4) var(--space-4);
+  gap: 10px;
+  padding: 24px 16px 12px;
 }
 
 .category-section-icon {
-  font-size: 18px;
-  color: var(--store-accent);
+  font-size: 13px;
+  color: var(--store-primary);
+  background: var(--store-accent);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .category-section-title {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   color: var(--store-primary);
+  background: var(--store-accent);
+  padding: 5px 16px;
+  border-radius: 999px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  margin: 0;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
 }
 
 .category-section-line {
   flex: 1;
-  height: 2px;
-  background-color: var(--store-accent);
-  border-radius: 2px;
-  opacity: 0.3;
-  margin-left: var(--space-4);
+  height: 1px;
+  background: linear-gradient(to right, var(--store-accent), transparent);
+  border-radius: 999px;
+  opacity: 0.4;
 }
 
 /* Product grid (store) */

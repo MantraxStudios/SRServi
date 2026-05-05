@@ -65,6 +65,12 @@ export default function Rate() {
     </div>
   );
 
+  useEffect(() => {
+    if (!done) return;
+    const t = setTimeout(() => window.location.reload(), 3000);
+    return () => clearTimeout(t);
+  }, [done]);
+
   /* ── pantalla de agradecimiento ─────────────────────────────────────── */
   if (done) {
     const ch = EMOJIS[selected] || EMOJIS[4];
