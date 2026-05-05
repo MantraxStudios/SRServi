@@ -1,8 +1,8 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faStar, faQrcode, faCommentAlt, faDownload } from '@fortawesome/free-solid-svg-icons';
+import { faStar, faQrcode, faCommentAlt, faDownload, faArrowDown } from '@fortawesome/free-solid-svg-icons';
 import { QRCodeCanvas } from 'qrcode.react';
 
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -26,26 +26,20 @@ function RatingBadge({ value }) {
   );
 }
 
-function StarsDisplay({ value }) {
-  const filled = Math.round(value);
-  return (
-    <span style={{ fontSize: 18, letterSpacing: 2 }}>
-      {[...Array(11)].map((_, i) => (
-        <span key={i} style={{ color: i < filled ? '#f59e0b' : '#e5e7eb' }}>●</span>
-      ))}
-    </span>
-  );
-}
-
 export default function Ratings() {
   const { token } = useAuth();
   const { selectedStore } = useContext(StoreContext);
   const [ratings, setRatings] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState('all'); // 'all' | 'high' | 'mid' | 'low'
+  const [filter, setFilter] = useState('all');
+  const [downloading, setDownloading] = useState(false);
+  const qrRef = useRef(null);
 
   const ratingUrl = selectedStore ? `${BASE_URL}/rate/${selectedStore.code}` : '';
+  const storeName = selectedStore?.name || '';
+  const storeColor = selectedStore?.primary_color || '#1a1a2e';
+  const accentColor = selectedStore?.accent_color || '#D4AF37';
 
   useEffect(() => {
     if (!selectedStore?.id || !token) return;
@@ -69,15 +63,168 @@ export default function Ratings() {
     return true;
   });
 
-  const downloadQR = () => {
-    const canvas = document.getElementById('rating-qr-canvas');
-    if (!canvas) return;
-    const url = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `qr-calificacion-${selectedStore?.code || 'tienda'}.png`;
-    a.click();
+  const downloadQRCard = async () => {
+    setDownloading(true);
+    try {
+      const qrCanvas = document.getElementById('rating-qr-canvas');
+      if (!qrCanvas) return;
+
+      const W = 800;
+      const H = 1000;
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+
+      // ── Fondo degradado ──────────────────────────────────────────────────
+      const grad = ctx.createLinearGradient(0, 0, W, H);
+      grad.addColorStop(0, storeColor);
+      grad.addColorStop(1, '#0d0d1a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      // ── Círculos decorativos ─────────────────────────────────────────────
+      ctx.save();
+      ctx.globalAlpha = 0.07;
+      ctx.fillStyle = accentColor;
+      ctx.beginPath(); ctx.arc(680, 120, 200, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(80, 900, 160, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.04;
+      ctx.beginPath(); ctx.arc(400, 500, 320, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // ── Línea dorada superior ────────────────────────────────────────────
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(0, 0, W, 6);
+
+      // ── Logo / inicial tienda ────────────────────────────────────────────
+      const logoSize = 90;
+      const logoX = W / 2 - logoSize / 2;
+      const logoY = 50;
+      ctx.fillStyle = accentColor;
+      roundRect(ctx, logoX, logoY, logoSize, logoSize, 20);
+      ctx.fill();
+      ctx.fillStyle = storeColor;
+      ctx.font = 'bold 40px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(storeName[0]?.toUpperCase() || '★', W / 2, logoY + logoSize / 2);
+
+      // ── Nombre de la tienda ──────────────────────────────────────────────
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 38px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(storeName, W / 2, logoY + logoSize + 50);
+
+      // ── Subtítulo ────────────────────────────────────────────────────────
+      ctx.fillStyle = accentColor;
+      ctx.font = '500 22px Arial';
+      ctx.fillText('Califica tu experiencia', W / 2, logoY + logoSize + 90);
+
+      // ── Estrellas decorativas ────────────────────────────────────────────
+      ctx.font = '28px Arial';
+      ctx.fillStyle = accentColor;
+      ctx.fillText('★  ★  ★  ★  ★', W / 2, logoY + logoSize + 130);
+
+      // ── Tarjeta blanca del QR ────────────────────────────────────────────
+      const cardW = 400;
+      const cardH = 420;
+      const cardX = W / 2 - cardW / 2;
+      const cardY = 320;
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = 40;
+      ctx.shadowOffsetY = 10;
+      roundRect(ctx, cardX, cardY, cardW, cardH, 28);
+      ctx.fill();
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+      // ── QR code dentro de la tarjeta ─────────────────────────────────────
+      const qrSize = 300;
+      const qrX = W / 2 - qrSize / 2;
+      const qrY = cardY + 30;
+      ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+
+      // ── Texto "Escanea aquí" ──────────────────────────────────────────────
+      ctx.fillStyle = '#374151';
+      ctx.font = 'bold 18px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Escanea para calificar', W / 2, cardY + cardH - 30);
+
+      // ── URL abreviada ────────────────────────────────────────────────────
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = '16px Arial';
+      const shortUrl = ratingUrl.replace('https://', '').replace('http://', '');
+      ctx.fillText(shortUrl, W / 2, cardY + cardH + 44);
+
+      // ── Escala de valoración ─────────────────────────────────────────────
+      const scaleY = cardY + cardH + 80;
+      const dotSize = 40;
+      const totalDots = 11;
+      const spacing = (W - 80) / (totalDots - 1);
+      ctx.font = 'bold 15px Arial';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i <= 10; i++) {
+        const x = 40 + i * spacing;
+        const col = i <= 3 ? '#ef4444' : i <= 6 ? '#f59e0b' : '#22c55e';
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(x, scaleY, dotSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.fillText(String(i), x, scaleY);
+      }
+
+      // Etiquetas escala
+      ctx.font = '14px Arial';
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.textAlign = 'left';
+      ctx.fillText('Muy malo', 40, scaleY + 34);
+      ctx.textAlign = 'right';
+      ctx.fillText('Excelente', W - 40, scaleY + 34);
+
+      // ── Línea dorada inferior ─────────────────────────────────────────────
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(0, H - 60, W, 4);
+
+      // ── Branding ─────────────────────────────────────────────────────────
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.font = '15px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Powered by SRAutomatic.cl', W / 2, H - 30);
+
+      // ── Exportar como JPG ─────────────────────────────────────────────────
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `qr-calificacion-${selectedStore?.code || 'tienda'}.jpg`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }, 'image/jpeg', 0.95);
+
+    } finally {
+      setDownloading(false);
+    }
   };
+
+  // Helper: rounded rect path
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
 
   if (!selectedStore) {
     return (
@@ -103,7 +250,7 @@ export default function Ratings() {
           <h3 style={styles.cardTitle}>Resumen</h3>
           {loading ? (
             <p style={{ color: '#9ca3af' }}>Cargando...</p>
-          ) : summary ? (
+          ) : summary && summary.total > 0 ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
                 <div style={{
@@ -111,28 +258,24 @@ export default function Ratings() {
                   background: getRatingColor(Math.round(parseFloat(summary.avg_rating) || 0)),
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: '#fff', fontWeight: 900, fontSize: 28,
+                  boxShadow: `0 4px 20px ${getRatingColor(Math.round(parseFloat(summary.avg_rating) || 0))}55`,
                 }}>
-                  {summary.avg_rating ? parseFloat(summary.avg_rating).toFixed(1) : '—'}
+                  {parseFloat(summary.avg_rating).toFixed(1)}
                 </div>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>Promedio</p>
                   <p style={{ color: '#6b7280', fontSize: 13, margin: 0 }}>{summary.total} calificación{summary.total !== 1 ? 'es' : ''}</p>
                 </div>
               </div>
-              {summary.avg_rating && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ height: 8, background: '#e5e7eb', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%',
-                      width: `${(parseFloat(summary.avg_rating) / 10) * 100}%`,
-                      background: getRatingColor(Math.round(parseFloat(summary.avg_rating))),
-                      borderRadius: 4,
-                      transition: 'width 0.5s',
-                    }} />
-                  </div>
-                  <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4, textAlign: 'right' }}>sobre 10</p>
-                </div>
-              )}
+              <div style={{ height: 8, background: '#e5e7eb', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${(parseFloat(summary.avg_rating) / 10) * 100}%`,
+                  background: getRatingColor(Math.round(parseFloat(summary.avg_rating))),
+                  borderRadius: 4, transition: 'width 0.5s',
+                }} />
+              </div>
+              <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4, textAlign: 'right' }}>sobre 10</p>
             </>
           ) : (
             <p style={{ color: '#9ca3af' }}>Sin calificaciones aún.</p>
@@ -140,29 +283,93 @@ export default function Ratings() {
         </div>
 
         {/* QR card */}
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>
-            <FontAwesomeIcon icon={faQrcode} style={{ marginRight: 8, color: '#6b7280' }} />
-            QR de calificación
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            <div style={{ padding: 12, background: '#fff', borderRadius: 12, border: '2px solid #e5e7eb' }}>
-              <QRCodeCanvas
-                id="rating-qr-canvas"
-                value={ratingUrl}
-                size={160}
-                level="H"
-                includeMargin={false}
-              />
+        <div style={{
+          ...styles.card,
+          background: `linear-gradient(135deg, ${storeColor} 0%, #0d0d1a 100%)`,
+          border: 'none',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          gap: 0, padding: 0, overflow: 'hidden',
+        }}>
+          {/* Header de la card */}
+          <div style={{ width: '100%', padding: '20px 20px 0', textAlign: 'center' }}>
+            {/* Inicial / logo */}
+            <div style={{
+              width: 56, height: 56, borderRadius: 14,
+              background: accentColor,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 10px',
+              fontSize: 22, fontWeight: 900, color: storeColor,
+              boxShadow: `0 4px 20px ${accentColor}66`,
+            }}>
+              {storeName[0]?.toUpperCase() || '★'}
             </div>
-            <p style={{ fontSize: 12, color: '#6b7280', textAlign: 'center', margin: 0, wordBreak: 'break-all' }}>
-              {ratingUrl}
+            <p style={{ color: '#fff', fontWeight: 800, fontSize: 16, margin: '0 0 2px' }}>{storeName}</p>
+            <p style={{ color: accentColor, fontSize: 12, fontWeight: 600, margin: '0 0 14px', letterSpacing: 1 }}>
+              CALIFICA TU EXPERIENCIA
             </p>
-            <button onClick={downloadQR} style={styles.downloadBtn}>
-              <FontAwesomeIcon icon={faDownload} style={{ marginRight: 6 }} />
-              Descargar QR
-            </button>
           </div>
+
+          {/* QR + marco */}
+          <div style={{
+            background: '#fff',
+            borderRadius: 20,
+            padding: 16,
+            margin: '0 20px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+          }}>
+            <QRCodeCanvas
+              id="rating-qr-canvas"
+              value={ratingUrl}
+              size={180}
+              level="H"
+              includeMargin={false}
+              imageSettings={{
+                src: '',
+                excavate: false,
+              }}
+            />
+            {/* Escala mini */}
+            <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+              {[0,1,2,3,4,5,6,7,8,9,10].map(v => (
+                <div key={v} style={{
+                  width: 16, height: 16, borderRadius: '50%',
+                  background: v <= 3 ? '#ef4444' : v <= 6 ? '#f59e0b' : '#22c55e',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 8, fontWeight: 800, color: '#fff',
+                }}>{v}</div>
+              ))}
+            </div>
+          </div>
+
+          {/* URL */}
+          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, margin: '8px 20px 0', textAlign: 'center', wordBreak: 'break-all' }}>
+            {ratingUrl}
+          </p>
+
+          {/* Botón descargar */}
+          <button
+            onClick={downloadQRCard}
+            disabled={downloading}
+            style={{
+              margin: '14px 20px 20px',
+              width: 'calc(100% - 40px)',
+              padding: '13px',
+              borderRadius: 14,
+              border: `2px solid ${accentColor}`,
+              background: downloading ? 'rgba(255,255,255,0.08)' : accentColor,
+              color: downloading ? accentColor : storeColor,
+              fontWeight: 800,
+              fontSize: 14,
+              cursor: downloading ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              transition: 'all 0.2s',
+              letterSpacing: 0.5,
+            }}
+          >
+            <FontAwesomeIcon icon={faDownload} />
+            {downloading ? 'Generando...' : 'Descargar QR (.jpg)'}
+          </button>
         </div>
       </div>
 
@@ -193,9 +400,7 @@ export default function Ratings() {
 
       {/* Ratings list */}
       {loading ? (
-        <div style={styles.empty}>
-          <p>Cargando calificaciones...</p>
-        </div>
+        <div style={styles.empty}><p>Cargando calificaciones...</p></div>
       ) : filtered.length === 0 ? (
         <div style={styles.empty}>
           <FontAwesomeIcon icon={faCommentAlt} style={{ fontSize: 36, color: '#d1d5db', marginBottom: 10 }} />
@@ -212,7 +417,7 @@ export default function Ratings() {
                 ) : (
                   <p style={{ margin: 0, fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>Sin comentario</p>
                 )}
-                <div style={{ display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
                   <span style={styles.tag}>{r.source === 'post_order' ? '📦 Post-pedido' : '📷 QR'}</span>
                   {r.order_id && <span style={styles.tag}>Pedido #{r.order_id}</span>}
                   <span style={{ ...styles.tag, color: '#9ca3af' }}>
@@ -229,87 +434,14 @@ export default function Ratings() {
 }
 
 const styles = {
-  page: {
-    padding: '28px 24px',
-    maxWidth: 860,
-    margin: '0 auto',
-    fontFamily: 'system-ui, -apple-system, sans-serif',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 800,
-    color: '#1e293b',
-    marginBottom: 24,
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-    gap: 16,
-    marginBottom: 24,
-  },
-  card: {
-    background: '#fff',
-    borderRadius: 16,
-    padding: '20px 20px',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
-    border: '1px solid #e5e7eb',
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: 700,
-    color: '#374151',
-    marginBottom: 14,
-    marginTop: 0,
-  },
-  filterRow: {
-    display: 'flex',
-    gap: 8,
-    marginBottom: 16,
-    flexWrap: 'wrap',
-    alignItems: 'center',
-  },
-  filterBtn: {
-    padding: '6px 14px',
-    borderRadius: 20,
-    border: 'none',
-    fontWeight: 600,
-    fontSize: 13,
-    cursor: 'pointer',
-    lineHeight: '20px',
-  },
-  ratingItem: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 14,
-    background: '#fff',
-    borderRadius: 12,
-    padding: '14px 16px',
-    boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
-    border: '1px solid #f1f5f9',
-  },
-  tag: {
-    fontSize: 11,
-    color: '#6b7280',
-    background: '#f1f5f9',
-    borderRadius: 6,
-    padding: '2px 7px',
-  },
-  empty: {
-    textAlign: 'center',
-    padding: '48px 24px',
-    color: '#6b7280',
-    fontSize: 15,
-  },
-  downloadBtn: {
-    background: '#1e293b',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 8,
-    padding: '8px 16px',
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-  },
+  page: { padding: '28px 24px', maxWidth: 860, margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' },
+  title: { fontSize: 22, fontWeight: 800, color: '#1e293b', marginBottom: 24 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 24 },
+  card: { background: '#fff', borderRadius: 16, padding: '20px', boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: '1px solid #e5e7eb' },
+  cardTitle: { fontSize: 15, fontWeight: 700, color: '#374151', marginBottom: 14, marginTop: 0 },
+  filterRow: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' },
+  filterBtn: { padding: '6px 14px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', lineHeight: '20px' },
+  ratingItem: { display: 'flex', alignItems: 'flex-start', gap: 14, background: '#fff', borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' },
+  tag: { fontSize: 11, color: '#6b7280', background: '#f1f5f9', borderRadius: 6, padding: '2px 7px' },
+  empty: { textAlign: 'center', padding: '48px 24px', color: '#6b7280', fontSize: 15 },
 };
