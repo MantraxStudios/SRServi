@@ -4395,11 +4395,50 @@ function Store() {
       )}
 
       {showRatingStep && (
-        <div className="modal-overlay" style={{ zIndex: 9999 }}>
-          <div className="modal text-center" style={{ maxWidth: '440px', padding: '40px 32px' }}>
-            <h2 style={{ color: 'var(--store-primary)', marginBottom: '6px', fontSize: '22px' }}>¿Cómo fue tu experiencia?</h2>
-            <p style={{ color: '#888', fontSize: '14px', marginBottom: '28px' }}>Toca un emoji para calificar</p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: `linear-gradient(145deg, ${colors.primary} 0%, #0d0d1a 100%)`,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden',
+        }}>
+          {/* círculos decorativos */}
+          <div style={{ position: 'absolute', width: 260, height: 260, borderRadius: '50%', background: colors.accent, opacity: 0.06, top: -60, left: -60, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', width: 180, height: 180, borderRadius: '50%', background: colors.accent, opacity: 0.05, bottom: -40, right: -40, pointerEvents: 'none' }} />
+
+          {/* línea dorada superior */}
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 5, background: colors.accent }} />
+
+          {/* contenido */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '0 24px', zIndex: 1 }}>
+            {/* logo / inicial */}
+            <div style={{
+              width: 70, height: 70, borderRadius: 18,
+              background: colors.accent,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 28, fontWeight: 900, color: colors.primary,
+              boxShadow: `0 4px 24px ${colors.accent}66`,
+              marginBottom: 6,
+            }}>
+              {(store?.store?.name || '★')[0]?.toUpperCase() || '★'}
+            </div>
+
+            <h2 style={{ color: '#fff', fontSize: 26, fontWeight: 900, margin: 0, textAlign: 'center', lineHeight: 1.2 }}>
+              ¿Cómo fue tu experiencia?
+            </h2>
+            <p style={{ color: colors.accent, fontSize: 13, fontWeight: 700, margin: 0, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+              Califica tu visita
+            </p>
+            <p style={{ color: colors.accent, fontSize: 20, margin: '2px 0 16px', letterSpacing: 6 }}>★ ★ ★ ★ ★</p>
+
+            {/* tarjeta de emojis */}
+            <div style={{
+              background: '#fff',
+              borderRadius: 24,
+              padding: '24px 28px 20px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+              display: 'flex', gap: 8, justifyContent: 'center',
+              width: '100%', maxWidth: 460,
+            }}>
               {[
                 { emoji: '😡', label: 'Muy malo',  value: 2  },
                 { emoji: '😕', label: 'Malo',      value: 4  },
@@ -4431,23 +4470,34 @@ function Store() {
                   }}
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                    background: 'none', border: 'none', cursor: ratingSubmitting ? 'not-allowed' : 'pointer',
-                    opacity: ratingSubmitting ? 0.5 : 1, padding: '8px 4px',
+                    background: 'transparent', border: `2.5px solid transparent`, borderRadius: 16,
+                    cursor: ratingSubmitting ? 'not-allowed' : 'pointer',
+                    opacity: ratingSubmitting ? 0.5 : 1,
+                    padding: '10px 8px', transition: 'all 0.15s', outline: 'none', flex: 1,
                   }}
+                  onMouseEnter={e => { e.currentTarget.style.background = `${colors.primary}12`; e.currentTarget.style.borderColor = colors.primary; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; }}
                 >
                   <span style={{
-                    fontSize: 52, lineHeight: 1,
-                    filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.15))',
+                    fontSize: 52, lineHeight: 1, display: 'block',
+                    filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.15))',
                     transition: 'transform 0.15s',
                   }}
                     onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.25)'}
                     onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                   >{emoji}</span>
-                  <span style={{ fontSize: 11, color: '#888', fontWeight: 600 }}>{label}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3, color: '#6b7280' }}>{label}</span>
                 </button>
               ))}
             </div>
+
+            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, margin: '16px 0 0', letterSpacing: 1 }}>
+              Powered by SRAutomatic.cl
+            </p>
           </div>
+
+          {/* línea dorada inferior */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 5, background: colors.accent }} />
         </div>
       )}
 
