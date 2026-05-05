@@ -2877,10 +2877,10 @@ function Store() {
               {store?.store?.name}
             </h1>
           </div>
-          <p className="store-header-powered">{t('poweredBy', lang)}</p>
           <div className="store-header-spacer" />
         </div>
       </header>
+      <p className="store-header-powered">{t('poweredBy', lang)}</p>
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
 
