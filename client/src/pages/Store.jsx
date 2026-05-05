@@ -652,14 +652,16 @@ function Store() {
     if (deliveryMode && lastOrderNumber) {
       downloadReceiptPng(lastOrderNumber, pendingOrderData?.order?.total);
     }
-    const autoCloseTimer = setTimeout(() => {
-      setLastOrderNumber(null);
+    const toRatingTimer = setTimeout(() => {
+      setCashPaymentSuccess(false);
       setCart([]);
       setCartOpen(false);
       setPaymentModalOpen(false);
-      setCashPaymentSuccess(false);
-    }, 20000);
-    return () => clearTimeout(autoCloseTimer);
+      setOrderRating(null);
+      setOrderComment('');
+      setShowRatingStep(true);
+    }, 3000);
+    return () => clearTimeout(toRatingTimer);
   }, [cashPaymentSuccess]);
 
   // Auto-close rating step after 20 seconds
