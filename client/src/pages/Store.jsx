@@ -143,11 +143,11 @@ function SortableProductCard({ product, onEdit, onDelete, currencySymbol, hideDe
           </div>
         </div>
         <div className="store-product-info">
-          <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`} style={{ flexDirection: 'column', gap: '2px' }}>
-            <span className="store-product-name">{product.name}</span>
-            {product.description && (
-              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', fontWeight: 400, lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{product.description}</span>
-            )}
+          {product.description && (
+            <p style={{ margin: '0 0 2px', fontSize: '10px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{product.description}</p>
+          )}
+          <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`}>
+            <span className="store-product-name">{product.name}:</span>
             <span className="store-product-price">{currencySymbol}{hideDecimals && Number(product.price).toFixed(2).endsWith('.00') ? String(Math.round(Number(product.price))) : Number(product.price).toFixed(2)}</span>
           </div>
         </div>
@@ -2852,11 +2852,11 @@ function Store() {
           </div>
         </div>
         <div className="store-product-info">
-          <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`} style={{ flexDirection: 'column', gap: '2px' }}>
-            <span className="store-product-name">{product.name}</span>
-            {product.description && (
-              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.45)', fontWeight: 400, lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{product.description}</span>
-            )}
+          {product.description && (
+            <p style={{ margin: '0 0 2px', fontSize: '10px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{product.description}</p>
+          )}
+          <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`}>
+            <span className="store-product-name">{product.name}:</span>
             <span className="store-product-price">{colors.currency.symbol}{formatPrice(product.price)}</span>
           </div>
         </div>
