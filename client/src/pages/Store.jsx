@@ -2907,14 +2907,17 @@ function Store() {
                 <span>{LANGUAGES.find(l => l.code === lang)?.flag || '🌐'}</span>
               </button>
               {showLangPicker && (
-                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#fff', borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', overflow: 'hidden', minWidth: '130px', zIndex: 300 }}>
+                <>
+                <div onClick={() => setShowLangPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
+                <div style={{ position: 'fixed', top: '58px', right: '12px', background: '#fff', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.25)', overflow: 'hidden', minWidth: '140px', zIndex: 9999 }}>
                   {LANGUAGES.map(l => (
                     <button key={l.code} onClick={() => { setLang(l.code); localStorage.setItem('srservi_lang', l.code); setShowLangPicker(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', background: lang === l.code ? '#f0f0f0' : '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: lang === l.code ? '700' : '400' }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', border: 'none', background: lang === l.code ? '#f0f0f0' : '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: lang === l.code ? '700' : '400' }}>
                       <span>{l.flag}</span> {l.label}
                     </button>
                   ))}
                 </div>
+                </>
               )}
             </div>
           </div>
