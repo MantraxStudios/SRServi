@@ -144,7 +144,7 @@ function SortableProductCard({ product, onEdit, onDelete, currencySymbol, hideDe
         </div>
         <div className="store-product-info">
           {product.description && (
-            <p style={{ margin: '0 0 2px', fontSize: '10px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{product.description}</p>
+            <p style={{ margin: '0 0 2px', fontSize: '10px', color: 'var(--store-primary)', opacity: 0.5, lineHeight: 1.3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{product.description}</p>
           )}
           <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`}>
             <span className="store-product-name">{product.name}:</span>
@@ -2853,7 +2853,7 @@ function Store() {
         </div>
         <div className="store-product-info">
           {product.description && (
-            <p style={{ margin: '0 0 2px', fontSize: '10px', color: 'rgba(255,255,255,0.45)', lineHeight: 1.3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{product.description}</p>
+            <p style={{ margin: '0 0 2px', fontSize: '10px', color: 'var(--store-primary)', opacity: 0.5, lineHeight: 1.3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{product.description}</p>
           )}
           <div className={`store-product-details${isOutOfStock ? ' out-of-stock' : ''}`}>
             <span className="store-product-name">{product.name}:</span>
