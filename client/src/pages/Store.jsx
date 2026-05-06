@@ -2165,12 +2165,14 @@ function Store() {
 
   const saveEditComplement = async () => {
     if (!editingComplement || !editingComplement.name.trim()) return;
-    const { id, type, name, price, imageFile } = editingComplement;
+    const { id, type, name, price, imageFile, stock, unlimited_stock } = editingComplement;
     const formData = new FormData();
     formData.append('token', adminToken);
     formData.append('name', name.trim());
     formData.append('price', parseFloat(price) || 0);
     formData.append('category_id', '');
+    formData.append('stock', parseInt(stock) || 0);
+    formData.append('unlimited_stock', unlimited_stock ? 'true' : 'false');
     if (imageFile) formData.append('image', imageFile);
     await fetch(`/api/public/${code}/${type === 'extra' ? 'extras' : 'ingredients'}/${id}`, {
       method: 'PUT',
@@ -2178,6 +2180,7 @@ function Store() {
     });
     setEditingComplement(null);
     fetchComplements();
+    fetchStore();
   };
 
   const updateProductStock = async (productId, stock, unlimitedStock) => {
@@ -3044,7 +3047,7 @@ function Store() {
                   {Number(e.price) > 0 && <span className="store-editor-comp-price">+${Number(e.price).toFixed(0)}</span>}
                 </div>
                 <div style={{ display: 'flex', gap: '4px' }}>
-                  <button onClick={() => { setEditingComplement({ id: e.id, type: 'extra', name: e.name, price: e.price?.toString() || '', imageFile: null }); setShowComplementsModal(false); }} className="store-prod-edit-btn" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                  <button onClick={() => { setEditingComplement({ id: e.id, type: 'extra', name: e.name, price: e.price?.toString() || '', stock: String(e.stock ?? 0), unlimited_stock: !!(e.unlimited_stock === true || e.unlimited_stock === 1 || e.unlimited_stock === '1'), imageFile: null }); setShowComplementsModal(false); }} className="store-prod-edit-btn" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
                     <FontAwesomeIcon icon={faEdit} />
                   </button>
                   <button onClick={() => deleteComplement('extra', e.id)} className="store-prod-edit-btn danger" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
@@ -3071,7 +3074,7 @@ function Store() {
                   {Number(i.price) > 0 && <span className="store-editor-comp-price">+${Number(i.price).toFixed(0)}</span>}
                 </div>
                 <div style={{ display: 'flex', gap: '4px' }}>
-                  <button onClick={() => { setEditingComplement({ id: i.id, type: 'ingredient', name: i.name, price: i.price?.toString() || '', imageFile: null }); setShowComplementsModal(false); }} className="store-prod-edit-btn" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                  <button onClick={() => { setEditingComplement({ id: i.id, type: 'ingredient', name: i.name, price: i.price?.toString() || '', stock: String(i.stock ?? 0), unlimited_stock: !!(i.unlimited_stock === true || i.unlimited_stock === 1 || i.unlimited_stock === '1'), imageFile: null }); setShowComplementsModal(false); }} className="store-prod-edit-btn" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
                     <FontAwesomeIcon icon={faEdit} />
                   </button>
                   <button onClick={() => deleteComplement('ingredient', i.id)} className="store-prod-edit-btn danger" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
@@ -3094,7 +3097,27 @@ function Store() {
                   <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setEditingComplement({ ...editingComplement, imageFile: e.target.files[0] }); }} style={{ display: 'none' }} />
                 </label>
                 <input type="text" value={editingComplement.name} onChange={(e) => setEditingComplement({ ...editingComplement, name: e.target.value })} placeholder="Nombre" className="store-prod-modal-input" style={{ flex: 2, padding: '8px', fontSize: '13px' }} />
-                <input type="number" step="0.01" value={editingComplement.price} onChange={(e) => setEditingComplement({ ...editingComplement, price: e.target.value })} placeholder="$" className="store-prod-modal-input" style={{ flex: 1, padding: '8px', fontSize: '13px' }} />
+                <input type="number" step="0.01" value={editingComplement.price} onChange={(e) => setEditingComplement({ ...editingComplement, price: e.target.value })} placeholder="Precio +$" className="store-prod-modal-input" style={{ flex: 1, padding: '8px', fontSize: '13px' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', flex: 1 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!editingComplement.unlimited_stock}
+                    onChange={(e) => setEditingComplement({ ...editingComplement, unlimited_stock: e.target.checked })}
+                  />
+                  Stock ilimitado
+                </label>
+                {!editingComplement.unlimited_stock && (
+                  <input
+                    type="number" min="0"
+                    value={editingComplement.stock ?? ''}
+                    onChange={(e) => setEditingComplement({ ...editingComplement, stock: e.target.value })}
+                    placeholder="Cantidad"
+                    className="store-prod-modal-input"
+                    style={{ width: '90px', padding: '7px 8px', fontSize: '13px' }}
+                  />
+                )}
               </div>
               <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
                 <button onClick={() => setEditingComplement(null)} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ccc', background: '#fff', fontSize: '13px', cursor: 'pointer' }}>Cancelar</button>
@@ -5071,7 +5094,7 @@ function Store() {
                             item={ing}
                             active={active}
                             onToggle={() => setSelectedIngredientIds(active ? selectedIngredientIds.filter(id => id !== ing.id) : [...selectedIngredientIds, ing.id])}
-                            onEdit={() => setEditingComplement({ id: ing.id, type: 'ingredient', name: ing.name, price: ing.price?.toString() || '', imageFile: null })}
+                            onEdit={() => setEditingComplement({ id: ing.id, type: 'ingredient', name: ing.name, price: ing.price?.toString() || '', stock: String(ing.stock ?? 0), unlimited_stock: !!(ing.unlimited_stock === true || ing.unlimited_stock === 1 || ing.unlimited_stock === '1'), imageFile: null })}
                             onDelete={() => deleteComplementFromModal('ingredient', ing.id)}
                           />
                         );
@@ -5110,7 +5133,7 @@ function Store() {
                             item={ex}
                             active={active}
                             onToggle={() => setSelectedExtraIds(active ? selectedExtraIds.filter(id => id !== ex.id) : [...selectedExtraIds, ex.id])}
-                            onEdit={() => setEditingComplement({ id: ex.id, type: 'extra', name: ex.name, price: ex.price?.toString() || '', imageFile: null })}
+                            onEdit={() => setEditingComplement({ id: ex.id, type: 'extra', name: ex.name, price: ex.price?.toString() || '', stock: String(ex.stock ?? 0), unlimited_stock: !!(ex.unlimited_stock === true || ex.unlimited_stock === 1 || ex.unlimited_stock === '1'), imageFile: null })}
                             onDelete={() => deleteComplementFromModal('extra', ex.id)}
                           />
                         );
@@ -5144,7 +5167,27 @@ function Store() {
                     <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setEditingComplement({ ...editingComplement, imageFile: e.target.files[0] }); }} style={{ display: 'none' }} />
                   </label>
                   <input type="text" value={editingComplement.name} onChange={(e) => setEditingComplement({ ...editingComplement, name: e.target.value })} placeholder="Nombre" className="store-prod-modal-input" style={{ flex: 2, padding: '8px', fontSize: '13px' }} />
-                  <input type="number" step="0.01" value={editingComplement.price} onChange={(e) => setEditingComplement({ ...editingComplement, price: e.target.value })} placeholder="$" className="store-prod-modal-input" style={{ flex: 1, padding: '8px', fontSize: '13px' }} />
+                  <input type="number" step="0.01" value={editingComplement.price} onChange={(e) => setEditingComplement({ ...editingComplement, price: e.target.value })} placeholder="Precio +$" className="store-prod-modal-input" style={{ flex: 1, padding: '8px', fontSize: '13px' }} />
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', flex: 1 }}>
+                    <input
+                      type="checkbox"
+                      checked={!!editingComplement.unlimited_stock}
+                      onChange={(e) => setEditingComplement({ ...editingComplement, unlimited_stock: e.target.checked })}
+                    />
+                    Stock ilimitado
+                  </label>
+                  {!editingComplement.unlimited_stock && (
+                    <input
+                      type="number" min="0"
+                      value={editingComplement.stock ?? ''}
+                      onChange={(e) => setEditingComplement({ ...editingComplement, stock: e.target.value })}
+                      placeholder="Cantidad"
+                      className="store-prod-modal-input"
+                      style={{ width: '90px', padding: '7px 8px', fontSize: '13px' }}
+                    />
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
                   <button onClick={() => setEditingComplement(null)} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ccc', background: '#fff', fontSize: '13px', cursor: 'pointer' }}>Cancelar</button>
