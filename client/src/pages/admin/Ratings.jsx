@@ -282,6 +282,33 @@ export default function Ratings() {
                 }} />
               </div>
               <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4, textAlign: 'right' }}>sobre 10</p>
+
+              {/* Per-emoji breakdown */}
+              <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {EMOJIS.slice().reverse().map(e => {
+                  const count = ratings.filter(r => r.rating >= e.min && r.rating <= e.max).length;
+                  const pct = summary.total > 0 ? Math.round((count / summary.total) * 100) : 0;
+                  return (
+                    <div key={e.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 18, lineHeight: 1, minWidth: 22 }}>{e.emoji}</span>
+                      <span style={{ fontSize: 11, color: '#6b7280', minWidth: 58 }}>{e.label}</span>
+                      <div style={{ flex: 1, height: 6, background: '#e5e7eb', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${pct}%`,
+                          background: getRatingColor(Math.round((e.min + e.max) / 2)),
+                          borderRadius: 4,
+                          transition: 'width 0.5s',
+                        }} />
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', minWidth: 34, textAlign: 'right' }}>
+                        {pct}%
+                      </span>
+                      <span style={{ fontSize: 10, color: '#9ca3af', minWidth: 20 }}>({count})</span>
+                    </div>
+                  );
+                })}
+              </div>
             </>
           ) : (
             <p style={{ color: '#9ca3af' }}>Sin calificaciones aún.</p>
