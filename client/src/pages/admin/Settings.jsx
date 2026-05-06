@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPalette, faCoins, faChevronDown, faCheck, faFire, faClock, faShieldAlt, faLock, faUnlock } from '@fortawesome/free-solid-svg-icons';
+import { faPalette, faCoins, faChevronDown, faCheck, faFire, faClock, faShieldAlt, faLock, faUnlock, faRobot, faKey } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { Link } from 'react-router-dom';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -48,6 +48,13 @@ function Settings() {
   const [totpSuccess, setTotpSuccess] = useState('');
   const [totpStep, setTotpStep] = useState('idle');
 
+  const [chatgptKey, setChatgptKey] = useState('');
+  const [chatgptKeyPreview, setChatgptKeyPreview] = useState(null);
+  const [chatgptHasKey, setChatgptHasKey] = useState(false);
+  const [chatgptSaving, setChatgptSaving] = useState(false);
+  const [chatgptMsg, setChatgptMsg] = useState(null);
+  const [showChatgptKey, setShowChatgptKey] = useState(false);
+
   useEffect(() => {
     if (selectedStore) {
       setFormData({
@@ -74,6 +81,59 @@ function Settings() {
       }).catch(() => {});
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch('/api/user/chatgpt-key', { headers: { 'Authorization': `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => { setChatgptHasKey(d.has_key); setChatgptKeyPreview(d.key_preview); })
+      .catch(() => {});
+  }, [token]);
+
+  const saveChatgptKey = async () => {
+    if (!chatgptKey) return;
+    setChatgptSaving(true);
+    setChatgptMsg(null);
+    try {
+      const res = await fetch('/api/user/chatgpt-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ api_key: chatgptKey }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setChatgptHasKey(true);
+      setChatgptKeyPreview(`sk-...${chatgptKey.slice(-4)}`);
+      setChatgptKey('');
+      setChatgptMsg({ text: 'API key guardada correctamente', ok: true });
+    } catch (e) {
+      setChatgptMsg({ text: e.message, ok: false });
+    } finally {
+      setChatgptSaving(false);
+      setTimeout(() => setChatgptMsg(null), 4000);
+    }
+  };
+
+  const removeChatgptKey = async () => {
+    setChatgptSaving(true);
+    setChatgptMsg(null);
+    try {
+      const res = await fetch('/api/user/chatgpt-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ api_key: null }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setChatgptHasKey(false);
+      setChatgptKeyPreview(null);
+      setChatgptKey('');
+      setChatgptMsg({ text: 'API key eliminada', ok: true });
+    } catch (e) {
+      setChatgptMsg({ text: e.message, ok: false });
+    } finally {
+      setChatgptSaving(false);
+      setTimeout(() => setChatgptMsg(null), 4000);
+    }
+  };
 
   const startTotpSetup = async () => {
     setTotpError('');
@@ -551,6 +611,91 @@ function Settings() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* ── ChatGPT API Key ──────────────────────── */}
+        <div className="card" style={{ marginTop: '16px' }}>
+          <div className="card-header">
+            <div className="card-title">
+              <FontAwesomeIcon icon={faRobot} className="gap-2" />
+              León IA — API Key de ChatGPT
+            </div>
+          </div>
+          <div style={{ padding: '0 20px 20px' }}>
+            {chatgptMsg && (
+              <div className={chatgptMsg.ok ? 'success' : 'error'} style={{ marginBottom: '12px' }}>
+                {chatgptMsg.text}
+              </div>
+            )}
+
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px',
+              borderRadius: '10px', marginBottom: '16px',
+              background: chatgptHasKey ? '#f0fdf4' : '#fffbeb',
+              border: `1px solid ${chatgptHasKey ? '#16a34a' : '#D4AF37'}`
+            }}>
+              <FontAwesomeIcon icon={faKey} style={{ fontSize: '18px', color: chatgptHasKey ? '#16a34a' : '#D4AF37' }} />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '14px' }}>
+                  {chatgptHasKey ? `API Key configurada: ${chatgptKeyPreview}` : 'Sin API Key configurada'}
+                </div>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                  {chatgptHasKey
+                    ? 'León IA usará ChatGPT (gpt-4o-mini) para respuestas más inteligentes y personalizadas.'
+                    : 'Sin key, León IA usa su motor propio. Con tu key de OpenAI, las respuestas serán mucho más completas.'}
+                </div>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>
+                {chatgptHasKey ? 'Reemplazar API Key' : 'Ingresar API Key de OpenAI'}
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showChatgptKey ? 'text' : 'password'}
+                  value={chatgptKey}
+                  onChange={e => setChatgptKey(e.target.value)}
+                  placeholder="sk-..."
+                  style={{ paddingRight: '44px', fontFamily: 'monospace', fontSize: '13px' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowChatgptKey(p => !p)}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '4px' }}
+                >
+                  <FontAwesomeIcon icon={showChatgptKey ? faUnlock : faLock} />
+                </button>
+              </div>
+              <small style={{ color: '#888', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                Obtené tu key en platform.openai.com/api-keys — empieza con "sk-"
+              </small>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={saveChatgptKey}
+                disabled={chatgptSaving || !chatgptKey}
+                className="btn btn-primary"
+                style={{ background: '#D4AF37', border: 'none', color: '#000', fontWeight: 800 }}
+              >
+                <FontAwesomeIcon icon={faKey} style={{ marginRight: '6px' }} />
+                {chatgptSaving ? 'Guardando...' : 'Guardar API Key'}
+              </button>
+              {chatgptHasKey && (
+                <button
+                  type="button"
+                  onClick={removeChatgptKey}
+                  disabled={chatgptSaving}
+                  className="btn btn-secondary"
+                  style={{ color: '#dc2626', borderColor: '#dc2626' }}
+                >
+                  Eliminar API Key
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

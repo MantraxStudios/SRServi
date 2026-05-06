@@ -847,6 +847,10 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE users ADD COLUMN country VARCHAR(100) DEFAULT NULL');
         console.log('✅ Columna country agregada a users');
       }
+      if (!userColNames.includes('chatgpt_api_key')) {
+        await pool.execute('ALTER TABLE users ADD COLUMN chatgpt_api_key VARCHAR(255) DEFAULT NULL');
+        console.log('✅ Columna chatgpt_api_key agregada a users');
+      }
     } catch (err) {
       if (err.message.includes('Duplicate column')) {
         console.log('ℹ️ Columnas ya existen en users');
@@ -3535,6 +3539,15 @@ export async function updateInstagramPosted(storeId, errorMsg = null) {
         last_error = ?
     WHERE store_id = ?
   `, [errorMsg, storeId]);
+}
+
+export async function getChatGptKey(userId) {
+  const [rows] = await pool.execute('SELECT chatgpt_api_key FROM users WHERE id = ?', [userId]);
+  return rows[0]?.chatgpt_api_key || null;
+}
+
+export async function saveChatGptKey(userId, apiKey) {
+  await pool.execute('UPDATE users SET chatgpt_api_key = ? WHERE id = ?', [apiKey || null, userId]);
 }
 
 export { pool };

@@ -138,6 +138,8 @@ import {
   setVerificationCode,
   markEmailVerified,
   updateUserHeartbeat,
+  getChatGptKey,
+  saveChatGptKey,
   pool
 } from './database.js';
 
@@ -973,6 +975,21 @@ app.put('/api/user/settings', authenticateToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
  });
+
+app.get('/api/user/chatgpt-key', authenticateToken, async (req, res) => {
+  try {
+    const key = await getChatGptKey(req.user.id);
+    res.json({ has_key: !!key, key_preview: key ? `sk-...${key.slice(-4)}` : null });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/user/chatgpt-key', authenticateToken, async (req, res) => {
+  try {
+    const { api_key } = req.body;
+    await saveChatGptKey(req.user.id, api_key || null);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 app.get('/api/stores', authenticateToken, async (req, res) => {
   try {
@@ -2979,8 +2996,38 @@ app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
       data.summary = await getAnalytics(storeId, range);
     }
 
-    const { text: answer, chart } = leonBuildResponse(intent, range, data, storeName);
-    res.json({ answer, chart: chart || null, intent, range });
+    const leonAnswer = leonBuildResponse(intent, range, data, storeName);
+
+    const chatgptKey = await getChatGptKey(req.user.id);
+    if (chatgptKey) {
+      try {
+        const systemPrompt = `Eres León IA, el asistente de negocios de SRServi para la tienda "${storeName}".
+Analiza los datos de la tienda y responde de forma breve, directa y accionable en español.
+No uses listas largas. Máximo 4 oraciones. Usa emojis moderadamente.
+Datos actuales de la tienda: ${JSON.stringify(data)}`;
+
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          ...history.slice(-6).map(m => ({ role: m.role === 'leon' ? 'assistant' : 'user', content: m.text })),
+          { role: 'user', content: question },
+        ];
+
+        const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${chatgptKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'gpt-4o-mini', messages, max_tokens: 300, temperature: 0.7 }),
+        });
+        if (openaiRes.ok) {
+          const openaiData = await openaiRes.json();
+          const aiAnswer = openaiData.choices?.[0]?.message?.content;
+          if (aiAnswer) {
+            return res.json({ answer: aiAnswer, chart: leonAnswer.chart || null, intent, range, ai_powered: true });
+          }
+        }
+      } catch (_) { /* fall through to León */ }
+    }
+
+    res.json({ answer: leonAnswer.text, chart: leonAnswer.chart || null, intent, range });
   } catch (error) {
     console.error('León IA error:', error);
     res.status(500).json({ error: error.message });
