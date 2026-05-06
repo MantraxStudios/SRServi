@@ -2895,19 +2895,19 @@ function Store() {
             </h1>
           </div>
           <div className="store-header-spacer" />
+          <p className="store-header-powered" style={{ margin: 0, fontSize: '10px', opacity: 0.55, whiteSpace: 'nowrap', alignSelf: 'flex-start', paddingTop: '4px' }}>{t('poweredBy', lang)}</p>
         </div>
       </header>
-      <p className="store-header-powered">{t('poweredBy', lang)}</p>
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
 
-      {/* Language selector */}
-      <div style={{ position: 'fixed', top: '8px', right: '8px', zIndex: 200 }}>
-        <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: '14px' }}>
+      {/* Language selector — bottom right */}
+      <div style={{ position: 'fixed', bottom: '70px', right: '12px', zIndex: 200 }}>
+        <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
           <FontAwesomeIcon icon={faGlobe} />
         </button>
         {showLangPicker && (
-          <div style={{ position: 'absolute', top: '36px', right: 0, background: '#fff', borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', overflow: 'hidden', minWidth: '130px' }}>
+          <div style={{ position: 'absolute', bottom: '44px', right: 0, background: '#fff', borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', overflow: 'hidden', minWidth: '130px' }}>
             {LANGUAGES.map(l => (
               <button key={l.code} onClick={() => { setLang(l.code); localStorage.setItem('srservi_lang', l.code); setShowLangPicker(false); }}
                 style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', background: lang === l.code ? '#f0f0f0' : '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: lang === l.code ? '700' : '400' }}>

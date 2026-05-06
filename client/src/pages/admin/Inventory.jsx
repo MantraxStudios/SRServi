@@ -93,7 +93,7 @@ export default function Inventory() {
         setProducts(Array.isArray(d) ? d : (d.products || []));
       }
     } finally { setLoading(false); }
-  }, [selectedStore, token]);
+  }, [selectedStore?.id, token]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -233,7 +233,7 @@ export default function Inventory() {
   const filteredDirect = directItems.filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()));
 
   const recipeItems = recipeType === 'product' ? (products.length > 0 ? products : directData.products)
-    : recipeType === 'ingredients' ? directData.ingredients : directData.extras;
+    : recipeType === 'ingredient' ? directData.ingredients : directData.extras;
   const filteredRecipeItems = recipeItems.filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()));
 
   const estimatedCost = recipe.reduce((sum, r) => {
