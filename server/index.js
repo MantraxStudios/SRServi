@@ -8083,7 +8083,9 @@ async function startServer() {
           'SELECT * FROM coupons WHERE store_id=? AND is_active=TRUE ORDER BY discount_value DESC LIMIT 3',
           [req.params.storeId]
         );
-        const buf = await generatePromoImage({ store, topProducts: topProds, coupons, templateCounter: cfg?.template_counter || 0, currencySymbol: store.currency_symbol || '$' });
+        const tplOverride = req.query.tpl !== undefined ? parseInt(req.query.tpl) : null;
+        const tplCounter  = tplOverride !== null ? tplOverride : (cfg?.template_counter || 0);
+        const buf = await generatePromoImage({ store, topProducts: topProds, coupons, templateCounter: tplCounter, currencySymbol: store.currency_symbol || '$' });
         res.setHeader('Content-Type', 'image/jpeg');
         res.send(buf);
       } catch (e) { res.status(500).json({ error: e.message }); }

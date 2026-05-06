@@ -14,33 +14,58 @@ const IgIcon = ({ size = 20, style = {} }) => (
   </svg>
 );
 
+const TEMPLATES = [
+  {
+    id: 0,
+    name: 'Podio',
+    emoji: '🏆',
+    desc: 'Ranking numerado de los 3 productos más vendidos con sus precios destacados',
+    color: '#D4AF37',
+  },
+  {
+    id: 1,
+    name: 'Neon Deals',
+    emoji: '⚡',
+    desc: 'Cupones y descuentos con efecto neón. Sin cupones muestra grilla de 4 productos.',
+    color: '#a855f7',
+  },
+  {
+    id: 2,
+    name: 'Magazine',
+    emoji: '📸',
+    desc: 'Foto grande del producto estrella arriba, dos fotos secundarias abajo. Estilo editorial.',
+    color: '#3b82f6',
+  },
+];
+
 const API = 'https://srservi2.srautomatic.com';
 
 export default function InstagramAuto() {
   const { token } = useAuth();
   const { selectedStore } = useContext(StoreContext);
 
-  const [cfg, setCfg]           = useState({ ig_username: '', ig_password: '', caption_template: '', enabled: false });
-  const [loading, setLoading]   = useState(false);
-  const [saving, setSaving]     = useState(false);
-  const [posting, setPosting]   = useState(false);
-  const [previewing, setPreviewing] = useState(false);
-  const [showPass, setShowPass] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [cfg, setCfg]               = useState({ ig_username: '', ig_password: '', caption_template: '', enabled: false });
+  const [loading, setLoading]       = useState(false);
+  const [saving, setSaving]         = useState(false);
+  const [posting, setPosting]       = useState(false);
+  const [previewing, setPreviewing] = useState(null); // null | 0 | 1 | 2
+  const [showPass, setShowPass]     = useState(false);
+  const [previews, setPreviews]     = useState({ 0: null, 1: null, 2: null });
   const [lastStatus, setLastStatus] = useState(null);
-  const [toast, setToast]       = useState(null);
+  const [toast, setToast]           = useState(null);
 
   const storeId = selectedStore?.id;
+  const nextTpl = ((lastStatus?.template_counter || 0)) % 3;
 
   useEffect(() => {
     if (!storeId || !token) return;
     setLoading(true);
-    setPreviewUrl(null);
+    setPreviews({ 0: null, 1: null, 2: null });
     fetch(`${API}/api/instagram/${storeId}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
         setCfg({ ig_username: d.ig_username || '', ig_password: d.ig_password || '', caption_template: d.caption_template || '', enabled: !!d.enabled });
-        setLastStatus({ last_posted_at: d.last_posted_at, last_error: d.last_error, template_counter: d.template_counter });
+        setLastStatus({ last_posted_at: d.last_posted_at, last_error: d.last_error, template_counter: d.template_counter ?? 0 });
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -66,32 +91,32 @@ export default function InstagramAuto() {
     finally { setSaving(false); }
   };
 
-  const loadPreview = async () => {
+  const loadPreview = async (tplIdx) => {
     if (!storeId) return;
-    setPreviewing(true);
-    setPreviewUrl(null);
+    setPreviewing(tplIdx);
     try {
-      const res = await fetch(`${API}/api/instagram/${storeId}/preview`, {
+      const res = await fetch(`${API}/api/instagram/${storeId}/preview?tpl=${tplIdx}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Error generando imagen');
       const blob = await res.blob();
-      setPreviewUrl(URL.createObjectURL(blob));
+      setPreviews(p => ({ ...p, [tplIdx]: URL.createObjectURL(blob) }));
     } catch (e) { showToast(e.message, 'error'); }
-    finally { setPreviewing(false); }
+    finally { setPreviewing(null); }
   };
 
-  const downloadPreview = () => {
-    if (!previewUrl) return;
+  const downloadPreview = (tplIdx) => {
+    const url = previews[tplIdx];
+    if (!url) return;
     const a = document.createElement('a');
-    a.href = previewUrl;
-    a.download = `instagram-promo-${selectedStore?.code || 'tienda'}.jpg`;
+    a.href = url;
+    a.download = `instagram-tpl${tplIdx + 1}-${selectedStore?.code || 'tienda'}.jpg`;
     a.click();
   };
 
   const postNow = async () => {
     if (!storeId) return;
-    if (!cfg.ig_username || (!cfg.ig_password || cfg.ig_password === '')) {
+    if (!cfg.ig_username || !cfg.ig_password) {
       showToast('Configura usuario y contraseña primero', 'error');
       return;
     }
@@ -105,7 +130,7 @@ export default function InstagramAuto() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       showToast('¡Publicado en Instagram!');
-      setLastStatus(prev => ({ ...prev, last_posted_at: new Date().toISOString(), last_error: null }));
+      setLastStatus(prev => ({ ...prev, last_posted_at: new Date().toISOString(), last_error: null, template_counter: (prev?.template_counter || 0) + 1 }));
     } catch (e) { showToast(e.message, 'error'); }
     finally { setPosting(false); }
   };
@@ -144,15 +169,15 @@ export default function InstagramAuto() {
         </div>
         <div>
           <h1 style={s.title}>Instagram Auto-Post</h1>
-          <p style={s.subtitle}>Publicá automáticamente cada semana con tus productos y promociones — <strong>{selectedStore.name}</strong></p>
+          <p style={s.subtitle}>Publicá automáticamente cada semana con tus productos — <strong>{selectedStore.name}</strong></p>
         </div>
       </div>
 
       <div style={s.grid}>
-        {/* Left: Config */}
+        {/* ── Left: Config ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Credentials card */}
+          {/* Credentials */}
           <div style={s.card}>
             <h3 style={s.cardTitle}>Cuenta de Instagram</h3>
 
@@ -180,9 +205,7 @@ export default function InstagramAuto() {
                   <FontAwesomeIcon icon={showPass ? faEyeSlash : faEye} />
                 </button>
               </div>
-              <p style={s.hint}>
-                Usá una cuenta de Instagram Business. La contraseña se guarda cifrada en el servidor.
-              </p>
+              <p style={s.hint}>Usá una cuenta de Instagram Business. La contraseña se guarda cifrada.</p>
             </div>
 
             <div style={s.field}>
@@ -212,11 +235,10 @@ export default function InstagramAuto() {
                 <FontAwesomeIcon icon={cfg.enabled ? faToggleOn : faToggleOff} />
               </button>
             </div>
-
             {cfg.enabled && (
               <div style={{ marginTop: 12, padding: '10px 14px', background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0' }}>
                 <p style={{ margin: 0, fontSize: 13, color: '#16a34a', fontWeight: 600 }}>
-                  ✅ Activo — se publicará automáticamente cada semana con una plantilla diferente.
+                  ✅ Activo — se publicará automáticamente cada semana rotando entre las 3 plantillas.
                 </p>
               </div>
             )}
@@ -240,72 +262,113 @@ export default function InstagramAuto() {
                     <span style={{ fontSize: 13, color: '#9ca3af' }}>Nunca publicado</span>
                   </div>
                 )}
+                <div style={{ ...s.statusRow, gap: 6 }}>
+                  <span style={{ fontSize: 13, color: '#374151' }}>
+                    Próxima plantilla: <strong>{TEMPLATES[nextTpl].emoji} {TEMPLATES[nextTpl].name}</strong>
+                  </span>
+                </div>
                 {lastStatus.last_error && (
                   <div style={{ ...s.statusRow, background: '#fef2f2', padding: '8px 12px', borderRadius: 8 }}>
                     <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#ef4444', flexShrink: 0 }} />
                     <span style={{ fontSize: 12, color: '#dc2626' }}>{lastStatus.last_error}</span>
                   </div>
                 )}
-                <div style={s.statusRow}>
-                  <span style={{ fontSize: 12, color: '#9ca3af' }}>
-                    Plantilla actual: #{(lastStatus.template_counter || 0) % 3 + 1} de 3
-                  </span>
-                </div>
               </div>
             </div>
           )}
 
-          {/* Save button */}
+          {/* Actions */}
           <button onClick={save} disabled={saving || loading} style={s.btnPrimary}>
             {saving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />}
             {saving ? ' Guardando...' : ' Guardar configuración'}
           </button>
 
-          {/* Post now */}
           <button onClick={postNow} disabled={posting || !cfg.ig_username} style={s.btnInstagram}>
             {posting ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPlay} />}
             {posting ? ' Publicando...' : ' Publicar ahora'}
           </button>
         </div>
 
-        {/* Right: Preview */}
+        {/* ── Right: Templates preview ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={s.card}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <h3 style={{ ...s.cardTitle, marginBottom: 0 }}>Vista previa de imagen</h3>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {previewUrl && (
-                  <button onClick={downloadPreview} style={s.btnSmall}>
-                    <FontAwesomeIcon icon={faDownload} /> Descargar
-                  </button>
-                )}
-                <button onClick={loadPreview} disabled={previewing} style={s.btnSmallPrimary}>
-                  {previewing ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faEye} />}
-                  {previewing ? ' Generando...' : ' Previsualizar'}
-                </button>
-              </div>
-            </div>
+            <h3 style={s.cardTitle}>Plantillas disponibles</h3>
+            <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 16px' }}>
+              Las 3 plantillas rotan cada semana. Hacé clic en "Vista previa" para ver cómo quedará.
+            </p>
 
-            {previewUrl ? (
-              <img src={previewUrl} alt="Preview" style={{ width: '100%', borderRadius: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.12)' }} />
-            ) : (
-              <div style={{ background: '#f8fafc', borderRadius: 14, aspectRatio: '1/1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, border: '2px dashed #e2e8f0' }}>
-                <IgIcon size={48} style={{ color: '#cbd5e1' }} />
-                <p style={{ color: '#94a3b8', fontSize: 14, margin: 0 }}>Haz clic en "Previsualizar" para generar la imagen</p>
+            {TEMPLATES.map(tpl => (
+              <div key={tpl.id} style={{
+                border: `2px solid ${nextTpl === tpl.id ? tpl.color : '#e5e7eb'}`,
+                borderRadius: 14,
+                marginBottom: 14,
+                overflow: 'hidden',
+                background: nextTpl === tpl.id ? `${tpl.color}08` : '#fff',
+              }}>
+                {/* template header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+                      {tpl.emoji}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {tpl.name}
+                        {nextTpl === tpl.id && (
+                          <span style={{ fontSize: 10, fontWeight: 700, background: tpl.color, color: '#fff', padding: '2px 7px', borderRadius: 99 }}>
+                            PRÓXIMA
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{tpl.desc}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    {previews[tpl.id] && (
+                      <button onClick={() => downloadPreview(tpl.id)} style={s.btnSmall}>
+                        <FontAwesomeIcon icon={faDownload} />
+                      </button>
+                    )}
+                    <button onClick={() => loadPreview(tpl.id)} disabled={previewing === tpl.id} style={{ ...s.btnSmallPrimary, background: tpl.color }}>
+                      {previewing === tpl.id
+                        ? <FontAwesomeIcon icon={faSpinner} spin />
+                        : <FontAwesomeIcon icon={faEye} />}
+                      {previewing === tpl.id ? ' ...' : ' Ver'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* preview image */}
+                {previews[tpl.id] && (
+                  <img
+                    src={previews[tpl.id]}
+                    alt={`Preview ${tpl.name}`}
+                    style={{ width: '100%', display: 'block' }}
+                  />
+                )}
+
+                {/* placeholder */}
+                {!previews[tpl.id] && (
+                  <div style={{ background: '#f8fafc', padding: '20px', textAlign: 'center' }}>
+                    <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>
+                      Hacé clic en "Ver" para previsualizar esta plantilla
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
+            ))}
           </div>
 
-          {/* Info card */}
+          {/* Info */}
           <div style={{ ...s.card, background: '#fafafa', border: '1px solid #e5e7eb' }}>
             <h3 style={{ ...s.cardTitle, color: '#374151' }}>¿Cómo funciona?</h3>
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
-                'Se genera una imagen 1080×1080 con tus productos más vendidos y precios.',
-                '3 plantillas rotativas: Productos / Promociones / Mix — cada semana una diferente.',
-                'Si tenés cupones activos, aparecen automáticamente en la imagen.',
-                'Con la publicación automática, se publica cada domingo a las 10:00 AM.',
-                'Podés publicar manualmente en cualquier momento con "Publicar ahora".',
+                'Imagen 1080×1080 lista para Instagram con productos y precios.',
+                '3 plantillas rotativas cada semana: Podio, Neon Deals y Magazine.',
+                'Los cupones activos aparecen automáticamente en Neon Deals.',
+                'Publicación automática cada domingo a las 10:00 AM.',
+                'Podés publicar manualmente en cualquier momento.',
                 'Requiere cuenta de Instagram Business o Creator.',
               ].map((t, i) => (
                 <li key={i} style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{t}</li>
@@ -329,13 +392,13 @@ const s = {
   cardTitle: { fontSize: 15, fontWeight: 700, color: '#374151', marginTop: 0, marginBottom: 16 },
   field: { marginBottom: 16 },
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 },
-  input: { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' },
+  input: { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' },
   hint: { fontSize: 11, color: '#9ca3af', margin: '6px 0 0' },
   eyeBtn: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 4 },
   statusRow: { display: 'flex', alignItems: 'flex-start', gap: 8 },
   btnPrimary: { width: '100%', padding: '13px', borderRadius: 12, border: 'none', background: '#1e293b', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
   btnInstagram: { width: '100%', padding: '13px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  btnSmall: { padding: '7px 14px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 },
-  btnSmallPrimary: { padding: '7px 14px', borderRadius: 8, border: 'none', background: '#1e293b', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 },
+  btnSmall: { padding: '7px 10px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer' },
+  btnSmallPrimary: { padding: '7px 12px', borderRadius: 8, border: 'none', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 },
   empty: { textAlign: 'center', padding: '60px 24px', color: '#6b7280', fontSize: 15 },
 };
