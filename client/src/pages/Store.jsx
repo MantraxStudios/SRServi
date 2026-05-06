@@ -297,6 +297,10 @@ function Store() {
   const [selectedExtraIds, setSelectedExtraIds] = useState([]);
   const [complementsTab, setComplementsTab] = useState('complements');
   const [editingComplement, setEditingComplement] = useState(null);
+  const [invTab, setInvTab] = useState('products');
+  const [invEditingId, setInvEditingId] = useState(null);
+  const [invEditValue, setInvEditValue] = useState('');
+  const [invSaving, setInvSaving] = useState(false);
   const [styleEditorOpen, setStyleEditorOpen] = useState(false);
   const [showExcelModal, setShowExcelModal] = useState(false);
   const [excelStep, setExcelStep] = useState('upload');
@@ -2185,6 +2189,16 @@ function Store() {
     fetchStore();
   };
 
+  const updateComplementStock = async (type, id, stock, unlimitedStock) => {
+    const endpoint = type === 'extra' ? 'extra' : 'ingredient';
+    await fetch(`/api/inventory/${endpoint}/${id}/stock`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ stock, unlimited_stock: unlimitedStock, store_id: store?.store?.id })
+    });
+    fetchComplements();
+  };
+
   const getAuthBody = () => adminToken ? { token: adminToken } : { pin: sessionPin };
 
   const showRestartNotification = (delaySec) => {
@@ -2978,6 +2992,9 @@ function Store() {
 <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => setEditorTab('complements')}>
               <FontAwesomeIcon icon={faPlus} /> Complementos
             </button>
+            <button className={`store-editor-tab${editorTab === 'inventory' ? ' active' : ''}`} onClick={() => { setEditorTab('inventory'); setInvEditingId(null); }}>
+              <FontAwesomeIcon icon={faBox} /> Inventario
+            </button>
             <button
               className={`store-editor-tab${editorTab === 'orders' ? ' active' : ''}`}
               onClick={() => { setEditorTab('orders'); setNewOrderCount(0); }}
@@ -3026,16 +3043,21 @@ function Store() {
                   <strong>{e.name}</strong>
                   {Number(e.price) > 0 && <span className="store-editor-comp-price">+${Number(e.price).toFixed(0)}</span>}
                 </div>
-                <button onClick={() => deleteComplement('extra', e.id)} className="store-prod-edit-btn danger" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
-                  <FontAwesomeIcon icon={faTrash} />
-                </button>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button onClick={() => { setEditingComplement({ id: e.id, type: 'extra', name: e.name, price: e.price?.toString() || '', imageFile: null }); setShowComplementsModal(false); }} className="store-prod-edit-btn" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                    <FontAwesomeIcon icon={faEdit} />
+                  </button>
+                  <button onClick={() => deleteComplement('extra', e.id)} className="store-prod-edit-btn danger" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                    <FontAwesomeIcon icon={faTrash} />
+                  </button>
+                </div>
               </div>
             ))}
             {extras.length === 0 && <span style={{ color: '#999', fontSize: '13px', padding: '8px' }}>Sin extras</span>}
           </div>
 
           <div className="store-editor-comp-header" style={{ marginTop: '12px' }}>
-            <span>Ingredientes ({ingredients.length})</span>
+            <span>Complementos ({ingredients.length})</span>
             <button className="store-edit-cat-add-btn" onClick={() => { setComplementForm({ ...complementForm, type: 'ingredient' }); setComplementModal('ingredient'); }}>
               <FontAwesomeIcon icon={faPlus} /> Nuevo
             </button>
@@ -3048,13 +3070,38 @@ function Store() {
                   <strong>{i.name}</strong>
                   {Number(i.price) > 0 && <span className="store-editor-comp-price">+${Number(i.price).toFixed(0)}</span>}
                 </div>
-                <button onClick={() => deleteComplement('ingredient', i.id)} className="store-prod-edit-btn danger" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
-                  <FontAwesomeIcon icon={faTrash} />
-                </button>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button onClick={() => { setEditingComplement({ id: i.id, type: 'ingredient', name: i.name, price: i.price?.toString() || '', imageFile: null }); setShowComplementsModal(false); }} className="store-prod-edit-btn" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                    <FontAwesomeIcon icon={faEdit} />
+                  </button>
+                  <button onClick={() => deleteComplement('ingredient', i.id)} className="store-prod-edit-btn danger" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                    <FontAwesomeIcon icon={faTrash} />
+                  </button>
+                </div>
               </div>
             ))}
-            {ingredients.length === 0 && <span style={{ color: '#999', fontSize: '13px', padding: '8px' }}>Sin ingredientes</span>}
+            {ingredients.length === 0 && <span style={{ color: '#999', fontSize: '13px', padding: '8px' }}>Sin complementos</span>}
           </div>
+
+          {editingComplement && (
+            <div style={{ margin: '12px 0', padding: '12px', background: '#fffbe6', borderRadius: '8px', border: '2px solid #e6c200' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#333', marginBottom: '8px' }}>
+                Editando: {editingComplement.name}
+              </div>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <label style={{ width: '32px', height: '32px', borderRadius: '6px', background: editingComplement.imageFile ? 'transparent' : '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '1px solid #ddd' }}>
+                  {editingComplement.imageFile ? <img src={URL.createObjectURL(editingComplement.imageFile)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FontAwesomeIcon icon={faBox} style={{ fontSize: '12px', color: '#bbb' }} />}
+                  <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setEditingComplement({ ...editingComplement, imageFile: e.target.files[0] }); }} style={{ display: 'none' }} />
+                </label>
+                <input type="text" value={editingComplement.name} onChange={(e) => setEditingComplement({ ...editingComplement, name: e.target.value })} placeholder="Nombre" className="store-prod-modal-input" style={{ flex: 2, padding: '8px', fontSize: '13px' }} />
+                <input type="number" step="0.01" value={editingComplement.price} onChange={(e) => setEditingComplement({ ...editingComplement, price: e.target.value })} placeholder="$" className="store-prod-modal-input" style={{ flex: 1, padding: '8px', fontSize: '13px' }} />
+              </div>
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                <button onClick={() => setEditingComplement(null)} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ccc', background: '#fff', fontSize: '13px', cursor: 'pointer' }}>Cancelar</button>
+                <button onClick={saveEditComplement} disabled={!editingComplement.name.trim()} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: 'none', background: 'var(--store-primary)', color: 'var(--store-secondary)', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>Guardar</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -3194,6 +3241,116 @@ function Store() {
         </DndContext>
         </>
       )}
+
+      {editMode && !previewMode && editorTab === 'inventory' && (() => {
+        const invItems = invTab === 'products'
+          ? (store?.products || [])
+          : invTab === 'extras'
+          ? extras
+          : ingredients;
+
+        const badge = (item) => {
+          const isUnlimited = item.unlimited_stock === true || item.unlimited_stock === 1 || item.unlimited_stock === '1';
+          if (isUnlimited) return { label: '∞', color: '#D4AF37' };
+          if (item.stock === 0) return { label: 'Agotado', color: '#ef4444' };
+          if (item.stock <= 5) return { label: 'Bajo', color: '#f59e0b' };
+          return { label: 'OK', color: '#22c55e' };
+        };
+
+        return (
+          <div className="store-editor-complements">
+            <div className="store-editor-comp-header">
+              <span>Inventario</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '4px', margin: '8px 0', background: '#f5f5f5', borderRadius: '8px', padding: '4px' }}>
+              {[
+                { key: 'products', label: `Productos (${(store?.products || []).length})` },
+                { key: 'extras', label: `Extras (${extras.length})` },
+                { key: 'ingredients', label: `Complementos (${ingredients.length})` },
+              ].map(t => (
+                <button
+                  key={t.key}
+                  onClick={() => { setInvTab(t.key); setInvEditingId(null); }}
+                  style={{ flex: 1, padding: '6px 4px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: '700', background: invTab === t.key ? 'var(--store-primary)' : 'transparent', color: invTab === t.key ? 'var(--store-secondary)' : '#666', transition: 'all 0.15s' }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {invItems.length === 0 ? (
+              <span style={{ color: '#999', fontSize: '13px', padding: '16px 8px', display: 'block', textAlign: 'center' }}>Sin ítems</span>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {invItems.map(item => {
+                  const isUnlimited = item.unlimited_stock === true || item.unlimited_stock === 1 || item.unlimited_stock === '1';
+                  const b = badge(item);
+                  const isEditing = invEditingId === item.id;
+                  return (
+                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '8px', background: '#fafafa', border: '1px solid #eee' }}>
+                      {item.image && <img src={getImageUrl(item.image)} alt="" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />}
+                      <span style={{ flex: 1, fontSize: '13px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: b.color, minWidth: '40px', textAlign: 'center' }}>{b.label}</span>
+                      {isEditing ? (
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          <input
+                            type="number" min="0" value={invEditValue}
+                            onChange={e => setInvEditValue(e.target.value)}
+                            onKeyDown={async e => {
+                              if (e.key === 'Enter') {
+                                setInvSaving(true);
+                                if (invTab === 'products') await updateProductStock(item.id, parseInt(invEditValue) || 0, isUnlimited);
+                                else await updateComplementStock(invTab === 'extras' ? 'extra' : 'ingredient', item.id, parseInt(invEditValue) || 0, isUnlimited);
+                                setInvEditingId(null);
+                                setInvSaving(false);
+                              }
+                              if (e.key === 'Escape') setInvEditingId(null);
+                            }}
+                            autoFocus
+                            style={{ width: '52px', padding: '4px 6px', border: '1px solid var(--store-primary)', borderRadius: '6px', fontSize: '13px', textAlign: 'center', outline: 'none' }}
+                          />
+                          <button
+                            onClick={async () => {
+                              setInvSaving(true);
+                              if (invTab === 'products') await updateProductStock(item.id, parseInt(invEditValue) || 0, isUnlimited);
+                              else await updateComplementStock(invTab === 'extras' ? 'extra' : 'ingredient', item.id, parseInt(invEditValue) || 0, isUnlimited);
+                              setInvEditingId(null);
+                              setInvSaving(false);
+                            }}
+                            disabled={invSaving}
+                            style={{ background: 'var(--store-primary)', border: 'none', borderRadius: '5px', padding: '4px 7px', cursor: 'pointer', color: 'var(--store-secondary)', fontSize: '12px', fontWeight: '700' }}
+                          >✓</button>
+                          <button onClick={() => setInvEditingId(null)} style={{ background: '#eee', border: 'none', borderRadius: '5px', padding: '4px 7px', cursor: 'pointer', fontSize: '12px' }}>✕</button>
+                        </div>
+                      ) : (
+                        <span
+                          onClick={() => { setInvEditingId(item.id); setInvEditValue(isUnlimited ? '0' : String(item.stock)); }}
+                          title="Click para editar stock"
+                          style={{ cursor: 'pointer', fontSize: '13px', fontWeight: '700', minWidth: '32px', textAlign: 'center', borderBottom: '1px dashed #bbb' }}
+                        >
+                          {isUnlimited ? <FontAwesomeIcon icon={faInfinity} style={{ color: '#D4AF37' }} /> : item.stock}
+                        </span>
+                      )}
+                      <button
+                        onClick={async () => {
+                          const newUnlimited = !isUnlimited;
+                          if (invTab === 'products') await updateProductStock(item.id, item.stock, newUnlimited);
+                          else await updateComplementStock(invTab === 'extras' ? 'extra' : 'ingredient', item.id, item.stock, newUnlimited);
+                        }}
+                        title={isUnlimited ? 'Quitar ilimitado' : 'Marcar ilimitado'}
+                        style={{ background: isUnlimited ? 'rgba(212,175,55,0.15)' : '#eee', border: isUnlimited ? '1px solid #D4AF37' : '1px solid #ddd', borderRadius: '6px', padding: '3px 7px', cursor: 'pointer', fontSize: '11px', color: isUnlimited ? '#D4AF37' : '#888', fontWeight: '700', flexShrink: 0 }}
+                      >
+                        <FontAwesomeIcon icon={faInfinity} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {editMode && !previewMode && editorTab === 'orders' && (
         <div className="store-editor-complements">

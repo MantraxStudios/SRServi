@@ -51,7 +51,11 @@
       "Bash(node *)",
       "WebSearch",
       "Bash(awk '/ALTER TABLE orders ADD COLUMN/ {found=1} found {print; count++; if \\(count >= 30\\) exit}' server/database.js)",
-      "Bash(awk '/if \\\\\\(!orderColumnNames.includes/ {found=1} found {print; if \\(/^      \\\\}/\\) exit}' server/database.js)"
+      "Bash(awk '/if \\\\\\(!orderColumnNames.includes/ {found=1} found {print; if \\(/^      \\\\}/\\) exit}' server/database.js)",
+      "Bash(dir C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi *)",
+      "Bash(dir C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\client\\\\src *)",
+      "Bash(dir C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\client\\\\src\\\\pages *)",
+      "Bash(dir C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\client\\\\src\\\\pages\\\\admin *)"
     ]
   }
 }
