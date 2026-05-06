@@ -38,22 +38,43 @@ const TEMPLATES = [
     id: 0,
     name: 'Podio',
     emoji: '🏆',
-    desc: 'Ranking numerado de los 3 productos más vendidos con sus precios destacados',
+    desc: 'Fondo oscuro. Ranking 01/02/03 con medallas y precios en píldora dorada.',
     color: '#D4AF37',
   },
   {
     id: 1,
     name: 'Neon Deals',
     emoji: '⚡',
-    desc: 'Cupones y descuentos con efecto neón. Sin cupones muestra grilla de 4 productos.',
+    desc: 'Fondo negro. Cupones con borde neón gigante. Sin cupones: grilla 2×2.',
     color: '#a855f7',
   },
   {
     id: 2,
     name: 'Magazine',
     emoji: '📸',
-    desc: 'Foto grande del producto estrella arriba, dos fotos secundarias abajo. Estilo editorial.',
+    desc: 'Franja superior de color, foto héroe grande, dos tiles abajo. Estilo editorial.',
     color: '#3b82f6',
+  },
+  {
+    id: 3,
+    name: 'White Clean',
+    emoji: '🤍',
+    desc: 'Fondo blanco puro. Franja de color arriba, producto estrella centrado, dos productos abajo.',
+    color: '#111111',
+  },
+  {
+    id: 4,
+    name: 'Noir Gold',
+    emoji: '🖤',
+    desc: 'Negro absoluto. Producto en círculo con anillo dorado brillante y marcos en las esquinas.',
+    color: '#b8972e',
+  },
+  {
+    id: 5,
+    name: 'Bold Split',
+    emoji: '✂️',
+    desc: 'Negro arriba / blanco abajo con corte diagonal en color de acento. Estilo póster.',
+    color: '#374151',
   },
 ];
 
@@ -316,7 +337,7 @@ export default function InstagramAuto() {
           <div style={s.card}>
             <h3 style={s.cardTitle}>Plantillas disponibles</h3>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 16px' }}>
-              Las 3 plantillas rotan cada semana. Hacé clic en "Vista previa" para ver cómo quedará.
+              Las 6 plantillas rotan cada semana. Hacé clic en "Ver" para previsualizar cada una.
             </p>
 
             {TEMPLATES.map(tpl => (
@@ -387,7 +408,7 @@ export default function InstagramAuto() {
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
                 'Imagen 1080×1080 lista para Instagram con productos y precios.',
-                '3 plantillas rotativas cada semana: Podio, Neon Deals y Magazine.',
+                '6 plantillas rotativas: Podio, Neon Deals, Magazine, White Clean, Noir Gold y Bold Split.',
                 'Los cupones activos aparecen automáticamente en Neon Deals.',
                 'Publicación automática cada domingo a las 10:00 AM.',
                 'Podés publicar manualmente en cualquier momento.',
