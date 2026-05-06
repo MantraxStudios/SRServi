@@ -744,6 +744,45 @@ async function migrateTables() {
       console.error('❌ Error migrando stock_unit:', err.message);
     }
 
+    // Materias primas (raw materials)
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS raw_materials (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          store_id INT NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          quantity DECIMAL(10,3) NOT NULL DEFAULT 0,
+          unit VARCHAR(20) NOT NULL DEFAULT 'unidades',
+          min_quantity DECIMAL(10,3) NOT NULL DEFAULT 0,
+          cost_per_unit DECIMAL(10,4) NOT NULL DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_rm_store (store_id)
+        )
+      `);
+      console.log('✅ Tabla raw_materials lista');
+    } catch (err) {
+      console.error('❌ Error creando raw_materials:', err.message);
+    }
+
+    // Recetas: qué materias primas usa cada producto/extra/ingrediente
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS product_recipes (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          item_type ENUM('product','extra','ingredient') NOT NULL,
+          item_id INT NOT NULL,
+          raw_material_id INT NOT NULL,
+          quantity_used DECIMAL(10,4) NOT NULL DEFAULT 1,
+          UNIQUE KEY unique_recipe (item_type, item_id, raw_material_id),
+          INDEX idx_pr_item (item_type, item_id),
+          INDEX idx_pr_rm (raw_material_id)
+        )
+      `);
+      console.log('✅ Tabla product_recipes lista');
+    } catch (err) {
+      console.error('❌ Error creando product_recipes:', err.message);
+    }
+
     try {
       const [configCols] = await pool.execute('SHOW COLUMNS FROM store_configurations');
       const configColNames = configCols.map(c => c.Field);
@@ -2425,6 +2464,31 @@ export async function createOrder(storeId, orderData) {
           [extRows[0].id]
         );
       }
+      // Deduct raw materials for this extra (recipe)
+      if (extRows.length > 0) {
+        const [extRecipe] = await pool.execute(
+          'SELECT raw_material_id, quantity_used FROM product_recipes WHERE item_type = ? AND item_id = ?',
+          ['extra', extRows[0].id]
+        );
+        for (const r of extRecipe) {
+          await pool.execute(
+            'UPDATE raw_materials SET quantity = GREATEST(0, quantity - ?) WHERE id = ?',
+            [r.quantity_used, r.raw_material_id]
+          );
+        }
+      }
+    }
+
+    // Deduct raw materials for product (recipe) — multiplied by order quantity
+    const [prodRecipe] = await pool.execute(
+      'SELECT raw_material_id, quantity_used FROM product_recipes WHERE item_type = ? AND item_id = ?',
+      ['product', item.product_id]
+    );
+    for (const r of prodRecipe) {
+      await pool.execute(
+        'UPDATE raw_materials SET quantity = GREATEST(0, quantity - ?) WHERE id = ?',
+        [r.quantity_used * item.quantity, r.raw_material_id]
+      );
     }
   }
 

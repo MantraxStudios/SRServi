@@ -4027,6 +4027,112 @@ app.put('/api/inventory/:productId/unlimited', authenticateToken, async (req, re
   }
 });
 
+// ─── RAW MATERIALS (Materias Primas) ─────────────────────────────────────────
+
+app.get('/api/raw-materials/store/:storeId', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    const [rows] = await pool.execute(
+      'SELECT * FROM raw_materials WHERE store_id = ? ORDER BY name ASC',
+      [storeId]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/raw-materials/store/:storeId', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    const { name, quantity, unit, min_quantity, cost_per_unit } = req.body;
+    if (!name) return res.status(400).json({ error: 'Nombre requerido' });
+    const [result] = await pool.execute(
+      'INSERT INTO raw_materials (store_id, name, quantity, unit, min_quantity, cost_per_unit) VALUES (?, ?, ?, ?, ?, ?)',
+      [storeId, name.trim(), parseFloat(quantity) || 0, unit || 'unidades', parseFloat(min_quantity) || 0, parseFloat(cost_per_unit) || 0]
+    );
+    const [rows] = await pool.execute('SELECT * FROM raw_materials WHERE id = ?', [result.insertId]);
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/raw-materials/:id', authenticateToken, async (req, res) => {
+  try {
+    const { name, quantity, unit, min_quantity, cost_per_unit, store_id } = req.body;
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    await pool.execute(
+      'UPDATE raw_materials SET name = ?, quantity = ?, unit = ?, min_quantity = ?, cost_per_unit = ? WHERE id = ? AND store_id = ?',
+      [name.trim(), parseFloat(quantity) || 0, unit || 'unidades', parseFloat(min_quantity) || 0, parseFloat(cost_per_unit) || 0, parseInt(req.params.id), parseInt(store_id)]
+    );
+    const [rows] = await pool.execute('SELECT * FROM raw_materials WHERE id = ?', [parseInt(req.params.id)]);
+    res.json(rows[0] || {});
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/raw-materials/:id/restock', authenticateToken, async (req, res) => {
+  try {
+    const { amount, store_id } = req.body;
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    await pool.execute(
+      'UPDATE raw_materials SET quantity = quantity + ? WHERE id = ? AND store_id = ?',
+      [parseFloat(amount) || 0, parseInt(req.params.id), parseInt(store_id)]
+    );
+    const [rows] = await pool.execute('SELECT * FROM raw_materials WHERE id = ?', [parseInt(req.params.id)]);
+    res.json(rows[0] || {});
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/raw-materials/:id', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.body;
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    await pool.execute('DELETE FROM product_recipes WHERE raw_material_id = ?', [parseInt(req.params.id)]);
+    await pool.execute('DELETE FROM raw_materials WHERE id = ? AND store_id = ?', [parseInt(req.params.id), parseInt(store_id)]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── RECIPES (Recetas) ────────────────────────────────────────────────────────
+
+app.get('/api/recipes/:itemType/:itemId', authenticateToken, async (req, res) => {
+  try {
+    const { itemType, itemId } = req.params;
+    const [rows] = await pool.execute(
+      `SELECT pr.id, pr.raw_material_id, pr.quantity_used, rm.name, rm.unit, rm.quantity AS stock, rm.cost_per_unit
+       FROM product_recipes pr
+       JOIN raw_materials rm ON rm.id = pr.raw_material_id
+       WHERE pr.item_type = ? AND pr.item_id = ?`,
+      [itemType, parseInt(itemId)]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/recipes/:itemType/:itemId', authenticateToken, async (req, res) => {
+  try {
+    const { itemType, itemId } = req.params;
+    const { items, store_id } = req.body; // items: [{raw_material_id, quantity_used}]
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    await pool.execute('DELETE FROM product_recipes WHERE item_type = ? AND item_id = ?', [itemType, parseInt(itemId)]);
+    for (const it of (items || [])) {
+      if (!it.raw_material_id || !it.quantity_used) continue;
+      await pool.execute(
+        'INSERT INTO product_recipes (item_type, item_id, raw_material_id, quantity_used) VALUES (?, ?, ?, ?)',
+        [itemType, parseInt(itemId), parseInt(it.raw_material_id), parseFloat(it.quantity_used)]
+      );
+    }
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── END RAW MATERIALS & RECIPES ─────────────────────────────────────────────
+
 app.post('/api/market/create-payment', authenticateToken, async (req, res) => {
   try {
     const { store_id, terminal_id, amount, description } = req.body;
