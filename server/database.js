@@ -454,6 +454,22 @@ async function createTables() {
     )
   `);
 
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS instagram_configs (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL UNIQUE,
+      ig_username VARCHAR(255) DEFAULT '',
+      ig_password VARCHAR(500) DEFAULT '',
+      caption_template TEXT DEFAULT '',
+      enabled BOOLEAN DEFAULT FALSE,
+      template_counter INT DEFAULT 0,
+      last_posted_at TIMESTAMP NULL DEFAULT NULL,
+      last_error TEXT NULL DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
   await migrateToUnifiedPos();
   await migrateTables();
 
@@ -3476,6 +3492,49 @@ export async function updatePosTerminal(id, userId, data) {
 
 export async function deletePosTerminal(id, userId) {
   await pool.execute('DELETE FROM pos_terminals WHERE id = ? AND user_id = ?', [id, userId]);
+}
+
+// ─── Instagram Auto-Post ─────────────────────────────────────────────────────
+
+export async function getInstagramConfig(storeId) {
+  const [rows] = await pool.execute('SELECT * FROM instagram_configs WHERE store_id = ?', [storeId]);
+  return rows[0] || null;
+}
+
+export async function saveInstagramConfig(storeId, { ig_username, ig_password, caption_template, enabled }) {
+  await pool.execute(`
+    INSERT INTO instagram_configs (store_id, ig_username, ig_password, caption_template, enabled)
+    VALUES (?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      ig_username = VALUES(ig_username),
+      ig_password = VALUES(ig_password),
+      caption_template = VALUES(caption_template),
+      enabled = VALUES(enabled)
+  `, [storeId, ig_username || '', ig_password || '', caption_template || '', enabled ? 1 : 0]);
+}
+
+export async function getActiveInstagramConfigs() {
+  const [rows] = await pool.execute(`
+    SELECT ic.*, s.name AS store_name, s.primary_color, s.accent_color,
+           s.secondary_color, s.logo_url, s.code AS store_code, s.currency_symbol
+    FROM instagram_configs ic
+    JOIN stores s ON s.id = ic.store_id
+    WHERE ic.enabled = TRUE
+      AND ic.ig_username != ''
+      AND ic.ig_password != ''
+      AND (ic.last_posted_at IS NULL OR ic.last_posted_at < DATE_SUB(NOW(), INTERVAL 6 DAY))
+  `);
+  return rows;
+}
+
+export async function updateInstagramPosted(storeId, errorMsg = null) {
+  await pool.execute(`
+    UPDATE instagram_configs
+    SET last_posted_at = NOW(),
+        template_counter = template_counter + 1,
+        last_error = ?
+    WHERE store_id = ?
+  `, [errorMsg, storeId]);
 }
 
 export { pool };

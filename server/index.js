@@ -16,6 +16,9 @@ import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
 import * as XLSX from 'xlsx';
 import PluginManager from './plugins/PluginManager.js';
+import { generatePromoImage, postToInstagram } from './instagram-service.js';
+import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted } from './database.js';
+import cron from 'node-cron';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
 import {
@@ -7992,6 +7995,108 @@ async function startServer() {
         console.error('[remove-background]', e.message);
         res.status(500).json({ error: 'Error al remover el fondo' });
       }
+    });
+
+    // ─── Instagram Auto-Post ────────────────────────────────────────────────
+
+    app.get('/api/instagram/:storeId', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const cfg = await getInstagramConfig(req.params.storeId);
+        const safe = cfg ? { ...cfg, ig_password: cfg.ig_password ? '••••••' : '' } : { ig_username: '', ig_password: '', caption_template: '', enabled: false, last_posted_at: null, last_error: null, template_counter: 0 };
+        res.json(safe);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/instagram/:storeId', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const { ig_username, ig_password, caption_template, enabled } = req.body;
+        const existing = await getInstagramConfig(req.params.storeId);
+        const finalPass = ig_password === '••••••' ? (existing?.ig_password || '') : ig_password;
+        await saveInstagramConfig(req.params.storeId, { ig_username, ig_password: finalPass, caption_template, enabled });
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.get('/api/instagram/:storeId/preview', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const cfg = await getInstagramConfig(req.params.storeId);
+        const [topProds] = await pool.execute(
+          `SELECT p.id,p.name,p.description,p.price,p.image,COUNT(oi.id) AS sales
+           FROM products p LEFT JOIN order_items oi ON oi.product_id=p.id
+           WHERE p.store_id=? GROUP BY p.id ORDER BY sales DESC LIMIT 5`,
+          [req.params.storeId]
+        );
+        const [coupons] = await pool.execute(
+          'SELECT * FROM coupons WHERE store_id=? AND is_active=TRUE ORDER BY discount_value DESC LIMIT 3',
+          [req.params.storeId]
+        );
+        const buf = await generatePromoImage({ store, topProducts: topProds, coupons, templateCounter: cfg?.template_counter || 0, currencySymbol: store.currency_symbol || '$' });
+        res.setHeader('Content-Type', 'image/jpeg');
+        res.send(buf);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/instagram/:storeId/post-now', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const cfg = await getInstagramConfig(req.params.storeId);
+        if (!cfg?.ig_username || !cfg?.ig_password) return res.status(400).json({ error: 'Configura usuario y contraseña primero' });
+        const [topProds] = await pool.execute(
+          `SELECT p.id,p.name,p.description,p.price,p.image,COUNT(oi.id) AS sales
+           FROM products p LEFT JOIN order_items oi ON oi.product_id=p.id
+           WHERE p.store_id=? GROUP BY p.id ORDER BY sales DESC LIMIT 5`,
+          [req.params.storeId]
+        );
+        const [coupons] = await pool.execute(
+          'SELECT * FROM coupons WHERE store_id=? AND is_active=TRUE ORDER BY discount_value DESC LIMIT 3',
+          [req.params.storeId]
+        );
+        const buf = await generatePromoImage({ store, topProducts: topProds, coupons, templateCounter: cfg.template_counter || 0, currencySymbol: store.currency_symbol || '$' });
+        const caption = cfg.caption_template || `✨ ${store.name} ✨\n\n🔥 Mirá nuestras ofertas y los más pedidos de la semana.\n\n📲 Pedí en: ${BASE_URL}/store/${store.code}\n\n#${store.name.replace(/\s+/g,'')} #SRServi`;
+        await postToInstagram({ username: cfg.ig_username, password: cfg.ig_password, imageBuffer: buf, caption });
+        await updateInstagramPosted(req.params.storeId, null);
+        res.json({ ok: true });
+      } catch (e) {
+        await updateInstagramPosted(req.params.storeId, e.message).catch(() => {});
+        res.status(500).json({ error: e.message });
+      }
+    });
+
+    // Cron cada domingo a las 10:00
+    cron.schedule('0 10 * * 0', async () => {
+      console.log('[Instagram] Publicaciones automáticas semanales...');
+      try {
+        const configs = await getActiveInstagramConfigs();
+        for (const cfg of configs) {
+          try {
+            const [topProds] = await pool.execute(
+              `SELECT p.id,p.name,p.description,p.price,p.image,COUNT(oi.id) AS sales
+               FROM products p LEFT JOIN order_items oi ON oi.product_id=p.id
+               WHERE p.store_id=? GROUP BY p.id ORDER BY sales DESC LIMIT 5`,
+              [cfg.store_id]
+            );
+            const [coupons] = await pool.execute(
+              'SELECT * FROM coupons WHERE store_id=? AND is_active=TRUE ORDER BY discount_value DESC LIMIT 3',
+              [cfg.store_id]
+            );
+            const buf = await generatePromoImage({ store: cfg, topProducts: topProds, coupons, templateCounter: cfg.template_counter || 0, currencySymbol: cfg.currency_symbol || '$' });
+            const caption = cfg.caption_template || `✨ ${cfg.store_name} ✨\n\n🔥 Lo mejor de la semana!\n\n📲 ${BASE_URL}/store/${cfg.store_code}\n\n#${(cfg.store_name||'').replace(/\s+/g,'')} #SRServi`;
+            await postToInstagram({ username: cfg.ig_username, password: cfg.ig_password, imageBuffer: buf, caption });
+            await updateInstagramPosted(cfg.store_id, null);
+            console.log(`[Instagram] ✅ ${cfg.store_name}`);
+          } catch (e) {
+            await updateInstagramPosted(cfg.store_id, e.message).catch(() => {});
+            console.error(`[Instagram] ❌ ${cfg.store_name}:`, e.message);
+          }
+        }
+      } catch (e) { console.error('[Instagram] Cron error:', e.message); }
     });
 
     server.listen(PORT, HOST, () => {

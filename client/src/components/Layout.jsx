@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const API = 'https://srservi2.srautomatic.com';
 
+import { faInstagram } from '@fortawesome/free-brands-svg-icons';
 import {
   faList,
   faBox,
@@ -448,6 +449,10 @@ function Layout() {
                         <NavLink to="/admin/ratings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faStar} />
                           <span>Calificaciones</span>
+                        </NavLink>
+                        <NavLink to="/admin/instagram" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                          <FontAwesomeIcon icon={faInstagram} />
+                          <span>Instagram Auto</span>
                         </NavLink>
                       </div>
                     )}

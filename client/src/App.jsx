@@ -45,6 +45,7 @@ import TvDisplay from './pages/TvDisplay';
 import Docs from './pages/Docs';
 import Rate from './pages/Rate';
 import Ratings from './pages/admin/Ratings';
+import InstagramAuto from './pages/admin/InstagramAuto';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 
@@ -201,6 +202,7 @@ function App() {
             <Route path="tasks" element={<Tasks />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="ratings" element={<Ratings />} />
+            <Route path="instagram" element={<InstagramAuto />} />
             <Route path="editor/:code" element={<Store />} />
           </Route>
           <Route path="/worker-login" element={<WorkerLogin />} />
