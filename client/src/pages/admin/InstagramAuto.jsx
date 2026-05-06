@@ -8,6 +8,25 @@ import {
   faToggleOn, faToggleOff, faClock, faExclamationTriangle,
 } from '@fortawesome/free-solid-svg-icons';
 
+const CSS = `
+.ig-page { padding: 20px 16px; max-width: 1100px; margin: 0 auto; font-family: system-ui,-apple-system,sans-serif; }
+.ig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.ig-header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+.ig-title { font-size: 22px; font-weight: 800; color: #1e293b; margin: 0; }
+.ig-subtitle { font-size: 13px; color: #6b7280; margin: 0; }
+.ig-tpl-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #f1f5f9; gap: 8px; }
+.ig-tpl-actions { display: flex; gap: 6px; flex-shrink: 0; }
+@media (max-width: 680px) {
+  .ig-page { padding: 14px 12px; }
+  .ig-grid { grid-template-columns: 1fr; gap: 14px; }
+  .ig-header { gap: 10px; margin-bottom: 16px; }
+  .ig-title { font-size: 18px; }
+  .ig-subtitle { font-size: 12px; }
+  .ig-tpl-header { flex-wrap: wrap; gap: 8px; }
+  .ig-tpl-actions { width: 100%; justify-content: flex-end; }
+}
+`;
+
 const IgIcon = ({ size = 20, style = {} }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={style}>
     <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
@@ -137,7 +156,8 @@ export default function InstagramAuto() {
 
   if (!selectedStore) {
     return (
-      <div style={s.page}>
+      <div className="ig-page">
+        <style>{CSS}</style>
         <div style={s.empty}>
           <IgIcon size={48} style={{ color: '#d1d5db', marginBottom: 14 }} />
           <p>Selecciona una tienda para configurar Instagram.</p>
@@ -147,15 +167,17 @@ export default function InstagramAuto() {
   }
 
   return (
-    <div style={s.page}>
+    <div className="ig-page">
+      <style>{CSS}</style>
       {/* Toast */}
       {toast && (
         <div style={{
-          position: 'fixed', top: 20, right: 20, zIndex: 9999,
+          position: 'fixed', top: 16, right: 16, left: 16, zIndex: 9999,
           background: toast.type === 'error' ? '#ef4444' : '#22c55e',
-          color: '#fff', padding: '12px 20px', borderRadius: 12,
+          color: '#fff', padding: '12px 16px', borderRadius: 12,
           fontWeight: 700, fontSize: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
           display: 'flex', alignItems: 'center', gap: 8,
+          maxWidth: 400, marginLeft: 'auto',
         }}>
           <FontAwesomeIcon icon={toast.type === 'error' ? faTimesCircle : faCheckCircle} />
           {toast.msg}
@@ -163,17 +185,17 @@ export default function InstagramAuto() {
       )}
 
       {/* Header */}
-      <div style={s.header}>
+      <div className="ig-header">
         <div style={s.headerIcon}>
-          <IgIcon size={28} style={{ color: '#fff' }} />
+          <IgIcon size={26} style={{ color: '#fff' }} />
         </div>
         <div>
-          <h1 style={s.title}>Instagram Auto-Post</h1>
-          <p style={s.subtitle}>Publicá automáticamente cada semana con tus productos — <strong>{selectedStore.name}</strong></p>
+          <h1 className="ig-title">Instagram Auto-Post</h1>
+          <p className="ig-subtitle">Publicá automáticamente — <strong>{selectedStore.name}</strong></p>
         </div>
       </div>
 
-      <div style={s.grid}>
+      <div className="ig-grid">
         {/* ── Left: Config ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
@@ -306,24 +328,24 @@ export default function InstagramAuto() {
                 background: nextTpl === tpl.id ? `${tpl.color}08` : '#fff',
               }}>
                 {/* template header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: '1px solid #f1f5f9' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 38, height: 38, borderRadius: 10, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+                <div className="ig-tpl-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>
                       {tpl.emoji}
                     </div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         {tpl.name}
                         {nextTpl === tpl.id && (
-                          <span style={{ fontSize: 10, fontWeight: 700, background: tpl.color, color: '#fff', padding: '2px 7px', borderRadius: 99 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, background: tpl.color, color: '#fff', padding: '2px 7px', borderRadius: 99, whiteSpace: 'nowrap' }}>
                             PRÓXIMA
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{tpl.desc}</div>
+                      <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, lineHeight: 1.4 }}>{tpl.desc}</div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <div className="ig-tpl-actions">
                     {previews[tpl.id] && (
                       <button onClick={() => downloadPreview(tpl.id)} style={s.btnSmall}>
                         <FontAwesomeIcon icon={faDownload} />
@@ -382,22 +404,17 @@ export default function InstagramAuto() {
 }
 
 const s = {
-  page: { padding: '28px 24px', maxWidth: 1100, margin: '0 auto', fontFamily: 'system-ui,-apple-system,sans-serif' },
-  header: { display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 },
-  headerIcon: { width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  title: { fontSize: 22, fontWeight: 800, color: '#1e293b', margin: 0 },
-  subtitle: { fontSize: 14, color: '#6b7280', margin: 0 },
-  grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' },
-  card: { background: '#fff', borderRadius: 16, padding: 20, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: '1px solid #e5e7eb' },
-  cardTitle: { fontSize: 15, fontWeight: 700, color: '#374151', marginTop: 0, marginBottom: 16 },
-  field: { marginBottom: 16 },
+  headerIcon: { width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  card: { background: '#fff', borderRadius: 14, padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: '1px solid #e5e7eb' },
+  cardTitle: { fontSize: 14, fontWeight: 700, color: '#374151', marginTop: 0, marginBottom: 14 },
+  field: { marginBottom: 14 },
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 },
   input: { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' },
-  hint: { fontSize: 11, color: '#9ca3af', margin: '6px 0 0' },
+  hint: { fontSize: 11, color: '#9ca3af', margin: '5px 0 0' },
   eyeBtn: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 4 },
   statusRow: { display: 'flex', alignItems: 'flex-start', gap: 8 },
-  btnPrimary: { width: '100%', padding: '13px', borderRadius: 12, border: 'none', background: '#1e293b', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  btnInstagram: { width: '100%', padding: '13px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  btnPrimary: { width: '100%', padding: '12px', borderRadius: 12, border: 'none', background: '#1e293b', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  btnInstagram: { width: '100%', padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
   btnSmall: { padding: '7px 10px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer' },
   btnSmallPrimary: { padding: '7px 12px', borderRadius: 8, border: 'none', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 },
   empty: { textAlign: 'center', padding: '60px 24px', color: '#6b7280', fontSize: 15 },
