@@ -3361,7 +3361,7 @@ app.get('/api/ingredients', authenticateToken, async (req, res) => {
 
 app.post('/api/ingredients', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, price, category_id } = req.body;
+    const { store_id, name, price, category_id, stock, unlimited_stock, stock_unit } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
@@ -3373,7 +3373,7 @@ app.post('/api/ingredients', authenticateToken, upload.single('image'), async (r
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-    const ingredient = await createIngredient(parseInt(store_id), { name, price, category_id, image: imageUrl });
+    const ingredient = await createIngredient(parseInt(store_id), { name, price, category_id, image: imageUrl, stock: parseInt(stock) || 0, unlimited_stock: unlimited_stock === 'true' || unlimited_stock === true, stock_unit: stock_unit || 'unidades' });
     emitProductUpdate(parseInt(store_id), 'ingredient_created', ingredient);
     res.json(ingredient);
   } catch (error) {
@@ -3396,7 +3396,7 @@ app.put('/api/ingredients/reorder', authenticateToken, async (req, res) => {
 
 app.put('/api/ingredients/:id', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, price, category_id, stock, unlimited_stock } = req.body;
+    const { store_id, name, price, category_id, stock, unlimited_stock, stock_unit } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
@@ -3414,13 +3414,14 @@ app.put('/api/ingredients/:id', authenticateToken, upload.single('image'), async
       const existing = await pool.execute('SELECT image FROM ingredients WHERE id = ?', [req.params.id]);
       imageUrl = existing[0][0]?.image || null;
     }
-    const ingredient = await updateIngredient(parseInt(req.params.id), parseInt(store_id), { 
-      name, 
-      price, 
-      category_id, 
+    const ingredient = await updateIngredient(parseInt(req.params.id), parseInt(store_id), {
+      name,
+      price,
+      category_id,
       image: imageUrl,
       stock: stock !== undefined ? parseInt(stock) : 0,
-      unlimited_stock: unlimited_stock === 'true' || unlimited_stock === true
+      unlimited_stock: unlimited_stock === 'true' || unlimited_stock === true,
+      stock_unit: stock_unit || 'unidades',
     });
     req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { product_id: parseInt(req.params.id), stock: ingredient.stock, unlimited_stock: ingredient.unlimited_stock });
     emitProductUpdate(parseInt(store_id), 'ingredient_updated', ingredient);
@@ -3468,7 +3469,7 @@ app.get('/api/extras', authenticateToken, async (req, res) => {
 
 app.post('/api/extras', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, price, category_id } = req.body;
+    const { store_id, name, price, category_id, stock, unlimited_stock, stock_unit } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
@@ -3480,7 +3481,7 @@ app.post('/api/extras', authenticateToken, upload.single('image'), async (req, r
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-    const extra = await createExtra(parseInt(store_id), { name, price, category_id, image: imageUrl });
+    const extra = await createExtra(parseInt(store_id), { name, price, category_id, image: imageUrl, stock: parseInt(stock) || 0, unlimited_stock: unlimited_stock === 'true' || unlimited_stock === true, stock_unit: stock_unit || 'unidades' });
     emitProductUpdate(parseInt(store_id), 'extra_created', extra);
     res.json(extra);
   } catch (error) {
@@ -3503,7 +3504,7 @@ app.put('/api/extras/reorder', authenticateToken, async (req, res) => {
 
 app.put('/api/extras/:id', authenticateToken, upload.single('image'), async (req, res) => {
   try {
-    const { store_id, name, price, category_id, stock, unlimited_stock } = req.body;
+    const { store_id, name, price, category_id, stock, unlimited_stock, stock_unit } = req.body;
     if (!store_id) {
       return res.status(400).json({ error: 'store_id es requerido' });
     }
@@ -3521,13 +3522,14 @@ app.put('/api/extras/:id', authenticateToken, upload.single('image'), async (req
       const existing = await pool.execute('SELECT image FROM extras WHERE id = ?', [req.params.id]);
       imageUrl = existing[0][0]?.image || null;
     }
-    const extra = await updateExtra(parseInt(req.params.id), parseInt(store_id), { 
-      name, 
-      price, 
-      category_id, 
+    const extra = await updateExtra(parseInt(req.params.id), parseInt(store_id), {
+      name,
+      price,
+      category_id,
       image: imageUrl,
       stock: stock !== undefined ? parseInt(stock) : 0,
-      unlimited_stock: unlimited_stock === 'true' || unlimited_stock === true
+      unlimited_stock: unlimited_stock === 'true' || unlimited_stock === true,
+      stock_unit: stock_unit || 'unidades',
     });
     req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { product_id: parseInt(req.params.id), stock: extra.stock, unlimited_stock: extra.unlimited_stock });
     emitProductUpdate(parseInt(store_id), 'extra_updated', extra);

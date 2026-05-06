@@ -730,6 +730,21 @@ async function migrateTables() {
     }
 
     try {
+      const [ingCols3] = await pool.execute('SHOW COLUMNS FROM ingredients');
+      if (!ingCols3.map(c => c.Field).includes('stock_unit')) {
+        await pool.execute("ALTER TABLE ingredients ADD COLUMN stock_unit VARCHAR(10) NOT NULL DEFAULT 'unidades'");
+        console.log('✅ Columna stock_unit agregada a ingredients');
+      }
+      const [extCols3] = await pool.execute('SHOW COLUMNS FROM extras');
+      if (!extCols3.map(c => c.Field).includes('stock_unit')) {
+        await pool.execute("ALTER TABLE extras ADD COLUMN stock_unit VARCHAR(10) NOT NULL DEFAULT 'unidades'");
+        console.log('✅ Columna stock_unit agregada a extras');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando stock_unit:', err.message);
+    }
+
+    try {
       const [configCols] = await pool.execute('SHOW COLUMNS FROM store_configurations');
       const configColNames = configCols.map(c => c.Field);
       if (!configColNames.includes('accept_cash')) {
@@ -1621,27 +1636,28 @@ export async function getIngredients(storeId) {
     ...ing,
     price: parseFloat(ing.price) || 0,
     stock: parseInt(ing.stock) || 0,
-    unlimited_stock: ing.unlimited_stock || false
+    unlimited_stock: ing.unlimited_stock || false,
+    stock_unit: ing.stock_unit || 'unidades',
   }));
 }
 
 export async function createIngredient(storeId, data) {
-  const { name, price, category_id, image, stock, unlimited_stock } = data;
+  const { name, price, category_id, image, stock, unlimited_stock, stock_unit } = data;
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image, stock, unlimited_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false]
+    'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image, stock, unlimited_stock, stock_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false, stock_unit || 'unidades']
   );
-  return { id: result.insertId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false };
+  return { id: result.insertId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false, stock_unit: stock_unit || 'unidades' };
 }
 
 export async function updateIngredient(ingredientId, storeId, data) {
-  const { name, price, category_id, image, stock, unlimited_stock } = data;
+  const { name, price, category_id, image, stock, unlimited_stock, stock_unit } = data;
   await pool.execute(
-    'UPDATE ingredients SET name = ?, price = ?, category_id = ?, image = ?, stock = ?, unlimited_stock = ? WHERE id = ? AND store_id = ?',
-    [name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false, ingredientId, storeId]
+    'UPDATE ingredients SET name = ?, price = ?, category_id = ?, image = ?, stock = ?, unlimited_stock = ?, stock_unit = ? WHERE id = ? AND store_id = ?',
+    [name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false, stock_unit || 'unidades', ingredientId, storeId]
   );
-  return { id: ingredientId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false };
+  return { id: ingredientId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false, stock_unit: stock_unit || 'unidades' };
 }
 
 export async function deleteIngredient(ingredientId, storeId) {
@@ -1663,27 +1679,28 @@ export async function getExtras(storeId) {
     ...ext,
     price: parseFloat(ext.price) || 0,
     stock: parseInt(ext.stock) || 0,
-    unlimited_stock: ext.unlimited_stock || false
+    unlimited_stock: ext.unlimited_stock || false,
+    stock_unit: ext.stock_unit || 'unidades',
   }));
 }
 
 export async function createExtra(storeId, data) {
-  const { name, price, category_id, image, stock, unlimited_stock } = data;
+  const { name, price, category_id, image, stock, unlimited_stock, stock_unit } = data;
   const store = await getStoreById(storeId);
   const [result] = await pool.execute(
-    'INSERT INTO extras (store_id, user_id, name, price, category_id, image, stock, unlimited_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false]
+    'INSERT INTO extras (store_id, user_id, name, price, category_id, image, stock, unlimited_stock, stock_unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false, stock_unit || 'unidades']
   );
-  return { id: result.insertId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false };
+  return { id: result.insertId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false, stock_unit: stock_unit || 'unidades' };
 }
 
 export async function updateExtra(extraId, storeId, data) {
-  const { name, price, category_id, image, stock, unlimited_stock } = data;
+  const { name, price, category_id, image, stock, unlimited_stock, stock_unit } = data;
   await pool.execute(
-    'UPDATE extras SET name = ?, price = ?, category_id = ?, image = ?, stock = ?, unlimited_stock = ? WHERE id = ? AND store_id = ?',
-    [name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false, extraId, storeId]
+    'UPDATE extras SET name = ?, price = ?, category_id = ?, image = ?, stock = ?, unlimited_stock = ?, stock_unit = ? WHERE id = ? AND store_id = ?',
+    [name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false, stock_unit || 'unidades', extraId, storeId]
   );
-  return { id: extraId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false };
+  return { id: extraId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false, stock_unit: stock_unit || 'unidades' };
 }
 
 export async function deleteExtra(extraId, storeId) {

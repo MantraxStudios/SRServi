@@ -3361,6 +3361,7 @@ function Store() {
               }}>
                 {selectedProduct.ingredients.map(ingredient => {
                   const ingredientIsOutOfStock = !ingredient.unlimited_stock && ingredient.stock === 0;
+                  const ingredientStockLabel = !ingredient.unlimited_stock && ingredient.stock > 0 ? `${ingredient.stock} ${ingredient.stock_unit || 'un.'}` : null;
                   const isSelected = productConfig.selectedIngredients.find(i => i.id === ingredient.id);
                   return (
                   <div
@@ -3441,6 +3442,16 @@ function Store() {
                           color: isSelected ? '#fff' : 'var(--store-accent)'
                         }}>
                           +{colors.currency.symbol}{formatPrice(ingredient.price)}
+                        </div>
+                      )}
+                      {ingredientStockLabel && (
+                        <div style={{
+                          fontSize: '10px',
+                          color: isSelected ? 'rgba(255,255,255,0.7)' : ingredient.stock <= 5 ? '#f59e0b' : '#888',
+                          marginTop: '2px',
+                          fontWeight: ingredient.stock <= 5 ? '700' : '400',
+                        }}>
+                          {ingredient.stock <= 5 ? '⚠ ' : ''}{ingredientStockLabel}
                         </div>
                       )}
                     </div>
@@ -3553,6 +3564,7 @@ function Store() {
               }}>
                 {selectedProduct.extras.map(extra => {
                   const extraIsOutOfStock = !extra.unlimited_stock && extra.stock === 0;
+                  const extraStockLabel = !extra.unlimited_stock && extra.stock > 0 ? `${extra.stock} ${extra.stock_unit || 'un.'}` : null;
                   const isSelected = productConfig.selectedExtras.find(e => e.id === extra.id);
                   return (
                   <div

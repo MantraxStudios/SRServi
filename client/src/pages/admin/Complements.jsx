@@ -18,6 +18,13 @@ function Complements() {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [activeTab, setActiveTab] = useState('ingredient');
+  const UNITS = [
+    { value: 'unidades', label: 'Unidades' },
+    { value: 'g',        label: 'Gramos (g)' },
+    { value: 'kg',       label: 'Kilogramos (kg)' },
+    { value: 'mg',       label: 'Miligramos (mg)' },
+  ];
+
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -25,6 +32,7 @@ function Complements() {
     imageFile: null,
     stock: '',
     unlimited_stock: false,
+    stock_unit: 'unidades',
     type: 'ingredient'
   });
   const [error, setError] = useState('');
@@ -91,6 +99,7 @@ function Complements() {
       formDataToSend.append('store_id', selectedStore.id);
       formDataToSend.append('stock', parseInt(formData.stock) || 0);
       formDataToSend.append('unlimited_stock', formData.unlimited_stock);
+      formDataToSend.append('stock_unit', formData.stock_unit || 'unidades');
       if (formData.imageFile) {
         formDataToSend.append('image', formData.imageFile);
       }
@@ -125,6 +134,7 @@ function Complements() {
       imageFile: null,
       stock: item.stock?.toString() || '0',
       unlimited_stock: item.unlimited_stock || false,
+      stock_unit: item.stock_unit || 'unidades',
       type: item._type
     });
     setShowModal(true);
@@ -161,6 +171,7 @@ function Complements() {
       imageFile: null,
       stock: '',
       unlimited_stock: false,
+      stock_unit: 'unidades',
       type: activeTab
     });
   };
@@ -223,7 +234,7 @@ function Complements() {
             <span className="stock-unlimited"><FontAwesomeIcon icon={faInfinity} /></span>
           ) : (
             <span className={`stock-value ${item.stock === 0 ? 'stock-danger' : item.stock < 10 ? 'stock-warning' : 'stock-ok'}`}>
-              {item.stock}
+              {item.stock} <span style={{ fontSize: '11px', fontWeight: 400, opacity: 0.7 }}>{item.stock_unit || 'un.'}</span>
             </span>
           )}
         </td>
@@ -385,7 +396,25 @@ function Complements() {
                 </select>
               </div>
               <div className="form-group">
-                <label>Stock</label>
+                <label>Unidad de medida</label>
+                <select
+                  value={formData.stock_unit}
+                  onChange={(e) => setFormData({ ...formData, stock_unit: e.target.value })}
+                >
+                  {UNITS.map(u => (
+                    <option key={u.value} value={u.value}>{u.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>
+                  Stock disponible
+                  {!formData.unlimited_stock && (
+                    <span style={{ marginLeft: 6, fontSize: '12px', color: '#888', fontWeight: 400 }}>
+                      (en {UNITS.find(u => u.value === formData.stock_unit)?.label.toLowerCase() || 'unidades'})
+                    </span>
+                  )}
+                </label>
                 <input
                   type="number"
                   min="0"
