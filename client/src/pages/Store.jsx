@@ -1221,17 +1221,15 @@ function Store() {
   // when the focus is already on a text field (so admin editing isn't hijacked).
   useEffect(() => {
     if (anyModalOpen) return;
+    // On non-touch devices the dedicated hidden input handles scanning — skip
+    if (!isTouchDevice) return;
     let buffer = '';
     let lastTime = 0;
     const handleKey = (e) => {
       const active = document.activeElement;
       const tag = active?.tagName;
       const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || active?.isContentEditable;
-      // Allow the dedicated hidden barcodeInput (it has a className we can detect)
-      const isDedicated = active?.classList?.contains('barcode-input');
-      if (isEditable && !isDedicated) return;
-      // Si el foco está en el input dedicado, él mismo maneja el scan — no duplicar
-      if (isDedicated) return;
+      if (isEditable) return;
 
       const now = Date.now();
       const gap = now - lastTime;
@@ -1250,7 +1248,7 @@ function Store() {
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [anyModalOpen, store]);
+  }, [anyModalOpen, isTouchDevice, store]);
 
   const handleBarcodeScan = (barcodeValue) => {
     if (!store?.products) return;
@@ -2855,6 +2853,9 @@ function Store() {
             <span className="store-product-name">{product.name}:</span>
             <span className="store-product-price">{colors.currency.symbol}{formatPrice(product.price)}</span>
           </div>
+          {product.description && (
+            <p style={{ margin: '2px 0 0', fontSize: '10px', color: 'rgba(255,255,255,0.4)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{product.description}</p>
+          )}
         </div>
       </div>
     );
@@ -2895,28 +2896,29 @@ function Store() {
             </h1>
           </div>
           <div className="store-header-spacer" />
-          <p className="store-header-powered" style={{ margin: 0, fontSize: '10px', opacity: 0.55, whiteSpace: 'nowrap', alignSelf: 'flex-start', paddingTop: '4px' }}>{t('poweredBy', lang)}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
+            <p style={{ margin: 0, fontSize: '9px', opacity: 0.4, whiteSpace: 'nowrap', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{t('poweredBy', lang)}</p>
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', color: 'rgba(255,255,255,0.65)', fontSize: '12px' }}>
+                <FontAwesomeIcon icon={faGlobe} style={{ fontSize: '11px' }} />
+                <span>{LANGUAGES.find(l => l.code === lang)?.flag || '🌐'}</span>
+              </button>
+              {showLangPicker && (
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#fff', borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)', overflow: 'hidden', minWidth: '130px', zIndex: 300 }}>
+                  {LANGUAGES.map(l => (
+                    <button key={l.code} onClick={() => { setLang(l.code); localStorage.setItem('srservi_lang', l.code); setShowLangPicker(false); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', background: lang === l.code ? '#f0f0f0' : '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: lang === l.code ? '700' : '400' }}>
+                      <span>{l.flag}</span> {l.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
-
-      {/* Language selector — bottom right */}
-      <div style={{ position: 'fixed', bottom: '70px', right: '12px', zIndex: 200 }}>
-        <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
-          <FontAwesomeIcon icon={faGlobe} />
-        </button>
-        {showLangPicker && (
-          <div style={{ position: 'absolute', bottom: '44px', right: 0, background: '#fff', borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', overflow: 'hidden', minWidth: '130px' }}>
-            {LANGUAGES.map(l => (
-              <button key={l.code} onClick={() => { setLang(l.code); localStorage.setItem('srservi_lang', l.code); setShowLangPicker(false); }}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', background: lang === l.code ? '#f0f0f0' : '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: lang === l.code ? '700' : '400' }}>
-                <span>{l.flag}</span> {l.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
 
       <div className="category-tabs">
         <div
