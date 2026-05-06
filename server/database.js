@@ -460,11 +460,11 @@ async function createTables() {
       store_id INT NOT NULL UNIQUE,
       ig_username VARCHAR(255) DEFAULT '',
       ig_password VARCHAR(500) DEFAULT '',
-      caption_template TEXT DEFAULT '',
+      caption_template TEXT,
       enabled BOOLEAN DEFAULT FALSE,
       template_counter INT DEFAULT 0,
       last_posted_at TIMESTAMP NULL DEFAULT NULL,
-      last_error TEXT NULL DEFAULT NULL,
+      last_error TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )
