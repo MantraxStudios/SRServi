@@ -2804,81 +2804,58 @@ function Store() {
 
   if (!editMode && !cashRegisterOpen && store) {
     const accent = store.store?.accent_color || '#D4AF37';
-    const primary = store.store?.primary_color || '#000000';
+    const bg = store.store?.primary_color || '#000000';
     return (
-      <div style={{ minHeight: '100vh', background: primary, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', overflow: 'hidden', position: 'relative' }}>
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: bg,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden'
+      }}>
         <style>{`
-          @keyframes cajaBloom {
-            0%   { transform: scale(0.85); opacity: 0.7; filter: drop-shadow(0 0 8px ${accent}88); }
-            50%  { transform: scale(1.06); opacity: 1;   filter: drop-shadow(0 0 48px ${accent}) drop-shadow(0 0 90px ${accent}66); }
-            100% { transform: scale(0.85); opacity: 0.7; filter: drop-shadow(0 0 8px ${accent}88); }
+          @keyframes bloom {
+            0%, 100% { box-shadow: 0 0 20px 4px ${accent}44, 0 0 60px 12px ${accent}22; transform: scale(1); }
+            50%       { box-shadow: 0 0 60px 20px ${accent}99, 0 0 120px 40px ${accent}44; transform: scale(1.08); }
           }
-          @keyframes cajaPulseRing {
-            0%   { transform: scale(0.8);  opacity: 0.6; }
-            70%  { transform: scale(1.6);  opacity: 0; }
-            100% { transform: scale(0.8);  opacity: 0; }
+          @keyframes ring {
+            0%   { transform: scale(1); opacity: 0.5; }
+            100% { transform: scale(2.8); opacity: 0; }
           }
-          @keyframes cajaFadeUp {
-            from { opacity: 0; transform: translateY(22px); }
+          @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
             to   { opacity: 1; transform: translateY(0); }
           }
         `}</style>
 
-        {/* Anillos de bloom de fondo */}
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          {[1, 2, 3].map(i => (
-            <div key={i} style={{
-              position: 'absolute',
-              width: '320px', height: '320px',
-              borderRadius: '50%',
-              border: `2px solid ${accent}`,
-              animation: `cajaPulseRing 2.8s ease-out ${i * 0.7}s infinite`,
-              opacity: 0
-            }} />
-          ))}
+        {/* Anillos */}
+        <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', border: `1px solid ${accent}`, animation: 'ring 2.5s ease-out 0s infinite' }} />
+        <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', border: `1px solid ${accent}`, animation: 'ring 2.5s ease-out 0.8s infinite' }} />
+        <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', border: `1px solid ${accent}`, animation: 'ring 2.5s ease-out 1.6s infinite' }} />
+
+        {/* Ícono */}
+        <div style={{
+          width: 100, height: 100, borderRadius: '50%',
+          border: `2px solid ${accent}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'bloom 2.5s ease-in-out infinite',
+          marginBottom: 40, position: 'relative', zIndex: 1,
+          background: bg
+        }}>
+          <FontAwesomeIcon icon={faLock} style={{ fontSize: 42, color: accent }} />
         </div>
 
-        <div style={{ textAlign: 'center', maxWidth: '480px', position: 'relative', zIndex: 1 }}>
-          {store.store?.logo_url && (
-            <img
-              src={store.store.logo_url}
-              alt={store.store?.name}
-              style={{ width: '72px', height: '72px', borderRadius: '14px', objectFit: 'cover', marginBottom: '28px', animation: 'cajaFadeUp 0.6s ease both' }}
-            />
-          )}
-
-          {/* Ícono con bloom */}
-          <div style={{ animation: 'cajaBloom 2.8s ease-in-out infinite', display: 'inline-block', marginBottom: '32px' }}>
-            <div style={{
-              width: '96px', height: '96px', borderRadius: '50%',
-              background: `radial-gradient(circle, ${accent}22 0%, transparent 70%)`,
-              border: `2px solid ${accent}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto'
-            }}>
-              <FontAwesomeIcon icon={faLock} style={{ fontSize: '40px', color: accent }} />
-            </div>
-          </div>
-
-          {/* Nombre de tienda */}
+        {/* Texto */}
+        <div style={{ textAlign: 'center', padding: '0 32px', position: 'relative', zIndex: 1, animation: 'fadeUp 0.7s ease both' }}>
           {store.store?.name && (
-            <div style={{ fontSize: '15px', fontWeight: 600, color: `${accent}99`, letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '16px', animation: 'cajaFadeUp 0.6s ease 0.1s both' }}>
+            <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, letterSpacing: 4, textTransform: 'uppercase', color: accent + 'aa' }}>
               {store.store.name}
-            </div>
+            </p>
           )}
-
-          {/* Mensaje principal */}
-          <h1 style={{
-            color: '#fff', fontWeight: 900,
-            fontSize: 'clamp(26px, 6vw, 44px)',
-            lineHeight: 1.15, margin: '0 0 16px',
-            animation: 'cajaFadeUp 0.6s ease 0.2s both',
-            textShadow: `0 0 40px ${accent}55`
-          }}>
-            El vendedor debe abrir caja para comenzar a usar
+          <h1 style={{ margin: '0 0 12px', color: '#fff', fontWeight: 900, fontSize: 'clamp(22px, 5vw, 40px)', lineHeight: 1.2 }}>
+            El vendedor debe abrir caja<br />para comenzar a usar
           </h1>
-
-          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '14px', margin: 0, animation: 'cajaFadeUp 0.6s ease 0.35s both' }}>
+          <p style={{ margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.3)' }}>
             Esperando apertura de caja…
           </p>
         </div>
