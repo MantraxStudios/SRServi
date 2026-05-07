@@ -140,6 +140,11 @@ import {
   updateUserHeartbeat,
   getChatGptKey,
   saveChatGptKey,
+  openCashRegister,
+  closeCashRegister,
+  getOpenCashRegister,
+  getAllOpenCashRegisters,
+  getTodayOrdersForStore,
   pool
 } from './database.js';
 
@@ -279,6 +284,92 @@ app.use('/api/plugins/static', (req, res, next) => {
   }
   next();
 }, express.static(path.join(__serverDir, 'plugins', 'installed')));
+
+async function sendCashRegisterReport(storeId, closedBy = 'manual') {
+  try {
+    const [storeRows] = await pool.execute(
+      'SELECT s.*, u.email as owner_email, u.username as owner_username FROM stores s JOIN users u ON s.user_id = u.id WHERE s.id = ?',
+      [storeId]
+    );
+    if (!storeRows.length) return;
+    const store = storeRows[0];
+    const ownerEmail = store.owner_email;
+    if (!ownerEmail) return;
+
+    const orders = await getTodayOrdersForStore(storeId);
+    const currSym = store.currency_symbol || '$';
+    const fmt = d => d ? new Date(d).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—';
+    const tl = t => ({ serve: 'Aquí', takeout: 'Para llevar', delivery: 'Delivery', pedidosya: 'PedidosYa', rappi: 'Rappi', mostrador: 'Mostrador' })[t] || t || 'Aquí';
+    const sl = s => ({ pending: 'Pendiente', preparing: 'En preparación', ready: 'Listo', completed: 'Completado' })[s] || s || '';
+    const ds = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    const wsData = [
+      ['#', 'Tipo', 'Entrada', 'Salida', 'Estado', 'Atendido por', 'Productos', 'Total']
+    ];
+    for (const o of orders) {
+      wsData.push([
+        o.order_number || String(o.id),
+        tl(o.order_type),
+        fmt(o.created_at),
+        fmt(o.completed_at),
+        sl(o.status),
+        o.completed_by_name || '—',
+        o.items_text || '—',
+        `${currSym}${Number(o.total || 0).toFixed(2)}`
+      ]);
+    }
+
+    const totalVendido = orders.reduce((s, o) => s + Number(o.total || 0), 0);
+    const completados = orders.filter(o => o.status === 'completed').length;
+    wsData.push([]);
+    wsData.push(['Total pedidos', orders.length, '', '', '', '', '', '']);
+    wsData.push(['Completados', completados, '', '', '', '', '', '']);
+    wsData.push(['Total vendido', '', '', '', '', '', '', `${currSym}${totalVendido.toFixed(2)}`]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{ wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 18 }, { wch: 50 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
+    const xlsxBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    const subject = closedBy === 'auto'
+      ? `[SRServi] Cierre automático de caja — ${store.name} — ${ds}`
+      : `[SRServi] Cierre de caja — ${store.name} — ${ds}`;
+
+    await mailer.sendMail({
+      from: `"SRServi" <${process.env.EMAIL_USER}>`,
+      to: ownerEmail,
+      subject,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+          <div style="background:#000;padding:20px;text-align:center">
+            <h1 style="color:#D4AF37;margin:0;font-size:24px">SRServi</h1>
+          </div>
+          <div style="padding:24px;background:#f9f9f9">
+            <h2 style="color:#111;margin-top:0">Informe de Caja — ${store.name}</h2>
+            <p style="color:#444">${ds}</p>
+            ${closedBy === 'auto' ? '<p style="color:#e55;font-weight:bold">La caja fue cerrada automáticamente a medianoche.</p>' : ''}
+            <table style="width:100%;border-collapse:collapse;margin:16px 0">
+              <tr style="background:#D4AF37"><td style="padding:8px;font-weight:700">Total pedidos</td><td style="padding:8px;text-align:right;font-weight:700">${orders.length}</td></tr>
+              <tr style="background:#f0f0f0"><td style="padding:8px">Completados</td><td style="padding:8px;text-align:right">${completados}</td></tr>
+              <tr style="background:#fff"><td style="padding:8px;font-weight:700">Total vendido</td><td style="padding:8px;text-align:right;font-weight:700;color:#16a34a">${currSym}${totalVendido.toFixed(2)}</td></tr>
+            </table>
+            <p style="color:#666;font-size:13px">Encontrarás el detalle completo en el archivo Excel adjunto.</p>
+          </div>
+          <div style="background:#111;padding:12px;text-align:center;font-size:11px;color:#666">SRServi &mdash; ${store.name}</div>
+        </div>
+      `,
+      attachments: [{
+        filename: `caja_${store.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        content: xlsxBuffer,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      }]
+    });
+    console.log(`[Caja] Email enviado a ${ownerEmail} para tienda ${store.name}`);
+  } catch (e) {
+    console.error('[Caja] Error enviando email:', e.message);
+  }
+}
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -813,6 +904,8 @@ app.get('/api/public/:code', async (req, res) => {
     const products = await getPublicProducts(store.id);
     const categories = await getCategories(store.id);
 
+    const openRegister = await getOpenCashRegister(store.id);
+
     // Smart mode: get top selling product IDs (last 30 days)
     let topSellingIds = [];
     try {
@@ -849,6 +942,7 @@ app.get('/api/public/:code', async (req, res) => {
       },
       products,
       categories,
+      cash_register_open: !!openRegister,
       top_selling: (store.smart_mode !== false && store.smart_mode !== 0) && (store.show_top_selling !== false && store.show_top_selling !== 0) ? topSellingIds : []
     });
   } catch (error) {
@@ -8224,6 +8318,64 @@ async function startServer() {
         await updateInstagramPosted(req.params.storeId, e.message).catch(() => {});
         res.status(500).json({ error: e.message });
       }
+    });
+
+    // ============================================================
+    // CAJA (CASH REGISTER) ENDPOINTS
+    // ============================================================
+
+    app.post('/api/cash-register/open', authenticateToken, async (req, res) => {
+      try {
+        if (req.user.type !== 'worker') return res.status(403).json({ error: 'Solo trabajadores pueden abrir la caja' });
+        const storeId = req.user.store_id;
+        const [workerRows] = await pool.execute('SELECT * FROM workers WHERE id = ?', [req.user.id]);
+        const worker = workerRows[0];
+        if (!worker) return res.status(404).json({ error: 'Trabajador no encontrado' });
+        const register = await openCashRegister(storeId, worker.id, worker.name || worker.username);
+        res.json(register);
+      } catch (err) {
+        res.status(400).json({ error: err.message });
+      }
+    });
+
+    app.post('/api/cash-register/close', authenticateToken, async (req, res) => {
+      try {
+        if (req.user.type !== 'worker') return res.status(403).json({ error: 'Solo trabajadores pueden cerrar la caja' });
+        const storeId = req.user.store_id;
+        const open = await getOpenCashRegister(storeId);
+        if (!open) return res.status(400).json({ error: 'No hay caja abierta' });
+        await closeCashRegister(storeId, 'manual');
+        await sendCashRegisterReport(storeId, 'manual');
+        res.json({ success: true });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.get('/api/cash-register/status/:storeId', async (req, res) => {
+      try {
+        const open = await getOpenCashRegister(req.params.storeId);
+        res.json({ open: !!open, register: open || null });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // Cron cada día a medianoche — cerrar cajas abiertas y enviar email
+    cron.schedule('0 0 * * *', async () => {
+      console.log('[Caja] Cierre automático de cajas...');
+      try {
+        const openRegisters = await getAllOpenCashRegisters();
+        for (const reg of openRegisters) {
+          try {
+            await closeCashRegister(reg.store_id, 'auto');
+            await sendCashRegisterReport(reg.store_id, 'auto');
+            console.log(`[Caja] ✅ Cerrada caja tienda ${reg.store_name}`);
+          } catch (e) {
+            console.error(`[Caja] ❌ Error tienda ${reg.store_name}:`, e.message);
+          }
+        }
+      } catch (e) { console.error('[Caja] Cron error:', e.message); }
     });
 
     // Cron cada domingo a las 10:00

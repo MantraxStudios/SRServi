@@ -470,6 +470,19 @@ async function createTables() {
     )
   `);
 
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS cash_registers (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      worker_id INT NOT NULL,
+      worker_name VARCHAR(255) NOT NULL,
+      opened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      closed_at TIMESTAMP NULL,
+      closed_by VARCHAR(20) DEFAULT 'manual',
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
   await migrateToUnifiedPos();
   await migrateTables();
 
@@ -1128,6 +1141,18 @@ async function migrateTables() {
       console.log('ℹ️ Tabla task_completions verificada/creada');
     } catch (err) {
       console.error('❌ Error creando tabla task_completions:', err.message);
+    }
+
+    // Limpiar entradas duplicadas en inventory (mantener solo la de menor id por producto)
+    try {
+      await pool.execute(`
+        DELETE i1 FROM inventory i1
+        INNER JOIN inventory i2
+        WHERE i1.product_id = i2.product_id AND i1.id > i2.id
+      `);
+      console.log('ℹ️ Duplicados de inventory limpiados');
+    } catch (err) {
+      console.error('❌ Error limpiando inventory duplicados:', err.message);
     }
 
     console.log('✅ Migración de tablas completada');
@@ -2005,12 +2030,14 @@ async function getProductExtras(productId, categoryId = null) {
 export async function getProducts(storeId) {
   const [rows] = await pool.execute(`
     SELECT p.*, c.name as category_name,
-           COALESCE(i.stock, 0) as stock,
-           CASE WHEN i.product_id IS NULL THEN TRUE ELSE COALESCE(i.unlimited_stock, FALSE) END as unlimited_stock
-    FROM products p 
-    LEFT JOIN categories c ON p.category_id = c.id 
-    LEFT JOIN inventory i ON p.id = i.product_id
-    WHERE p.store_id = ? 
+           COALESCE((SELECT stock FROM inventory WHERE product_id = p.id LIMIT 1), 0) as stock,
+           CASE WHEN (SELECT id FROM inventory WHERE product_id = p.id LIMIT 1) IS NULL
+                THEN TRUE
+                ELSE COALESCE((SELECT unlimited_stock FROM inventory WHERE product_id = p.id LIMIT 1), FALSE)
+           END as unlimited_stock
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE p.store_id = ?
     ORDER BY p.sort_order ASC, p.created_at DESC
   `, [storeId]);
   
@@ -2217,12 +2244,14 @@ export async function getProductById(productId) {
 export async function getPublicProducts(storeId) {
   const [rows] = await pool.execute(`
     SELECT p.*, c.name as category_name,
-           COALESCE(i.stock, 0) as stock,
-           CASE WHEN i.product_id IS NULL THEN TRUE ELSE COALESCE(i.unlimited_stock, FALSE) END as unlimited_stock
-    FROM products p 
-    LEFT JOIN categories c ON p.category_id = c.id 
-    LEFT JOIN inventory i ON p.id = i.product_id
-    WHERE p.store_id = ? 
+           COALESCE((SELECT stock FROM inventory WHERE product_id = p.id LIMIT 1), 0) as stock,
+           CASE WHEN (SELECT id FROM inventory WHERE product_id = p.id LIMIT 1) IS NULL
+                THEN TRUE
+                ELSE COALESCE((SELECT unlimited_stock FROM inventory WHERE product_id = p.id LIMIT 1), FALSE)
+           END as unlimited_stock
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE p.store_id = ?
     ORDER BY p.sort_order ASC, p.name
   `, [storeId]);
   
@@ -3629,6 +3658,72 @@ export async function getChatGptKey(userId) {
 
 export async function saveChatGptKey(userId, apiKey) {
   await pool.execute('UPDATE users SET chatgpt_api_key = ? WHERE id = ?', [apiKey || null, userId]);
+}
+
+// ============================================================
+// CAJA (CASH REGISTER)
+// ============================================================
+
+export async function openCashRegister(storeId, workerId, workerName) {
+  const [open] = await pool.execute(
+    'SELECT id FROM cash_registers WHERE store_id = ? AND closed_at IS NULL',
+    [storeId]
+  );
+  if (open.length > 0) throw new Error('Ya hay una caja abierta para esta tienda');
+  const [result] = await pool.execute(
+    'INSERT INTO cash_registers (store_id, worker_id, worker_name) VALUES (?, ?, ?)',
+    [storeId, workerId, workerName]
+  );
+  const [rows] = await pool.execute('SELECT * FROM cash_registers WHERE id = ?', [result.insertId]);
+  return rows[0];
+}
+
+export async function closeCashRegister(storeId, closedBy = 'manual') {
+  await pool.execute(
+    'UPDATE cash_registers SET closed_at = NOW(), closed_by = ? WHERE store_id = ? AND closed_at IS NULL',
+    [closedBy, storeId]
+  );
+  return { success: true };
+}
+
+export async function getOpenCashRegister(storeId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM cash_registers WHERE store_id = ? AND closed_at IS NULL ORDER BY opened_at DESC LIMIT 1',
+    [storeId]
+  );
+  return rows[0] || null;
+}
+
+export async function getAllOpenCashRegisters() {
+  const [rows] = await pool.execute(`
+    SELECT cr.*, s.user_id, s.name as store_name, u.email as owner_email
+    FROM cash_registers cr
+    JOIN stores s ON cr.store_id = s.id
+    JOIN users u ON s.user_id = u.id
+    WHERE cr.closed_at IS NULL
+  `);
+  return rows;
+}
+
+export async function getTodayOrdersForStore(storeId) {
+  const [rows] = await pool.execute(`
+    SELECT o.*,
+      GROUP_CONCAT(
+        CONCAT(oi.quantity, 'x ', COALESCE(p.name,'Producto'),
+          IF(oi.selected_ingredients IS NOT NULL AND oi.selected_ingredients != '[]',
+            CONCAT(' [', oi.selected_ingredients, ']'), ''),
+          IF(oi.selected_extras IS NOT NULL AND oi.selected_extras != '[]',
+            CONCAT(' +', oi.selected_extras), '')
+        ) SEPARATOR ' | '
+      ) AS items_text
+    FROM orders o
+    LEFT JOIN order_items oi ON oi.order_id = o.id
+    LEFT JOIN products p ON oi.product_id = p.id
+    WHERE o.store_id = ? AND DATE(o.created_at) = CURDATE()
+    GROUP BY o.id
+    ORDER BY o.created_at ASC
+  `, [storeId]);
+  return rows;
 }
 
 export { pool };

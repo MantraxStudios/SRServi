@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
 import WorkerNewOrder from '../components/WorkerNewOrder';
 
@@ -315,6 +315,9 @@ function WorkerPanel() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [paySearch, setPaySearch] = useState('');
   const [payResult, setPayResult] = useState(null);
+  const [cashRegister, setCashRegister] = useState(null);
+  const [cashLoading, setCashLoading] = useState(false);
+  const [showCashModal, setShowCashModal] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [completingTask, setCompletingTask] = useState(null);
@@ -341,6 +344,7 @@ function WorkerPanel() {
     fetchStoreColors(parsedWorker.store_id);
     fetchOrders(parsedWorker.store_id);
     fetchWorkers(parsedWorker.store_id);
+    fetchCashRegister();
     fetchTasks();
 
     // Socket con reconexion automatica
@@ -413,6 +417,60 @@ function WorkerPanel() {
       window.removeEventListener('focus', handleFocus);
     };
   }, [navigate]);
+
+  const fetchCashRegister = async () => {
+    const workerData = localStorage.getItem('worker');
+    if (!workerData) return;
+    const parsedWorker = JSON.parse(workerData);
+    try {
+      const res = await fetch(`/api/cash-register/status/${parsedWorker.store_id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCashRegister(data.open ? data.register : null);
+      }
+    } catch (e) {
+      console.error('Error fetching cash register:', e);
+    }
+  };
+
+  const openCashRegisterFn = async () => {
+    const token = localStorage.getItem('workerToken');
+    setCashLoading(true);
+    try {
+      const res = await fetch('/api/cash-register/open', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Error al abrir caja'); return; }
+      setCashRegister(data);
+      setShowCashModal(false);
+    } catch (e) {
+      alert('Error de conexión');
+    } finally {
+      setCashLoading(false);
+    }
+  };
+
+  const closeCashRegisterFn = async () => {
+    const token = localStorage.getItem('workerToken');
+    if (!window.confirm('¿Seguro que deseas cerrar la caja? Se enviará el informe del día por correo al dueño de la tienda.')) return;
+    setCashLoading(true);
+    try {
+      const res = await fetch('/api/cash-register/close', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Error al cerrar caja'); return; }
+      setCashRegister(null);
+      setShowCashModal(false);
+    } catch (e) {
+      alert('Error de conexión');
+    } finally {
+      setCashLoading(false);
+    }
+  };
 
   const fetchStoreColors = async (storeId) => {
     try {
@@ -856,12 +914,37 @@ function WorkerPanel() {
             <p className="worker-header-subtitle">{worker?.name || worker?.username || 'Trabajador'}</p>
           </div>
           <div className="worker-header-right">
-            <button className="worker-action-primary" onClick={() => setShowNewOrder(true)} title="Nuevo pedido">
-              <FontAwesomeIcon icon={faPlus} />
+            <button
+              onClick={() => setShowCashModal(true)}
+              title={cashRegister ? 'Caja abierta — click para cerrar' : 'Abrir caja'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '8px 14px', borderRadius: '10px', border: 'none',
+                background: cashRegister ? 'rgba(22,163,74,0.15)' : 'rgba(239,68,68,0.15)',
+                color: cashRegister ? '#16a34a' : '#ef4444',
+                cursor: 'pointer', fontWeight: 700, fontSize: '13px',
+                transition: 'all 0.15s', flexShrink: 0
+              }}
+            >
+              <FontAwesomeIcon icon={faCashRegister} />
+              <span className="worker-btn-label">{cashRegister ? 'Caja' : 'Sin caja'}</span>
+            </button>
+            <button
+              className="worker-action-primary"
+              onClick={() => cashRegister ? setShowNewOrder(true) : setShowCashModal(true)}
+              title={cashRegister ? 'Nuevo pedido' : 'Abre la caja para crear pedidos'}
+              style={!cashRegister ? { opacity: 0.5 } : {}}
+            >
+              <FontAwesomeIcon icon={cashRegister ? faPlus : faLock} />
               <span className="worker-btn-label">Nuevo</span>
             </button>
-            <button className="worker-action-primary green" onClick={() => setShowPayModal(true)} title="Cobrar">
-              <FontAwesomeIcon icon={faMoneyBillWave} />
+            <button
+              className="worker-action-primary green"
+              onClick={() => cashRegister ? setShowPayModal(true) : setShowCashModal(true)}
+              title={cashRegister ? 'Cobrar' : 'Abre la caja para cobrar'}
+              style={!cashRegister ? { opacity: 0.5 } : {}}
+            >
+              <FontAwesomeIcon icon={cashRegister ? faMoneyBillWave : faLock} />
               <span className="worker-btn-label">Cobrar</span>
             </button>
             <button
@@ -1250,6 +1333,79 @@ function WorkerPanel() {
               >
                 Cerrar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCashModal && (
+        <div className="worker-modal-overlay" onClick={() => setShowCashModal(false)}>
+          <div className="worker-modal" onClick={e => e.stopPropagation()}>
+            <div className="worker-modal-header">
+              <h2 className="worker-modal-title">
+                <FontAwesomeIcon icon={faCashRegister} style={{ marginRight: 8 }} />
+                {cashRegister ? 'Caja Abierta' : 'Abrir Caja'}
+              </h2>
+              <button className="worker-modal-close" onClick={() => setShowCashModal(false)}>x</button>
+            </div>
+            <div style={{ padding: '16px 0' }}>
+              {cashRegister ? (
+                <>
+                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(22,163,74,0.15)', border: '2px solid #16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                      <FontAwesomeIcon icon={faCashRegister} style={{ fontSize: '28px', color: '#16a34a' }} />
+                    </div>
+                    <p style={{ color: '#16a34a', fontWeight: 700, fontSize: '15px', margin: '0 0 6px' }}>Caja abierta</p>
+                    <p style={{ color: '#888', fontSize: '13px', margin: 0 }}>
+                      Por: <strong style={{ color: '#fff' }}>{cashRegister.worker_name}</strong>
+                    </p>
+                    <p style={{ color: '#555', fontSize: '12px', margin: '4px 0 0' }}>
+                      Desde: {new Date(cashRegister.opened_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={closeCashRegisterFn}
+                    disabled={cashLoading}
+                    style={{
+                      width: '100%', padding: '14px', borderRadius: '10px', border: 'none',
+                      background: cashLoading ? '#1a1a1a' : 'rgba(239,68,68,0.15)',
+                      color: cashLoading ? '#555' : '#ef4444',
+                      fontWeight: 800, fontSize: '14px', cursor: cashLoading ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                    {cashLoading ? 'Cerrando...' : 'Cerrar Caja'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(239,68,68,0.1)', border: '2px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                      <FontAwesomeIcon icon={faLock} style={{ fontSize: '28px', color: '#ef4444' }} />
+                    </div>
+                    <p style={{ color: '#fff', fontWeight: 700, fontSize: '15px', margin: '0 0 6px' }}>Sin caja abierta</p>
+                    <p style={{ color: '#666', fontSize: '13px', margin: 0 }}>Debes abrir la caja para poder atender pedidos</p>
+                  </div>
+                  <button
+                    onClick={openCashRegisterFn}
+                    disabled={cashLoading}
+                    style={{
+                      width: '100%', padding: '14px', borderRadius: '10px', border: 'none',
+                      background: cashLoading ? '#1a1a1a' : '#D4AF37',
+                      color: cashLoading ? '#555' : '#000',
+                      fontWeight: 800, fontSize: '14px', cursor: cashLoading ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faCashRegister} />
+                    {cashLoading ? 'Abriendo...' : 'Abrir Caja'}
+                  </button>
+                </>
+              )}
+            </div>
+            <div className="worker-modal-actions">
+              <button className="worker-action-btn close" onClick={() => setShowCashModal(false)}>Cerrar</button>
             </div>
           </div>
         </div>

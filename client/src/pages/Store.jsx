@@ -197,6 +197,7 @@ function Store() {
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [cashRegisterOpen, setCashRegisterOpen] = useState(true);
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -999,6 +1000,7 @@ function Store() {
       console.log('Store data received:', deduplicatedData);
       console.log('Number of products:', deduplicatedData.products?.length || 0);
       setStore(deduplicatedData);
+      setCashRegisterOpen(data.cash_register_open !== false);
       if (data.top_selling) setTopSellingIds(data.top_selling);
 
       // Welcome/language modal disabled — no longer shown on page load
@@ -2779,6 +2781,29 @@ function Store() {
             <FontAwesomeIcon icon={faArrowLeft} />
             {t('backToHome', lang)}
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!editMode && !cashRegisterOpen && store) {
+    const storeColors = {
+      primary: store.store?.primary_color || '#000000',
+      accent: store.store?.accent_color || '#D4AF37'
+    };
+    return (
+      <div style={{ minHeight: '100vh', background: storeColors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+        <div style={{ textAlign: 'center', maxWidth: '360px' }}>
+          {store.store?.logo_url && (
+            <img src={store.store.logo_url} alt={store.store?.name} style={{ width: '80px', height: '80px', borderRadius: '16px', objectFit: 'cover', marginBottom: '20px' }} />
+          )}
+          <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: `2px solid ${storeColors.accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <FontAwesomeIcon icon={faLock} style={{ fontSize: '32px', color: storeColors.accent }} />
+          </div>
+          <h2 style={{ color: '#fff', fontWeight: 800, fontSize: '20px', margin: '0 0 10px' }}>{store.store?.name || 'Tienda'}</h2>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '15px', margin: 0, lineHeight: 1.5 }}>
+            Esta tienda no tiene caja abierta para ser atendido
+          </p>
         </div>
       </div>
     );
