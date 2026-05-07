@@ -2833,16 +2833,19 @@ function Store() {
         <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', border: `1px solid ${accent}`, animation: 'ring 2.5s ease-out 0.8s infinite' }} />
         <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', border: `1px solid ${accent}`, animation: 'ring 2.5s ease-out 1.6s infinite' }} />
 
-        {/* Ícono */}
+        {/* Logo / Ícono */}
         <div style={{
           width: 100, height: 100, borderRadius: '50%',
           border: `2px solid ${accent}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           animation: 'bloom 2.5s ease-in-out infinite',
           marginBottom: 40, position: 'relative', zIndex: 1,
-          background: bg
+          background: bg, overflow: 'hidden', flexShrink: 0
         }}>
-          <FontAwesomeIcon icon={faLock} style={{ fontSize: 42, color: accent }} />
+          {store.store?.logo_url
+            ? <img src={store.store.logo_url} alt={store.store?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <FontAwesomeIcon icon={faLock} style={{ fontSize: 42, color: accent }} />
+          }
         </div>
 
         {/* Texto */}
