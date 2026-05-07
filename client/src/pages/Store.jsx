@@ -2803,22 +2803,83 @@ function Store() {
   }
 
   if (!editMode && !cashRegisterOpen && store) {
-    const storeColors = {
-      primary: store.store?.primary_color || '#000000',
-      accent: store.store?.accent_color || '#D4AF37'
-    };
+    const accent = store.store?.accent_color || '#D4AF37';
+    const primary = store.store?.primary_color || '#000000';
     return (
-      <div style={{ minHeight: '100vh', background: storeColors.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-        <div style={{ textAlign: 'center', maxWidth: '360px' }}>
+      <div style={{ minHeight: '100vh', background: primary, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', overflow: 'hidden', position: 'relative' }}>
+        <style>{`
+          @keyframes cajaBloom {
+            0%   { transform: scale(0.85); opacity: 0.7; filter: drop-shadow(0 0 8px ${accent}88); }
+            50%  { transform: scale(1.06); opacity: 1;   filter: drop-shadow(0 0 48px ${accent}) drop-shadow(0 0 90px ${accent}66); }
+            100% { transform: scale(0.85); opacity: 0.7; filter: drop-shadow(0 0 8px ${accent}88); }
+          }
+          @keyframes cajaPulseRing {
+            0%   { transform: scale(0.8);  opacity: 0.6; }
+            70%  { transform: scale(1.6);  opacity: 0; }
+            100% { transform: scale(0.8);  opacity: 0; }
+          }
+          @keyframes cajaFadeUp {
+            from { opacity: 0; transform: translateY(22px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
+
+        {/* Anillos de bloom de fondo */}
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{
+              position: 'absolute',
+              width: '320px', height: '320px',
+              borderRadius: '50%',
+              border: `2px solid ${accent}`,
+              animation: `cajaPulseRing 2.8s ease-out ${i * 0.7}s infinite`,
+              opacity: 0
+            }} />
+          ))}
+        </div>
+
+        <div style={{ textAlign: 'center', maxWidth: '480px', position: 'relative', zIndex: 1 }}>
           {store.store?.logo_url && (
-            <img src={store.store.logo_url} alt={store.store?.name} style={{ width: '80px', height: '80px', borderRadius: '16px', objectFit: 'cover', marginBottom: '20px' }} />
+            <img
+              src={store.store.logo_url}
+              alt={store.store?.name}
+              style={{ width: '72px', height: '72px', borderRadius: '14px', objectFit: 'cover', marginBottom: '28px', animation: 'cajaFadeUp 0.6s ease both' }}
+            />
           )}
-          <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: `2px solid ${storeColors.accent}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-            <FontAwesomeIcon icon={faLock} style={{ fontSize: '32px', color: storeColors.accent }} />
+
+          {/* Ícono con bloom */}
+          <div style={{ animation: 'cajaBloom 2.8s ease-in-out infinite', display: 'inline-block', marginBottom: '32px' }}>
+            <div style={{
+              width: '96px', height: '96px', borderRadius: '50%',
+              background: `radial-gradient(circle, ${accent}22 0%, transparent 70%)`,
+              border: `2px solid ${accent}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto'
+            }}>
+              <FontAwesomeIcon icon={faLock} style={{ fontSize: '40px', color: accent }} />
+            </div>
           </div>
-          <h2 style={{ color: '#fff', fontWeight: 800, fontSize: '20px', margin: '0 0 10px' }}>{store.store?.name || 'Tienda'}</h2>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '15px', margin: 0, lineHeight: 1.5 }}>
-            Esta tienda no tiene caja abierta para ser atendido
+
+          {/* Nombre de tienda */}
+          {store.store?.name && (
+            <div style={{ fontSize: '15px', fontWeight: 600, color: `${accent}99`, letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '16px', animation: 'cajaFadeUp 0.6s ease 0.1s both' }}>
+              {store.store.name}
+            </div>
+          )}
+
+          {/* Mensaje principal */}
+          <h1 style={{
+            color: '#fff', fontWeight: 900,
+            fontSize: 'clamp(26px, 6vw, 44px)',
+            lineHeight: 1.15, margin: '0 0 16px',
+            animation: 'cajaFadeUp 0.6s ease 0.2s both',
+            textShadow: `0 0 40px ${accent}55`
+          }}>
+            El vendedor debe abrir caja para comenzar a usar
+          </h1>
+
+          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '14px', margin: 0, animation: 'cajaFadeUp 0.6s ease 0.35s both' }}>
+            Esperando apertura de caja…
           </p>
         </div>
       </div>
