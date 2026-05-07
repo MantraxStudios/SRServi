@@ -931,6 +931,10 @@ function Store() {
       }
     });
 
+    socket.on('cash_register_changed', (data) => {
+      setCashRegisterOpen(!!data.open);
+    });
+
     return () => {
       socket.disconnect();
       socketRef.current = null;

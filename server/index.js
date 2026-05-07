@@ -8332,6 +8332,7 @@ async function startServer() {
         const worker = workerRows[0];
         if (!worker) return res.status(404).json({ error: 'Trabajador no encontrado' });
         const register = await openCashRegister(storeId, worker.id, worker.name || worker.username);
+        io.to(`store_${storeId}`).emit('cash_register_changed', { open: true, register });
         res.json(register);
       } catch (err) {
         res.status(400).json({ error: err.message });
@@ -8345,6 +8346,7 @@ async function startServer() {
         const open = await getOpenCashRegister(storeId);
         if (!open) return res.status(400).json({ error: 'No hay caja abierta' });
         await closeCashRegister(storeId, 'manual');
+        io.to(`store_${storeId}`).emit('cash_register_changed', { open: false });
         await sendCashRegisterReport(storeId, 'manual');
         res.json({ success: true });
       } catch (err) {
@@ -8369,6 +8371,7 @@ async function startServer() {
         for (const reg of openRegisters) {
           try {
             await closeCashRegister(reg.store_id, 'auto');
+            io.to(`store_${reg.store_id}`).emit('cash_register_changed', { open: false });
             await sendCashRegisterReport(reg.store_id, 'auto');
             console.log(`[Caja] ✅ Cerrada caja tienda ${reg.store_name}`);
           } catch (e) {
