@@ -931,10 +931,6 @@ function Store() {
       }
     });
 
-    socket.on('cash_register_changed', (data) => {
-      setCashRegisterOpen(!!data.open);
-    });
-
     return () => {
       socket.disconnect();
       socketRef.current = null;
@@ -964,6 +960,22 @@ function Store() {
       } catch { /* ignore */ }
     }, 10000);
     return () => clearInterval(poll);
+  }, [store?.store?.id]);
+
+  useEffect(() => {
+    if (!store?.store?.id) return;
+    const storeId = store.store.id;
+    const checkCaja = async () => {
+      try {
+        const res = await fetch(`/api/cash-register/status/${storeId}`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          setCashRegisterOpen(!!data.open);
+        }
+      } catch { /* ignore */ }
+    };
+    const interval = setInterval(checkCaja, 5000);
+    return () => clearInterval(interval);
   }, [store?.store?.id]);
 
   const fetchStore = async () => {
