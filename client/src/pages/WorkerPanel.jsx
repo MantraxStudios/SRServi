@@ -394,6 +394,10 @@ function WorkerPanel() {
       fetchOrders(parsedWorker.store_id);
     });
 
+    socket.on('cash_register_changed', (data) => {
+      setCashRegister(data.open ? data.register : null);
+    });
+
     // Countdown timer for active tasks (every second)
     const tickInterval = setInterval(() => setTick(t => t + 1), 1000);
 

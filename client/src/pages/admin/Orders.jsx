@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faShoppingBag, faUtensils, faFileExcel } from '@fortawesome/free-solid-svg-icons';
+import { faShoppingBag, faUtensils, faFileExcel, faCashRegister, faLockOpen, faLock } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
+import { useAuth } from '../../context/AuthContext';
 
 function Orders() {
   const { selectedStore } = useStore();
+  const { token } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [cashRegister, setCashRegister] = useState(null);
+  const [cashLoading, setCashLoading] = useState(false);
 
   // CSV export — opens natively in Excel. Uses UTF-8 BOM and semicolon
   // separator so Excel in Spanish locales parses it correctly.
@@ -65,11 +69,65 @@ function Orders() {
     if (selectedStore) {
       setLoading(true);
       fetchOrders();
+      fetchCashRegister();
     } else {
       setLoading(false);
       setOrders([]);
+      setCashRegister(null);
     }
   }, [selectedStore]);
+
+  const fetchCashRegister = async () => {
+    if (!selectedStore) return;
+    try {
+      const res = await fetch(`/api/cash-register/status/${selectedStore.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCashRegister(data.open ? data.register : null);
+      }
+    } catch (e) {
+      console.error('Error fetching cash register:', e);
+    }
+  };
+
+  const openAdminCashRegister = async () => {
+    setCashLoading(true);
+    try {
+      const res = await fetch('/api/admin/cash-register/open', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: selectedStore.id })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCashRegister(data);
+      }
+    } catch (e) {
+      console.error('Error opening cash register:', e);
+    } finally {
+      setCashLoading(false);
+    }
+  };
+
+  const closeAdminCashRegister = async () => {
+    setCashLoading(true);
+    try {
+      const res = await fetch('/api/admin/cash-register/close', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: selectedStore.id })
+      });
+      if (res.ok) {
+        setCashRegister(null);
+      }
+    } catch (e) {
+      console.error('Error closing cash register:', e);
+    } finally {
+      setCashLoading(false);
+    }
+  };
 
   const fetchOrders = async () => {
     if (!selectedStore) {
@@ -120,6 +178,36 @@ function Orders() {
         </button>
       </header>
       <div className="admin-main">
+        {/* Cash register control */}
+        {selectedStore && (
+          <div className="card" style={{ marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <FontAwesomeIcon
+                icon={faCashRegister}
+                style={{ fontSize: 22, color: cashRegister ? '#22c55e' : '#9ca3af' }}
+              />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>
+                  Caja {cashRegister ? 'abierta' : 'cerrada'}
+                </div>
+                {cashRegister && (
+                  <div className="text-sm text-muted">
+                    Abierta por {cashRegister.worker_name} · {new Date(cashRegister.opened_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
+              </div>
+            </div>
+            <button
+              className={`btn ${cashRegister ? 'btn-danger' : 'btn-success'}`}
+              onClick={cashRegister ? closeAdminCashRegister : openAdminCashRegister}
+              disabled={cashLoading}
+            >
+              <FontAwesomeIcon icon={cashRegister ? faLock : faLockOpen} />
+              {cashLoading ? ' Procesando...' : cashRegister ? ' Cerrar caja' : ' Abrir caja'}
+            </button>
+          </div>
+        )}
+
         {orders.length === 0 ? (
           <div className="card empty-state">
             <FontAwesomeIcon icon={faShoppingBag} className="empty-state-icon" />

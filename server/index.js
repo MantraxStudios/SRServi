@@ -8877,6 +8877,37 @@ async function startServer() {
     // CAJA (CASH REGISTER) ENDPOINTS
     // ============================================================
 
+    // Admin: open cash register for selected store
+    app.post('/api/admin/cash-register/open', authenticateToken, async (req, res) => {
+      try {
+        if (req.user.type === 'worker') return res.status(403).json({ error: 'Usar /api/cash-register/open para trabajadores' });
+        const { store_id } = req.body;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [storeRows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!storeRows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const register = await openCashRegister(store_id, 0, 'Administrador');
+        io.to(`store_${store_id}`).emit('cash_register_changed', { open: true, register });
+        res.json(register);
+      } catch (err) { res.status(400).json({ error: err.message }); }
+    });
+
+    // Admin: close cash register for selected store
+    app.post('/api/admin/cash-register/close', authenticateToken, async (req, res) => {
+      try {
+        if (req.user.type === 'worker') return res.status(403).json({ error: 'Usar /api/cash-register/close para trabajadores' });
+        const { store_id } = req.body;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [storeRows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!storeRows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const open = await getOpenCashRegister(store_id);
+        if (!open) return res.status(400).json({ error: 'No hay caja abierta' });
+        await closeCashRegister(store_id, 'admin');
+        io.to(`store_${store_id}`).emit('cash_register_changed', { open: false });
+        await sendCashRegisterReport(store_id, 'admin');
+        res.json({ success: true });
+      } catch (err) { res.status(500).json({ error: err.message }); }
+    });
+
     app.post('/api/cash-register/open', authenticateToken, async (req, res) => {
       try {
         if (req.user.type !== 'worker') return res.status(403).json({ error: 'Solo trabajadores pueden abrir la caja' });
