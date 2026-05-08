@@ -4310,13 +4310,15 @@ app.put('/api/raw-materials/:id', authenticateToken, async (req, res) => {
 
 app.put('/api/raw-materials/:id/restock', authenticateToken, async (req, res) => {
   try {
-    const { amount, store_id } = req.body;
+    const { quantity, amount, store_id } = req.body;
     const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
     if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
-    await pool.execute(
-      'UPDATE raw_materials SET quantity = quantity + ? WHERE id = ? AND store_id = ?',
-      [parseFloat(amount) || 0, parseInt(req.params.id), parseInt(store_id)]
-    );
+    // quantity = SET to exact value; amount (legacy) = ADD to existing
+    const sql = quantity !== undefined
+      ? 'UPDATE raw_materials SET quantity = ? WHERE id = ? AND store_id = ?'
+      : 'UPDATE raw_materials SET quantity = quantity + ? WHERE id = ? AND store_id = ?';
+    const val = quantity !== undefined ? parseFloat(quantity) : parseFloat(amount) || 0;
+    await pool.execute(sql, [val, parseInt(req.params.id), parseInt(store_id)]);
     const [rows] = await pool.execute('SELECT * FROM raw_materials WHERE id = ?', [parseInt(req.params.id)]);
     res.json(rows[0] || {});
   } catch (err) { res.status(500).json({ error: err.message }); }

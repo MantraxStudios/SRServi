@@ -12,6 +12,9 @@ const API = 'https://srservi2.srautomatic.com';
 
 const UNITS = ['unidades', 'kg', 'g', 'mg', 'litros', 'ml', 'porciones', 'tazas', 'cucharadas'];
 
+/** Formatea un número eliminando ceros decimales innecesarios. */
+const fmt = (n, max = 4) => parseFloat(parseFloat(n || 0).toFixed(max));
+
 function statusBadge(item) {
   if (item.unlimited_stock) return { label: 'Ilimitado', color: '#D4AF37', bg: 'rgba(212,175,55,0.12)', border: 'rgba(212,175,55,0.3)' };
   if (item.stock === 0)     return { label: 'Sin stock', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)' };
@@ -144,12 +147,12 @@ export default function Inventory() {
   };
 
   const doRestock = async () => {
-    if (!restockAmount || parseFloat(restockAmount) <= 0) return;
+    if (restockAmount === '' || parseFloat(restockAmount) < 0) return;
     setRestockSaving(true);
     try {
       await fetch(`${API}/api/raw-materials/${restockItem.id}/restock`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount: parseFloat(restockAmount), store_id: selectedStore.id })
+        body: JSON.stringify({ quantity: parseFloat(restockAmount), store_id: selectedStore.id })
       });
       setRestockItem(null);
       setRestockAmount('');
@@ -323,9 +326,9 @@ export default function Inventory() {
                   <div key={rm.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 100px 110px 100px 110px', padding: '12px 16px', borderBottom: idx < filteredRm.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', alignItems: 'center', background: rm.quantity <= 0 ? 'rgba(239,68,68,0.03)' : rm.quantity <= rm.min_quantity && rm.min_quantity > 0 ? 'rgba(245,158,11,0.03)' : 'transparent' }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>{rm.name}</div>
-                      {rm.cost_per_unit > 0 && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>Costo: ${Number(rm.cost_per_unit).toFixed(4)}/{rm.unit}</div>}
+                      {rm.cost_per_unit > 0 && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>Costo: ${fmt(rm.cost_per_unit)}/{rm.unit}</div>}
                     </div>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: b.color }}>{Number(rm.quantity).toFixed(2)}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: b.color }}>{fmt(rm.quantity, 3)}</span>
                     <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{rm.unit}</span>
                     <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{rm.min_quantity > 0 ? `≥ ${rm.min_quantity}` : '—'}</span>
                     <span style={{ fontSize: 11, fontWeight: 600, background: b.bg, color: b.color, border: `1px solid ${b.border}`, padding: '2px 9px', borderRadius: 20, whiteSpace: 'nowrap', display: 'inline-block' }}>{b.label}</span>
@@ -377,7 +380,7 @@ export default function Inventory() {
                 >
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 600 }}>{item.name}</div>
-                    {item.price > 0 && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>${Number(item.price).toFixed(2)}</div>}
+                    {item.price > 0 && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>${fmt(item.price, 2)}</div>}
                   </div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
                     Click para editar receta →
@@ -436,7 +439,7 @@ export default function Inventory() {
 
           {estimatedCost > 0 && (
             <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 12 }}>
-              Costo estimado por unidad: <span style={{ color: '#D4AF37', fontWeight: 700 }}>${estimatedCost.toFixed(4)}</span>
+              Costo estimado por unidad: <span style={{ color: '#D4AF37', fontWeight: 700 }}>${fmt(estimatedCost)}</span>
             </div>
           )}
 
@@ -602,27 +605,29 @@ export default function Inventory() {
           onClick={() => setRestockItem(null)}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#141414', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 360 }}>
             <h3 style={{ margin: '0 0 6px', color: '#22c55e', fontSize: 17, fontWeight: 700 }}>
-              <FontAwesomeIcon icon={faArrowUp} style={{ marginRight: 8 }} /> Reponer Stock
+              <FontAwesomeIcon icon={faArrowUp} style={{ marginRight: 8 }} /> Actualizar Stock
             </h3>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: '0 0 18px' }}>{restockItem.name} — actual: <strong style={{ color: '#fff' }}>{restockItem.quantity} {restockItem.unit}</strong></p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: '0 0 18px' }}>
+              {restockItem.name} — stock actual: <strong style={{ color: '#fff' }}>{fmt(restockItem.quantity, 3)} {restockItem.unit}</strong>
+            </p>
             <div>
-              <label style={labelStyle}>Cantidad a agregar ({restockItem.unit})</label>
-              <input autoFocus type="number" min="0.001" step="0.001" value={restockAmount}
+              <label style={labelStyle}>Nueva cantidad ({restockItem.unit})</label>
+              <input autoFocus type="number" min="0" step="0.001" value={restockAmount}
                 onChange={e => setRestockAmount(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && doRestock()}
-                placeholder="ej: 5 kg, 200 unidades..."
+                placeholder={`Ej: ${fmt(restockItem.quantity, 3)}`}
                 style={inputStyle} />
             </div>
-            {restockAmount > 0 && (
+            {restockAmount !== '' && parseFloat(restockAmount) >= 0 && (
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 8 }}>
-                Nuevo total: <strong style={{ color: '#22c55e' }}>{(parseFloat(restockItem.quantity) + parseFloat(restockAmount || 0)).toFixed(3)} {restockItem.unit}</strong>
+                {fmt(restockItem.quantity, 3)} → <strong style={{ color: '#22c55e' }}>{fmt(restockAmount, 3)} {restockItem.unit}</strong>
               </div>
             )}
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button onClick={() => setRestockItem(null)} style={{ ...btnGhost, flex: 1, justifyContent: 'center' }}>Cancelar</button>
-              <button onClick={doRestock} disabled={!restockAmount || parseFloat(restockAmount) <= 0 || restockSaving}
-                style={{ background: '#22c55e', border: 'none', borderRadius: 8, padding: '10px 18px', cursor: 'pointer', color: '#000', fontWeight: 700, fontSize: 13, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: !restockAmount || parseFloat(restockAmount) <= 0 ? 0.5 : 1 }}>
-                <FontAwesomeIcon icon={faCheck} /> {restockSaving ? 'Reponiendo...' : 'Reponer'}
+              <button onClick={doRestock} disabled={restockAmount === '' || parseFloat(restockAmount) < 0 || restockSaving}
+                style={{ background: '#22c55e', border: 'none', borderRadius: 8, padding: '10px 18px', cursor: 'pointer', color: '#000', fontWeight: 700, fontSize: 13, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: restockAmount === '' || parseFloat(restockAmount) < 0 ? 0.5 : 1 }}>
+                <FontAwesomeIcon icon={faCheck} /> {restockSaving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
           </div>
