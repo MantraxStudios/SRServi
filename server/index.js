@@ -8674,6 +8674,58 @@ async function startServer() {
       }
     });
 
+    const DEFAULT_SURVEY_QUESTIONS = [
+      { key: 'frequency',       text: '¿Con qué frecuencia nos visitas?',          options: ['Primera vez', 'A veces', 'Seguido', 'Siempre'] },
+      { key: 'how_found',       text: '¿Cómo nos conociste?',                       options: ['Redes sociales', 'Recomendación', 'Google', 'Pasando por aquí'] },
+      { key: 'age_range',       text: '¿Cuál es tu rango de edad?',                 options: ['Menos de 25', '25–35', '36–50', 'Más de 50'] },
+      { key: 'product_quality', text: '¿Cómo calificarías la calidad del producto?', options: ['Excelente', 'Buena', 'Regular', 'Mala'] },
+      { key: 'disliked',        text: '¿Qué no te gustó de tu visita?',             options: ['El producto', 'La atención', 'El tiempo de espera', 'El precio'] },
+      { key: 'wait_time',       text: '¿Cómo fue el tiempo de espera?',             options: ['Muy rápido', 'Aceptable', 'Un poco largo', 'Demasiado largo'] },
+      { key: 'staff',           text: '¿Cómo fue la atención del personal?',        options: ['Excelente', 'Buena', 'Regular', 'Mala'] },
+      { key: 'price_fair',      text: '¿El precio te parece justo?',                options: ['Muy justo', 'Justo', 'Un poco caro', 'Caro'] },
+      { key: 'return',          text: '¿Volverías a visitarnos?',                   options: ['Sí, seguro', 'Probablemente', 'Tal vez', 'No'] },
+      { key: 'recommend',       text: '¿Recomendarías este lugar a alguien?',       options: ['Sí, definitivamente', 'Probablemente', 'Tal vez', 'No'] },
+    ];
+
+    // Public: get survey questions (custom or defaults)
+    app.get('/api/public/:code/survey-questions', async (req, res) => {
+      try {
+        const store = await getStoreByCode(req.params.code);
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+        const [rows] = await pool.execute('SELECT survey_questions FROM stores WHERE id = ?', [store.id]);
+        const custom = rows[0]?.survey_questions;
+        const questions = custom ? (typeof custom === 'string' ? JSON.parse(custom) : custom) : DEFAULT_SURVEY_QUESTIONS;
+        res.json({ questions, is_custom: !!custom });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: get survey config
+    app.get('/api/survey-config', authenticateToken, async (req, res) => {
+      try {
+        const { store_id } = req.query;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [storeRows] = await pool.execute('SELECT id, survey_questions FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!storeRows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const custom = storeRows[0].survey_questions;
+        const questions = custom ? (typeof custom === 'string' ? JSON.parse(custom) : custom) : null;
+        res.json({ questions, defaults: DEFAULT_SURVEY_QUESTIONS });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: save survey config
+    app.put('/api/survey-config', authenticateToken, async (req, res) => {
+      try {
+        const { store_id, questions } = req.body;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [storeRows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!storeRows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        // null = reset to defaults
+        const value = questions === null ? null : JSON.stringify(questions);
+        await pool.execute('UPDATE stores SET survey_questions = ? WHERE id = ?', [value, store_id]);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
     // Public: submit client survey
     app.post('/api/public/:code/client-survey', async (req, res) => {
       try {

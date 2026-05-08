@@ -489,6 +489,10 @@ function Layout() {
                           <FontAwesomeIcon icon={faStar} />
                           <span>Calificaciones</span>
                         </NavLink>
+                        <NavLink to="/admin/survey-config" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                          <FontAwesomeIcon icon={faClipboardList} />
+                          <span>Encuesta</span>
+                        </NavLink>
                         <NavLink to="/admin/rappi" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faMotorcycle} />
                           <span>Rappi</span>

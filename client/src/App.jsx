@@ -46,6 +46,7 @@ import Docs from './pages/Docs';
 import Rate from './pages/Rate';
 import ClientSurvey from './pages/ClientSurvey';
 import Ratings from './pages/admin/Ratings';
+import SurveyConfig from './pages/admin/SurveyConfig';
 import RappiIntegration from './pages/admin/RappiIntegration';
 import PedidosYaIntegration from './pages/admin/PedidosYaIntegration';
 import UberEatsIntegration from './pages/admin/UberEatsIntegration';
@@ -208,6 +209,7 @@ function App() {
             <Route path="tasks" element={<Tasks />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="ratings" element={<Ratings />} />
+            <Route path="survey-config" element={<SurveyConfig />} />
             <Route path="rappi" element={<RappiIntegration />} />
             <Route path="pedidosya" element={<PedidosYaIntegration />} />
             <Route path="ubereats" element={<UberEatsIntegration />} />

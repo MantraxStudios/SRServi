@@ -1269,6 +1269,17 @@ async function migrateTables() {
       console.error('❌ Error creando tabla client_surveys:', err.message);
     }
 
+    // Custom survey questions per store
+    try {
+      const [storeCols] = await pool.execute('SHOW COLUMNS FROM stores');
+      if (!storeCols.map(c => c.Field).includes('survey_questions')) {
+        await pool.execute('ALTER TABLE stores ADD COLUMN survey_questions JSON DEFAULT NULL');
+        console.log('✅ Columna survey_questions agregada a stores');
+      }
+    } catch (err) {
+      console.error('❌ Error agregando survey_questions:', err.message);
+    }
+
     // Limpiar entradas duplicadas en inventory (mantener solo la de menor id por producto)
     try {
       await pool.execute(`

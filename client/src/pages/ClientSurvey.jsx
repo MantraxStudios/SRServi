@@ -1,73 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 
-const QUESTIONS = [
-  {
-    key: 'frequency',
-    text: '¿Con qué frecuencia nos visitas?',
-    options: ['Primera vez', 'A veces', 'Seguido', 'Siempre'],
-  },
-  {
-    key: 'how_found',
-    text: '¿Cómo nos conociste?',
-    options: ['Redes sociales', 'Recomendación', 'Google', 'Pasando por aquí'],
-  },
-  {
-    key: 'age_range',
-    text: '¿Cuál es tu rango de edad?',
-    options: ['Menos de 25', '25–35', '36–50', 'Más de 50'],
-  },
-  {
-    key: 'product_quality',
-    text: '¿Cómo calificarías la calidad del producto?',
-    options: ['Excelente', 'Buena', 'Regular', 'Mala'],
-  },
-  {
-    key: 'disliked',
-    text: '¿Qué no te gustó de tu visita?',
-    options: ['El producto', 'La atención', 'El tiempo de espera', 'El precio'],
-  },
-  {
-    key: 'wait_time',
-    text: '¿Cómo fue el tiempo de espera?',
-    options: ['Muy rápido', 'Aceptable', 'Un poco largo', 'Demasiado largo'],
-  },
-  {
-    key: 'staff',
-    text: '¿Cómo fue la atención del personal?',
-    options: ['Excelente', 'Buena', 'Regular', 'Mala'],
-  },
-  {
-    key: 'price_fair',
-    text: '¿El precio te parece justo?',
-    options: ['Muy justo', 'Justo', 'Un poco caro', 'Caro'],
-  },
-  {
-    key: 'return',
-    text: '¿Volverías a visitarnos?',
-    options: ['Sí, seguro', 'Probablemente', 'Tal vez', 'No'],
-  },
-  {
-    key: 'recommend',
-    text: '¿Recomendarías este lugar a alguien?',
-    options: ['Sí, definitivamente', 'Probablemente', 'Tal vez', 'No'],
-  },
-];
-
 export default function ClientSurvey() {
   const { code } = useParams();
-  const [store, setStore]     = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
-  const [answers, setAnswers] = useState({});
-  const [step, setStep]       = useState(0);
+  const [store, setStore]         = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState('');
+  const [answers, setAnswers]     = useState({});
+  const [step, setStep]           = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone]       = useState(false);
+  const [done, setDone]           = useState(false);
 
   useEffect(() => {
-    fetch(`/api/public/${code}`)
-      .then(r => r.json())
-      .then(d => { if (d.store) setStore(d.store); else setError('Tienda no encontrada'); })
+    Promise.all([
+      fetch(`/api/public/${code}`).then(r => r.json()),
+      fetch(`/api/public/${code}/survey-questions`).then(r => r.json()),
+    ])
+      .then(([storeData, qData]) => {
+        if (storeData.store) setStore(storeData.store); else setError('Tienda no encontrada');
+        if (qData.questions) setQuestions(qData.questions);
+      })
       .catch(() => setError('Error al cargar'))
       .finally(() => setLoading(false));
   }, [code]);
@@ -82,13 +35,13 @@ export default function ClientSurvey() {
   const accent  = store?.accent_color  || '#D4AF37';
   const name    = store?.name || '';
 
-  const current = QUESTIONS[step];
-  const progress = ((step) / QUESTIONS.length) * 100;
+  const current = questions[step];
+  const progress = ((step) / questions.length) * 100;
 
   const select = (option) => {
     const next = { ...answers, [current.key]: option };
     setAnswers(next);
-    if (step < QUESTIONS.length - 1) {
+    if (step < questions.length - 1) {
       setStep(step + 1);
     } else {
       submit(next);
@@ -111,7 +64,7 @@ export default function ClientSurvey() {
     }
   };
 
-  if (loading) return (
+  if (loading || !questions.length) return (
     <div style={{ ...full, background: '#0d0d1a', justifyContent: 'center' }}>
       <div style={spinner} />
     </div>
@@ -167,7 +120,7 @@ export default function ClientSurvey() {
         {/* Progress bar */}
         <div style={{ width: '100%', maxWidth: 420 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>Pregunta {step + 1} de {QUESTIONS.length}</span>
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>Pregunta {step + 1} de {questions.length}</span>
             <span style={{ color: accent, fontSize: 12, fontWeight: 700 }}>{Math.round((step / QUESTIONS.length) * 100)}%</span>
           </div>
           <div style={{ height: 5, background: 'rgba(255,255,255,0.12)', borderRadius: 4, overflow: 'hidden' }}>

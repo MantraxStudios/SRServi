@@ -3,6 +3,18 @@
 
 export const CHANGELOGS = [
   {
+    id: 14,
+    version: '1.5.2',
+    date: '2026-05-08',
+    title: 'Encuesta personalizable por tienda',
+    badge: 'nuevo',
+    changes: [
+      { type: 'nuevo',    text: 'Desde "Operaciones → Encuesta" podés crear tus propias preguntas con hasta 4 opciones cada una' },
+      { type: 'nuevo',    text: 'Si no configurás nada, la encuesta usa las 10 preguntas por defecto de SRServi automáticamente' },
+      { type: 'mejorado', text: 'Podés reordenar, editar o eliminar preguntas, y volver a las defaults con un clic' },
+    ],
+  },
+  {
     id: 13,
     version: '1.5.1',
     date: '2026-05-08',
