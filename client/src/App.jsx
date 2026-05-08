@@ -44,6 +44,7 @@ import Store from './pages/Store';
 import TvDisplay from './pages/TvDisplay';
 import Docs from './pages/Docs';
 import Rate from './pages/Rate';
+import ClientSurvey from './pages/ClientSurvey';
 import Ratings from './pages/admin/Ratings';
 import InstagramAuto from './pages/admin/InstagramAuto';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
@@ -163,6 +164,7 @@ function App() {
           <Route path="/" element={<Index />} />
           <Route path="/store/:code" element={<Store />} />
           <Route path="/rate/:code" element={<Rate />} />
+          <Route path="/survey/:code" element={<ClientSurvey />} />
           <Route path="/tv" element={<TvEntry />} />
           <Route path="/tv/:code" element={<TvDisplay />} />
           <Route path="/market/:code" element={<Minimarket />} />

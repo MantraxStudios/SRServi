@@ -1143,6 +1143,22 @@ async function migrateTables() {
       console.error('❌ Error creando tabla task_completions:', err.message);
     }
 
+    // Client surveys (ideal client finder)
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS client_surveys (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          store_id INT NOT NULL,
+          answers JSON NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_cs_store (store_id)
+        )
+      `);
+      console.log('ℹ️ Tabla client_surveys verificada/creada');
+    } catch (err) {
+      console.error('❌ Error creando tabla client_surveys:', err.message);
+    }
+
     // Limpiar entradas duplicadas en inventory (mantener solo la de menor id por producto)
     try {
       await pool.execute(`

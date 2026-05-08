@@ -8151,6 +8151,36 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
+    // Public: submit client survey
+    app.post('/api/public/:code/client-survey', async (req, res) => {
+      try {
+        const store = await getStoreByCode(req.params.code);
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+        const { answers } = req.body;
+        if (!answers || typeof answers !== 'object') return res.status(400).json({ error: 'Respuestas inválidas' });
+        await pool.execute(
+          'INSERT INTO client_surveys (store_id, answers) VALUES (?, ?)',
+          [store.id, JSON.stringify(answers)]
+        );
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: get client surveys for selected store
+    app.get('/api/client-surveys', authenticateToken, async (req, res) => {
+      try {
+        const { store_id } = req.query;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [storeRows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!storeRows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const [surveys] = await pool.execute(
+          'SELECT * FROM client_surveys WHERE store_id = ? ORDER BY created_at DESC LIMIT 500',
+          [store_id]
+        );
+        res.json({ surveys });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
     // ── Background Removal ───────────────────────────────────────────────────
     const VENV_DIR  = path.join(__serverDir, 'BGRemover', 'venv');
     const VENV_PY   = path.join(VENV_DIR, 'bin', 'python3');
