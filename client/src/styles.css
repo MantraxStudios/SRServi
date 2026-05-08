@@ -5372,15 +5372,20 @@ html body .store-container .store-product-card * {
     position: fixed;
     left: -290px;
     top: 0;
-    bottom: 0;
-    min-height: 100vh;
-    max-height: 100vh;
+    /* height adapts to real visible viewport (hides behind iOS url/bottom bars) */
+    height: 100vh;
+    height: -webkit-fill-available; /* iOS Safari: actual available height */
+    height: 100dvh;                 /* modern browsers: dynamic viewport height */
+    min-height: unset;
+    max-height: unset;
     max-width: 85vw;
     z-index: 1001;
     transition: left var(--transition-slow);
     box-shadow: none;
     overflow-y: auto;
     overflow-x: hidden;
+    /* push content below iOS status bar */
+    padding-top: env(safe-area-inset-top, 0px);
   }
 
   .admin-sidebar.mobile-open {
