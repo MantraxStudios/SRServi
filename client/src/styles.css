@@ -5392,6 +5392,11 @@ html body .store-container .store-product-card * {
     left: -290px;
   }
 
+  /* iOS: push logout button above Safari/Chrome bottom bar (~49px) */
+  .sidebar-footer {
+    padding-bottom: max(60px, calc(env(safe-area-inset-bottom, 0px) + 20px));
+  }
+
   .admin-content {
     margin-left: 0 !important;
     width: 100%;

@@ -2359,6 +2359,9 @@ function leonDetectIntent(text, history = []) {
     return 'best_days';
   if (has('dia', 'dias') && has('mejor', 'mas venta', 'mas activo', 'mas pedido', 'mas movimiento', 'mayor', 'top'))
     return 'best_days';
+  // "que dia se vende mas", "cual dia se vende mas", "que dias venden mas", etc.
+  if (has('dia', 'dias') && has('vend') && has('mas'))
+    return 'best_days';
 
   if (has('hora', 'pico', 'momento del dia', 'horario', 'mejor hora', 'hora punta', 'a que hora', 'horario pico', 'rush', 'cuando vendo mas en el dia', 'horas de mayor'))
     return 'peak_hours';
