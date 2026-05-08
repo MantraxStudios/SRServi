@@ -1058,14 +1058,16 @@ function WorkerPanel() {
                       {getOrderTypeInfo(order.order_type).label}
                     </div>
                   </div>
-                  {order.order_type === 'rappi' && (
+                  {(order.order_type === 'rappi' || order.order_type === 'pedidosya') && (
                     <div style={{
                       display: 'inline-flex', alignItems: 'center', gap: '5px',
-                      background: 'rgba(255,75,0,0.12)', color: '#ff4b00', border: '1px solid rgba(255,75,0,0.4)',
+                      background: order.order_type === 'rappi' ? 'rgba(255,75,0,0.12)' : 'rgba(250,0,80,0.10)',
+                      color: order.order_type === 'rappi' ? '#ff4b00' : '#fa0050',
+                      border: `1px solid ${order.order_type === 'rappi' ? 'rgba(255,75,0,0.4)' : 'rgba(250,0,80,0.35)'}`,
                       borderRadius: '8px', padding: '3px 10px', fontSize: '12px', fontWeight: 800,
                       marginBottom: '6px', letterSpacing: '0.3px'
                     }}>
-                      🛵 {order.customer_name || 'Pedido Rappi'}
+                      🛵 {order.customer_name || (order.order_type === 'rappi' ? 'Pedido Rappi' : 'Pedido PedidosYa')}
                     </div>
                   )}
                   {order.table_number != null && (
@@ -1167,14 +1169,16 @@ function WorkerPanel() {
                       {getOrderTypeInfo(order.order_type).label}
                     </div>
                   </div>
-                  {order.order_type === 'rappi' && (
+                  {(order.order_type === 'rappi' || order.order_type === 'pedidosya') && (
                     <div style={{
                       display: 'inline-flex', alignItems: 'center', gap: '5px',
-                      background: 'rgba(255,75,0,0.12)', color: '#ff4b00', border: '1px solid rgba(255,75,0,0.4)',
+                      background: order.order_type === 'rappi' ? 'rgba(255,75,0,0.12)' : 'rgba(250,0,80,0.10)',
+                      color: order.order_type === 'rappi' ? '#ff4b00' : '#fa0050',
+                      border: `1px solid ${order.order_type === 'rappi' ? 'rgba(255,75,0,0.4)' : 'rgba(250,0,80,0.35)'}`,
                       borderRadius: '8px', padding: '3px 10px', fontSize: '12px', fontWeight: 800,
                       marginBottom: '6px', letterSpacing: '0.3px'
                     }}>
-                      🛵 {order.customer_name || 'Pedido Rappi'}
+                      🛵 {order.customer_name || (order.order_type === 'rappi' ? 'Pedido Rappi' : 'Pedido PedidosYa')}
                     </div>
                   )}
                   {order.table_number != null && (

@@ -8323,6 +8323,182 @@ async function startServer() {
       }
     });
 
+    // ── PedidosYa Integration ────────────────────────────────────────────────
+
+    app.get('/api/pedidosya/config', authenticateToken, async (req, res) => {
+      try {
+        const { store_id } = req.query;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [rows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!rows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const [cfg] = await pool.execute('SELECT * FROM pedidosya_config WHERE store_id = ?', [store_id]);
+        res.json({ config: cfg[0] || null });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/pedidosya/config', authenticateToken, async (req, res) => {
+      try {
+        const { store_id, is_enabled, webhook_secret } = req.body;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [rows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!rows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const [existing] = await pool.execute('SELECT id FROM pedidosya_config WHERE store_id = ?', [store_id]);
+        if (existing.length) {
+          await pool.execute(
+            'UPDATE pedidosya_config SET is_enabled = ?, webhook_secret = ? WHERE store_id = ?',
+            [is_enabled ? 1 : 0, webhook_secret || null, store_id]
+          );
+        } else {
+          await pool.execute(
+            'INSERT INTO pedidosya_config (store_id, is_enabled, webhook_secret) VALUES (?, ?, ?)',
+            [store_id, is_enabled ? 1 : 0, webhook_secret || null]
+          );
+        }
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.get('/api/pedidosya/orders', authenticateToken, async (req, res) => {
+      try {
+        const { store_id } = req.query;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [rows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!rows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const [orders] = await pool.execute(
+          `SELECT id, order_number, pedidosya_order_id, customer_name, customer_phone,
+                  external_items, total, status, payment_method, created_at
+           FROM orders WHERE store_id = ? AND order_type = 'pedidosya'
+           ORDER BY created_at DESC LIMIT 100`,
+          [store_id]
+        );
+        res.json({ orders });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Public: PedidosYa webhook
+    app.post('/api/pedidosya/webhook/:store_code', async (req, res) => {
+      try {
+        const store = await getStoreByCode(req.params.store_code);
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+
+        const [cfgRows] = await pool.execute('SELECT * FROM pedidosya_config WHERE store_id = ?', [store.id]);
+        const cfg = cfgRows[0];
+        if (!cfg || !cfg.is_enabled) return res.status(403).json({ error: 'Integración PedidosYa no habilitada' });
+
+        if (cfg.webhook_secret) {
+          const sig = req.headers['x-pedidosya-signature'] || req.headers['x-webhook-token'] || req.headers['authorization'] || '';
+          if (!sig.includes(cfg.webhook_secret)) return res.status(401).json({ error: 'Firma inválida' });
+        }
+
+        const payload = req.body;
+
+        // Ignore non-confirmed states
+        const state = (payload.state || payload.status || payload.orderState || '').toUpperCase();
+        if (['CANCELLED', 'REJECTED', 'EXPIRED', 'CLOSED_REJECTED'].includes(state)) {
+          return res.json({ success: true, ignored: true });
+        }
+
+        // PedidosYa order ID
+        const pyId = String(payload.orderId || payload.id || payload.order_id || Date.now());
+
+        // Avoid duplicates
+        const [existing] = await pool.execute('SELECT id FROM orders WHERE pedidosya_order_id = ? AND store_id = ?', [pyId, store.id]);
+        if (existing.length) return res.json({ success: true, duplicate: true });
+
+        // Parse items — PedidosYa groups items in sections[]
+        const externalItems = [];
+        const sections = payload.sections || payload.products || payload.items || [];
+        if (Array.isArray(sections) && sections.length) {
+          // PedidosYa format: sections[].items[]
+          for (const section of sections) {
+            const sectionItems = section.items || (section.integrationCode ? [section] : []);
+            for (const item of sectionItems) {
+              const options = (item.optionGroups || item.options || [])
+                .flatMap(g => (g.options || [g]).map(o => o.name || ''))
+                .filter(Boolean)
+                .join(', ');
+              externalItems.push({
+                name: item.name || item.productName || item.integrationCode || 'Producto',
+                quantity: Number(item.amount || item.quantity || item.qty || 1),
+                unit_price: Number(item.price || item.unitPrice || item.unit_price || 0),
+                notes: [item.comment, options].filter(Boolean).join(' · '),
+              });
+            }
+          }
+        } else if (Array.isArray(payload.orderItems)) {
+          // Alternative flat format
+          for (const item of payload.orderItems) {
+            externalItems.push({
+              name: item.name || item.productName || 'Producto',
+              quantity: Number(item.quantity || item.amount || 1),
+              unit_price: Number(item.price || item.unitPrice || 0),
+              notes: item.comment || '',
+            });
+          }
+        }
+
+        // Parse total — PedidosYa uses totalAmount or totalValue
+        const total = Number(
+          payload.totalAmount || payload.totalValue || payload.total || payload.subTotal ||
+          externalItems.reduce((s, i) => s + i.unit_price * i.quantity, 0) || 0
+        );
+
+        // Parse customer
+        const user = payload.user || payload.customer || payload.client || {};
+        const customerName = [user.name, user.firstName, user.lastName].filter(Boolean).join(' ') || 'Cliente PedidosYa';
+        const customerPhone = user.phone || user.cellphone || '';
+
+        // Payment
+        const rawPay = (payload.paymentMethod || payload.payment_method || 'online').toString().toLowerCase();
+        const isCash = rawPay.includes('cash') || rawPay.includes('efectivo') || rawPay.includes('money');
+
+        const orderNumber = await generateUniqueOrderNumber(store.id);
+
+        const [result] = await pool.execute(
+          `INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, total, payment_method,
+           cash_approved, payment_process, status, external_items, customer_name, customer_phone,
+           pedidosya_order_id, order_number)
+           VALUES (?, ?, 'pedidosya', ?, 0, ?, ?, ?, 1, 'preparing', ?, ?, ?, ?, ?)`,
+          [
+            store.id, store.user_id,
+            total, total,
+            isCash ? 'cash' : 'online',
+            isCash ? 0 : 1,
+            JSON.stringify(externalItems),
+            customerName, customerPhone,
+            pyId, orderNumber,
+          ]
+        );
+        const orderId = result.insertId;
+
+        const newOrder = {
+          id: orderId,
+          order_number: orderNumber,
+          store_id: store.id,
+          order_type: 'pedidosya',
+          total,
+          status: 'preparing',
+          payment_method: isCash ? 'cash' : 'online',
+          cash_approved: isCash ? 0 : 1,
+          payment_process: 1,
+          external_items: externalItems,
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          pedidosya_order_id: pyId,
+          items: externalItems,
+          created_at: new Date().toISOString(),
+        };
+
+        const socketId = userSockets.get(store.id);
+        if (socketId) io.to(socketId).emit('new_order', newOrder);
+
+        res.json({ success: true, order_id: orderId, order_number: orderNumber });
+      } catch (e) {
+        console.error('PedidosYa webhook error:', e);
+        res.status(500).json({ error: e.message });
+      }
+    });
+
     // Public: submit client survey
     app.post('/api/public/:code/client-survey', async (req, res) => {
       try {
