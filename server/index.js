@@ -16,6 +16,7 @@ import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
 import * as XLSX from 'xlsx';
 import PluginManager from './plugins/PluginManager.js';
+import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, postToInstagram } from './instagram-service.js';
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted } from './database.js';
 import cron from 'node-cron';
@@ -3091,10 +3092,68 @@ function leonBuildResponse(intent, range, data, storeName) {
   }
 }
 
+const LEON_PYTHON_URL = 'http://127.0.0.1:7777';
+let leonPythonAvailable = null; // null = no comprobado, true/false
+
+async function checkLeonPython() {
+  try {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 2000);
+    const r = await fetch(`${LEON_PYTHON_URL}/health`, { signal: ctrl.signal });
+    clearTimeout(timeout);
+    const data = await r.json();
+    leonPythonAvailable = data.ollama === true;
+    return leonPythonAvailable;
+  } catch {
+    leonPythonAvailable = false;
+    return false;
+  }
+}
+// Comprobar periódicamente (más frecuente al inicio para detectar cuando Ollama termina de bajar el modelo)
+checkLeonPython();
+let _leonCheckCount = 0;
+const _leonCheckInterval = setInterval(() => {
+  _leonCheckCount++;
+  checkLeonPython();
+  // Después de 20 chequeos (10 min) pasar a cada 2 min
+  if (_leonCheckCount >= 20) {
+    clearInterval(_leonCheckInterval);
+    setInterval(checkLeonPython, 120000);
+  }
+}, 30000);
+
 app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
   try {
     const { question, store_id, history = [] } = req.body;
     if (!question || !store_id) return res.status(400).json({ error: 'Faltan parámetros' });
+
+    // ── Intentar servicio Python con Ollama ──────────────────────────────────
+    if (leonPythonAvailable) {
+      try {
+        const ctrl = new AbortController();
+        const timeout = setTimeout(() => ctrl.abort(), 90000);
+        const pyRes = await fetch(`${LEON_PYTHON_URL}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question, store_id: parseInt(store_id), history }),
+          signal: ctrl.signal
+        });
+        clearTimeout(timeout);
+        if (pyRes.ok) {
+          const pyData = await pyRes.json();
+          return res.json({
+            answer: pyData.answer,
+            chart: pyData.chart || null,
+            intent: 'ai',
+            ai_powered: true,
+            model: pyData.model || 'ollama'
+          });
+        }
+      } catch (pyErr) {
+        leonPythonAvailable = false; // marcar como caído
+        console.warn('León Python no disponible, usando sistema clásico:', pyErr.message);
+      }
+    }
 
     const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
     if (!isOwner) return res.status(403).json({ error: 'Sin acceso' });
@@ -9136,6 +9195,11 @@ async function startServer() {
     server.listen(PORT, HOST, () => {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
     });
+
+    // León IA — configuración automática en background (no bloquea el servidor)
+    if (process.platform === 'linux') {
+      initLeonIA().catch(e => console.warn('[León IA] Error autostart:', e.message));
+    }
   } catch (error) {
     console.error('Error al iniciar el servidor:', error);
     process.exit(1);
