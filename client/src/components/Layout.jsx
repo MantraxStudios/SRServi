@@ -326,7 +326,8 @@ function Layout() {
             </div>
           )}
 
-          <div className="store-selector">
+          <div className="store-selector-row">
+            <div className="store-selector">
             <div className="relative">
               <button
                 className="store-selector-btn"
@@ -373,6 +374,10 @@ function Layout() {
                 </div>
               )}
             </div>
+            </div>
+            <button onClick={handleLogout} className="sidebar-logout-top" title="Cerrar Sesión">
+              <FontAwesomeIcon icon={faSignOutAlt} />
+            </button>
           </div>
 
           <ul className="sidebar-nav" onClick={(e) => { if (!e.target.closest('.dropdown-item') && !e.target.closest('.dropdown-header') && !e.target.closest('.dropdown-container')) setMenuOpen(false); }}>
@@ -607,12 +612,6 @@ function Layout() {
             </li>
           </ul>
 
-          <div className="sidebar-footer">
-            <button onClick={handleLogout} className="sidebar-logout-btn">
-              <FontAwesomeIcon icon={faSignOutAlt} />
-              <span>Cerrar Sesión</span>
-            </button>
-          </div>
         </nav>
 
         <main className={isEditorMode ? 'admin-content admin-content--editor-desktop' : 'admin-content admin-content--no-sidebar'}>

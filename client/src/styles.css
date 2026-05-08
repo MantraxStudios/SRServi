@@ -1058,14 +1058,46 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
 }
 
-/* Store selector */
+/* Store selector row (selector + logout button) */
+.store-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 10px 6px;
+}
+
 .store-selector {
-  padding: 14px 16px 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+}
+
+/* Logout button at top (next to store selector) */
+.sidebar-logout-top {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.sidebar-logout-top:hover {
+  background: rgba(220, 38, 38, 0.15);
+  color: #ef4444;
+  border-color: rgba(220, 38, 38, 0.35);
 }
 
 .store-selector-btn {
   width: 100%;
-  padding: 12px 14px;
+  padding: 10px 12px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
@@ -1100,7 +1132,6 @@ h1, h2, h3, h4, h5, h6 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 150px;
 }
 
 .store-selector-btn > svg {
