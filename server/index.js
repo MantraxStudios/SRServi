@@ -8323,6 +8323,28 @@ async function startServer() {
       }
     });
 
+    // ── System Updates / Changelog ───────────────────────────────────────────
+    const { CHANGELOGS } = await import('./changelogs.js');
+
+    // Get updates + unread count for current user
+    app.get('/api/updates', authenticateToken, async (req, res) => {
+      try {
+        const [rows] = await pool.execute('SELECT last_seen_update_id FROM users WHERE id = ?', [req.user.id]);
+        const lastSeen = rows[0]?.last_seen_update_id || 0;
+        const unread = CHANGELOGS.filter(u => u.id > lastSeen).length;
+        res.json({ updates: CHANGELOGS, unread, last_seen_id: lastSeen });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Mark all updates as seen
+    app.post('/api/updates/mark-seen', authenticateToken, async (req, res) => {
+      try {
+        const latest = CHANGELOGS[0]?.id || 0;
+        await pool.execute('UPDATE users SET last_seen_update_id = ? WHERE id = ?', [latest, req.user.id]);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
     // ── UberEats Integration ─────────────────────────────────────────────────
 
     app.get('/api/ubereats/config', authenticateToken, async (req, res) => {

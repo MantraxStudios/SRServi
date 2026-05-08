@@ -1143,6 +1143,17 @@ async function migrateTables() {
       console.error('❌ Error creando tabla task_completions:', err.message);
     }
 
+    // Track which system update each user has seen last
+    try {
+      const [userCols] = await pool.execute('SHOW COLUMNS FROM users');
+      if (!userCols.map(c => c.Field).includes('last_seen_update_id')) {
+        await pool.execute('ALTER TABLE users ADD COLUMN last_seen_update_id INT NOT NULL DEFAULT 0');
+        console.log('✅ Columna last_seen_update_id agregada a users');
+      }
+    } catch (err) {
+      console.error('❌ Error agregando last_seen_update_id:', err.message);
+    }
+
     // UberEats integration config
     try {
       await pool.execute(`

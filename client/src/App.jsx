@@ -49,6 +49,7 @@ import Ratings from './pages/admin/Ratings';
 import RappiIntegration from './pages/admin/RappiIntegration';
 import PedidosYaIntegration from './pages/admin/PedidosYaIntegration';
 import UberEatsIntegration from './pages/admin/UberEatsIntegration';
+import Novedades from './pages/admin/Novedades';
 import InstagramAuto from './pages/admin/InstagramAuto';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
@@ -210,6 +211,7 @@ function App() {
             <Route path="rappi" element={<RappiIntegration />} />
             <Route path="pedidosya" element={<PedidosYaIntegration />} />
             <Route path="ubereats" element={<UberEatsIntegration />} />
+            <Route path="novedades" element={<Novedades />} />
             <Route path="instagram" element={<InstagramAuto />} />
             <Route path="editor/:code" element={<Store />} />
           </Route>

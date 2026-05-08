@@ -40,6 +40,7 @@ import {
   faWarehouse,
   faStar,
   faMotorcycle,
+  faBell,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -61,6 +62,7 @@ function Layout() {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [serverDown, setServerDown] = useState(false);
+  const [unreadUpdates, setUnreadUpdates] = useState(0);
   const [duplicateModal, setDuplicateModal] = useState(null);
   const [duplicateName, setDuplicateName] = useState('');
   const [duplicateLoading, setDuplicateLoading] = useState(false);
@@ -100,6 +102,19 @@ function Layout() {
     const hbInterval = setInterval(sendHeartbeat, 60000);
     return () => clearInterval(hbInterval);
   }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(API + '/api/updates', { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => r.json())
+      .then(d => setUnreadUpdates(d.unread || 0))
+      .catch(() => {});
+  }, [token]);
+
+  // Clear badge when user navigates to /admin/novedades
+  useEffect(() => {
+    if (location.pathname === '/admin/novedades') setUnreadUpdates(0);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (token) {
@@ -394,6 +409,33 @@ function Layout() {
               </NavLink>
             </li>
             <li className="sidebar-section-label">Más</li>
+            <li>
+              <NavLink to="/admin/novedades" onClick={() => setMenuOpen(false)}
+                style={({ isActive }) => ({
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 14px', borderRadius: 10, textDecoration: 'none',
+                  background: isActive ? 'rgba(212,175,55,0.12)' : 'transparent',
+                  color: isActive ? '#D4AF37' : '#9ca3af',
+                  fontWeight: 600, fontSize: 14, transition: 'all 0.15s',
+                  position: 'relative',
+                })}
+              >
+                <FontAwesomeIcon icon={faBell} />
+                <span>Novedades</span>
+                {unreadUpdates > 0 && (
+                  <span style={{
+                    marginLeft: 'auto',
+                    minWidth: 20, height: 20, borderRadius: 10,
+                    background: '#ef4444', color: '#fff',
+                    fontSize: 11, fontWeight: 800,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '0 5px',
+                  }}>
+                    {unreadUpdates}
+                  </span>
+                )}
+              </NavLink>
+            </li>
             <li>
               <NavLink to="/admin/leon-ia" className="leon-ia-nav-link" onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faRobot} />
