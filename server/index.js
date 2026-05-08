@@ -5310,13 +5310,15 @@ app.put('/api/orders/:id/status', authenticateToken, async (req, res) => {
 
     const isWorker = req.user.type === 'worker';
     const hasAccess = isWorker
-      ? req.user.store_id === parseInt(store_id)
+      ? parseInt(req.user.store_id) === parseInt(store_id)
       : await verifyStoreOwnership(parseInt(store_id), req.user.id);
     if (!hasAccess) {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
-    
-    const order = await updateOrderStatus(parseInt(id), parseInt(store_id), status, worker_id, worker_name);
+
+    await updateOrderStatus(parseInt(id), parseInt(store_id), status, worker_id, worker_name);
+    const [fullRows] = await pool.execute('SELECT * FROM orders WHERE id = ?', [parseInt(id)]);
+    const order = fullRows[0] ? { ...fullRows[0], total: parseFloat(fullRows[0].total) || 0 } : { id: parseInt(id), status };
     const io_instance = req.app.get('io');
     if (io_instance) {
       io_instance.to(`store_${store_id}`).emit('order_updated', order);

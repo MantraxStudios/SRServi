@@ -386,8 +386,20 @@ function WorkerPanel() {
       }
     });
 
-    socket.on('order_updated', () => {
-      fetchOrders(parsedWorker.store_id);
+    socket.on('order_updated', (updatedOrder) => {
+      if (updatedOrder && updatedOrder.id) {
+        if (updatedOrder.status === 'completed') {
+          setOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
+          setCompletedOrders(prev => {
+            if (prev.find(o => o.id === updatedOrder.id)) return prev;
+            return [updatedOrder, ...prev];
+          });
+        } else {
+          setOrders(prev => prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o));
+        }
+      } else {
+        fetchOrders(parsedWorker.store_id);
+      }
     });
 
     socket.on('order_deleted', () => {
@@ -1131,25 +1143,29 @@ function WorkerPanel() {
                     </div>
                     <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                       <button
+                        onPointerDown={e => e.stopPropagation()}
                         onClick={e => { e.stopPropagation(); reprintOrder(order.id); }}
                         title="Reimprimir"
                         style={{
                           width: '34px', height: '34px', borderRadius: '50%',
                           background: 'rgba(212,175,55,0.15)', border: '1.5px solid #D4AF37',
                           color: '#D4AF37', cursor: 'pointer', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem'
+                          alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem',
+                          touchAction: 'manipulation'
                         }}
                       >
                         <FontAwesomeIcon icon={faPrint} />
                       </button>
                       <button
+                        onPointerDown={e => e.stopPropagation()}
                         onClick={e => { e.stopPropagation(); updateOrderStatus(order.id, 'completed'); }}
                         title="Marcar como completado"
                         style={{
                           width: '34px', height: '34px', borderRadius: '50%',
                           background: 'rgba(34,197,94,0.15)', border: '1.5px solid #22c55e',
                           color: '#22c55e', cursor: 'pointer', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem'
+                          alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem',
+                          touchAction: 'manipulation'
                         }}
                       >
                         <FontAwesomeIcon icon={faCheck} />
