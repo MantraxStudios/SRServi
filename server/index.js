@@ -145,6 +145,7 @@ import {
   getOpenCashRegister,
   getAllOpenCashRegisters,
   getTodayOrdersForStore,
+  generateUniqueOrderNumber,
   pool
 } from './database.js';
 
@@ -8149,6 +8150,177 @@ async function startServer() {
         );
         res.json({ ratings, summary: summary[0] });
       } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // ── Rappi Integration ────────────────────────────────────────────────────
+
+    // Admin: get Rappi config
+    app.get('/api/rappi/config', authenticateToken, async (req, res) => {
+      try {
+        const { store_id } = req.query;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [rows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!rows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const [cfg] = await pool.execute('SELECT * FROM rappi_config WHERE store_id = ?', [store_id]);
+        res.json({ config: cfg[0] || null });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: save Rappi config
+    app.post('/api/rappi/config', authenticateToken, async (req, res) => {
+      try {
+        const { store_id, is_enabled, webhook_secret } = req.body;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [rows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!rows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const [existing] = await pool.execute('SELECT id FROM rappi_config WHERE store_id = ?', [store_id]);
+        if (existing.length) {
+          await pool.execute(
+            'UPDATE rappi_config SET is_enabled = ?, webhook_secret = ? WHERE store_id = ?',
+            [is_enabled ? 1 : 0, webhook_secret || null, store_id]
+          );
+        } else {
+          await pool.execute(
+            'INSERT INTO rappi_config (store_id, is_enabled, webhook_secret) VALUES (?, ?, ?)',
+            [store_id, is_enabled ? 1 : 0, webhook_secret || null]
+          );
+        }
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: get recent Rappi orders
+    app.get('/api/rappi/orders', authenticateToken, async (req, res) => {
+      try {
+        const { store_id } = req.query;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [rows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!rows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const [orders] = await pool.execute(
+          `SELECT id, order_number, rappi_order_id, customer_name, customer_phone,
+                  external_items, total, status, payment_method, created_at
+           FROM orders WHERE store_id = ? AND order_type = 'rappi'
+           ORDER BY created_at DESC LIMIT 100`,
+          [store_id]
+        );
+        res.json({ orders });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Public: Rappi webhook — receives orders from Rappi platform
+    app.post('/api/rappi/webhook/:store_code', async (req, res) => {
+      try {
+        const store = await getStoreByCode(req.params.store_code);
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+
+        // Check config
+        const [cfgRows] = await pool.execute('SELECT * FROM rappi_config WHERE store_id = ?', [store.id]);
+        const cfg = cfgRows[0];
+        if (!cfg || !cfg.is_enabled) return res.status(403).json({ error: 'Integración Rappi no habilitada' });
+
+        // Verify webhook secret if configured
+        if (cfg.webhook_secret) {
+          const sig = req.headers['x-rappi-signature'] || req.headers['x-webhook-token'] || req.headers['authorization'];
+          if (!sig || !sig.includes(cfg.webhook_secret)) {
+            return res.status(401).json({ error: 'Firma inválida' });
+          }
+        }
+
+        const payload = req.body;
+
+        // Flexible Rappi payload parsing — handles multiple format versions
+        const rappiId = payload.id || payload.order_id || payload.orderId || String(Date.now());
+        const rappiState = (payload.state || payload.status || '').toUpperCase();
+
+        // Ignore cancellations and non-confirmed states
+        if (['CANCELLED', 'REJECTED', 'EXPIRED'].includes(rappiState)) {
+          return res.json({ success: true, ignored: true });
+        }
+
+        // Avoid duplicate orders
+        const [existing] = await pool.execute('SELECT id FROM orders WHERE rappi_order_id = ? AND store_id = ?', [rappiId, store.id]);
+        if (existing.length) return res.json({ success: true, duplicate: true });
+
+        // Parse items — Rappi sends items in various structures
+        let rawItems = [];
+        const orderBody = payload.order || payload;
+        if (Array.isArray(orderBody.items_with_price)) rawItems = orderBody.items_with_price;
+        else if (Array.isArray(orderBody.items)) rawItems = orderBody.items;
+        else if (Array.isArray(payload.items)) rawItems = payload.items;
+        else if (Array.isArray(payload.products)) rawItems = payload.products;
+
+        const externalItems = rawItems.map(i => ({
+          name: i.name || i.product_name || i.sku || 'Producto',
+          quantity: Number(i.quantity || i.qty || 1),
+          unit_price: Number(i.price || i.unit_price || i.unitPrice || 0),
+          notes: i.comment || i.note || '',
+        }));
+
+        // Parse total
+        const total = Number(
+          payload.total_value || payload.totalValue || payload.total ||
+          orderBody.total || orderBody.total_value ||
+          externalItems.reduce((s, i) => s + i.unit_price * i.quantity, 0) || 0
+        );
+
+        // Parse customer
+        const client = payload.client || payload.customer || payload.user || {};
+        const customerName = [client.name, client.first_name, client.firstName].filter(Boolean).join(' ') || 'Cliente Rappi';
+        const customerPhone = client.phone || client.cellphone || '';
+
+        // Parse payment
+        const payMethod = (payload.payment_method || (payload.payment && payload.payment.type) || 'online').toLowerCase();
+        const isCash = payMethod.includes('cash') || payMethod.includes('efectivo');
+
+        // Get store order_number
+        const orderNumber = await generateUniqueOrderNumber(store.id);
+
+        const [result] = await pool.execute(
+          `INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, total, payment_method,
+           cash_approved, payment_process, status, external_items, customer_name, customer_phone,
+           rappi_order_id, order_number)
+           VALUES (?, ?, 'rappi', ?, 0, ?, ?, ?, 1, 'preparing', ?, ?, ?, ?, ?)`,
+          [
+            store.id, store.user_id,
+            total, total,
+            isCash ? 'cash' : 'online',
+            isCash ? 0 : 1,
+            JSON.stringify(externalItems),
+            customerName, customerPhone,
+            rappiId, orderNumber
+          ]
+        );
+        const orderId = result.insertId;
+
+        const newOrder = {
+          id: orderId,
+          order_number: orderNumber,
+          store_id: store.id,
+          order_type: 'rappi',
+          total,
+          status: 'preparing',
+          payment_method: isCash ? 'cash' : 'online',
+          cash_approved: isCash ? 0 : 1,
+          payment_process: 1,
+          external_items: externalItems,
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          rappi_order_id: rappiId,
+          items: externalItems,
+          created_at: new Date().toISOString(),
+        };
+
+        // Notify worker panel via socket
+        const socketId = userSockets.get(store.id);
+        if (socketId) {
+          io.to(socketId).emit('new_order', newOrder);
+        }
+
+        res.json({ success: true, order_id: orderId, order_number: orderNumber });
+      } catch (e) {
+        console.error('Rappi webhook error:', e);
+        res.status(500).json({ error: e.message });
+      }
     });
 
     // Public: submit client survey

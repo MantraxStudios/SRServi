@@ -1143,6 +1143,48 @@ async function migrateTables() {
       console.error('❌ Error creando tabla task_completions:', err.message);
     }
 
+    // Rappi integration config
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS rappi_config (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          store_id INT NOT NULL UNIQUE,
+          is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          webhook_secret VARCHAR(255) DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+        )
+      `);
+      console.log('ℹ️ Tabla rappi_config verificada/creada');
+    } catch (err) {
+      console.error('❌ Error creando tabla rappi_config:', err.message);
+    }
+
+    // Add external columns to orders for Rappi/external platforms
+    try {
+      const [ordCols] = await pool.execute('SHOW COLUMNS FROM orders');
+      const ordColNames = ordCols.map(c => c.Field);
+      if (!ordColNames.includes('external_items')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN external_items JSON DEFAULT NULL');
+        console.log('✅ Columna external_items agregada a orders');
+      }
+      if (!ordColNames.includes('customer_name')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN customer_name VARCHAR(255) DEFAULT NULL');
+        console.log('✅ Columna customer_name agregada a orders');
+      }
+      if (!ordColNames.includes('customer_phone')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN customer_phone VARCHAR(50) DEFAULT NULL');
+        console.log('✅ Columna customer_phone agregada a orders');
+      }
+      if (!ordColNames.includes('rappi_order_id')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN rappi_order_id VARCHAR(100) DEFAULT NULL');
+        console.log('✅ Columna rappi_order_id agregada a orders');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando columnas de orders para Rappi:', err.message);
+    }
+
     // Client surveys (ideal client finder)
     try {
       await pool.execute(`
@@ -2555,12 +2597,20 @@ export async function getOrders(storeId, todayOnly = false) {
   const orders = [];
   for (const order of rows) {
     const totalValue = parseFloat(order.total);
+    let items = await getOrderItems(order.id);
+    // For external-platform orders (Rappi etc.) use external_items when no order_items exist
+    if (!items.length && order.external_items) {
+      try {
+        const ext = typeof order.external_items === 'string' ? JSON.parse(order.external_items) : order.external_items;
+        items = ext.map(i => ({ ...i, product_name: i.name, selected_ingredients: [], selected_extras: [] }));
+      } catch {}
+    }
     const ord = {
       ...order,
       total: isNaN(totalValue) ? 0 : totalValue,
       table_number: order.table_number ?? null,
       service_type: order.table_number != null ? 'servir' : 'llevar',
-      items: await getOrderItems(order.id)
+      items,
     };
     orders.push(ord);
   }

@@ -1058,6 +1058,16 @@ function WorkerPanel() {
                       {getOrderTypeInfo(order.order_type).label}
                     </div>
                   </div>
+                  {order.order_type === 'rappi' && (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      background: 'rgba(255,75,0,0.12)', color: '#ff4b00', border: '1px solid rgba(255,75,0,0.4)',
+                      borderRadius: '8px', padding: '3px 10px', fontSize: '12px', fontWeight: 800,
+                      marginBottom: '6px', letterSpacing: '0.3px'
+                    }}>
+                      🛵 {order.customer_name || 'Pedido Rappi'}
+                    </div>
+                  )}
                   {order.table_number != null && (
                     <div style={{
                       display: 'inline-flex', alignItems: 'center', gap: '5px',
@@ -1157,6 +1167,16 @@ function WorkerPanel() {
                       {getOrderTypeInfo(order.order_type).label}
                     </div>
                   </div>
+                  {order.order_type === 'rappi' && (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      background: 'rgba(255,75,0,0.12)', color: '#ff4b00', border: '1px solid rgba(255,75,0,0.4)',
+                      borderRadius: '8px', padding: '3px 10px', fontSize: '12px', fontWeight: 800,
+                      marginBottom: '6px', letterSpacing: '0.3px'
+                    }}>
+                      🛵 {order.customer_name || 'Pedido Rappi'}
+                    </div>
+                  )}
                   {order.table_number != null && (
                     <div style={{
                       display: 'inline-flex', alignItems: 'center', gap: '5px',
@@ -1267,6 +1287,12 @@ function WorkerPanel() {
                 <span className="worker-detail-value" style={{ color: '#D4AF37', fontWeight: 800, fontSize: '18px' }}>
                   {selectedOrder.table_number}
                 </span>
+              </div>
+            )}
+            {selectedOrder.customer_name && (
+              <div className="worker-detail-row">
+                <span className="worker-detail-label">Cliente:</span>
+                <span className="worker-detail-value">🛵 {selectedOrder.customer_name}{selectedOrder.customer_phone ? ` · ${selectedOrder.customer_phone}` : ''}</span>
               </div>
             )}
             <div className="worker-detail-row">
