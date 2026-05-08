@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname  = path.dirname(fileURLToPath(import.meta.url));
 const LEON_DIR   = __dirname;
-const VENV_DIR   = path.join(LEON_DIR, 'venv');          // venv propio, separado de bg_remover
+const VENV_DIR   = path.join(LEON_DIR, 'venv');
 const PYTHON_BIN = path.join(VENV_DIR, 'bin', 'python3');
 const PIP_BIN    = path.join(VENV_DIR, 'bin', 'pip');
 const MAIN_PY    = path.join(LEON_DIR, 'main.py');
@@ -28,7 +28,7 @@ const warn = (msg) => console.warn(`[León IA] ⚠ ${msg}`);
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
 
-/** Ejecuta un comando con output en tiempo real. Resuelve con el exit code. */
+/** Ejecuta un comando con output en tiempo real. Resuelve con true/false. */
 function spawnStream(cmd, args = [], opts = {}) {
   return new Promise((resolve) => {
     const proc = spawn(cmd, args, {
@@ -37,7 +37,7 @@ function spawnStream(cmd, args = [], opts = {}) {
       ...opts,
     });
     proc.on('close', (code) => resolve(code === 0));
-    proc.on('error', () => resolve(false));
+    proc.on('error', (e) => { warn(`Error ejecutando ${cmd}: ${e.message}`); resolve(false); });
   });
 }
 
@@ -49,8 +49,21 @@ function shellStream(cmd, opts = {}) {
       ...opts,
     });
     proc.on('close', (code) => resolve(code === 0));
-    proc.on('error', () => resolve(false));
+    proc.on('error', (e) => { warn(`Error en shell: ${e.message}`); resolve(false); });
   });
+}
+
+/**
+ * Envuelve una promesa y muestra un heartbeat cada intervalSec segundos.
+ * Útil para comandos que descargan archivos y no muestran progreso en no-TTY.
+ */
+function withHeartbeat(promise, label, intervalSec = 15) {
+  let secs = 0;
+  const t = setInterval(() => {
+    secs += intervalSec;
+    log(`  ⏳ ${label}... (${secs}s)`);
+  }, intervalSec * 1000);
+  return promise.finally(() => clearInterval(t));
 }
 
 /** Comprueba si un comando existe en el PATH. */
@@ -74,10 +87,11 @@ async function isPortOpen(port) {
 /** Espera N segundos. */
 const sleep = (s) => new Promise(r => setTimeout(r, s * 1000));
 
-/** Espera hasta que un puerto abra, con timeout en segundos. */
+/** Espera hasta que un puerto abra, con logs de progreso. */
 async function waitForPort(port, timeoutSec = 30) {
   for (let i = 0; i < timeoutSec; i++) {
     if (await isPortOpen(port)) return true;
+    if (i > 0 && i % 5 === 0) log(`  ⏳ Esperando puerto ${port}... (${i}s)`);
     await sleep(1);
   }
   return false;
@@ -85,12 +99,25 @@ async function waitForPort(port, timeoutSec = 30) {
 
 // ── 1. Instalar Ollama ────────────────────────────────────────────────────────
 async function ensureOllama() {
+  // Asegurar que /usr/local/bin está en el PATH del proceso
+  if (!process.env.PATH.includes('/usr/local/bin')) {
+    process.env.PATH = `/usr/local/bin:${process.env.PATH}`;
+  }
+
   if (await commandExists('ollama')) {
     log('Ollama ya instalado ✓');
     return true;
   }
-  log('Instalando Ollama (mostrando progreso)...');
-  const ok = await shellStream('curl -fsSL https://ollama.com/install.sh | sh');
+
+  log('Descargando e instalando Ollama (esto puede tardar 1-2 min sin output visible)...');
+  const ok = await withHeartbeat(
+    shellStream('curl -fsSL https://ollama.com/install.sh | sh'),
+    'instalando Ollama'
+  );
+
+  // Actualizar PATH por si el installer lo puso en /usr/local/bin
+  process.env.PATH = `/usr/local/bin:/usr/bin:/bin:${process.env.PATH}`;
+
   if (ok) { log('Ollama instalado ✓'); return true; }
   warn('No se pudo instalar Ollama');
   return false;
@@ -99,10 +126,11 @@ async function ensureOllama() {
 // ── 2. Arrancar ollama serve ──────────────────────────────────────────────────
 async function ensureOllamaRunning() {
   if (await isPortOpen(OLLAMA_PORT)) {
-    log('Ollama ya corriendo ✓');
+    log('Ollama ya corriendo en puerto 11434 ✓');
     return true;
   }
-  log('Iniciando ollama serve...');
+
+  log('Iniciando ollama serve en background...');
   const proc = spawn('ollama', ['serve'], {
     detached: true,
     stdio: 'ignore',
@@ -110,52 +138,63 @@ async function ensureOllamaRunning() {
   });
   proc.unref();
 
-  const up = await waitForPort(OLLAMA_PORT, 20);
-  if (up) { log('ollama serve listo ✓'); return true; }
-  warn('ollama serve no respondió');
+  log('Esperando que Ollama abra el puerto 11434...');
+  const up = await waitForPort(OLLAMA_PORT, 30);
+  if (up) { log('ollama serve listo en puerto 11434 ✓'); return true; }
+  warn('ollama serve no respondió en 30s');
   return false;
 }
 
 // ── 3. Descargar modelo ───────────────────────────────────────────────────────
 async function ensureModel() {
-  // Verificar si ya existe algún modelo qwen2.5
+  log('Verificando modelos instalados...');
   const checkProc = await new Promise((resolve) => {
     let out = '';
-    const p = spawn('ollama', ['list'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    const p = spawn('ollama', ['list'], { stdio: ['ignore', 'pipe', 'pipe'] });
     p.stdout.on('data', d => { out += d.toString(); });
+    p.stderr.on('data', d => { out += d.toString(); });
     p.on('close', () => resolve(out));
     p.on('error', () => resolve(''));
   });
+
+  log(`  Modelos disponibles: ${checkProc.trim() || '(ninguno)'}`);
 
   if (checkProc.includes('qwen2.5')) {
     log('Modelo qwen2.5 disponible ✓');
     return true;
   }
 
-  log(`Descargando modelo ${MODEL}... (puede tardar varios minutos, muestra progreso abajo)`);
-  const ok = await spawnStream('ollama', ['pull', MODEL]);
-  if (ok) { log(`Modelo ${MODEL} listo ✓`); return true; }
+  log(`Descargando modelo ${MODEL} (~2GB, puede tardar varios minutos)...`);
+  log('  El progreso aparece abajo. Si no ves barras, el servidor lo está procesando en silencio.');
+  const ok = await withHeartbeat(
+    spawnStream('ollama', ['pull', MODEL]),
+    `descargando ${MODEL}`
+  );
+  if (ok) { log(`Modelo ${MODEL} descargado y listo ✓`); return true; }
   warn(`Error al descargar ${MODEL}`);
   return false;
 }
 
 // ── 4. Entorno Python propio ──────────────────────────────────────────────────
 async function ensurePythonEnv() {
-  // Detectar python3
+  log('Verificando Python3...');
   if (!await commandExists('python3')) {
-    log('Instalando python3...');
-    const ok = await shellStream(
-      'apt-get install -y python3 python3-venv python3-pip 2>/dev/null || ' +
-      'yum install -y python3 python3-pip 2>/dev/null || true'
+    log('Instalando python3 (apt/yum)...');
+    const ok = await withHeartbeat(
+      shellStream(
+        'apt-get install -y python3 python3-venv python3-pip 2>/dev/null || ' +
+        'yum install -y python3 python3-pip 2>/dev/null || true'
+      ),
+      'instalando python3'
     );
     if (!ok || !await commandExists('python3')) {
       warn('No se pudo instalar python3'); return false;
     }
   }
+  log('Python3 disponible ✓');
 
-  // Crear venv en server/leon_ia/venv/ (separado de bg_remover)
   if (!existsSync(PYTHON_BIN)) {
-    log(`Creando venv Python en ${VENV_DIR} ...`);
+    log(`Creando entorno virtual Python en ${VENV_DIR} ...`);
     const ok = await spawnStream('python3', ['-m', 'venv', VENV_DIR]);
     if (!ok) { warn('Error creando venv'); return false; }
     log('Venv León IA creado ✓');
@@ -163,12 +202,14 @@ async function ensurePythonEnv() {
     log('Venv León IA ya existe ✓');
   }
 
-  // Actualizar pip
+  log('Actualizando pip...');
   await spawnStream(PIP_BIN, ['install', '--quiet', '--upgrade', 'pip']);
 
-  // Instalar dependencias
-  log('Instalando dependencias Python (fastapi, uvicorn, mysql-connector...)');
-  const ok = await spawnStream(PIP_BIN, ['install', '-r', REQ_TXT]);
+  log('Instalando dependencias Python (fastapi, uvicorn, mysql-connector, httpx)...');
+  const ok = await withHeartbeat(
+    spawnStream(PIP_BIN, ['install', '-r', REQ_TXT]),
+    'instalando dependencias Python'
+  );
   if (!ok) { warn('Error instalando dependencias Python'); return false; }
   log('Dependencias Python instaladas ✓');
   return true;
@@ -177,7 +218,7 @@ async function ensurePythonEnv() {
 // ── 5. Lanzar FastAPI ─────────────────────────────────────────────────────────
 async function startPythonService() {
   if (await isPortOpen(LEON_PORT)) {
-    log('Servicio León IA ya corriendo ✓');
+    log('Servicio León IA ya corriendo en puerto 7777 ✓');
     return true;
   }
 
@@ -188,7 +229,6 @@ async function startPythonService() {
     env: { ...process.env },
   });
 
-  // Mostrar logs del servicio Python con prefijo
   pythonProc.stdout.on('data', d => {
     d.toString().split('\n').filter(Boolean).forEach(l => log(`  ${l}`));
   });
@@ -206,23 +246,33 @@ async function startPythonService() {
   });
   pythonProc.on('error', e => warn(`Error proceso Python: ${e.message}`));
 
-  const up = await waitForPort(LEON_PORT, 25);
-  if (up) { log('León IA Python listo ✓ — Ollama responde preguntas naturales'); return true; }
-  warn('FastAPI no respondió a tiempo');
+  log('Esperando que FastAPI abra el puerto 7777...');
+  const up = await waitForPort(LEON_PORT, 30);
+  if (up) { log('León IA Python listo en puerto 7777 ✓ — Ollama responde preguntas en lenguaje natural'); return true; }
+  warn('FastAPI no respondió en 30s');
   return false;
 }
 
 // ── Función principal exportada ───────────────────────────────────────────────
 export async function initLeonIA() {
-  log('=== Configuración automática de León IA ===');
+  log('=== Iniciando configuración automática de León IA ===');
 
-  if (!await ensureOllama())          { warn('Sin Ollama → usando sistema clásico'); return; }
-  if (!await ensureOllamaRunning())   { warn('Ollama no arrancó → usando sistema clásico'); return; }
-  if (!await ensureModel())           { warn('Sin modelo → usando sistema clásico'); return; }
-  if (!await ensurePythonEnv())       { warn('Sin Python env → usando sistema clásico'); return; }
-  if (!await startPythonService())    { warn('FastAPI no arrancó → usando sistema clásico'); return; }
+  log('[Paso 1/5] Verificando Ollama...');
+  if (!await ensureOllama())        { warn('Sin Ollama → León IA usará sistema clásico'); return; }
 
-  log('=== León IA completamente operativo ===');
+  log('[Paso 2/5] Verificando ollama serve...');
+  if (!await ensureOllamaRunning()) { warn('Ollama no arrancó → León IA usará sistema clásico'); return; }
+
+  log('[Paso 3/5] Verificando modelo de IA...');
+  if (!await ensureModel())         { warn('Sin modelo → León IA usará sistema clásico'); return; }
+
+  log('[Paso 4/5] Verificando entorno Python...');
+  if (!await ensurePythonEnv())     { warn('Sin Python env → León IA usará sistema clásico'); return; }
+
+  log('[Paso 5/5] Lanzando servicio FastAPI...');
+  if (!await startPythonService())  { warn('FastAPI no arrancó → León IA usará sistema clásico'); return; }
+
+  log('=== León IA completamente operativo — responde cualquier pregunta en español ===');
 }
 
 // ── Limpieza al cerrar ────────────────────────────────────────────────────────
