@@ -25,9 +25,9 @@ export default function VirtualKeyboard({ value, onChange, onClose, placeholder 
     requestAnimationFrame(() => setVisible(true));
   }, []);
 
-  const handleClose = () => {
+  const handleClose = (finalValue) => {
     setVisible(false);
-    setTimeout(onClose, 220);
+    setTimeout(() => onClose(finalValue !== undefined ? finalValue : value), 220);
   };
 
   const press = (key) => {
@@ -36,9 +36,10 @@ export default function VirtualKeyboard({ value, onChange, onClose, placeholder 
     if (key === '123') { setNumMode(true); return; }
     if (key === '⌫') { onChange(value.slice(0, -1)); return; }
     if (key === 'SPACE') { onChange(value + ' '); return; }
-    if (key === 'ENTER') { handleClose(); return; }
+    if (key === 'ENTER') { handleClose(value); return; }
     const char = caps && !numMode ? key.toUpperCase() : key;
-    onChange(value + char);
+    const next = value + char;
+    onChange(next);
   };
 
   const rows = numMode ? ROWS_NUMS : (caps ? ROWS_UPPER : ROWS_LOWER);
@@ -100,7 +101,7 @@ export default function VirtualKeyboard({ value, onChange, onClose, placeholder 
     }}>
       {/* backdrop */}
       <div
-        onClick={handleClose}
+        onClick={() => handleClose(value)}
         style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}
       />
 

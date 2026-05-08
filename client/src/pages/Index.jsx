@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStore, faChevronRight, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import VirtualKeyboard from '../components/VirtualKeyboard';
 
 const STORAGE_KEYS = {
   lastStoreCode: 'srservi_last_store_code',
@@ -567,6 +568,7 @@ function Index() {
   const [pendingStore, setPendingStore] = useState(null);
   const [storePos, setStorePos] = useState([]);
   const [loadingPos, setLoadingPos] = useState(false);
+  const [vkbOpen, setVkbOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -666,12 +668,12 @@ function Index() {
 
   const pickStoreFromList = (store) => { fetchStorePos(store, true); };
 
-  const handleCodeSubmit = async (e) => {
+  const handleCodeSubmit = async (e, overrideCode) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const cleanCode = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const cleanCode = (overrideCode || code).toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (cleanCode.length !== 6) throw new Error('El código debe tener 6 caracteres');
       const response = await fetch('/api/public/lookup/' + cleanCode);
       if (!response.ok) {
@@ -809,16 +811,13 @@ function Index() {
           {error && <div className="idx-error">{error}</div>}
           <form onSubmit={handleCodeSubmit}>
             <div className="idx-label">Código de tienda</div>
-            <input
-              type="text"
-              value={code}
-              onChange={handleCodeChange}
-              placeholder="ABC123"
-              maxLength={6}
-              autoFocus
-              required
+            <div
               className="idx-input"
-            />
+              onClick={() => setVkbOpen(true)}
+              style={{ cursor: 'pointer', userSelect: 'none', minHeight: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              {code || <span style={{ opacity: 0.35, letterSpacing: '10px' }}>ABC123</span>}
+            </div>
             <button
               type="submit"
               disabled={loading || code.length !== 6}
@@ -827,6 +826,24 @@ function Index() {
               {loading ? 'Buscando…' : 'Continuar'}
             </button>
           </form>
+          {vkbOpen && (
+            <VirtualKeyboard
+              value={code}
+              onChange={(v) => {
+                const clean = v.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                if (clean.length <= 6) setCode(clean);
+              }}
+              onClose={(finalVal) => {
+                setVkbOpen(false);
+                const clean = (finalVal || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+                if (clean.length === 6) {
+                  setCode(clean);
+                  handleCodeSubmit({ preventDefault: () => {} }, clean);
+                }
+              }}
+              placeholder="Código de tienda"
+            />
+          )}
           <div className="idx-hint">
             <div className="idx-hint-title">¿Dónde está mi código?</div>
             <p className="idx-hint-text">
