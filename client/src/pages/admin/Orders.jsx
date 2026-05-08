@@ -100,12 +100,11 @@ function Orders() {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ store_id: selectedStore.id })
       });
-      if (res.ok) {
-        const data = await res.json();
-        setCashRegister(data);
-      }
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Error al abrir caja'); return; }
+      setCashRegister(data);
     } catch (e) {
-      console.error('Error opening cash register:', e);
+      alert('Error de conexión al abrir la caja');
     } finally {
       setCashLoading(false);
     }
@@ -119,11 +118,11 @@ function Orders() {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ store_id: selectedStore.id })
       });
-      if (res.ok) {
-        setCashRegister(null);
-      }
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Error al cerrar caja'); return; }
+      setCashRegister(null);
     } catch (e) {
-      console.error('Error closing cash register:', e);
+      alert('Error de conexión al cerrar la caja');
     } finally {
       setCashLoading(false);
     }

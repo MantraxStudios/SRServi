@@ -358,8 +358,8 @@ function WorkerPanel() {
     socket.on('connect', () => {
       console.log('Socket conectado - recargando pedidos');
       socket.emit('register_store', parsedWorker.store_id);
-      // Recargar pedidos al reconectar
       fetchOrders(parsedWorker.store_id);
+      fetchCashRegister();
     });
 
     socket.on('new_order', (order) => {
@@ -405,6 +405,7 @@ function WorkerPanel() {
     const pollInterval = setInterval(() => {
       fetchOrders(parsedWorker.store_id);
       fetchTasks();
+      fetchCashRegister();
     }, 30000);
 
     // Recargar cuando la ventana recupera el foco
