@@ -1,65 +1,99 @@
 /**
  * León IA — Autoarranque completo en Linux
- * Se invoca desde server/index.js al iniciar.
- * Todo corre en background; no bloquea el servidor.
+ * Usa spawn con streaming para mostrar progreso en tiempo real.
+ * Venv propio en server/leon_ia/venv/ — independiente de bg_remover.
  */
 
-import { spawn, exec as execCb } from 'child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
+import { existsSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const exec = promisify(execCb);
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname  = path.dirname(fileURLToPath(import.meta.url));
+const LEON_DIR   = __dirname;
+const VENV_DIR   = path.join(LEON_DIR, 'venv');          // venv propio, separado de bg_remover
+const PYTHON_BIN = path.join(VENV_DIR, 'bin', 'python3');
+const PIP_BIN    = path.join(VENV_DIR, 'bin', 'pip');
+const MAIN_PY    = path.join(LEON_DIR, 'main.py');
+const REQ_TXT    = path.join(LEON_DIR, 'requirements.txt');
 
-const LEON_DIR     = __dirname;
-const VENV_DIR     = path.join(LEON_DIR, 'venv');
-const PYTHON_BIN   = path.join(VENV_DIR, 'bin', 'python3');
-const PIP_BIN      = path.join(VENV_DIR, 'bin', 'pip');
-const MAIN_PY      = path.join(LEON_DIR, 'main.py');
-const REQ_TXT      = path.join(LEON_DIR, 'requirements.txt');
-const OLLAMA_PORT  = 11434;
-const LEON_PORT    = 7777;
-const MODEL        = 'qwen2.5:3b'; // ~2 GB, rápido y capaz en español
+const OLLAMA_PORT = 11434;
+const LEON_PORT   = 7777;
+const MODEL       = 'qwen2.5:3b'; // ~2 GB
 
 let pythonProc = null;
-let ollamaProc = null;
 
-function log(msg)  { console.log(`[León IA] ${msg}`); }
-function warn(msg) { console.warn(`[León IA] ⚠ ${msg}`); }
+const log  = (msg) => console.log(`[León IA] ${msg}`);
+const warn = (msg) => console.warn(`[León IA] ⚠ ${msg}`);
 
-async function runSilent(cmd, opts = {}) {
-  try { await exec(cmd, { timeout: 30000, ...opts }); return true; }
-  catch { return false; }
+// ── Utilidades ────────────────────────────────────────────────────────────────
+
+/** Ejecuta un comando con output en tiempo real. Resuelve con el exit code. */
+function spawnStream(cmd, args = [], opts = {}) {
+  return new Promise((resolve) => {
+    const proc = spawn(cmd, args, {
+      stdio: ['ignore', 'inherit', 'inherit'],
+      shell: false,
+      ...opts,
+    });
+    proc.on('close', (code) => resolve(code === 0));
+    proc.on('error', () => resolve(false));
+  });
 }
 
-async function isCommandAvailable(cmd) {
-  return runSilent(`which ${cmd}`);
+/** Ejecuta un comando de shell (string) con output en tiempo real. */
+function shellStream(cmd, opts = {}) {
+  return new Promise((resolve) => {
+    const proc = spawn('sh', ['-c', cmd], {
+      stdio: ['ignore', 'inherit', 'inherit'],
+      ...opts,
+    });
+    proc.on('close', (code) => resolve(code === 0));
+    proc.on('error', () => resolve(false));
+  });
 }
 
+/** Comprueba si un comando existe en el PATH. */
+async function commandExists(cmd) {
+  return new Promise((resolve) => {
+    const p = spawn('which', [cmd], { stdio: 'ignore' });
+    p.on('close', (c) => resolve(c === 0));
+    p.on('error', () => resolve(false));
+  });
+}
+
+/** Comprueba si un puerto está escuchando. */
 async function isPortOpen(port) {
-  try {
-    const { stdout } = await exec(`ss -tlnp 2>/dev/null | grep :${port} || true`);
-    return stdout.includes(`:${port}`);
-  } catch { return false; }
+  return new Promise((resolve) => {
+    const p = spawn('sh', ['-c', `ss -tlnp 2>/dev/null | grep -q :${port}`], { stdio: 'ignore' });
+    p.on('close', (c) => resolve(c === 0));
+    p.on('error', () => resolve(false));
+  });
+}
+
+/** Espera N segundos. */
+const sleep = (s) => new Promise(r => setTimeout(r, s * 1000));
+
+/** Espera hasta que un puerto abra, con timeout en segundos. */
+async function waitForPort(port, timeoutSec = 30) {
+  for (let i = 0; i < timeoutSec; i++) {
+    if (await isPortOpen(port)) return true;
+    await sleep(1);
+  }
+  return false;
 }
 
 // ── 1. Instalar Ollama ────────────────────────────────────────────────────────
 async function ensureOllama() {
-  if (await isCommandAvailable('ollama')) {
+  if (await commandExists('ollama')) {
     log('Ollama ya instalado ✓');
     return true;
   }
-  log('Instalando Ollama...');
-  try {
-    await exec('curl -fsSL https://ollama.com/install.sh | sh', { timeout: 300000 });
-    log('Ollama instalado ✓');
-    return true;
-  } catch (e) {
-    warn(`No se pudo instalar Ollama: ${e.message}`);
-    return false;
-  }
+  log('Instalando Ollama (mostrando progreso)...');
+  const ok = await shellStream('curl -fsSL https://ollama.com/install.sh | sh');
+  if (ok) { log('Ollama instalado ✓'); return true; }
+  warn('No se pudo instalar Ollama');
+  return false;
 }
 
 // ── 2. Arrancar ollama serve ──────────────────────────────────────────────────
@@ -69,128 +103,132 @@ async function ensureOllamaRunning() {
     return true;
   }
   log('Iniciando ollama serve...');
-  ollamaProc = spawn('ollama', ['serve'], {
+  const proc = spawn('ollama', ['serve'], {
     detached: true,
     stdio: 'ignore',
-    env: { ...process.env }
+    env: { ...process.env, HOME: process.env.HOME || '/root' },
   });
-  ollamaProc.unref();
-  // Esperar hasta 15 s a que levante
-  for (let i = 0; i < 15; i++) {
-    await new Promise(r => setTimeout(r, 1000));
-    if (await isPortOpen(OLLAMA_PORT)) { log('Ollama serve listo ✓'); return true; }
-  }
-  warn('Ollama no respondió a tiempo');
+  proc.unref();
+
+  const up = await waitForPort(OLLAMA_PORT, 20);
+  if (up) { log('ollama serve listo ✓'); return true; }
+  warn('ollama serve no respondió');
   return false;
 }
 
-// ── 3. Descargar modelo si no está ───────────────────────────────────────────
+// ── 3. Descargar modelo ───────────────────────────────────────────────────────
 async function ensureModel() {
-  try {
-    const { stdout } = await exec('ollama list 2>/dev/null || true', { timeout: 10000 });
-    if (stdout.includes('qwen2.5')) { log(`Modelo disponible ✓`); return true; }
-  } catch {}
-  log(`Descargando modelo ${MODEL} (puede tardar varios minutos)...`);
-  try {
-    await exec(`ollama pull ${MODEL}`, { timeout: 1800000 }); // 30 min máximo
-    log(`Modelo ${MODEL} listo ✓`);
+  // Verificar si ya existe algún modelo qwen2.5
+  const checkProc = await new Promise((resolve) => {
+    let out = '';
+    const p = spawn('ollama', ['list'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    p.stdout.on('data', d => { out += d.toString(); });
+    p.on('close', () => resolve(out));
+    p.on('error', () => resolve(''));
+  });
+
+  if (checkProc.includes('qwen2.5')) {
+    log('Modelo qwen2.5 disponible ✓');
     return true;
-  } catch (e) {
-    warn(`Error descargando modelo: ${e.message}`);
-    return false;
   }
+
+  log(`Descargando modelo ${MODEL}... (puede tardar varios minutos, muestra progreso abajo)`);
+  const ok = await spawnStream('ollama', ['pull', MODEL]);
+  if (ok) { log(`Modelo ${MODEL} listo ✓`); return true; }
+  warn(`Error al descargar ${MODEL}`);
+  return false;
 }
 
-// ── 4. Preparar entorno Python ────────────────────────────────────────────────
+// ── 4. Entorno Python propio ──────────────────────────────────────────────────
 async function ensurePythonEnv() {
   // Detectar python3
-  const hasPy3 = await isCommandAvailable('python3');
-  if (!hasPy3) {
-    warn('python3 no encontrado. Instalando...');
-    const ok = await runSilent(
+  if (!await commandExists('python3')) {
+    log('Instalando python3...');
+    const ok = await shellStream(
       'apt-get install -y python3 python3-venv python3-pip 2>/dev/null || ' +
-      'yum install -y python3 python3-venv python3-pip 2>/dev/null || true',
-      { timeout: 120000 }
+      'yum install -y python3 python3-pip 2>/dev/null || true'
     );
-    if (!ok || !await isCommandAvailable('python3')) {
+    if (!ok || !await commandExists('python3')) {
       warn('No se pudo instalar python3'); return false;
     }
   }
 
-  // Crear venv si no existe
+  // Crear venv en server/leon_ia/venv/ (separado de bg_remover)
   if (!existsSync(PYTHON_BIN)) {
-    log('Creando entorno virtual Python...');
-    const ok = await runSilent(`python3 -m venv ${VENV_DIR}`, { timeout: 60000 });
-    if (!ok) { warn('No se pudo crear venv'); return false; }
+    log(`Creando venv Python en ${VENV_DIR} ...`);
+    const ok = await spawnStream('python3', ['-m', 'venv', VENV_DIR]);
+    if (!ok) { warn('Error creando venv'); return false; }
+    log('Venv León IA creado ✓');
+  } else {
+    log('Venv León IA ya existe ✓');
   }
 
-  // Instalar / actualizar dependencias
-  log('Instalando dependencias Python...');
-  await runSilent(`${PIP_BIN} install --quiet --upgrade pip`, { timeout: 60000 });
-  const ok = await runSilent(
-    `${PIP_BIN} install --quiet -r ${REQ_TXT}`,
-    { timeout: 180000 }
-  );
-  if (!ok) { warn('Error instalando dependencias'); return false; }
-  log('Dependencias Python listas ✓');
+  // Actualizar pip
+  await spawnStream(PIP_BIN, ['install', '--quiet', '--upgrade', 'pip']);
+
+  // Instalar dependencias
+  log('Instalando dependencias Python (fastapi, uvicorn, mysql-connector...)');
+  const ok = await spawnStream(PIP_BIN, ['install', '-r', REQ_TXT]);
+  if (!ok) { warn('Error instalando dependencias Python'); return false; }
+  log('Dependencias Python instaladas ✓');
   return true;
 }
 
-// ── 5. Lanzar servicio FastAPI ────────────────────────────────────────────────
+// ── 5. Lanzar FastAPI ─────────────────────────────────────────────────────────
 async function startPythonService() {
   if (await isPortOpen(LEON_PORT)) {
     log('Servicio León IA ya corriendo ✓');
     return true;
   }
-  log(`Iniciando León IA Python en puerto ${LEON_PORT}...`);
+
+  log(`Lanzando León IA FastAPI en puerto ${LEON_PORT}...`);
   pythonProc = spawn(PYTHON_BIN, [MAIN_PY], {
     cwd: LEON_DIR,
-    detached: false,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env }
+    env: { ...process.env },
   });
 
-  pythonProc.stdout.on('data', d => log(d.toString().trim()));
-  pythonProc.stderr.on('data', d => {
-    const msg = d.toString().trim();
-    if (msg && !msg.includes('INFO')) warn(msg);
+  // Mostrar logs del servicio Python con prefijo
+  pythonProc.stdout.on('data', d => {
+    d.toString().split('\n').filter(Boolean).forEach(l => log(`  ${l}`));
   });
-  pythonProc.on('exit', (code) => {
-    if (code !== 0) {
-      warn(`Servicio Python terminó (código ${code}). Reintentando en 10s...`);
-      setTimeout(startPythonService, 10000);
+  pythonProc.stderr.on('data', d => {
+    d.toString().split('\n').filter(Boolean).forEach(l => {
+      if (!l.includes('INFO:') && !l.includes('Uvicorn')) warn(`  ${l}`);
+    });
+  });
+  pythonProc.on('exit', (code, signal) => {
+    if (signal !== 'SIGTERM' && signal !== 'SIGINT') {
+      warn(`Servicio Python terminó (code=${code}). Reiniciando en 15s...`);
+      pythonProc = null;
+      setTimeout(startPythonService, 15000);
     }
   });
+  pythonProc.on('error', e => warn(`Error proceso Python: ${e.message}`));
 
-  // Esperar hasta 20 s
-  for (let i = 0; i < 20; i++) {
-    await new Promise(r => setTimeout(r, 1000));
-    if (await isPortOpen(LEON_PORT)) { log('León IA Python listo ✓'); return true; }
-  }
-  warn('El servicio Python no respondió a tiempo');
+  const up = await waitForPort(LEON_PORT, 25);
+  if (up) { log('León IA Python listo ✓ — Ollama responde preguntas naturales'); return true; }
+  warn('FastAPI no respondió a tiempo');
   return false;
 }
 
 // ── Función principal exportada ───────────────────────────────────────────────
 export async function initLeonIA() {
-  log('Iniciando configuración automática...');
+  log('=== Configuración automática de León IA ===');
 
-  const ollamaOk  = await ensureOllama();
-  if (!ollamaOk) { warn('Sin Ollama — León usará sistema clásico'); return; }
+  if (!await ensureOllama())          { warn('Sin Ollama → usando sistema clásico'); return; }
+  if (!await ensureOllamaRunning())   { warn('Ollama no arrancó → usando sistema clásico'); return; }
+  if (!await ensureModel())           { warn('Sin modelo → usando sistema clásico'); return; }
+  if (!await ensurePythonEnv())       { warn('Sin Python env → usando sistema clásico'); return; }
+  if (!await startPythonService())    { warn('FastAPI no arrancó → usando sistema clásico'); return; }
 
-  const runOk = await ensureOllamaRunning();
-  if (!runOk) { warn('Ollama no arrancó — León usará sistema clásico'); return; }
-
-  const modelOk = await ensureModel();
-  if (!modelOk) { warn('Sin modelo — León usará sistema clásico'); return; }
-
-  const pyOk = await ensurePythonEnv();
-  if (!pyOk) { warn('Sin Python env — León usará sistema clásico'); return; }
-
-  await startPythonService();
+  log('=== León IA completamente operativo ===');
 }
 
-// Limpieza al cerrar el servidor
-process.on('exit',    () => { pythonProc?.kill(); });
-process.on('SIGTERM', () => { pythonProc?.kill(); process.exit(0); });
-process.on('SIGINT',  () => { pythonProc?.kill(); process.exit(0); });
+// ── Limpieza al cerrar ────────────────────────────────────────────────────────
+function cleanup() {
+  if (pythonProc) { pythonProc.kill('SIGTERM'); pythonProc = null; }
+}
+process.on('exit',    cleanup);
+process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+process.on('SIGINT',  () => { cleanup(); process.exit(0); });
