@@ -499,7 +499,7 @@ function WorkerPanel() {
       .filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; })
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     const sl = s => ({ pending: 'Pendiente', preparing: 'En preparación', ready: 'Listo', completed: 'Completado' })[s] || s || '';
-    const tl = t => ({ serve: 'Aquí', takeout: 'Para llevar', delivery: 'Delivery', pedidosya: 'PedidosYa', rappi: 'Rappi', mostrador: 'Mostrador' })[t] || 'Aquí';
+    const tl = t => ({ serve: 'Aquí', takeout: 'Para llevar', delivery: 'Delivery', pedidosya: 'PedidosYa', rappi: 'Rappi', ubereats: 'UberEats', mostrador: 'Mostrador' })[t] || 'Aquí';
     const fmt = d => d ? new Date(d).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—';
     const fmtPrep = (c, x) => { if (!c || !x) return '—'; const m = Math.round((new Date(x)-new Date(c))/60000); return m < 1 ? '< 1 min' : m + ' min'; };
     const done = todayOrders.filter(o => o.status === 'completed');
@@ -803,6 +803,7 @@ function WorkerPanel() {
       case 'delivery': return { label: 'Delivery', icon: faMotorcycle, cls: 'delivery' };
       case 'pedidosya': return { label: 'PedidosYa', icon: faMotorcycle, cls: 'pedidosya' };
       case 'rappi': return { label: 'Rappi', icon: faMotorcycle, cls: 'rappi' };
+      case 'ubereats': return { label: 'UberEats', icon: faMotorcycle, cls: 'ubereats' };
       case 'mostrador': return { label: 'Mostrador', icon: faConciergeBell, cls: 'mostrador' };
       default: return { label: type || 'Aqui', icon: faUtensils, cls: 'serve' };
     }
@@ -1058,18 +1059,23 @@ function WorkerPanel() {
                       {getOrderTypeInfo(order.order_type).label}
                     </div>
                   </div>
-                  {(order.order_type === 'rappi' || order.order_type === 'pedidosya') && (
-                    <div style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '5px',
-                      background: order.order_type === 'rappi' ? 'rgba(255,75,0,0.12)' : 'rgba(250,0,80,0.10)',
-                      color: order.order_type === 'rappi' ? '#ff4b00' : '#fa0050',
-                      border: `1px solid ${order.order_type === 'rappi' ? 'rgba(255,75,0,0.4)' : 'rgba(250,0,80,0.35)'}`,
-                      borderRadius: '8px', padding: '3px 10px', fontSize: '12px', fontWeight: 800,
-                      marginBottom: '6px', letterSpacing: '0.3px'
-                    }}>
-                      🛵 {order.customer_name || (order.order_type === 'rappi' ? 'Pedido Rappi' : 'Pedido PedidosYa')}
-                    </div>
-                  )}
+                  {['rappi','pedidosya','ubereats'].includes(order.order_type) && (() => {
+                    const cfg = {
+                      rappi:     { bg: 'rgba(255,75,0,0.12)',  color: '#ff4b00', border: 'rgba(255,75,0,0.4)',   label: 'Rappi',     emoji: '🛵' },
+                      pedidosya: { bg: 'rgba(250,0,80,0.10)',  color: '#fa0050', border: 'rgba(250,0,80,0.35)',  label: 'PedidosYa', emoji: '🏍️' },
+                      ubereats:  { bg: 'rgba(6,193,103,0.12)', color: '#06c167', border: 'rgba(6,193,103,0.4)',  label: 'UberEats',  emoji: '🟢' },
+                    }[order.order_type];
+                    return (
+                      <div style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '5px',
+                        background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+                        borderRadius: '8px', padding: '3px 10px', fontSize: '12px', fontWeight: 800,
+                        marginBottom: '6px', letterSpacing: '0.3px'
+                      }}>
+                        {cfg.emoji} {order.customer_name || `Pedido ${cfg.label}`}
+                      </div>
+                    );
+                  })()}
                   {order.table_number != null && (
                     <div style={{
                       display: 'inline-flex', alignItems: 'center', gap: '5px',
@@ -1169,18 +1175,23 @@ function WorkerPanel() {
                       {getOrderTypeInfo(order.order_type).label}
                     </div>
                   </div>
-                  {(order.order_type === 'rappi' || order.order_type === 'pedidosya') && (
-                    <div style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '5px',
-                      background: order.order_type === 'rappi' ? 'rgba(255,75,0,0.12)' : 'rgba(250,0,80,0.10)',
-                      color: order.order_type === 'rappi' ? '#ff4b00' : '#fa0050',
-                      border: `1px solid ${order.order_type === 'rappi' ? 'rgba(255,75,0,0.4)' : 'rgba(250,0,80,0.35)'}`,
-                      borderRadius: '8px', padding: '3px 10px', fontSize: '12px', fontWeight: 800,
-                      marginBottom: '6px', letterSpacing: '0.3px'
-                    }}>
-                      🛵 {order.customer_name || (order.order_type === 'rappi' ? 'Pedido Rappi' : 'Pedido PedidosYa')}
-                    </div>
-                  )}
+                  {['rappi','pedidosya','ubereats'].includes(order.order_type) && (() => {
+                    const cfg = {
+                      rappi:     { bg: 'rgba(255,75,0,0.12)',  color: '#ff4b00', border: 'rgba(255,75,0,0.4)',   label: 'Rappi',     emoji: '🛵' },
+                      pedidosya: { bg: 'rgba(250,0,80,0.10)',  color: '#fa0050', border: 'rgba(250,0,80,0.35)',  label: 'PedidosYa', emoji: '🏍️' },
+                      ubereats:  { bg: 'rgba(6,193,103,0.12)', color: '#06c167', border: 'rgba(6,193,103,0.4)',  label: 'UberEats',  emoji: '🟢' },
+                    }[order.order_type];
+                    return (
+                      <div style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '5px',
+                        background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
+                        borderRadius: '8px', padding: '3px 10px', fontSize: '12px', fontWeight: 800,
+                        marginBottom: '6px', letterSpacing: '0.3px'
+                      }}>
+                        {cfg.emoji} {order.customer_name || `Pedido ${cfg.label}`}
+                      </div>
+                    );
+                  })()}
                   {order.table_number != null && (
                     <div style={{
                       display: 'inline-flex', alignItems: 'center', gap: '5px',

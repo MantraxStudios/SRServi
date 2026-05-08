@@ -251,37 +251,34 @@ function Layout() {
       )}
       {serverDown && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 99999,
-          background: '#000',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '28px'
+          position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 99999,
+          background: '#1a1a1a',
+          border: '1px solid #D4AF3766',
+          borderRadius: '14px',
+          padding: '10px 18px',
+          display: 'flex', alignItems: 'center', gap: '10px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
+          animation: 'slideUp 0.25s ease',
+          maxWidth: 'calc(100vw - 40px)',
+          whiteSpace: 'nowrap',
         }}>
-          <div style={{ position: 'relative', width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{
-              position: 'absolute', inset: 0, borderRadius: '50%',
-              border: '4px solid transparent',
-              borderTopColor: '#D4AF37',
-              animation: 'spin 1s linear infinite'
-            }} />
-            <div style={{
-              position: 'absolute', inset: '10px', borderRadius: '50%',
-              border: '3px solid transparent',
-              borderTopColor: 'rgba(212,175,55,0.4)',
-              animation: 'spin 1.6s linear infinite reverse'
-            }} />
-            <span style={{ fontSize: '28px' }}>⚙️</span>
-          </div>
-          <div style={{ textAlign: 'center', maxWidth: '360px', padding: '0 24px' }}>
-            <h2 style={{ margin: '0 0 10px', fontSize: '22px', fontWeight: '800', color: '#fff', fontFamily: 'sans-serif', letterSpacing: '0.3px' }}>
-              Servidor en Mantenimiento
-            </h2>
-            <p style={{ margin: '0 0 6px', fontSize: '15px', color: 'rgba(255,255,255,0.6)', fontFamily: 'sans-serif', lineHeight: 1.5 }}>
-              Esto desaparecerá automáticamente al reconectar comunicación con el servidor.
-            </p>
-            <p style={{ margin: 0, fontSize: '13px', color: '#D4AF37', fontFamily: 'sans-serif', fontWeight: '600', letterSpacing: '0.5px' }}>
-              Por favor espere...
-            </p>
-          </div>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <div style={{
+            width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
+            border: '2.5px solid transparent',
+            borderTopColor: '#D4AF37',
+            animation: 'spin 0.9s linear infinite',
+          }} />
+          <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff', fontFamily: 'sans-serif' }}>
+            Sin conexión con el servidor
+          </span>
+          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', fontFamily: 'sans-serif' }}>
+            · Reconectando...
+          </span>
+          <style>{`
+            @keyframes spin { to { transform: rotate(360deg); } }
+            @keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+          `}</style>
         </div>
       )}
       <div className="layout-wrapper" style={{
@@ -457,6 +454,10 @@ function Layout() {
                         <NavLink to="/admin/pedidosya" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faMotorcycle} />
                           <span>PedidosYa</span>
+                        </NavLink>
+                        <NavLink to="/admin/ubereats" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                          <FontAwesomeIcon icon={faMotorcycle} />
+                          <span>Uber Eats</span>
                         </NavLink>
                         <NavLink to="/admin/instagram" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>

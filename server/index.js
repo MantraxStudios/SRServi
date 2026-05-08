@@ -8323,6 +8323,159 @@ async function startServer() {
       }
     });
 
+    // ── UberEats Integration ─────────────────────────────────────────────────
+
+    app.get('/api/ubereats/config', authenticateToken, async (req, res) => {
+      try {
+        const { store_id } = req.query;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [rows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!rows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const [cfg] = await pool.execute('SELECT * FROM ubereats_config WHERE store_id = ?', [store_id]);
+        res.json({ config: cfg[0] || null });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/ubereats/config', authenticateToken, async (req, res) => {
+      try {
+        const { store_id, is_enabled, webhook_secret } = req.body;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [rows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!rows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const [existing] = await pool.execute('SELECT id FROM ubereats_config WHERE store_id = ?', [store_id]);
+        if (existing.length) {
+          await pool.execute('UPDATE ubereats_config SET is_enabled = ?, webhook_secret = ? WHERE store_id = ?',
+            [is_enabled ? 1 : 0, webhook_secret || null, store_id]);
+        } else {
+          await pool.execute('INSERT INTO ubereats_config (store_id, is_enabled, webhook_secret) VALUES (?, ?, ?)',
+            [store_id, is_enabled ? 1 : 0, webhook_secret || null]);
+        }
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.get('/api/ubereats/orders', authenticateToken, async (req, res) => {
+      try {
+        const { store_id } = req.query;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const [rows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!rows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const [orders] = await pool.execute(
+          `SELECT id, order_number, ubereats_order_id, customer_name, customer_phone,
+                  external_items, total, status, payment_method, created_at
+           FROM orders WHERE store_id = ? AND order_type = 'ubereats'
+           ORDER BY created_at DESC LIMIT 100`,
+          [store_id]
+        );
+        res.json({ orders });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Public: UberEats webhook
+    app.post('/api/ubereats/webhook/:store_code', async (req, res) => {
+      try {
+        const store = await getStoreByCode(req.params.store_code);
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+
+        const [cfgRows] = await pool.execute('SELECT * FROM ubereats_config WHERE store_id = ?', [store.id]);
+        const cfg = cfgRows[0];
+        if (!cfg || !cfg.is_enabled) return res.status(403).json({ error: 'Integración UberEats no habilitada' });
+
+        if (cfg.webhook_secret) {
+          const sig = req.headers['x-uber-signature'] || req.headers['x-webhook-token'] || req.headers['authorization'] || '';
+          if (!sig.includes(cfg.webhook_secret)) return res.status(401).json({ error: 'Firma inválida' });
+        }
+
+        const payload = req.body;
+
+        // Ignore non-order or cancelled events
+        const eventType = payload.event_type || payload.type || '';
+        const status = (payload.status || payload.current_state || '').toLowerCase();
+        if (status === 'cancelled' || status === 'unfulfilled' || eventType === 'orders.cancel') {
+          return res.json({ success: true, ignored: true });
+        }
+
+        // UberEats order ID
+        const ueId = String(payload.order_id || payload.id || payload.orderId || Date.now());
+
+        // Avoid duplicates
+        const [existing] = await pool.execute('SELECT id FROM orders WHERE ubereats_order_id = ? AND store_id = ?', [ueId, store.id]);
+        if (existing.length) return res.json({ success: true, duplicate: true });
+
+        // Parse items — UberEats uses cart.items[] with nested price objects
+        const externalItems = [];
+        const cartItems = payload.cart?.items || payload.items || payload.orderItems || [];
+        for (const item of cartItems) {
+          // UberEats price can be nested: price.unit_price.amount or flat unit_price
+          const unitPrice = Number(
+            item.price?.unit_price?.amount || item.price?.base_unit_price?.amount ||
+            item.unit_price || item.price || 0
+          );
+          // Modifiers / selected options
+          const modGroups = item.selected_modifier_groups || item.customizations || item.modifiers || [];
+          const mods = modGroups
+            .flatMap(g => (g.selected_items || g.options || []).map(o => o.title || o.name || ''))
+            .filter(Boolean).join(', ');
+          externalItems.push({
+            name: item.title || item.name || item.productName || 'Producto',
+            quantity: Number(item.quantity || item.qty || 1),
+            unit_price: unitPrice,
+            notes: [item.special_instructions, mods].filter(Boolean).join(' · '),
+          });
+        }
+
+        // Total — UberEats uses total.price or total_price.amount
+        const total = Number(
+          payload.total?.price || payload.total?.amount ||
+          payload.total_price?.amount || payload.totalAmount || payload.total ||
+          externalItems.reduce((s, i) => s + i.unit_price * i.quantity, 0) || 0
+        );
+
+        // Customer — UberEats uses eater object
+        const eater = payload.eater || payload.customer || payload.user || {};
+        const customerName = [eater.first_name, eater.last_name, eater.name].filter(Boolean).join(' ') || 'Cliente UberEats';
+        const customerPhone = eater.phone || eater.phone_number || '';
+
+        // Payment — UberEats orders are almost always prepaid online
+        const rawPay = (payload.payment_info?.status || payload.payment_method || 'online').toLowerCase();
+        const isCash = rawPay.includes('cash') || rawPay.includes('efectivo');
+
+        const orderNumber = await generateUniqueOrderNumber(store.id);
+
+        const [result] = await pool.execute(
+          `INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, total, payment_method,
+           cash_approved, payment_process, status, external_items, customer_name, customer_phone,
+           ubereats_order_id, order_number)
+           VALUES (?, ?, 'ubereats', ?, 0, ?, ?, ?, 1, 'preparing', ?, ?, ?, ?, ?)`,
+          [
+            store.id, store.user_id, total, total,
+            isCash ? 'cash' : 'online', isCash ? 0 : 1,
+            JSON.stringify(externalItems),
+            customerName, customerPhone, ueId, orderNumber,
+          ]
+        );
+        const orderId = result.insertId;
+
+        const newOrder = {
+          id: orderId, order_number: orderNumber, store_id: store.id,
+          order_type: 'ubereats', total, status: 'preparing',
+          payment_method: isCash ? 'cash' : 'online',
+          cash_approved: isCash ? 0 : 1, payment_process: 1,
+          external_items: externalItems, customer_name: customerName,
+          customer_phone: customerPhone, ubereats_order_id: ueId,
+          items: externalItems, created_at: new Date().toISOString(),
+        };
+
+        const socketId = userSockets.get(store.id);
+        if (socketId) io.to(socketId).emit('new_order', newOrder);
+
+        res.json({ success: true, order_id: orderId, order_number: orderNumber });
+      } catch (e) {
+        console.error('UberEats webhook error:', e);
+        res.status(500).json({ error: e.message });
+      }
+    });
+
     // ── PedidosYa Integration ────────────────────────────────────────────────
 
     app.get('/api/pedidosya/config', authenticateToken, async (req, res) => {

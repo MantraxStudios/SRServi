@@ -1143,6 +1143,34 @@ async function migrateTables() {
       console.error('❌ Error creando tabla task_completions:', err.message);
     }
 
+    // UberEats integration config
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS ubereats_config (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          store_id INT NOT NULL UNIQUE,
+          is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          webhook_secret VARCHAR(255) DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+        )
+      `);
+      console.log('ℹ️ Tabla ubereats_config verificada/creada');
+    } catch (err) {
+      console.error('❌ Error creando tabla ubereats_config:', err.message);
+    }
+
+    try {
+      const [ordCols] = await pool.execute('SHOW COLUMNS FROM orders');
+      if (!ordCols.map(c => c.Field).includes('ubereats_order_id')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN ubereats_order_id VARCHAR(100) DEFAULT NULL');
+        console.log('✅ Columna ubereats_order_id agregada a orders');
+      }
+    } catch (err) {
+      console.error('❌ Error agregando ubereats_order_id:', err.message);
+    }
+
     // PedidosYa integration config
     try {
       await pool.execute(`
