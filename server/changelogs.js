@@ -3,6 +3,18 @@
 
 export const CHANGELOGS = [
   {
+    id: 13,
+    version: '1.5.1',
+    date: '2026-05-08',
+    title: 'Control de caja desde el panel admin',
+    badge: 'nuevo',
+    changes: [
+      { type: 'nuevo',     text: 'El administrador puede abrir y cerrar la caja de cualquier tienda desde la sección Pedidos' },
+      { type: 'nuevo',     text: 'Worker Panel: el icono de la caja se actualiza en tiempo real vía socket cuando el admin la abre o cierra' },
+      { type: 'mejorado',  text: 'Al abrir la caja como admin se registra como "Administrador" en el turno, sin necesidad de un trabajador activo' },
+    ],
+  },
+  {
     id: 12,
     version: '1.5.0',
     date: '2026-05-08',
