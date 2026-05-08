@@ -908,6 +908,7 @@ h1, h2, h3, h4, h5, h6 {
 .layout-wrapper {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100vw;
 }
 
@@ -928,7 +929,9 @@ h1, h2, h3, h4, h5, h6 {
   background: linear-gradient(180deg, #0a0a0a 0%, #131313 50%, #0a0a0a 100%);
   color: #e8e8e8;
   height: 100vh;
+  height: 100dvh;
   max-height: 100vh;
+  max-height: 100dvh;
   overflow: hidden;
   padding: 0;
   position: relative;
@@ -1478,6 +1481,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Sidebar footer */
 .sidebar-footer {
   padding: 14px 16px 18px;
+  padding-bottom: calc(18px + env(safe-area-inset-bottom));
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   margin-top: auto;
 }
@@ -1514,6 +1518,7 @@ h1, h2, h3, h4, h5, h6 {
 .admin-content {
   flex: 1;
   height: 100vh;
+  height: 100dvh;
   overflow-y: auto;
   background-color: var(--background);
 }
@@ -6026,6 +6031,7 @@ html body .store-container .store-product-card * {
 
 .sidebar-footer {
   padding: var(--space-4);
+  padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
   border-top: 1px solid rgba(255,255,255,0.1);
 }
 
