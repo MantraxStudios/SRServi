@@ -2300,9 +2300,9 @@ app.get('/api/analytics/recent-orders', authenticateToken, async (req, res) => {
 // ==================== LEÓN IA ====================
 
 const LEON_GREETINGS = [
-  '¡Hola! Soy **León IA** 🦁, tu asistente de negocios.\n\nEstoy aquí para ayudarte a entender tus ventas y tomar mejores decisiones. ¿Qué quieres analizar?\n\n• Productos más vendidos 📈\n• Qué hacer con los menos vendidos 📉\n• Ingresos y estadísticas 💰\n• Alertas de stock 📦\n• Extras y complementos más pedidos 🔥\n• Recomendaciones estratégicas 🎯',
-  '¡Buenas! Soy **León IA** 🦁. Listo para analizar tu negocio.\n\n¿En qué te puedo ayudar hoy?',
-  'Hola de nuevo 👋. Soy **León IA**, tu asesor de ventas inteligente.\n\nDime qué necesitas analizar y lo resuelvo al instante.',
+  '¡Hola! Soy **León IA** 🦁, tu asistente de negocios.\n\nHablame de forma natural y te ayudo. Por ejemplo:\n\n• "¿Qué días vendo más?" 📅\n• "¿Qué productos se venden más?" 📈\n• "¿Qué hago con lo que no se mueve?" 📉\n• "¿Cuánto hice este mes?" 💰\n• "¿A qué hora tengo más clientes?" ⏰\n• "¿Tengo algo agotado?" 📦\n• "Dame recomendaciones" 🎯',
+  '¡Buenas! Soy **León IA** 🦁. Listo para analizar tu negocio.\n\nPregúntame lo que necesites — entiendo lenguaje natural. Por ejemplo: "¿qué días vendo más?", "¿cómo van las ventas?", "¿qué no se está vendiendo?"',
+  'Hola de nuevo 👋. Soy **León IA**, tu asesor de ventas inteligente.\n\nDime qué quieres saber y te respondo al instante. Puedo analizar días, horarios, productos, ingresos, stock y más.',
 ];
 
 function leonDetectIntent(text, history = []) {
@@ -2329,40 +2329,51 @@ function leonDetectIntent(text, history = []) {
   if ((hasFollowUpMarker || isVagueShort) && lastIntent && lastIntent !== 'greeting' && lastIntent !== 'unknown' && lastIntent !== 'action_plan')
     return lastIntent;
 
-  if (has('hola', 'buenos dias', 'buenas tardes', 'buenas noches', 'como estas', 'quien eres', 'que eres', 'que puedes hacer', 'que sabes hacer'))
+  if (has('hola', 'buenos dias', 'buenas tardes', 'buenas noches', 'como estas', 'quien eres', 'que eres', 'que puedes hacer', 'que sabes hacer', 'ayuda', 'para que sirves', 'que haces', 'presentate'))
     return 'greeting';
 
   // Extras e ingredientes — van ANTES que top_products para evitar colisión con "más vendidos"
-  if (has('extra') && has('mas vendido', 'mas pedido', 'mas solicitado', 'popular', 'top', 'mas elegido', 'mas piden', 'eligen', 'solicitado'))
+  if (has('extra') && has('mas vendido', 'mas pedido', 'mas solicitado', 'popular', 'top', 'mas elegido', 'mas piden', 'eligen', 'solicitado', 'mas elegido', 'mas comprado'))
     return 'extras_analysis';
-  if (has('extras mas pedidos', 'extras mas solicitados', 'que extras piden', 'extras populares', 'extra mas elegido', 'que extra eligen', 'extras top', 'extras mas vendidos'))
+  if (has('extras mas pedidos', 'extras mas solicitados', 'que extras piden', 'extras populares', 'extra mas elegido', 'que extra eligen', 'extras top', 'extras mas vendidos', 'extras favoritos', 'que extra piden'))
     return 'extras_analysis';
-  if ((has('complemento') || has('ingrediente')) && has('mas vendido', 'mas pedido', 'mas solicitado', 'popular', 'top', 'mas elegido', 'mas piden', 'eligen', 'solicitado'))
+  if ((has('complemento') || has('ingrediente')) && has('mas vendido', 'mas pedido', 'mas solicitado', 'popular', 'top', 'mas elegido', 'mas piden', 'eligen', 'solicitado', 'mas comprado'))
     return 'ingredients_analysis';
-  if (has('complementos mas pedidos', 'complementos mas solicitados', 'que complementos piden', 'complementos populares', 'complemento mas elegido', 'que complemento eligen', 'ingredientes mas pedidos', 'ingredientes populares', 'complementos mas vendidos', 'ingredientes mas vendidos'))
+  if (has('complementos mas pedidos', 'complementos mas solicitados', 'que complementos piden', 'complementos populares', 'complemento mas elegido', 'que complemento eligen', 'ingredientes mas pedidos', 'ingredientes populares', 'complementos mas vendidos', 'ingredientes mas vendidos', 'complementos favoritos'))
     return 'ingredients_analysis';
-  if (has('que extras tengo', 'lista de extras', 'mis extras', 'ver extras', 'cuales son mis extras', 'extras de mi tienda', 'extras disponibles'))
+  if (has('que extras tengo', 'lista de extras', 'mis extras', 'ver extras', 'cuales son mis extras', 'extras de mi tienda', 'extras disponibles', 'extras configurados', 'tengo extras'))
     return 'extras_catalog';
-  if (has('que complementos tengo', 'lista de complementos', 'mis complementos', 'ver complementos', 'cuales son mis complementos', 'complementos de mi tienda', 'complementos disponibles', 'que ingredientes tengo', 'lista de ingredientes', 'mis ingredientes'))
+  if (has('que complementos tengo', 'lista de complementos', 'mis complementos', 'ver complementos', 'cuales son mis complementos', 'complementos de mi tienda', 'complementos disponibles', 'que ingredientes tengo', 'lista de ingredientes', 'mis ingredientes', 'complementos configurados'))
     return 'ingredients_catalog';
 
-  if (has('menos vendido', 'poco vendido', 'no se vende', 'bajo rendimiento', 'peor', 'que hago con', 'descontinuar', 'eliminar producto', 'mal vendido', 'baja rotacion', 'no vendo'))
+  if (has('menos vendido', 'poco vendido', 'no se vende', 'bajo rendimiento', 'peor', 'que hago con', 'descontinuar', 'eliminar producto', 'mal vendido', 'baja rotacion', 'no vendo', 'no se mueve', 'que falla', 'que no funciona', 'los peores', 'minimo vendido', 'casi no vendo'))
     return 'worst_products';
-  if (has('mas vendido', 'top producto', 'mejor vendido', 'estrella', 'popular', 'cuales vendo mas', 'productos top', 'mas exitoso', 'que se vende mas', 'lider', 'numero uno'))
+  if (has('mas vendido', 'top producto', 'mejor vendido', 'estrella', 'popular', 'cuales vendo mas', 'productos top', 'mas exitoso', 'que se vende mas', 'lider', 'numero uno', 'cuales son los mas', 'que producto vendo mas', 'que productos salen mas', 'que se pide mas', 'los que mas', 'favorito de los clientes', 'el mas pedido', 'ranking de producto'))
     return 'top_products';
-  if (has('ingreso', 'ganancia', 'cuanto vendi', 'cuanto gane', 'dinero', 'venta total', 'facturacion', 'revenue', 'recaude', 'cuanto saque'))
+  if (has('ingreso', 'ganancia', 'cuanto vendi', 'cuanto gane', 'dinero', 'venta total', 'facturacion', 'revenue', 'recaude', 'cuanto saque', 'cuanto hice', 'cuanto llevo', 'plata', 'cuanto genere', 'total de ventas', 'que tal las ventas', 'numeros de venta', 'cuanta plata', 'cuanto cobre'))
     return 'revenue';
-  if (has('hora', 'cuando vendo', 'pico', 'momento del dia', 'horario', 'mejor hora', 'hora punta', 'a que hora'))
+
+  // Días de la semana — va ANTES que peak_hours para no confundir "día" con "hora"
+  if (has('que dia vendo mas', 'que dias vendo mas', 'mejor dia de la semana', 'mejores dias', 'dias mas activos', 'dia mas activo', 'dias con mas ventas', 'dias de mayor venta', 'que dia es el mejor', 'cuales son los mejores dias', 'en que dia vendo', 'dia de la semana', 'dias de la semana', 'por dia de la semana', 'rendimiento por dia', 'ventas por dia de semana', 'que dia hay mas gente', 'dia mas concurrido', 'dias top', 'cuando vendo mas los dias'))
+    return 'best_days';
+  if (has('dia', 'dias') && has('mejor', 'mas venta', 'mas activo', 'mas pedido', 'mas movimiento', 'mayor', 'top'))
+    return 'best_days';
+
+  if (has('hora', 'pico', 'momento del dia', 'horario', 'mejor hora', 'hora punta', 'a que hora', 'horario pico', 'rush', 'cuando vendo mas en el dia', 'horas de mayor'))
     return 'peak_hours';
-  if (has('stock', 'inventario', 'agotado', 'por acabarse', 'sin stock', 'quedan pocos', 'me queda', 'sin existencia'))
+  // "cuando vendo" sin contexto de día → peak_hours
+  if (has('cuando vendo') && !has('dia', 'dias', 'semana', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'))
+    return 'peak_hours';
+
+  if (has('stock', 'inventario', 'agotado', 'por acabarse', 'sin stock', 'quedan pocos', 'me queda', 'sin existencia', 'que reponer', 'que comprar', 'necesito reponer', 'queda poco', 'critico de stock', 'falta stock'))
     return 'stock_alert';
-  if (has('categoria', 'categorias', 'que categoria', 'por categoria', 'seccion'))
+  if (has('categoria', 'categorias', 'que categoria', 'por categoria', 'seccion', 'secciones', 'por seccion', 'rubros', 'rubro'))
     return 'category_analysis';
-  if (has('resumen', 'como voy', 'como estoy', 'estado', 'balance', 'panorama', 'reporte', 'resumen general', 'dashboard'))
+  if (has('resumen', 'como voy', 'como estoy', 'estado', 'balance', 'panorama', 'reporte', 'resumen general', 'dashboard', 'pantallazo', 'overview', 'dame un resumen', 'informe', 'como van las cosas', 'como va todo'))
     return 'summary';
-  if (has('recomienda', 'consejo', 'sugerencia', 'que puedo hacer', 'estrategia', 'que hago', 'como mejoro', 'ideas', 'ayudame a mejorar'))
+  if (has('recomienda', 'consejo', 'sugerencia', 'que puedo hacer', 'estrategia', 'que hago', 'como mejoro', 'ideas', 'ayudame a mejorar', 'que deberia', 'que me sugieres', 'tips', 'mejoras', 'puntos de mejora', 'que esta fallando', 'que esta mal', 'como optimizo', 'dame consejos'))
     return 'recommendations';
-  if (has('pedido', 'orden', 'compra', 'cuantos pedidos', 'cuantas ordenes'))
+  if (has('pedido', 'orden', 'compra', 'cuantos pedidos', 'cuantas ordenes', 'ordenes del dia', 'pedidos de hoy', 'cuantas ventas', 'cuantos pedidos hubo'))
     return 'orders_summary';
   // Análisis de producto específico — debe ir antes del fallback
   if (has('analiza ', 'analiza el ', 'analiza la ', 'analiza los ', 'analiza las ',
@@ -2550,6 +2561,28 @@ async function leonGetTopExtras(storeId, range) {
     .map(([name, total]) => ({ name, total }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 10);
+}
+
+async function leonGetSalesByDayOfWeek(storeId, range) {
+  let interval = '30 DAY';
+  if (range === 'week') interval = '7 DAY';
+  else if (range === 'month') interval = '30 DAY';
+  else if (range === 'year') interval = '365 DAY';
+
+  const DAY_NAMES = ['', 'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const [rows] = await pool.execute(
+    `SELECT DAYOFWEEK(o.created_at) AS day_num,
+            COUNT(*) AS orders,
+            SUM(o.total) AS revenue
+     FROM orders o
+     WHERE o.store_id = ?
+       AND o.status IN ('paid','processed','completed','approved')
+       AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
+     GROUP BY DAYOFWEEK(o.created_at)
+     ORDER BY orders DESC`,
+    [storeId]
+  );
+  return rows.map(r => ({ ...r, day_name: DAY_NAMES[r.day_num] || 'Desconocido' }));
 }
 
 async function leonGetTopIngredients(storeId, range) {
@@ -3022,8 +3055,39 @@ function leonBuildResponse(intent, range, data, storeName) {
       return r(`Complementos disponibles en tu tienda (${allIngredients.length}):\n\n${list}\n\n¿Quieres saber cuáles son los más pedidos por tus clientes?`);
     }
 
+    case 'best_days': {
+      const { byDayOfWeek } = data;
+      if (!byDayOfWeek || !byDayOfWeek.length)
+        return r(`No hay suficientes datos de ventas para analizar los días de la semana. Necesitas pedidos completados en el período seleccionado.`);
+      const sorted = [...byDayOfWeek].sort((a, b) => Number(b.orders) - Number(a.orders));
+      const best = sorted[0];
+      const worst = sorted[sorted.length - 1];
+      const medals = ['🥇','🥈','🥉','4.','5.','6.','7.'];
+      const list = sorted.map((d, i) =>
+        `${medals[i] || `${i+1}.`} **${d.day_name}** — ${d.orders} pedidos · $${Number(d.revenue || 0).toFixed(2)}`
+      ).join('\n');
+      const allDays = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+      const presentDays = new Set(sorted.map(d => d.day_name));
+      const missingDays = allDays.filter(d => !presentDays.has(d));
+      let resp = `Rendimiento por día de la semana ${rl}${store}:\n\n${list}\n\n`;
+      resp += `🏆 **${best.day_name}** es tu mejor día con **${best.orders} pedidos**.`;
+      if (missingDays.length)
+        resp += `\n💤 Sin ventas registradas: ${missingDays.join(', ')}.`;
+      resp += `\n\n💡 Asegúrate de tener stock completo y personal suficiente los **${sorted.slice(0,2).map(d => d.day_name).join(' y ')}**.`;
+      const chartDays = {
+        type: 'bar',
+        title: `Pedidos por día de la semana ${rl}`,
+        labels: sorted.map(d => d.day_name.slice(0, 3)),
+        values: sorted.map(d => Number(d.orders)),
+        unit: 'pedidos',
+        color: '#D4AF37',
+        highlight: 0,
+      };
+      return r(resp, chartDays);
+    }
+
     default:
-      return r(`Mmm, no entendí bien esa pregunta 🤔. Puedes preguntarme:\n\n• "¿Cuáles son los más vendidos esta semana?"\n• "¿Qué hago con los productos menos vendidos?"\n• "¿Cuánto ingresé este mes?"\n• "¿A qué hora vendo más?"\n• "¿Tengo productos sin stock?"\n• "Extras más pedidos"\n• "Complementos más pedidos"\n• "Qué extras tengo"\n• "Dame un resumen"\n• "¿Qué me recomiendas?"\n\nIntenta con alguna de esas.`);
+      return r(`No entendí bien esa pregunta 🤔. Puedes preguntarme de forma natural, por ejemplo:\n\n• "¿Qué días vendo más?"\n• "¿Cuáles son los más vendidos esta semana?"\n• "¿Cuánto gané este mes?"\n• "¿A qué hora vendo más?"\n• "¿Tengo productos sin stock?"\n• "¿Qué extras piden más mis clientes?"\n• "Dame un resumen"\n• "¿Qué me recomiendas?"\n\nPrueba reformulando tu pregunta.`);
   }
 }
 
@@ -3087,6 +3151,8 @@ app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
       data.allExtras = await leonGetAllExtras(storeId);
     } else if (intent === 'ingredients_catalog') {
       data.allIngredients = await leonGetAllIngredients(storeId);
+    } else if (intent === 'best_days') {
+      data.byDayOfWeek = await leonGetSalesByDayOfWeek(storeId, range === 'today' ? 'month' : range);
     } else {
       data.summary = await getAnalytics(storeId, range);
     }
@@ -3096,10 +3162,23 @@ app.post('/api/leon-ia/chat', authenticateToken, async (req, res) => {
     const chatgptKey = await getChatGptKey(req.user.id);
     if (chatgptKey) {
       try {
-        const systemPrompt = `Eres León IA, el asistente de negocios de SRServi para la tienda "${storeName}".
-Analiza los datos de la tienda y responde de forma breve, directa y accionable en español.
-No uses listas largas. Máximo 4 oraciones. Usa emojis moderadamente.
-Datos actuales de la tienda: ${JSON.stringify(data)}`;
+        const systemPrompt = `Eres León IA 🦁, el asistente de negocios inteligente de SRServi para la tienda "${storeName}".
+
+PERSONALIDAD: Eres directo, amigable y útil. Hablas como un asesor de negocios experto pero accesible. Entiendes lenguaje natural coloquial en español latinoamericano (por ejemplo "plata" = dinero, "se mueve" = se vende, "no sale" = no se vende, "qué tal va" = cómo está el rendimiento).
+
+REGLAS:
+- Responde siempre en español
+- Sé concreto y accionable (no filosófico)
+- Usa los datos que tienes, no inventes números
+- Si el usuario pregunta algo que no está en los datos, dilo honestamente y sugiere qué preguntar
+- Usa emojis con moderación
+- Máximo 5 oraciones salvo que el usuario pida detalle
+- Si el usuario dice algo vago como "y eso?", "qué más?", "cuéntame más", expande sobre lo último que se habló
+
+DATOS ACTUALES DE LA TIENDA (período: ${leonRangeLabel(range)}):
+${JSON.stringify(data, null, 2)}
+
+ANÁLISIS PREVIO DE LEÓN: ${leonAnswer.text}`;
 
         const messages = [
           { role: 'system', content: systemPrompt },
@@ -3110,7 +3189,7 @@ Datos actuales de la tienda: ${JSON.stringify(data)}`;
         const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${chatgptKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'gpt-4o-mini', messages, max_tokens: 300, temperature: 0.7 }),
+          body: JSON.stringify({ model: 'gpt-4o-mini', messages, max_tokens: 500, temperature: 0.7 }),
         });
         if (openaiRes.ok) {
           const openaiData = await openaiRes.json();
