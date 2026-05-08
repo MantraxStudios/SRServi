@@ -387,13 +387,10 @@ function Login() {
           <a
             href="/api/download/windows"
             className="btn btn-lg btn-full"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', textDecoration: 'none', background: 'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%)', color: '#fff', border: '2px solid #D4AF37', borderRadius: '12px', fontWeight: 700, fontSize: '15px', padding: '14px' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', background: '#1a1a1a', color: '#fff', border: '2px solid #D4AF37' }}
           >
-            <FontAwesomeIcon icon={faDesktop} style={{ color: '#D4AF37', fontSize: '18px' }} />
-            <span>
-              <span style={{ color: '#D4AF37' }}>SRServi</span> para Windows
-            </span>
-            <FontAwesomeIcon icon={faDownload} style={{ marginLeft: 'auto', opacity: 0.7 }} />
+            <FontAwesomeIcon icon={faDesktop} style={{ color: '#D4AF37' }} />
+            Descargar App Windows
           </a>
         </div>
       </div>
