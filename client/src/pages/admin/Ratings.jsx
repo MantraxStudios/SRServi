@@ -8,11 +8,16 @@ import { QRCodeCanvas } from 'qrcode.react';
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
 const SURVEY_QUESTIONS = [
-  { key: 'frequency',  label: 'Frecuencia de visita' },
-  { key: 'how_found',  label: '¿Cómo nos conociste?' },
-  { key: 'age_range',  label: 'Rango de edad' },
-  { key: 'values_most', label: '¿Qué más valoras?' },
-  { key: 'recommend',  label: '¿Recomendarías el lugar?' },
+  { key: 'frequency',      label: 'Frecuencia de visita' },
+  { key: 'how_found',      label: '¿Cómo nos conociste?' },
+  { key: 'age_range',      label: 'Rango de edad' },
+  { key: 'product_quality', label: 'Calidad del producto' },
+  { key: 'disliked',       label: '¿Qué no te gustó?' },
+  { key: 'wait_time',      label: 'Tiempo de espera' },
+  { key: 'staff',          label: 'Atención del personal' },
+  { key: 'price_fair',     label: '¿El precio es justo?' },
+  { key: 'return',         label: '¿Volvería a visitarnos?' },
+  { key: 'recommend',      label: '¿Recomendarías el lugar?' },
 ];
 
 const EMOJIS = [

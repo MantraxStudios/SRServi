@@ -18,13 +18,38 @@ const QUESTIONS = [
     options: ['Menos de 25', '25–35', '36–50', 'Más de 50'],
   },
   {
-    key: 'values_most',
-    text: '¿Qué es lo que más valoras de nosotros?',
-    options: ['Precio', 'Calidad', 'Rapidez', 'Atención'],
+    key: 'product_quality',
+    text: '¿Cómo calificarías la calidad del producto?',
+    options: ['Excelente', 'Buena', 'Regular', 'Mala'],
+  },
+  {
+    key: 'disliked',
+    text: '¿Qué no te gustó de tu visita?',
+    options: ['El producto', 'La atención', 'El tiempo de espera', 'El precio'],
+  },
+  {
+    key: 'wait_time',
+    text: '¿Cómo fue el tiempo de espera?',
+    options: ['Muy rápido', 'Aceptable', 'Un poco largo', 'Demasiado largo'],
+  },
+  {
+    key: 'staff',
+    text: '¿Cómo fue la atención del personal?',
+    options: ['Excelente', 'Buena', 'Regular', 'Mala'],
+  },
+  {
+    key: 'price_fair',
+    text: '¿El precio te parece justo?',
+    options: ['Muy justo', 'Justo', 'Un poco caro', 'Caro'],
+  },
+  {
+    key: 'return',
+    text: '¿Volverías a visitarnos?',
+    options: ['Sí, seguro', 'Probablemente', 'Tal vez', 'No'],
   },
   {
     key: 'recommend',
-    text: '¿Recomendarías este lugar?',
+    text: '¿Recomendarías este lugar a alguien?',
     options: ['Sí, definitivamente', 'Probablemente', 'Tal vez', 'No'],
   },
 ];
