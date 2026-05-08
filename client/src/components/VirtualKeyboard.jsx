@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 const ROWS_LOWER = [
   ['q','w','e','r','t','y','u','i','o','p'],
@@ -94,9 +95,9 @@ export default function VirtualKeyboard({ value, onChange, onClose, placeholder 
     );
   };
 
-  return (
+  const keyboard = (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
+      position: 'fixed', inset: 0, zIndex: 99999,
       display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
     }}>
       {/* backdrop */}
@@ -177,4 +178,6 @@ export default function VirtualKeyboard({ value, onChange, onClose, placeholder 
       </div>
     </div>
   );
+
+  return createPortal(keyboard, document.body);
 }
