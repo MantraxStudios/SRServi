@@ -49,7 +49,12 @@ import {
   faArrowLeft,
   faMobileAlt,
   faUpload,
-  faPlus
+  faPlus,
+  faShoppingCart,
+  faMoneyBillWave,
+  faFilter,
+  faSync,
+  faInfoCircle,
 } from '@fortawesome/free-solid-svg-icons';
 
 function SuperadminDashboard() {
@@ -105,6 +110,55 @@ function SuperadminDashboard() {
   const saMsgContainerRef = useRef(null);
   const [saMobileChat, setSaMobileChat] = useState(false);
 
+  // ── Notificaciones de pedidos nuevos ─────────────────────────────────────
+  const [orderNotifs, setOrderNotifs] = useState([]); // [{id, order_number, store_name, total, payment_method}]
+
+  const dismissNotif = (nid) => setOrderNotifs(p => p.filter(n => n.nid !== nid));
+
+  // ── Pedidos (superadmin) ───────────────────────────────────────────────────
+  const [saOrders, setSaOrders] = useState([]);
+  const [saOrdersTotal, setSaOrdersTotal] = useState(0);
+  const [saOrdersLoading, setSaOrdersLoading] = useState(false);
+  const [saOrderFilter, setSaOrderFilter] = useState({ store_id: '', date_from: '', date_to: '', status: '' });
+  const [saOrderDetail, setSaOrderDetail] = useState(null);
+  const [saOrderItems, setSaOrderItems] = useState([]);
+  const [saDeleteConfirm, setSaDeleteConfirm] = useState(null);
+
+  const fetchSaOrders = async () => {
+    setSaOrdersLoading(true);
+    try {
+      const token = localStorage.getItem('superadminToken');
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(saOrderFilter).filter(([, v]) => v)));
+      const r = await fetch(`${API}/api/superadmin/orders?${q}`, { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      setSaOrders(d.orders || []);
+      setSaOrdersTotal(d.total || 0);
+    } finally { setSaOrdersLoading(false); }
+  };
+
+  const openSaOrderDetail = async (order) => {
+    setSaOrderDetail(order);
+    setSaOrderItems([]);
+    const token = localStorage.getItem('superadminToken');
+    const r = await fetch(`${API}/api/superadmin/orders/${order.id}/items`, { headers: { Authorization: 'Bearer ' + token } });
+    if (r.ok) setSaOrderItems(await r.json());
+  };
+
+  const saMarkPaid = async (id) => {
+    const token = localStorage.getItem('superadminToken');
+    await fetch(`${API}/api/superadmin/orders/${id}/mark-paid`, { method: 'PUT', headers: { Authorization: 'Bearer ' + token } });
+    setSaOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'completed', cash_approved: 1 } : o));
+    if (saOrderDetail?.id === id) setSaOrderDetail(prev => ({ ...prev, status: 'completed', cash_approved: 1 }));
+  };
+
+  const saDeleteOrder = async (id) => {
+    const token = localStorage.getItem('superadminToken');
+    await fetch(`${API}/api/superadmin/orders/${id}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+    setSaOrders(prev => prev.filter(o => o.id !== id));
+    setSaDeleteConfirm(null);
+    if (saOrderDetail?.id === id) setSaOrderDetail(null);
+  };
+
   const scrollChatToBottom = () => {
     if (saMsgContainerRef.current) {
       saMsgContainerRef.current.scrollTop = saMsgContainerRef.current.scrollHeight;
@@ -126,6 +180,14 @@ function SuperadminDashboard() {
   useEffect(() => {
     fetchData();
   }, [activeTab]);
+
+  // Carga tiendas al inicio para tenerlas disponibles en el filtro de pedidos
+  useEffect(() => {
+    const token = localStorage.getItem('superadminToken');
+    if (!token) return;
+    fetch(API + '/api/superadmin/stores', { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => r.json()).then(d => { if (Array.isArray(d)) setStores(d); }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (activeTab !== 'users') return;
@@ -160,6 +222,20 @@ function SuperadminDashboard() {
       const current = selectedTicketRef.current;
       if (current) reloadTicketMsgs(current);
     });
+
+    socket.on('superadmin_new_order', (data) => {
+      saPlaySound();
+      const nid = Date.now() + Math.random();
+      // resolve store name from loaded stores list
+      setStores(currentStores => {
+        const storeName = currentStores.find(s => s.id === data.store_id)?.name || `Tienda #${data.store_id}`;
+        setOrderNotifs(prev => [...prev, { nid, ...data, store_name: storeName }]);
+        return currentStores;
+      });
+      // auto-dismiss after 8 seconds
+      setTimeout(() => setOrderNotifs(prev => prev.filter(n => n.nid !== nid)), 8000);
+    });
+
     return () => socket.disconnect();
   }, []);
 
@@ -215,6 +291,9 @@ function SuperadminDashboard() {
         const res = await fetch(API + '/api/superadmin/apks', { headers: { 'Authorization': 'Bearer ' + token } });
         const data = await res.json();
         setApkReleases(Array.isArray(data) ? data : []);
+      } else if (activeTab === 'orders') {
+        await fetchSaOrders();
+        return;
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -610,6 +689,14 @@ function SuperadminDashboard() {
             <FontAwesomeIcon icon={faMobileAlt} />
             {sidebarOpen && <span>APK Releases</span>}
           </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'orders' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('orders'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faShoppingCart} />
+            {sidebarOpen && <span>Pedidos</span>}
+          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -636,6 +723,32 @@ function SuperadminDashboard() {
         </div>
       </div>
 
+      {/* Notificaciones de pedidos nuevos */}
+      {orderNotifs.length > 0 && (
+        <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 99999, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 320, width: '100%' }}>
+          {orderNotifs.map(n => (
+            <div key={n.nid} style={{
+              background: '#18181b', border: '1px solid #D4AF37', borderRadius: 12,
+              padding: '12px 14px', boxShadow: '0 4px 24px rgba(0,0,0,0.35)',
+              display: 'flex', alignItems: 'center', gap: 12, animation: 'slideIn 0.25s ease'
+            }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <FontAwesomeIcon icon={faShoppingCart} style={{ color: '#D4AF37', fontSize: 16 }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, color: '#fff', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  Nuevo pedido — {n.store_name}
+                </div>
+                <div style={{ color: '#D4AF37', fontSize: 12, fontWeight: 600 }}>
+                  #{n.order_number || n.id} · ${parseFloat(n.total).toLocaleString()} · {n.payment_method === 'cash' ? 'Efectivo' : n.payment_method === 'card' ? 'Tarjeta' : n.payment_method}
+                </div>
+              </div>
+              <button onClick={() => dismissNotif(n.nid)} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 16, padding: 4, flexShrink: 0 }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className={`admin-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
         <header className="admin-header">
           <div className="flex items-center gap-3">
@@ -647,7 +760,7 @@ function SuperadminDashboard() {
             </button>
             <div>
               <h1 className="admin-header-title">
-                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : 'Suscripciones'}
+                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : activeTab === 'orders' ? 'Pedidos' : 'Suscripciones'}
               </h1>
               <p className="admin-header-subtitle text-muted text-sm">
                 {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : activeTab === 'workshop' ? 'Revisa y aprueba plugins del workshop' : 'Ver todas las suscripciones'}
@@ -1458,10 +1571,182 @@ function SuperadminDashboard() {
                   </div>
                 )}
               </div>
+            ) : activeTab === 'orders' ? (
+              <div>
+                {/* Filtros */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 18, alignItems: 'flex-end' }}>
+                  <div style={{ flex: '1 1 160px', minWidth: 140 }}>
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>Tienda</label>
+                    <select value={saOrderFilter.store_id} onChange={e => setSaOrderFilter(p => ({ ...p, store_id: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13 }}>
+                      <option value="">Todas</option>
+                      {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ flex: '1 1 130px', minWidth: 120 }}>
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>Desde</label>
+                    <input type="date" value={saOrderFilter.date_from} onChange={e => setSaOrderFilter(p => ({ ...p, date_from: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13 }} />
+                  </div>
+                  <div style={{ flex: '1 1 130px', minWidth: 120 }}>
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>Hasta</label>
+                    <input type="date" value={saOrderFilter.date_to} onChange={e => setSaOrderFilter(p => ({ ...p, date_to: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13 }} />
+                  </div>
+                  <div style={{ flex: '1 1 130px', minWidth: 120 }}>
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>Estado</label>
+                    <select value={saOrderFilter.status} onChange={e => setSaOrderFilter(p => ({ ...p, status: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13 }}>
+                      <option value="">Todos</option>
+                      <option value="pending">Pendiente</option>
+                      <option value="completed">Completado</option>
+                      <option value="cancelled">Cancelado</option>
+                    </select>
+                  </div>
+                  <button onClick={fetchSaOrders} className="btn btn-primary" style={{ height: 36, padding: '0 18px', fontSize: 13 }}>
+                    <FontAwesomeIcon icon={faFilter} /> Filtrar
+                  </button>
+                  <button onClick={() => { setSaOrderFilter({ store_id: '', date_from: '', date_to: '', status: '' }); }} className="btn btn-secondary" style={{ height: 36, padding: '0 14px', fontSize: 13 }}>
+                    <FontAwesomeIcon icon={faSync} />
+                  </button>
+                </div>
+
+                <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
+                  {saOrdersLoading ? 'Cargando...' : `${saOrders.length} pedidos mostrados de ${saOrdersTotal} total`}
+                </div>
+
+                {/* Tabla */}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: '#f5f5f5', borderBottom: '2px solid #e0e0e0' }}>
+                        {['#', 'Tienda', 'Total', 'Pago', 'Estado', 'Tipo', 'Hora', 'Acciones'].map(h => (
+                          <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {saOrdersLoading ? (
+                        <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: '#888' }}>Cargando pedidos...</td></tr>
+                      ) : saOrders.length === 0 ? (
+                        <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: '#888' }}>No hay pedidos</td></tr>
+                      ) : saOrders.map(o => (
+                        <tr key={o.id} style={{ borderBottom: '1px solid #eee', background: saOrderDetail?.id === o.id ? '#fffbe6' : 'white' }}>
+                          <td style={{ padding: '9px 12px', fontWeight: 700 }}>{o.order_number || o.id}</td>
+                          <td style={{ padding: '9px 12px', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.store_name || o.store_id}</td>
+                          <td style={{ padding: '9px 12px', fontWeight: 700, color: '#22c55e' }}>${parseFloat(o.total).toLocaleString()}</td>
+                          <td style={{ padding: '9px 12px' }}>
+                            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                              background: o.payment_method === 'cash' ? '#fef3c7' : o.payment_method === 'card' ? '#dbeafe' : '#f3e8ff',
+                              color: o.payment_method === 'cash' ? '#92400e' : o.payment_method === 'card' ? '#1e40af' : '#7e22ce' }}>
+                              {o.payment_method === 'cash' ? 'Efectivo' : o.payment_method === 'card' ? 'Tarjeta' : o.payment_method || '—'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '9px 12px' }}>
+                            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                              background: o.status === 'completed' ? '#dcfce7' : o.status === 'cancelled' ? '#fee2e2' : '#fef9c3',
+                              color: o.status === 'completed' ? '#166534' : o.status === 'cancelled' ? '#991b1b' : '#854d0e' }}>
+                              {o.status === 'completed' ? 'Completado' : o.status === 'cancelled' ? 'Cancelado' : 'Pendiente'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '9px 12px', fontSize: 12, color: '#555' }}>
+                            {o.table_number != null ? `Mesa ${o.table_number}` : o.order_type === 'delivery' ? 'Delivery' : 'Llevar'}
+                          </td>
+                          <td style={{ padding: '9px 12px', fontSize: 12, color: '#555', whiteSpace: 'nowrap' }}>
+                            {new Date(o.created_at).toLocaleString('es', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td style={{ padding: '9px 12px' }}>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button title="Ver detalle" onClick={() => openSaOrderDetail(o)}
+                                style={{ background: '#3b82f6', border: 'none', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>
+                                <FontAwesomeIcon icon={faInfoCircle} />
+                              </button>
+                              {o.status !== 'completed' && (
+                                <button title="Marcar pagado" onClick={() => saMarkPaid(o.id)}
+                                  style={{ background: '#22c55e', border: 'none', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>
+                                  <FontAwesomeIcon icon={faMoneyBillWave} />
+                                </button>
+                              )}
+                              <button title="Eliminar" onClick={() => setSaDeleteConfirm(o)}
+                                style={{ background: '#ef4444', border: 'none', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>
+                                <FontAwesomeIcon icon={faTrash} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             ) : null}
           </div>
         </div>
       </div>
+
+      {/* Modal detalle pedido */}
+      {saOrderDetail && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
+          onClick={() => setSaOrderDetail(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 28, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Pedido #{saOrderDetail.order_number || saOrderDetail.id}</h3>
+              <button onClick={() => setSaOrderDetail(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#888' }}>×</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px', marginBottom: 18, fontSize: 13 }}>
+              <div><span style={{ color: '#888' }}>Tienda:</span> <strong>{saOrderDetail.store_name}</strong></div>
+              <div><span style={{ color: '#888' }}>Fecha:</span> <strong>{new Date(saOrderDetail.created_at).toLocaleString('es')}</strong></div>
+              <div><span style={{ color: '#888' }}>Total:</span> <strong style={{ color: '#22c55e' }}>${parseFloat(saOrderDetail.total).toLocaleString()}</strong></div>
+              <div><span style={{ color: '#888' }}>Método pago:</span> <strong>{saOrderDetail.payment_method === 'cash' ? 'Efectivo' : saOrderDetail.payment_method === 'card' ? 'Tarjeta' : saOrderDetail.payment_method}</strong></div>
+              <div><span style={{ color: '#888' }}>Estado:</span> <strong>{saOrderDetail.status === 'completed' ? 'Completado' : saOrderDetail.status === 'cancelled' ? 'Cancelado' : 'Pendiente'}</strong></div>
+              <div><span style={{ color: '#888' }}>Efectivo aprobado:</span> <strong>{saOrderDetail.cash_approved ? 'Sí' : 'No'}</strong></div>
+              <div><span style={{ color: '#888' }}>Tipo:</span> <strong>{saOrderDetail.table_number != null ? `Mesa ${saOrderDetail.table_number}` : saOrderDetail.order_type === 'delivery' ? 'Delivery' : 'Para llevar'}</strong></div>
+              {saOrderDetail.coupon_code && <div><span style={{ color: '#888' }}>Cupón:</span> <strong>{saOrderDetail.coupon_code}</strong></div>}
+              {saOrderDetail.completed_by_name && <div><span style={{ color: '#888' }}>Atendido por:</span> <strong>{saOrderDetail.completed_by_name}</strong></div>}
+            </div>
+            <div style={{ borderTop: '1px solid #eee', paddingTop: 14 }}>
+              <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 14 }}>Productos</div>
+              {saOrderItems.length === 0 ? (
+                <div style={{ color: '#888', fontSize: 13 }}>Cargando...</div>
+              ) : saOrderItems.map((item, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f5f5f5', fontSize: 13 }}>
+                  <div>
+                    <span style={{ fontWeight: 600 }}>{item.quantity}× {item.product_name}</span>
+                    {item.selected_extras?.length > 0 && <div style={{ fontSize: 11, color: '#888' }}>+ {item.selected_extras.map(e => e.name).join(', ')}</div>}
+                  </div>
+                  <span style={{ fontWeight: 700 }}>${parseFloat(item.total || item.price * item.quantity).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              {saOrderDetail.status !== 'completed' && (
+                <button onClick={() => saMarkPaid(saOrderDetail.id)} style={{ flex: 1, background: '#22c55e', border: 'none', borderRadius: 8, padding: '10px 0', cursor: 'pointer', color: '#fff', fontWeight: 700, fontSize: 13 }}>
+                  <FontAwesomeIcon icon={faMoneyBillWave} style={{ marginRight: 6 }} />Marcar como pagado
+                </button>
+              )}
+              <button onClick={() => setSaDeleteConfirm(saOrderDetail)} style={{ flex: 1, background: '#ef4444', border: 'none', borderRadius: 8, padding: '10px 0', cursor: 'pointer', color: '#fff', fontWeight: 700, fontSize: 13 }}>
+                <FontAwesomeIcon icon={faTrash} style={{ marginRight: 6 }} />Eliminar pedido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmar eliminar */}
+      {saDeleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: 16 }}
+          onClick={() => setSaDeleteConfirm(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 28, maxWidth: 380, width: '100%', textAlign: 'center' }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>🗑️</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>¿Eliminar pedido?</div>
+            <div style={{ color: '#666', fontSize: 13, marginBottom: 20 }}>Pedido #{saDeleteConfirm.order_number || saDeleteConfirm.id} — ${parseFloat(saDeleteConfirm.total).toLocaleString()}<br />Esta acción no se puede deshacer.</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setSaDeleteConfirm(null)} style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
+              <button onClick={() => saDeleteOrder(saDeleteConfirm.id)} style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 700 }}>Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSubscriptionModal && selectedSubscription && (
         <div className="modal-overlay">

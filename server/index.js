@@ -4768,6 +4768,11 @@ app.post('/api/orders', async (req, res) => {
     if (socketId) {
       io.to(socketId).emit('new_order', order);
     }
+    // Broadcast para superadmin
+    io.emit('superadmin_new_order', {
+      id: order.id, order_number: order.order_number, store_id: order.store_id,
+      total: order.total, payment_method: order.payment_method, created_at: order.created_at
+    });
 
     if (pluginManager) {
       pluginManager.hooks.emit('order_created', { store_id: parseInt(store_id), order });
@@ -4819,6 +4824,10 @@ app.post('/api/orders/process-payment', async (req, res) => {
       if (socketId) {
         io.to(socketId).emit('new_order', order);
       }
+      io.emit('superadmin_new_order', {
+        id: order.id, order_number: order.order_number, store_id: order.store_id,
+        total: order.total, payment_method: order.payment_method, created_at: order.created_at
+      });
 
       if (pluginManager) {
         pluginManager.hooks.emit('order_created', { store_id: parseInt(store_id), order });
@@ -6964,6 +6973,71 @@ app.delete('/api/superadmin/apks/:id', authenticateSuperadminToken, async (req, 
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// ─── SUPERADMIN: PEDIDOS ────────────────────────────────────────────────────
+
+app.get('/api/superadmin/orders', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { store_id, date_from, date_to, status, limit = 200, offset = 0 } = req.query;
+    let where = '1=1';
+    const params = [];
+    if (store_id) { where += ' AND o.store_id = ?'; params.push(parseInt(store_id)); }
+    if (date_from) { where += ' AND DATE(o.created_at) >= ?'; params.push(date_from); }
+    if (date_to)   { where += ' AND DATE(o.created_at) <= ?'; params.push(date_to); }
+    if (status)    { where += ' AND o.status = ?'; params.push(status); }
+    params.push(parseInt(limit), parseInt(offset));
+    const [rows] = await pool.execute(
+      `SELECT o.*, s.name as store_name, s.code as store_code
+       FROM orders o
+       LEFT JOIN stores s ON o.store_id = s.id
+       WHERE ${where}
+       ORDER BY o.created_at DESC
+       LIMIT ? OFFSET ?`,
+      params
+    );
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) as total FROM orders o WHERE ${where.replace(/ LIMIT.*/, '')}`,
+      params.slice(0, -2)
+    );
+    const orders = rows.map(o => ({ ...o, total: parseFloat(o.total) || 0 }));
+    res.json({ orders, total: countRows[0].total });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/superadmin/orders/:id', authenticateSuperadminToken, async (req, res) => {
+  try {
+    await pool.execute('DELETE FROM order_items WHERE order_id = ?', [parseInt(req.params.id)]);
+    await pool.execute('DELETE FROM orders WHERE id = ?', [parseInt(req.params.id)]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/superadmin/orders/:id/mark-paid', authenticateSuperadminToken, async (req, res) => {
+  try {
+    await pool.execute(
+      `UPDATE orders SET status = 'completed', cash_approved = 1, payment_process = 1 WHERE id = ?`,
+      [parseInt(req.params.id)]
+    );
+    const [rows] = await pool.execute('SELECT * FROM orders WHERE id = ?', [parseInt(req.params.id)]);
+    res.json(rows[0] || {});
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/superadmin/orders/:id/items', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const [items] = await pool.execute(
+      `SELECT oi.*, COALESCE(p.name, 'Producto eliminado') as product_name
+       FROM order_items oi LEFT JOIN products p ON oi.product_id = p.id
+       WHERE oi.order_id = ?`,
+      [parseInt(req.params.id)]
+    );
+    res.json(items.map(i => ({
+      ...i,
+      selected_extras: i.selected_extras ? JSON.parse(i.selected_extras) : [],
+      selected_ingredients: i.selected_ingredients ? JSON.parse(i.selected_ingredients) : [],
+    })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Endpoint público para obtener la última versión
