@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "WMlpWCRanwk=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\tupap\\OneDrive\\Escritorio\\SRServi\\windows\\FullscreenBrowser.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.web.webview2\\1.0.2365.46\\microsoft.web.webview2.1.0.2365.46.nupkg.sha512"
+  ],
+  "logs": []
+}

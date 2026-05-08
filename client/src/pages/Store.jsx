@@ -63,6 +63,7 @@ import { CSS } from '@dnd-kit/utilities';
 import PluginSlot from '../components/PluginSlot';
 import { PluginProvider } from '../context/PluginContext';
 import { useStore } from '../components/Layout';
+import VirtualKeyboard from '../components/VirtualKeyboard';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -331,6 +332,7 @@ function Store() {
   const [welcomeSelectedLang, setWelcomeSelectedLang] = useState(null);
   const [inactivityModalOpen, setInactivityModalOpen] = useState(false);
   const [inactivityCountdown, setInactivityCountdown] = useState(10);
+  const [vkbOpen, setVkbOpen] = useState(false);
   const inactivityTimerRef = useRef(null);
   const inactivityCountdownRef = useRef(null);
 
@@ -4082,13 +4084,19 @@ function Store() {
                   </>
                 )}
                 <div className="store-cart-coupon">
-                  <input
-                    type="text"
-                    value={couponCodeInput}
-                    onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
-                    placeholder={t('couponCode', lang)}
+                  <div
+                    onClick={() => !appliedCoupon && setVkbOpen(true)}
                     className="store-cart-coupon-input"
-                  />
+                    style={{
+                      cursor: appliedCoupon ? 'default' : 'pointer',
+                      display: 'flex', alignItems: 'center',
+                      color: couponCodeInput ? 'inherit' : '#aaa',
+                      letterSpacing: couponCodeInput ? '2px' : 'normal',
+                      fontWeight: couponCodeInput ? '700' : '400',
+                    }}
+                  >
+                    {couponCodeInput || t('couponCode', lang)}
+                  </div>
                   {appliedCoupon ? (
                     <button onClick={removeCoupon} className="btn btn-danger btn-sm">{t('quit', lang)}</button>
                   ) : (
@@ -4097,6 +4105,14 @@ function Store() {
                     </button>
                   )}
                 </div>
+                {vkbOpen && (
+                  <VirtualKeyboard
+                    value={couponCodeInput}
+                    onChange={(v) => setCouponCodeInput(v.toUpperCase())}
+                    onClose={() => setVkbOpen(false)}
+                    placeholder={t('couponCode', lang)}
+                  />
+                )}
               </div>
             </>
           )}

@@ -6769,6 +6769,13 @@ app.get('/api/download/tv', (req, res) => {
   res.sendFile(apkPath);
 });
 
+app.get('/api/download/windows', (req, res) => {
+  const zipPath = path.join(__serverDir, '../client/public/SRServiWindowsClient.zip');
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', 'attachment; filename="SRServiWindowsClient.zip"');
+  res.sendFile(zipPath);
+});
+
 // ==================== APK Releases ====================
 
 app.get('/api/superadmin/apks', authenticateSuperadminToken, async (req, res) => {

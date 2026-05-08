@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEnvelope, faLock, faDownload, faUserCog, faKey, faShieldAlt } from '@fortawesome/free-solid-svg-icons';
+import { faEnvelope, faLock, faDownload, faUserCog, faKey, faShieldAlt, faDesktop } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -383,6 +383,17 @@ function Login() {
           >
             <FontAwesomeIcon icon={faDownload} />
             Descargar App TV Órdenes
+          </a>
+          <a
+            href="/api/download/windows"
+            className="btn btn-lg btn-full"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', textDecoration: 'none', background: 'linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%)', color: '#fff', border: '2px solid #D4AF37', borderRadius: '12px', fontWeight: 700, fontSize: '15px', padding: '14px' }}
+          >
+            <FontAwesomeIcon icon={faDesktop} style={{ color: '#D4AF37', fontSize: '18px' }} />
+            <span>
+              <span style={{ color: '#D4AF37' }}>SRServi</span> para Windows
+            </span>
+            <FontAwesomeIcon icon={faDownload} style={{ marginLeft: 'auto', opacity: 0.7 }} />
           </a>
         </div>
       </div>
