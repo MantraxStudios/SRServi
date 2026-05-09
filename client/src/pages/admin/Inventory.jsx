@@ -23,10 +23,12 @@ function statusBadge(item) {
 }
 
 function rmBadge(rm) {
-  if (rm.quantity <= 0)          return { label: 'Agotado', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)' };
-  if (rm.quantity <= rm.min_quantity && rm.min_quantity > 0)
-                                 return { label: 'Stock bajo', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' };
-  return                                { label: 'OK', color: '#22c55e', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.3)' };
+  const qty = parseFloat(rm.quantity) || 0;
+  const min = parseFloat(rm.min_quantity) || 0;
+  if (qty <= 0)          return { label: 'Agotado', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)' };
+  if (qty <= min && min > 0)
+                         return { label: 'Stock bajo', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' };
+  return                        { label: 'OK', color: '#22c55e', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.3)' };
 }
 
 const inputStyle = {
@@ -231,7 +233,7 @@ export default function Inventory() {
   // ── Derived data ────────────────────────────────────────────────────────────
 
   const filteredRm = rawMats.filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()));
-  const rmAlerts = rawMats.filter(r => r.quantity <= 0 || (r.min_quantity > 0 && r.quantity <= r.min_quantity)).length;
+  const rmAlerts = rawMats.filter(r => { const q = parseFloat(r.quantity) || 0, m = parseFloat(r.min_quantity) || 0; return q <= 0 || (m > 0 && q <= m); }).length;
   const directItems = directTab === 'products' ? directData.products : directTab === 'ingredients' ? directData.ingredients : directData.extras;
   const filteredDirect = directItems.filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -323,7 +325,7 @@ export default function Inventory() {
               {filteredRm.map((rm, idx) => {
                 const b = rmBadge(rm);
                 return (
-                  <div key={rm.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 100px 110px 100px 110px', padding: '12px 16px', borderBottom: idx < filteredRm.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', alignItems: 'center', background: rm.quantity <= 0 ? 'rgba(239,68,68,0.03)' : rm.quantity <= rm.min_quantity && rm.min_quantity > 0 ? 'rgba(245,158,11,0.03)' : 'transparent' }}>
+                  <div key={rm.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 100px 110px 100px 110px', padding: '12px 16px', borderBottom: idx < filteredRm.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', alignItems: 'center', background: (parseFloat(rm.quantity)||0) <= 0 ? 'rgba(239,68,68,0.03)' : (parseFloat(rm.quantity)||0) <= (parseFloat(rm.min_quantity)||0) && (parseFloat(rm.min_quantity)||0) > 0 ? 'rgba(245,158,11,0.03)' : 'transparent' }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>{rm.name}</div>
                       {rm.cost_per_unit > 0 && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>Costo: ${fmt(rm.cost_per_unit)}/{rm.unit}</div>}
