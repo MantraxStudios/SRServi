@@ -278,6 +278,17 @@ export default function Tasks() {
     ? tasks.filter(t => t.worker_id === detailWorkerId)
     : tasks;
 
+  const workerStats = workers
+    .map(w => {
+      const wTasks = tasks.filter(t => t.worker_id === w.id);
+      const completed = wTasks.filter(t => t.completed_at).length;
+      const total = wTasks.length;
+      const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+      const initials = w.name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase();
+      return { ...w, completed, total, pct, initials };
+    })
+    .filter(w => w.name.toLowerCase().includes(workerSearch.toLowerCase().trim()));
+
   const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Lun → Dom
   const todayDow = new Date().getDay();
   const byDay = WEEK_ORDER.reduce((acc, dow) => {
@@ -540,75 +551,60 @@ export default function Tasks() {
                 <h3 className="empty-state-title">Sin trabajadores</h3>
                 <p className="empty-state-text">Primero agrega trabajadores en la sección Vendedores</p>
               </div>
-            ) : (() => {
-              const workerStats = workers
-                .map(w => {
-                  const wTasks = tasks.filter(t => t.worker_id === w.id);
-                  const completed = wTasks.filter(t => t.completed_at).length;
-                  const total = wTasks.length;
-                  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
-                  const initials = w.name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase();
-                  return { ...w, completed, total, pct, initials };
-                })
-                .filter(w => w.name.toLowerCase().includes(workerSearch.toLowerCase().trim()));
-
-              if (workerStats.length === 0) return (
-                <div style={{ textAlign: 'center', color: '#6b7280', padding: '40px 0', fontSize: 14 }}>
-                  No se encontró ningún trabajador
+            ) : workerStats.length === 0 ? (
+              <div style={{ textAlign: 'center', color: '#6b7280', padding: '40px 0', fontSize: 14 }}>
+                No se encontró ningún trabajador
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px 1fr 80px', padding: '4px 16px 8px', fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  <span>Trabajador</span>
+                  <span style={{ textAlign: 'center' }}>Hechas</span>
+                  <span style={{ textAlign: 'center' }}>Total</span>
+                  <span style={{ paddingLeft: 12 }}>Progreso</span>
+                  <span></span>
                 </div>
-              );
-
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px 1fr 80px', padding: '4px 16px 8px', fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                    <span>Trabajador</span>
-                    <span style={{ textAlign: 'center' }}>Hechas</span>
-                    <span style={{ textAlign: 'center' }}>Total</span>
-                    <span style={{ paddingLeft: 12 }}>Progreso</span>
-                    <span></span>
-                  </div>
-                  {workerStats.map(ws => {
-                    const pc = ws.pct === 100 ? '#16a34a' : ws.pct > 0 ? '#d97706' : '#6b7280';
-                    return (
-                      <div
-                        key={ws.id}
-                        onClick={() => setDetailWorkerId(ws.id)}
-                        style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px 1fr 80px', alignItems: 'center', padding: '12px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', transition: 'background 0.15s' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'linear-gradient(135deg, #D4AF37, #8B6914)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: '#000' }}>
-                            {ws.initials}
-                          </div>
-                          <span style={{ fontWeight: 600, fontSize: 14, color: '#e5e7eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws.name}</span>
+                {workerStats.map(ws => {
+                  const pc = ws.pct === 100 ? '#16a34a' : ws.pct > 0 ? '#d97706' : '#6b7280';
+                  return (
+                    <div
+                      key={ws.id}
+                      onClick={() => setDetailWorkerId(ws.id)}
+                      style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px 1fr 80px', alignItems: 'center', padding: '12px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', transition: 'background 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'linear-gradient(135deg, #D4AF37, #8B6914)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: '#000' }}>
+                          {ws.initials}
                         </div>
-                        <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 15, color: pc }}>{ws.completed}</div>
-                        <div style={{ textAlign: 'center', fontWeight: 500, fontSize: 14, color: '#6b7280' }}>{ws.total}</div>
-                        <div style={{ padding: '0 12px' }}>
-                          <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${ws.pct}%`, background: pc, borderRadius: 4, transition: 'width 0.4s' }} />
-                          </div>
-                          <div style={{ textAlign: 'right', fontSize: 10, color: pc, fontWeight: 700, marginTop: 3 }}>{ws.pct}%</div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
-                          <button onClick={() => openHistory(ws.id, ws.name, ws.initials)} title="Historial"
-                            style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#6b7280', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <FontAwesomeIcon icon={faChartBar} />
-                          </button>
-                          {workers.length > 1 && (
-                            <button onClick={() => openDupAll(ws.id, ws.name)} title="Duplicar tareas"
-                              style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(212,175,55,0.25)', background: 'rgba(212,175,55,0.07)', color: '#b45309', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <FontAwesomeIcon icon={faClone} />
-                            </button>
-                          )}
-                        </div>
+                        <span style={{ fontWeight: 600, fontSize: 14, color: '#e5e7eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws.name}</span>
                       </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
+                      <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 15, color: pc }}>{ws.completed}</div>
+                      <div style={{ textAlign: 'center', fontWeight: 500, fontSize: 14, color: '#6b7280' }}>{ws.total}</div>
+                      <div style={{ padding: '0 12px' }}>
+                        <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${ws.pct}%`, background: pc, borderRadius: 4, transition: 'width 0.4s' }} />
+                        </div>
+                        <div style={{ textAlign: 'right', fontSize: 10, color: pc, fontWeight: 700, marginTop: 3 }}>{ws.pct}%</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => openHistory(ws.id, ws.name, ws.initials)} title="Historial"
+                          style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#6b7280', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FontAwesomeIcon icon={faChartBar} />
+                        </button>
+                        {workers.length > 1 && (
+                          <button onClick={() => openDupAll(ws.id, ws.name)} title="Duplicar tareas"
+                            style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(212,175,55,0.25)', background: 'rgba(212,175,55,0.07)', color: '#b45309', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <FontAwesomeIcon icon={faClone} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>
