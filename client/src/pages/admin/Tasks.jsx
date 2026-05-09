@@ -87,7 +87,8 @@ export default function Tasks() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
-  const [filterWorker, setFilterWorker] = useState('all');
+  const [detailWorkerId, setDetailWorkerId] = useState(null);
+  const [workerSearch, setWorkerSearch] = useState('');
   const [dupAllModal, setDupAllModal] = useState(null);
   const [dupAllTarget, setDupAllTarget] = useState('');
   const [dupAllSaving, setDupAllSaving] = useState(false);
@@ -142,10 +143,11 @@ export default function Tasks() {
     }
   };
 
-  const openCreate = () => {
+  const openCreate = (presetWorkerId = null) => {
     setEditingTask(null);
     setIsDuplicating(false);
-    setForm({ ...emptyForm, worker_id: workers[0]?.id?.toString() || '' });
+    const wid = presetWorkerId ? presetWorkerId.toString() : workers[0]?.id?.toString() || '';
+    setForm({ ...emptyForm, worker_id: wid });
     setError('');
     setShowModal(true);
   };
@@ -272,9 +274,9 @@ export default function Tasks() {
     }
   };
 
-  const displayedTasks = filterWorker === 'all'
-    ? tasks
-    : tasks.filter(t => t.worker_id === parseInt(filterWorker));
+  const displayedTasks = detailWorkerId
+    ? tasks.filter(t => t.worker_id === detailWorkerId)
+    : tasks;
 
   const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Lun → Dom
   const todayDow = new Date().getDay();
@@ -297,68 +299,37 @@ export default function Tasks() {
     <>
       <header className="admin-header">
         <div>
-          <h1>Tareas Semanales</h1>
-          <p className="text-sm text-muted">
-            Asigna y controla tareas semanales de {selectedStore.name}.
-            Se reinician cada domingo a medianoche.
-          </p>
+          {detailWorkerId ? (
+            <>
+              <button
+                onClick={() => setDetailWorkerId(null)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 13, fontWeight: 600, padding: '0 0 4px', marginBottom: 2 }}
+              >
+                <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} /> Trabajadores
+              </button>
+              <h1>{workers.find(w => w.id === detailWorkerId)?.name}</h1>
+              {!loading && (() => {
+                const wt = tasks.filter(t => t.worker_id === detailWorkerId);
+                const done = wt.filter(t => t.completed_at).length;
+                return <p className="text-sm text-muted">{done}/{wt.length} tareas completadas · semana {formatWeekRange(getWeekStartStr(weekOffset))}</p>;
+              })()}
+            </>
+          ) : (
+            <>
+              <h1>Tareas Semanales</h1>
+              <p className="text-sm text-muted">
+                Asigna y controla tareas semanales de {selectedStore.name}. Se reinician cada domingo a medianoche.
+              </p>
+            </>
+          )}
         </div>
-        <button className="btn btn-primary" onClick={openCreate} disabled={workers.length === 0}>
+        <button className="btn btn-primary" onClick={() => openCreate(detailWorkerId)} disabled={workers.length === 0}>
           <FontAwesomeIcon icon={faPlus} />
           Nueva Tarea
         </button>
       </header>
 
       <div className="admin-main">
-        {/* Worker filter + actions */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', alignItems: 'center' }}>
-          <button
-            onClick={() => setFilterWorker('all')}
-            style={{
-              padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: 600,
-              border: filterWorker === 'all' ? '2px solid #D4AF37' : '2px solid transparent',
-              background: filterWorker === 'all' ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.05)',
-              color: filterWorker === 'all' ? '#D4AF37' : '#aaa', cursor: 'pointer'
-            }}
-          >
-            Todos
-          </button>
-          {workers.map(w => {
-            const wInitials = w.name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase();
-            const isActive = filterWorker === w.id.toString();
-            return (
-              <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                <button
-                  onClick={() => setFilterWorker(isActive ? 'all' : w.id.toString())}
-                  style={{
-                    padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: 600,
-                    border: isActive ? '2px solid #D4AF37' : '2px solid transparent',
-                    background: isActive ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.05)',
-                    color: isActive ? '#D4AF37' : '#aaa', cursor: 'pointer'
-                  }}
-                >
-                  {w.name}
-                </button>
-                <button
-                  onClick={() => openHistory(w.id, w.name, wInitials)}
-                  title="Historial"
-                  style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#6b7280', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <FontAwesomeIcon icon={faChartBar} />
-                </button>
-                {workers.length > 1 && (
-                  <button
-                    onClick={() => openDupAll(w.id, w.name)}
-                    title="Duplicar tareas a otro trabajador"
-                    style={{ width: 26, height: 26, borderRadius: 8, border: '1px solid rgba(212,175,55,0.25)', background: 'rgba(212,175,55,0.07)', color: '#92400e', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <FontAwesomeIcon icon={faClone} />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
 
         {/* ── Navegador de semana ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
@@ -442,232 +413,203 @@ export default function Tasks() {
           </div>
         </div>
 
-        {/* ── Resumen por trabajador ── */}
-        {tasks.length > 0 && (() => {
-          const summaryRows = workers
-            .map(w => {
-              const wTasks = tasks.filter(t => t.worker_id === w.id);
-              if (wTasks.length === 0) return null;
-              const completed = wTasks.filter(t => t.completed_at).length;
-              const total = wTasks.length;
-              const pct = Math.round((completed / total) * 100);
-              const color = pct === 100 ? '#16a34a' : pct > 0 ? '#d97706' : '#9ca3af';
-              const initials = w.name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase();
-              return { ...w, completed, total, pct, color, initials };
-            })
-            .filter(Boolean);
-          if (summaryRows.length === 0) return null;
-          return (
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-              {summaryRows.map(sw => (
-                <div
-                  key={sw.id}
-                  onClick={() => setFilterWorker(filterWorker === sw.id.toString() ? 'all' : sw.id.toString())}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-                    borderRadius: 12, cursor: 'pointer',
-                    background: filterWorker === sw.id.toString() ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.03)',
-                    border: filterWorker === sw.id.toString() ? '1px solid rgba(212,175,55,0.35)' : '1px solid rgba(255,255,255,0.08)',
-                    minWidth: 170, transition: 'all 0.15s',
-                  }}
-                >
-                  <div style={{
-                    width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-                    background: 'linear-gradient(135deg, #D4AF37, #8B6914)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 12, fontWeight: 900, color: '#000',
-                  }}>
-                    {sw.initials}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#ddd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {sw.name}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
-                      <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${sw.pct}%`, background: sw.color, borderRadius: 2, transition: 'width 0.4s' }} />
-                      </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: sw.color, minWidth: 36, textAlign: 'right', flexShrink: 0 }}>
-                        {sw.completed}/{sw.total}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-        })()}
-
-        {loading ? (
-          <div className="loading">Cargando tareas...</div>
-        ) : tasks.length === 0 ? (
-          <div className="empty-state">
-            <FontAwesomeIcon icon={faClipboardList} className="empty-state-icon" />
-            <h3 className="empty-state-title">Sin tareas asignadas</h3>
-            <p className="empty-state-text">
-              {workers.length === 0
-                ? 'Primero agrega trabajadores en la sección Vendedores'
-                : 'Crea la primera tarea para tus trabajadores'}
-            </p>
-            {workers.length > 0 && (
-              <button className="btn btn-primary" onClick={openCreate} style={{ marginTop: '16px' }}>
+        {detailWorkerId ? (
+          /* ── Kanban para trabajador seleccionado ── */
+          loading ? (
+            <div className="loading">Cargando tareas...</div>
+          ) : displayedTasks.length === 0 ? (
+            <div className="empty-state">
+              <FontAwesomeIcon icon={faClipboardList} className="empty-state-icon" />
+              <h3 className="empty-state-title">Sin tareas asignadas</h3>
+              <p className="empty-state-text">Este trabajador no tiene tareas aún</p>
+              <button className="btn btn-primary" onClick={() => openCreate(detailWorkerId)} style={{ marginTop: 16 }}>
                 <FontAwesomeIcon icon={faPlus} /> Nueva Tarea
               </button>
-            )}
-          </div>
-        ) : (
-          /* ── Vista semanal tipo Excel ── */
-          <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 'max-content' }}>
-              {WEEK_ORDER.map(dow => {
-                const dayTasks = byDay[dow];
-                const isToday = weekOffset === 0 && dow === todayDow;
-                const colDate = new Date(getWeekStart());
-                colDate.setDate(colDate.getDate() + weekOffset * 7 + dow);
-                const colYear = colDate.getFullYear();
-                const dateLabel = `${colDate.getDate()} ${MONTHS[colDate.getMonth()]}${colYear !== new Date().getFullYear() ? ` ${colYear}` : ''}`;
-                return (
-                  <div key={dow} style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-
-                    {/* Cabecera del día */}
-                    <div style={{
-                      padding: '10px 14px',
-                      borderRadius: 12,
-                      background: isToday
-                        ? 'linear-gradient(135deg, #D4AF37 0%, #a07c20 100%)'
-                        : '#f3f4f6',
-                      color: isToday ? '#000' : '#374151',
-                      fontWeight: 800, fontSize: 14,
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      boxShadow: isToday ? '0 4px 14px rgba(212,175,55,0.35)' : 'none',
-                      letterSpacing: '0.02em',
-                    }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        <span>{DAYS[dow]}</span>
-                        <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.7, letterSpacing: 0 }}>
-                          {dateLabel}
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 'max-content' }}>
+                {WEEK_ORDER.map(dow => {
+                  const dayTasks = byDay[dow];
+                  const isToday = weekOffset === 0 && dow === todayDow;
+                  const colDate = new Date(getWeekStart());
+                  colDate.setDate(colDate.getDate() + weekOffset * 7 + dow);
+                  const colYear = colDate.getFullYear();
+                  const dateLabel = `${colDate.getDate()} ${MONTHS[colDate.getMonth()]}${colYear !== new Date().getFullYear() ? ` ${colYear}` : ''}`;
+                  return (
+                    <div key={dow} style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{
+                        padding: '10px 14px', borderRadius: 12,
+                        background: isToday ? 'linear-gradient(135deg, #D4AF37 0%, #a07c20 100%)' : '#f3f4f6',
+                        color: isToday ? '#000' : '#374151', fontWeight: 800, fontSize: 14,
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        boxShadow: isToday ? '0 4px 14px rgba(212,175,55,0.35)' : 'none', letterSpacing: '0.02em',
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <span>{DAYS[dow]}</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.7, letterSpacing: 0 }}>{dateLabel}</span>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, minWidth: 22, textAlign: 'center', background: isToday ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.09)', borderRadius: 20, padding: '2px 8px' }}>
+                          {dayTasks.length}
                         </span>
                       </div>
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, minWidth: 22, textAlign: 'center',
-                        background: isToday ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.09)',
-                        borderRadius: 20, padding: '2px 8px',
-                      }}>
-                        {dayTasks.length}
-                      </span>
-                    </div>
 
-                    {/* Tareas del día */}
-                    {dayTasks.length === 0 ? (
-                      <div style={{
-                        border: '2px dashed #e5e7eb', borderRadius: 12,
-                        padding: '18px 12px', textAlign: 'center',
-                        color: '#d1d5db', fontSize: 12,
-                      }}>
-                        Sin tareas
-                      </div>
-                    ) : dayTasks.map(task => {
-                      const status = getTaskStatus(task, weekOffset === 0);
-                      const accentCol = { completed: '#16a34a', active: '#d97706', upcoming: '#94a3b8', expired: '#ef4444' }[status];
-                      const taskBg = { completed: '#f9fefb', active: '#fffcf5', upcoming: '#fff', expired: '#fff9f9' }[status];
-                      const workerInitials = task.worker_name?.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
-                      return (
-                        <div key={task.id} style={{
-                          background: taskBg,
-                          border: '1px solid #e5e7eb',
-                          borderLeft: `3px solid ${accentCol}`,
-                          borderRadius: 12,
-                          padding: '10px 11px',
-                        }}>
-                          {/* Worker badge (solo en modo "todos") */}
-                          {filterWorker === 'all' && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                              <div style={{
-                                width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                                background: 'linear-gradient(135deg, #D4AF37 0%, #a07c20 100%)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 8, fontWeight: 900, color: '#000',
-                              }}>
-                                {workerInitials}
-                              </div>
-                              <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {task.worker_name}
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Nombre */}
-                          <div style={{ fontWeight: 700, fontSize: 13, color: '#111', lineHeight: 1.3, marginBottom: 3 }}>
-                            {task.name}
-                          </div>
-
-                          {task.description && (
-                            <p style={{ margin: '0 0 4px', fontSize: 11, color: '#6b7280', lineHeight: 1.4 }}>
-                              {task.description}
-                            </p>
-                          )}
-
-                          {/* Hora + estado */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
-                            <span style={{ fontSize: 11, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3 }}>
-                              <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37', fontSize: 9 }} />
-                              {task.due_time}
-                            </span>
-                            <StatusBadge task={task} isCurrentWeek={weekOffset === 0} />
-                          </div>
-
-                          {task.completed_at && (
-                            <div style={{ fontSize: 10, color: '#15803d', display: 'flex', alignItems: 'center', gap: 3, marginBottom: 5 }}>
-                              <FontAwesomeIcon icon={faCheck} style={{ fontSize: 9 }} />
-                              {new Date(task.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                              {task.completed_by_name && <span style={{ color: '#9ca3af' }}> · {task.completed_by_name}</span>}
-                            </div>
-                          )}
-
-                          {/* Acciones */}
-                          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                            <button onClick={() => openDuplicate(task)} title="Duplicar"
-                              style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#9ca3af', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <FontAwesomeIcon icon={faCopy} />
-                            </button>
-                            <button onClick={() => openEdit(task)} title="Editar"
-                              style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <FontAwesomeIcon icon={faPencilAlt} />
-                            </button>
-                            <button onClick={() => handleDelete(task.id)} title="Eliminar"
-                              style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid #fca5a5', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <FontAwesomeIcon icon={faTrash} />
-                            </button>
-                          </div>
+                      {dayTasks.length === 0 ? (
+                        <div style={{ border: '2px dashed #e5e7eb', borderRadius: 12, padding: '18px 12px', textAlign: 'center', color: '#d1d5db', fontSize: 12 }}>
+                          Sin tareas
                         </div>
-                      );
-                    })}
+                      ) : dayTasks.map(task => {
+                        const status = getTaskStatus(task, weekOffset === 0);
+                        const accentCol = { completed: '#16a34a', active: '#d97706', upcoming: '#94a3b8', expired: '#ef4444' }[status];
+                        const taskBg = { completed: '#f9fefb', active: '#fffcf5', upcoming: '#fff', expired: '#fff9f9' }[status];
+                        return (
+                          <div key={task.id} style={{ background: taskBg, border: '1px solid #e5e7eb', borderLeft: `3px solid ${accentCol}`, borderRadius: 12, padding: '10px 11px' }}>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: '#111', lineHeight: 1.3, marginBottom: 3 }}>{task.name}</div>
+                            {task.description && (
+                              <p style={{ margin: '0 0 4px', fontSize: 11, color: '#6b7280', lineHeight: 1.4 }}>{task.description}</p>
+                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+                              <span style={{ fontSize: 11, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37', fontSize: 9 }} />
+                                {task.due_time}
+                              </span>
+                              <StatusBadge task={task} isCurrentWeek={weekOffset === 0} />
+                            </div>
+                            {task.completed_at && (
+                              <div style={{ fontSize: 10, color: '#15803d', display: 'flex', alignItems: 'center', gap: 3, marginBottom: 5 }}>
+                                <FontAwesomeIcon icon={faCheck} style={{ fontSize: 9 }} />
+                                {new Date(task.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                {task.completed_by_name && <span style={{ color: '#9ca3af' }}> · {task.completed_by_name}</span>}
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                              <button onClick={() => openDuplicate(task)} title="Duplicar"
+                                style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#9ca3af', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <FontAwesomeIcon icon={faCopy} />
+                              </button>
+                              <button onClick={() => openEdit(task)} title="Editar"
+                                style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <FontAwesomeIcon icon={faPencilAlt} />
+                              </button>
+                              <button onClick={() => handleDelete(task.id)} title="Eliminar"
+                                style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid #fca5a5', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <FontAwesomeIcon icon={faTrash} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
 
-                    {/* Botón agregar rápido */}
-                    {workers.length > 0 && (
-                      <button
-                        onClick={() => {
-                          setForm({ ...emptyForm, day_of_week: dow.toString(), worker_id: workers[0]?.id?.toString() || '' });
-                          setEditingTask(null); setIsDuplicating(false); setError('');
-                          setShowModal(true);
-                        }}
-                        style={{
-                          width: '100%', padding: '7px', borderRadius: 10,
-                          border: '2px dashed #e5e7eb', background: 'transparent',
-                          color: '#9ca3af', fontSize: 12, cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#D4AF37'; e.currentTarget.style.color = '#D4AF37'; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#9ca3af'; }}
-                      >
-                        <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} /> Agregar
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+                      {workers.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setForm({ ...emptyForm, day_of_week: dow.toString(), worker_id: detailWorkerId?.toString() || workers[0]?.id?.toString() || '' });
+                            setEditingTask(null); setIsDuplicating(false); setError('');
+                            setShowModal(true);
+                          }}
+                          style={{ width: '100%', padding: '7px', borderRadius: 10, border: '2px dashed #e5e7eb', background: 'transparent', color: '#9ca3af', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = '#D4AF37'; e.currentTarget.style.color = '#D4AF37'; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#9ca3af'; }}
+                        >
+                          <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} /> Agregar
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )
+        ) : (
+          /* ── Lista de trabajadores ── */
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <input
+                type="text"
+                placeholder="Buscar trabajador..."
+                value={workerSearch}
+                onChange={e => setWorkerSearch(e.target.value)}
+                style={{ width: '100%', maxWidth: 360, padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 14, outline: 'none' }}
+              />
+            </div>
+            {loading ? (
+              <div className="loading">Cargando...</div>
+            ) : workers.length === 0 ? (
+              <div className="empty-state">
+                <FontAwesomeIcon icon={faClipboardList} className="empty-state-icon" />
+                <h3 className="empty-state-title">Sin trabajadores</h3>
+                <p className="empty-state-text">Primero agrega trabajadores en la sección Vendedores</p>
+              </div>
+            ) : (() => {
+              const workerStats = workers
+                .map(w => {
+                  const wTasks = tasks.filter(t => t.worker_id === w.id);
+                  const completed = wTasks.filter(t => t.completed_at).length;
+                  const total = wTasks.length;
+                  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                  const initials = w.name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase();
+                  return { ...w, completed, total, pct, initials };
+                })
+                .filter(w => w.name.toLowerCase().includes(workerSearch.toLowerCase().trim()));
+
+              if (workerStats.length === 0) return (
+                <div style={{ textAlign: 'center', color: '#6b7280', padding: '40px 0', fontSize: 14 }}>
+                  No se encontró ningún trabajador
+                </div>
+              );
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px 1fr 80px', padding: '4px 16px 8px', fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    <span>Trabajador</span>
+                    <span style={{ textAlign: 'center' }}>Hechas</span>
+                    <span style={{ textAlign: 'center' }}>Total</span>
+                    <span style={{ paddingLeft: 12 }}>Progreso</span>
+                    <span></span>
+                  </div>
+                  {workerStats.map(ws => {
+                    const pc = ws.pct === 100 ? '#16a34a' : ws.pct > 0 ? '#d97706' : '#6b7280';
+                    return (
+                      <div
+                        key={ws.id}
+                        onClick={() => setDetailWorkerId(ws.id)}
+                        style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px 1fr 80px', alignItems: 'center', padding: '12px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', transition: 'background 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'linear-gradient(135deg, #D4AF37, #8B6914)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: '#000' }}>
+                            {ws.initials}
+                          </div>
+                          <span style={{ fontWeight: 600, fontSize: 14, color: '#e5e7eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws.name}</span>
+                        </div>
+                        <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 15, color: pc }}>{ws.completed}</div>
+                        <div style={{ textAlign: 'center', fontWeight: 500, fontSize: 14, color: '#6b7280' }}>{ws.total}</div>
+                        <div style={{ padding: '0 12px' }}>
+                          <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${ws.pct}%`, background: pc, borderRadius: 4, transition: 'width 0.4s' }} />
+                          </div>
+                          <div style={{ textAlign: 'right', fontSize: 10, color: pc, fontWeight: 700, marginTop: 3 }}>{ws.pct}%</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                          <button onClick={() => openHistory(ws.id, ws.name, ws.initials)} title="Historial"
+                            style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#6b7280', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <FontAwesomeIcon icon={faChartBar} />
+                          </button>
+                          {workers.length > 1 && (
+                            <button onClick={() => openDupAll(ws.id, ws.name)} title="Duplicar tareas"
+                              style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(212,175,55,0.25)', background: 'rgba(212,175,55,0.07)', color: '#b45309', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <FontAwesomeIcon icon={faClone} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </>
         )}
       </div>
 
