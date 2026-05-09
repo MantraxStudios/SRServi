@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faTrash, faPencilAlt, faCheck, faClock, faUser,
   faExclamationTriangle, faClipboardList, faTimes, faCopy, faClone,
-  faChartBar, faChevronLeft, faChevronRight
+  faChartBar, faChevronLeft, faChevronRight, faCalendar
 } from '@fortawesome/free-solid-svg-icons';
 import { StoreContext } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
@@ -362,47 +362,84 @@ export default function Tasks() {
 
         {/* ── Navegador de semana ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          {/* Flecha izquierda */}
           <button
             onClick={() => setWeekOffset(o => o - 1)}
             disabled={weekOffset <= -12}
             style={{
               width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(255,255,255,0.05)', color: weekOffset <= -12 ? '#333' : '#aaa',
+              background: 'rgba(255,255,255,0.05)', color: weekOffset <= -12 ? '#444' : '#aaa',
               cursor: weekOffset <= -12 ? 'default' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
             }}
           >
             <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
           </button>
-          <div style={{ textAlign: 'center', minWidth: 200 }}>
+
+          {/* Centro: rango de semana */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>
               {formatWeekRange(getWeekStartStr(weekOffset))}
             </div>
             {weekOffset === 0 ? (
-              <div style={{ fontSize: 10, color: '#D4AF37', fontWeight: 600, marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: 10, color: '#D4AF37', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Semana actual
               </div>
             ) : (
               <button
                 onClick={() => setWeekOffset(0)}
-                style={{ fontSize: 10, color: '#D4AF37', fontWeight: 600, marginTop: 2, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+                style={{ fontSize: 10, color: '#D4AF37', fontWeight: 600, border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'block', textAlign: 'center' }}
               >
                 Ir a semana actual →
               </button>
             )}
           </div>
+
+          {/* Flecha derecha */}
           <button
             onClick={() => setWeekOffset(o => o + 1)}
             disabled={weekOffset >= 0}
             style={{
               width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(255,255,255,0.05)', color: weekOffset >= 0 ? '#333' : '#aaa',
+              background: 'rgba(255,255,255,0.05)', color: weekOffset >= 0 ? '#444' : '#aaa',
               cursor: weekOffset >= 0 ? 'default' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
             }}
           >
             <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 11 }} />
           </button>
+
+          {/* Selector de fecha */}
+          <div style={{ position: 'relative', flexShrink: 0 }} title="Ir a una fecha">
+            <button style={{
+              width: 32, height: 32, borderRadius: 8,
+              border: '1px solid rgba(212,175,55,0.3)',
+              background: 'rgba(212,175,55,0.07)',
+              color: '#D4AF37', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <FontAwesomeIcon icon={faCalendar} style={{ fontSize: 11 }} />
+            </button>
+            <input
+              type="date"
+              max={new Date().toISOString().split('T')[0]}
+              onChange={e => {
+                if (!e.target.value) return;
+                const picked = new Date(e.target.value + 'T12:00:00');
+                const currentStart = getWeekStart();
+                const pickedStart = new Date(picked);
+                pickedStart.setDate(pickedStart.getDate() - pickedStart.getDay());
+                pickedStart.setHours(0, 0, 0, 0);
+                const diffWeeks = Math.round((pickedStart - currentStart) / (7 * 24 * 60 * 60 * 1000));
+                setWeekOffset(Math.max(-12, Math.min(0, diffWeeks)));
+                e.target.value = '';
+              }}
+              style={{
+                position: 'absolute', inset: 0, opacity: 0,
+                cursor: 'pointer', width: '100%', height: '100%',
+              }}
+            />
+          </div>
         </div>
 
         {/* ── Resumen por trabajador ── */}
