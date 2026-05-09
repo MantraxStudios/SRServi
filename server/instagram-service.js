@@ -104,12 +104,12 @@ async function coverImg(ctx, product, x, y, w, h, radius = 18) {
     else { dw = w; dh = dw / aspect; }
     ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
   } else {
-    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.fillStyle = 'rgba(0,0,0,0.06)';
     ctx.fillRect(x, y, w, h);
     ctx.font = `${Math.floor(Math.min(w, h) * 0.32)}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
     ctx.fillText('🍽', x + w / 2, y + h / 2);
   }
   ctx.restore();
@@ -149,29 +149,35 @@ function drawCornerBrackets(ctx, x, y, w, h, len, thick, color) {
   }
 }
 
-// ─── Template 0 — PODIO  (dark ranking) ──────────────────────────────────────
+// ─── Template 0 — PODIO  (white ranking) ─────────────────────────────────────
 
 async function tpl0_podio(ctx, store, products, coupons, sym, accent, primary) {
   const prods = (products || []).slice(0, 3);
   const name  = store.name || store.store_name || 'Mi Tienda';
   const code  = store.code || store.store_code || '';
 
-  const bg = ctx.createLinearGradient(0, 0, S, S);
-  bg.addColorStop(0, '#0e0e0e');
-  bg.addColorStop(0.5, /^#[0-9a-f]{6}$/i.test(primary) && primary !== '#ffffff' && primary !== '#FFFFFF' ? primary : '#111');
-  bg.addColorStop(1, '#060606');
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, S, S);
+  // White background
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, S, S);
 
-  drawCircle(ctx, S - 80, 80, 340, accent, 0.07);
-  drawCircle(ctx, 80, S - 80, 260, accent, 0.05);
+  // Subtle dot texture
+  ctx.save(); ctx.globalAlpha = 0.03;
+  for (let x = 20; x < S; x += 40)
+    for (let y = 20; y < S; y += 40) {
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+    }
+  ctx.restore();
+
+  drawCircle(ctx, S - 80, 80, 340, accent, 0.06);
+  drawCircle(ctx, 80, S - 80, 260, accent, 0.04);
 
   const topBar = ctx.createLinearGradient(0, 0, S, 0);
   topBar.addColorStop(0, accent);
   topBar.addColorStop(1, 'transparent');
   ctx.fillStyle = topBar; ctx.fillRect(0, 0, S, 8);
 
-  await drawLogo(ctx, store, S / 2, 86, 100, accent, primary);
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 52px sans-serif';
+  await drawLogo(ctx, store, S / 2, 86, 100, accent, contrastColor(accent));
+  ctx.fillStyle = '#111111'; ctx.font = 'bold 52px sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillText(trunc(name, 22), S / 2, 208);
 
@@ -192,11 +198,11 @@ async function tpl0_podio(ctx, store, products, coupons, sym, accent, primary) {
     const p = prods[i];
     const { x, y, w, h } = cards[i];
     ctx.save();
-    ctx.shadowColor = i === 0 ? rgba(accent, 0.5) : 'rgba(0,0,0,0.4)';
-    ctx.shadowBlur  = i === 0 ? 28 : 14;
-    ctx.fillStyle   = i === 0 ? rgba(accent, 0.13) : 'rgba(255,255,255,0.06)';
+    ctx.shadowColor = i === 0 ? rgba(accent, 0.3) : 'rgba(0,0,0,0.1)';
+    ctx.shadowBlur  = i === 0 ? 24 : 12;
+    ctx.fillStyle   = i === 0 ? rgba(accent, 0.08) : '#f8f8f8';
     rr(ctx, x, y, w, h, 20); ctx.fill(); ctx.restore();
-    ctx.strokeStyle = i === 0 ? rgba(accent, 0.7) : 'rgba(255,255,255,0.12)';
+    ctx.strokeStyle = i === 0 ? rgba(accent, 0.6) : '#e5e7eb';
     ctx.lineWidth   = i === 0 ? 2 : 1;
     rr(ctx, x, y, w, h, 20); ctx.stroke();
 
@@ -204,7 +210,7 @@ async function tpl0_podio(ctx, store, products, coupons, sym, accent, primary) {
     ctx.save(); rr(ctx, x, y, stripW, h, 20); ctx.clip();
     ctx.fillStyle = medals[i]; ctx.globalAlpha = i === 0 ? 1 : 0.85;
     ctx.fillRect(x, y, stripW, h); ctx.restore();
-    ctx.fillStyle = '#111';
+    ctx.fillStyle = contrastColor(medals[i]);
     ctx.font = `bold ${i === 0 ? 30 : 24}px sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(`0${i + 1}`, x + stripW / 2, y + h / 2);
@@ -214,10 +220,10 @@ async function tpl0_podio(ctx, store, products, coupons, sym, accent, primary) {
 
     const tx = x + stripW + imgSz + 22;
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = '#fff'; ctx.font = `bold ${i === 0 ? 31 : 25}px sans-serif`;
+    ctx.fillStyle = '#111111'; ctx.font = `bold ${i === 0 ? 31 : 25}px sans-serif`;
     ctx.fillText(trunc(p.name, 24), tx, y + (i === 0 ? 54 : 43));
     if (p.description) {
-      ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = `${i === 0 ? 19 : 16}px sans-serif`;
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.font = `${i === 0 ? 19 : 16}px sans-serif`;
       ctx.fillText(trunc(p.description, 34), tx, y + (i === 0 ? 82 : 67));
     }
     const price = `${sym}${Number(p.price).toLocaleString('es-CL')}`;
@@ -231,35 +237,40 @@ async function tpl0_podio(ctx, store, products, coupons, sym, accent, primary) {
   }
 
   ctx.fillStyle = accent; ctx.fillRect(0, S - 8, S, 8);
-  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '18px sans-serif';
+  ctx.fillStyle = '#888888'; ctx.font = '18px sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(`${BASE_URL}/store/${code}  ·  Powered by SRAutomatic`, S / 2, S - 36);
 }
 
-// ─── Template 1 — NEON DEALS  (glow promo / grid) ────────────────────────────
+// ─── Template 1 — NEON DEALS  (white promo / grid) ───────────────────────────
 
 async function tpl1_deals(ctx, store, products, coupons, sym, accent, primary) {
   const name   = store.name || store.store_name || 'Mi Tienda';
   const code   = store.code || store.store_code || '';
   const active = (coupons || []).filter(c => c.is_active).slice(0, 2);
 
-  ctx.fillStyle = '#080808'; ctx.fillRect(0, 0, S, S);
-  drawCircle(ctx, S / 2, S / 2, 460, accent, 0.06);
-  drawCircle(ctx, 100, 200,  280, accent, 0.04);
-  drawCircle(ctx, S - 100, S - 200, 300, accent, 0.04);
+  // White background
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, S, S);
 
-  ctx.save(); ctx.globalAlpha = 0.025; ctx.strokeStyle = accent; ctx.lineWidth = 2;
-  for (let d = -S; d < S * 2; d += 48) {
-    ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d + S, S); ctx.stroke();
-  }
+  // Subtle dot texture
+  ctx.save(); ctx.globalAlpha = 0.03;
+  for (let x = 20; x < S; x += 40)
+    for (let y = 20; y < S; y += 40) {
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+    }
   ctx.restore();
+
+  drawCircle(ctx, S / 2, S / 2, 460, accent, 0.05);
+  drawCircle(ctx, 100, 200,  280, accent, 0.03);
+  drawCircle(ctx, S - 100, S - 200, 300, accent, 0.03);
 
   const topG = ctx.createLinearGradient(0, 0, S, 0);
   topG.addColorStop(0, 'transparent'); topG.addColorStop(0.5, accent); topG.addColorStop(1, 'transparent');
   ctx.fillStyle = topG; ctx.fillRect(0, 0, S, 10);
 
-  await drawLogo(ctx, store, S / 2, 86, 96, accent, primary);
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 50px sans-serif';
+  await drawLogo(ctx, store, S / 2, 86, 96, accent, contrastColor(accent));
+  ctx.fillStyle = '#111111'; ctx.font = 'bold 50px sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillText(trunc(name, 22), S / 2, 206);
   ctx.fillStyle = accent; ctx.font = 'bold 25px sans-serif';
@@ -271,26 +282,26 @@ async function tpl1_deals(ctx, store, products, coupons, sym, accent, primary) {
     for (let i = 0; i < active.length; i++) {
       const c = active[i];
       const y = startY + i * (cardH + gap);
-      ctx.save(); ctx.shadowColor = accent; ctx.shadowBlur = 36;
+      ctx.save();
       ctx.strokeStyle = accent; ctx.lineWidth = 3;
       rr(ctx, 44, y, S - 88, cardH, 24); ctx.stroke(); ctx.restore();
-      ctx.fillStyle = rgba(accent, 0.1); rr(ctx, 44, y, S - 88, cardH, 24); ctx.fill();
-      ctx.save(); ctx.setLineDash([12, 8]); ctx.strokeStyle = rgba(accent, 0.4); ctx.lineWidth = 1.5;
+      ctx.fillStyle = rgba(accent, 0.07); rr(ctx, 44, y, S - 88, cardH, 24); ctx.fill();
+      ctx.save(); ctx.setLineDash([12, 8]); ctx.strokeStyle = rgba(accent, 0.35); ctx.lineWidth = 1.5;
       rr(ctx, 54, y + 10, S - 108, cardH - 20, 16); ctx.stroke(); ctx.restore();
 
       const discount = c.discount_type === 'percent' ? `${c.discount_value}%` : `${sym}${c.discount_value}`;
       ctx.fillStyle = accent; ctx.font = `bold ${cardH >= 300 ? 128 : 90}px sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
       ctx.fillText(discount, S / 2, y + cardH * 0.54);
-      ctx.fillStyle = 'rgba(255,255,255,0.65)'; ctx.font = 'bold 20px sans-serif';
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.font = 'bold 20px sans-serif';
       ctx.fillText('DE DESCUENTO', S / 2, y + cardH * 0.54 + 28);
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 22px sans-serif';
+      ctx.fillStyle = '#111111'; ctx.font = 'bold 22px sans-serif';
       ctx.fillText(trunc(c.name, 36), S / 2, y + 46);
       const codeText = `CÓDIGO: ${c.code}`;
       ctx.font = 'bold 19px sans-serif';
       const cW = ctx.measureText(codeText).width + 30;
-      ctx.fillStyle = '#fff'; rr(ctx, S / 2 - cW / 2, y + cardH - 52, cW, 34, 17); ctx.fill();
-      ctx.fillStyle = '#111'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#111'; rr(ctx, S / 2 - cW / 2, y + cardH - 52, cW, 34, 17); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle';
       ctx.fillText(codeText, S / 2, y + cardH - 35);
     }
   } else {
@@ -299,15 +310,16 @@ async function tpl1_deals(ctx, store, products, coupons, sym, accent, primary) {
     for (let i = 0; i < Math.min(prods.length, 4); i++) {
       const p = prods[i], col = i % 2, row = Math.floor(i / 2);
       const tx = 40 + col * (tileW + 16), ty = startY + row * (tileH + 16);
-      ctx.save(); ctx.shadowColor = accent; ctx.shadowBlur = 20;
-      ctx.strokeStyle = rgba(accent, 0.6); ctx.lineWidth = 2;
-      rr(ctx, tx, ty, tileW, tileH, 20); ctx.stroke(); ctx.restore();
-      ctx.fillStyle = 'rgba(255,255,255,0.05)'; rr(ctx, tx, ty, tileW, tileH, 20); ctx.fill();
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.1)'; ctx.shadowBlur = 16;
+      ctx.fillStyle = '#f8f8f8'; rr(ctx, tx, ty, tileW, tileH, 20); ctx.fill(); ctx.restore();
+      ctx.strokeStyle = rgba(accent, 0.4); ctx.lineWidth = 2;
+      rr(ctx, tx, ty, tileW, tileH, 20); ctx.stroke();
 
       await coverImg(ctx, p, tx, ty, tileW, tileH, 20);
       ctx.save(); rr(ctx, tx, ty, tileW, tileH, 20); ctx.clip();
       const ov = ctx.createLinearGradient(0, ty + tileH * 0.5, 0, ty + tileH);
-      ov.addColorStop(0, 'rgba(8,8,8,0)'); ov.addColorStop(1, 'rgba(8,8,8,0.95)');
+      ov.addColorStop(0, 'rgba(0,0,0,0)'); ov.addColorStop(1, 'rgba(0,0,0,0.85)');
       ctx.fillStyle = ov; ctx.fillRect(tx, ty, tileW, tileH); ctx.restore();
 
       ctx.fillStyle = '#fff'; ctx.font = 'bold 22px sans-serif';
@@ -319,12 +331,12 @@ async function tpl1_deals(ctx, store, products, coupons, sym, accent, primary) {
   }
 
   ctx.fillStyle = topG; ctx.fillRect(0, S - 10, S, 10);
-  ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.font = '17px sans-serif';
+  ctx.fillStyle = '#888888'; ctx.font = '17px sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(`${BASE_URL}/store/${code}  ·  Powered by SRAutomatic`, S / 2, S - 36);
 }
 
-// ─── Template 2 — MAGAZINE  (editorial photo grid) ───────────────────────────
+// ─── Template 2 — MAGAZINE  (editorial photo grid, white base) ───────────────
 
 async function tpl2_magazine(ctx, store, products, coupons, sym, accent, primary) {
   const prods = (products || []).slice(0, 3);
@@ -332,7 +344,8 @@ async function tpl2_magazine(ctx, store, products, coupons, sym, accent, primary
   const code  = store.code || store.store_code || '';
   const onAcc = contrastColor(accent);
 
-  ctx.fillStyle = '#0c0c0c'; ctx.fillRect(0, 0, S, S);
+  // White background
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, S, S);
 
   const headerH = 130;
   const hg = ctx.createLinearGradient(0, 0, S, 0);
@@ -365,7 +378,7 @@ async function tpl2_magazine(ctx, store, products, coupons, sym, accent, primary
     ctx.fillStyle = onAcc; ctx.textBaseline = 'middle';
     ctx.fillText(price, 40 + 14, heroY + heroH - 48 + pH / 2);
 
-    ctx.fillStyle = 'rgba(255,255,255,0.14)';
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
     const bdgW = 138, bdgH = 30;
     rr(ctx, S - 28 - bdgW - 2, heroY + 16, bdgW, bdgH, 15); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif';
@@ -383,7 +396,7 @@ async function tpl2_magazine(ctx, store, products, coupons, sym, accent, primary
     const ov2 = ctx.createLinearGradient(0, ty + tileH2 * 0.44, 0, ty + tileH2);
     ov2.addColorStop(0, 'rgba(0,0,0,0)'); ov2.addColorStop(1, 'rgba(0,0,0,0.9)');
     ctx.fillStyle = ov2; ctx.fillRect(tx, ty, tileW2, tileH2); ctx.restore();
-    ctx.strokeStyle = rgba(accent, 0.3); ctx.lineWidth = 1.5;
+    ctx.strokeStyle = rgba(accent, 0.4); ctx.lineWidth = 1.5;
     rr(ctx, tx, ty, tileW2, tileH2, 20); ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.font = 'bold 25px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
@@ -392,7 +405,7 @@ async function tpl2_magazine(ctx, store, products, coupons, sym, accent, primary
     ctx.fillText(`${sym}${Number(p.price).toLocaleString('es-CL')}`, tx + tileW2 / 2, ty + tileH2 - 8);
   }
 
-  ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.font = '16px sans-serif';
+  ctx.fillStyle = '#999999'; ctx.font = '16px sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('Powered by SRAutomatic.cl', S / 2, S - 20);
 }
@@ -501,26 +514,26 @@ async function tpl3_white(ctx, store, products, coupons, sym, accent, primary) {
   ctx.fillText(`${BASE_URL}/store/${code}`, S / 2, S - 56 + 40);
 }
 
-// ─── Template 4 — NOIR GOLD  (black luxury / premium) ────────────────────────
+// ─── Template 4 — NOIR GOLD  (white luxury / premium) ────────────────────────
 
 async function tpl4_noir(ctx, store, products, coupons, sym, accent, primary) {
   const prods = (products || []).slice(0, 3);
   const name  = store.name || store.store_name || 'Mi Tienda';
   const code  = store.code || store.store_code || '';
 
-  // Pure black
-  ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, S, S);
+  // White background
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, S, S);
 
   // Very subtle texture
-  ctx.save(); ctx.globalAlpha = 0.018;
-  for (let x = 0; x < S; x += 4)
-    for (let y = 0; y < S; y += 4) {
-      ctx.fillStyle = Math.random() > 0.5 ? '#fff' : '#000';
-      ctx.fillRect(x, y, 2, 2);
+  ctx.save(); ctx.globalAlpha = 0.02;
+  for (let x = 20; x < S; x += 40)
+    for (let y = 20; y < S; y += 40) {
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
     }
   ctx.restore();
 
-  // Corner brackets (gold)
+  // Corner brackets (accent color)
   drawCornerBrackets(ctx, 24, 24, S - 48, S - 48, 60, 2.5, rgba(accent, 0.7));
 
   // Thin top/bottom accent lines
@@ -528,36 +541,35 @@ async function tpl4_noir(ctx, store, products, coupons, sym, accent, primary) {
   ctx.fillRect(0, S - 3, S, 3);
 
   // Logo at top center
-  await drawLogo(ctx, store, S / 2, 94, 96, accent, '#000');
+  await drawLogo(ctx, store, S / 2, 94, 96, accent, contrastColor(accent));
 
   // Store name
-  ctx.fillStyle = '#ffffff'; ctx.font = 'bold 50px sans-serif';
+  ctx.fillStyle = '#111111'; ctx.font = 'bold 50px sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillText(trunc(name, 20), S / 2, 210);
 
-  // "MENÚ DE LA SEMANA" in small gold
-  ctx.fillStyle = rgba(accent, 0.8); ctx.font = '500 20px sans-serif';
+  // "MENÚ DE LA SEMANA" in small accent
+  ctx.fillStyle = rgba(accent, 0.85); ctx.font = '500 20px sans-serif';
   ctx.fillText('— MENÚ DE LA SEMANA —', S / 2, 244);
 
-  // Gold horizontal rule
+  // Accent horizontal rule
   ctx.strokeStyle = accent; ctx.lineWidth = 1;
   const ruleY = 262;
   ctx.beginPath(); ctx.moveTo(S / 2 - 160, ruleY); ctx.lineTo(S / 2 + 160, ruleY); ctx.stroke();
 
-  // Hero product — circular with glow ring
+  // Hero product — circular with accent ring
   if (prods[0]) {
     const heroR = 198, heroCX = S / 2, heroCY = 480;
 
-    // Glow
+    // Soft shadow ring
     ctx.save();
-    for (let i = 4; i >= 1; i--) {
-      ctx.shadowColor = accent; ctx.shadowBlur = i * 18;
-      ctx.strokeStyle = rgba(accent, 0.12 * i); ctx.lineWidth = i * 3;
+    for (let i = 3; i >= 1; i--) {
+      ctx.strokeStyle = rgba(accent, 0.08 * i); ctx.lineWidth = i * 4;
       ctx.beginPath(); ctx.arc(heroCX, heroCY, heroR + 14, 0, Math.PI * 2); ctx.stroke();
     }
     ctx.restore();
 
-    // Gold ring
+    // Accent ring
     ctx.strokeStyle = accent; ctx.lineWidth = 3.5;
     ctx.beginPath(); ctx.arc(heroCX, heroCY, heroR + 8, 0, Math.PI * 2); ctx.stroke();
 
@@ -573,8 +585,8 @@ async function tpl4_noir(ctx, store, products, coupons, sym, accent, primary) {
       else { dw = sz; dh = dw / aspect; }
       ctx.drawImage(img, heroCX - dw / 2, heroCY - dh / 2, dw, dh);
     } else {
-      ctx.fillStyle = rgba(accent, 0.15); ctx.fillRect(heroCX - heroR, heroCY - heroR, heroR * 2, heroR * 2);
-      ctx.font = '100px serif'; ctx.fillStyle = rgba(accent, 0.4);
+      ctx.fillStyle = rgba(accent, 0.1); ctx.fillRect(heroCX - heroR, heroCY - heroR, heroR * 2, heroR * 2);
+      ctx.font = '100px serif'; ctx.fillStyle = rgba(accent, 0.35);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('🍽', heroCX, heroCY);
     }
@@ -586,7 +598,7 @@ async function tpl4_noir(ctx, store, products, coupons, sym, accent, primary) {
     ctx.fillRect(-7, -7, 14, 14); ctx.restore();
 
     // Product name
-    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 42px sans-serif';
+    ctx.fillStyle = '#111111'; ctx.font = 'bold 42px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.fillText(trunc(prods[0].name, 22), S / 2, heroCY + heroR + 58);
 
@@ -594,7 +606,7 @@ async function tpl4_noir(ctx, store, products, coupons, sym, accent, primary) {
     ctx.fillStyle = accent; ctx.font = 'bold 52px sans-serif';
     ctx.fillText(`${sym}${Number(prods[0].price).toLocaleString('es-CL')}`, S / 2, heroCY + heroR + 122);
 
-    // Gold rule below price
+    // Accent rule below price
     ctx.strokeStyle = rgba(accent, 0.35); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(S / 2 - 200, heroCY + heroR + 140); ctx.lineTo(S / 2 + 200, heroCY + heroR + 140); ctx.stroke();
   }
@@ -604,24 +616,27 @@ async function tpl4_noir(ctx, store, products, coupons, sym, accent, primary) {
   for (let i = 1; i <= 2; i++) {
     const p = prods[i]; if (!p) continue;
     const tx = 44 + (i - 1) * (secW + 16);
-    ctx.strokeStyle = rgba(accent, 0.3); ctx.lineWidth = 1;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.08)'; ctx.shadowBlur = 12;
+    ctx.fillStyle = '#f8f8f8'; rr(ctx, tx, secY, secW, secH, 12); ctx.fill(); ctx.restore();
+    ctx.strokeStyle = rgba(accent, 0.4); ctx.lineWidth = 1.5;
     rr(ctx, tx, secY, secW, secH, 12); ctx.stroke();
     const imgSz = secH - 12;
     await coverImg(ctx, p, tx + 6, secY + 6, imgSz, imgSz, 8);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif';
+    ctx.fillStyle = '#111111'; ctx.font = 'bold 18px sans-serif';
     ctx.fillText(trunc(p.name, 18), tx + imgSz + 12, secY + 34);
     ctx.fillStyle = accent; ctx.font = 'bold 20px sans-serif';
     ctx.fillText(`${sym}${Number(p.price).toLocaleString('es-CL')}`, tx + imgSz + 12, secY + 60);
   }
 
   // Footer
-  ctx.fillStyle = rgba(accent, 0.3); ctx.font = '17px sans-serif';
+  ctx.fillStyle = '#888888'; ctx.font = '17px sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(`${BASE_URL}/store/${code}  ·  Powered by SRAutomatic`, S / 2, S - 24);
 }
 
-// ─── Template 5 — BOLD SPLIT  (black top / white bottom poster) ──────────────
+// ─── Template 5 — BOLD SPLIT  (white poster with accent diagonal) ─────────────
 
 async function tpl5_split(ctx, store, products, coupons, sym, accent, primary) {
   const prods  = (products || []).slice(0, 3);
@@ -630,12 +645,22 @@ async function tpl5_split(ctx, store, products, coupons, sym, accent, primary) {
   const onAcc  = contrastColor(accent);
   const splitY = 420;
 
-  // Black top
-  ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, S, splitY);
-  // White bottom
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, splitY, S, S - splitY);
+  // White background throughout
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, S, S);
 
-  // Diagonal cut (polygon)
+  // Light gray top section
+  ctx.fillStyle = '#f5f5f5'; ctx.fillRect(0, 0, S, splitY);
+
+  // Subtle dot texture on top section
+  ctx.save(); ctx.globalAlpha = 0.04;
+  for (let x = 20; x < splitY; x += 40)
+    for (let y = 20; y < splitY; y += 40) {
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+    }
+  ctx.restore();
+
+  // Diagonal accent cut
   ctx.fillStyle = accent;
   ctx.beginPath();
   ctx.moveTo(0, splitY - 30);
@@ -645,40 +670,38 @@ async function tpl5_split(ctx, store, products, coupons, sym, accent, primary) {
   ctx.closePath();
   ctx.fill();
 
-  // Decorative dark circles on black top
+  // Decorative accent circles on top section
   drawCircle(ctx, S - 60, 60, 220, accent, 0.06);
   drawCircle(ctx, 60,  splitY - 40, 160, accent, 0.05);
 
-  // ── Top (black) section
-  // Logo
-  await drawLogo(ctx, store, 70, 64, 84, accent, '#000');
+  // ── Top (light) section
+  await drawLogo(ctx, store, 70, 64, 84, accent, contrastColor(accent));
 
-  // Store name — large on black
-  ctx.fillStyle = '#ffffff'; ctx.font = 'bold 62px sans-serif';
+  ctx.fillStyle = '#111111'; ctx.font = 'bold 62px sans-serif';
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   ctx.fillText(trunc(name, 14), 138, 72);
   ctx.fillStyle = rgba(accent, 0.85); ctx.font = '500 22px sans-serif';
   ctx.fillText('Lo mejor de la semana 👇', 138, 102);
 
-  // Big product name on black (first product)
+  // Big product card on top section
   if (prods[0]) {
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    rr(ctx, 44, 130, S - 88, 230, 20); ctx.fill();
-    ctx.strokeStyle = rgba(accent, 0.2); ctx.lineWidth = 1;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.1)'; ctx.shadowBlur = 20;
+    ctx.fillStyle = '#ffffff'; rr(ctx, 44, 130, S - 88, 230, 20); ctx.fill(); ctx.restore();
+    ctx.strokeStyle = rgba(accent, 0.25); ctx.lineWidth = 1.5;
     rr(ctx, 44, 130, S - 88, 230, 20); ctx.stroke();
 
     const heroImgSz = 206;
     await coverImg(ctx, prods[0], 60, 142, heroImgSz, heroImgSz, 16);
 
     const textX = 60 + heroImgSz + 22;
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 38px sans-serif';
+    ctx.fillStyle = '#111111'; ctx.font = 'bold 38px sans-serif';
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     ctx.fillText(trunc(prods[0].name, 18), textX, 195);
     if (prods[0].description) {
-      ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '19px sans-serif';
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.font = '19px sans-serif';
       ctx.fillText(trunc(prods[0].description, 28), textX, 224);
     }
-    // Price pill on dark
     const price = `${sym}${Number(prods[0].price).toLocaleString('es-CL')}`;
     drawPricePill(ctx, price, textX + 80, 308, 'bold 38px sans-serif', accent, onAcc);
   }
@@ -686,7 +709,6 @@ async function tpl5_split(ctx, store, products, coupons, sym, accent, primary) {
   // ── White section (below split accent line)
   const whiteStart = splitY + 46;
 
-  // "TAMBIÉN TE VA A GUSTAR" label
   ctx.fillStyle = '#111'; ctx.font = 'bold 22px sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillText('TAMBIÉN TE VA A GUSTAR', S / 2, whiteStart + 34);
@@ -718,7 +740,7 @@ async function tpl5_split(ctx, store, products, coupons, sym, accent, primary) {
     ctx.fillText(`${sym}${Number(p.price).toLocaleString('es-CL')}`, textX, tilesY + 110);
   }
 
-  // Footer on white
+  // Footer
   const footY = tilesY + tileH + 30;
   ctx.fillStyle = accent; ctx.fillRect(0, footY, S, 6);
   ctx.fillStyle = '#555'; ctx.font = '16px sans-serif';
