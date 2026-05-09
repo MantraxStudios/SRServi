@@ -124,15 +124,26 @@ function SuperadminDashboard() {
   const [saOrderItems, setSaOrderItems] = useState([]);
   const [saDeleteConfirm, setSaDeleteConfirm] = useState(null);
 
-  const fetchSaOrders = async () => {
+  const fetchSaOrders = async (filterOverride) => {
     setSaOrdersLoading(true);
     try {
       const token = localStorage.getItem('superadminToken');
-      const q = new URLSearchParams(Object.fromEntries(Object.entries(saOrderFilter).filter(([, v]) => v)));
+      const activeFilter = filterOverride !== undefined ? filterOverride : saOrderFilter;
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(activeFilter).filter(([, v]) => v)));
       const r = await fetch(`${API}/api/superadmin/orders?${q}`, { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) {
+        console.error('fetchSaOrders error:', r.status, await r.text());
+        setSaOrders([]);
+        setSaOrdersTotal(0);
+        return;
+      }
       const d = await r.json();
       setSaOrders(d.orders || []);
       setSaOrdersTotal(d.total || 0);
+    } catch (err) {
+      console.error('fetchSaOrders exception:', err);
+      setSaOrders([]);
+      setSaOrdersTotal(0);
     } finally { setSaOrdersLoading(false); }
   };
 
@@ -228,8 +239,10 @@ function SuperadminDashboard() {
       const nid = Date.now() + Math.random();
       // resolve store name from loaded stores list
       setStores(currentStores => {
-        const storeName = currentStores.find(s => s.id === data.store_id)?.name || `Tienda #${data.store_id}`;
-        setOrderNotifs(prev => [...prev, { nid, ...data, store_name: storeName }]);
+        const found = currentStores.find(s => s.id === data.store_id);
+        const storeName = found?.name || `Tienda #${data.store_id}`;
+        const storeCode = found?.code || null;
+        setOrderNotifs(prev => [...prev, { nid, ...data, store_name: storeName, store_code: storeCode }]);
         return currentStores;
       });
       // auto-dismiss after 8 seconds
@@ -737,7 +750,7 @@ function SuperadminDashboard() {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, color: '#fff', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  Nuevo pedido — {n.store_name}
+                  Nuevo pedido — {n.store_name}{n.store_code ? ` [${n.store_code}]` : ''}
                 </div>
                 <div style={{ color: '#D4AF37', fontSize: 12, fontWeight: 600 }}>
                   #{n.order_number || n.id} · ${parseFloat(n.total).toLocaleString()} · {n.payment_method === 'cash' ? 'Efectivo' : n.payment_method === 'card' ? 'Tarjeta' : n.payment_method}
@@ -1606,7 +1619,7 @@ function SuperadminDashboard() {
                   <button onClick={fetchSaOrders} className="btn btn-primary" style={{ height: 36, padding: '0 18px', fontSize: 13 }}>
                     <FontAwesomeIcon icon={faFilter} /> Filtrar
                   </button>
-                  <button onClick={() => { setSaOrderFilter({ store_id: '', date_from: '', date_to: '', status: '' }); }} className="btn btn-secondary" style={{ height: 36, padding: '0 14px', fontSize: 13 }}>
+                  <button onClick={() => { const empty = { store_id: '', date_from: '', date_to: '', status: '' }; setSaOrderFilter(empty); fetchSaOrders(empty); }} className="btn btn-secondary" style={{ height: 36, padding: '0 14px', fontSize: 13 }}>
                     <FontAwesomeIcon icon={faSync} />
                   </button>
                 </div>
@@ -1633,7 +1646,7 @@ function SuperadminDashboard() {
                       ) : saOrders.map(o => (
                         <tr key={o.id} style={{ borderBottom: '1px solid #eee', background: saOrderDetail?.id === o.id ? '#fffbe6' : 'white' }}>
                           <td style={{ padding: '9px 12px', fontWeight: 700 }}>{o.order_number || o.id}</td>
-                          <td style={{ padding: '9px 12px', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.store_name || o.store_id}</td>
+                          <td style={{ padding: '9px 12px', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.store_name || `#${o.store_id}`}{o.store_code ? ` [${o.store_code}]` : ''}</td>
                           <td style={{ padding: '9px 12px', fontWeight: 700, color: '#22c55e' }}>${parseFloat(o.total).toLocaleString()}</td>
                           <td style={{ padding: '9px 12px' }}>
                             <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
@@ -1694,7 +1707,7 @@ function SuperadminDashboard() {
               <button onClick={() => setSaOrderDetail(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#888' }}>×</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px', marginBottom: 18, fontSize: 13 }}>
-              <div><span style={{ color: '#888' }}>Tienda:</span> <strong>{saOrderDetail.store_name}</strong></div>
+              <div><span style={{ color: '#888' }}>Tienda:</span> <strong>{saOrderDetail.store_name || `#${saOrderDetail.store_id}`}{saOrderDetail.store_code ? ` [${saOrderDetail.store_code}]` : ''}</strong></div>
               <div><span style={{ color: '#888' }}>Fecha:</span> <strong>{new Date(saOrderDetail.created_at).toLocaleString('es')}</strong></div>
               <div><span style={{ color: '#888' }}>Total:</span> <strong style={{ color: '#22c55e' }}>${parseFloat(saOrderDetail.total).toLocaleString()}</strong></div>
               <div><span style={{ color: '#888' }}>Método pago:</span> <strong>{saOrderDetail.payment_method === 'cash' ? 'Efectivo' : saOrderDetail.payment_method === 'card' ? 'Tarjeta' : saOrderDetail.payment_method}</strong></div>
