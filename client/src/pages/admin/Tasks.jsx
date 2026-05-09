@@ -12,14 +12,17 @@ const API = 'https://srservi2.srautomatic.com';
 
 const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MONTHS_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 function formatWeekRange(weekStartStr) {
   const start = new Date(weekStartStr + 'T12:00:00');
   const end = new Date(start);
   end.setDate(end.getDate() + 6);
-  const fmt = d => `${d.getDate()} ${MONTHS[d.getMonth()]}`;
-  const yearSuffix = end.getFullYear() !== new Date().getFullYear() ? ` ${end.getFullYear()}` : '';
-  return `${fmt(start)} – ${fmt(end)}${yearSuffix}`;
+  const year = end.getFullYear();
+  if (start.getMonth() === end.getMonth()) {
+    return `${start.getDate()} – ${end.getDate()} de ${MONTHS_FULL[end.getMonth()]} ${year}`;
+  }
+  return `${start.getDate()} ${MONTHS[start.getMonth()]} – ${end.getDate()} ${MONTHS[end.getMonth()]} ${year}`;
 }
 
 function getWeekStart() {
