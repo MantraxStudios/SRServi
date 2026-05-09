@@ -346,34 +346,37 @@ export default function Tasks() {
       <div className="admin-main">
 
         {/* ── Navegador de semana ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, padding: '12px 18px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}>
           {/* Flecha izquierda */}
           <button
             onClick={() => setWeekOffset(o => o - 1)}
             disabled={weekOffset <= -12}
             style={{
-              width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(255,255,255,0.05)', color: weekOffset <= -12 ? '#444' : '#aaa',
+              width: 36, height: 36, borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(255,255,255,0.06)', color: weekOffset <= -12 ? '#444' : '#ccc',
               cursor: weekOffset <= -12 ? 'default' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
             }}
           >
-            <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
+            <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 13 }} />
           </button>
 
           {/* Centro: rango de semana */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Semana
+            </div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: '#fff', letterSpacing: '-0.01em', textAlign: 'center' }}>
               {formatWeekRange(getWeekStartStr(weekOffset))}
             </div>
             {weekOffset === 0 ? (
-              <div style={{ fontSize: 10, color: '#D4AF37', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: 11, color: '#D4AF37', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Semana actual
               </div>
             ) : (
               <button
                 onClick={() => setWeekOffset(0)}
-                style={{ fontSize: 10, color: '#D4AF37', fontWeight: 600, border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'block', textAlign: 'center' }}
+                style={{ fontSize: 11, color: '#D4AF37', fontWeight: 600, border: 'none', background: 'none', cursor: 'pointer', padding: 0, textAlign: 'center' }}
               >
                 Ir a semana actual →
               </button>
@@ -385,13 +388,13 @@ export default function Tasks() {
             onClick={() => setWeekOffset(o => o + 1)}
             disabled={weekOffset >= 0}
             style={{
-              width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(255,255,255,0.05)', color: weekOffset >= 0 ? '#444' : '#aaa',
+              width: 36, height: 36, borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(255,255,255,0.06)', color: weekOffset >= 0 ? '#444' : '#ccc',
               cursor: weekOffset >= 0 ? 'default' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
             }}
           >
-            <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 11 }} />
+            <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 13 }} />
           </button>
 
           {/* Selector de fecha */}
