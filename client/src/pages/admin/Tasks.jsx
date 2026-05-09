@@ -521,7 +521,11 @@ export default function Tasks() {
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 'max-content' }}>
               {WEEK_ORDER.map(dow => {
                 const dayTasks = byDay[dow];
-                const isToday = dow === todayDow;
+                const isToday = weekOffset === 0 && dow === todayDow;
+                const colDate = new Date(getWeekStart());
+                colDate.setDate(colDate.getDate() + weekOffset * 7 + dow);
+                const colYear = colDate.getFullYear();
+                const dateLabel = `${colDate.getDate()} ${MONTHS[colDate.getMonth()]}${colYear !== new Date().getFullYear() ? ` ${colYear}` : ''}`;
                 return (
                   <div key={dow} style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
 
@@ -538,7 +542,12 @@ export default function Tasks() {
                       boxShadow: isToday ? '0 4px 14px rgba(212,175,55,0.35)' : 'none',
                       letterSpacing: '0.02em',
                     }}>
-                      <span>{DAYS[dow]}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <span>{DAYS[dow]}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.7, letterSpacing: 0 }}>
+                          {dateLabel}
+                        </span>
+                      </div>
                       <span style={{
                         fontSize: 11, fontWeight: 700, minWidth: 22, textAlign: 'center',
                         background: isToday ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.09)',
