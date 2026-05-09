@@ -1616,7 +1616,7 @@ function SuperadminDashboard() {
                       <option value="cancelled">Cancelado</option>
                     </select>
                   </div>
-                  <button onClick={fetchSaOrders} className="btn btn-primary" style={{ height: 36, padding: '0 18px', fontSize: 13 }}>
+                  <button onClick={() => fetchSaOrders()} className="btn btn-primary" style={{ height: 36, padding: '0 18px', fontSize: 13 }}>
                     <FontAwesomeIcon icon={faFilter} /> Filtrar
                   </button>
                   <button onClick={() => { const empty = { store_id: '', date_from: '', date_to: '', status: '' }; setSaOrderFilter(empty); fetchSaOrders(empty); }} className="btn btn-secondary" style={{ height: 36, padding: '0 14px', fontSize: 13 }}>
