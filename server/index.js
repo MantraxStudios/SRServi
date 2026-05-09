@@ -7038,25 +7038,26 @@ app.delete('/api/superadmin/apks/:id', authenticateSuperadminToken, async (req, 
 app.get('/api/superadmin/orders', authenticateSuperadminToken, async (req, res) => {
   try {
     const { store_id, date_from, date_to, status, limit = 200, offset = 0 } = req.query;
+    const limitVal  = Math.max(1, parseInt(limit)  || 200);
+    const offsetVal = Math.max(0, parseInt(offset) || 0);
     let where = '1=1';
     const params = [];
     if (store_id) { where += ' AND o.store_id = ?'; params.push(parseInt(store_id)); }
     if (date_from) { where += ' AND DATE(o.created_at) >= ?'; params.push(date_from); }
     if (date_to)   { where += ' AND DATE(o.created_at) <= ?'; params.push(date_to); }
     if (status)    { where += ' AND o.status = ?'; params.push(status); }
-    params.push(parseInt(limit), parseInt(offset));
     const [rows] = await pool.execute(
       `SELECT o.*, s.name as store_name, s.code as store_code
        FROM orders o
        LEFT JOIN stores s ON o.store_id = s.id
        WHERE ${where}
        ORDER BY o.created_at DESC
-       LIMIT ? OFFSET ?`,
+       LIMIT ${limitVal} OFFSET ${offsetVal}`,
       params
     );
     const [countRows] = await pool.execute(
-      `SELECT COUNT(*) as total FROM orders o WHERE ${where.replace(/ LIMIT.*/, '')}`,
-      params.slice(0, -2)
+      `SELECT COUNT(*) as total FROM orders o WHERE ${where}`,
+      params
     );
     const orders = rows.map(o => ({ ...o, total: parseFloat(o.total) || 0 }));
     res.json({ orders, total: countRows[0].total });
