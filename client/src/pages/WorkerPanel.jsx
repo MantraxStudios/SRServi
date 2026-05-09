@@ -363,7 +363,7 @@ function WorkerPanel() {
     });
 
     socket.on('new_order', (order) => {
-      if (order.payment_method === 'cash' && !order.cash_approved) {
+      if (order.payment_process === 0 && order.payment_method !== 'mercadopago') {
         setPendingCashOrders(prev => [order, ...prev]);
       } else if (order.payment_process === 1) {
         setOrders(prev => [order, ...prev]);
@@ -604,7 +604,7 @@ function WorkerPanel() {
 
       const activeOrders = todayOrders.filter(o => o.status !== 'completed' && o.payment_process === 1);
       const completed = todayOrders.filter(o => o.status === 'completed');
-      const pendingCash = todayOrders.filter(o => o.payment_method === 'cash' && !o.cash_approved && o.payment_process === 0);
+      const pendingCash = todayOrders.filter(o => o.payment_process === 0 && o.status !== 'completed' && o.status !== 'cancelled' && o.payment_method !== 'mercadopago');
       setOrders(activeOrders);
       setCompletedOrders(completed);
       setPendingCashOrders(pendingCash);
@@ -858,18 +858,20 @@ function WorkerPanel() {
     if (!term.trim()) { setPayResult(null); return; }
     const t = term.trim().toUpperCase();
 
+    const needsPayment = (o) => o.payment_process === 0 && o.payment_method !== 'mercadopago';
+
     // 1. Buscar en estado local
     const inPending = pendingCashOrders.find(o =>
       (o.order_number || '').toUpperCase() === t ||
       getOrderDisplayNumber(o).toUpperCase() === t
     );
-    if (inPending) { setPayResult({ ...inPending, _isPendingCash: true }); return; }
+    if (inPending) { setPayResult({ ...inPending, _needsPayment: true }); return; }
 
     const inActive = orders.find(o =>
       (o.order_number || '').toUpperCase() === t ||
       getOrderDisplayNumber(o).toUpperCase() === t
     );
-    if (inActive) { setPayResult({ ...inActive, _isPendingCash: false }); return; }
+    if (inActive) { setPayResult({ ...inActive, _needsPayment: false }); return; }
 
     // 2. Fallback: buscar en la API directamente
     try {
@@ -880,8 +882,7 @@ function WorkerPanel() {
       if (resp.ok) {
         const found = await resp.json();
         if (found) {
-          const isPendingCash = found.payment_method === 'cash' && !found.cash_approved;
-          setPayResult({ ...found, _isPendingCash: isPendingCash });
+          setPayResult({ ...found, _needsPayment: needsPayment(found) });
           return;
         }
       }
@@ -891,8 +892,26 @@ function WorkerPanel() {
   };
 
   const handleApprovePay = async () => {
-    if (!payResult?._isPendingCash) return;
-    await approveCashPayment(payResult.id);
+    if (!payResult?._needsPayment) return;
+    try {
+      const token = localStorage.getItem('workerToken');
+      const response = await fetch(`/api/orders/${payResult.id}/mark-paid?store_id=${worker.store_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ worker_id: worker.id, worker_name: worker.name })
+      });
+      if (response.ok) {
+        const updatedOrder = await response.json();
+        setPendingCashOrders(prev => prev.filter(o => o.id !== payResult.id));
+        setOrders(prev => {
+          if (prev.find(o => o.id === updatedOrder.id)) return prev;
+          const original = pendingCashOrders.find(o => o.id === payResult.id);
+          return [{ ...(original || {}), ...updatedOrder }, ...prev];
+        });
+      }
+    } catch (error) {
+      console.error('Error marking as paid:', error);
+    }
     closePayModal();
   };
 
@@ -1579,17 +1598,26 @@ function WorkerPanel() {
 
             <div style={{ paddingTop: '12px', flexShrink: 0 }}>
               {payResult && (
-                payResult._isPendingCash ? (
+                payResult._needsPayment ? (
                   <button
                     className="worker-action-btn approve"
                     style={{ width: '100%', justifyContent: 'center', fontSize: '1.05rem', padding: '14px', marginBottom: '10px' }}
                     onClick={handleApprovePay}
                   >
                     <FontAwesomeIcon icon={faCheck} /> Marcar como Pagado
+                    {payResult.payment_method && payResult.payment_method !== 'cash' && (
+                      <span style={{ fontSize: '0.8rem', opacity: 0.75, marginLeft: 6 }}>
+                        ({payResult.payment_method})
+                      </span>
+                    )}
                   </button>
+                ) : payResult.status === 'completed' ? (
+                  <div style={{ color: '#22c55e', textAlign: 'center', padding: '8px', marginBottom: '10px', fontSize: '13px', fontWeight: 600 }}>
+                    ✓ Pedido ya completado
+                  </div>
                 ) : (
-                  <div style={{ color: '#f59e0b', textAlign: 'center', padding: '8px', marginBottom: '10px' }}>
-                    Este pedido ya está procesado (estado: {payResult.status})
+                  <div style={{ color: '#f59e0b', textAlign: 'center', padding: '8px', marginBottom: '10px', fontSize: '13px' }}>
+                    Este pedido ya está en cola (estado: {payResult.status})
                   </div>
                 )
               )}

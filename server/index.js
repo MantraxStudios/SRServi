@@ -5387,6 +5387,36 @@ app.put('/api/orders/:id/approve-cash', authenticateToken, async (req, res) => {
   }
 });
 
+app.put('/api/orders/:id/mark-paid', authenticateToken, async (req, res) => {
+  try {
+    const { worker_id, worker_name } = req.body;
+    const { id } = req.params;
+    const { store_id } = req.query;
+
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+
+    const isWorker = req.user.type === 'worker';
+    const hasAccess = isWorker
+      ? parseInt(req.user.store_id) === parseInt(store_id)
+      : await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!hasAccess) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+
+    await pool.execute(
+      "UPDATE orders SET payment_process = 1, cash_approved = 1, status = 'preparing' WHERE id = ? AND store_id = ?",
+      [parseInt(id), parseInt(store_id)]
+    );
+    const [rows] = await pool.execute('SELECT * FROM orders WHERE id = ?', [parseInt(id)]);
+    const order = rows[0] ? { ...rows[0], total: parseFloat(rows[0].total) || 0 } : { id: parseInt(id) };
+    const io_instance = req.app.get('io');
+    if (io_instance) {
+      io_instance.to(`store_${store_id}`).emit('cash_approved', order);
+    }
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/orders/:id/reprint', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
