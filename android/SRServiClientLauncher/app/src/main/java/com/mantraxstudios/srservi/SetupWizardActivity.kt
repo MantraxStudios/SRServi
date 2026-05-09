@@ -354,9 +354,17 @@ class SetupWizardActivity : AppCompatActivity() {
          * Todos los requisitos son forzosos — no hay forma de omitirlos permanentemente.
          */
         fun isSetupNeeded(context: Context): Boolean {
+            // Store code is always required regardless of wizard state.
             val storeCode = context.getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
                 .getString("store_code", "")
             if (storeCode.isNullOrBlank()) return true
+
+            // Once the wizard was completed, skip the system checks (launcher / permissions).
+            // Those checks can return false intermittently on some OEMs right after setup,
+            // causing a rapid MainActivity ↔ Wizard loop that freezes the main menu.
+            val wizardDone = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getBoolean(KEY_WIZARD_DONE, false)
+            if (wizardDone) return false
 
             val runtimePerms = mutableListOf<String>().apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
