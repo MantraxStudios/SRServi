@@ -107,7 +107,7 @@ export default function Inventory() {
     setRmModal('new');
   };
   const openEditRm = (rm) => {
-    setRmForm({ name: rm.name, quantity: String(rm.quantity), unit: rm.unit, min_quantity: String(rm.min_quantity), cost_per_unit: String(rm.cost_per_unit) });
+    setRmForm({ name: rm.name, quantity: String(parseFloat(rm.quantity) || ''), unit: rm.unit, min_quantity: rm.min_quantity > 0 ? String(parseFloat(rm.min_quantity)) : '', cost_per_unit: String(parseFloat(rm.cost_per_unit) || '') });
     setRmModal(rm);
   };
 
@@ -330,7 +330,7 @@ export default function Inventory() {
                     </div>
                     <span style={{ fontSize: 15, fontWeight: 700, color: b.color }}>{fmt(rm.quantity, 3)}</span>
                     <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{rm.unit}</span>
-                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{rm.min_quantity > 0 ? `≥ ${rm.min_quantity}` : '—'}</span>
+                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{rm.min_quantity > 0 ? `≥ ${fmt(rm.min_quantity)}` : '—'}</span>
                     <span style={{ fontSize: 11, fontWeight: 600, background: b.bg, color: b.color, border: `1px solid ${b.border}`, padding: '2px 9px', borderRadius: 20, whiteSpace: 'nowrap', display: 'inline-block' }}>{b.label}</span>
                     <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                       <button onClick={() => { setRestockItem(rm); setRestockAmount(''); }} title="Reponer stock" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#22c55e', fontSize: 12 }}>
