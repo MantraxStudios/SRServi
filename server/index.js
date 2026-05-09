@@ -5632,7 +5632,9 @@ app.get('/api/tasks', authenticateToken, async (req, res) => {
     if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
     const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
     if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
-    const weekStart = getWeekStart();
+    const weekStart = (req.query.week_start && /^\d{4}-\d{2}-\d{2}$/.test(req.query.week_start))
+      ? req.query.week_start
+      : getWeekStart();
     const [tasks] = await pool.execute(`
       SELECT t.*, w.name as worker_name, w.username as worker_username,
              tc.completed_at, tc.completed_by_worker_id,

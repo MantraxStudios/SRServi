@@ -30,13 +30,17 @@ function getWeekStart() {
   return d;
 }
 
-function getTaskStatus(task) {
+function getWeekStartStr(offset = 0) {
+  const d = getWeekStart();
+  d.setDate(d.getDate() + offset * 7);
+  return d.toISOString().split('T')[0];
+}
+
+function getTaskStatus(task, isCurrentWeek = true) {
   if (task.completed_at) return 'completed';
+  if (!isCurrentWeek) return 'expired';
   const now = new Date();
   const todayDow = now.getDay();
-  const weekStart = getWeekStart();
-  const taskDate = new Date(weekStart);
-  taskDate.setDate(taskDate.getDate() + task.day_of_week);
   if (todayDow < task.day_of_week) return 'upcoming';
   if (todayDow === task.day_of_week) {
     const [h, m] = task.due_time.split(':').map(Number);
@@ -49,8 +53,8 @@ function getTaskStatus(task) {
   return 'expired';
 }
 
-function StatusBadge({ task }) {
-  const status = getTaskStatus(task);
+function StatusBadge({ task, isCurrentWeek }) {
+  const status = getTaskStatus(task, isCurrentWeek);
   const cfg = {
     completed: { label: 'Completada', color: '#15803d', bg: '#f0fdf4', border: '#bbf7d0', icon: faCheck },
     active:    { label: 'En plazo',   color: '#92400e', bg: '#fffbeb', border: '#fcd34d', icon: faClock },
@@ -91,6 +95,7 @@ export default function Tasks() {
   const [historyData, setHistoryData] = useState(null);  // { tasks, weeks }
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyWeekIdx, setHistoryWeekIdx] = useState(0);
+  const [weekOffset, setWeekOffset] = useState(0);
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -100,18 +105,19 @@ export default function Tasks() {
 
   useEffect(() => {
     if (selectedStore) {
-      fetchTasks();
+      fetchTasks(weekOffset);
       fetchWorkers();
     } else {
       setTasks([]); setWorkers([]); setLoading(false);
     }
-  }, [selectedStore]);
+  }, [selectedStore, weekOffset]);
 
-  const fetchTasks = async () => {
+  const fetchTasks = async (offset = 0) => {
     if (!selectedStore) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/tasks?store_id=${selectedStore.id}`, {
+      const weekStart = getWeekStartStr(offset);
+      const res = await fetch(`/api/tasks?store_id=${selectedStore.id}&week_start=${weekStart}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -194,7 +200,7 @@ export default function Tasks() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al guardar');
       setShowModal(false);
-      fetchTasks();
+      fetchTasks(weekOffset);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -209,7 +215,7 @@ export default function Tasks() {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      fetchTasks();
+      fetchTasks(weekOffset);
     } catch (e) {
       console.error(e);
     }
@@ -258,7 +264,7 @@ export default function Tasks() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al duplicar');
       setDupAllModal(null);
-      fetchTasks();
+      fetchTasks(weekOffset);
     } catch (err) {
       alert(err.message);
     } finally {
@@ -354,6 +360,107 @@ export default function Tasks() {
           })}
         </div>
 
+        {/* ── Navegador de semana ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <button
+            onClick={() => setWeekOffset(o => o - 1)}
+            disabled={weekOffset <= -12}
+            style={{
+              width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)',
+              background: 'rgba(255,255,255,0.05)', color: weekOffset <= -12 ? '#333' : '#aaa',
+              cursor: weekOffset <= -12 ? 'default' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}
+          >
+            <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
+          </button>
+          <div style={{ textAlign: 'center', minWidth: 200 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>
+              {formatWeekRange(getWeekStartStr(weekOffset))}
+            </div>
+            {weekOffset === 0 ? (
+              <div style={{ fontSize: 10, color: '#D4AF37', fontWeight: 600, marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Semana actual
+              </div>
+            ) : (
+              <button
+                onClick={() => setWeekOffset(0)}
+                style={{ fontSize: 10, color: '#D4AF37', fontWeight: 600, marginTop: 2, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                Ir a semana actual →
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setWeekOffset(o => o + 1)}
+            disabled={weekOffset >= 0}
+            style={{
+              width: 32, height: 32, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)',
+              background: 'rgba(255,255,255,0.05)', color: weekOffset >= 0 ? '#333' : '#aaa',
+              cursor: weekOffset >= 0 ? 'default' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}
+          >
+            <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 11 }} />
+          </button>
+        </div>
+
+        {/* ── Resumen por trabajador ── */}
+        {tasks.length > 0 && (() => {
+          const summaryRows = workers
+            .map(w => {
+              const wTasks = tasks.filter(t => t.worker_id === w.id);
+              if (wTasks.length === 0) return null;
+              const completed = wTasks.filter(t => t.completed_at).length;
+              const total = wTasks.length;
+              const pct = Math.round((completed / total) * 100);
+              const color = pct === 100 ? '#16a34a' : pct > 0 ? '#d97706' : '#9ca3af';
+              const initials = w.name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase();
+              return { ...w, completed, total, pct, color, initials };
+            })
+            .filter(Boolean);
+          if (summaryRows.length === 0) return null;
+          return (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+              {summaryRows.map(sw => (
+                <div
+                  key={sw.id}
+                  onClick={() => setFilterWorker(filterWorker === sw.id.toString() ? 'all' : sw.id.toString())}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                    borderRadius: 12, cursor: 'pointer',
+                    background: filterWorker === sw.id.toString() ? 'rgba(212,175,55,0.08)' : 'rgba(255,255,255,0.03)',
+                    border: filterWorker === sw.id.toString() ? '1px solid rgba(212,175,55,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                    minWidth: 170, transition: 'all 0.15s',
+                  }}
+                >
+                  <div style={{
+                    width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                    background: 'linear-gradient(135deg, #D4AF37, #8B6914)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: 900, color: '#000',
+                  }}>
+                    {sw.initials}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#ddd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {sw.name}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
+                      <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${sw.pct}%`, background: sw.color, borderRadius: 2, transition: 'width 0.4s' }} />
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: sw.color, minWidth: 36, textAlign: 'right', flexShrink: 0 }}>
+                        {sw.completed}/{sw.total}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
         {loading ? (
           <div className="loading">Cargando tareas...</div>
         ) : tasks.length === 0 ? (
@@ -414,7 +521,7 @@ export default function Tasks() {
                         Sin tareas
                       </div>
                     ) : dayTasks.map(task => {
-                      const status = getTaskStatus(task);
+                      const status = getTaskStatus(task, weekOffset === 0);
                       const accentCol = { completed: '#16a34a', active: '#d97706', upcoming: '#94a3b8', expired: '#ef4444' }[status];
                       const taskBg = { completed: '#f9fefb', active: '#fffcf5', upcoming: '#fff', expired: '#fff9f9' }[status];
                       const workerInitials = task.worker_name?.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?';
@@ -460,7 +567,7 @@ export default function Tasks() {
                               <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37', fontSize: 9 }} />
                               {task.due_time}
                             </span>
-                            <StatusBadge task={task} />
+                            <StatusBadge task={task} isCurrentWeek={weekOffset === 0} />
                           </div>
 
                           {task.completed_at && (
