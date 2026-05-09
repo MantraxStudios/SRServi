@@ -43,7 +43,13 @@ class MainActivity : AppCompatActivity() {
         printerManager = (application as SRServiApp).printerManager
 
         findViewById<View>(R.id.btnStartSelling).setOnClickListener {
-            startActivity(Intent(this, SellActivity::class.java))
+            val prefs = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
+            val storeCode = prefs.getString("store_code", "")
+            if (storeCode.isNullOrBlank()) {
+                Toast.makeText(this, getString(R.string.sell_no_code), Toast.LENGTH_SHORT).show()
+            } else {
+                startActivity(Intent(this, SellActivity::class.java))
+            }
         }
 
         findViewById<View>(R.id.btnWorkerLogin).setOnClickListener {

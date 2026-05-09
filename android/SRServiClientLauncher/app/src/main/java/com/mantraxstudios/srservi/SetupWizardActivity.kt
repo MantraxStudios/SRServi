@@ -14,6 +14,8 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.View
+import android.view.inputmethod.EditorInfo
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -116,6 +118,20 @@ class SetupWizardActivity : AppCompatActivity() {
         binding.tvStepTitle.text       = step.title
         binding.tvStepDescription.text = step.description
         binding.btnAction.text         = step.actionLabel
+
+        val isStoreCode = step.id == "store_code"
+        binding.ivHowTo.visibility    = if (isStoreCode) View.VISIBLE else View.GONE
+        binding.tilStoreCode.visibility = if (isStoreCode) View.VISIBLE else View.GONE
+
+        if (isStoreCode) {
+            val saved = prefs().getString("store_code", "")
+            if (!saved.isNullOrBlank()) binding.etWizardCode.setText(saved)
+            binding.etWizardCode.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    steps.getOrNull(currentIndex)?.execute?.invoke(this); true
+                } else false
+            }
+        }
     }
 
     private fun completeSetup() {
@@ -196,8 +212,37 @@ class SetupWizardActivity : AppCompatActivity() {
 
     // ── Construcción de pasos ────────────────────────────────────────────────
 
+    private fun saveStoreCode(): Boolean {
+        val code = binding.etWizardCode.text?.toString()?.trim()?.uppercase() ?: ""
+        return if (code.isBlank()) {
+            Toast.makeText(this, "Ingresa el código de tu tienda", Toast.LENGTH_SHORT).show()
+            false
+        } else {
+            prefs().edit().putString("store_code", code).apply()
+            // Also persist in the shared "srservi_prefs" used by MainActivity
+            getSharedPreferences("srservi_prefs", MODE_PRIVATE)
+                .edit().putString("store_code", code).apply()
+            true
+        }
+    }
+
     private fun buildSteps(): List<Step> {
         val list = mutableListOf<Step>()
+
+        // ── Paso 0: Código de tienda ─────────────────────────────────────────
+        list += Step(
+            id          = "store_code",
+            title       = "Código de tu tienda",
+            description = "Para comenzar a vender necesitas ingresar el código de tu tienda.\n\n" +
+                          "Encuéntralo en el panel de administrador → menú lateral → debajo del nombre de tu tienda.",
+            actionLabel = "Guardar y continuar",
+            icon        = "🏪", // 🏪
+            isDone      = { ctx ->
+                ctx.getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
+                    .getString("store_code", "").isNullOrBlank().not()
+            },
+            execute     = { activity -> if (activity.saveStoreCode()) activity.refresh() }
+        )
 
         // ── Paso 1: Permisos de runtime ──────────────────────────────────────
         val runtimePerms = mutableListOf<String>().apply {
@@ -309,6 +354,10 @@ class SetupWizardActivity : AppCompatActivity() {
          * Todos los requisitos son forzosos — no hay forma de omitirlos permanentemente.
          */
         fun isSetupNeeded(context: Context): Boolean {
+            val storeCode = context.getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
+                .getString("store_code", "")
+            if (storeCode.isNullOrBlank()) return true
+
             val runtimePerms = mutableListOf<String>().apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     add(Manifest.permission.BLUETOOTH_CONNECT)

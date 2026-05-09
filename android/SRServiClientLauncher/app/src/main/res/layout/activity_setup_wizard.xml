@@ -95,6 +95,37 @@
                 android:textSize="14sp"
                 android:lineSpacingExtra="5dp" />
 
+            <!-- Imagen "cómo obtener el código" (solo paso store_code) -->
+            <ImageView
+                android:id="@+id/ivHowTo"
+                android:layout_width="match_parent"
+                android:layout_height="160dp"
+                android:layout_marginTop="20dp"
+                android:scaleType="centerCrop"
+                android:src="@drawable/how"
+                android:contentDescription="Cómo obtener el código"
+                android:visibility="gone" />
+
+            <!-- Campo código de tienda (solo paso store_code) -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilStoreCode"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:hint="Código de tienda (ej: YCI823)"
+                app:boxStrokeColor="@color/accent"
+                android:visibility="gone">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etWizardCode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textCapCharacters"
+                    android:maxLines="1" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 

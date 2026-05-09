@@ -66,7 +66,7 @@ class SellActivity : AppCompatActivity() {
         }
 
     companion object {
-        private const val SELL_URL = "https://srservi2.srautomatic.com/"
+        private const val BASE_URL = "https://srservi2.srautomatic.com"
         private const val EXIT_PIN = "1234"
     }
 
@@ -87,7 +87,11 @@ class SellActivity : AppCompatActivity() {
 
         applyImmersiveMode()
         setupWebView()
-        webView.loadUrl(SELL_URL)
+
+        val storeCode = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
+            .getString("store_code", "")
+        val sellUrl = if (!storeCode.isNullOrBlank()) "$BASE_URL/store/$storeCode" else BASE_URL
+        webView.loadUrl(sellUrl)
 
         // Hidden exit: long-press the top-left corner
         findViewById<View>(R.id.exitHotspot).setOnLongClickListener {

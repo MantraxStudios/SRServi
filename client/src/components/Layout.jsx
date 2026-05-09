@@ -413,34 +413,6 @@ function Layout() {
                 <span>Vendedores</span>
               </NavLink>
             </li>
-            <li className="sidebar-section-label">Más</li>
-            <li>
-              <NavLink to="/admin/novedades" onClick={() => setMenuOpen(false)}
-                style={({ isActive }) => ({
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '9px 14px', borderRadius: 10, textDecoration: 'none',
-                  background: isActive ? 'rgba(212,175,55,0.12)' : 'transparent',
-                  color: isActive ? '#D4AF37' : '#9ca3af',
-                  fontWeight: 600, fontSize: 14, transition: 'all 0.15s',
-                  position: 'relative',
-                })}
-              >
-                <FontAwesomeIcon icon={faBell} />
-                <span>Novedades</span>
-                {unreadUpdates > 0 && (
-                  <span style={{
-                    marginLeft: 'auto',
-                    minWidth: 20, height: 20, borderRadius: 10,
-                    background: '#ef4444', color: '#fff',
-                    fontSize: 11, fontWeight: 800,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '0 5px',
-                  }}>
-                    {unreadUpdates}
-                  </span>
-                )}
-              </NavLink>
-            </li>
             <li>
               <NavLink to="/admin/leon-ia" className="leon-ia-nav-link" onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faRobot} />
@@ -576,12 +548,6 @@ function Layout() {
                     )}
                   </div>
 
-                  {/* Tutoriales */}
-                  <NavLink to="/admin/tutoriales" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faBookOpen} />
-                    <span>Tutoriales</span>
-                  </NavLink>
-
                   {/* Sub-dropdown: Cuenta */}
                   <div className="subdropdown-container">
                     <button className={`subdropdown-header${openDropdowns['cuenta'] ? ' open' : ''}`} onClick={() => toggleDropdown('cuenta')}>
@@ -606,6 +572,39 @@ function Layout() {
                       </div>
                     )}
                   </div>
+
+                  {/* Novedades */}
+                  <NavLink to="/admin/novedades" className="dropdown-item" onClick={() => setMenuOpen(false)}
+                    style={({ isActive }) => ({
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '9px 14px', borderRadius: 10, textDecoration: 'none',
+                      background: isActive ? 'rgba(212,175,55,0.12)' : 'transparent',
+                      color: isActive ? '#D4AF37' : '#9ca3af',
+                      fontWeight: 600, fontSize: 14, transition: 'all 0.15s',
+                      position: 'relative',
+                    })}
+                  >
+                    <FontAwesomeIcon icon={faBell} />
+                    <span>Novedades</span>
+                    {unreadUpdates > 0 && (
+                      <span style={{
+                        marginLeft: 'auto',
+                        minWidth: 20, height: 20, borderRadius: 10,
+                        background: '#ef4444', color: '#fff',
+                        fontSize: 11, fontWeight: 800,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '0 5px',
+                      }}>
+                        {unreadUpdates}
+                      </span>
+                    )}
+                  </NavLink>
+
+                  {/* Tutoriales */}
+                  <NavLink to="/admin/tutoriales" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faBookOpen} />
+                    <span>Tutoriales</span>
+                  </NavLink>
 
                 </div>
               )}

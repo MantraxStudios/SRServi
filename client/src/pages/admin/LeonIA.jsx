@@ -58,9 +58,9 @@ function BarChart({ chart }) {
         {ticks.map((t, i) => (
           <g key={i}>
             <line x1={PAD.l} y1={t.y} x2={W - PAD.r} y2={t.y}
-              stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+              stroke="rgba(0,0,0,0.08)" strokeWidth="1" />
             <text x={PAD.l - 4} y={t.y + 4} textAnchor="end"
-              fontSize="9" fill="rgba(255,255,255,0.3)">
+              fontSize="9" fill="#9ca3af">
               {fmtVal(t.val)}
             </text>
           </g>
@@ -94,7 +94,7 @@ function BarChart({ chart }) {
                 y={PAD.t + innerH + 14}
                 textAnchor="middle"
                 fontSize="9"
-                fill="rgba(255,255,255,0.4)"
+                fill="#6b7280"
                 transform={labels[i] && labels[i].length > 5
                   ? `rotate(-30, ${x + barW / 2}, ${PAD.t + innerH + 14})`
                   : undefined}
@@ -107,9 +107,9 @@ function BarChart({ chart }) {
 
         {/* axes */}
         <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + innerH}
-          stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+          stroke="rgba(0,0,0,0.12)" strokeWidth="1" />
         <line x1={PAD.l} y1={PAD.t + innerH} x2={W - PAD.r} y2={PAD.t + innerH}
-          stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+          stroke="rgba(0,0,0,0.12)" strokeWidth="1" />
       </svg>
       <div className="leon-chart-unit">{unit}</div>
     </div>

@@ -2830,28 +2830,28 @@ function Store() {
           }
         `}</style>
 
-        {/* Anillos */}
-        <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', border: `1px solid ${accent}`, animation: 'ring 2.5s ease-out 0s infinite' }} />
-        <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', border: `1px solid ${accent}`, animation: 'ring 2.5s ease-out 0.8s infinite' }} />
-        <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', border: `1px solid ${accent}`, animation: 'ring 2.5s ease-out 1.6s infinite' }} />
-
-        {/* Logo / Ícono */}
-        <div style={{
-          width: 100, height: 100, borderRadius: '50%',
-          border: `2px solid ${accent}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          animation: 'bloom 2.5s ease-in-out infinite',
-          marginBottom: 40, position: 'relative', zIndex: 1,
-          background: bg, overflow: 'hidden', flexShrink: 0
-        }}>
-          {store.store?.logo_url
-            ? <img src={store.store.logo_url} alt={store.store?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <FontAwesomeIcon icon={faLock} style={{ fontSize: 42, color: accent }} />
-          }
+        {/* Logo + Anillos centrados juntos */}
+        <div style={{ position: 'relative', width: 100, height: 100, marginBottom: 40, flexShrink: 0 }}>
+          <div style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -60, marginLeft: -60, width: 120, height: 120, borderRadius: '50%', border: `1px solid ${accent}`, animation: 'ring 2.5s ease-out 0s infinite' }} />
+          <div style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -60, marginLeft: -60, width: 120, height: 120, borderRadius: '50%', border: `1px solid ${accent}`, animation: 'ring 2.5s ease-out 0.8s infinite' }} />
+          <div style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -60, marginLeft: -60, width: 120, height: 120, borderRadius: '50%', border: `1px solid ${accent}`, animation: 'ring 2.5s ease-out 1.6s infinite' }} />
+          <div style={{
+            width: 100, height: 100, borderRadius: '50%',
+            border: `2px solid ${accent}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            animation: 'bloom 2.5s ease-in-out infinite',
+            position: 'relative', zIndex: 1,
+            background: bg, overflow: 'hidden'
+          }}>
+            {store.store?.logo_url
+              ? <img src={store.store.logo_url} alt={store.store?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <FontAwesomeIcon icon={faLock} style={{ fontSize: 42, color: accent }} />
+            }
+          </div>
         </div>
 
         {/* Texto */}
-        <div style={{ textAlign: 'center', padding: '0 32px', position: 'relative', zIndex: 1, animation: 'fadeUp 0.7s ease both' }}>
+        <div style={{ textAlign: 'center', padding: '0 32px', position: 'relative', zIndex: 2, animation: 'fadeUp 0.7s ease both', width: '100%', maxWidth: 420, boxSizing: 'border-box' }}>
           {store.store?.name && (
             <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, letterSpacing: 4, textTransform: 'uppercase', color: accent + 'aa' }}>
               {store.store.name}
@@ -2863,7 +2863,7 @@ function Store() {
           <p style={{ margin: '0 0 20px', fontSize: 15, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6 }}>
             Para comenzar a vender, abrí la caja desde uno de estos lugares:
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left', background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: '14px 20px', width: '100%', maxWidth: 340 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left', background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: '14px 20px', width: '100%', maxWidth: 340, margin: '0 auto', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'rgba(255,255,255,0.75)' }}>
               <span style={{ fontSize: 18 }}>🏪</span>
               <span><strong style={{ color: '#fff' }}>Panel del vendedor</strong> → sección <strong style={{ color: '#fff' }}>Caja</strong></span>
@@ -4220,6 +4220,27 @@ function Store() {
               </div>
             ) : (
               <>
+                {selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout && (
+                  <div style={{ marginBottom: '20px', padding: '14px 16px', borderRadius: '14px', background: 'var(--store-secondary)', border: '2px solid var(--store-primary)', textAlign: 'left' }}>
+                    <label style={{ fontWeight: '700', fontSize: '14px', color: 'var(--store-primary)', display: 'block', marginBottom: '10px' }}>{t('orderType', lang)}</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <button
+                        onClick={() => setOrderType('serve')}
+                        className={`store-cart-type-btn${orderType === 'serve' ? ' active store-glow-pulse' : ''}`}
+                      >
+                        <FontAwesomeIcon icon={faBox} />
+                        <span>{t('serveHere', lang)}</span>
+                      </button>
+                      <button
+                        onClick={() => setOrderType('takeout')}
+                        className={`store-cart-type-btn${orderType === 'takeout' ? ' active store-glow-pulse' : ''}`}
+                      >
+                        <FontAwesomeIcon icon={faShoppingCart} />
+                        <span>{t('takeoutShort', lang)}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {(parseFloat(selectedConfiguration?.tip_percentage) > 0) && (
                   <div style={{ marginBottom: '20px', padding: '16px', borderRadius: '14px', background: 'var(--store-secondary)', border: '2px solid var(--store-primary)', textAlign: 'left' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>

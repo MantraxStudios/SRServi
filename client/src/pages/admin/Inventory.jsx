@@ -32,18 +32,18 @@ function rmBadge(rm) {
 }
 
 const inputStyle = {
-  width: '100%', padding: '10px 12px', background: '#1a1a1a',
-  border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
-  color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box'
+  width: '100%', padding: '10px 12px', background: '#fff',
+  border: '1px solid #d1d5db', borderRadius: 8,
+  color: '#111', fontSize: 13, outline: 'none', boxSizing: 'border-box'
 };
-const labelStyle = { fontSize: 12, color: 'rgba(255,255,255,0.45)', marginBottom: 4, display: 'block' };
+const labelStyle = { fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' };
 const btnGold = {
   background: '#D4AF37', border: 'none', borderRadius: 8, padding: '10px 18px',
   cursor: 'pointer', color: '#000', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6
 };
 const btnGhost = {
-  background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
-  padding: '9px 14px', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', fontSize: 13
+  background: 'transparent', border: '1px solid #d1d5db', borderRadius: 8,
+  padding: '9px 14px', cursor: 'pointer', color: '#555', fontSize: 13
 };
 
 export default function Inventory() {
@@ -255,7 +255,7 @@ export default function Inventory() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', padding: '24px', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
+    <div style={{ minHeight: '100vh', background: '#fafafa', color: '#111', padding: '24px', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -265,7 +265,7 @@ export default function Inventory() {
           </div>
           <div>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Inventario</h1>
-            {selectedStore && <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{selectedStore.name}</p>}
+            {selectedStore && <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>{selectedStore.name}</p>}
           </div>
         </div>
         <button onClick={fetchAll} disabled={loading} style={{ ...btnGhost, display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -282,12 +282,12 @@ export default function Inventory() {
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#141414', borderRadius: 10, padding: 4, border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#f3f4f6', borderRadius: 10, padding: 4, border: '1px solid #e5e7eb' }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => { setTab(t.key); setSearch(''); setEditingDirect(null); setRecipeProduct(null); }} style={{
             flex: 1, padding: '9px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
             background: tab === t.key ? '#D4AF37' : 'transparent',
-            color: tab === t.key ? '#000' : 'rgba(255,255,255,0.45)',
+            color: tab === t.key ? '#000' : '#6b7280',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.15s'
           }}>
             <FontAwesomeIcon icon={t.icon} /> {t.label}
@@ -297,7 +297,7 @@ export default function Inventory() {
 
       {/* Search bar */}
       <div style={{ position: 'relative', marginBottom: 16 }}>
-        <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.28)', fontSize: 12 }} />
+        <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 12 }} />
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." style={{ ...inputStyle, paddingLeft: 34 }} />
       </div>
 
@@ -311,28 +311,28 @@ export default function Inventory() {
           </div>
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: 60, color: 'rgba(255,255,255,0.3)' }}>Cargando...</div>
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando...</div>
           ) : filteredRm.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 60, color: 'rgba(255,255,255,0.3)' }}>
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
               <FontAwesomeIcon icon={faBoxOpen} style={{ fontSize: 32, marginBottom: 12, display: 'block' }} />
               {search ? 'Sin resultados' : 'Aún no hay materias primas. Agrega harina, arroz, pollo, etc.'}
             </div>
           ) : (
-            <div style={{ background: '#141414', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 100px 110px 100px 110px', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.28)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 100px 110px 100px 110px', padding: '10px 16px', borderBottom: '1px solid #f3f4f6', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 <span>Nombre</span><span>Cantidad</span><span>Unidad</span><span>Mínimo</span><span>Estado</span><span style={{ textAlign: 'right' }}>Acciones</span>
               </div>
               {filteredRm.map((rm, idx) => {
                 const b = rmBadge(rm);
                 return (
-                  <div key={rm.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 100px 110px 100px 110px', padding: '12px 16px', borderBottom: idx < filteredRm.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', alignItems: 'center', background: (parseFloat(rm.quantity)||0) <= 0 ? 'rgba(239,68,68,0.03)' : (parseFloat(rm.quantity)||0) <= (parseFloat(rm.min_quantity)||0) && (parseFloat(rm.min_quantity)||0) > 0 ? 'rgba(245,158,11,0.03)' : 'transparent' }}>
+                  <div key={rm.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 100px 110px 100px 110px', padding: '12px 16px', borderBottom: idx < filteredRm.length - 1 ? '1px solid #f3f4f6' : 'none', alignItems: 'center', background: (parseFloat(rm.quantity)||0) <= 0 ? 'rgba(239,68,68,0.03)' : (parseFloat(rm.quantity)||0) <= (parseFloat(rm.min_quantity)||0) && (parseFloat(rm.min_quantity)||0) > 0 ? 'rgba(245,158,11,0.03)' : 'transparent' }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>{rm.name}</div>
-                      {rm.cost_per_unit > 0 && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>Costo: ${fmt(rm.cost_per_unit)}/{rm.unit}</div>}
+                      {rm.cost_per_unit > 0 && <div style={{ fontSize: 11, color: '#9ca3af' }}>Costo: ${fmt(rm.cost_per_unit)}/{rm.unit}</div>}
                     </div>
                     <span style={{ fontSize: 15, fontWeight: 700, color: b.color }}>{fmt(rm.quantity, 3)}</span>
-                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>{rm.unit}</span>
-                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>{rm.min_quantity > 0 ? `≥ ${fmt(rm.min_quantity)}` : '—'}</span>
+                    <span style={{ fontSize: 13, color: '#6b7280' }}>{rm.unit}</span>
+                    <span style={{ fontSize: 13, color: '#9ca3af' }}>{rm.min_quantity > 0 ? `≥ ${fmt(rm.min_quantity)}` : '—'}</span>
                     <span style={{ fontSize: 11, fontWeight: 600, background: b.bg, color: b.color, border: `1px solid ${b.border}`, padding: '2px 9px', borderRadius: 20, whiteSpace: 'nowrap', display: 'inline-block' }}>{b.label}</span>
                     <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                       <button onClick={() => { setRestockItem(rm); setRestockAmount(''); }} title="Reponer stock" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#22c55e', fontSize: 12 }}>
@@ -358,7 +358,7 @@ export default function Inventory() {
         <>
           <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
             {['product', 'ingredient', 'extra'].map(t => (
-              <button key={t} onClick={() => setRecipeType(t)} style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${recipeType === t ? '#D4AF37' : 'rgba(255,255,255,0.12)'}`, background: recipeType === t ? 'rgba(212,175,55,0.12)' : 'transparent', color: recipeType === t ? '#D4AF37' : 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              <button key={t} onClick={() => setRecipeType(t)} style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${recipeType === t ? '#D4AF37' : '#e5e7eb'}`, background: recipeType === t ? 'rgba(212,175,55,0.12)' : 'transparent', color: recipeType === t ? '#D4AF37' : '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                 {t === 'product' ? 'Productos' : t === 'ingredient' ? 'Complementos' : 'Extras'}
               </button>
             ))}
@@ -372,19 +372,19 @@ export default function Inventory() {
           )}
 
           {filteredRecipeItems.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 60, color: 'rgba(255,255,255,0.3)' }}>Sin ítems</div>
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Sin ítems</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {filteredRecipeItems.map(item => (
-                <div key={item.id} onClick={() => openRecipe(item, recipeType)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#141414', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, cursor: 'pointer', transition: 'border-color 0.15s' }}
+                <div key={item.id} onClick={() => openRecipe(item, recipeType)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, cursor: 'pointer', transition: 'border-color 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.borderColor = '#D4AF37'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
                 >
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 600 }}>{item.name}</div>
-                    {item.price > 0 && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>${fmt(item.price, 2)}</div>}
+                    {item.price > 0 && <div style={{ fontSize: 12, color: '#9ca3af' }}>${fmt(item.price, 2)}</div>}
                   </div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
+                  <div style={{ fontSize: 12, color: '#9ca3af' }}>
                     Click para editar receta →
                   </div>
                 </div>
@@ -396,10 +396,10 @@ export default function Inventory() {
 
       {/* Recipe editor panel */}
       {tab === 'recipes' && recipeProduct && (
-        <div style={{ background: '#141414', borderRadius: 12, border: '1px solid rgba(212,175,55,0.2)', padding: 20 }}>
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid rgba(212,175,55,0.3)', padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Receta de</div>
+              <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Receta de</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#D4AF37' }}>{recipeProduct.name}</div>
             </div>
             <button onClick={() => { setRecipeProduct(null); setRecipe([]); }} style={btnGhost}>
@@ -407,21 +407,21 @@ export default function Inventory() {
             </button>
           </div>
 
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 0, marginBottom: 16 }}>
+          <p style={{ fontSize: 13, color: '#6b7280', marginTop: 0, marginBottom: 16 }}>
             Define qué materias primas se consumen por cada unidad vendida de este ítem.
           </p>
 
           {recipe.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Sin ingredientes en la receta aún.</div>
+            <div style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af', fontSize: 13 }}>Sin ingredientes en la receta aún.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 36px', fontSize: 11, color: 'rgba(255,255,255,0.3)', fontWeight: 700, padding: '0 4px', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 36px', fontSize: 11, color: '#9ca3af', fontWeight: 700, padding: '0 4px', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 <span>Materia Prima</span><span>Cantidad</span><span>Unidad</span><span></span>
               </div>
               {recipe.map((r, i) => {
                 const rm = rawMats.find(m => m.id === r.raw_material_id);
                 return (
-                  <div key={r.raw_material_id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 36px', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div key={r.raw_material_id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 36px', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
                     <span style={{ fontSize: 14, fontWeight: 600 }}>{r.name || rm?.name}</span>
                     <input
                       type="number" min="0.001" step="0.001"
@@ -429,7 +429,7 @@ export default function Inventory() {
                       onChange={e => setRecipe(recipe.map((x, j) => j === i ? { ...x, quantity_used: parseFloat(e.target.value) || 0 } : x))}
                       style={{ ...inputStyle, textAlign: 'center', padding: '6px 8px' }}
                     />
-                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{r.unit || rm?.unit}</span>
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>{r.unit || rm?.unit}</span>
                     <button onClick={() => setRecipe(recipe.filter((_, j) => j !== i))} style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', color: '#ef4444' }}>
                       <FontAwesomeIcon icon={faTimes} />
                     </button>
@@ -440,7 +440,7 @@ export default function Inventory() {
           )}
 
           {estimatedCost > 0 && (
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 12 }}>
+            <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
               Costo estimado por unidad: <span style={{ color: '#D4AF37', fontWeight: 700 }}>${fmt(estimatedCost)}</span>
             </div>
           )}
@@ -466,13 +466,13 @@ export default function Inventory() {
                 <button onClick={() => { setAddingRm(false); setNewRmId(''); setNewRmQty(''); }} style={btnGhost}>Cancelar</button>
               </div>
             ) : (
-              <button onClick={() => setAddingRm(true)} style={{ ...btnGhost, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6, color: '#D4AF37', borderColor: 'rgba(212,175,55,0.3)' }}>
+              <button onClick={() => setAddingRm(true)} style={{ ...btnGhost, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6, color: '#D4AF37', borderColor: 'rgba(212,175,55,0.4)' }}>
                 <FontAwesomeIcon icon={faPlus} /> Agregar Materia Prima
               </button>
             )
           )}
 
-          <div style={{ display: 'flex', gap: 10, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'flex', gap: 10, paddingTop: 8, borderTop: '1px solid #e5e7eb' }}>
             <button onClick={() => { setRecipeProduct(null); setRecipe([]); }} style={btnGhost}>Cancelar</button>
             <button onClick={saveRecipe} disabled={recipeSaving} style={btnGold}>
               <FontAwesomeIcon icon={faSave} /> {recipeSaving ? 'Guardando...' : 'Guardar Receta'}
@@ -484,41 +484,41 @@ export default function Inventory() {
       {/* ──── TAB: STOCK DIRECTO (minimarket) ──── */}
       {tab === 'direct' && (
         <>
-          <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: '#141414', borderRadius: 8, padding: 4, border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: '#f3f4f6', borderRadius: 8, padding: 4, border: '1px solid #e5e7eb' }}>
             {[
               { key: 'products', label: `Productos (${directData.products.length})` },
               { key: 'ingredients', label: `Complementos (${directData.ingredients.length})` },
               { key: 'extras', label: `Extras (${directData.extras.length})` },
             ].map(t => (
-              <button key={t.key} onClick={() => { setDirectTab(t.key); setEditingDirect(null); }} style={{ flex: 1, padding: '7px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, background: directTab === t.key ? '#D4AF37' : 'transparent', color: directTab === t.key ? '#000' : 'rgba(255,255,255,0.45)', transition: 'all 0.15s' }}>
+              <button key={t.key} onClick={() => { setDirectTab(t.key); setEditingDirect(null); }} style={{ flex: 1, padding: '7px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, background: directTab === t.key ? '#D4AF37' : 'transparent', color: directTab === t.key ? '#000' : '#6b7280', transition: 'all 0.15s' }}>
                 {t.label}
               </button>
             ))}
           </div>
 
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 0, marginBottom: 14 }}>
+          <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 0, marginBottom: 14 }}>
             Para minimarket o ítems sin receta. Gestiona unidades de stock directamente.
           </p>
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: 60, color: 'rgba(255,255,255,0.3)' }}>Cargando...</div>
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando...</div>
           ) : filteredDirect.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 60, color: 'rgba(255,255,255,0.3)' }}>
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
               <FontAwesomeIcon icon={faBoxOpen} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
               Sin ítems
             </div>
           ) : (
-            <div style={{ background: '#141414', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 110px 140px', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.28)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 110px 140px', padding: '10px 16px', borderBottom: '1px solid #f3f4f6', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 <span>Nombre</span><span>Categoría</span><span style={{ textAlign: 'center' }}>Stock</span><span style={{ textAlign: 'center' }}>Estado</span>
               </div>
               {filteredDirect.map((item, idx) => {
                 const b = statusBadge(item);
                 const isEditing = editingDirect === item.id;
                 return (
-                  <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr 150px 110px 140px', padding: '11px 16px', borderBottom: idx < filteredDirect.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', alignItems: 'center', background: item.unlimited_stock ? 'transparent' : item.stock === 0 ? 'rgba(239,68,68,0.03)' : 'transparent' }}>
+                  <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr 150px 110px 140px', padding: '11px 16px', borderBottom: idx < filteredDirect.length - 1 ? '1px solid #f3f4f6' : 'none', alignItems: 'center', background: item.unlimited_stock ? 'transparent' : item.stock === 0 ? 'rgba(239,68,68,0.03)' : 'transparent' }}>
                     <span style={{ fontSize: 13, fontWeight: 500 }}>{item.name}</span>
-                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{item.category_name || '—'}</span>
+                    <span style={{ fontSize: 12, color: '#9ca3af' }}>{item.category_name || '—'}</span>
                     <div style={{ textAlign: 'center' }}>
                       {item.unlimited_stock ? (
                         <span style={{ color: '#D4AF37', fontSize: 14 }}><FontAwesomeIcon icon={faInfinity} /></span>
@@ -526,13 +526,13 @@ export default function Inventory() {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                           <input type="number" min="0" value={editDirectVal} onChange={e => setEditDirectVal(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') saveDirectStock(item); if (e.key === 'Escape') setEditingDirect(null); }}
-                            autoFocus style={{ width: 56, padding: '4px 6px', background: '#0a0a0a', border: '1px solid #D4AF37', borderRadius: 6, color: '#fff', fontSize: 13, textAlign: 'center', outline: 'none' }} />
+                            autoFocus style={{ width: 56, padding: '4px 6px', background: '#fff', border: '1px solid #D4AF37', borderRadius: 6, color: '#111', fontSize: 13, textAlign: 'center', outline: 'none' }} />
                           <button onClick={() => saveDirectStock(item)} disabled={savingDirect} style={{ background: '#D4AF37', border: 'none', borderRadius: 5, padding: '4px 8px', cursor: 'pointer', color: '#000', fontSize: 12, fontWeight: 700 }}>✓</button>
-                          <button onClick={() => setEditingDirect(null)} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 5, padding: '4px 8px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>✕</button>
+                          <button onClick={() => setEditingDirect(null)} style={{ background: '#f3f4f6', border: 'none', borderRadius: 5, padding: '4px 8px', cursor: 'pointer', color: '#374151', fontSize: 12 }}>✕</button>
                         </div>
                       ) : (
                         <span onClick={() => { setEditingDirect(item.id); setEditDirectVal(String(item.stock)); }} title="Click para editar"
-                          style={{ cursor: 'pointer', fontSize: 14, fontWeight: 700, color: b.color, borderBottom: '1px dashed rgba(255,255,255,0.18)', paddingBottom: 1 }}>
+                          style={{ cursor: 'pointer', fontSize: 14, fontWeight: 700, color: b.color, borderBottom: '1px dashed #d1d5db', paddingBottom: 1 }}>
                           {item.stock}
                         </span>
                       )}
@@ -543,7 +543,7 @@ export default function Inventory() {
                       </span>
                       <button onClick={() => saveDirectStock(item, !item.unlimited_stock)} disabled={savingDirect}
                         title={item.unlimited_stock ? 'Quitar ilimitado' : 'Marcar ilimitado'}
-                        style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontSize: 12, color: item.unlimited_stock ? '#D4AF37' : 'rgba(255,255,255,0.25)' }}>
+                        style={{ background: 'transparent', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontSize: 12, color: item.unlimited_stock ? '#D4AF37' : '#d1d5db' }}>
                         <FontAwesomeIcon icon={faInfinity} />
                       </button>
                     </div>
@@ -559,7 +559,7 @@ export default function Inventory() {
       {rmModal !== null && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
           onClick={() => setRmModal(null)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#141414', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 440 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid rgba(212,175,55,0.3)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 440 }}>
             <h3 style={{ margin: '0 0 18px', color: '#D4AF37', fontSize: 17, fontWeight: 700 }}>
               {rmModal === 'new' ? 'Nueva Materia Prima' : `Editar: ${rmModal.name}`}
             </h3>
@@ -605,12 +605,12 @@ export default function Inventory() {
       {restockItem && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
           onClick={() => setRestockItem(null)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#141414', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 360 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 360 }}>
             <h3 style={{ margin: '0 0 6px', color: '#22c55e', fontSize: 17, fontWeight: 700 }}>
               <FontAwesomeIcon icon={faArrowUp} style={{ marginRight: 8 }} /> Actualizar Stock
             </h3>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: '0 0 18px' }}>
-              {restockItem.name} — stock actual: <strong style={{ color: '#fff' }}>{fmt(restockItem.quantity, 3)} {restockItem.unit}</strong>
+            <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 18px' }}>
+              {restockItem.name} — stock actual: <strong style={{ color: '#111' }}>{fmt(restockItem.quantity, 3)} {restockItem.unit}</strong>
             </p>
             <div>
               <label style={labelStyle}>Nueva cantidad ({restockItem.unit})</label>
@@ -621,7 +621,7 @@ export default function Inventory() {
                 style={inputStyle} />
             </div>
             {restockAmount !== '' && parseFloat(restockAmount) >= 0 && (
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 8 }}>
+              <div style={{ fontSize: 13, color: '#6b7280', marginTop: 8 }}>
                 {fmt(restockItem.quantity, 3)} → <strong style={{ color: '#22c55e' }}>{fmt(restockAmount, 3)} {restockItem.unit}</strong>
               </div>
             )}
