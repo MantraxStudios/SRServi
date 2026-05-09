@@ -2857,10 +2857,24 @@ function Store() {
               {store.store.name}
             </p>
           )}
-          <h1 style={{ margin: '0 0 12px', color: '#fff', fontWeight: 900, fontSize: 'clamp(22px, 5vw, 40px)', lineHeight: 1.2 }}>
-            El vendedor debe abrir caja<br />para comenzar a usar
+          <h1 style={{ margin: '0 0 16px', color: '#fff', fontWeight: 900, fontSize: 'clamp(22px, 5vw, 40px)', lineHeight: 1.2 }}>
+            Caja cerrada
           </h1>
-          <p style={{ margin: 0, fontSize: 14, color: 'rgba(255,255,255,0.3)' }}>
+          <p style={{ margin: '0 0 20px', fontSize: 15, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6 }}>
+            Para comenzar a vender, abrí la caja desde uno de estos lugares:
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left', background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: '14px 20px', width: '100%', maxWidth: 340 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'rgba(255,255,255,0.75)' }}>
+              <span style={{ fontSize: 18 }}>🏪</span>
+              <span><strong style={{ color: '#fff' }}>Panel del vendedor</strong> → sección <strong style={{ color: '#fff' }}>Caja</strong></span>
+            </div>
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.07)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'rgba(255,255,255,0.75)' }}>
+              <span style={{ fontSize: 18 }}>⚙️</span>
+              <span><strong style={{ color: '#fff' }}>Admin Panel</strong> → <strong style={{ color: '#fff' }}>Administración</strong> → <strong style={{ color: '#fff' }}>Operación y pedidos</strong></span>
+            </div>
+          </div>
+          <p style={{ margin: '16px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
             Esperando apertura de caja…
           </p>
         </div>
