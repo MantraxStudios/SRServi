@@ -2243,6 +2243,32 @@ app.get('/api/analytics/sales-by-day', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/analytics/sales-by-dow', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    const dateRange = req.query.range || 'month';
+    if (!storeId) return res.status(400).json({ error: 'Store ID es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+
+    const rows = await leonGetSalesByDayOfWeek(parseInt(storeId), dateRange);
+    // MySQL DAYOFWEEK: 1=Sun,2=Mon,...,7=Sat → display Mon(2)..Sun(1)
+    const DOW_ORDER = [2, 3, 4, 5, 6, 7, 1];
+    const DOW_NAMES = ['', 'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const map = {};
+    rows.forEach(r => { map[r.day_num] = r; });
+    const result = DOW_ORDER.map(dn => ({
+      day_num: dn,
+      day_name: DOW_NAMES[dn],
+      orders: parseInt(map[dn]?.orders || 0),
+      revenue: parseFloat(map[dn]?.revenue || 0),
+    }));
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/analytics/top-products', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id;
@@ -5518,8 +5544,8 @@ app.post('/api/workers', authenticateToken, async (req, res) => {
     const worker = await createWorker(parseInt(store_id), { username, password, name });
     res.json(worker);
   } catch (error) {
-    if (error.message.includes('Duplicate')) {
-      return res.status(400).json({ error: 'El nombre de usuario ya existe' });
+    if (error.message.includes('Duplicate') || error.message.includes('ya está en uso')) {
+      return res.status(400).json({ error: 'El nombre de usuario ya está en uso. Elige otro.' });
     }
     res.status(500).json({ error: error.message });
   }

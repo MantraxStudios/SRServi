@@ -60,13 +60,13 @@ export default function Rate() {
 
   /* ── pantallas de carga / error ─────────────────────────────────────── */
   if (loading) return (
-    <div style={{ ...full, background: '#0d0d1a', justifyContent: 'center' }}>
+    <div style={{ ...full, background: '#fff', justifyContent: 'center' }}>
       <div style={spinner} />
     </div>
   );
 
   if (error) return (
-    <div style={{ ...full, background: '#0d0d1a', justifyContent: 'center' }}>
+    <div style={{ ...full, background: '#fff', justifyContent: 'center' }}>
       <p style={{ color: '#ef4444', fontSize: 16 }}>{error}</p>
     </div>
   );
@@ -75,19 +75,15 @@ export default function Rate() {
   if (done) {
     const ch = EMOJIS[selected] || EMOJIS[4];
     return (
-      <div style={{ ...full, background: `linear-gradient(145deg, ${primary} 0%, #0d0d1a 100%)` }}>
-        {/* línea dorada superior */}
+      <div style={{ ...full, background: '#fff' }}>
         <div style={goldLine(accent)} />
-
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }}>
-          <div style={{ fontSize: 90, lineHeight: 1, filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.4))' }}>{ch.emoji}</div>
-          <h2 style={{ color: '#fff', fontSize: 28, fontWeight: 900, margin: 0 }}>¡Gracias!</h2>
+          <div style={{ fontSize: 90, lineHeight: 1 }}>{ch.emoji}</div>
+          <h2 style={{ color: '#1e293b', fontSize: 28, fontWeight: 900, margin: 0 }}>¡Gracias!</h2>
           <p style={{ color: accent, fontSize: 16, fontWeight: 700, margin: 0 }}>{ch.label}</p>
-          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, margin: 0 }}>Tu opinión nos ayuda a mejorar.</p>
+          <p style={{ color: '#9ca3af', fontSize: 13, margin: 0 }}>Tu opinión nos ayuda a mejorar.</p>
         </div>
-
-        {/* branding */}
-        <p style={brandText}>Powered by SRAutomatic.cl</p>
+        <p style={{ ...brandText, color: '#d1d5db' }}>Powered by SRAutomatic.cl</p>
         <div style={goldLine(accent)} />
       </div>
     );
@@ -95,11 +91,7 @@ export default function Rate() {
 
   /* ── página principal ───────────────────────────────────────────────── */
   return (
-    <div style={{ ...full, background: `linear-gradient(145deg, ${primary} 0%, #0d0d1a 100%)` }}>
-
-      {/* círculos decorativos (igual que el JPG) */}
-      <div style={circle(accent, 220, -60, -60, 0.07)} />
-      <div style={circle(accent, 160, 'auto', -40, 0.05, 'bottom')} />
+    <div style={{ ...full, background: '#fff' }}>
 
       {/* línea dorada superior */}
       <div style={goldLine(accent)} />
@@ -108,26 +100,25 @@ export default function Rate() {
       <div style={scroll}>
 
         {/* logo / inicial */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 40 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 36 }}>
           {store?.logo_url ? (
             <img src={store.logo_url} alt={name}
-              style={{ width: 80, height: 80, borderRadius: 20, objectFit: 'cover', border: `3px solid ${accent}`, boxShadow: `0 4px 24px ${accent}55` }} />
+              style={{ width: 120, height: 120, borderRadius: 24, objectFit: 'contain', border: `3px solid ${accent}`, boxShadow: `0 4px 24px ${accent}33`, background: '#fff' }} />
           ) : (
             <div style={{
-              width: 80, height: 80, borderRadius: 20,
+              width: 120, height: 120, borderRadius: 24,
               background: accent,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 34, fontWeight: 900, color: primary,
-              boxShadow: `0 4px 24px ${accent}55`,
+              fontSize: 52, fontWeight: 900, color: primary,
+              boxShadow: `0 4px 24px ${accent}44`,
             }}>
               {name[0]?.toUpperCase() || '★'}
             </div>
           )}
-          <h1 style={{ color: '#fff', fontWeight: 900, fontSize: 22, margin: 0, textAlign: 'center' }}>{name}</h1>
+          <h1 style={{ color: '#1e293b', fontWeight: 900, fontSize: 24, margin: 0, textAlign: 'center' }}>{name}</h1>
           <p style={{ color: accent, fontWeight: 700, fontSize: 13, margin: 0, letterSpacing: 2, textTransform: 'uppercase' }}>
             Califica tu experiencia
           </p>
-          {/* estrellitas decorativas */}
           <p style={{ color: accent, fontSize: 20, margin: 0, letterSpacing: 6 }}>★ ★ ★ ★ ★</p>
         </div>
 
@@ -251,7 +242,8 @@ const whiteCard = {
   padding: '24px 20px',
   width: '100%',
   maxWidth: 420,
-  boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+  border: '1px solid #e5e7eb',
 };
 
 const goldLine = (accent) => ({
@@ -263,7 +255,7 @@ const goldLine = (accent) => ({
 });
 
 const brandText = {
-  color: 'rgba(255,255,255,0.3)',
+  color: '#d1d5db',
   fontSize: 11,
   textAlign: 'center',
   margin: 0,

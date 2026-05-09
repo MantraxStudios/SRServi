@@ -2782,13 +2782,21 @@ export async function updateUserSettings(userId, settings) {
 
 export async function createWorker(storeId, data) {
   const { username, password, name } = data;
+
+  const [existing] = await pool.execute(
+    'SELECT id FROM workers WHERE username = ? LIMIT 1',
+    [username]
+  );
+  if (existing.length > 0) {
+    throw new Error('El nombre de usuario ya está en uso. Elige otro.');
+  }
+
   const hashedPassword = await bcrypt.hash(password, 10);
-  
   const [result] = await pool.execute(
     'INSERT INTO workers (store_id, username, password, name) VALUES (?, ?, ?, ?)',
     [storeId, username, hashedPassword, name]
   );
-  
+
   return {
     id: result.insertId,
     store_id: storeId,
