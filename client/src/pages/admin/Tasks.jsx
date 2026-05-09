@@ -275,7 +275,7 @@ export default function Tasks() {
   };
 
   const displayedTasks = detailWorkerId
-    ? tasks.filter(t => t.worker_id === detailWorkerId)
+    ? tasks.filter(t => Number(t.worker_id) === Number(detailWorkerId))
     : tasks;
 
   const workerStats = workers
@@ -428,15 +428,6 @@ export default function Tasks() {
           /* ── Kanban para trabajador seleccionado ── */
           loading ? (
             <div className="loading">Cargando tareas...</div>
-          ) : displayedTasks.length === 0 ? (
-            <div className="empty-state">
-              <FontAwesomeIcon icon={faClipboardList} className="empty-state-icon" />
-              <h3 className="empty-state-title">Sin tareas asignadas</h3>
-              <p className="empty-state-text">Este trabajador no tiene tareas aún</p>
-              <button className="btn btn-primary" onClick={() => openCreate(detailWorkerId)} style={{ marginTop: 16 }}>
-                <FontAwesomeIcon icon={faPlus} /> Nueva Tarea
-              </button>
-            </div>
           ) : (
             <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 'max-content' }}>
@@ -540,7 +531,7 @@ export default function Tasks() {
                 placeholder="Buscar trabajador..."
                 value={workerSearch}
                 onChange={e => setWorkerSearch(e.target.value)}
-                style={{ width: '100%', maxWidth: 360, padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 14, outline: 'none' }}
+                style={{ width: '100%', maxWidth: 360, padding: '9px 14px', borderRadius: 10, border: '1px solid #d1d5db', background: '#fff', color: '#111', fontSize: 14, outline: 'none' }}
               />
             </div>
             {loading ? (
