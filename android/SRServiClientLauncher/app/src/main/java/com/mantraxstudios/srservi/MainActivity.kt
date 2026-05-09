@@ -3,7 +3,6 @@ package com.mantraxstudios.srservi
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
@@ -15,6 +14,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
 import com.mantraxstudios.srservi.printer.BluetoothPrinterManager
 import com.mantraxstudios.srservi.printer.PrinterForegroundService
+import com.mantraxstudios.srservi.ui.RateActivity
 import com.mantraxstudios.srservi.ui.SellActivity
 import com.mantraxstudios.srservi.ui.SettingsActivity
 import com.mantraxstudios.srservi.ui.WorkerLoginActivity
@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, getString(R.string.rate_no_code), Toast.LENGTH_SHORT).show()
             } else {
                 val url = "https://srservi2.srautomatic.com/rate/$storeCode"
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                RateActivity.start(this, url)
             }
         }
 
