@@ -66,25 +66,23 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnWorkerLogin"
+            style="@style/SettingsButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
+            android:layout_marginBottom="16dp"
             android:minHeight="64dp"
             android:text="@string/btn_worker_login"
-            android:textSize="18sp"
-            app:backgroundTint="@color/primary"
-            app:cornerRadius="32dp" />
+            android:textSize="18sp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnRate"
+            style="@style/SettingsButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             android:minHeight="64dp"
             android:text="@string/btn_rate"
-            android:textSize="18sp"
-            app:backgroundTint="@color/accent"
-            app:cornerRadius="32dp" />
+            android:textSize="18sp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnAppSettings"
