@@ -12,6 +12,32 @@ const EMOJIS = [
 const CSS = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  @keyframes bubble-rise {
+    0%   { transform: translateY(0) scale(1);   opacity: 0.7; }
+    50%  { transform: translateY(-45vh) scale(1.08); opacity: 0.5; }
+    100% { transform: translateY(-100vh) scale(0.9); opacity: 0; }
+  }
+  @keyframes bubble-sway {
+    0%   { margin-left: 0; }
+    25%  { margin-left: 18px; }
+    75%  { margin-left: -18px; }
+    100% { margin-left: 0; }
+  }
+
+  .rv-bubbles {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+  .rv-bubble {
+    position: absolute;
+    bottom: -80px;
+    border-radius: 50%;
+    animation: bubble-rise linear infinite, bubble-sway ease-in-out infinite;
+  }
+
   .rv-wrap {
     min-height: 100vh;
     display: flex;
@@ -19,6 +45,7 @@ const CSS = `
     font-family: system-ui, -apple-system, sans-serif;
     background: #fff;
     overflow: hidden;
+    position: relative;
   }
 
   /* Top bar */
@@ -28,6 +55,8 @@ const CSS = `
     gap: 12px;
     padding: 14px 20px;
     flex-shrink: 0;
+    position: relative;
+    z-index: 1;
   }
   .rv-logo-img {
     width: 44px; height: 44px;
@@ -43,8 +72,8 @@ const CSS = `
     flex-shrink: 0;
   }
   .rv-store-name {
-    font-size: 17px;
-    font-weight: 800;
+    font-size: 22px;
+    font-weight: 900;
     color: #1e293b;
     line-height: 1.1;
   }
@@ -56,6 +85,9 @@ const CSS = `
     flex-shrink: 0;
   }
 
+  /* Gold line */
+  .rv-gold-line { position: relative; z-index: 1; }
+
   /* Main body */
   .rv-body {
     flex: 1;
@@ -65,6 +97,8 @@ const CSS = `
     justify-content: center;
     gap: 32px;
     padding: 24px 16px;
+    position: relative;
+    z-index: 1;
   }
 
   .rv-headline {
@@ -146,7 +180,7 @@ const CSS = `
   @media (min-width: 700px) and (orientation: landscape) {
     .rv-topbar { padding: 18px 32px; }
     .rv-logo-img, .rv-logo-ph { width: 52px; height: 52px; border-radius: 14px; }
-    .rv-store-name { font-size: 20px; }
+    .rv-store-name { font-size: 26px; }
     .rv-headline { font-size: 28px; }
     .rv-emojis {
       gap: 16px;
@@ -251,6 +285,7 @@ export default function Rate() {
     <>
       <style>{CSS}</style>
       <div className="rv-wrap">
+        <Bubbles accent={accent} />
         <div className="rv-gold-line" style={{ background: accent }} />
         {topBar}
         <div className="rv-done">
@@ -268,11 +303,12 @@ export default function Rate() {
     <>
       <style>{CSS}</style>
       <div className="rv-wrap">
+        <Bubbles accent={accent} />
         <div className="rv-gold-line" style={{ background: accent }} />
         {topBar}
 
         <div className="rv-body">
-          <p className="rv-headline">¿Cómo fue tu visita?</p>
+          <p className="rv-headline">¿Cómo fue tu experiencia hoy?</p>
 
           <div className="rv-emojis">
             {EMOJIS.map((item) => (
@@ -296,6 +332,45 @@ export default function Rate() {
         <div className="rv-gold-line" style={{ background: accent }} />
       </div>
     </>
+  );
+}
+
+// 12 bubbles with varied size, position, speed and delay
+const BUBBLES = [
+  { size: 28, left: '8%',  dur: 8,  sway: 6,  delay: 0   },
+  { size: 18, left: '18%', dur: 11, sway: 5,  delay: 1.5 },
+  { size: 40, left: '30%', dur: 9,  sway: 8,  delay: 0.8 },
+  { size: 14, left: '42%', dur: 13, sway: 4,  delay: 3   },
+  { size: 32, left: '55%', dur: 10, sway: 7,  delay: 0.3 },
+  { size: 22, left: '65%', dur: 7,  sway: 6,  delay: 2.2 },
+  { size: 48, left: '75%', dur: 12, sway: 9,  delay: 1   },
+  { size: 16, left: '85%', dur: 9,  sway: 5,  delay: 4   },
+  { size: 36, left: '92%', dur: 11, sway: 7,  delay: 0.5 },
+  { size: 20, left: '3%',  dur: 14, sway: 4,  delay: 3.5 },
+  { size: 26, left: '50%', dur: 8,  sway: 6,  delay: 2.8 },
+  { size: 12, left: '72%', dur: 10, sway: 3,  delay: 1.8 },
+];
+
+function Bubbles({ accent }) {
+  const color = accent || '#D4AF37';
+  return (
+    <div className="rv-bubbles">
+      {BUBBLES.map((b, i) => (
+        <div
+          key={i}
+          className="rv-bubble"
+          style={{
+            width: b.size,
+            height: b.size,
+            left: b.left,
+            background: `radial-gradient(circle at 35% 35%, ${color}55, ${color}18)`,
+            border: `1.5px solid ${color}44`,
+            animationDuration: `${b.dur}s, ${b.sway * 1.3}s`,
+            animationDelay: `${b.delay}s, ${b.delay * 0.7}s`,
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
