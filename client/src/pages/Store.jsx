@@ -42,6 +42,7 @@ import {
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
 import CameraModal from '../components/CameraModal';
+import RecipeEditor from '../components/RecipeEditor';
 import {
   DndContext,
   closestCenter,
@@ -344,6 +345,8 @@ function Store() {
   const categoryRef = useRef(null);
   const productsAreaRef = useRef(null);
   const storeIdRef = useRef(null);
+  const prodRecipeRef = useRef(null);
+  const compRecipeRef = useRef(null);
   const socketRef = useRef(null);
   const pendingOrderDataRef = useRef(null);
   const editModeRef = useRef(false);
@@ -2094,10 +2097,14 @@ function Store() {
     formData.append('unlimited_stock', complementForm.unlimited_stock);
     if (complementForm.imageFile) formData.append('image', complementForm.imageFile);
 
-    await fetch(`/api/public/${code}/${type === 'extra' ? 'extras' : 'ingredients'}`, {
+    const compRes = await fetch(`/api/public/${code}/${type === 'extra' ? 'extras' : 'ingredients'}`, {
       method: 'POST',
       body: formData
     });
+    if (compRes.ok) {
+      const savedComp = await compRes.json();
+      await compRecipeRef.current?.save(savedComp.id);
+    }
     setComplementModal(null);
     setComplementForm({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
     fetchComplements();
@@ -2697,6 +2704,7 @@ function Store() {
         const lastProd = editingProd ? editingProd : prodData.products?.[prodData.products.length - 1];
         if (lastProd?.id) {
           await updateProductStock(lastProd.id, parseInt(prodForm.stock) || 0, prodForm.unlimited_stock);
+          await prodRecipeRef.current?.save(lastProd.id);
         }
       }
 
@@ -5127,6 +5135,18 @@ function Store() {
                 </div>
               )}
             </div>
+            {editMode && (
+              <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px', marginTop: '12px' }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#374151', marginBottom: 8 }}>Receta (Materias Primas)</div>
+                <RecipeEditor
+                  key={editingProd ? editingProd.id : 'new-prod'}
+                  ref={prodRecipeRef}
+                  storeId={store?.store?.id}
+                  itemType="product"
+                  itemId={editingProd?.id || null}
+                />
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
               <button
                 onClick={() => { setProdModalOpen(false); setProdImageFile(null); setProdNewExtras([]); setProdNewComplements([]); }}
@@ -5566,6 +5586,16 @@ function Store() {
                 <FontAwesomeIcon icon={faEdit} /> {complementForm.imageFile ? complementForm.imageFile.name : 'Imagen'}
                 <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setComplementForm({ ...complementForm, imageFile: e.target.files[0] }); }} style={{ display: 'none' }} />
               </label>
+            </div>
+            <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px', marginTop: '12px' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#374151', marginBottom: 8 }}>Receta (Materias Primas)</div>
+              <RecipeEditor
+                key={`new-${complementModal}`}
+                ref={compRecipeRef}
+                storeId={store?.store?.id}
+                itemType={complementModal === 'extra' ? 'extra' : 'ingredient'}
+                itemId={null}
+              />
             </div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
               <button onClick={() => setComplementModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
