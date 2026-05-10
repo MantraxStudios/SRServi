@@ -2600,7 +2600,7 @@ export async function createOrder(storeId, orderData) {
       );
     }
 
-    // Deduct complement (ingredient) stock — selected_ingredients can be strings or {id,name} objects
+    // Deduct complement (ingredient) stock and raw materials
     for (const ing of (item.selected_ingredients || [])) {
       const ingName = typeof ing === 'string' ? ing : ing?.name;
       if (!ingName) continue;
@@ -2608,15 +2608,28 @@ export async function createOrder(storeId, orderData) {
         'SELECT id, unlimited_stock FROM ingredients WHERE store_id = ? AND name = ? LIMIT 1',
         [storeId, ingName]
       );
-      if (ingRows.length > 0 && !ingRows[0].unlimited_stock) {
-        await pool.execute(
-          'UPDATE ingredients SET stock = GREATEST(0, stock - 1) WHERE id = ?',
-          [ingRows[0].id]
+      if (ingRows.length > 0) {
+        if (!ingRows[0].unlimited_stock) {
+          await pool.execute(
+            'UPDATE ingredients SET stock = GREATEST(0, stock - ?) WHERE id = ?',
+            [item.quantity, ingRows[0].id]
+          );
+        }
+        // Deduct raw materials for this ingredient (recipe) — multiplied by order quantity
+        const [ingRecipe] = await pool.execute(
+          'SELECT raw_material_id, quantity_used FROM product_recipes WHERE item_type = ? AND item_id = ?',
+          ['ingredient', ingRows[0].id]
         );
+        for (const r of ingRecipe) {
+          await pool.execute(
+            'UPDATE raw_materials SET quantity = GREATEST(0, quantity - ?) WHERE id = ?',
+            [r.quantity_used * item.quantity, r.raw_material_id]
+          );
+        }
       }
     }
 
-    // Deduct extra stock
+    // Deduct extra stock and raw materials
     for (const ext of (item.selected_extras || [])) {
       const extName = typeof ext === 'string' ? ext : ext?.name;
       if (!extName) continue;
@@ -2624,14 +2637,14 @@ export async function createOrder(storeId, orderData) {
         'SELECT id, unlimited_stock FROM extras WHERE store_id = ? AND name = ? LIMIT 1',
         [storeId, extName]
       );
-      if (extRows.length > 0 && !extRows[0].unlimited_stock) {
-        await pool.execute(
-          'UPDATE extras SET stock = GREATEST(0, stock - 1) WHERE id = ?',
-          [extRows[0].id]
-        );
-      }
-      // Deduct raw materials for this extra (recipe)
       if (extRows.length > 0) {
+        if (!extRows[0].unlimited_stock) {
+          await pool.execute(
+            'UPDATE extras SET stock = GREATEST(0, stock - ?) WHERE id = ?',
+            [item.quantity, extRows[0].id]
+          );
+        }
+        // Deduct raw materials for this extra (recipe) — multiplied by order quantity
         const [extRecipe] = await pool.execute(
           'SELECT raw_material_id, quantity_used FROM product_recipes WHERE item_type = ? AND item_id = ?',
           ['extra', extRows[0].id]
@@ -2639,7 +2652,7 @@ export async function createOrder(storeId, orderData) {
         for (const r of extRecipe) {
           await pool.execute(
             'UPDATE raw_materials SET quantity = GREATEST(0, quantity - ?) WHERE id = ?',
-            [r.quantity_used, r.raw_material_id]
+            [r.quantity_used * item.quantity, r.raw_material_id]
           );
         }
       }
