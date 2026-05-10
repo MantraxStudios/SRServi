@@ -2,7 +2,7 @@ import { useState, useEffect, useContext, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faStar, faQrcode, faCommentAlt, faDownload, faArrowDown, faUsers, faChartBar, faGlobe, faLink, faTimes, faFilter, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
+import { faStar, faQrcode, faCommentAlt, faDownload, faArrowDown, faUsers, faChartBar, faGlobe, faLink, faTimes, faFilter, faCalendarAlt, faImage } from '@fortawesome/free-solid-svg-icons';
 import { QRCodeCanvas } from 'qrcode.react';
 
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -72,6 +72,17 @@ export default function Ratings() {
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [surveyDateFrom, setSurveyDateFrom] = useState('');
   const [surveyDateTo, setSurveyDateTo] = useState('');
+
+  const [promoImages, setPromoImages] = useState([null, null]);
+
+  const handlePromoImage = (index, file) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = e => setPromoImages(prev => {
+      const next = [...prev]; next[index] = e.target.result; return next;
+    });
+    reader.readAsDataURL(file);
+  };
 
   const ratingUrl = selectedStore ? `${BASE_URL}/rate/${selectedStore.code}` : '';
   const surveyUrl = selectedStore ? `${BASE_URL}/survey/${selectedStore.code}` : '';
@@ -282,19 +293,50 @@ export default function Ratings() {
       const idealQrCanvas = document.getElementById('ideal-qr-canvas-clasi');
       if (!idealQrCanvas) return;
 
-      // ── Layout: portrait poster, big header on top, QR cards at bottom ──
+      // ── 1. Load all images async FIRST (logo + promo) ──
+      let logoImg = null;
+      if (selectedStore?.logo_url) {
+        try {
+          logoImg = await new Promise((res, rej) => {
+            const img = new Image(); img.crossOrigin = 'anonymous';
+            img.onload = () => res(img); img.onerror = () => rej();
+            img.src = selectedStore.logo_url;
+          });
+        } catch {}
+      }
+      const loadedPromo = await Promise.all(
+        promoImages.map(src => src
+          ? new Promise(res => {
+              const img = new Image();
+              img.onload = () => res(img); img.onerror = () => res(null);
+              img.src = src;
+            })
+          : Promise.resolve(null)
+        )
+      );
+      const activePromo = loadedPromo.filter(Boolean);
+
+      // ── 2. Layout — computed before canvas creation so H is correct ──
       const W = 800;
       const cx = W / 2;
       const pad = 22;
       const gap = 12;
-      const cardW = (W - pad * 2 - gap) / 2;  // 372px each
-      const qrSize = 240;                        // 1:1 with hidden canvas size={240}
-      const cardH = 420;                         // fixed card height
-      const cardY = 620;                         // cards start at 620 → big header above
+      const logoSize = 120;
+      const logoY = 55;
+      const nameY = logoY + logoSize + 48;    // 223
+      const badgeY = nameY + 108;             // 331
+      const cardW = (W - pad * 2 - gap) / 2; // 372px each
+      const qrSize = 240;
+      const cardH = 420;
+      const promoImgH = 180;
+      const hasPromo = activePromo.length > 0;
+      const promoSectionH = hasPromo ? promoImgH + 66 : 0;
+      const cardY = 460 + promoSectionH;
       const card1X = pad;
       const card2X = pad + cardW + gap;
-      const H = cardY + cardH + 80;             // 1120px — clear portrait (800×1120)
+      const H = cardY + cardH + 80;           // portrait: ~1040–1286px
 
+      // ── 3. Create canvas ──
       const canvas = document.createElement('canvas');
       canvas.width = W;
       canvas.height = H;
@@ -345,23 +387,7 @@ export default function Ratings() {
       ctx.fill();
       ctx.restore();
 
-      // ── Logo ──
-      let logoImg = null;
-      if (selectedStore?.logo_url) {
-        try {
-          logoImg = await new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => resolve(img);
-            img.onerror = () => reject();
-            img.src = selectedStore.logo_url;
-          });
-        } catch {}
-      }
-
-      const logoSize = 120;
-      const logoY = 55;
-
+      // ── 7. Logo ──
       if (logoImg) {
         ctx.save();
         ctx.beginPath();
@@ -386,19 +412,14 @@ export default function Ratings() {
         ctx.fillText(storeName[0]?.toUpperCase() || '★', cx, logoY + logoSize / 2);
       }
 
-      // ── Nombre tienda ──
-      const nameY = logoY + logoSize + 48;
+      // ── 8. Nombre tienda ──
       ctx.fillStyle = '#0f172a';
       ctx.font = 'bold 36px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
       ctx.fillText(storeName.toUpperCase(), cx, nameY);
-
-      // ── Línea dorada ──
       ctx.fillStyle = accentColor;
       ctx.fillRect(cx - 50, nameY + 12, 100, 3);
-
-      // ── Tagline ──
       ctx.fillStyle = '#475569';
       ctx.font = '500 17px Arial';
       ctx.textAlign = 'center';
@@ -408,8 +429,7 @@ export default function Ratings() {
       ctx.font = '15px Arial';
       ctx.fillText('Tus opiniones nos ayudan a mejorar.', cx, nameY + 74);
 
-      // ── Píldoras de acción ──
-      const badgeY = nameY + 108;
+      // ── 9. Píldoras de acción ──
       const badgeDefs = [
         { label: '🌐  Clasifícanos en Google', color: '#4285F4' },
         { label: '🎯  Encuesta Cliente Ideal', color: accentColor },
@@ -431,24 +451,44 @@ export default function Ratings() {
         ctx.fillText(b.label, bx + bw / 2, badgeY + 19);
       });
 
-      // ── Flecha apuntando hacia los QR ──
+      // ── 10. Imágenes de producto/premio (si hay) ──
+      if (hasPromo) {
+        const promoLabelY = badgeY + 62;
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 15px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText('🎁  Producto / Premio', cx, promoLabelY);
+        ctx.fillStyle = accentColor;
+        ctx.fillRect(cx - 36, promoLabelY + 8, 72, 2);
+
+        const promoTopY = promoLabelY + 24;
+        if (activePromo.length === 1) {
+          const iw = 300;
+          drawImageCover(ctx, activePromo[0], cx - iw / 2, promoTopY, iw, promoImgH, 14);
+        } else {
+          const iw = (W - pad * 2 - 12) / 2;
+          drawImageCover(ctx, activePromo[0], pad, promoTopY, iw, promoImgH, 14);
+          drawImageCover(ctx, activePromo[1], W - pad - iw, promoTopY, iw, promoImgH, 14);
+        }
+      }
+
+      // ── 11. Flecha + separador justo sobre los QR ──
       ctx.fillStyle = accentColor;
       ctx.font = 'bold 15px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('↓  Escanea los códigos QR  ↓', cx, badgeY + 70);
-
-      // ── Línea separadora sutil sobre tarjetas ──
+      ctx.fillText('↓  Escanea los códigos QR  ↓', cx, cardY - 32);
       ctx.strokeStyle = '#e2e8f0';
       ctx.lineWidth = 1;
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
-      ctx.moveTo(pad + 16, cardY - 18);
-      ctx.lineTo(W - pad - 16, cardY - 18);
+      ctx.moveTo(pad + 16, cardY - 14);
+      ctx.lineTo(W - pad - 16, cardY - 14);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // ── Tarjetas QR en la parte inferior ──
+      // ── 12. Tarjetas QR en la parte inferior ──
       const drawQRPanel = (cardX, qrCvs, icon, title, desc) => {
         const pcx = cardX + cardW / 2;
 
@@ -610,6 +650,23 @@ export default function Ratings() {
     ctx.lineTo(x, y + r);
     ctx.quadraticCurveTo(x, y, x + r, y);
     ctx.closePath();
+  }
+
+  // Helper: draw image cropped to fill a rounded rect (cover)
+  function drawImageCover(ctx, img, x, y, w, h, r) {
+    if (!img) return;
+    const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+    const dw = img.naturalWidth * scale;
+    const dh = img.naturalHeight * scale;
+    ctx.save();
+    roundRect(ctx, x, y, w, h, r);
+    ctx.clip();
+    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(0,0,0,0.10)';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, x, y, w, h, r);
+    ctx.stroke();
   }
 
   if (!selectedStore) {
@@ -1133,6 +1190,58 @@ export default function Ratings() {
                   <QRCodeCanvas id="ideal-qr-canvas-clasi" value={surveyUrl} size={240} level="H" includeMargin={false} style={{ width: '130px', height: '130px' }} />
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Promo images upload */}
+          <div style={styles.card}>
+            <h3 style={styles.cardTitle}>
+              <FontAwesomeIcon icon={faImage} style={{ color: accentColor, marginRight: 8 }} />
+              Producto / Premio a mostrar
+              <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af', marginLeft: 8 }}>(máx. 2 imágenes — aparecen en la imagen descargada)</span>
+            </h3>
+            <div style={{ display: 'flex', gap: 12 }}>
+              {[0, 1].map(i => (
+                <div key={i} style={{ flex: 1 }}>
+                  {promoImages[i] ? (
+                    <div style={{ position: 'relative' }}>
+                      <img
+                        src={promoImages[i]}
+                        alt={`Producto ${i + 1}`}
+                        style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 10, border: '1.5px solid #e5e7eb', display: 'block' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPromoImages(prev => { const n = [...prev]; n[i] = null; return n; })}
+                        style={{
+                          position: 'absolute', top: 6, right: 6,
+                          width: 26, height: 26, borderRadius: '50%',
+                          border: 'none', background: 'rgba(0,0,0,0.55)',
+                          color: '#fff', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11,
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faTimes} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      height: 120, borderRadius: 10, border: '2px dashed #d1d5db',
+                      background: '#f9fafb', cursor: 'pointer', gap: 6,
+                    }}>
+                      <FontAwesomeIcon icon={faImage} style={{ fontSize: 22, color: '#d1d5db' }} />
+                      <span style={{ fontSize: 12, color: '#9ca3af' }}>Imagen {i + 1}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={e => { if (e.target.files[0]) handlePromoImage(i, e.target.files[0]); e.target.value = ''; }}
+                      />
+                    </label>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
