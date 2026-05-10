@@ -884,16 +884,20 @@ function Products() {
                 </div>
 
                 {/* Receta */}
-                <div className="product-form-section">
-                  <h3 className="form-section-title">Receta (Materias Primas)</h3>
-                  <RecipeEditor
-                    key={editingProduct ? editingProduct.id : 'new'}
-                    ref={recipeEditorRef}
-                    storeId={selectedStore?.id}
-                    itemType="product"
-                    itemId={editingProduct?.id || null}
-                  />
-                </div>
+                <details className="product-form-section" style={{ borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                  <summary style={{ padding: '10px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer', background: '#fffbeb', color: '#92400e', borderBottom: '1px solid #e5e7eb', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    ▶ Receta (Materias Primas)
+                  </summary>
+                  <div style={{ padding: '12px 14px' }}>
+                    <RecipeEditor
+                      key={editingProduct ? editingProduct.id : 'new'}
+                      ref={recipeEditorRef}
+                      storeId={selectedStore?.id}
+                      itemType="product"
+                      itemId={editingProduct?.id || null}
+                    />
+                  </div>
+                </details>
 
                 {/* Botones Acción */}
                 <div className="product-form-actions">

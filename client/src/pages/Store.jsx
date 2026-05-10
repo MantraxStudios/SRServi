@@ -2732,7 +2732,6 @@ function Store() {
         const lastProd = editingProd ? editingProd : prodData.products?.[prodData.products.length - 1];
         if (lastProd?.id) {
           await updateProductStock(lastProd.id, parseInt(prodForm.stock) || 0, prodForm.unlimited_stock);
-          await prodRecipeRef.current?.save(lastProd.id);
         }
       }
 
@@ -5124,17 +5123,14 @@ function Store() {
                 </div>
               )}
             </div>
-            {editMode && (
-              <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px', marginTop: '12px' }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: '#374151', marginBottom: 8 }}>Receta (Materias Primas)</div>
-                <RecipeEditor
-                  key={editingProd ? editingProd.id : 'new-prod'}
-                  ref={prodRecipeRef}
-                  storeId={store?.store?.id}
-                  itemType="product"
-                  itemId={editingProd?.id || null}
-                />
-              </div>
+            {editMode && editingProd && (
+              <button
+                type="button"
+                onClick={() => setProdRecipeModal(editingProd)}
+                style={{ width: '100%', marginTop: '10px', padding: '10px', borderRadius: '8px', border: '2px solid #D4AF37', background: '#fffbeb', color: '#92400e', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+              >
+                <FontAwesomeIcon icon={faUtensils} /> Materias Primas (Receta)
+              </button>
             )}
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
               <button
@@ -5244,7 +5240,7 @@ function Store() {
                             item={ing}
                             active={active}
                             onToggle={() => setSelectedIngredientIds(active ? selectedIngredientIds.filter(id => id !== ing.id) : [...selectedIngredientIds, ing.id])}
-                            onEdit={() => setEditingComplement({ id: ing.id, type: 'ingredient', name: ing.name, price: ing.price?.toString() || '', stock: String(ing.stock ?? 0), unlimited_stock: !!(ing.unlimited_stock === true || ing.unlimited_stock === 1 || ing.unlimited_stock === '1'), imageFile: null })}
+                            onEdit={() => setEditComplementModal({ id: ing.id, type: 'ingredient', name: ing.name, price: ing.price?.toString() || '', stock: String(ing.stock ?? 0), unlimited_stock: !!(ing.unlimited_stock === true || ing.unlimited_stock === 1 || ing.unlimited_stock === '1'), imageFile: null })}
                             onDelete={() => deleteComplementFromModal('ingredient', ing.id)}
                           />
                         );
@@ -5283,7 +5279,7 @@ function Store() {
                             item={ex}
                             active={active}
                             onToggle={() => setSelectedExtraIds(active ? selectedExtraIds.filter(id => id !== ex.id) : [...selectedExtraIds, ex.id])}
-                            onEdit={() => setEditingComplement({ id: ex.id, type: 'extra', name: ex.name, price: ex.price?.toString() || '', stock: String(ex.stock ?? 0), unlimited_stock: !!(ex.unlimited_stock === true || ex.unlimited_stock === 1 || ex.unlimited_stock === '1'), imageFile: null })}
+                            onEdit={() => setEditComplementModal({ id: ex.id, type: 'extra', name: ex.name, price: ex.price?.toString() || '', stock: String(ex.stock ?? 0), unlimited_stock: !!(ex.unlimited_stock === true || ex.unlimited_stock === 1 || ex.unlimited_stock === '1'), imageFile: null })}
                             onDelete={() => deleteComplementFromModal('extra', ex.id)}
                           />
                         );

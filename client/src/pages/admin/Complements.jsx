@@ -480,16 +480,20 @@ function Complements() {
                   </div>
                 )}
               </div>
-              <div style={{ marginTop: 18, marginBottom: 4 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, color: '#374151', marginBottom: 8 }}>Receta (Materias Primas)</div>
-                <RecipeEditor
-                  key={editingItem ? `${editingItem._type}-${editingItem.id}` : `new-${formData.type}`}
-                  ref={recipeEditorRef}
-                  storeId={selectedStore?.id}
-                  itemType={formData.type === 'extra' ? 'extra' : 'ingredient'}
-                  itemId={editingItem?.id || null}
-                />
-              </div>
+              <details style={{ marginTop: 14, borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                <summary style={{ padding: '9px 12px', fontWeight: 700, fontSize: 13, cursor: 'pointer', background: '#fffbeb', color: '#92400e', borderBottom: '1px solid #e5e7eb', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  ▶ Receta (Materias Primas)
+                </summary>
+                <div style={{ padding: '12px' }}>
+                  <RecipeEditor
+                    key={editingItem ? `${editingItem._type}-${editingItem.id}` : `new-${formData.type}`}
+                    ref={recipeEditorRef}
+                    storeId={selectedStore?.id}
+                    itemType={formData.type === 'extra' ? 'extra' : 'ingredient'}
+                    itemId={editingItem?.id || null}
+                  />
+                </div>
+              </details>
               <button type="submit" className="btn btn-primary btn-full">
                 {editingItem ? 'Actualizar' : 'Crear'}
               </button>
