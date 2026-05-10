@@ -59,10 +59,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<View>(R.id.btnClearCache).setOnClickListener {
-            clearAppCache()
-        }
-
         findViewById<View>(R.id.btnAppSettings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
@@ -124,9 +120,4 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun clearAppCache() {
-        cacheDir.deleteRecursively()
-        externalCacheDir?.deleteRecursively()
-        Toast.makeText(this, getString(R.string.cache_cleared), Toast.LENGTH_SHORT).show()
-    }
 }

@@ -98,6 +98,7 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.btnPrintQueue).setOnClickListener {
             startActivity(Intent(this, PrintQueueActivity::class.java))
         }
+        findViewById<MaterialButton>(R.id.btnClearCache).setOnClickListener { clearAppCache() }
         findViewById<MaterialButton>(R.id.btnSave).setOnClickListener { saveSettings() }
     }
 
@@ -222,6 +223,12 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         dialog.show()
+    }
+
+    private fun clearAppCache() {
+        cacheDir.deleteRecursively()
+        externalCacheDir?.deleteRecursively()
+        Toast.makeText(this, getString(R.string.cache_cleared), Toast.LENGTH_SHORT).show()
     }
 
     private fun connectToPrinter(device: BluetoothDevice) {
