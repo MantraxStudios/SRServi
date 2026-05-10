@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash, faInfinity, faCubes, faFlask, faGripVertical } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
+import RecipeEditor from '../../components/RecipeEditor';
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
 } from '@dnd-kit/core';
@@ -36,6 +37,7 @@ function Complements() {
     type: 'ingredient'
   });
   const [error, setError] = useState('');
+  const recipeEditorRef = useRef(null);
 
   useEffect(() => {
     if (selectedStore) {
@@ -115,6 +117,9 @@ function Complements() {
       if (!response.ok) {
         throw new Error('Error al guardar');
       }
+
+      const savedItem = await response.json();
+      await recipeEditorRef.current?.save(savedItem.id);
 
       setShowModal(false);
       setEditingItem(null);
@@ -474,6 +479,16 @@ function Complements() {
                     <span className="text-muted text-sm">Imagen actual</span>
                   </div>
                 )}
+              </div>
+              <div style={{ marginTop: 18, marginBottom: 4 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#374151', marginBottom: 8 }}>Receta (Materias Primas)</div>
+                <RecipeEditor
+                  key={editingItem ? `${editingItem._type}-${editingItem.id}` : `new-${formData.type}`}
+                  ref={recipeEditorRef}
+                  storeId={selectedStore?.id}
+                  itemType={formData.type === 'extra' ? 'extra' : 'ingredient'}
+                  itemId={editingItem?.id || null}
+                />
               </div>
               <button type="submit" className="btn btn-primary btn-full">
                 {editingItem ? 'Actualizar' : 'Crear'}

@@ -4,6 +4,7 @@ import { faPlus, faEdit, faTrash, faBox, faGripVertical, faCamera, faFileExcel, 
 import { useStore } from '../../components/Layout';
 import { getImageUrl } from '../../config.js';
 import CameraModal from '../../components/CameraModal';
+import RecipeEditor from '../../components/RecipeEditor';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -59,6 +60,7 @@ function Products() {
   const [excelError, setExcelError] = useState('');
   const [excelResults, setExcelResults] = useState(null);
   const excelFileRef = useRef(null);
+  const recipeEditorRef = useRef(null);
 
   const fetchAllRef = useRef(false);
 
@@ -177,6 +179,8 @@ function Products() {
 
       const productData = await response.json();
       const productId = productData.id;
+
+      await recipeEditorRef.current?.save(productId);
 
       await fetch(`/api/inventory/${productId}/unlimited`, {
         method: 'PUT',
@@ -877,6 +881,18 @@ function Products() {
                       )}
                     </>
                   )}
+                </div>
+
+                {/* Receta */}
+                <div className="product-form-section">
+                  <h3 className="form-section-title">Receta (Materias Primas)</h3>
+                  <RecipeEditor
+                    key={editingProduct ? editingProduct.id : 'new'}
+                    ref={recipeEditorRef}
+                    storeId={selectedStore?.id}
+                    itemType="product"
+                    itemId={editingProduct?.id || null}
+                  />
                 </div>
 
                 {/* Botones Acción */}
