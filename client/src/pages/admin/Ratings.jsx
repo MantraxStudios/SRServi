@@ -74,6 +74,7 @@ export default function Ratings() {
   const [surveyDateTo, setSurveyDateTo] = useState('');
 
   const [promoImages, setPromoImages] = useState([null, null]);
+  const [promoGiftText, setPromoGiftText] = useState('');
 
   const handlePromoImage = (index, file) => {
     if (!file || !file.type.startsWith('image/')) return;
@@ -126,6 +127,7 @@ export default function Ratings() {
         setGoogleUrl(d.googleUrl || '');
         setGoogleQrDesc(d.googleQrDesc || '');
         setIdealQrDesc(d.idealQrDesc || '');
+        setPromoGiftText(d.promoGiftText || '');
       } catch {}
     }
   }, [selectedStore?.code]);
@@ -134,9 +136,9 @@ export default function Ratings() {
     if (!selectedStore?.code) return;
     localStorage.setItem(
       `srservi_clasificacion_${selectedStore.code}`,
-      JSON.stringify({ googleUrl, googleQrDesc, idealQrDesc })
+      JSON.stringify({ googleUrl, googleQrDesc, idealQrDesc, promoGiftText })
     );
-  }, [googleUrl, googleQrDesc, idealQrDesc, selectedStore?.code]);
+  }, [googleUrl, googleQrDesc, idealQrDesc, promoGiftText, selectedStore?.code]);
 
   const filtered = ratings.filter(r => {
     if (filter === 'high') return r.rating >= 8;
@@ -328,9 +330,11 @@ export default function Ratings() {
       const cardW = (W - pad * 2 - gap) / 2; // 372px each
       const qrSize = 240;
       const cardH = 420;
-      const promoImgH = 180;
+      const promoImgH = 240;
       const hasPromo = activePromo.length > 0;
-      const promoSectionH = hasPromo ? promoImgH + 66 : 0;
+      const hasGiftText = !!promoGiftText.trim();
+      const giftExtraH = (!hasPromo && hasGiftText) ? 44 : 0;
+      const promoSectionH = (hasPromo ? promoImgH + 88 : 0) + giftExtraH;
       const cardY = 460 + promoSectionH;
       const card1X = pad;
       const card2X = pad + cardW + gap;
@@ -473,18 +477,37 @@ export default function Ratings() {
         }
       }
 
-      // ── 11. Flecha + separador justo sobre los QR ──
-      ctx.fillStyle = accentColor;
-      ctx.font = 'bold 15px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('↓  Escanea los códigos QR  ↓', cx, cardY - 32);
+      // ── 11. Texto "Escanea / GRATIS" (o flecha genérica) ──
+      if (hasGiftText) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '500 15px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText('Escanea los códigos y lleva', cx, cardY - 48);
+
+        // "GRATIS [texto]" grande y llamativo
+        const giftLabel = `🎁 GRATIS ${promoGiftText.trim().toUpperCase()}`;
+        ctx.font = 'bold 26px Arial';
+        ctx.textBaseline = 'alphabetic';
+        // shadow glow
+        ctx.shadowColor = `${accentColor}88`;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(giftLabel, cx, cardY - 16);
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.fillStyle = accentColor;
+        ctx.font = 'bold 15px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('↓  Escanea los códigos QR  ↓', cx, cardY - 32);
+      }
       ctx.strokeStyle = '#e2e8f0';
       ctx.lineWidth = 1;
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
-      ctx.moveTo(pad + 16, cardY - 14);
-      ctx.lineTo(W - pad - 16, cardY - 14);
+      ctx.moveTo(pad + 16, cardY - 8);
+      ctx.lineTo(W - pad - 16, cardY - 8);
       ctx.stroke();
       ctx.setLineDash([]);
 
@@ -1193,14 +1216,16 @@ export default function Ratings() {
             </div>
           </div>
 
-          {/* Promo images upload */}
+          {/* Promo images + gift text */}
           <div style={styles.card}>
             <h3 style={styles.cardTitle}>
               <FontAwesomeIcon icon={faImage} style={{ color: accentColor, marginRight: 8 }} />
-              Producto / Premio a mostrar
-              <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af', marginLeft: 8 }}>(máx. 2 imágenes — aparecen en la imagen descargada)</span>
+              Producto / Premio
+              <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af', marginLeft: 8 }}>(máx. 2 imágenes)</span>
             </h3>
-            <div style={{ display: 'flex', gap: 12 }}>
+
+            {/* Image upload slots */}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
               {[0, 1].map(i => (
                 <div key={i} style={{ flex: 1 }}>
                   {promoImages[i] ? (
@@ -1208,7 +1233,7 @@ export default function Ratings() {
                       <img
                         src={promoImages[i]}
                         alt={`Producto ${i + 1}`}
-                        style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 10, border: '1.5px solid #e5e7eb', display: 'block' }}
+                        style={{ width: '100%', height: 150, objectFit: 'cover', borderRadius: 10, border: '1.5px solid #e5e7eb', display: 'block' }}
                       />
                       <button
                         type="button"
@@ -1227,10 +1252,10 @@ export default function Ratings() {
                   ) : (
                     <label style={{
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      height: 120, borderRadius: 10, border: '2px dashed #d1d5db',
+                      height: 150, borderRadius: 10, border: '2px dashed #d1d5db',
                       background: '#f9fafb', cursor: 'pointer', gap: 6,
                     }}>
-                      <FontAwesomeIcon icon={faImage} style={{ fontSize: 22, color: '#d1d5db' }} />
+                      <FontAwesomeIcon icon={faImage} style={{ fontSize: 24, color: '#d1d5db' }} />
                       <span style={{ fontSize: 12, color: '#9ca3af' }}>Imagen {i + 1}</span>
                       <input
                         type="file"
@@ -1242,6 +1267,33 @@ export default function Ratings() {
                   )}
                 </div>
               ))}
+            </div>
+
+            {/* Gift text */}
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+                ¿Qué se lleva gratis?
+              </label>
+              <input
+                type="text"
+                value={promoGiftText}
+                onChange={e => setPromoGiftText(e.target.value)}
+                placeholder="Ej: una pizza mediana, un café, un postre…"
+                style={{
+                  width: '100%', padding: '9px 12px', borderRadius: 8,
+                  border: '1.5px solid #e5e7eb', fontSize: 13,
+                  boxSizing: 'border-box', outline: 'none',
+                }}
+              />
+              {promoGiftText.trim() && (
+                <div style={{
+                  marginTop: 8, padding: '8px 12px', borderRadius: 8,
+                  background: '#fffbeb', border: '1px solid #fde68a',
+                  fontSize: 13, color: '#92400e', fontWeight: 600,
+                }}>
+                  Vista previa: "Escanea los códigos y lleva GRATIS {promoGiftText.trim().toUpperCase()}"
+                </div>
+              )}
             </div>
           </div>
 
