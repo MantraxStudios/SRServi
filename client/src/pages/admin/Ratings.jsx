@@ -691,29 +691,27 @@ export default function Ratings() {
     const dw = img.naturalWidth * scale;
     const dh = img.naturalHeight * scale;
 
-    const makeRoundPath = () => {
+    const makePath = (px, py, pw, ph, pr) => {
       ctx.beginPath();
-      // Use native roundRect (Chrome 99+, FF 112+, Safari 15.4+) for perfect arcs
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(x, y, w, h, r);
-      } else {
-        roundRect(ctx, x, y, w, h, r);
-      }
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(px, py, pw, ph, pr);
+      else roundRect(ctx, px, py, pw, ph, pr);
     };
 
-    // Clip + draw
+    // 1. Drop shadow — fill white shape first so shadow renders correctly
     ctx.save();
-    makeRoundPath();
-    ctx.clip();
-    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+    ctx.shadowColor = 'rgba(0,0,0,0.22)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 6;
+    makePath(x, y, w, h, r);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
     ctx.restore();
 
-    // Subtle border (drawn outside clip so it doesn't get cut)
+    // 2. Clip and draw image (no stroke — stroke causes artifacts at clip edge)
     ctx.save();
-    makeRoundPath();
-    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    makePath(x, y, w, h, r);
+    ctx.clip();
+    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
     ctx.restore();
   }
 
