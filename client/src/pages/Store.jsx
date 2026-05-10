@@ -93,7 +93,7 @@ function SortableCategoryTab({ catObj, activeCategory, onEdit, onDelete }) {
   );
 }
 
-function SortableProductCard({ product, onEdit, onDelete, currencySymbol, hideDecimals }) {
+function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymbol, hideDecimals }) {
   const {
     attributes,
     listeners,
@@ -127,6 +127,9 @@ function SortableProductCard({ product, onEdit, onDelete, currencySymbol, hideDe
           <div className="store-prod-edit-overlay">
             <button onClick={() => onEdit(product)} className="store-prod-edit-btn">
               <FontAwesomeIcon icon={faEdit} />
+            </button>
+            <button onClick={() => onRecipe(product)} className="store-prod-edit-btn" title="Materias primas" style={{ background: '#D4AF37', color: '#000' }}>
+              <FontAwesomeIcon icon={faUtensils} />
             </button>
             <button onClick={() => onDelete(product)} className="store-prod-edit-btn danger">
               <FontAwesomeIcon icon={faTrash} />
@@ -303,6 +306,8 @@ function Store() {
   const [selectedExtraIds, setSelectedExtraIds] = useState([]);
   const [complementsTab, setComplementsTab] = useState('complements');
   const [editingComplement, setEditingComplement] = useState(null);
+  const [editComplementModal, setEditComplementModal] = useState(null);
+  const [prodRecipeModal, setProdRecipeModal] = useState(null);
   const [invTab, setInvTab] = useState('products');
   const [invEditingId, setInvEditingId] = useState(null);
   const [invEditValue, setInvEditValue] = useState('');
@@ -347,6 +352,8 @@ function Store() {
   const storeIdRef = useRef(null);
   const prodRecipeRef = useRef(null);
   const compRecipeRef = useRef(null);
+  const editCompRecipeRef = useRef(null);
+  const prodRecipeSaveRef = useRef(null);
   const socketRef = useRef(null);
   const pendingOrderDataRef = useRef(null);
   const editModeRef = useRef(false);
@@ -1215,7 +1222,7 @@ function Store() {
     setExtrasModalOpen(false);
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal;
 
   useEffect(() => {
     anyModalOpenRef.current = anyModalOpen;
@@ -2211,6 +2218,27 @@ function Store() {
     fetchStore();
   };
 
+  const saveEditComplementModal = async () => {
+    if (!editComplementModal || !editComplementModal.name.trim()) return;
+    const { id, type, name, price, imageFile, stock, unlimited_stock } = editComplementModal;
+    const formData = new FormData();
+    formData.append('token', adminToken);
+    formData.append('name', name.trim());
+    formData.append('price', parseFloat(price) || 0);
+    formData.append('category_id', '');
+    formData.append('stock', parseInt(stock) || 0);
+    formData.append('unlimited_stock', unlimited_stock ? 'true' : 'false');
+    if (imageFile) formData.append('image', imageFile);
+    await fetch(`/api/public/${code}/${type === 'extra' ? 'extras' : 'ingredients'}/${id}`, {
+      method: 'PUT',
+      body: formData
+    });
+    await editCompRecipeRef.current?.save(id);
+    setEditComplementModal(null);
+    fetchComplements();
+    fetchStore();
+  };
+
   const updateProductStock = async (productId, stock, unlimitedStock) => {
     await fetch(`/api/public/${code}/products/${productId}/stock`, {
       method: 'PUT',
@@ -3161,7 +3189,7 @@ function Store() {
                   {Number(e.price) > 0 && <span className="store-editor-comp-price">+${Number(e.price).toFixed(0)}</span>}
                 </div>
                 <div style={{ display: 'flex', gap: '4px' }}>
-                  <button onClick={() => { setEditingComplement({ id: e.id, type: 'extra', name: e.name, price: e.price?.toString() || '', stock: String(e.stock ?? 0), unlimited_stock: !!(e.unlimited_stock === true || e.unlimited_stock === 1 || e.unlimited_stock === '1'), imageFile: null }); setShowComplementsModal(false); }} className="store-prod-edit-btn" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                  <button onClick={() => setEditComplementModal({ id: e.id, type: 'extra', name: e.name, price: e.price?.toString() || '', stock: String(e.stock ?? 0), unlimited_stock: !!(e.unlimited_stock === true || e.unlimited_stock === 1 || e.unlimited_stock === '1'), imageFile: null })} className="store-prod-edit-btn" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
                     <FontAwesomeIcon icon={faEdit} />
                   </button>
                   <button onClick={() => deleteComplement('extra', e.id)} className="store-prod-edit-btn danger" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
@@ -3188,7 +3216,7 @@ function Store() {
                   {Number(i.price) > 0 && <span className="store-editor-comp-price">+${Number(i.price).toFixed(0)}</span>}
                 </div>
                 <div style={{ display: 'flex', gap: '4px' }}>
-                  <button onClick={() => { setEditingComplement({ id: i.id, type: 'ingredient', name: i.name, price: i.price?.toString() || '', stock: String(i.stock ?? 0), unlimited_stock: !!(i.unlimited_stock === true || i.unlimited_stock === 1 || i.unlimited_stock === '1'), imageFile: null }); setShowComplementsModal(false); }} className="store-prod-edit-btn" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                  <button onClick={() => setEditComplementModal({ id: i.id, type: 'ingredient', name: i.name, price: i.price?.toString() || '', stock: String(i.stock ?? 0), unlimited_stock: !!(i.unlimited_stock === true || i.unlimited_stock === 1 || i.unlimited_stock === '1'), imageFile: null })} className="store-prod-edit-btn" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
                     <FontAwesomeIcon icon={faEdit} />
                   </button>
                   <button onClick={() => deleteComplement('ingredient', i.id)} className="store-prod-edit-btn danger" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
@@ -3200,45 +3228,6 @@ function Store() {
             {ingredients.length === 0 && <span style={{ color: '#999', fontSize: '13px', padding: '8px' }}>Sin complementos</span>}
           </div>
 
-          {editingComplement && (
-            <div style={{ margin: '12px 0', padding: '12px', background: '#fffbe6', borderRadius: '8px', border: '2px solid #e6c200' }}>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: '#333', marginBottom: '8px' }}>
-                Editando: {editingComplement.name}
-              </div>
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <label style={{ width: '32px', height: '32px', borderRadius: '6px', background: editingComplement.imageFile ? 'transparent' : '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, overflow: 'hidden', border: '1px solid #ddd' }}>
-                  {editingComplement.imageFile ? <img src={URL.createObjectURL(editingComplement.imageFile)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FontAwesomeIcon icon={faBox} style={{ fontSize: '12px', color: '#bbb' }} />}
-                  <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setEditingComplement({ ...editingComplement, imageFile: e.target.files[0] }); }} style={{ display: 'none' }} />
-                </label>
-                <input type="text" value={editingComplement.name} onChange={(e) => setEditingComplement({ ...editingComplement, name: e.target.value })} placeholder="Nombre" className="store-prod-modal-input" style={{ flex: 2, padding: '8px', fontSize: '13px' }} />
-                <input type="number" step="0.01" value={editingComplement.price} onChange={(e) => setEditingComplement({ ...editingComplement, price: e.target.value })} placeholder="Precio +$" className="store-prod-modal-input" style={{ flex: 1, padding: '8px', fontSize: '13px' }} />
-              </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', flex: 1 }}>
-                  <input
-                    type="checkbox"
-                    checked={!!editingComplement.unlimited_stock}
-                    onChange={(e) => setEditingComplement({ ...editingComplement, unlimited_stock: e.target.checked })}
-                  />
-                  Stock ilimitado
-                </label>
-                {!editingComplement.unlimited_stock && (
-                  <input
-                    type="number" min="0"
-                    value={editingComplement.stock ?? ''}
-                    onChange={(e) => setEditingComplement({ ...editingComplement, stock: e.target.value })}
-                    placeholder="Cantidad"
-                    className="store-prod-modal-input"
-                    style={{ width: '90px', padding: '7px 8px', fontSize: '13px' }}
-                  />
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                <button onClick={() => setEditingComplement(null)} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ccc', background: '#fff', fontSize: '13px', cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={saveEditComplement} disabled={!editingComplement.name.trim()} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: 'none', background: 'var(--store-primary)', color: 'var(--store-secondary)', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>Guardar</button>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -3328,7 +3317,7 @@ function Store() {
                 return uncategorized.length > 0 ? (
                   <div className="products-grid" style={{ padding: '0 16px' }}>
                     {uncategorized.map(product => (
-                      <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} />
+                      <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} onRecipe={setProdRecipeModal} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} />
                     ))}
                   </div>
                 ) : null;
@@ -3346,7 +3335,7 @@ function Store() {
                   </div>
                   <div className="products-grid" style={{ padding: '0 16px' }}>
                     {products.map(product => (
-                      <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} />
+                      <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} onRecipe={setProdRecipeModal} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} />
                     ))}
                   </div>
                 </div>
@@ -5649,6 +5638,99 @@ function Store() {
                 }}
               >
                 {editingCat ? 'Guardar' : 'Crear'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editComplementModal && (
+        <div className="store-modal-overlay" onClick={() => setEditComplementModal(null)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+          <div className="store-prod-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 14px', color: 'var(--store-primary)', textAlign: 'center' }}>
+              Editar {editComplementModal.type === 'extra' ? 'Extra' : 'Complemento'}
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <input
+                type="text"
+                value={editComplementModal.name}
+                onChange={(e) => setEditComplementModal({ ...editComplementModal, name: e.target.value })}
+                placeholder="Nombre"
+                autoFocus
+                className="store-prod-modal-input main"
+              />
+              <input
+                type="number"
+                step="0.01"
+                value={editComplementModal.price}
+                onChange={(e) => setEditComplementModal({ ...editComplementModal, price: e.target.value })}
+                placeholder="Precio adicional"
+                className="store-prod-modal-input"
+              />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer', flex: 1 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!editComplementModal.unlimited_stock}
+                    onChange={(e) => setEditComplementModal({ ...editComplementModal, unlimited_stock: e.target.checked })}
+                  />
+                  Stock ilimitado
+                </label>
+                {!editComplementModal.unlimited_stock && (
+                  <input
+                    type="number" min="0"
+                    value={editComplementModal.stock ?? ''}
+                    onChange={(e) => setEditComplementModal({ ...editComplementModal, stock: e.target.value })}
+                    placeholder="Stock"
+                    className="store-prod-modal-input"
+                    style={{ width: '80px' }}
+                  />
+                )}
+              </div>
+              <label className="store-prod-modal-image-btn" style={{ alignSelf: 'flex-start' }}>
+                <FontAwesomeIcon icon={faEdit} /> {editComplementModal.imageFile ? editComplementModal.imageFile.name : 'Cambiar imagen'}
+                <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) setEditComplementModal({ ...editComplementModal, imageFile: e.target.files[0] }); }} style={{ display: 'none' }} />
+              </label>
+              <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px' }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#374151', marginBottom: 8 }}>Receta (Materias Primas)</div>
+                <RecipeEditor
+                  key={`edit-comp-${editComplementModal.id}`}
+                  ref={editCompRecipeRef}
+                  storeId={store?.store?.id}
+                  itemType={editComplementModal.type}
+                  itemId={editComplementModal.id}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+              <button onClick={() => setEditComplementModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
+              <button onClick={saveEditComplementModal} disabled={!editComplementModal.name.trim()} className={`store-prod-modal-btn confirm${!editComplementModal.name.trim() ? ' disabled' : ''}`}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {prodRecipeModal && (
+        <div className="store-modal-overlay" onClick={() => setProdRecipeModal(null)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+          <div className="store-prod-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 6px', color: 'var(--store-primary)', textAlign: 'center' }}>
+              Materias Primas
+            </h3>
+            <p style={{ margin: '0 0 14px', fontSize: 13, color: '#888', textAlign: 'center' }}>{prodRecipeModal.name}</p>
+            <RecipeEditor
+              key={`prod-recipe-${prodRecipeModal.id}`}
+              ref={prodRecipeSaveRef}
+              storeId={store?.store?.id}
+              itemType="product"
+              itemId={prodRecipeModal.id}
+            />
+            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+              <button onClick={() => setProdRecipeModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
+              <button
+                onClick={async () => { await prodRecipeSaveRef.current?.save(prodRecipeModal.id); setProdRecipeModal(null); }}
+                className="store-prod-modal-btn confirm"
+              >
+                Guardar receta
               </button>
             </div>
           </div>
