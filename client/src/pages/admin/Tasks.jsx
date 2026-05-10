@@ -317,7 +317,7 @@ export default function Tasks() {
             <>
               <button
                 onClick={() => setDetailWorkerId(null)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 13, fontWeight: 600, padding: '0 0 4px', marginBottom: 2 }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 13, fontWeight: 700, padding: '0 0 4px', marginBottom: 2 }}
               >
                 <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} /> Trabajadores
               </button>
@@ -346,14 +346,14 @@ export default function Tasks() {
       <div className="admin-main">
 
         {/* ── Navegador de semana ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, padding: '12px 18px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, padding: '14px 18px', borderRadius: 14, background: '#1a2535', border: '1px solid #2d3f58' }}>
           {/* Flecha izquierda */}
           <button
             onClick={() => setWeekOffset(o => o - 1)}
             disabled={weekOffset <= -12}
             style={{
-              width: 36, height: 36, borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)',
-              background: 'rgba(255,255,255,0.06)', color: weekOffset <= -12 ? '#444' : '#ccc',
+              width: 38, height: 38, borderRadius: 10, border: '1px solid #3a4f68',
+              background: '#243044', color: weekOffset <= -12 ? '#4a5568' : '#cbd5e1',
               cursor: weekOffset <= -12 ? 'default' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
             }}
@@ -363,20 +363,20 @@ export default function Tasks() {
 
           {/* Centro: rango de semana */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               Semana
             </div>
-            <div style={{ fontWeight: 800, fontSize: 18, color: '#fff', letterSpacing: '-0.01em', textAlign: 'center' }}>
+            <div style={{ fontWeight: 800, fontSize: 19, color: '#f1f5f9', letterSpacing: '-0.01em', textAlign: 'center' }}>
               {formatWeekRange(getWeekStartStr(weekOffset))}
             </div>
             {weekOffset === 0 ? (
               <div style={{ fontSize: 11, color: '#D4AF37', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                Semana actual
+                ● Semana actual
               </div>
             ) : (
               <button
                 onClick={() => setWeekOffset(0)}
-                style={{ fontSize: 11, color: '#D4AF37', fontWeight: 600, border: 'none', background: 'none', cursor: 'pointer', padding: 0, textAlign: 'center' }}
+                style={{ fontSize: 12, color: '#D4AF37', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer', padding: 0, textAlign: 'center' }}
               >
                 Ir a semana actual →
               </button>
@@ -388,8 +388,8 @@ export default function Tasks() {
             onClick={() => setWeekOffset(o => o + 1)}
             disabled={weekOffset >= 0}
             style={{
-              width: 36, height: 36, borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)',
-              background: 'rgba(255,255,255,0.06)', color: weekOffset >= 0 ? '#444' : '#ccc',
+              width: 38, height: 38, borderRadius: 10, border: '1px solid #3a4f68',
+              background: '#243044', color: weekOffset >= 0 ? '#4a5568' : '#cbd5e1',
               cursor: weekOffset >= 0 ? 'default' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
             }}
@@ -400,13 +400,13 @@ export default function Tasks() {
           {/* Selector de fecha */}
           <div style={{ position: 'relative', flexShrink: 0 }} title="Ir a una fecha">
             <button style={{
-              width: 32, height: 32, borderRadius: 8,
-              border: '1px solid rgba(212,175,55,0.3)',
-              background: 'rgba(212,175,55,0.07)',
+              width: 38, height: 38, borderRadius: 10,
+              border: '1px solid rgba(212,175,55,0.5)',
+              background: 'rgba(212,175,55,0.15)',
               color: '#D4AF37', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <FontAwesomeIcon icon={faCalendar} style={{ fontSize: 11 }} />
+              <FontAwesomeIcon icon={faCalendar} style={{ fontSize: 13 }} />
             </button>
             <input
               type="date"
@@ -537,7 +537,7 @@ export default function Tasks() {
                 placeholder="Buscar trabajador..."
                 value={workerSearch}
                 onChange={e => setWorkerSearch(e.target.value)}
-                style={{ width: '100%', maxWidth: 360, padding: '9px 14px', borderRadius: 10, border: '1px solid #d1d5db', background: '#fff', color: '#111', fontSize: 14, outline: 'none' }}
+                style={{ width: '100%', maxWidth: 360, padding: '10px 16px', borderRadius: 10, border: '1px solid #2d3f58', background: '#1a2535', color: '#f1f5f9', fontSize: 14, outline: 'none' }}
               />
             </div>
             {loading ? (
@@ -554,7 +554,7 @@ export default function Tasks() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px 1fr 80px', padding: '4px 16px 8px', fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 70px 1fr 90px', padding: '6px 18px 10px', fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   <span>Trabajador</span>
                   <span style={{ textAlign: 'center' }}>Hechas</span>
                   <span style={{ textAlign: 'center' }}>Total</span>
@@ -562,37 +562,37 @@ export default function Tasks() {
                   <span></span>
                 </div>
                 {workerStats.map(ws => {
-                  const pc = ws.pct === 100 ? '#16a34a' : ws.pct > 0 ? '#d97706' : '#6b7280';
+                  const pc = ws.pct === 100 ? '#22c55e' : ws.pct > 0 ? '#f59e0b' : '#64748b';
                   return (
                     <div
                       key={ws.id}
                       onClick={() => setDetailWorkerId(ws.id)}
-                      style={{ display: 'grid', gridTemplateColumns: '1fr 64px 64px 1fr 80px', alignItems: 'center', padding: '12px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', transition: 'background 0.15s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                      style={{ display: 'grid', gridTemplateColumns: '1fr 70px 70px 1fr 90px', alignItems: 'center', padding: '14px 18px', borderRadius: 14, background: '#1a2535', border: '1px solid #2d3f58', cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#1f2e44'; e.currentTarget.style.borderColor = '#3d5470'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#1a2535'; e.currentTarget.style.borderColor = '#2d3f58'; }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'linear-gradient(135deg, #D4AF37, #8B6914)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: '#000' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: 'linear-gradient(135deg, #D4AF37, #8B6914)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 900, color: '#000' }}>
                           {ws.initials}
                         </div>
-                        <span style={{ fontWeight: 600, fontSize: 14, color: '#e5e7eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws.name}</span>
+                        <span style={{ fontWeight: 700, fontSize: 15, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ws.name}</span>
                       </div>
-                      <div style={{ textAlign: 'center', fontWeight: 700, fontSize: 15, color: pc }}>{ws.completed}</div>
-                      <div style={{ textAlign: 'center', fontWeight: 500, fontSize: 14, color: '#6b7280' }}>{ws.total}</div>
+                      <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 18, color: pc }}>{ws.completed}</div>
+                      <div style={{ textAlign: 'center', fontWeight: 600, fontSize: 16, color: '#94a3b8' }}>{ws.total}</div>
                       <div style={{ padding: '0 12px' }}>
-                        <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${ws.pct}%`, background: pc, borderRadius: 4, transition: 'width 0.4s' }} />
+                        <div style={{ height: 8, background: '#243044', borderRadius: 6, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${ws.pct}%`, background: pc, borderRadius: 6, transition: 'width 0.4s' }} />
                         </div>
-                        <div style={{ textAlign: 'right', fontSize: 10, color: pc, fontWeight: 700, marginTop: 3 }}>{ws.pct}%</div>
+                        <div style={{ textAlign: 'right', fontSize: 11, color: pc, fontWeight: 700, marginTop: 4 }}>{ws.pct}%</div>
                       </div>
-                      <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
                         <button onClick={() => openHistory(ws.id, ws.name, ws.initials)} title="Historial"
-                          style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#6b7280', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #3a4f68', background: '#243044', color: '#94a3b8', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <FontAwesomeIcon icon={faChartBar} />
                         </button>
                         {workers.length > 1 && (
                           <button onClick={() => openDupAll(ws.id, ws.name)} title="Duplicar tareas"
-                            style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(212,175,55,0.25)', background: 'rgba(212,175,55,0.07)', color: '#b45309', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid rgba(212,175,55,0.5)', background: 'rgba(212,175,55,0.15)', color: '#D4AF37', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <FontAwesomeIcon icon={faClone} />
                           </button>
                         )}
@@ -656,20 +656,20 @@ export default function Tasks() {
                       onClick={() => setHistoryWeekIdx(i => Math.min(i + 1, historyData.weeks.length - 1))}
                       disabled={historyWeekIdx >= historyData.weeks.length - 1}
                       style={{
-                        width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer',
-                        background: 'rgba(255,255,255,0.05)', color: historyWeekIdx >= historyData.weeks.length - 1 ? '#333' : '#aaa',
+                        width: 34, height: 34, borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer',
+                        background: 'rgba(255,255,255,0.08)', color: historyWeekIdx >= historyData.weeks.length - 1 ? '#4a5568' : '#cbd5e1',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                       }}
                     >
-                      <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 11 }} />
+                      <FontAwesomeIcon icon={faChevronLeft} style={{ fontSize: 12 }} />
                     </button>
                     <div style={{ flex: 1, textAlign: 'center' }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>
+                      <div style={{ fontWeight: 800, fontSize: 15, color: '#f1f5f9' }}>
                         {formatWeekRange(week.week_start)}
                       </div>
                       {isCurrentWeek && (
-                        <div style={{ fontSize: 10, color: '#D4AF37', fontWeight: 600, marginTop: 2, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                          Semana actual
+                        <div style={{ fontSize: 11, color: '#D4AF37', fontWeight: 700, marginTop: 3, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                          ● Semana actual
                         </div>
                       )}
                     </div>
@@ -677,12 +677,12 @@ export default function Tasks() {
                       onClick={() => setHistoryWeekIdx(i => Math.max(i - 1, 0))}
                       disabled={historyWeekIdx === 0}
                       style={{
-                        width: 32, height: 32, borderRadius: 8, border: 'none', cursor: 'pointer',
-                        background: 'rgba(255,255,255,0.05)', color: historyWeekIdx === 0 ? '#333' : '#aaa',
+                        width: 34, height: 34, borderRadius: 9, border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer',
+                        background: 'rgba(255,255,255,0.08)', color: historyWeekIdx === 0 ? '#4a5568' : '#cbd5e1',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                       }}
                     >
-                      <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 11 }} />
+                      <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 12 }} />
                     </button>
                   </div>
 
@@ -697,13 +697,13 @@ export default function Tasks() {
                       <div style={{ fontSize: 36, fontWeight: 900, color: pct === 100 ? '#15803d' : pct > 0 ? '#d97706' : '#9ca3af', lineHeight: 1 }}>
                         {pct}<span style={{ fontSize: 16, fontWeight: 600 }}>%</span>
                       </div>
-                      <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
                         {completedCount}/{totalCount} tareas
                       </div>
                     </div>
                     {/* Progress bar */}
                     <div style={{ flex: 1 }}>
-                      <div style={{ height: 8, background: '#f3f4f6', borderRadius: 8, overflow: 'hidden' }}>
+                      <div style={{ height: 8, background: 'rgba(255,255,255,0.12)', borderRadius: 8, overflow: 'hidden' }}>
                         <div style={{
                           height: '100%', borderRadius: 8,
                           width: `${pct}%`,
@@ -715,7 +715,7 @@ export default function Tasks() {
                           transition: 'width 0.4s ease'
                         }} />
                       </div>
-                      <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6, fontWeight: 600 }}>
                         {pct === 100 ? '¡Todas completadas!' : pct === 0 ? 'Sin completar esta semana' : `${totalCount - completedCount} pendiente${totalCount - completedCount !== 1 ? 's' : ''}`}
                       </div>
                     </div>
