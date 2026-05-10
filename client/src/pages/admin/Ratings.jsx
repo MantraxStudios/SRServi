@@ -358,25 +358,25 @@ export default function Ratings() {
       const activePromo = loadedPromo.filter(Boolean);
 
       // ── 2. Layout — computed before canvas creation so H is correct ──
-      const W = 800;
+      const W = 1000;
       const cx = W / 2;
-      const pad = 22;
-      const gap = 12;
-      const logoSize = 120;
-      const logoY = 55;
-      const nameY = logoY + logoSize + 48;    // 223
-      const badgeY = nameY + 108;             // 331
-      const cardW = (W - pad * 2 - gap) / 2; // 372px each
-      const qrSize = 240;
-      const cardH = 420;
-      const promoImgH = 240;
+      const pad = 28;
+      const gap = 16;
+      const logoSize = 140;
+      const logoY = 60;
+      const nameY = logoY + logoSize + 44;
+      const badgeY = nameY + 52;
+      const cardW = (W - pad * 2 - gap) / 2;
+      const qrSize = 280;
+      const cardH = 460;
+      const promoImgH = 280;
       const hasPromo = activePromo.length > 0;
       const hasGiftText = !!promoGiftText.trim();
       const promoSectionH = hasPromo ? promoImgH + 60 : 0;
-      const cardY = 460 + promoSectionH;
+      const cardY = 440 + promoSectionH;
       const card1X = pad;
       const card2X = pad + cardW + gap;
-      const H = cardY + cardH + 80;           // portrait: ~1040–1286px
+      const H = cardY + cardH + 80;
 
       // ── 3. Create canvas ──
       const canvas = document.createElement('canvas');
@@ -454,14 +454,6 @@ export default function Ratings() {
       ctx.fillText(storeName.toUpperCase(), cx, nameY);
       ctx.fillStyle = accentColor;
       ctx.fillRect(cx - 50, nameY + 12, 100, 3);
-      ctx.fillStyle = '#475569';
-      ctx.font = '500 17px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillText('¡Gracias por visitarnos!', cx, nameY + 50);
-      ctx.fillStyle = '#64748b';
-      ctx.font = '15px Arial';
-      ctx.fillText('Tus opiniones nos ayudan a mejorar.', cx, nameY + 74);
 
       // ── 9. Texto principal GRATIS ──
       if (hasGiftText) {
