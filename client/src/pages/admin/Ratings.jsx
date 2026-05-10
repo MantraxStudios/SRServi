@@ -497,11 +497,11 @@ export default function Ratings() {
         const promoTopY = badgeY + 68;
         if (activePromo.length === 1) {
           const iw = 340;
-          drawImageCover(ctx, activePromo[0], cx - iw / 2, promoTopY, iw, promoImgH, 14);
+          drawImageCover(ctx, activePromo[0], cx - iw / 2, promoTopY, iw, promoImgH, 36);
         } else {
           const iw = (W - pad * 2 - 12) / 2;
-          drawImageCover(ctx, activePromo[0], pad, promoTopY, iw, promoImgH, 14);
-          drawImageCover(ctx, activePromo[1], W - pad - iw, promoTopY, iw, promoImgH, 14);
+          drawImageCover(ctx, activePromo[0], pad, promoTopY, iw, promoImgH, 36);
+          drawImageCover(ctx, activePromo[1], W - pad - iw, promoTopY, iw, promoImgH, 36);
         }
       }
 
@@ -664,18 +664,23 @@ export default function Ratings() {
     }
   };
 
-  // Helper: rounded rect path
+  // Helper: rounded rect path (uses native API when available for perfect arcs)
   function roundRect(ctx, x, y, w, h, r) {
+    if (typeof ctx.roundRect === 'function') {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
     ctx.beginPath();
     ctx.moveTo(x + r, y);
     ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
     ctx.lineTo(x + w, y + h - r);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
     ctx.lineTo(x + r, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
     ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.arcTo(x, y, x + r, y, r);
     ctx.closePath();
   }
 
@@ -685,15 +690,31 @@ export default function Ratings() {
     const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
     const dw = img.naturalWidth * scale;
     const dh = img.naturalHeight * scale;
+
+    const makeRoundPath = () => {
+      ctx.beginPath();
+      // Use native roundRect (Chrome 99+, FF 112+, Safari 15.4+) for perfect arcs
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(x, y, w, h, r);
+      } else {
+        roundRect(ctx, x, y, w, h, r);
+      }
+    };
+
+    // Clip + draw
     ctx.save();
-    roundRect(ctx, x, y, w, h, r);
+    makeRoundPath();
     ctx.clip();
     ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
     ctx.restore();
-    ctx.strokeStyle = 'rgba(0,0,0,0.10)';
-    ctx.lineWidth = 1.5;
-    roundRect(ctx, x, y, w, h, r);
+
+    // Subtle border (drawn outside clip so it doesn't get cut)
+    ctx.save();
+    makeRoundPath();
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+    ctx.lineWidth = 2;
     ctx.stroke();
+    ctx.restore();
   }
 
   if (!selectedStore) {
@@ -1237,7 +1258,7 @@ export default function Ratings() {
                       <img
                         src={promoImages[i]}
                         alt={`Producto ${i + 1}`}
-                        style={{ width: '100%', height: 150, objectFit: 'cover', borderRadius: 10, border: '1.5px solid #e5e7eb', display: 'block' }}
+                        style={{ width: '100%', height: 150, objectFit: 'cover', borderRadius: 18, border: '1.5px solid #e5e7eb', display: 'block' }}
                       />
                       <button
                         type="button"
