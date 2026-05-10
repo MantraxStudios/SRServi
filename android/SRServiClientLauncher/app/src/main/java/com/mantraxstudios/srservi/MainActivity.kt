@@ -9,8 +9,6 @@ import android.view.WindowManager
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
 import com.mantraxstudios.srservi.printer.BluetoothPrinterManager
 import com.mantraxstudios.srservi.printer.PrinterForegroundService
@@ -32,12 +30,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
 
         tvPrinterStatus = findViewById(R.id.tvPrinterStatus)
         printerManager = (application as SRServiApp).printerManager
@@ -108,10 +100,11 @@ class MainActivity : AppCompatActivity() {
         if (dpm.isDeviceOwnerApp(packageName)) {
             dpm.setLockTaskPackages(adminComponent, arrayOf(packageName))
             if (!kioskModeActive) {
-                // Post to next frame so the UI renders before the system call blocks
                 window.decorView.post {
-                    startLockTask()
-                    kioskModeActive = true
+                    try {
+                        startLockTask()
+                        kioskModeActive = true
+                    } catch (_: Exception) {}
                 }
             }
         }

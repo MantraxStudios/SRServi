@@ -122,7 +122,7 @@
             android:excludeFromRecents="true"
             android:launchMode="singleInstance"
             android:lockTaskMode="if_whitelisted"
-            android:screenOrientation="portrait"
+            android:screenOrientation="landscape"
             android:showOnLockScreen="true"
             android:turnScreenOn="true" />
 

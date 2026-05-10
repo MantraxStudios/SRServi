@@ -264,7 +264,6 @@ class SellActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        bringTaskToFront()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

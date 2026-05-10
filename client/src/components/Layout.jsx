@@ -413,6 +413,9 @@ function Layout() {
                 <span>Vendedores</span>
               </NavLink>
             </li>
+            <li style={{ listStyle: 'none', padding: '6px 16px' }}>
+              <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)' }} />
+            </li>
             <li>
               <NavLink to="/admin/leon-ia" className="leon-ia-nav-link" onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faRobot} />
