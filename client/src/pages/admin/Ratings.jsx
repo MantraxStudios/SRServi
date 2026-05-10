@@ -278,19 +278,40 @@ export default function Ratings() {
       const idealQrCanvas = document.getElementById('ideal-qr-canvas-clasi');
       if (!idealQrCanvas) return;
 
-      const W = 1200;
-      const H = 820;
+      const W = 1400;
+      const H = 900;
       const canvas = document.createElement('canvas');
       canvas.width = W;
       canvas.height = H;
       const ctx = canvas.getContext('2d');
 
+      // Fondo blanco
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, W, H);
 
-      ctx.fillStyle = accentColor;
-      ctx.fillRect(0, 0, W, 8);
+      // Patrón de puntos suaves en fondo
+      ctx.save();
+      ctx.globalAlpha = 0.035;
+      ctx.fillStyle = '#000';
+      for (let x = 30; x < W; x += 40) {
+        for (let y = 30; y < H; y += 40) {
+          ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      ctx.restore();
 
+      // Borde exterior dorado
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 4;
+      roundRect(ctx, 10, 10, W - 20, H - 20, 24);
+      ctx.stroke();
+
+      // Franja dorada superior
+      ctx.fillStyle = accentColor;
+      roundRect(ctx, 10, 10, W - 20, 10, 24);
+      ctx.fill();
+
+      // Logo
       let logoImg = null;
       if (selectedStore?.logo_url) {
         try {
@@ -304,114 +325,198 @@ export default function Ratings() {
         } catch {}
       }
 
-      const logoSize = 72;
-      const headerCenterX = W / 2;
-      const logoY = 28;
+      const logoSize = 80;
+      const cx = W / 2;
+      const logoY = 36;
 
       if (logoImg) {
         ctx.save();
         ctx.beginPath();
-        ctx.arc(headerCenterX, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+        ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
         ctx.clip();
-        ctx.drawImage(logoImg, headerCenterX - logoSize / 2, logoY, logoSize, logoSize);
+        ctx.drawImage(logoImg, cx - logoSize / 2, logoY, logoSize, logoSize);
         ctx.restore();
         ctx.strokeStyle = accentColor;
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(headerCenterX, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+        ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
         ctx.stroke();
       } else {
+        // Círculo dorado con inicial
         ctx.fillStyle = accentColor;
-        roundRect(ctx, headerCenterX - logoSize / 2, logoY, logoSize, logoSize, 16);
+        ctx.beginPath();
+        ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = storeColor || '#000';
-        ctx.font = 'bold 30px Arial';
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 34px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(storeName[0]?.toUpperCase() || '★', headerCenterX, logoY + logoSize / 2);
+        ctx.fillText(storeName[0]?.toUpperCase() || '★', cx, logoY + logoSize / 2);
       }
 
-      ctx.fillStyle = '#1e293b';
-      ctx.font = 'bold 30px Arial';
+      // Nombre tienda
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 32px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText(storeName, headerCenterX, logoY + logoSize + 38);
+      ctx.fillText(storeName.toUpperCase(), cx, logoY + logoSize + 42);
 
+      // Línea decorativa dorada bajo el nombre
+      const lineY = logoY + logoSize + 58;
+      const lineW = 80;
       ctx.fillStyle = accentColor;
-      ctx.fillRect(headerCenterX - 40, logoY + logoSize + 52, 80, 3);
+      ctx.fillRect(cx - lineW / 2, lineY, lineW, 3);
 
-      const panelTop = logoY + logoSize + 68;
+      // Dos paneles de QR
+      const panelTop = lineY + 30;
+      const panelPad = 50;
       const halfW = W / 2;
-      const qrSize = 220;
+      const qrSize = 230;
+      const cardW = qrSize + 60;
+      const cardH = H - panelTop - 90;
 
-      const drawPanel = (startX, panelW, qrCvs, title, desc) => {
-        const cx = startX + panelW / 2;
-        ctx.fillStyle = '#374151';
-        ctx.font = 'bold 19px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillText(title, cx, panelTop + 26);
+      const drawQRPanel = (startX, panelW, qrCvs, icon, title, desc) => {
+        const pcx = startX + panelW / 2;
+        const cardX = pcx - cardW / 2;
+        const cardY = panelTop;
 
-        const qrX = cx - qrSize / 2;
-        const qrY = panelTop + 40;
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = 'rgba(0,0,0,0.08)';
-        ctx.shadowBlur = 18;
-        roundRect(ctx, qrX - 14, qrY - 14, qrSize + 28, qrSize + 28, 14);
+        // Sombra de la tarjeta
+        ctx.fillStyle = 'rgba(0,0,0,0.07)';
+        ctx.shadowColor = 'rgba(0,0,0,0.12)';
+        ctx.shadowBlur = 28;
+        ctx.shadowOffsetY = 6;
+        roundRect(ctx, cardX, cardY, cardW, cardH, 20);
         ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#e5e7eb';
+        ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+        // Fondo tarjeta blanca
+        ctx.fillStyle = '#ffffff';
+        roundRect(ctx, cardX, cardY, cardW, cardH, 20);
+        ctx.fill();
+
+        // Borde sutil
+        ctx.strokeStyle = '#e2e8f0';
         ctx.lineWidth = 1.5;
-        roundRect(ctx, qrX - 14, qrY - 14, qrSize + 28, qrSize + 28, 14);
+        roundRect(ctx, cardX, cardY, cardW, cardH, 20);
         ctx.stroke();
 
+        // Barra dorada superior de tarjeta
+        ctx.fillStyle = accentColor;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(cardX + 20, cardY);
+        ctx.lineTo(cardX + cardW - 20, cardY);
+        ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + 20);
+        ctx.lineTo(cardX + cardW, cardY + 8);
+        ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW - 20, cardY);
+        ctx.closePath();
+        ctx.fillRect(cardX + 20, cardY, cardW - 40, 6);
+        ctx.restore();
+
+        // Ícono / emoji título
+        ctx.font = '22px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(icon, pcx, cardY + 34);
+
+        // Título del panel
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(title, pcx, cardY + 62);
+
+        // Línea dorada bajo título
+        ctx.fillStyle = accentColor;
+        ctx.fillRect(pcx - 24, cardY + 70, 48, 2);
+
+        // QR code
+        const qrX = pcx - qrSize / 2;
+        const qrY = cardY + 86;
         if (qrCvs) {
           ctx.drawImage(qrCvs, qrX, qrY, qrSize, qrSize);
         } else {
-          ctx.fillStyle = '#f3f4f6';
-          roundRect(ctx, qrX, qrY, qrSize, qrSize, 8);
+          ctx.fillStyle = '#f1f5f9';
+          roundRect(ctx, qrX, qrY, qrSize, qrSize, 10);
           ctx.fill();
-          ctx.fillStyle = '#9ca3af';
+          ctx.fillStyle = '#94a3b8';
           ctx.font = '13px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText('Sin link configurado', cx, qrY + qrSize / 2);
+          ctx.fillText('Sin link', pcx, qrY + qrSize / 2);
         }
 
+        // Texto "Escanea aquí"
+        ctx.fillStyle = '#64748b';
+        ctx.font = '600 13px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText('▲  Escanea aquí  ▲', pcx, qrY + qrSize + 22);
+
+        // Descripción
         if (desc) {
-          ctx.fillStyle = '#6b7280';
-          ctx.font = '14px Arial';
+          ctx.fillStyle = '#475569';
+          ctx.font = 'italic 13px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'alphabetic';
-          const maxW = panelW - 60;
+          const maxW = cardW - 40;
           const words = desc.split(' ');
           let line = '';
-          let y = qrY + qrSize + 42;
+          let y = qrY + qrSize + 44;
           for (const word of words) {
             const test = line + (line ? ' ' : '') + word;
             if (ctx.measureText(test).width > maxW && line) {
-              ctx.fillText(line, cx, y); line = word; y += 22;
+              ctx.fillText(line, pcx, y); line = word; y += 20;
             } else { line = test; }
           }
-          if (line) ctx.fillText(line, cx, y);
+          if (line) ctx.fillText(line, pcx, y);
         }
       };
 
-      drawPanel(0, halfW, googleQrCanvas, 'Clasificar en Google', googleQrDesc);
+      drawQRPanel(0, halfW, googleQrCanvas, '🌐', 'Clasificar en Google', googleQrDesc);
 
-      ctx.fillStyle = '#e5e7eb';
-      ctx.fillRect(halfW - 1, panelTop, 2, H - panelTop - 60);
+      // Separador central
+      ctx.save();
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(halfW, panelTop + 20);
+      ctx.lineTo(halfW, H - 80);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
 
-      drawPanel(halfW, halfW, idealQrCanvas, 'Cliente Ideal', idealQrDesc);
-
+      // Rombo dorado en el centro del separador
+      const diamondY = panelTop + (H - 80 - panelTop) / 2;
+      ctx.save();
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 1.5;
+      ctx.translate(halfW, diamondY);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillRect(-10, -10, 20, 20);
+      ctx.strokeRect(-10, -10, 20, 20);
+      ctx.restore();
       ctx.fillStyle = accentColor;
-      ctx.fillRect(0, H - 50, W, 4);
-
-      ctx.fillStyle = '#9ca3af';
-      ctx.font = '13px Arial';
+      ctx.font = 'bold 12px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('Powered by SRAutomatic.cl', W / 2, H - 24);
+      ctx.fillText('&', halfW, diamondY);
+
+      drawQRPanel(halfW, halfW, idealQrCanvas, '🎯', 'Cliente Ideal', idealQrDesc);
+
+      // Franja dorada inferior
+      ctx.fillStyle = accentColor;
+      roundRect(ctx, 10, H - 20, W - 20, 10, 24);
+      ctx.fill();
+
+      // Branding
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Powered by SRAutomatic.cl', W / 2, H - 40);
 
       return new Promise(resolve => {
         canvas.toBlob((blob) => {
@@ -577,37 +682,37 @@ export default function Ratings() {
         {/* QR card */}
         <div style={{
           ...styles.card,
-          background: `linear-gradient(135deg, ${storeColor} 0%, #0d0d1a 100%)`,
-          border: 'none',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           gap: 0, padding: 0, overflow: 'hidden',
         }}>
-          {/* Header de la card */}
-          <div style={{ width: '100%', padding: '20px 20px 0', textAlign: 'center' }}>
-            {/* Inicial / logo */}
+          {/* Franja dorada superior */}
+          <div style={{ width: '100%', height: 6, background: accentColor }} />
+
+          {/* Header */}
+          <div style={{ width: '100%', padding: '18px 20px 0', textAlign: 'center' }}>
             <div style={{
               width: 56, height: 56, borderRadius: 14,
               background: accentColor,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               margin: '0 auto 10px',
-              fontSize: 22, fontWeight: 900, color: storeColor,
-              boxShadow: `0 4px 20px ${accentColor}66`,
+              fontSize: 22, fontWeight: 900, color: '#fff',
+              boxShadow: `0 4px 16px ${accentColor}55`,
             }}>
               {storeName[0]?.toUpperCase() || '★'}
             </div>
-            <p style={{ color: '#fff', fontWeight: 800, fontSize: 16, margin: '0 0 2px' }}>{storeName}</p>
-            <p style={{ color: accentColor, fontSize: 12, fontWeight: 600, margin: '0 0 14px', letterSpacing: 1 }}>
+            <p style={{ color: '#1e293b', fontWeight: 800, fontSize: 16, margin: '0 0 2px' }}>{storeName}</p>
+            <p style={{ color: accentColor, fontSize: 12, fontWeight: 700, margin: '0 0 14px', letterSpacing: 1 }}>
               CALIFICA TU EXPERIENCIA
             </p>
           </div>
 
           {/* QR + marco */}
           <div style={{
-            background: '#fff',
-            borderRadius: 20,
-            padding: 16,
+            background: '#f9fafb',
+            borderRadius: 16,
+            padding: 14,
             margin: '0 20px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            border: '1.5px solid #e5e7eb',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
           }}>
             <QRCodeCanvas
@@ -616,12 +721,8 @@ export default function Ratings() {
               size={180}
               level="H"
               includeMargin={false}
-              imageSettings={{
-                src: '',
-                excavate: false,
-              }}
+              imageSettings={{ src: '', excavate: false }}
             />
-            {/* Escala mini emojis */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
               {EMOJIS.map(e => (
                 <span key={e.label} style={{ fontSize: 20 }} title={e.label}>{e.emoji}</span>
@@ -630,7 +731,7 @@ export default function Ratings() {
           </div>
 
           {/* URL */}
-          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, margin: '8px 20px 0', textAlign: 'center', wordBreak: 'break-all' }}>
+          <p style={{ color: '#9ca3af', fontSize: 10, margin: '8px 20px 0', textAlign: 'center', wordBreak: 'break-all' }}>
             {ratingUrl}
           </p>
 
@@ -642,16 +743,15 @@ export default function Ratings() {
               margin: '14px 20px 20px',
               width: 'calc(100% - 40px)',
               padding: '13px',
-              borderRadius: 14,
+              borderRadius: 12,
               border: `2px solid ${accentColor}`,
-              background: downloading ? 'rgba(255,255,255,0.08)' : accentColor,
-              color: downloading ? accentColor : storeColor,
+              background: downloading ? '#f9fafb' : accentColor,
+              color: downloading ? accentColor : '#fff',
               fontWeight: 800,
               fontSize: 14,
               cursor: downloading ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               transition: 'all 0.2s',
-              letterSpacing: 0.5,
             }}
           >
             <FontAwesomeIcon icon={faDownload} />
@@ -724,30 +824,32 @@ export default function Ratings() {
           {/* Survey QR card */}
           <div style={{
             ...styles.card,
-            background: `linear-gradient(135deg, ${storeColor} 0%, #0d0d1a 100%)`,
-            border: 'none',
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             gap: 0, padding: 0, overflow: 'hidden',
           }}>
-            <div style={{ width: '100%', padding: '20px 20px 0', textAlign: 'center' }}>
+            {/* Franja dorada superior */}
+            <div style={{ width: '100%', height: 6, background: accentColor }} />
+
+            <div style={{ width: '100%', padding: '18px 20px 0', textAlign: 'center' }}>
               <div style={{
                 width: 56, height: 56, borderRadius: 14,
                 background: accentColor,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 margin: '0 auto 10px',
-                fontSize: 22, fontWeight: 900, color: storeColor,
-                boxShadow: `0 4px 20px ${accentColor}66`,
+                fontSize: 22, fontWeight: 900, color: '#fff',
+                boxShadow: `0 4px 16px ${accentColor}55`,
               }}>🎯</div>
-              <p style={{ color: '#fff', fontWeight: 800, fontSize: 16, margin: '0 0 2px' }}>{storeName}</p>
-              <p style={{ color: accentColor, fontSize: 12, fontWeight: 600, margin: '0 0 14px', letterSpacing: 1 }}>
+              <p style={{ color: '#1e293b', fontWeight: 800, fontSize: 16, margin: '0 0 2px' }}>{storeName}</p>
+              <p style={{ color: accentColor, fontSize: 12, fontWeight: 700, margin: '0 0 14px', letterSpacing: 1 }}>
                 ENCUESTA · CLIENTE IDEAL
               </p>
             </div>
 
             <div style={{
-              background: '#fff', borderRadius: 20, padding: 16,
+              background: '#f9fafb',
+              borderRadius: 16, padding: 14,
               margin: '0 20px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+              border: '1.5px solid #e5e7eb',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
             }}>
               <QRCodeCanvas
@@ -760,7 +862,7 @@ export default function Ratings() {
               <p style={{ fontSize: 12, color: '#374151', fontWeight: 600, margin: 0 }}>Escanea para responder</p>
             </div>
 
-            <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, margin: '8px 20px 20px', textAlign: 'center', wordBreak: 'break-all' }}>
+            <p style={{ color: '#9ca3af', fontSize: 10, margin: '8px 20px 20px', textAlign: 'center', wordBreak: 'break-all' }}>
               {surveyUrl}
             </p>
           </div>
@@ -937,17 +1039,25 @@ export default function Ratings() {
           </div>
 
           {/* Preview + download */}
-          <div style={{ ...styles.card, marginTop: 0, background: '#f9fafb', border: '1.5px solid #e5e7eb' }}>
-            <h3 style={{ ...styles.cardTitle, marginBottom: 16 }}>
+          <div style={{ ...styles.card, marginTop: 0, background: '#f8fafc', border: '1.5px solid #e2e8f0' }}>
+            <h3 style={{ ...styles.cardTitle, marginBottom: 16, color: '#0f172a' }}>
               Vista previa del diseño
             </h3>
-            {/* Combined preview */}
+
+            {/* Combined preview card */}
             <div style={{
-              background: '#fff', border: '2px solid #e5e7eb', borderRadius: 14,
-              padding: '24px 20px', marginBottom: 18,
+              background: '#fff',
+              border: `2px solid ${accentColor}`,
+              borderRadius: 18,
+              overflow: 'hidden',
+              marginBottom: 18,
+              boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
             }}>
+              {/* Franja dorada */}
+              <div style={{ height: 6, background: accentColor }} />
+
               {/* Header */}
-              <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ textAlign: 'center', padding: '18px 16px 12px' }}>
                 {selectedStore?.logo_url ? (
                   <img
                     src={selectedStore.logo_url}
@@ -959,57 +1069,104 @@ export default function Ratings() {
                   />
                 ) : (
                   <div style={{
-                    width: 48, height: 48, borderRadius: 12, background: accentColor,
+                    width: 48, height: 48, borderRadius: '50%', background: accentColor,
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 20, fontWeight: 900, color: storeColor, marginBottom: 8,
+                    fontSize: 20, fontWeight: 900, color: '#fff', marginBottom: 8,
                   }}>
                     {storeName[0]?.toUpperCase() || '★'}
                   </div>
                 )}
-                <p style={{ margin: 0, fontWeight: 800, fontSize: 16, color: '#1e293b' }}>{storeName}</p>
-                <div style={{ height: 2, background: accentColor, borderRadius: 2, margin: '10px auto 0', width: 60 }} />
+                <p style={{ margin: '0 0 6px', fontWeight: 800, fontSize: 15, color: '#0f172a', letterSpacing: 0.5 }}>
+                  {storeName.toUpperCase()}
+                </p>
+                <div style={{ height: 2, background: accentColor, borderRadius: 2, margin: '0 auto', width: 48 }} />
               </div>
-              {/* QR row */}
-              <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+
+              {/* QR panels */}
+              <div style={{ display: 'flex', gap: 0, padding: '8px 16px 20px' }}>
                 {/* Google QR */}
-                <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                  <div style={{ background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: 8 }}>
+                <div style={{
+                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                  background: '#f8fafc', borderRadius: 12, padding: '14px 10px',
+                  border: '1px solid #e2e8f0', margin: '0 6px 0 0',
+                }}>
+                  <span style={{ fontSize: 16 }}>🌐</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', textAlign: 'center' }}>Clasificar en Google</span>
+                  <div style={{ height: 1.5, background: accentColor, width: 32, borderRadius: 2 }} />
+                  <div style={{
+                    background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 8,
+                    padding: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                  }}>
                     {googleUrl
-                      ? <QRCodeCanvas value={googleUrl} size={110} level="H" includeMargin={false} />
-                      : <div style={{ width: 110, height: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d1d5db', fontSize: 12 }}>Sin link</div>
+                      ? <QRCodeCanvas value={googleUrl} size={100} level="H" includeMargin={false} />
+                      : <div style={{
+                          width: 100, height: 100, display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', color: '#cbd5e1', fontSize: 11, textAlign: 'center',
+                        }}>Sin link</div>
                     }
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Clasificar en Google</span>
-                  {googleQrDesc && <span style={{ fontSize: 11, color: '#6b7280', textAlign: 'center', maxWidth: 160 }}>{googleQrDesc}</span>}
+                  <span style={{ fontSize: 10, color: '#64748b', textAlign: 'center', fontStyle: 'italic' }}>▲ Escanea aquí ▲</span>
+                  {googleQrDesc && (
+                    <span style={{ fontSize: 10, color: '#475569', textAlign: 'center', maxWidth: 140, lineHeight: 1.4 }}>{googleQrDesc}</span>
+                  )}
                 </div>
-                {/* Divider */}
-                <div style={{ width: 1, background: '#e5e7eb', alignSelf: 'stretch', margin: '0 4px' }} />
+
+                {/* Separador */}
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 4px', gap: 4,
+                }}>
+                  <div style={{ flex: 1, width: 1, background: '#e2e8f0' }} />
+                  <div style={{
+                    width: 20, height: 20, borderRadius: 4, background: '#fff',
+                    border: `1.5px solid ${accentColor}`, transform: 'rotate(45deg)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }} />
+                  <div style={{ flex: 1, width: 1, background: '#e2e8f0' }} />
+                </div>
+
                 {/* Ideal QR */}
-                <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                  <div style={{ background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: 8 }}>
-                    <QRCodeCanvas value={surveyUrl} size={110} level="H" includeMargin={false} />
+                <div style={{
+                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                  background: '#f8fafc', borderRadius: 12, padding: '14px 10px',
+                  border: '1px solid #e2e8f0', margin: '0 0 0 6px',
+                }}>
+                  <span style={{ fontSize: 16 }}>🎯</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', textAlign: 'center' }}>Cliente Ideal</span>
+                  <div style={{ height: 1.5, background: accentColor, width: 32, borderRadius: 2 }} />
+                  <div style={{
+                    background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 8,
+                    padding: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                  }}>
+                    <QRCodeCanvas value={surveyUrl} size={100} level="H" includeMargin={false} />
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Cliente Ideal</span>
-                  {idealQrDesc && <span style={{ fontSize: 11, color: '#6b7280', textAlign: 'center', maxWidth: 160 }}>{idealQrDesc}</span>}
+                  <span style={{ fontSize: 10, color: '#64748b', textAlign: 'center', fontStyle: 'italic' }}>▲ Escanea aquí ▲</span>
+                  {idealQrDesc && (
+                    <span style={{ fontSize: 10, color: '#475569', textAlign: 'center', maxWidth: 140, lineHeight: 1.4 }}>{idealQrDesc}</span>
+                  )}
                 </div>
               </div>
-              {/* Footer */}
-              <div style={{ height: 2, background: accentColor, borderRadius: 2, margin: '20px auto 0', width: '100%' }} />
+
+              {/* Franja dorada inferior */}
+              <div style={{ height: 5, background: accentColor }} />
             </div>
+
             <button
               onClick={downloadCombinedQR}
               disabled={downloadingGoogle}
               style={{
-                width: '100%', padding: '12px', borderRadius: 10, border: 'none',
-                background: accentColor, color: storeColor,
+                width: '100%', padding: '13px', borderRadius: 12, border: 'none',
+                background: downloadingGoogle ? '#e2e8f0' : accentColor,
+                color: downloadingGoogle ? '#94a3b8' : '#fff',
                 fontWeight: 700, fontSize: 14,
                 cursor: downloadingGoogle ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                opacity: downloadingGoogle ? 0.7 : 1,
+                boxShadow: downloadingGoogle ? 'none' : `0 4px 14px ${accentColor}55`,
+                transition: 'all 0.2s',
               }}
             >
               <FontAwesomeIcon icon={faDownload} />
-              {downloadingGoogle ? 'Generando...' : 'Descargar diseño completo (.jpg)'}
+              {downloadingGoogle ? 'Generando imagen...' : 'Descargar diseño completo (.jpg)'}
             </button>
           </div>
         </div>
