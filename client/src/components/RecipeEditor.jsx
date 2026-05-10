@@ -201,13 +201,13 @@ const RecipeEditor = forwardRef(function RecipeEditor({ storeId, itemType, itemI
             style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               padding: '7px 10px', borderRadius: 8, border: '1.5px dashed #d1d5db',
               background: '#fafafa', color: '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} /> Agregar MP
+            <FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} /> Agregar Ingrediente
           </button>
           <button type="button" onClick={() => { setQcOpen(true); setAdding(false); }}
             style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               padding: '7px 10px', borderRadius: 8, border: '1.5px dashed #fcd34d',
               background: '#fffbeb', color: '#92400e', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            <FontAwesomeIcon icon={faFlask} style={{ fontSize: 10 }} /> Nueva MP
+            <FontAwesomeIcon icon={faFlask} style={{ fontSize: 10 }} /> Nuevo Ingrediente
           </button>
         </div>
       )}
@@ -218,7 +218,7 @@ const RecipeEditor = forwardRef(function RecipeEditor({ storeId, itemType, itemI
           <button type="button" onClick={() => { setQcOpen(true); setAdding(false); }}
             style={{ width: '100%', padding: '7px', borderRadius: 8, border: '1.5px dashed #fcd34d',
               background: '#fffbeb', color: '#92400e', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            <FontAwesomeIcon icon={faFlask} style={{ marginRight: 5 }} /> No hay materias primas — crear nueva
+            <FontAwesomeIcon icon={faFlask} style={{ marginRight: 5 }} /> No hay ingredientes — crear nuevo
           </button>
         </div>
       )}
