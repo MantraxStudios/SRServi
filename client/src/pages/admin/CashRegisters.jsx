@@ -8,8 +8,6 @@ import {
   faSearch,
   faUser,
   faClock,
-  faMoneyBillWave,
-  faChartLine,
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -28,8 +26,6 @@ function CashRegisters() {
   const [searched, setSearched] = useState(false);
 
   const currSym = '$';
-
-  const fmt = d => d ? new Date(d).toLocaleString('es-ES', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
   const fmtTime = d => d ? new Date(d).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—';
   const fmtDate = d => d ? new Date(d).toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
   const closedByLabel = v => ({ manual: 'Trabajador', admin: 'Administrador', auto: 'Automático' })[v] || v || '—';
@@ -43,10 +39,10 @@ function CashRegisters() {
   };
 
   const fetchHistory = async () => {
-    if (!selectedStore) return;
+    if (!selectedStore?.id) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/admin/cash-register/history?store_id=${selectedStore}&date_from=${dateFrom}&date_to=${dateTo}`, {
+      const res = await fetch(`${API}/api/admin/cash-register/history?store_id=${selectedStore.id}&date_from=${dateFrom}&date_to=${dateTo}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -60,8 +56,8 @@ function CashRegisters() {
   };
 
   useEffect(() => {
-    if (selectedStore) fetchHistory();
-  }, [selectedStore]);
+    if (selectedStore?.id) fetchHistory();
+  }, [selectedStore?.id]);
 
   const totalVendido = history.reduce((s, r) => s + Number(r.total_vendido || 0), 0);
   const totalApertura = history.reduce((s, r) => s + Number(r.opening_amount || 0), 0);
@@ -99,7 +95,7 @@ function CashRegisters() {
         </div>
         <button
           onClick={fetchHistory}
-          disabled={loading || !selectedStore}
+          disabled={loading || !selectedStore?.id}
           style={{ background: '#D4AF37', color: '#000', fontWeight: 800, border: 'none', borderRadius: 8, padding: '9px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}
         >
           <FontAwesomeIcon icon={faSearch} />
@@ -130,7 +126,7 @@ function CashRegisters() {
       )}
 
       {/* Tabla */}
-      {!selectedStore ? (
+      {!selectedStore?.id ? (
         <p style={{ color: '#666', textAlign: 'center', marginTop: 40 }}>Seleccioná una tienda para ver el historial.</p>
       ) : loading ? (
         <p style={{ color: '#888', textAlign: 'center', marginTop: 40 }}>Cargando...</p>
