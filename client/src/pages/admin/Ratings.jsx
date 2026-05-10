@@ -68,7 +68,6 @@ export default function Ratings() {
   const [googleQrDesc, setGoogleQrDesc] = useState('');
   const [idealQrDesc, setIdealQrDesc] = useState('');
   const [downloadingGoogle, setDownloadingGoogle] = useState(false);
-  const [downloadingIdeal, setDownloadingIdeal] = useState(false);
 
   const ratingUrl = selectedStore ? `${BASE_URL}/rate/${selectedStore.code}` : '';
   const surveyUrl = selectedStore ? `${BASE_URL}/survey/${selectedStore.code}` : '';
@@ -272,147 +271,161 @@ export default function Ratings() {
     }
   };
 
-  const downloadGenericQRCard = async ({ canvasId, title, subtitle, description, filename, bgColor }) => {
-    const color = bgColor || storeColor;
-    const qrCanvas = document.getElementById(canvasId);
-    if (!qrCanvas) return;
-
-    const W = 800;
-    const H = 1100;
-    const canvas = document.createElement('canvas');
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext('2d');
-
-    const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, color);
-    grad.addColorStop(1, '#0d0d1a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-
-    ctx.save();
-    ctx.globalAlpha = 0.07;
-    ctx.fillStyle = accentColor;
-    ctx.beginPath(); ctx.arc(680, 120, 200, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(80, 900, 160, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-
-    ctx.fillStyle = accentColor;
-    ctx.fillRect(0, 0, W, 6);
-
-    const logoSize = 80;
-    const logoX = W / 2 - logoSize / 2;
-    const logoY = 40;
-    ctx.fillStyle = accentColor;
-    roundRect(ctx, logoX, logoY, logoSize, logoSize, 18);
-    ctx.fill();
-    ctx.fillStyle = color;
-    ctx.font = 'bold 34px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(storeName[0]?.toUpperCase() || '★', W / 2, logoY + logoSize / 2);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 36px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText(storeName, W / 2, logoY + logoSize + 46);
-
-    ctx.fillStyle = accentColor;
-    ctx.font = '600 20px Arial';
-    ctx.fillText(title, W / 2, logoY + logoSize + 82);
-
-    const cardW = 400;
-    const cardH = 420;
-    const cardX = W / 2 - cardW / 2;
-    const cardY = 280;
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = 'rgba(0,0,0,0.4)';
-    ctx.shadowBlur = 40;
-    ctx.shadowOffsetY = 10;
-    roundRect(ctx, cardX, cardY, cardW, cardH, 28);
-    ctx.fill();
-    ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-
-    const qrSize = 300;
-    ctx.drawImage(qrCanvas, W / 2 - qrSize / 2, cardY + 30, qrSize, qrSize);
-
-    ctx.fillStyle = '#374151';
-    ctx.font = 'bold 17px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(subtitle, W / 2, cardY + cardH - 28);
-
-    if (description) {
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.font = '15px Arial';
-      ctx.textAlign = 'center';
-      const maxWidth = W - 100;
-      const words = description.split(' ');
-      let line = '';
-      let y = cardY + cardH + 52;
-      for (const word of words) {
-        const test = line + (line ? ' ' : '') + word;
-        if (ctx.measureText(test).width > maxWidth && line) {
-          ctx.fillText(line, W / 2, y);
-          line = word;
-          y += 26;
-        } else {
-          line = test;
-        }
-      }
-      if (line) ctx.fillText(line, W / 2, y);
-    }
-
-    ctx.fillStyle = accentColor;
-    ctx.fillRect(0, H - 60, W, 4);
-
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = '14px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('Powered by SRAutomatic.cl', W / 2, H - 30);
-
-    return new Promise(resolve => {
-      canvas.toBlob((blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-        resolve();
-      }, 'image/jpeg', 0.95);
-    });
-  };
-
-  const downloadGoogleQR = async () => {
+  const downloadCombinedQR = async () => {
     setDownloadingGoogle(true);
     try {
-      await downloadGenericQRCard({
-        canvasId: 'google-qr-canvas',
-        title: 'Clasifícanos en Google',
-        subtitle: 'Escanea para dejar tu reseña',
-        description: googleQrDesc,
-        filename: `qr-google-${selectedStore?.code || 'tienda'}.jpg`,
-        bgColor: '#1a237e',
+      const googleQrCanvas = document.getElementById('google-qr-canvas');
+      const idealQrCanvas = document.getElementById('ideal-qr-canvas-clasi');
+      if (!idealQrCanvas) return;
+
+      const W = 1200;
+      const H = 820;
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(0, 0, W, 8);
+
+      let logoImg = null;
+      if (selectedStore?.logo_url) {
+        try {
+          logoImg = await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = () => reject();
+            img.src = selectedStore.logo_url;
+          });
+        } catch {}
+      }
+
+      const logoSize = 72;
+      const headerCenterX = W / 2;
+      const logoY = 28;
+
+      if (logoImg) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(headerCenterX, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(logoImg, headerCenterX - logoSize / 2, logoY, logoSize, logoSize);
+        ctx.restore();
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(headerCenterX, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = accentColor;
+        roundRect(ctx, headerCenterX - logoSize / 2, logoY, logoSize, logoSize, 16);
+        ctx.fill();
+        ctx.fillStyle = storeColor || '#000';
+        ctx.font = 'bold 30px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(storeName[0]?.toUpperCase() || '★', headerCenterX, logoY + logoSize / 2);
+      }
+
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'bold 30px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(storeName, headerCenterX, logoY + logoSize + 38);
+
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(headerCenterX - 40, logoY + logoSize + 52, 80, 3);
+
+      const panelTop = logoY + logoSize + 68;
+      const halfW = W / 2;
+      const qrSize = 220;
+
+      const drawPanel = (startX, panelW, qrCvs, title, desc) => {
+        const cx = startX + panelW / 2;
+        ctx.fillStyle = '#374151';
+        ctx.font = 'bold 19px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(title, cx, panelTop + 26);
+
+        const qrX = cx - qrSize / 2;
+        const qrY = panelTop + 40;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = 'rgba(0,0,0,0.08)';
+        ctx.shadowBlur = 18;
+        roundRect(ctx, qrX - 14, qrY - 14, qrSize + 28, qrSize + 28, 14);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1.5;
+        roundRect(ctx, qrX - 14, qrY - 14, qrSize + 28, qrSize + 28, 14);
+        ctx.stroke();
+
+        if (qrCvs) {
+          ctx.drawImage(qrCvs, qrX, qrY, qrSize, qrSize);
+        } else {
+          ctx.fillStyle = '#f3f4f6';
+          roundRect(ctx, qrX, qrY, qrSize, qrSize, 8);
+          ctx.fill();
+          ctx.fillStyle = '#9ca3af';
+          ctx.font = '13px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('Sin link configurado', cx, qrY + qrSize / 2);
+        }
+
+        if (desc) {
+          ctx.fillStyle = '#6b7280';
+          ctx.font = '14px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'alphabetic';
+          const maxW = panelW - 60;
+          const words = desc.split(' ');
+          let line = '';
+          let y = qrY + qrSize + 42;
+          for (const word of words) {
+            const test = line + (line ? ' ' : '') + word;
+            if (ctx.measureText(test).width > maxW && line) {
+              ctx.fillText(line, cx, y); line = word; y += 22;
+            } else { line = test; }
+          }
+          if (line) ctx.fillText(line, cx, y);
+        }
+      };
+
+      drawPanel(0, halfW, googleQrCanvas, 'Clasificar en Google', googleQrDesc);
+
+      ctx.fillStyle = '#e5e7eb';
+      ctx.fillRect(halfW - 1, panelTop, 2, H - panelTop - 60);
+
+      drawPanel(halfW, halfW, idealQrCanvas, 'Cliente Ideal', idealQrDesc);
+
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(0, H - 50, W, 4);
+
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = '13px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Powered by SRAutomatic.cl', W / 2, H - 24);
+
+      return new Promise(resolve => {
+        canvas.toBlob((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `qr-clasificacion-${selectedStore?.code || 'tienda'}.jpg`;
+          a.click();
+          URL.revokeObjectURL(url);
+          resolve();
+        }, 'image/jpeg', 0.95);
       });
     } finally {
       setDownloadingGoogle(false);
-    }
-  };
-
-  const downloadIdealQR = async () => {
-    setDownloadingIdeal(true);
-    try {
-      await downloadGenericQRCard({
-        canvasId: 'ideal-qr-canvas-clasi',
-        title: 'Cliente Ideal',
-        subtitle: 'Escanea para responder',
-        description: idealQrDesc,
-        filename: `qr-cliente-ideal-${selectedStore?.code || 'tienda'}.jpg`,
-      });
-    } finally {
-      setDownloadingIdeal(false);
     }
   };
 
@@ -834,12 +847,12 @@ export default function Ratings() {
 
       {/* ── CLASIFICACIÓN TAB ── */}
       {activeTab === 'clasificacion' && (
-        <div>
+        <div style={{ background: '#fff' }}>
           <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>
-            Genera y descarga QR personalizados para compartir con tus clientes. Escribe una descripción para cada uno.
+            Genera y descarga un diseño con los 2 QR para compartir con tus clientes.
           </p>
           <div style={styles.grid}>
-            {/* Google QR card */}
+            {/* Google QR config */}
             <div style={styles.card}>
               <h3 style={styles.cardTitle}>
                 <FontAwesomeIcon icon={faGlobe} style={{ color: '#4285F4', marginRight: 8 }} />
@@ -860,15 +873,15 @@ export default function Ratings() {
                   }}
                 />
               </div>
-              <div style={{ marginBottom: 14 }}>
+              <div style={{ marginBottom: 8 }}>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
                   Descripción
                 </label>
                 <textarea
                   value={googleQrDesc}
                   onChange={e => setGoogleQrDesc(e.target.value)}
-                  placeholder="Ej: Escanea y ayúdanos a crecer dejando tu reseña en Google"
-                  rows={3}
+                  placeholder="Ej: Escanea y ayúdanos dejando tu reseña en Google"
+                  rows={2}
                   style={{
                     width: '100%', padding: '8px 12px', borderRadius: 8,
                     border: '1.5px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box',
@@ -877,61 +890,37 @@ export default function Ratings() {
                 />
               </div>
               {googleUrl ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                  <div style={{ background: '#fff', border: '2px solid #e5e7eb', borderRadius: 12, padding: 12 }}>
-                    <QRCodeCanvas
-                      id="google-qr-canvas"
-                      value={googleUrl}
-                      size={160}
-                      level="H"
-                      includeMargin={false}
-                    />
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+                  <div style={{ background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: 10 }}>
+                    <QRCodeCanvas id="google-qr-canvas" value={googleUrl} size={130} level="H" includeMargin={false} />
                   </div>
-                  {googleQrDesc && (
-                    <p style={{ fontSize: 12, color: '#6b7280', textAlign: 'center', margin: 0 }}>{googleQrDesc}</p>
-                  )}
                 </div>
               ) : (
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  height: 100, background: '#f9fafb', borderRadius: 12, marginBottom: 14,
+                  height: 80, background: '#f9fafb', borderRadius: 10, marginTop: 10,
                   border: '2px dashed #e5e7eb',
                 }}>
-                  <span style={{ fontSize: 13, color: '#9ca3af' }}>Ingresa el link para ver el QR</span>
+                  <span style={{ fontSize: 12, color: '#9ca3af' }}>Ingresa el link para ver el QR</span>
                 </div>
               )}
-              <button
-                onClick={downloadGoogleQR}
-                disabled={!googleUrl || downloadingGoogle}
-                style={{
-                  width: '100%', padding: '11px', borderRadius: 10, border: 'none',
-                  background: googleUrl ? '#4285F4' : '#e5e7eb',
-                  color: googleUrl ? '#fff' : '#9ca3af',
-                  fontWeight: 700, fontSize: 14,
-                  cursor: googleUrl && !downloadingGoogle ? 'pointer' : 'not-allowed',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}
-              >
-                <FontAwesomeIcon icon={faDownload} />
-                {downloadingGoogle ? 'Generando...' : 'Descargar QR Google (.jpg)'}
-              </button>
             </div>
 
-            {/* Cliente Ideal QR card */}
+            {/* Cliente Ideal QR config */}
             <div style={styles.card}>
               <h3 style={styles.cardTitle}>
                 <FontAwesomeIcon icon={faUsers} style={{ color: accentColor, marginRight: 8 }} />
                 QR Cliente Ideal
               </h3>
-              <div style={{ marginBottom: 14 }}>
+              <div style={{ marginBottom: 8 }}>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
                   Descripción
                 </label>
                 <textarea
                   value={idealQrDesc}
                   onChange={e => setIdealQrDesc(e.target.value)}
-                  placeholder="Ej: Escanea y cuéntanos quién eres para mejorar nuestro servicio"
-                  rows={3}
+                  placeholder="Ej: Escanea y cuéntanos quién eres"
+                  rows={2}
                   style={{
                     width: '100%', padding: '8px 12px', borderRadius: 8,
                     border: '1.5px solid #e5e7eb', fontSize: 13, boxSizing: 'border-box',
@@ -939,35 +928,89 @@ export default function Ratings() {
                   }}
                 />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <div style={{ background: '#fff', border: '2px solid #e5e7eb', borderRadius: 12, padding: 12 }}>
-                  <QRCodeCanvas
-                    id="ideal-qr-canvas-clasi"
-                    value={surveyUrl}
-                    size={160}
-                    level="H"
-                    includeMargin={false}
-                  />
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+                <div style={{ background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: 10 }}>
+                  <QRCodeCanvas id="ideal-qr-canvas-clasi" value={surveyUrl} size={130} level="H" includeMargin={false} />
                 </div>
-                {idealQrDesc && (
-                  <p style={{ fontSize: 12, color: '#6b7280', textAlign: 'center', margin: 0 }}>{idealQrDesc}</p>
-                )}
               </div>
-              <button
-                onClick={downloadIdealQR}
-                disabled={downloadingIdeal}
-                style={{
-                  width: '100%', padding: '11px', borderRadius: 10, border: 'none',
-                  background: accentColor, color: storeColor,
-                  fontWeight: 700, fontSize: 14,
-                  cursor: downloadingIdeal ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}
-              >
-                <FontAwesomeIcon icon={faDownload} />
-                {downloadingIdeal ? 'Generando...' : 'Descargar QR Cliente Ideal (.jpg)'}
-              </button>
             </div>
+          </div>
+
+          {/* Preview + download */}
+          <div style={{ ...styles.card, marginTop: 0, background: '#f9fafb', border: '1.5px solid #e5e7eb' }}>
+            <h3 style={{ ...styles.cardTitle, marginBottom: 16 }}>
+              Vista previa del diseño
+            </h3>
+            {/* Combined preview */}
+            <div style={{
+              background: '#fff', border: '2px solid #e5e7eb', borderRadius: 14,
+              padding: '24px 20px', marginBottom: 18,
+            }}>
+              {/* Header */}
+              <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                {selectedStore?.logo_url ? (
+                  <img
+                    src={selectedStore.logo_url}
+                    alt={storeName}
+                    style={{
+                      width: 52, height: 52, borderRadius: '50%', objectFit: 'cover',
+                      border: `3px solid ${accentColor}`, display: 'block', margin: '0 auto 8px',
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 48, height: 48, borderRadius: 12, background: accentColor,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 20, fontWeight: 900, color: storeColor, marginBottom: 8,
+                  }}>
+                    {storeName[0]?.toUpperCase() || '★'}
+                  </div>
+                )}
+                <p style={{ margin: 0, fontWeight: 800, fontSize: 16, color: '#1e293b' }}>{storeName}</p>
+                <div style={{ height: 2, background: accentColor, borderRadius: 2, margin: '10px auto 0', width: 60 }} />
+              </div>
+              {/* QR row */}
+              <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {/* Google QR */}
+                <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                  <div style={{ background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: 8 }}>
+                    {googleUrl
+                      ? <QRCodeCanvas value={googleUrl} size={110} level="H" includeMargin={false} />
+                      : <div style={{ width: 110, height: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d1d5db', fontSize: 12 }}>Sin link</div>
+                    }
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Clasificar en Google</span>
+                  {googleQrDesc && <span style={{ fontSize: 11, color: '#6b7280', textAlign: 'center', maxWidth: 160 }}>{googleQrDesc}</span>}
+                </div>
+                {/* Divider */}
+                <div style={{ width: 1, background: '#e5e7eb', alignSelf: 'stretch', margin: '0 4px' }} />
+                {/* Ideal QR */}
+                <div style={{ flex: 1, minWidth: 140, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                  <div style={{ background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: 8 }}>
+                    <QRCodeCanvas value={surveyUrl} size={110} level="H" includeMargin={false} />
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Cliente Ideal</span>
+                  {idealQrDesc && <span style={{ fontSize: 11, color: '#6b7280', textAlign: 'center', maxWidth: 160 }}>{idealQrDesc}</span>}
+                </div>
+              </div>
+              {/* Footer */}
+              <div style={{ height: 2, background: accentColor, borderRadius: 2, margin: '20px auto 0', width: '100%' }} />
+            </div>
+            <button
+              onClick={downloadCombinedQR}
+              disabled={downloadingGoogle}
+              style={{
+                width: '100%', padding: '12px', borderRadius: 10, border: 'none',
+                background: accentColor, color: storeColor,
+                fontWeight: 700, fontSize: 14,
+                cursor: downloadingGoogle ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                opacity: downloadingGoogle ? 0.7 : 1,
+              }}
+            >
+              <FontAwesomeIcon icon={faDownload} />
+              {downloadingGoogle ? 'Generando...' : 'Descargar diseño completo (.jpg)'}
+            </button>
           </div>
         </div>
       )}
