@@ -1533,9 +1533,15 @@ function WorkerPanel() {
               <button className="worker-modal-close" onClick={() => setShowCloseCashModal(false)}>x</button>
             </div>
             <div style={{ padding: '16px 0', textAlign: 'center' }}>
-              <p style={{ color: '#ccc', fontSize: '14px', margin: '0 0 6px' }}>
+              <p style={{ color: '#ccc', fontSize: '14px', margin: '0 0 12px' }}>
                 ¿Seguro que deseas cerrar la caja?
               </p>
+              <div style={{ background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: 10, padding: '12px 20px', margin: '0 0 12px' }}>
+                <p style={{ color: '#888', fontSize: '11px', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 1 }}>Efectivo a cerrar</p>
+                <p style={{ color: '#D4AF37', fontSize: '28px', fontWeight: 900, margin: 0 }}>
+                  ${stats.total}
+                </p>
+              </div>
               <p style={{ color: '#666', fontSize: '12px', margin: 0 }}>
                 Se enviará el informe del día por correo al dueño de la tienda.
               </p>
