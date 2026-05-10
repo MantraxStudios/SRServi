@@ -105,6 +105,8 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
   } = useSortable({ id: product.id });
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dropAlign, setDropAlign] = useState('right');
+  const menuBtnRef = useRef(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -112,6 +114,15 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
   }, [menuOpen]);
+
+  const openMenu = (e) => {
+    e.stopPropagation();
+    if (menuBtnRef.current) {
+      const rect = menuBtnRef.current.getBoundingClientRect();
+      setDropAlign(rect.left < window.innerWidth / 2 ? 'left' : 'right');
+    }
+    setMenuOpen(o => !o);
+  };
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -150,7 +161,8 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
         {/* 3-dot menu — outside the card so it's not clipped by overflow:hidden */}
         <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 10 }}>
           <button
-            onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
+            ref={menuBtnRef}
+            onClick={openMenu}
             style={{
               width: 30, height: 30, borderRadius: 8, border: 'none',
               background: 'rgba(0,0,0,0.55)', color: '#fff',
@@ -162,7 +174,8 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
           </button>
           {menuOpen && (
             <div style={{
-              position: 'absolute', top: '110%', right: 0,
+              position: 'absolute', top: '110%',
+              ...(dropAlign === 'left' ? { left: 0 } : { right: 0 }),
               background: '#fff', borderRadius: 10,
               boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
               minWidth: 165, overflow: 'hidden', zIndex: 9999
