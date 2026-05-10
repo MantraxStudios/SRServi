@@ -2279,15 +2279,8 @@ h1, h2, h3, h4, h5, h6 {
 .category-section-icon {
   font-size: 13px;
   color: var(--store-primary);
-  background: var(--store-accent);
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  opacity: 0.5;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .category-section-title {
