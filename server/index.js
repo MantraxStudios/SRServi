@@ -1581,6 +1581,54 @@ app.put('/api/public/:code/styles', async (req, res) => {
   } catch (error) { console.error('Error saving styles:', error); res.status(500).json({ error: error.message }); }
 });
 
+// ── Clasificación QR settings ──
+app.get('/api/store-clasificacion', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    const [storeRows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+    if (!storeRows.length) return res.status(403).json({ error: 'No autorizado' });
+    const [rows] = await pool.execute('SELECT * FROM store_clasificacion WHERE store_id = ?', [store_id]);
+    res.json(rows[0] || {});
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/store-clasificacion', authenticateToken, upload.fields([
+  { name: 'image1', maxCount: 1 },
+  { name: 'image2', maxCount: 1 },
+]), async (req, res) => {
+  try {
+    await pool.execute(`CREATE TABLE IF NOT EXISTS store_clasificacion (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL UNIQUE,
+      google_url VARCHAR(500),
+      google_qr_desc TEXT,
+      ideal_qr_desc TEXT,
+      promo_gift_text VARCHAR(500),
+      promo_image1 VARCHAR(500),
+      promo_image2 VARCHAR(500),
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )`);
+    const { store_id, google_url, google_qr_desc, ideal_qr_desc, promo_gift_text, image1_existing, image2_existing } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    const [storeRows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+    if (!storeRows.length) return res.status(403).json({ error: 'No autorizado' });
+    const image1Url = req.files?.image1?.[0] ? `/uploads/${req.files.image1[0].filename}` : (image1_existing || null);
+    const image2Url = req.files?.image2?.[0] ? `/uploads/${req.files.image2[0].filename}` : (image2_existing || null);
+    await pool.execute(
+      `INSERT INTO store_clasificacion (store_id, google_url, google_qr_desc, ideal_qr_desc, promo_gift_text, promo_image1, promo_image2)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         google_url = VALUES(google_url), google_qr_desc = VALUES(google_qr_desc),
+         ideal_qr_desc = VALUES(ideal_qr_desc), promo_gift_text = VALUES(promo_gift_text),
+         promo_image1 = VALUES(promo_image1), promo_image2 = VALUES(promo_image2)`,
+      [store_id, google_url || '', google_qr_desc || '', ideal_qr_desc || '', promo_gift_text || '', image1Url, image2Url]
+    );
+    res.json({ success: true, promo_image1: image1Url, promo_image2: image2Url });
+  } catch (e) { console.error('Error saving clasificacion:', e); res.status(500).json({ error: e.message }); }
+});
+
 // Update product stock from editor
 app.put('/api/public/:code/products/:id/stock', async (req, res) => {
   try {

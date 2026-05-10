@@ -56,7 +56,9 @@
       "Bash(dir C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\client\\\\src *)",
       "Bash(dir C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\client\\\\src\\\\pages *)",
       "Bash(dir C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\client\\\\src\\\\pages\\\\admin *)",
-      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\" -Recurse -Directory | Select-Object -First 20 | ForEach-Object { $_.FullName })"
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\" -Recurse -Directory | Select-Object -First 20 | ForEach-Object { $_.FullName })",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\" -Recurse -Filter \"*.js\" -File)",
+      "Bash(Select-Object -First 30)"
     ]
   }
 }

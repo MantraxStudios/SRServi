@@ -118,27 +118,66 @@ export default function Ratings() {
       .finally(() => setSurveyLoading(false));
   }, [selectedStore?.id, token]);
 
-  useEffect(() => {
-    if (!selectedStore?.code) return;
-    const saved = localStorage.getItem(`srservi_clasificacion_${selectedStore.code}`);
-    if (saved) {
-      try {
-        const d = JSON.parse(saved);
-        setGoogleUrl(d.googleUrl || '');
-        setGoogleQrDesc(d.googleQrDesc || '');
-        setIdealQrDesc(d.idealQrDesc || '');
-        setPromoGiftText(d.promoGiftText || '');
-      } catch {}
-    }
-  }, [selectedStore?.code]);
+  const [clasificacionSaving, setClasificacionSaving] = useState(false);
+  const [clasificacionSaved, setClasificacionSaved] = useState(false);
 
+  // Load clasificacion settings from DB
   useEffect(() => {
-    if (!selectedStore?.code) return;
-    localStorage.setItem(
-      `srservi_clasificacion_${selectedStore.code}`,
-      JSON.stringify({ googleUrl, googleQrDesc, idealQrDesc, promoGiftText })
-    );
-  }, [googleUrl, googleQrDesc, idealQrDesc, promoGiftText, selectedStore?.code]);
+    if (!selectedStore?.id || !token) return;
+    fetch(`/api/store-clasificacion?store_id=${selectedStore.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : {})
+      .then(d => {
+        setGoogleUrl(d.google_url || '');
+        setGoogleQrDesc(d.google_qr_desc || '');
+        setIdealQrDesc(d.ideal_qr_desc || '');
+        setPromoGiftText(d.promo_gift_text || '');
+        setPromoImages([d.promo_image1 || null, d.promo_image2 || null]);
+      })
+      .catch(() => {});
+  }, [selectedStore?.id, token]);
+
+  const saveClasificacion = async () => {
+    if (!selectedStore?.id || !token) return;
+    setClasificacionSaving(true);
+    try {
+      const fd = new FormData();
+      fd.append('store_id', selectedStore.id);
+      fd.append('google_url', googleUrl);
+      fd.append('google_qr_desc', googleQrDesc);
+      fd.append('ideal_qr_desc', idealQrDesc);
+      fd.append('promo_gift_text', promoGiftText);
+
+      for (const [i, img] of promoImages.entries()) {
+        if (!img) {
+          fd.append(`image${i + 1}_existing`, '');
+        } else if (img.startsWith('data:')) {
+          // New upload — convert base64 to Blob
+          const res = await fetch(img);
+          const blob = await res.blob();
+          fd.append(`image${i + 1}`, blob, `promo_image_${i + 1}.jpg`);
+        } else {
+          // Existing server URL — keep as-is
+          fd.append(`image${i + 1}_existing`, img);
+        }
+      }
+
+      const res = await fetch('/api/store-clasificacion', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Update state to server URLs so next save won't re-upload
+        setPromoImages([data.promo_image1 || null, data.promo_image2 || null]);
+        setClasificacionSaved(true);
+        setTimeout(() => setClasificacionSaved(false), 2500);
+      }
+    } catch (e) { console.error(e); }
+    finally { setClasificacionSaving(false); }
+  };
 
   const filtered = ratings.filter(r => {
     if (filter === 'high') return r.rating >= 8;
@@ -333,8 +372,7 @@ export default function Ratings() {
       const promoImgH = 240;
       const hasPromo = activePromo.length > 0;
       const hasGiftText = !!promoGiftText.trim();
-      const giftExtraH = (!hasPromo && hasGiftText) ? 44 : 0;
-      const promoSectionH = (hasPromo ? promoImgH + 88 : 0) + giftExtraH;
+      const promoSectionH = hasPromo ? promoImgH + 60 : 0;
       const cardY = 460 + promoSectionH;
       const card1X = pad;
       const card2X = pad + cardW + gap;
@@ -433,42 +471,32 @@ export default function Ratings() {
       ctx.font = '15px Arial';
       ctx.fillText('Tus opiniones nos ayudan a mejorar.', cx, nameY + 74);
 
-      // ── 9. Píldoras de acción ──
-      const badgeDefs = [
-        { label: '🌐  Clasifícanos en Google', color: '#4285F4' },
-        { label: '🎯  Encuesta Cliente Ideal', color: accentColor },
-      ];
-      badgeDefs.forEach((b, i) => {
-        const bw = 256;
-        const bx = i === 0 ? cx - bw - 6 : cx + 6;
-        ctx.fillStyle = `${b.color}18`;
-        roundRect(ctx, bx, badgeY, bw, 38, 19);
-        ctx.fill();
-        ctx.strokeStyle = `${b.color}55`;
-        ctx.lineWidth = 1.5;
-        roundRect(ctx, bx, badgeY, bw, 38, 19);
-        ctx.stroke();
-        ctx.fillStyle = b.color;
-        ctx.font = 'bold 13px Arial';
+      // ── 9. Texto principal GRATIS ──
+      if (hasGiftText) {
+        ctx.fillStyle = '#475569';
+        ctx.font = '500 16px Arial';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(b.label, bx + bw / 2, badgeY + 19);
-      });
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText('Escanea los códigos y lleva', cx, badgeY + 14);
+        ctx.shadowColor = `${accentColor}99`;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 30px Arial';
+        ctx.fillText(`🎁 GRATIS ${promoGiftText.trim().toUpperCase()}`, cx, badgeY + 52);
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.fillStyle = accentColor;
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText('↓  Escanea los códigos QR abajo  ↓', cx, badgeY + 28);
+      }
 
       // ── 10. Imágenes de producto/premio (si hay) ──
       if (hasPromo) {
-        const promoLabelY = badgeY + 62;
-        ctx.fillStyle = '#1e293b';
-        ctx.font = 'bold 15px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillText('🎁  Producto / Premio', cx, promoLabelY);
-        ctx.fillStyle = accentColor;
-        ctx.fillRect(cx - 36, promoLabelY + 8, 72, 2);
-
-        const promoTopY = promoLabelY + 24;
+        const promoTopY = badgeY + 68;
         if (activePromo.length === 1) {
-          const iw = 300;
+          const iw = 340;
           drawImageCover(ctx, activePromo[0], cx - iw / 2, promoTopY, iw, promoImgH, 14);
         } else {
           const iw = (W - pad * 2 - 12) / 2;
@@ -477,37 +505,13 @@ export default function Ratings() {
         }
       }
 
-      // ── 11. Texto "Escanea / GRATIS" (o flecha genérica) ──
-      if (hasGiftText) {
-        ctx.fillStyle = '#64748b';
-        ctx.font = '500 15px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillText('Escanea los códigos y lleva', cx, cardY - 48);
-
-        // "GRATIS [texto]" grande y llamativo
-        const giftLabel = `🎁 GRATIS ${promoGiftText.trim().toUpperCase()}`;
-        ctx.font = 'bold 26px Arial';
-        ctx.textBaseline = 'alphabetic';
-        // shadow glow
-        ctx.shadowColor = `${accentColor}88`;
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = '#0f172a';
-        ctx.fillText(giftLabel, cx, cardY - 16);
-        ctx.shadowBlur = 0;
-      } else {
-        ctx.fillStyle = accentColor;
-        ctx.font = 'bold 15px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('↓  Escanea los códigos QR  ↓', cx, cardY - 32);
-      }
+      // ── 11. Separador sutil sobre los QR ──
       ctx.strokeStyle = '#e2e8f0';
       ctx.lineWidth = 1;
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
-      ctx.moveTo(pad + 16, cardY - 8);
-      ctx.lineTo(W - pad - 16, cardY - 8);
+      ctx.moveTo(pad + 16, cardY - 10);
+      ctx.lineTo(W - pad - 16, cardY - 10);
       ctx.stroke();
       ctx.setLineDash([]);
 
@@ -1291,10 +1295,27 @@ export default function Ratings() {
                   background: '#fffbeb', border: '1px solid #fde68a',
                   fontSize: 13, color: '#92400e', fontWeight: 600,
                 }}>
-                  Vista previa: "Escanea los códigos y lleva GRATIS {promoGiftText.trim().toUpperCase()}"
+                  En la imagen: "Escanea los códigos y lleva GRATIS {promoGiftText.trim().toUpperCase()}"
                 </div>
               )}
             </div>
+
+            {/* Save button */}
+            <button
+              onClick={saveClasificacion}
+              disabled={clasificacionSaving}
+              style={{
+                marginTop: 16, width: '100%', padding: '11px',
+                borderRadius: 10, border: 'none',
+                background: clasificacionSaved ? '#16a34a' : accentColor,
+                color: '#fff', fontWeight: 700, fontSize: 14,
+                cursor: clasificacionSaving ? 'not-allowed' : 'pointer',
+                transition: 'background 0.3s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              {clasificacionSaving ? 'Guardando…' : clasificacionSaved ? '✓ Guardado' : '💾 Guardar configuración'}
+            </button>
           </div>
 
           {/* Preview + download */}
