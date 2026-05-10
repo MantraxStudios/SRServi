@@ -39,7 +39,7 @@ const CSS = `
   }
 
   .rv-wrap {
-    min-height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     font-family: system-ui, -apple-system, sans-serif;
@@ -48,86 +48,95 @@ const CSS = `
     position: relative;
   }
 
+  /* Gold line */
+  .rv-gold-line {
+    height: 4px;
+    width: 100%;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
   /* Top bar */
   .rv-topbar {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 14px 20px;
+    padding: 10px 16px;
     flex-shrink: 0;
     position: relative;
     z-index: 1;
   }
   .rv-logo-img {
-    width: 58px; height: 58px;
+    width: 60px; height: 60px;
     border-radius: 14px;
-    object-fit: cover;
+    object-fit: contain;
     flex-shrink: 0;
+    display: block;
   }
   .rv-logo-ph {
-    width: 58px; height: 58px;
+    width: 60px; height: 60px;
     border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
     font-size: 26px; font-weight: 900;
     flex-shrink: 0;
   }
   .rv-store-name {
-    font-size: clamp(22px, 4vw, 30px);
+    font-size: clamp(20px, 5vw, 30px);
     font-weight: 900;
     color: #1e293b;
     line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  /* Gold line */
-  .rv-gold-line {
-    height: 4px;
-    width: 100%;
-    flex-shrink: 0;
-  }
-
-  /* Gold line */
-  .rv-gold-line { position: relative; z-index: 1; }
-
-  /* Main body */
+  /* Main body — fills remaining height */
   .rv-body {
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 32px;
-    padding: 24px 16px;
+    gap: clamp(12px, 3vh, 32px);
+    padding: 8px 12px 12px;
     position: relative;
     z-index: 1;
+    overflow: hidden;
   }
 
   .rv-headline {
-    font-size: clamp(28px, 5vw, 42px);
+    font-size: clamp(22px, 6vw, 52px);
     font-weight: 900;
     color: #1e293b;
     text-align: center;
     letter-spacing: -0.5px;
+    line-height: 1.1;
+    padding: 0 8px;
   }
 
-  /* Emoji row */
+  /* Emoji row — never overflows */
   .rv-emojis {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 8px;
+    gap: clamp(2px, 1vw, 12px);
     width: 100%;
-    max-width: 560px;
+    max-width: 100%;
+    flex-shrink: 0;
   }
 
   .rv-emoji-btn {
     flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
     border: 2.5px solid transparent;
-    border-radius: 20px;
-    padding: 12px 4px;
+    border-radius: 16px;
+    padding: clamp(6px, 1.5vh, 16px) 2px;
     cursor: pointer;
     transition: transform 0.12s, background 0.12s, border-color 0.12s;
     outline: none;
@@ -135,11 +144,12 @@ const CSS = `
     touch-action: manipulation;
   }
   .rv-emoji-btn:active {
-    transform: scale(0.92);
+    transform: scale(0.88);
   }
 
+  /* Portrait: scale by width (5 emojis must fit) */
   .rv-emoji-icon {
-    font-size: clamp(64px, 14vw, 96px);
+    font-size: min(13vw, 90px);
     line-height: 1;
     display: block;
     user-select: none;
@@ -150,16 +160,7 @@ const CSS = `
     color: #d1d5db;
     letter-spacing: 1px;
     text-align: center;
-  }
-
-  /* Submitting overlay */
-  .rv-sending {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
+    flex-shrink: 0;
   }
 
   /* Done screen */
@@ -169,37 +170,45 @@ const CSS = `
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 14px;
+    gap: clamp(10px, 2vh, 20px);
     padding: 24px;
+    position: relative;
+    z-index: 1;
   }
-  .rv-done-emoji { font-size: 90px; line-height: 1; }
-  .rv-done-title { font-size: 28px; font-weight: 900; color: #1e293b; }
-  .rv-done-sub { font-size: 13px; color: #9ca3af; }
+  .rv-done-emoji { font-size: clamp(64px, 18vw, 110px); line-height: 1; }
+  .rv-done-title { font-size: clamp(24px, 6vw, 36px); font-weight: 900; color: #1e293b; }
+  .rv-done-sub   { font-size: clamp(13px, 2vw, 16px); color: #9ca3af; }
 
-  /* Tablet landscape */
-  @media (min-width: 700px) and (orientation: landscape) {
-    .rv-topbar { padding: 18px 32px; }
-    .rv-logo-img, .rv-logo-ph { width: 68px; height: 68px; border-radius: 16px; }
-    .rv-store-name { font-size: 32px; }
-    .rv-headline { font-size: 28px; }
-    .rv-emojis {
-      gap: 16px;
-      max-width: 800px;
-    }
-    .rv-emoji-btn {
-      border-radius: 28px;
-      padding: 20px 8px;
-    }
-    .rv-emoji-icon {
-      font-size: clamp(80px, 10vw, 120px);
-    }
+  /* Landscape: scale by height (screen is short) */
+  @media (orientation: landscape) {
+    .rv-topbar { padding: 6px 20px; }
+    .rv-logo-img, .rv-logo-ph { width: 44px; height: 44px; border-radius: 11px; font-size: 18px; }
+    .rv-store-name { font-size: clamp(16px, 3.5vh, 26px); }
+    .rv-headline   { font-size: clamp(18px, 5vh, 42px); }
+    .rv-emoji-icon { font-size: min(15vh, 120px); }
+    .rv-emoji-btn  { border-radius: 20px; padding: clamp(8px, 2vh, 20px) 4px; }
+    .rv-emojis     { gap: clamp(4px, 1.5vw, 20px); max-width: 860px; }
+    .rv-done-emoji { font-size: min(20vh, 110px); }
   }
 
-  @media (min-width: 1024px) and (orientation: landscape) {
-    .rv-emoji-icon {
-      font-size: clamp(100px, 10vw, 140px);
-    }
-    .rv-emojis { max-width: 960px; gap: 24px; }
+  /* Large landscape (tablets) */
+  @media (min-width: 900px) and (orientation: landscape) {
+    .rv-topbar { padding: 10px 36px; }
+    .rv-logo-img, .rv-logo-ph { width: 52px; height: 52px; border-radius: 14px; font-size: 22px; }
+    .rv-store-name { font-size: clamp(22px, 4vh, 32px); }
+    .rv-headline   { font-size: clamp(28px, 7vh, 52px); }
+    .rv-emoji-icon { font-size: min(18vh, 140px); }
+    .rv-emojis     { gap: clamp(8px, 2vw, 28px); max-width: 1000px; }
+  }
+
+  /* Large portrait (tablets) */
+  @media (min-width: 600px) and (orientation: portrait) {
+    .rv-topbar { padding: 14px 28px; }
+    .rv-logo-img, .rv-logo-ph { width: 72px; height: 72px; border-radius: 16px; font-size: 28px; }
+    .rv-store-name { font-size: clamp(22px, 4vw, 32px); }
+    .rv-headline   { font-size: clamp(30px, 6vw, 52px); }
+    .rv-emoji-icon { font-size: min(12vw, 100px); }
+    .rv-emojis     { gap: clamp(6px, 1.5vw, 16px); max-width: 680px; }
   }
 `;
 
