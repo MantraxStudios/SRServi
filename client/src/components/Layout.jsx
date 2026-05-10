@@ -473,6 +473,10 @@ function Layout() {
                           <FontAwesomeIcon icon={faClipboardList} />
                           <span>Encuesta</span>
                         </NavLink>
+                        <NavLink to="/admin/cash-registers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                          <FontAwesomeIcon icon={faCashRegister} />
+                          <span>Historial de Caja</span>
+                        </NavLink>
                         <div className="subdropdown-container">
                           <button className={`subdropdown-header${openDropdowns['delivery'] ? ' open' : ''}`} onClick={() => toggleDropdown('delivery')}>
                             <FontAwesomeIcon icon={faMotorcycle} />

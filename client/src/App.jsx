@@ -52,6 +52,7 @@ import PedidosYaIntegration from './pages/admin/PedidosYaIntegration';
 import UberEatsIntegration from './pages/admin/UberEatsIntegration';
 import Novedades from './pages/admin/Novedades';
 import InstagramAuto from './pages/admin/InstagramAuto';
+import CashRegisters from './pages/admin/CashRegisters';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 
@@ -215,6 +216,7 @@ function App() {
             <Route path="ubereats" element={<UberEatsIntegration />} />
             <Route path="novedades" element={<Novedades />} />
             <Route path="instagram" element={<InstagramAuto />} />
+            <Route path="cash-registers" element={<CashRegisters />} />
             <Route path="editor/:code" element={<Store />} />
           </Route>
           <Route path="/worker-login" element={<WorkerLogin />} />

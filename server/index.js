@@ -146,6 +146,7 @@ import {
   getOpenCashRegister,
   getAllOpenCashRegisters,
   getTodayOrdersForStore,
+  getCashRegisterHistory,
   generateUniqueOrderNumber,
   pool
 } from './database.js';
@@ -287,7 +288,7 @@ app.use('/api/plugins/static', (req, res, next) => {
   next();
 }, express.static(path.join(__serverDir, 'plugins', 'installed')));
 
-async function sendCashRegisterReport(storeId, closedBy = 'manual') {
+async function sendCashRegisterReport(storeId, closedBy = 'manual', register = null) {
   try {
     const [storeRows] = await pool.execute(
       'SELECT s.*, u.email as owner_email, u.username as owner_username FROM stores s JOIN users u ON s.user_id = u.id WHERE s.id = ?',
@@ -298,13 +299,51 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual') {
     const ownerEmail = store.owner_email;
     if (!ownerEmail) return;
 
+    // Fetch register if not provided (e.g. auto-close cron)
+    if (!register) {
+      const [regRows] = await pool.execute(
+        'SELECT * FROM cash_registers WHERE store_id = ? ORDER BY opened_at DESC LIMIT 1',
+        [storeId]
+      );
+      register = regRows[0] || null;
+    }
+
     const orders = await getTodayOrdersForStore(storeId);
     const currSym = store.currency_symbol || '$';
     const fmt = d => d ? new Date(d).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—';
     const tl = t => ({ serve: 'Aquí', takeout: 'Para llevar', delivery: 'Delivery', pedidosya: 'PedidosYa', rappi: 'Rappi', mostrador: 'Mostrador' })[t] || t || 'Aquí';
     const sl = s => ({ pending: 'Pendiente', preparing: 'En preparación', ready: 'Listo', completed: 'Completado' })[s] || s || '';
     const ds = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const closedByLabel = { manual: 'Manual (trabajador)', admin: 'Administrador', auto: 'Automático (medianoche)' }[closedBy] || closedBy;
 
+    const totalVendido = orders.reduce((s, o) => s + Number(o.total || 0), 0);
+    const openingAmount = register ? Number(register.opening_amount || 0) : 0;
+    const diferencia = totalVendido - openingAmount;
+
+    // Sheet 1: Resumen de caja
+    const resumenData = [
+      ['INFORME DE APERTURA Y CIERRE DE CAJA'],
+      [store.name],
+      [ds],
+      [],
+      ['APERTURA'],
+      ['Trabajador', register ? (register.worker_name || '—') : '—'],
+      ['Hora de apertura', register ? fmt(register.opened_at) : '—'],
+      ['Monto inicial', `${currSym}${openingAmount.toFixed(2)}`],
+      [],
+      ['CIERRE'],
+      ['Hora de cierre', register ? fmt(register.closed_at) : fmt(new Date())],
+      ['Cerrado por', closedByLabel],
+      ['Total vendido', `${currSym}${totalVendido.toFixed(2)}`],
+      ['Diferencia (vendido - apertura)', `${currSym}${diferencia.toFixed(2)}`],
+      [],
+      ['Total pedidos del día', orders.length],
+      ['Pedidos completados', orders.filter(o => o.status === 'completed').length],
+    ];
+    const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
+    wsResumen['!cols'] = [{ wch: 35 }, { wch: 22 }];
+
+    // Sheet 2: Detalle de pedidos
     const wsData = [
       ['#', 'Tipo', 'Entrada', 'Salida', 'Estado', 'Atendido por', 'Productos', 'Total']
     ];
@@ -321,7 +360,6 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual') {
       ]);
     }
 
-    const totalVendido = orders.reduce((s, o) => s + Number(o.total || 0), 0);
     const completados = orders.filter(o => o.status === 'completed').length;
     wsData.push([]);
     wsData.push(['Total pedidos', orders.length, '', '', '', '', '', '']);
@@ -329,6 +367,7 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual') {
     wsData.push(['Total vendido', '', '', '', '', '', '', `${currSym}${totalVendido.toFixed(2)}`]);
 
     const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen de Caja');
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!cols'] = [{ wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 18 }, { wch: 50 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
@@ -352,9 +391,17 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual') {
             <p style="color:#444">${ds}</p>
             ${closedBy === 'auto' ? '<p style="color:#e55;font-weight:bold">La caja fue cerrada automáticamente a medianoche.</p>' : ''}
             <table style="width:100%;border-collapse:collapse;margin:16px 0">
+              <tr style="background:#222;color:#D4AF37"><td colspan="2" style="padding:8px;font-weight:700;font-size:13px">APERTURA</td></tr>
+              <tr style="background:#f9f9f9"><td style="padding:8px">Trabajador</td><td style="padding:8px;text-align:right">${register ? (register.worker_name || '—') : '—'}</td></tr>
+              <tr style="background:#f0f0f0"><td style="padding:8px">Hora de apertura</td><td style="padding:8px;text-align:right">${register ? fmt(register.opened_at) : '—'}</td></tr>
+              <tr style="background:#f9f9f9"><td style="padding:8px">Monto inicial</td><td style="padding:8px;text-align:right">${currSym}${openingAmount.toFixed(2)}</td></tr>
+              <tr style="background:#222;color:#D4AF37"><td colspan="2" style="padding:8px;font-weight:700;font-size:13px;margin-top:8px">CIERRE</td></tr>
+              <tr style="background:#f0f0f0"><td style="padding:8px">Hora de cierre</td><td style="padding:8px;text-align:right">${register ? fmt(register.closed_at) : fmt(new Date())}</td></tr>
+              <tr style="background:#f9f9f9"><td style="padding:8px">Cerrado por</td><td style="padding:8px;text-align:right">${closedByLabel}</td></tr>
               <tr style="background:#D4AF37"><td style="padding:8px;font-weight:700">Total pedidos</td><td style="padding:8px;text-align:right;font-weight:700">${orders.length}</td></tr>
               <tr style="background:#f0f0f0"><td style="padding:8px">Completados</td><td style="padding:8px;text-align:right">${completados}</td></tr>
               <tr style="background:#fff"><td style="padding:8px;font-weight:700">Total vendido</td><td style="padding:8px;text-align:right;font-weight:700;color:#16a34a">${currSym}${totalVendido.toFixed(2)}</td></tr>
+              <tr style="background:#f0f0f0"><td style="padding:8px">Diferencia</td><td style="padding:8px;text-align:right;color:${diferencia >= 0 ? '#16a34a' : '#dc2626'}">${diferencia >= 0 ? '+' : ''}${currSym}${diferencia.toFixed(2)}</td></tr>
             </table>
             <p style="color:#666;font-size:13px">Encontrarás el detalle completo en el archivo Excel adjunto.</p>
           </div>
@@ -9288,7 +9335,7 @@ async function startServer() {
         if (!open) return res.status(400).json({ error: 'No hay caja abierta' });
         await closeCashRegister(store_id, 'admin');
         io.to(`store_${store_id}`).emit('cash_register_changed', { open: false });
-        await sendCashRegisterReport(store_id, 'admin');
+        await sendCashRegisterReport(store_id, 'admin', open);
         res.json({ success: true });
       } catch (err) { res.status(500).json({ error: err.message }); }
     });
@@ -9317,11 +9364,23 @@ async function startServer() {
         if (!open) return res.status(400).json({ error: 'No hay caja abierta' });
         await closeCashRegister(storeId, 'manual');
         io.to(`store_${storeId}`).emit('cash_register_changed', { open: false });
-        await sendCashRegisterReport(storeId, 'manual');
+        await sendCashRegisterReport(storeId, 'manual', open);
         res.json({ success: true });
       } catch (err) {
         res.status(500).json({ error: err.message });
       }
+    });
+
+    app.get('/api/admin/cash-register/history', authenticateToken, async (req, res) => {
+      try {
+        if (req.user.type === 'worker') return res.status(403).json({ error: 'Acceso denegado' });
+        const { store_id, date_from, date_to } = req.query;
+        if (!store_id || !date_from || !date_to) return res.status(400).json({ error: 'store_id, date_from y date_to son requeridos' });
+        const [storeRows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
+        if (!storeRows.length) return res.status(403).json({ error: 'Acceso denegado' });
+        const history = await getCashRegisterHistory(store_id, date_from, date_to);
+        res.json(history);
+      } catch (err) { res.status(500).json({ error: err.message }); }
     });
 
     app.get('/api/cash-register/status/:storeId', async (req, res) => {
@@ -9342,7 +9401,7 @@ async function startServer() {
           try {
             await closeCashRegister(reg.store_id, 'auto');
             io.to(`store_${reg.store_id}`).emit('cash_register_changed', { open: false });
-            await sendCashRegisterReport(reg.store_id, 'auto');
+            await sendCashRegisterReport(reg.store_id, 'auto', reg);
             console.log(`[Caja] ✅ Cerrada caja tienda ${reg.store_name}`);
           } catch (e) {
             console.error(`[Caja] ❌ Error tienda ${reg.store_name}:`, e.message);

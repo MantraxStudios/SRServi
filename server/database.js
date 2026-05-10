@@ -3903,4 +3903,22 @@ export async function getTodayOrdersForStore(storeId) {
   return rows;
 }
 
+export async function getCashRegisterHistory(storeId, dateFrom, dateTo) {
+  const [rows] = await pool.execute(`
+    SELECT cr.*,
+      COALESCE(SUM(o.total), 0) AS total_vendido,
+      COUNT(o.id) AS total_pedidos
+    FROM cash_registers cr
+    LEFT JOIN orders o ON o.store_id = cr.store_id
+      AND o.created_at >= cr.opened_at
+      AND (cr.closed_at IS NULL OR o.created_at <= cr.closed_at)
+    WHERE cr.store_id = ?
+      AND DATE(cr.opened_at) >= ?
+      AND DATE(cr.opened_at) <= ?
+    GROUP BY cr.id
+    ORDER BY cr.opened_at DESC
+  `, [storeId, dateFrom, dateTo]);
+  return rows;
+}
+
 export { pool };
