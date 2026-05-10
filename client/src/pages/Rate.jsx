@@ -68,17 +68,17 @@ const CSS = `
     z-index: 1;
   }
   .rv-logo-img {
-    width: 60px; height: 60px;
-    border-radius: 14px;
+    width: 128px; height: 128px;
+    border-radius: 20px;
     object-fit: contain;
     flex-shrink: 0;
     display: block;
   }
   .rv-logo-ph {
-    width: 60px; height: 60px;
-    border-radius: 14px;
+    width: 128px; height: 128px;
+    border-radius: 20px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 26px; font-weight: 900;
+    font-size: 52px; font-weight: 900;
     flex-shrink: 0;
   }
   .rv-store-name {
@@ -182,7 +182,7 @@ const CSS = `
   /* Landscape: scale by height (screen is short) */
   @media (orientation: landscape) {
     .rv-topbar { padding: 6px 20px; }
-    .rv-logo-img, .rv-logo-ph { width: 44px; height: 44px; border-radius: 11px; font-size: 18px; }
+    .rv-logo-img, .rv-logo-ph { width: 64px; height: 64px; border-radius: 14px; font-size: 26px; }
     .rv-store-name { font-size: clamp(16px, 3.5vh, 26px); }
     .rv-headline   { font-size: clamp(18px, 5vh, 42px); }
     .rv-emoji-icon { font-size: min(15vh, 120px); }
@@ -204,7 +204,7 @@ const CSS = `
   /* Large portrait (tablets) */
   @media (min-width: 600px) and (orientation: portrait) {
     .rv-topbar { padding: 14px 28px; }
-    .rv-logo-img, .rv-logo-ph { width: 72px; height: 72px; border-radius: 16px; font-size: 28px; }
+    .rv-logo-img, .rv-logo-ph { width: 128px; height: 128px; border-radius: 20px; font-size: 52px; }
     .rv-store-name { font-size: clamp(22px, 4vw, 32px); }
     .rv-headline   { font-size: clamp(30px, 6vw, 52px); }
     .rv-emoji-icon { font-size: min(12vw, 100px); }
