@@ -38,7 +38,8 @@ import {
   faEyeSlash,
   faFileExcel,
   faUpload,
-  faEllipsisV
+  faEllipsisV,
+  faFlask
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -366,6 +367,13 @@ function Store() {
   const [invEditingId, setInvEditingId] = useState(null);
   const [invEditValue, setInvEditValue] = useState('');
   const [invSaving, setInvSaving] = useState(false);
+  const [rawMats, setRawMats] = useState([]);
+  const [rmLoading, setRmLoading] = useState(false);
+  const [rmEditingId, setRmEditingId] = useState(null);
+  const [rmEditValue, setRmEditValue] = useState('');
+  const [rmSaving, setRmSaving] = useState(false);
+  const [rmModal, setRmModal] = useState(null); // null | 'new' | rmObject
+  const [rmForm, setRmForm] = useState({ name: '', quantity: '', unit: 'unidades', min_quantity: '', cost_per_unit: '' });
   const [styleEditorOpen, setStyleEditorOpen] = useState(false);
   const [showExcelModal, setShowExcelModal] = useState(false);
   const [excelStep, setExcelStep] = useState('upload');
@@ -438,6 +446,10 @@ function Store() {
       .then(data => setLiveOrders(Array.isArray(data) ? data.slice(0, 30) : []))
       .catch(() => {});
   }, [editMode, store?.store?.id, adminToken]);
+
+  useEffect(() => {
+    if (editMode && invTab === 'raw') fetchRawMats();
+  }, [editMode, invTab, fetchRawMats]);
 
   useEffect(() => {
     pendingOrderDataRef.current = pendingOrderData;
@@ -2316,6 +2328,71 @@ function Store() {
     fetchComplements();
   };
 
+  const RM_UNITS = ['unidades', 'kg', 'g', 'mg', 'litros', 'ml', 'porciones', 'tazas', 'cucharadas'];
+
+  const fetchRawMats = useCallback(async () => {
+    if (!store?.store?.id || !adminToken) return;
+    setRmLoading(true);
+    try {
+      const res = await fetch(`/api/raw-materials/store/${store.store.id}`, {
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+      if (res.ok) setRawMats(await res.json());
+    } finally { setRmLoading(false); }
+  }, [store?.store?.id, adminToken]);
+
+  const saveRm = async () => {
+    if (!rmForm.name.trim()) return;
+    setRmSaving(true);
+    try {
+      const body = {
+        name: rmForm.name.trim(),
+        quantity: parseFloat(rmForm.quantity) || 0,
+        unit: rmForm.unit,
+        min_quantity: parseFloat(rmForm.min_quantity) || 0,
+        cost_per_unit: parseFloat(rmForm.cost_per_unit) || 0,
+        store_id: store.store.id
+      };
+      if (rmModal === 'new') {
+        await fetch(`/api/raw-materials/store/${store.store.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+          body: JSON.stringify(body)
+        });
+      } else {
+        await fetch(`/api/raw-materials/${rmModal.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+          body: JSON.stringify(body)
+        });
+      }
+      setRmModal(null);
+      await fetchRawMats();
+    } finally { setRmSaving(false); }
+  };
+
+  const deleteRm = async (rm) => {
+    if (!confirm(`¿Eliminar "${rm.name}"?`)) return;
+    await fetch(`/api/raw-materials/${rm.id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ store_id: store.store.id })
+    });
+    await fetchRawMats();
+  };
+
+  const updateRmQty = async (rm, newQty) => {
+    setRmSaving(true);
+    try {
+      await fetch(`/api/raw-materials/${rm.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ name: rm.name, quantity: newQty, unit: rm.unit, min_quantity: rm.min_quantity, cost_per_unit: rm.cost_per_unit, store_id: store.store.id })
+      });
+      await fetchRawMats();
+    } finally { setRmSaving(false); }
+  };
+
   const getAuthBody = () => adminToken ? { token: adminToken } : { pin: sessionPin };
 
   const showRestartNotification = (delaySec) => {
@@ -3435,29 +3512,106 @@ function Store() {
           return { label: 'OK', color: '#22c55e' };
         };
 
+        const rmBadge = (rm) => {
+          const qty = parseFloat(rm.quantity) || 0;
+          const min = parseFloat(rm.min_quantity) || 0;
+          if (qty <= 0) return { label: 'Agotado', color: '#ef4444' };
+          if (min > 0 && qty <= min) return { label: 'Stock bajo', color: '#f59e0b' };
+          return { label: 'OK', color: '#22c55e' };
+        };
+
         return (
           <div className="store-editor-complements">
             <div className="store-editor-comp-header">
               <span>Inventario</span>
+              {invTab === 'raw' && (
+                <button
+                  onClick={() => { setRmForm({ name: '', quantity: '', unit: 'unidades', min_quantity: '', cost_per_unit: '' }); setRmModal('new'); }}
+                  style={{ background: 'var(--store-primary)', border: 'none', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', color: 'var(--store-secondary)', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <FontAwesomeIcon icon={faPlus} /> Nueva
+                </button>
+              )}
             </div>
 
-            <div style={{ display: 'flex', gap: '4px', margin: '8px 0', background: '#f5f5f5', borderRadius: '8px', padding: '4px' }}>
+            <div style={{ display: 'flex', gap: '3px', margin: '8px 0', background: '#f5f5f5', borderRadius: '8px', padding: '4px', flexWrap: 'wrap' }}>
               {[
-                { key: 'products', label: `Productos (${(store?.products || []).length})` },
+                { key: 'products', label: `Prod. (${(store?.products || []).length})` },
                 { key: 'extras', label: `Extras (${extras.length})` },
-                { key: 'ingredients', label: `Complementos (${ingredients.length})` },
+                { key: 'ingredients', label: `Comp. (${ingredients.length})` },
+                { key: 'raw', label: `Mat. Primas (${rawMats.length})` },
               ].map(t => (
                 <button
                   key={t.key}
-                  onClick={() => { setInvTab(t.key); setInvEditingId(null); }}
-                  style={{ flex: 1, padding: '6px 4px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: '700', background: invTab === t.key ? 'var(--store-primary)' : 'transparent', color: invTab === t.key ? 'var(--store-secondary)' : '#666', transition: 'all 0.15s' }}
+                  onClick={() => { setInvTab(t.key); setInvEditingId(null); setRmEditingId(null); }}
+                  style={{ flex: 1, padding: '6px 3px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '10px', fontWeight: '700', background: invTab === t.key ? 'var(--store-primary)' : 'transparent', color: invTab === t.key ? 'var(--store-secondary)' : '#666', transition: 'all 0.15s', minWidth: '60px' }}
                 >
                   {t.label}
                 </button>
               ))}
             </div>
 
-            {invItems.length === 0 ? (
+            {invTab === 'raw' ? (
+              rmLoading ? (
+                <span style={{ color: '#999', fontSize: '13px', padding: '16px 8px', display: 'block', textAlign: 'center' }}>Cargando…</span>
+              ) : rawMats.length === 0 ? (
+                <span style={{ color: '#999', fontSize: '13px', padding: '16px 8px', display: 'block', textAlign: 'center' }}>Sin materias primas</span>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {rawMats.map(rm => {
+                    const b = rmBadge(rm);
+                    const isEditing = rmEditingId === rm.id;
+                    const qty = parseFloat(rm.quantity) || 0;
+                    return (
+                      <div key={rm.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', borderRadius: '8px', background: '#fafafa', border: '1px solid #eee' }}>
+                        <FontAwesomeIcon icon={faFlask} style={{ color: '#D4AF37', fontSize: '12px', flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: '12px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rm.name}</span>
+                        <span style={{ fontSize: '10px', color: '#888', flexShrink: 0 }}>{rm.unit}</span>
+                        <span style={{ fontSize: '10px', fontWeight: '700', color: b.color, flexShrink: 0 }}>{b.label}</span>
+                        {isEditing ? (
+                          <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+                            <input
+                              type="number" min="0" step="0.01" value={rmEditValue}
+                              onChange={e => setRmEditValue(e.target.value)}
+                              onKeyDown={async e => {
+                                if (e.key === 'Enter') { await updateRmQty(rm, parseFloat(rmEditValue) || 0); setRmEditingId(null); }
+                                if (e.key === 'Escape') setRmEditingId(null);
+                              }}
+                              autoFocus
+                              style={{ width: '58px', padding: '3px 5px', border: '1px solid var(--store-primary)', borderRadius: '5px', fontSize: '12px', textAlign: 'center', outline: 'none' }}
+                            />
+                            <button
+                              onClick={async () => { await updateRmQty(rm, parseFloat(rmEditValue) || 0); setRmEditingId(null); }}
+                              disabled={rmSaving}
+                              style={{ background: 'var(--store-primary)', border: 'none', borderRadius: '4px', padding: '3px 6px', cursor: 'pointer', color: 'var(--store-secondary)', fontSize: '11px' }}
+                            >✓</button>
+                            <button onClick={() => setRmEditingId(null)} style={{ background: '#eee', border: 'none', borderRadius: '4px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
+                          </div>
+                        ) : (
+                          <span
+                            onClick={() => { setRmEditingId(rm.id); setRmEditValue(String(qty)); }}
+                            title="Clic para editar cantidad"
+                            style={{ cursor: 'pointer', fontSize: '12px', fontWeight: '700', minWidth: '36px', textAlign: 'center', borderBottom: '1px dashed #bbb' }}
+                          >
+                            {qty % 1 === 0 ? qty : qty.toFixed(2)}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => { setRmForm({ name: rm.name, quantity: String(qty), unit: rm.unit, min_quantity: rm.min_quantity > 0 ? String(rm.min_quantity) : '', cost_per_unit: rm.cost_per_unit > 0 ? String(rm.cost_per_unit) : '' }); setRmModal(rm); }}
+                          title="Editar"
+                          style={{ background: '#eee', border: 'none', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: '#555' }}
+                        ><FontAwesomeIcon icon={faEdit} /></button>
+                        <button
+                          onClick={() => deleteRm(rm)}
+                          title="Eliminar"
+                          style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: '#ef4444' }}
+                        ><FontAwesomeIcon icon={faTrash} /></button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            ) : invItems.length === 0 ? (
               <span style={{ color: '#999', fontSize: '13px', padding: '16px 8px', display: 'block', textAlign: 'center' }}>Sin ítems</span>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -5780,6 +5934,50 @@ function Store() {
                 className="store-prod-modal-btn confirm"
               >
                 Guardar receta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rmModal && (
+        <div className="store-modal-overlay" onClick={() => setRmModal(null)} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+          <div className="store-prod-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 360 }}>
+            <h3 style={{ margin: '0 0 14px', color: 'var(--store-primary)' }}>
+              {rmModal === 'new' ? 'Nueva Materia Prima' : 'Editar Materia Prima'}
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div>
+                <label style={{ fontSize: 12, color: '#555', display: 'block', marginBottom: 4 }}>Nombre *</label>
+                <input value={rmForm.name} onChange={e => setRmForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Harina" style={{ width: '100%', padding: '8px 10px', border: '1px solid #ddd', borderRadius: 8, fontSize: 13, boxSizing: 'border-box', outline: 'none' }} autoFocus />
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ flex: 2 }}>
+                  <label style={{ fontSize: 12, color: '#555', display: 'block', marginBottom: 4 }}>Cantidad</label>
+                  <input type="number" min="0" step="0.01" value={rmForm.quantity} onChange={e => setRmForm(f => ({ ...f, quantity: e.target.value }))} placeholder="0" style={{ width: '100%', padding: '8px 10px', border: '1px solid #ddd', borderRadius: 8, fontSize: 13, boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+                <div style={{ flex: 3 }}>
+                  <label style={{ fontSize: 12, color: '#555', display: 'block', marginBottom: 4 }}>Unidad</label>
+                  <select value={rmForm.unit} onChange={e => setRmForm(f => ({ ...f, unit: e.target.value }))} style={{ width: '100%', padding: '8px 10px', border: '1px solid #ddd', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff' }}>
+                    {RM_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: '#555', display: 'block', marginBottom: 4 }}>Stock mínimo (alerta)</label>
+                  <input type="number" min="0" step="0.01" value={rmForm.min_quantity} onChange={e => setRmForm(f => ({ ...f, min_quantity: e.target.value }))} placeholder="0" style={{ width: '100%', padding: '8px 10px', border: '1px solid #ddd', borderRadius: 8, fontSize: 13, boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: '#555', display: 'block', marginBottom: 4 }}>Costo por unidad</label>
+                  <input type="number" min="0" step="0.01" value={rmForm.cost_per_unit} onChange={e => setRmForm(f => ({ ...f, cost_per_unit: e.target.value }))} placeholder="0" style={{ width: '100%', padding: '8px 10px', border: '1px solid #ddd', borderRadius: 8, fontSize: 13, boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+              <button onClick={() => setRmModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
+              <button onClick={saveRm} disabled={rmSaving || !rmForm.name.trim()} className={`store-prod-modal-btn confirm${(!rmForm.name.trim() || rmSaving) ? ' disabled' : ''}`}>
+                {rmSaving ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
           </div>
