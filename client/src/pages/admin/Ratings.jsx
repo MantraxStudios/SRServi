@@ -282,9 +282,22 @@ export default function Ratings() {
       const idealQrCanvas = document.getElementById('ideal-qr-canvas-clasi');
       if (!idealQrCanvas) return;
 
-      // ── Vertical con los 2 QR lado a lado ──
+      // ── Layout constants (hoisted so H is derived from content, not hardcoded) ──
       const W = 900;
-      const H = 1200;
+      const logoSize = 68;
+      const logoY = 32;
+      const cx = W / 2;
+      const headerLineY = logoY + logoSize + 48;  // 148
+      const qrSize = 200;
+      const pad = 22;
+      const gap = 14;
+      const cardW = (W - pad * 2 - gap) / 2;     // ~421px each
+      const cardH = 390;                           // fixed, good 421:390 ratio
+      const cardY = headerLineY + 18;             // 166
+      const card1X = pad;
+      const card2X = pad + cardW + gap;
+      const H = cardY + cardH + 66;               // 622 total
+
       const canvas = document.createElement('canvas');
       canvas.width = W;
       canvas.height = H;
@@ -344,10 +357,6 @@ export default function Ratings() {
         } catch {}
       }
 
-      const logoSize = 68;
-      const cx = W / 2;
-      const logoY = 32;
-
       if (logoImg) {
         ctx.save();
         ctx.beginPath();
@@ -380,19 +389,10 @@ export default function Ratings() {
       ctx.fillText(storeName.toUpperCase(), cx, logoY + logoSize + 34);
 
       // Línea dorada bajo nombre
-      const headerLineY = logoY + logoSize + 48;
       ctx.fillStyle = accentColor;
       ctx.fillRect(cx - 32, headerLineY, 64, 3);
 
       // ── Tarjetas QR lado a lado en imagen vertical ──
-      const qrSize = 200;
-      const pad = 22;
-      const gap = 14;
-      const cardW = (W - pad * 2 - gap) / 2;   // ~(900-44-14)/2 = 421px cada una
-      const cardH = H - headerLineY - 80;
-      const card1X = pad;
-      const card2X = pad + cardW + gap;
-      const cardY = headerLineY + 18;
 
       const drawQRPanel = (cardX, qrCvs, icon, title, desc) => {
         const pcx = cardX + cardW / 2;
