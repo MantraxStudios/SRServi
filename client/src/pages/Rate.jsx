@@ -2,12 +2,172 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
 const EMOJIS = [
-  { emoji: '😡', label: 'Muy malo',  value: 2  },
-  { emoji: '😕', label: 'Malo',      value: 4  },
-  { emoji: '😐', label: 'Regular',   value: 6  },
-  { emoji: '😊', label: 'Bueno',     value: 8  },
-  { emoji: '🤩', label: 'Excelente', value: 10 },
+  { emoji: '😡', value: 2  },
+  { emoji: '😕', value: 4  },
+  { emoji: '😐', value: 6  },
+  { emoji: '😊', value: 8  },
+  { emoji: '🤩', value: 10 },
 ];
+
+const CSS = `
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  .rv-wrap {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  /* Top bar */
+  .rv-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    flex-shrink: 0;
+  }
+  .rv-logo-img {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .rv-logo-ph {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 900;
+    flex-shrink: 0;
+  }
+  .rv-store-name {
+    font-size: 17px;
+    font-weight: 800;
+    color: #1e293b;
+    line-height: 1.1;
+  }
+
+  /* Gold line */
+  .rv-gold-line {
+    height: 4px;
+    width: 100%;
+    flex-shrink: 0;
+  }
+
+  /* Main body */
+  .rv-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 24px 16px;
+  }
+
+  .rv-headline {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1e293b;
+    text-align: center;
+    letter-spacing: -0.3px;
+  }
+
+  /* Emoji row */
+  .rv-emojis {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 560px;
+  }
+
+  .rv-emoji-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 2.5px solid transparent;
+    border-radius: 20px;
+    padding: 12px 4px;
+    cursor: pointer;
+    transition: transform 0.12s, background 0.12s, border-color 0.12s;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .rv-emoji-btn:active {
+    transform: scale(0.92);
+  }
+
+  .rv-emoji-icon {
+    font-size: clamp(52px, 11vw, 80px);
+    line-height: 1;
+    display: block;
+    user-select: none;
+  }
+
+  .rv-brand {
+    font-size: 11px;
+    color: #d1d5db;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  /* Submitting overlay */
+  .rv-sending {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  /* Done screen */
+  .rv-done {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 24px;
+  }
+  .rv-done-emoji { font-size: 90px; line-height: 1; }
+  .rv-done-title { font-size: 28px; font-weight: 900; color: #1e293b; }
+  .rv-done-sub { font-size: 13px; color: #9ca3af; }
+
+  /* Tablet landscape */
+  @media (min-width: 700px) and (orientation: landscape) {
+    .rv-topbar { padding: 18px 32px; }
+    .rv-logo-img, .rv-logo-ph { width: 52px; height: 52px; border-radius: 14px; }
+    .rv-store-name { font-size: 20px; }
+    .rv-headline { font-size: 28px; }
+    .rv-emojis {
+      gap: 16px;
+      max-width: 800px;
+    }
+    .rv-emoji-btn {
+      border-radius: 28px;
+      padding: 20px 8px;
+    }
+    .rv-emoji-icon {
+      font-size: clamp(80px, 10vw, 120px);
+    }
+  }
+
+  @media (min-width: 1024px) and (orientation: landscape) {
+    .rv-emoji-icon {
+      font-size: clamp(100px, 10vw, 140px);
+    }
+    .rv-emojis { max-width: 960px; gap: 24px; }
+  }
+`;
 
 export default function Rate() {
   const { code } = useParams();
@@ -17,10 +177,8 @@ export default function Rate() {
   const [store, setStore]       = useState(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
-  const [selected, setSelected] = useState(null);
-  const [comment, setComment]   = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone]         = useState(false);
+  const [done, setDone]         = useState(null); // stores selected emoji
 
   useEffect(() => {
     fetch(`/api/public/${code}`)
@@ -36,251 +194,115 @@ export default function Rate() {
     return () => clearTimeout(t);
   }, [done]);
 
-  const submit = async () => {
-    if (selected === null) return;
+  const select = async (item) => {
+    if (submitting || done) return;
     setSubmitting(true);
     try {
       const res = await fetch(`/api/public/${code}/ratings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating: EMOJIS[selected].value, comment, order_id: orderId, source: 'qr' }),
+        body: JSON.stringify({ rating: item.value, comment: '', order_id: orderId, source: 'qr' }),
       });
       if (!res.ok) throw new Error();
-      setDone(true);
+      setDone(item);
     } catch {
       alert('Error al enviar. Intenta nuevamente.');
-    } finally {
       setSubmitting(false);
     }
   };
 
-  const primary = store?.primary_color || '#1a1a2e';
   const accent  = store?.accent_color  || '#D4AF37';
+  const primary = store?.primary_color || '#1a1a2e';
   const name    = store?.name || '';
 
-  /* ── pantallas de carga / error ─────────────────────────────────────── */
-  if (loading) return (
-    <div style={{ ...full, background: '#fff', justifyContent: 'center' }}>
-      <div style={spinner} />
+  const topBar = (
+    <div className="rv-topbar">
+      {store?.logo_url ? (
+        <img src={store.logo_url} alt={name} className="rv-logo-img"
+          style={{ border: `2px solid ${accent}` }} />
+      ) : store ? (
+        <div className="rv-logo-ph" style={{ background: accent, color: primary }}>
+          {name[0]?.toUpperCase() || '★'}
+        </div>
+      ) : null}
+      <span className="rv-store-name">{name}</span>
     </div>
+  );
+
+  if (loading) return (
+    <>
+      <style>{CSS}</style>
+      <div className="rv-wrap" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <div style={spinnerStyle(accent)} />
+      </div>
+    </>
   );
 
   if (error) return (
-    <div style={{ ...full, background: '#fff', justifyContent: 'center' }}>
-      <p style={{ color: '#ef4444', fontSize: 16 }}>{error}</p>
-    </div>
+    <>
+      <style>{CSS}</style>
+      <div className="rv-wrap" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <p style={{ color: '#ef4444', fontSize: 16 }}>{error}</p>
+      </div>
+    </>
   );
 
-  /* ── pantalla de agradecimiento ─────────────────────────────────────── */
-  if (done) {
-    const ch = EMOJIS[selected] || EMOJIS[4];
-    return (
-      <div style={{ ...full, background: '#fff' }}>
-        <div style={goldLine(accent)} />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }}>
-          <div style={{ fontSize: 90, lineHeight: 1 }}>{ch.emoji}</div>
-          <h2 style={{ color: '#1e293b', fontSize: 28, fontWeight: 900, margin: 0 }}>¡Gracias!</h2>
-          <p style={{ color: accent, fontSize: 16, fontWeight: 700, margin: 0 }}>{ch.label}</p>
-          <p style={{ color: '#9ca3af', fontSize: 13, margin: 0 }}>Tu opinión nos ayuda a mejorar.</p>
+  if (done) return (
+    <>
+      <style>{CSS}</style>
+      <div className="rv-wrap">
+        <div className="rv-gold-line" style={{ background: accent }} />
+        {topBar}
+        <div className="rv-done">
+          <div className="rv-done-emoji">{done.emoji}</div>
+          <h2 className="rv-done-title">¡Gracias!</h2>
+          <p className="rv-done-sub">Tu opinión nos ayuda a mejorar.</p>
         </div>
-        <p style={{ ...brandText, color: '#d1d5db' }}>Powered by SRAutomatic.cl</p>
-        <div style={goldLine(accent)} />
+        <p className="rv-brand" style={{ paddingBottom: 16 }}>Powered by SRAutomatic.cl</p>
+        <div className="rv-gold-line" style={{ background: accent }} />
       </div>
-    );
-  }
+    </>
+  );
 
-  /* ── página principal ───────────────────────────────────────────────── */
   return (
-    <div style={{ ...full, background: '#fff' }}>
+    <>
+      <style>{CSS}</style>
+      <div className="rv-wrap">
+        <div className="rv-gold-line" style={{ background: accent }} />
+        {topBar}
 
-      {/* línea dorada superior */}
-      <div style={goldLine(accent)} />
+        <div className="rv-body">
+          <p className="rv-headline">¿Cómo fue tu visita?</p>
 
-      {/* ── contenido ────────────────────────────────────────────────── */}
-      <div style={scroll}>
-
-        {/* logo / inicial */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 36 }}>
-          {store?.logo_url ? (
-            <img src={store.logo_url} alt={name}
-              style={{ width: 120, height: 120, borderRadius: 24, objectFit: 'contain', border: `3px solid ${accent}`, boxShadow: `0 4px 24px ${accent}33`, background: '#fff' }} />
-          ) : (
-            <div style={{
-              width: 120, height: 120, borderRadius: 24,
-              background: accent,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 52, fontWeight: 900, color: primary,
-              boxShadow: `0 4px 24px ${accent}44`,
-            }}>
-              {name[0]?.toUpperCase() || '★'}
-            </div>
-          )}
-          <h1 style={{ color: '#1e293b', fontWeight: 900, fontSize: 24, margin: 0, textAlign: 'center' }}>{name}</h1>
-          <p style={{ color: accent, fontWeight: 700, fontSize: 13, margin: 0, letterSpacing: 2, textTransform: 'uppercase' }}>
-            Califica tu experiencia
-          </p>
-          <p style={{ color: accent, fontSize: 20, margin: 0, letterSpacing: 6 }}>★ ★ ★ ★ ★</p>
-        </div>
-
-        {/* ── tarjeta blanca (emojis + comentario) ─────────────────── */}
-        <div style={whiteCard}>
-
-          <p style={{ textAlign: 'center', color: '#6b7280', fontSize: 13, fontWeight: 600, margin: '0 0 20px', letterSpacing: 0.5 }}>
-            ¿Cómo fue tu visita?
-          </p>
-
-          {/* emojis */}
-          <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 20 }}>
-            {EMOJIS.map((item, i) => {
-              const active = selected === i;
-              return (
-                <button
-                  key={i}
-                  onClick={() => setSelected(i)}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
-                    background: active ? `${primary}15` : 'transparent',
-                    border: active ? `2.5px solid ${primary}` : '2.5px solid transparent',
-                    borderRadius: 16, padding: '10px 6px', cursor: 'pointer',
-                    transition: 'all 0.15s', outline: 'none', minWidth: 52,
-                  }}
-                >
-                  <span style={{
-                    fontSize: 40, lineHeight: 1, display: 'block',
-                    transform: active ? 'scale(1.25)' : 'scale(1)',
-                    transition: 'transform 0.15s',
-                    filter: active ? `drop-shadow(0 3px 8px ${primary}55)` : 'none',
-                  }}>{item.emoji}</span>
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
-                    letterSpacing: 0.3, color: active ? primary : '#9ca3af',
-                  }}>{item.label}</span>
-                </button>
-              );
-            })}
+          <div className="rv-emojis">
+            {EMOJIS.map((item) => (
+              <button
+                key={item.value}
+                className="rv-emoji-btn"
+                onClick={() => select(item)}
+                disabled={submitting}
+                style={{ opacity: submitting ? 0.5 : 1 }}
+                onMouseEnter={e => { e.currentTarget.style.background = `${accent}18`; e.currentTarget.style.borderColor = `${accent}55`; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; }}
+              >
+                <span className="rv-emoji-icon">{item.emoji}</span>
+              </button>
+            ))}
           </div>
 
-          {/* divider */}
-          <div style={{ height: 1, background: '#f1f5f9', margin: '0 0 16px' }} />
-
-          {/* comentario */}
-          <textarea
-            value={comment}
-            onChange={e => setComment(e.target.value)}
-            placeholder="Deja un comentario (opcional)..."
-            maxLength={500}
-            rows={3}
-            style={{
-              width: '100%', borderRadius: 12, border: '2px solid #e5e7eb',
-              padding: '10px 12px', fontSize: 14, resize: 'none',
-              fontFamily: 'inherit', boxSizing: 'border-box',
-              outline: 'none', color: '#374151', transition: 'border-color 0.15s',
-            }}
-            onFocus={e => e.target.style.borderColor = primary}
-            onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-          />
-          <p style={{ fontSize: 11, color: '#d1d5db', textAlign: 'right', margin: '3px 0 16px' }}>{comment.length}/500</p>
-
-          {/* botón */}
-          <button
-            onClick={submit}
-            disabled={selected === null || submitting}
-            style={{
-              width: '100%', padding: '15px', borderRadius: 14, border: 'none',
-              background: selected !== null
-                ? `linear-gradient(135deg, ${primary}, ${accent})`
-                : '#e5e7eb',
-              color: selected !== null ? '#fff' : '#9ca3af',
-              fontWeight: 900, fontSize: 16, cursor: selected !== null ? 'pointer' : 'not-allowed',
-              letterSpacing: 0.5, transition: 'all 0.2s',
-              boxShadow: selected !== null ? `0 4px 20px ${primary}55` : 'none',
-            }}
-          >
-            {submitting
-              ? 'Enviando...'
-              : selected !== null
-                ? `Enviar ${EMOJIS[selected].emoji}`
-                : 'Selecciona una opción'}
-          </button>
+          <p className="rv-brand">Powered by SRAutomatic.cl</p>
         </div>
 
-        {/* branding */}
-        <p style={brandText}>Powered by SRAutomatic.cl</p>
+        <div className="rv-gold-line" style={{ background: accent }} />
       </div>
-
-      {/* línea dorada inferior */}
-      <div style={goldLine(accent)} />
-    </div>
+    </>
   );
 }
 
-/* ── estilos ─────────────────────────────────────────────────────────────── */
-const full = {
-  minHeight: '100vh',
-  display: 'flex',
-  flexDirection: 'column',
-  fontFamily: 'system-ui, -apple-system, sans-serif',
-  position: 'relative',
-  overflow: 'hidden',
-};
-
-const scroll = {
-  flex: 1,
-  overflowY: 'auto',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: 24,
-  padding: '0 16px 32px',
-  position: 'relative',
-  zIndex: 1,
-};
-
-const whiteCard = {
-  background: '#fff',
-  borderRadius: 24,
-  padding: '24px 20px',
-  width: '100%',
-  maxWidth: 420,
-  boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
-  border: '1px solid #e5e7eb',
-};
-
-const goldLine = (accent) => ({
-  height: 5,
-  background: accent,
-  width: '100%',
-  flexShrink: 0,
-  zIndex: 2,
-});
-
-const brandText = {
-  color: '#d1d5db',
-  fontSize: 11,
-  textAlign: 'center',
-  margin: 0,
-  letterSpacing: 1,
-  zIndex: 1,
-  position: 'relative',
-};
-
-const circle = (accent, size, left, top, opacity, vAlign = 'top') => ({
-  position: 'absolute',
-  width: size, height: size,
-  borderRadius: '50%',
-  background: accent,
-  opacity,
-  left: left === 'auto' ? undefined : left,
-  right: left === 'auto' ? top : undefined,
-  top: vAlign === 'top' ? top : undefined,
-  bottom: vAlign === 'bottom' ? top : undefined,
-  pointerEvents: 'none',
-});
-
-const spinner = {
+const spinnerStyle = (accent) => ({
   width: 40, height: 40,
-  border: '4px solid rgba(255,255,255,0.15)',
-  borderTopColor: '#D4AF37',
+  border: '4px solid #e5e7eb',
+  borderTopColor: accent || '#D4AF37',
   borderRadius: '50%',
   animation: 'spin 0.8s linear infinite',
-};
+});
