@@ -3131,20 +3131,20 @@ function Store() {
         <div className="store-editor-bar">
           <div className="store-editor-tabs">
             <button className={`store-editor-tab${editorTab === 'products' ? ' active' : ''}`} onClick={() => setEditorTab('products')}>
-              <FontAwesomeIcon icon={faBox} /> Productos
+              <FontAwesomeIcon icon={faBox} /><span className="editor-tab-label">Productos</span>
             </button>
-<button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => setEditorTab('complements')}>
-              <FontAwesomeIcon icon={faPlus} /> Complementos
+            <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => setEditorTab('complements')}>
+              <FontAwesomeIcon icon={faPlus} /><span className="editor-tab-label">Complementos</span>
             </button>
             <button className={`store-editor-tab${editorTab === 'inventory' ? ' active' : ''}`} onClick={() => { setEditorTab('inventory'); setInvEditingId(null); }}>
-              <FontAwesomeIcon icon={faBox} /> Inventario
+              <FontAwesomeIcon icon={faInfinity} /><span className="editor-tab-label">Inventario</span>
             </button>
             <button
               className={`store-editor-tab${editorTab === 'orders' ? ' active' : ''}`}
               onClick={() => { setEditorTab('orders'); setNewOrderCount(0); }}
               style={{ position: 'relative' }}
             >
-              <FontAwesomeIcon icon={faShoppingCart} /> Pedidos
+              <FontAwesomeIcon icon={faShoppingCart} /><span className="editor-tab-label">Pedidos</span>
               {newOrderCount > 0 && (
                 <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#e53e3e', color: '#fff', borderRadius: '50%', fontSize: '10px', fontWeight: '700', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {newOrderCount > 9 ? '9+' : newOrderCount}
@@ -3152,20 +3152,20 @@ function Store() {
               )}
             </button>
             <button className="store-editor-tab" onClick={() => { loadStoreStyles(); setStyleEditorOpen(true); }}>
-              <FontAwesomeIcon icon={faPalette} /> Estilos
+              <FontAwesomeIcon icon={faPalette} /><span className="editor-tab-label">Estilos</span>
             </button>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="store-editor-actions">
             <button
               className="store-editor-done"
               style={{ background: previewMode ? '#28a745' : 'rgba(255,255,255,0.1)', color: previewMode ? '#fff' : 'rgba(255,255,255,0.8)' }}
               onClick={() => setPreviewMode(p => !p)}
             >
               <FontAwesomeIcon icon={previewMode ? faEyeSlash : faEye} />
-              {previewMode ? 'Salir Preview' : 'Preview'}
+              <span className="editor-btn-label">{previewMode ? 'Salir' : 'Preview'}</span>
             </button>
             <button className="store-editor-done" onClick={() => setShowRestartConfirm(true)}>
-              Guardar
+              <span className="editor-btn-label">Guardar</span>
             </button>
           </div>
         </div>
