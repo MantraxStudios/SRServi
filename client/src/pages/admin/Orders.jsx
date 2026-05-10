@@ -12,6 +12,7 @@ function Orders() {
   const [cashRegister, setCashRegister] = useState(null);
   const [cashLoading, setCashLoading] = useState(false);
   const [showOpenCashModal, setShowOpenCashModal] = useState(false);
+  const [showCloseCashModal, setShowCloseCashModal] = useState(false);
   const [cashOpeningAmount, setCashOpeningAmount] = useState('');
 
   // CSV export — opens natively in Excel. Uses UTF-8 BOM and semicolon
@@ -116,6 +117,7 @@ function Orders() {
 
   const closeAdminCashRegister = async () => {
     setCashLoading(true);
+    setShowCloseCashModal(false);
     try {
       const res = await fetch('/api/admin/cash-register/close', {
         method: 'POST',
@@ -207,7 +209,7 @@ function Orders() {
             </div>
             <button
               className={`btn ${cashRegister ? 'btn-danger' : 'btn-success'}`}
-              onClick={cashRegister ? closeAdminCashRegister : () => setShowOpenCashModal(true)}
+              onClick={cashRegister ? () => setShowCloseCashModal(true) : () => setShowOpenCashModal(true)}
               disabled={cashLoading}
             >
               <FontAwesomeIcon icon={cashRegister ? faLock : faLockOpen} />
@@ -277,6 +279,43 @@ function Orders() {
           </div>
         )}
       </div>
+
+      {showCloseCashModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }} onClick={() => setShowCloseCashModal(false)}>
+          <div style={{
+            background: '#fff', borderRadius: 16, padding: '28px 24px',
+            width: '100%', maxWidth: 380, boxShadow: '0 8px 40px rgba(0,0,0,0.18)'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <FontAwesomeIcon icon={faLock} style={{ fontSize: 20, color: '#ef4444' }} />
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1e293b' }}>Cerrar Caja</h3>
+            </div>
+            <p style={{ color: '#374151', fontSize: 14, margin: '0 0 6px' }}>
+              ¿Seguro que deseas cerrar la caja?
+            </p>
+            <p style={{ color: '#9ca3af', fontSize: 13, margin: '0 0 24px' }}>
+              Se enviará el informe del día por correo al dueño de la tienda.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                className="btn btn-danger"
+                style={{ flex: 1 }}
+                onClick={closeAdminCashRegister}
+                disabled={cashLoading}
+              >
+                <FontAwesomeIcon icon={faLock} />
+                {cashLoading ? ' Cerrando...' : ' Sí, cerrar caja'}
+              </button>
+              <button className="btn" onClick={() => setShowCloseCashModal(false)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showOpenCashModal && (
         <div style={{

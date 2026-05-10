@@ -319,6 +319,7 @@ function WorkerPanel() {
   const [cashLoading, setCashLoading] = useState(false);
   const [showCashModal, setShowCashModal] = useState(false);
   const [cashOpeningAmount, setCashOpeningAmount] = useState('');
+  const [showCloseCashModal, setShowCloseCashModal] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [completingTask, setCompletingTask] = useState(null);
@@ -474,7 +475,6 @@ function WorkerPanel() {
 
   const closeCashRegisterFn = async () => {
     const token = localStorage.getItem('workerToken');
-    if (!window.confirm('¿Seguro que deseas cerrar la caja? Se enviará el informe del día por correo al dueño de la tienda.')) return;
     setCashLoading(true);
     try {
       const res = await fetch('/api/cash-register/close', {
@@ -484,6 +484,7 @@ function WorkerPanel() {
       const data = await res.json();
       if (!res.ok) { alert(data.error || 'Error al cerrar caja'); return; }
       setCashRegister(null);
+      setShowCloseCashModal(false);
       setShowCashModal(false);
     } catch (e) {
       alert('Error de conexión');
@@ -1453,18 +1454,18 @@ function WorkerPanel() {
                     )}
                   </div>
                   <button
-                    onClick={closeCashRegisterFn}
+                    onClick={() => setShowCloseCashModal(true)}
                     disabled={cashLoading}
                     style={{
                       width: '100%', padding: '14px', borderRadius: '10px', border: 'none',
-                      background: cashLoading ? '#1a1a1a' : 'rgba(239,68,68,0.15)',
-                      color: cashLoading ? '#555' : '#ef4444',
-                      fontWeight: 800, fontSize: '14px', cursor: cashLoading ? 'not-allowed' : 'pointer',
+                      background: 'rgba(239,68,68,0.15)',
+                      color: '#ef4444',
+                      fontWeight: 800, fontSize: '14px', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                     }}
                   >
                     <FontAwesomeIcon icon={faTimes} />
-                    {cashLoading ? 'Cerrando...' : 'Cerrar Caja'}
+                    Cerrar Caja
                   </button>
                 </>
               ) : (
@@ -1516,6 +1517,41 @@ function WorkerPanel() {
             </div>
             <div className="worker-modal-actions">
               <button className="worker-action-btn close" onClick={() => setShowCashModal(false)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCloseCashModal && (
+        <div className="worker-modal-overlay" onClick={() => setShowCloseCashModal(false)}>
+          <div className="worker-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 360 }}>
+            <div className="worker-modal-header">
+              <h2 className="worker-modal-title">
+                <FontAwesomeIcon icon={faTimes} style={{ marginRight: 8, color: '#ef4444' }} />
+                Cerrar Caja
+              </h2>
+              <button className="worker-modal-close" onClick={() => setShowCloseCashModal(false)}>x</button>
+            </div>
+            <div style={{ padding: '16px 0', textAlign: 'center' }}>
+              <p style={{ color: '#ccc', fontSize: '14px', margin: '0 0 6px' }}>
+                ¿Seguro que deseas cerrar la caja?
+              </p>
+              <p style={{ color: '#666', fontSize: '12px', margin: 0 }}>
+                Se enviará el informe del día por correo al dueño de la tienda.
+              </p>
+            </div>
+            <div className="worker-modal-actions">
+              <button
+                className="worker-action-btn close"
+                onClick={closeCashRegisterFn}
+                disabled={cashLoading}
+                style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontWeight: 800 }}
+              >
+                {cashLoading ? 'Cerrando...' : 'Sí, cerrar caja'}
+              </button>
+              <button className="worker-action-btn" onClick={() => setShowCloseCashModal(false)}>
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
