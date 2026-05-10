@@ -13,15 +13,15 @@ const CSS = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   @keyframes bubble-rise {
-    0%   { transform: translateY(0) scale(1);   opacity: 0.7; }
-    50%  { transform: translateY(-45vh) scale(1.08); opacity: 0.5; }
-    100% { transform: translateY(-100vh) scale(0.9); opacity: 0; }
+    0%   { transform: translateY(0)      scale(1);    opacity: 0.85; }
+    80%  { transform: translateY(-110vh) scale(1.05); opacity: 0.6;  }
+    100% { transform: translateY(-130vh) scale(0.95); opacity: 0;    }
   }
   @keyframes bubble-sway {
-    0%   { margin-left: 0; }
-    25%  { margin-left: 18px; }
-    75%  { margin-left: -18px; }
-    100% { margin-left: 0; }
+    0%   { margin-left: 0px;  }
+    25%  { margin-left: 28px; }
+    75%  { margin-left: -28px;}
+    100% { margin-left: 0px;  }
   }
 
   .rv-bubbles {
@@ -59,20 +59,20 @@ const CSS = `
     z-index: 1;
   }
   .rv-logo-img {
-    width: 44px; height: 44px;
-    border-radius: 12px;
+    width: 58px; height: 58px;
+    border-radius: 14px;
     object-fit: cover;
     flex-shrink: 0;
   }
   .rv-logo-ph {
-    width: 44px; height: 44px;
-    border-radius: 12px;
+    width: 58px; height: 58px;
+    border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 20px; font-weight: 900;
+    font-size: 26px; font-weight: 900;
     flex-shrink: 0;
   }
   .rv-store-name {
-    font-size: 22px;
+    font-size: clamp(22px, 4vw, 30px);
     font-weight: 900;
     color: #1e293b;
     line-height: 1.1;
@@ -102,11 +102,11 @@ const CSS = `
   }
 
   .rv-headline {
-    font-size: 22px;
-    font-weight: 800;
+    font-size: clamp(28px, 5vw, 42px);
+    font-weight: 900;
     color: #1e293b;
     text-align: center;
-    letter-spacing: -0.3px;
+    letter-spacing: -0.5px;
   }
 
   /* Emoji row */
@@ -139,7 +139,7 @@ const CSS = `
   }
 
   .rv-emoji-icon {
-    font-size: clamp(52px, 11vw, 80px);
+    font-size: clamp(64px, 14vw, 96px);
     line-height: 1;
     display: block;
     user-select: none;
@@ -179,8 +179,8 @@ const CSS = `
   /* Tablet landscape */
   @media (min-width: 700px) and (orientation: landscape) {
     .rv-topbar { padding: 18px 32px; }
-    .rv-logo-img, .rv-logo-ph { width: 52px; height: 52px; border-radius: 14px; }
-    .rv-store-name { font-size: 26px; }
+    .rv-logo-img, .rv-logo-ph { width: 68px; height: 68px; border-radius: 16px; }
+    .rv-store-name { font-size: 32px; }
     .rv-headline { font-size: 28px; }
     .rv-emojis {
       gap: 16px;
@@ -335,20 +335,19 @@ export default function Rate() {
   );
 }
 
-// 12 bubbles with varied size, position, speed and delay
 const BUBBLES = [
-  { size: 28, left: '8%',  dur: 8,  sway: 6,  delay: 0   },
-  { size: 18, left: '18%', dur: 11, sway: 5,  delay: 1.5 },
-  { size: 40, left: '30%', dur: 9,  sway: 8,  delay: 0.8 },
-  { size: 14, left: '42%', dur: 13, sway: 4,  delay: 3   },
-  { size: 32, left: '55%', dur: 10, sway: 7,  delay: 0.3 },
-  { size: 22, left: '65%', dur: 7,  sway: 6,  delay: 2.2 },
-  { size: 48, left: '75%', dur: 12, sway: 9,  delay: 1   },
-  { size: 16, left: '85%', dur: 9,  sway: 5,  delay: 4   },
-  { size: 36, left: '92%', dur: 11, sway: 7,  delay: 0.5 },
-  { size: 20, left: '3%',  dur: 14, sway: 4,  delay: 3.5 },
-  { size: 26, left: '50%', dur: 8,  sway: 6,  delay: 2.8 },
-  { size: 12, left: '72%', dur: 10, sway: 3,  delay: 1.8 },
+  { size: 34, left: '5%',  dur: 4.5, sway: 2.8, delay: 0   },
+  { size: 20, left: '14%', dur: 3.8, sway: 2.2, delay: 0.6 },
+  { size: 50, left: '25%', dur: 5.2, sway: 3.4, delay: 0.2 },
+  { size: 16, left: '38%', dur: 3.4, sway: 2.0, delay: 1.2 },
+  { size: 38, left: '50%', dur: 4.8, sway: 3.0, delay: 0.9 },
+  { size: 24, left: '62%', dur: 3.6, sway: 2.4, delay: 0.4 },
+  { size: 56, left: '73%', dur: 5.5, sway: 3.6, delay: 1.5 },
+  { size: 18, left: '83%', dur: 3.9, sway: 2.1, delay: 0.7 },
+  { size: 42, left: '91%', dur: 4.6, sway: 3.2, delay: 0.3 },
+  { size: 22, left: '2%',  dur: 4.2, sway: 2.5, delay: 2.0 },
+  { size: 30, left: '46%', dur: 3.7, sway: 2.3, delay: 1.8 },
+  { size: 14, left: '70%', dur: 3.3, sway: 1.9, delay: 1.1 },
 ];
 
 function Bubbles({ accent }) {
@@ -363,10 +362,11 @@ function Bubbles({ accent }) {
             width: b.size,
             height: b.size,
             left: b.left,
-            background: `radial-gradient(circle at 35% 35%, ${color}55, ${color}18)`,
-            border: `1.5px solid ${color}44`,
-            animationDuration: `${b.dur}s, ${b.sway * 1.3}s`,
-            animationDelay: `${b.delay}s, ${b.delay * 0.7}s`,
+            background: `radial-gradient(circle at 33% 33%, ${color}88, ${color}33)`,
+            border: `2px solid ${color}77`,
+            boxShadow: `0 0 8px ${color}44`,
+            animationDuration: `${b.dur}s, ${b.sway}s`,
+            animationDelay: `${b.delay}s, ${b.delay * 0.5}s`,
           }}
         />
       ))}
