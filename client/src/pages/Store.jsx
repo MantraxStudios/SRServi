@@ -3208,6 +3208,9 @@ function Store() {
             <button className="store-editor-tab" onClick={() => { loadStoreStyles(); setStyleEditorOpen(true); }}>
               <FontAwesomeIcon icon={faPalette} /><span className="editor-tab-label">Estilos</span>
             </button>
+            <button className="store-editor-tab" onClick={openExcelModal}>
+              <FontAwesomeIcon icon={faFileExcel} style={{ color: '#4ade80' }} /><span className="editor-tab-label">Excel</span>
+            </button>
           </div>
           <div className="store-editor-actions">
             <button
@@ -3327,15 +3330,6 @@ function Store() {
 
       {editMode && !previewMode && editorTab === 'products' && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 16px 0' }}>
-            <button
-              onClick={openExcelModal}
-              style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}
-            >
-              <FontAwesomeIcon icon={faFileExcel} />
-              Importar Excel
-            </button>
-          </div>
           <div className="store-edit-cat-filter-bar">
             <button
               className={`store-edit-cat-filter-btn${editCatFilter === 'all' ? ' active' : ''}`}
