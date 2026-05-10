@@ -49,11 +49,12 @@ const CSS = `
     padding: 24px 20px;
     width: 100%;
     max-width: 420px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    border: 1px solid #e5e7eb;
   }
   .sv-opts { display: flex; flex-direction: column; gap: 10px; }
   .sv-brand {
-    color: rgba(255,255,255,0.3);
+    color: #d1d5db;
     font-size: 11px;
     text-align: center;
     margin: 0;
@@ -61,7 +62,7 @@ const CSS = `
     z-index: 1;
     position: relative;
   }
-  .sv-title { color: #fff; font-weight: 900; font-size: 20px; margin: 0; text-align: center; }
+  .sv-title { color: #1e293b; font-weight: 900; font-size: 20px; margin: 0; text-align: center; }
   .sv-subtitle { font-weight: 700; font-size: 12px; margin: 0; letter-spacing: 2px; text-transform: uppercase; }
   .sv-divider { display: none; }
 
@@ -78,7 +79,7 @@ const CSS = `
       flex-shrink: 0;
       padding: 48px 32px;
       justify-content: center;
-      border-right: 1px solid rgba(255,255,255,0.08);
+      border-right: 1px solid #e5e7eb;
     }
     .sv-right {
       flex: 1;
@@ -185,13 +186,13 @@ export default function ClientSurvey() {
   if (done) return (
     <>
       <style>{CSS}</style>
-      <div className="sv-wrap" style={{ background: `linear-gradient(145deg, ${primary} 0%, #0d0d1a 100%)` }}>
+      <div className="sv-wrap" style={{ background: '#fff' }}>
         <div style={goldLine(accent)} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24 }}>
           <div style={{ fontSize: 80 }}>🎯</div>
-          <h2 style={{ color: '#fff', fontSize: 26, fontWeight: 900, margin: 0 }}>¡Gracias!</h2>
+          <h2 style={{ color: '#1e293b', fontSize: 26, fontWeight: 900, margin: 0 }}>¡Gracias!</h2>
           <p style={{ color: accent, fontSize: 15, fontWeight: 700, margin: 0 }}>Tu opinión es muy valiosa.</p>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, margin: 0 }}>Nos ayudas a mejorar cada día.</p>
+          <p style={{ color: '#9ca3af', fontSize: 13, margin: 0 }}>Nos ayudas a mejorar cada día.</p>
         </div>
         <p className="sv-brand">Powered by SRAutomatic.cl</p>
         <div style={goldLine(accent)} />
@@ -202,9 +203,9 @@ export default function ClientSurvey() {
   return (
     <>
       <style>{CSS}</style>
-      <div className="sv-wrap" style={{ background: `linear-gradient(145deg, ${primary} 0%, #0d0d1a 100%)` }}>
-        <div style={circle(accent, 200, -50, -50, 0.07)} />
-        <div style={circle(accent, 140, 'auto', -30, 0.05, 'bottom')} />
+      <div className="sv-wrap" style={{ background: '#fff' }}>
+        <div style={circle(accent, 200, -50, -50, 0.06)} />
+        <div style={circle(accent, 140, 'auto', -30, 0.04, 'bottom')} />
         <div style={goldLine(accent)} />
 
         <div className="sv-body">
@@ -229,14 +230,14 @@ export default function ClientSurvey() {
             {/* Progress */}
             <div className="sv-progress">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
+                <span style={{ color: '#9ca3af', fontSize: 12 }}>
                   Pregunta {step + 1} de {questions.length}
                 </span>
                 <span style={{ color: accent, fontSize: 12, fontWeight: 700 }}>
                   {Math.round((step / questions.length) * 100)}%
                 </span>
               </div>
-              <div style={{ height: 5, background: 'rgba(255,255,255,0.12)', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ height: 5, background: '#e5e7eb', borderRadius: 4, overflow: 'hidden' }}>
                 <div style={{
                   height: '100%', width: `${progress}%`,
                   background: accent, borderRadius: 4,
