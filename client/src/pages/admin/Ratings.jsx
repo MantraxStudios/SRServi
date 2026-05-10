@@ -2,7 +2,7 @@ import { useState, useEffect, useContext, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faStar, faQrcode, faCommentAlt, faDownload, faArrowDown, faUsers, faChartBar, faGlobe, faLink } from '@fortawesome/free-solid-svg-icons';
+import { faStar, faQrcode, faCommentAlt, faDownload, faArrowDown, faUsers, faChartBar, faGlobe, faLink, faTimes, faFilter, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 import { QRCodeCanvas } from 'qrcode.react';
 
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
@@ -68,6 +68,10 @@ export default function Ratings() {
   const [googleQrDesc, setGoogleQrDesc] = useState('');
   const [idealQrDesc, setIdealQrDesc] = useState('');
   const [downloadingGoogle, setDownloadingGoogle] = useState(false);
+
+  const [showSurveyModal, setShowSurveyModal] = useState(false);
+  const [surveyDateFrom, setSurveyDateFrom] = useState('');
+  const [surveyDateTo, setSurveyDateTo] = useState('');
 
   const ratingUrl = selectedStore ? `${BASE_URL}/rate/${selectedStore.code}` : '';
   const surveyUrl = selectedStore ? `${BASE_URL}/survey/${selectedStore.code}` : '';
@@ -278,8 +282,9 @@ export default function Ratings() {
       const idealQrCanvas = document.getElementById('ideal-qr-canvas-clasi');
       if (!idealQrCanvas) return;
 
-      const W = 1400;
-      const H = 900;
+      // ── Dimensiones verticales ──
+      const W = 900;
+      const H = 1500;
       const canvas = document.createElement('canvas');
       canvas.width = W;
       canvas.height = H;
@@ -289,29 +294,29 @@ export default function Ratings() {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, W, H);
 
-      // Patrón de puntos suaves en fondo
+      // Patrón de puntos suaves
       ctx.save();
-      ctx.globalAlpha = 0.035;
+      ctx.globalAlpha = 0.03;
       ctx.fillStyle = '#000';
-      for (let x = 30; x < W; x += 40) {
-        for (let y = 30; y < H; y += 40) {
-          ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+      for (let x = 28; x < W; x += 36) {
+        for (let y = 28; y < H; y += 36) {
+          ctx.beginPath(); ctx.arc(x, y, 1.8, 0, Math.PI * 2); ctx.fill();
         }
       }
       ctx.restore();
 
       // Borde exterior dorado
       ctx.strokeStyle = accentColor;
-      ctx.lineWidth = 4;
-      roundRect(ctx, 10, 10, W - 20, H - 20, 24);
+      ctx.lineWidth = 5;
+      roundRect(ctx, 12, 12, W - 24, H - 24, 28);
       ctx.stroke();
 
       // Franja dorada superior
       ctx.fillStyle = accentColor;
-      roundRect(ctx, 10, 10, W - 20, 10, 24);
+      roundRect(ctx, 12, 12, W - 24, 12, 28);
       ctx.fill();
 
-      // Logo
+      // ── Logo ──
       let logoImg = null;
       if (selectedStore?.logo_url) {
         try {
@@ -325,9 +330,9 @@ export default function Ratings() {
         } catch {}
       }
 
-      const logoSize = 80;
+      const logoSize = 90;
       const cx = W / 2;
-      const logoY = 36;
+      const logoY = 40;
 
       if (logoImg) {
         ctx.save();
@@ -337,18 +342,17 @@ export default function Ratings() {
         ctx.drawImage(logoImg, cx - logoSize / 2, logoY, logoSize, logoSize);
         ctx.restore();
         ctx.strokeStyle = accentColor;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
         ctx.stroke();
       } else {
-        // Círculo dorado con inicial
         ctx.fillStyle = accentColor;
         ctx.beginPath();
         ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 34px Arial';
+        ctx.font = 'bold 38px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(storeName[0]?.toUpperCase() || '★', cx, logoY + logoSize / 2);
@@ -356,83 +360,71 @@ export default function Ratings() {
 
       // Nombre tienda
       ctx.fillStyle = '#0f172a';
-      ctx.font = 'bold 32px Arial';
+      ctx.font = 'bold 34px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText(storeName.toUpperCase(), cx, logoY + logoSize + 42);
+      ctx.fillText(storeName.toUpperCase(), cx, logoY + logoSize + 48);
 
-      // Línea decorativa dorada bajo el nombre
-      const lineY = logoY + logoSize + 58;
-      const lineW = 80;
+      // Línea dorada bajo nombre
+      const headerLineY = logoY + logoSize + 66;
       ctx.fillStyle = accentColor;
-      ctx.fillRect(cx - lineW / 2, lineY, lineW, 3);
+      ctx.fillRect(cx - 44, headerLineY, 88, 4);
 
-      // Dos paneles de QR
-      const panelTop = lineY + 30;
-      const panelPad = 50;
-      const halfW = W / 2;
-      const qrSize = 230;
-      const cardW = qrSize + 60;
-      const cardH = H - panelTop - 90;
+      // ── Helper: dibuja una tarjeta QR vertical ──
+      const qrSize = 240;
+      const cardW = W - 80;
+      const cardH = 420;
+      const cardX = 40;
 
-      const drawQRPanel = (startX, panelW, qrCvs, icon, title, desc) => {
-        const pcx = startX + panelW / 2;
-        const cardX = pcx - cardW / 2;
-        const cardY = panelTop;
-
-        // Sombra de la tarjeta
-        ctx.fillStyle = 'rgba(0,0,0,0.07)';
-        ctx.shadowColor = 'rgba(0,0,0,0.12)';
-        ctx.shadowBlur = 28;
+      const drawQRCard = (cardY, qrCvs, icon, title, desc) => {
+        // Sombra
+        ctx.shadowColor = 'rgba(0,0,0,0.10)';
+        ctx.shadowBlur = 24;
         ctx.shadowOffsetY = 6;
-        roundRect(ctx, cardX, cardY, cardW, cardH, 20);
+        ctx.fillStyle = '#ffffff';
+        roundRect(ctx, cardX, cardY, cardW, cardH, 22);
         ctx.fill();
         ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 
-        // Fondo tarjeta blanca
-        ctx.fillStyle = '#ffffff';
-        roundRect(ctx, cardX, cardY, cardW, cardH, 20);
-        ctx.fill();
-
-        // Borde sutil
+        // Borde
         ctx.strokeStyle = '#e2e8f0';
         ctx.lineWidth = 1.5;
-        roundRect(ctx, cardX, cardY, cardW, cardH, 20);
+        roundRect(ctx, cardX, cardY, cardW, cardH, 22);
         ctx.stroke();
 
         // Barra dorada superior de tarjeta
         ctx.fillStyle = accentColor;
         ctx.save();
         ctx.beginPath();
-        ctx.moveTo(cardX + 20, cardY);
-        ctx.lineTo(cardX + cardW - 20, cardY);
-        ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + 20);
+        ctx.moveTo(cardX + 22, cardY);
+        ctx.lineTo(cardX + cardW - 22, cardY);
+        ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + 22);
         ctx.lineTo(cardX + cardW, cardY + 8);
-        ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW - 20, cardY);
+        ctx.lineTo(cardX + cardW - 22, cardY);
         ctx.closePath();
-        ctx.fillRect(cardX + 20, cardY, cardW - 40, 6);
+        ctx.fillRect(cardX + 22, cardY, cardW - 44, 8);
         ctx.restore();
 
-        // Ícono / emoji título
-        ctx.font = '22px serif';
+        // Ícono emoji
+        ctx.font = '26px serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(icon, pcx, cardY + 34);
+        ctx.fillText(icon, cx, cardY + 38);
 
-        // Título del panel
+        // Título
         ctx.fillStyle = '#1e293b';
-        ctx.font = 'bold 18px Arial';
+        ctx.font = 'bold 22px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
-        ctx.fillText(title, pcx, cardY + 62);
+        ctx.fillText(title, cx, cardY + 76);
 
         // Línea dorada bajo título
         ctx.fillStyle = accentColor;
-        ctx.fillRect(pcx - 24, cardY + 70, 48, 2);
+        ctx.fillRect(cx - 30, cardY + 86, 60, 3);
 
-        // QR code
-        const qrX = pcx - qrSize / 2;
-        const qrY = cardY + 86;
+        // QR
+        const qrX = cx - qrSize / 2;
+        const qrY = cardY + 102;
         if (qrCvs) {
           ctx.drawImage(qrCvs, qrX, qrY, qrSize, qrSize);
         } else {
@@ -440,83 +432,84 @@ export default function Ratings() {
           roundRect(ctx, qrX, qrY, qrSize, qrSize, 10);
           ctx.fill();
           ctx.fillStyle = '#94a3b8';
-          ctx.font = '13px Arial';
+          ctx.font = '14px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText('Sin link', pcx, qrY + qrSize / 2);
+          ctx.fillText('Sin link configurado', cx, qrY + qrSize / 2);
         }
 
-        // Texto "Escanea aquí"
+        // "Escanea aquí"
         ctx.fillStyle = '#64748b';
-        ctx.font = '600 13px Arial';
+        ctx.font = '600 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
-        ctx.fillText('▲  Escanea aquí  ▲', pcx, qrY + qrSize + 22);
+        ctx.fillText('▲  Escanea aquí  ▲', cx, qrY + qrSize + 28);
 
         // Descripción
         if (desc) {
           ctx.fillStyle = '#475569';
-          ctx.font = 'italic 13px Arial';
+          ctx.font = 'italic 14px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'alphabetic';
-          const maxW = cardW - 40;
+          const maxW = cardW - 60;
           const words = desc.split(' ');
           let line = '';
-          let y = qrY + qrSize + 44;
+          let y = qrY + qrSize + 54;
           for (const word of words) {
             const test = line + (line ? ' ' : '') + word;
             if (ctx.measureText(test).width > maxW && line) {
-              ctx.fillText(line, pcx, y); line = word; y += 20;
+              ctx.fillText(line, cx, y); line = word; y += 22;
             } else { line = test; }
           }
-          if (line) ctx.fillText(line, pcx, y);
+          if (line) ctx.fillText(line, cx, y);
         }
       };
 
-      drawQRPanel(0, halfW, googleQrCanvas, '🌐', 'Clasificar en Google', googleQrDesc);
+      const card1Y = headerLineY + 26;
+      drawQRCard(card1Y, googleQrCanvas, '🌐', 'Clasificar en Google', googleQrDesc);
 
-      // Separador central
+      // ── Separador horizontal ──
+      const sep1Y = card1Y + cardH + 20;
       ctx.save();
       ctx.strokeStyle = '#e2e8f0';
       ctx.lineWidth = 1.5;
-      ctx.setLineDash([6, 4]);
+      ctx.setLineDash([6, 5]);
       ctx.beginPath();
-      ctx.moveTo(halfW, panelTop + 20);
-      ctx.lineTo(halfW, H - 80);
+      ctx.moveTo(60, sep1Y + 14);
+      ctx.lineTo(W - 60, sep1Y + 14);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.restore();
-
-      // Rombo dorado en el centro del separador
-      const diamondY = panelTop + (H - 80 - panelTop) / 2;
+      // Rombo central
       ctx.save();
       ctx.fillStyle = '#fff';
       ctx.strokeStyle = accentColor;
-      ctx.lineWidth = 1.5;
-      ctx.translate(halfW, diamondY);
+      ctx.lineWidth = 2;
+      ctx.translate(cx, sep1Y + 14);
       ctx.rotate(Math.PI / 4);
-      ctx.fillRect(-10, -10, 20, 20);
-      ctx.strokeRect(-10, -10, 20, 20);
+      ctx.fillRect(-11, -11, 22, 22);
+      ctx.strokeRect(-11, -11, 22, 22);
       ctx.restore();
       ctx.fillStyle = accentColor;
-      ctx.font = 'bold 12px Arial';
+      ctx.font = 'bold 13px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('&', halfW, diamondY);
+      ctx.fillText('&', cx, sep1Y + 14);
 
-      drawQRPanel(halfW, halfW, idealQrCanvas, '🎯', 'Cliente Ideal', idealQrDesc);
+      const card2Y = sep1Y + 38;
+      drawQRCard(card2Y, idealQrCanvas, '🎯', 'Cliente Ideal', idealQrDesc);
 
-      // Franja dorada inferior
+      // ── Franja dorada inferior ──
       ctx.fillStyle = accentColor;
-      roundRect(ctx, 10, H - 20, W - 20, 10, 24);
+      roundRect(ctx, 12, H - 24, W - 24, 12, 28);
       ctx.fill();
 
       // Branding
       ctx.fillStyle = '#94a3b8';
-      ctx.font = '12px Arial';
+      ctx.font = '13px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('Powered by SRAutomatic.cl', W / 2, H - 40);
+      ctx.fillText('Powered by SRAutomatic.cl', cx, H - 46);
 
       return new Promise(resolve => {
         canvas.toBlob((blob) => {
@@ -551,7 +544,7 @@ export default function Ratings() {
 
   if (!selectedStore) {
     return (
-      <div style={styles.page}>
+      <div style={{ height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
         <div style={styles.empty}>
           <FontAwesomeIcon icon={faStar} style={{ fontSize: 40, color: '#d1d5db', marginBottom: 12 }} />
           <p>Selecciona una tienda para ver las calificaciones.</p>
@@ -574,42 +567,77 @@ export default function Ratings() {
     return { ...q, counts, total, sorted };
   });
 
-  return (
-    <div style={styles.page}>
-      <h1 style={styles.title}>
-        <FontAwesomeIcon icon={faStar} style={{ color: '#f59e0b', marginRight: 10 }} />
-        Calificaciones — {selectedStore.name}
-      </h1>
+  const filteredSurveysModal = surveys.filter(s => {
+    const date = new Date(s.created_at);
+    if (surveyDateFrom && date < new Date(surveyDateFrom)) return false;
+    if (surveyDateTo && date > new Date(surveyDateTo + 'T23:59:59')) return false;
+    return true;
+  });
 
-      {/* Tab navigation */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '2px solid #e5e7eb', paddingBottom: 0 }}>
-        {[
-          { key: 'ratings', icon: faStar, label: 'Calificaciones' },
-          { key: 'survey', icon: faUsers, label: 'Cliente Ideal' },
-          { key: 'clasificacion', icon: faGlobe, label: 'Clasificación' },
-        ].map(t => (
+  const modalSurveyStats = SURVEY_QUESTIONS.map(q => {
+    const counts = {};
+    filteredSurveysModal.forEach(s => {
+      let ans;
+      try { ans = typeof s.answers === 'string' ? JSON.parse(s.answers) : s.answers; } catch { ans = {}; }
+      const v = ans[q.key];
+      if (v) counts[v] = (counts[v] || 0) + 1;
+    });
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    return { ...q, counts, total, sorted };
+  });
+
+  return (
+    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: 'system-ui, -apple-system, sans-serif', background: '#f8fafc' }}>
+
+      {/* ── Header fijo ── */}
+      <div style={{ padding: '12px 24px 0', background: '#fff', borderBottom: '2px solid #e5e7eb', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <h1 style={{ fontSize: 18, fontWeight: 800, color: '#1e293b', margin: 0 }}>
+            <FontAwesomeIcon icon={faStar} style={{ color: '#f59e0b', marginRight: 8 }} />
+            Calificaciones — {selectedStore.name}
+          </h1>
           <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
+            onClick={() => setShowSurveyModal(true)}
             style={{
-              padding: '10px 20px',
-              border: 'none',
-              background: 'none',
-              fontWeight: 700,
-              fontSize: 14,
-              cursor: 'pointer',
-              color: activeTab === t.key ? '#1e293b' : '#9ca3af',
-              borderBottom: activeTab === t.key ? '3px solid #1e293b' : '3px solid transparent',
-              marginBottom: -2,
-              transition: 'all 0.15s',
-              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '7px 15px', borderRadius: 8, border: 'none',
+              background: accentColor, color: '#fff', fontWeight: 700, fontSize: 12,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+              boxShadow: `0 2px 8px ${accentColor}55`,
             }}
           >
-            <FontAwesomeIcon icon={t.icon} />
-            {t.label}
+            <FontAwesomeIcon icon={faChartBar} />
+            Resumen Cliente Ideal
           </button>
-        ))}
+        </div>
+        {/* Tab navigation */}
+        <div style={{ display: 'flex', gap: 0 }}>
+          {[
+            { key: 'ratings', icon: faStar, label: 'Calificaciones' },
+            { key: 'survey', icon: faUsers, label: 'Cliente Ideal' },
+            { key: 'clasificacion', icon: faGlobe, label: 'Clasificación' },
+          ].map(t => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              style={{
+                padding: '9px 18px', border: 'none', background: 'none',
+                fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                color: activeTab === t.key ? '#1e293b' : '#9ca3af',
+                borderBottom: activeTab === t.key ? '3px solid #1e293b' : '3px solid transparent',
+                marginBottom: -2, transition: 'all 0.15s',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              <FontAwesomeIcon icon={t.icon} />
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* ── Área de contenido scrollable ── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
 
       {activeTab === 'ratings' && <>
       <div style={styles.grid}>
@@ -994,7 +1022,7 @@ export default function Ratings() {
               {googleUrl ? (
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
                   <div style={{ background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: 10 }}>
-                    <QRCodeCanvas id="google-qr-canvas" value={googleUrl} size={130} level="H" includeMargin={false} />
+                    <QRCodeCanvas id="google-qr-canvas" value={googleUrl} size={240} level="H" includeMargin={false} style={{ width: '130px', height: '130px' }} />
                   </div>
                 </div>
               ) : (
@@ -1032,7 +1060,7 @@ export default function Ratings() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
                 <div style={{ background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: 10 }}>
-                  <QRCodeCanvas id="ideal-qr-canvas-clasi" value={surveyUrl} size={130} level="H" includeMargin={false} />
+                  <QRCodeCanvas id="ideal-qr-canvas-clasi" value={surveyUrl} size={240} level="H" includeMargin={false} style={{ width: '130px', height: '130px' }} />
                 </div>
               </div>
             </div>
@@ -1171,14 +1199,118 @@ export default function Ratings() {
           </div>
         </div>
       )}
+
+      </div>{/* fin scrollable */}
+
+      {/* ── Modal Resumen Cliente Ideal ── */}
+      {showSurveyModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={e => { if (e.target === e.currentTarget) setShowSurveyModal(false); }}
+        >
+          <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 660, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+
+            {/* Modal header */}
+            <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#1e293b' }}>
+                  <FontAwesomeIcon icon={faUsers} style={{ color: accentColor, marginRight: 8 }} />
+                  Resumen Cliente Ideal
+                </h2>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: '#6b7280' }}>
+                  {filteredSurveysModal.length} respuesta{filteredSurveysModal.length !== 1 ? 's' : ''}
+                  {(surveyDateFrom || surveyDateTo) ? ' en el rango seleccionado' : ' en total'}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSurveyModal(false)}
+                style={{ width: 34, height: 34, borderRadius: '50%', border: '1.5px solid #e5e7eb', background: '#f8fafc', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#6b7280' }}
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+
+            {/* Filtros de fecha */}
+            <div style={{ padding: '12px 22px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', flexShrink: 0, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <FontAwesomeIcon icon={faCalendarAlt} style={{ color: accentColor, fontSize: 13 }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Filtrar por fecha:</span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>Desde</span>
+                  <input
+                    type="date"
+                    value={surveyDateFrom}
+                    onChange={e => setSurveyDateFrom(e.target.value)}
+                    style={{ padding: '5px 8px', borderRadius: 7, border: '1.5px solid #e5e7eb', fontSize: 12, outline: 'none' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>Hasta</span>
+                  <input
+                    type="date"
+                    value={surveyDateTo}
+                    onChange={e => setSurveyDateTo(e.target.value)}
+                    style={{ padding: '5px 8px', borderRadius: 7, border: '1.5px solid #e5e7eb', fontSize: 12, outline: 'none' }}
+                  />
+                </div>
+                {(surveyDateFrom || surveyDateTo) && (
+                  <button
+                    onClick={() => { setSurveyDateFrom(''); setSurveyDateTo(''); }}
+                    style={{ padding: '5px 10px', borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', fontSize: 11, color: '#6b7280', cursor: 'pointer' }}
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Contenido scrollable */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
+              {surveyLoading ? (
+                <p style={{ color: '#9ca3af', textAlign: 'center', padding: 24 }}>Cargando...</p>
+              ) : filteredSurveysModal.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af' }}>
+                  <FontAwesomeIcon icon={faUsers} style={{ fontSize: 32, marginBottom: 10, display: 'block', margin: '0 auto 10px' }} />
+                  <p style={{ margin: 0 }}>Sin respuestas en este rango de fechas.</p>
+                </div>
+              ) : (
+                modalSurveyStats.map(q => q.total > 0 && (
+                  <div key={q.key} style={{ marginBottom: 20 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', margin: '0 0 8px', display: 'flex', justifyContent: 'space-between' }}>
+                      {q.label}
+                      <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af' }}>{q.total} resp.</span>
+                    </p>
+                    {q.sorted.slice(0, 5).map(([opt, count]) => {
+                      const pct = q.total > 0 ? Math.round((count / q.total) * 100) : 0;
+                      return (
+                        <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                          <span style={{ fontSize: 12, color: '#475569', minWidth: 130, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{opt}</span>
+                          <div style={{ flex: 1, height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${pct}%`, background: accentColor, borderRadius: 4, transition: 'width 0.4s' }} />
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', minWidth: 32, textAlign: 'right' }}>{pct}%</span>
+                          <span style={{ fontSize: 10, color: '#9ca3af', minWidth: 24 }}>({count})</span>
+                        </div>
+                      );
+                    })}
+                    <div style={{ height: 1, background: '#f1f5f9', marginTop: 12 }} />
+                  </div>
+                ))
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
 const styles = {
-  page: { padding: '28px 24px', maxWidth: 860, margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' },
-  title: { fontSize: 22, fontWeight: 800, color: '#1e293b', marginBottom: 24 },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 24 },
+  page: { padding: '20px 24px', fontFamily: 'system-ui, -apple-system, sans-serif' },
+  title: { fontSize: 18, fontWeight: 800, color: '#1e293b', marginBottom: 16 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 20 },
   card: { background: '#fff', borderRadius: 16, padding: '20px', boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: '1px solid #e5e7eb' },
   cardTitle: { fontSize: 15, fontWeight: 700, color: '#374151', marginBottom: 14, marginTop: 0 },
   filterRow: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' },
