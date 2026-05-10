@@ -448,10 +448,6 @@ function Store() {
   }, [editMode, store?.store?.id, adminToken]);
 
   useEffect(() => {
-    if (editMode && invTab === 'raw') fetchRawMats();
-  }, [editMode, invTab, fetchRawMats]);
-
-  useEffect(() => {
     pendingOrderDataRef.current = pendingOrderData;
   }, [pendingOrderData]);
 
@@ -2340,6 +2336,10 @@ function Store() {
       if (res.ok) setRawMats(await res.json());
     } finally { setRmLoading(false); }
   }, [store?.store?.id, adminToken]);
+
+  useEffect(() => {
+    if (editMode && invTab === 'raw') fetchRawMats();
+  }, [editMode, invTab, fetchRawMats]);
 
   const saveRm = async () => {
     if (!rmForm.name.trim()) return;
