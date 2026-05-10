@@ -282,9 +282,9 @@ export default function Ratings() {
       const idealQrCanvas = document.getElementById('ideal-qr-canvas-clasi');
       if (!idealQrCanvas) return;
 
-      // ── Horizontal: los 2 QR lado a lado ──
-      const W = 1400;
-      const H = 860;
+      // ── Vertical con los 2 QR lado a lado ──
+      const W = 900;
+      const H = 1200;
       const canvas = document.createElement('canvas');
       canvas.width = W;
       canvas.height = H;
@@ -296,20 +296,18 @@ export default function Ratings() {
 
       // ── Bolitas de colores decorativas en el fondo ──
       const bubbles = [
-        { x: 60,   y: 80,   r: 55,  color: '#FF6B9D', alpha: 0.18 },
-        { x: 200,  y: H-60, r: 70,  color: '#4ECDC4', alpha: 0.15 },
-        { x: W-70, y: 100,  r: 65,  color: '#FFE66D', alpha: 0.22 },
-        { x: W-140,y: H-90, r: 80,  color: '#A78BFA', alpha: 0.16 },
-        { x: W/2,  y: 40,   r: 42,  color: '#F97316', alpha: 0.14 },
-        { x: W/2,  y: H-50, r: 50,  color: '#34D399', alpha: 0.17 },
-        { x: 120,  y: H/2,  r: 36,  color: '#60A5FA', alpha: 0.15 },
-        { x: W-100,y: H/2,  r: 44,  color: '#F472B6', alpha: 0.16 },
-        { x: 380,  y: 30,   r: 28,  color: '#FBBF24', alpha: 0.20 },
-        { x: W-380,y: H-30, r: 32,  color: '#818CF8', alpha: 0.18 },
-        { x: 300,  y: H-30, r: 24,  color: '#2DD4BF', alpha: 0.18 },
-        { x: W-300,y: 35,   r: 26,  color: '#FB7185', alpha: 0.20 },
-        { x: W/2-180, y: H-40, r: 20, color: '#A3E635', alpha: 0.22 },
-        { x: W/2+180, y: 45, r: 22, color: '#38BDF8', alpha: 0.20 },
+        { x: 40,   y: 80,   r: 50,  color: '#FF6B9D', alpha: 0.20 },
+        { x: W-40, y: 100,  r: 55,  color: '#FFE66D', alpha: 0.22 },
+        { x: 60,   y: H-80, r: 60,  color: '#4ECDC4', alpha: 0.18 },
+        { x: W-60, y: H-100,r: 65,  color: '#A78BFA', alpha: 0.18 },
+        { x: W/2,  y: 30,   r: 38,  color: '#F97316', alpha: 0.16 },
+        { x: W/2,  y: H-40, r: 44,  color: '#34D399', alpha: 0.18 },
+        { x: 30,   y: H/2,  r: 32,  color: '#60A5FA', alpha: 0.17 },
+        { x: W-30, y: H/2,  r: 38,  color: '#F472B6', alpha: 0.17 },
+        { x: 200,  y: 28,   r: 22,  color: '#FBBF24', alpha: 0.22 },
+        { x: W-200,y: H-28, r: 24,  color: '#818CF8', alpha: 0.20 },
+        { x: 150,  y: H-35, r: 20,  color: '#2DD4BF', alpha: 0.20 },
+        { x: W-150,y: 38,   r: 22,  color: '#FB7185', alpha: 0.22 },
       ];
       bubbles.forEach(b => {
         ctx.save();
@@ -346,7 +344,7 @@ export default function Ratings() {
         } catch {}
       }
 
-      const logoSize = 72;
+      const logoSize = 68;
       const cx = W / 2;
       const logoY = 32;
 
@@ -358,7 +356,7 @@ export default function Ratings() {
         ctx.drawImage(logoImg, cx - logoSize / 2, logoY, logoSize, logoSize);
         ctx.restore();
         ctx.strokeStyle = accentColor;
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
         ctx.stroke();
@@ -368,7 +366,7 @@ export default function Ratings() {
         ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 30px Arial';
+        ctx.font = 'bold 28px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(storeName[0]?.toUpperCase() || '★', cx, logoY + logoSize / 2);
@@ -376,24 +374,25 @@ export default function Ratings() {
 
       // Nombre tienda
       ctx.fillStyle = '#0f172a';
-      ctx.font = 'bold 28px Arial';
+      ctx.font = 'bold 26px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText(storeName.toUpperCase(), cx, logoY + logoSize + 36);
+      ctx.fillText(storeName.toUpperCase(), cx, logoY + logoSize + 34);
 
       // Línea dorada bajo nombre
-      const headerLineY = logoY + logoSize + 50;
+      const headerLineY = logoY + logoSize + 48;
       ctx.fillStyle = accentColor;
-      ctx.fillRect(cx - 36, headerLineY, 72, 3);
+      ctx.fillRect(cx - 32, headerLineY, 64, 3);
 
-      // ── Tarjetas QR lado a lado ──
-      const qrSize = 240;
-      const cardW = 460;
-      const cardH = H - headerLineY - 90;
-      const gap = 60;
-      const card1X = cx - gap / 2 - cardW;
-      const card2X = cx + gap / 2;
-      const cardY = headerLineY + 22;
+      // ── Tarjetas QR lado a lado en imagen vertical ──
+      const qrSize = 200;
+      const pad = 22;
+      const gap = 14;
+      const cardW = (W - pad * 2 - gap) / 2;   // ~(900-44-14)/2 = 421px cada una
+      const cardH = H - headerLineY - 80;
+      const card1X = pad;
+      const card2X = pad + cardW + gap;
+      const cardY = headerLineY + 18;
 
       const drawQRPanel = (cardX, qrCvs, icon, title, desc) => {
         const pcx = cardX + cardW / 2;
@@ -424,25 +423,25 @@ export default function Ratings() {
         ctx.restore();
 
         // Ícono emoji
-        ctx.font = '24px serif';
+        ctx.font = '20px serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(icon, pcx, cardY + 32);
+        ctx.fillText(icon, pcx, cardY + 28);
 
         // Título
         ctx.fillStyle = '#1e293b';
-        ctx.font = 'bold 19px Arial';
+        ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
-        ctx.fillText(title, pcx, cardY + 62);
+        ctx.fillText(title, pcx, cardY + 54);
 
         // Línea dorada bajo título
         ctx.fillStyle = accentColor;
-        ctx.fillRect(pcx - 26, cardY + 70, 52, 2);
+        ctx.fillRect(pcx - 22, cardY + 62, 44, 2);
 
-        // QR
+        // QR — centrado dentro de la tarjeta
         const qrX = pcx - qrSize / 2;
-        const qrY = cardY + 84;
+        const qrY = cardY + 72;
         if (qrCvs) {
           ctx.drawImage(qrCvs, qrX, qrY, qrSize, qrSize);
         } else {
@@ -450,7 +449,7 @@ export default function Ratings() {
           roundRect(ctx, qrX, qrY, qrSize, qrSize, 10);
           ctx.fill();
           ctx.fillStyle = '#94a3b8';
-          ctx.font = '13px Arial';
+          ctx.font = '12px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText('Sin link', pcx, qrY + qrSize / 2);
@@ -458,25 +457,25 @@ export default function Ratings() {
 
         // "Escanea aquí"
         ctx.fillStyle = '#64748b';
-        ctx.font = '600 13px Arial';
+        ctx.font = '600 12px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
-        ctx.fillText('▲  Escanea aquí  ▲', pcx, qrY + qrSize + 24);
+        ctx.fillText('▲  Escanea aquí  ▲', pcx, qrY + qrSize + 20);
 
         // Descripción
         if (desc) {
           ctx.fillStyle = '#475569';
-          ctx.font = 'italic 13px Arial';
+          ctx.font = 'italic 12px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'alphabetic';
-          const maxW = cardW - 48;
+          const maxW = cardW - 24;
           const words = desc.split(' ');
           let line = '';
-          let y = qrY + qrSize + 46;
+          let y = qrY + qrSize + 40;
           for (const word of words) {
             const test = line + (line ? ' ' : '') + word;
             if (ctx.measureText(test).width > maxW && line) {
-              ctx.fillText(line, pcx, y); line = word; y += 20;
+              ctx.fillText(line, pcx, y); line = word; y += 18;
             } else { line = test; }
           }
           if (line) ctx.fillText(line, pcx, y);
