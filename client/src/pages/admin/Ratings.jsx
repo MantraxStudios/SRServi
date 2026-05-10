@@ -421,14 +421,6 @@ export default function Ratings() {
       roundRect(ctx, 12, 12, W - 24, H - 24, 28);
       ctx.stroke();
 
-      // ── Franja dorada superior ──
-      ctx.save();
-      ctx.beginPath();
-      roundRect(ctx, 12, 12, W - 24, 10, 28);
-      ctx.fillStyle = accentColor;
-      ctx.fill();
-      ctx.restore();
-
       // ── 7. Logo ──
       if (logoImg) {
         ctx.save();
@@ -632,14 +624,6 @@ export default function Ratings() {
       ctx.fillText('&', cx, dmY);
 
       drawQRPanel(card2X, idealQrCanvas, '🎯', 'Cliente Ideal', idealQrDesc);
-
-      // ── Franja dorada inferior ──
-      ctx.save();
-      ctx.beginPath();
-      roundRect(ctx, 12, H - 22, W - 24, 10, 28);
-      ctx.fillStyle = accentColor;
-      ctx.fill();
-      ctx.restore();
 
       // ── Branding ──
       ctx.fillStyle = '#94a3b8';
