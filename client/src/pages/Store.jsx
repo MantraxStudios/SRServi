@@ -37,7 +37,8 @@ import {
   faEye,
   faEyeSlash,
   faFileExcel,
-  faUpload
+  faUpload,
+  faEllipsisV
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -103,6 +104,15 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
     isDragging,
   } = useSortable({ id: product.id });
 
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [menuOpen]);
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -124,16 +134,40 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
           {isOutOfStock && (
             <div className="out-of-stock-badge">Agotado</div>
           )}
-          <div className="store-prod-edit-overlay">
-            <button onClick={() => onEdit(product)} className="store-prod-edit-btn">
-              <FontAwesomeIcon icon={faEdit} />
+          <div className="store-prod-edit-overlay" style={{ position: 'relative' }}>
+            <button
+              className="store-prod-edit-btn"
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
+              style={{ fontSize: 15 }}
+            >
+              <FontAwesomeIcon icon={faEllipsisV} />
             </button>
-            <button onClick={() => onRecipe(product)} className="store-prod-edit-btn" title="Materias primas" style={{ background: '#D4AF37', color: '#000' }}>
-              <FontAwesomeIcon icon={faUtensils} />
-            </button>
-            <button onClick={() => onDelete(product)} className="store-prod-edit-btn danger">
-              <FontAwesomeIcon icon={faTrash} />
-            </button>
+            {menuOpen && (
+              <div style={{
+                position: 'absolute', top: '110%', right: 0, zIndex: 200,
+                background: '#fff', borderRadius: 10, boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
+                minWidth: 160, overflow: 'hidden'
+              }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEdit(product); setMenuOpen(false); }}
+                  style={{ width: '100%', padding: '11px 14px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 9, color: '#111' }}
+                >
+                  <FontAwesomeIcon icon={faEdit} style={{ color: '#555', width: 14 }} /> Editar
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onRecipe(product); setMenuOpen(false); }}
+                  style={{ width: '100%', padding: '11px 14px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 9, color: '#111', borderTop: '1px solid #f0f0f0' }}
+                >
+                  <FontAwesomeIcon icon={faUtensils} style={{ color: '#D4AF37', width: 14 }} /> Materias Primas
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(product); setMenuOpen(false); }}
+                  style={{ width: '100%', padding: '11px 14px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 9, color: '#e53e3e', borderTop: '1px solid #f0f0f0' }}
+                >
+                  <FontAwesomeIcon icon={faTrash} style={{ width: 14 }} /> Eliminar
+                </button>
+              </div>
+            )}
           </div>
           <div className="store-product-image">
             {product.image ? (
