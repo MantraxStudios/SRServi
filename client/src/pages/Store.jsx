@@ -125,8 +125,8 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
   const isOutOfStock = !isUnlimited && product.stock === 0;
 
   return (
-    <div ref={setNodeRef} style={style}>
-      <div className={`store-product-wrapper${isOutOfStock ? ' out-of-stock' : ''}`}>
+    <div ref={setNodeRef} style={{ ...style, zIndex: menuOpen ? 500 : (isDragging ? 1000 : 1) }}>
+      <div className={`store-product-wrapper${isOutOfStock ? ' out-of-stock' : ''}`} style={{ position: 'relative' }}>
         <div className="store-edit-drag-handle" {...attributes} {...listeners}>
           <FontAwesomeIcon icon={faGripVertical} />
         </div>
@@ -134,41 +134,6 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
           {isOutOfStock && (
             <div className="out-of-stock-badge">Agotado</div>
           )}
-          <div className="store-prod-edit-overlay" style={{ position: 'relative' }}>
-            <button
-              className="store-prod-edit-btn"
-              onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
-              style={{ fontSize: 15 }}
-            >
-              <FontAwesomeIcon icon={faEllipsisV} />
-            </button>
-            {menuOpen && (
-              <div style={{
-                position: 'absolute', top: '110%', right: 0, zIndex: 200,
-                background: '#fff', borderRadius: 10, boxShadow: '0 6px 24px rgba(0,0,0,0.18)',
-                minWidth: 160, overflow: 'hidden'
-              }}>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onEdit(product); setMenuOpen(false); }}
-                  style={{ width: '100%', padding: '11px 14px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 9, color: '#111' }}
-                >
-                  <FontAwesomeIcon icon={faEdit} style={{ color: '#555', width: 14 }} /> Editar
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onRecipe(product); setMenuOpen(false); }}
-                  style={{ width: '100%', padding: '11px 14px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 9, color: '#111', borderTop: '1px solid #f0f0f0' }}
-                >
-                  <FontAwesomeIcon icon={faUtensils} style={{ color: '#D4AF37', width: 14 }} /> Materias Primas
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onDelete(product); setMenuOpen(false); }}
-                  style={{ width: '100%', padding: '11px 14px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 9, color: '#e53e3e', borderTop: '1px solid #f0f0f0' }}
-                >
-                  <FontAwesomeIcon icon={faTrash} style={{ width: 14 }} /> Eliminar
-                </button>
-              </div>
-            )}
-          </div>
           <div className="store-product-image">
             {product.image ? (
               <img
@@ -180,6 +145,48 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
               <FontAwesomeIcon icon={faBox} className="placeholder-icon" />
             )}
           </div>
+        </div>
+
+        {/* 3-dot menu — outside the card so it's not clipped by overflow:hidden */}
+        <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 10 }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}
+            style={{
+              width: 30, height: 30, borderRadius: 8, border: 'none',
+              background: 'rgba(0,0,0,0.55)', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', fontSize: 14, backdropFilter: 'blur(4px)'
+            }}
+          >
+            <FontAwesomeIcon icon={faEllipsisV} />
+          </button>
+          {menuOpen && (
+            <div style={{
+              position: 'absolute', top: '110%', right: 0,
+              background: '#fff', borderRadius: 10,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.22)',
+              minWidth: 165, overflow: 'hidden', zIndex: 9999
+            }}>
+              <button
+                onClick={(e) => { e.stopPropagation(); onEdit(product); setMenuOpen(false); }}
+                style={{ width: '100%', padding: '12px 14px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10, color: '#111' }}
+              >
+                <FontAwesomeIcon icon={faEdit} style={{ color: '#555', width: 14 }} /> Editar
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onRecipe(product); setMenuOpen(false); }}
+                style={{ width: '100%', padding: '12px 14px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10, color: '#111', borderTop: '1px solid #f0f0f0' }}
+              >
+                <FontAwesomeIcon icon={faUtensils} style={{ color: '#D4AF37', width: 14 }} /> Materias Primas
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete(product); setMenuOpen(false); }}
+                style={{ width: '100%', padding: '12px 14px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10, color: '#e53e3e', borderTop: '1px solid #f0f0f0' }}
+              >
+                <FontAwesomeIcon icon={faTrash} style={{ width: 14 }} /> Eliminar
+              </button>
+            </div>
+          )}
         </div>
         <div className="store-product-info">
           {product.description && (

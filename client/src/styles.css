@@ -8447,7 +8447,7 @@ html body .store-container .store-product-card * {
   min-width: 44px;
 }
 
-/* Product card edit overlay */
+/* Product card edit overlay (used in complement rows) */
 .store-prod-edit-overlay {
   position: absolute;
   top: 4px;
@@ -8456,10 +8456,10 @@ html body .store-container .store-product-card * {
 }
 
 .store-prod-edit-btn {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: rgba(0,0,0,0.6);
   color: #fff;
   font-size: 12px;
