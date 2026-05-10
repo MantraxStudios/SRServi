@@ -404,6 +404,7 @@ function Store() {
   const categoryRef = useRef(null);
   const productsAreaRef = useRef(null);
   const storeIdRef = useRef(null);
+  const storeContainerRef = useRef(null);
   const prodRecipeRef = useRef(null);
   const compRecipeRef = useRef(null);
   const editCompRecipeRef = useRef(null);
@@ -649,29 +650,32 @@ function Store() {
     };
   }, []);
 
-  // Swipe horizontal sobre el área de productos para cambiar categoría
+  // Swipe horizontal sobre el store container para cambiar categoría
   useEffect(() => {
-    const el = productsAreaRef.current;
-    if (!el) return;
+    const el = storeContainerRef.current;
+    if (!el || editMode) return;
     let startX = 0;
     let startY = 0;
+    let startTime = 0;
 
     const onTouchStart = (e) => {
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
+      startTime = Date.now();
     };
 
     const onTouchEnd = (e) => {
       const dx = e.changedTouches[0].clientX - startX;
       const dy = e.changedTouches[0].clientY - startY;
-      // Solo swipe horizontal claro (más horizontal que vertical y mínimo 60px)
-      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      const elapsed = Date.now() - startTime;
+      // Require: min 80px, clearly horizontal (2:1 ratio), within 600ms
+      if (elapsed > 600 || Math.abs(dx) < 80 || Math.abs(dx) < Math.abs(dy) * 2) return;
 
       setActiveCategory(prev => {
         const cats = ['all', ...(store?.categories || []).map(c => c.name)];
         const idx = cats.indexOf(prev);
-        if (dx < 0) return cats[Math.min(idx + 1, cats.length - 1)]; // swipe izquierda → siguiente
-        return cats[Math.max(idx - 1, 0)];                            // swipe derecha  → anterior
+        if (dx < 0) return cats[Math.min(idx + 1, cats.length - 1)];
+        return cats[Math.max(idx - 1, 0)];
       });
     };
 
@@ -681,7 +685,7 @@ function Store() {
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchend', onTouchEnd);
     };
-  }, [store?.categories]);
+  }, [store?.categories, editMode]);
 
   // Auto-scroll del tab de categoría activa al cambiar con swipe
   useEffect(() => {
@@ -3067,6 +3071,7 @@ function Store() {
   return (
     <PluginProvider mode="store">
     <div
+      ref={storeContainerRef}
       className="store-container"
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}

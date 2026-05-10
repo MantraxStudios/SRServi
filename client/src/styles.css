@@ -265,8 +265,10 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
 }
 
-.input-icon-wrapper input {
-  padding-left: 44px;
+.input-icon-wrapper input,
+.input-icon-wrapper select,
+.input-icon-wrapper textarea {
+  padding-left: 44px !important;
 }
 
 /* ============================================

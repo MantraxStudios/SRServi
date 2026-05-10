@@ -264,7 +264,7 @@ function Register() {
                 value={formData.country}
                 onChange={handleChange}
                 required
-                style={{ paddingLeft: '36px', width: '100%', appearance: 'none' }}
+                style={{ width: '100%', appearance: 'none' }}
               >
                 <option value="">Selecciona tu país...</option>
                 {COUNTRIES.map(c => (
