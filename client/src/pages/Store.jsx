@@ -374,6 +374,9 @@ function Store() {
   const [rmSaving, setRmSaving] = useState(false);
   const [rmModal, setRmModal] = useState(null); // null | 'new' | rmObject
   const [rmForm, setRmForm] = useState({ name: '', quantity: '', unit: 'unidades', min_quantity: '', cost_per_unit: '' });
+  const [rmSearch, setRmSearch] = useState('');
+  const [rmRestockId, setRmRestockId] = useState(null);
+  const [rmRestockValue, setRmRestockValue] = useState('');
   const [styleEditorOpen, setStyleEditorOpen] = useState(false);
   const [showExcelModal, setShowExcelModal] = useState(false);
   const [excelStep, setExcelStep] = useState('upload');
@@ -3524,14 +3527,6 @@ function Store() {
           <div className="store-editor-complements">
             <div className="store-editor-comp-header">
               <span>Inventario</span>
-              {invTab === 'raw' && (
-                <button
-                  onClick={() => { setRmForm({ name: '', quantity: '', unit: 'unidades', min_quantity: '', cost_per_unit: '' }); setRmModal('new'); }}
-                  style={{ background: 'var(--store-primary)', border: 'none', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', color: 'var(--store-secondary)', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <FontAwesomeIcon icon={faPlus} /> Nueva
-                </button>
-              )}
             </div>
 
             <div style={{ display: 'flex', gap: '3px', margin: '8px 0', background: '#f5f5f5', borderRadius: '8px', padding: '4px', flexWrap: 'wrap' }}>
@@ -3551,67 +3546,147 @@ function Store() {
               ))}
             </div>
 
-            {invTab === 'raw' ? (
-              rmLoading ? (
-                <span style={{ color: '#999', fontSize: '13px', padding: '16px 8px', display: 'block', textAlign: 'center' }}>Cargando…</span>
-              ) : rawMats.length === 0 ? (
-                <span style={{ color: '#999', fontSize: '13px', padding: '16px 8px', display: 'block', textAlign: 'center' }}>Sin materias primas</span>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {rawMats.map(rm => {
-                    const b = rmBadge(rm);
-                    const isEditing = rmEditingId === rm.id;
-                    const qty = parseFloat(rm.quantity) || 0;
-                    return (
-                      <div key={rm.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', borderRadius: '8px', background: '#fafafa', border: '1px solid #eee' }}>
-                        <FontAwesomeIcon icon={faFlask} style={{ color: '#D4AF37', fontSize: '12px', flexShrink: 0 }} />
-                        <span style={{ flex: 1, fontSize: '12px', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rm.name}</span>
-                        <span style={{ fontSize: '10px', color: '#888', flexShrink: 0 }}>{rm.unit}</span>
-                        <span style={{ fontSize: '10px', fontWeight: '700', color: b.color, flexShrink: 0 }}>{b.label}</span>
-                        {isEditing ? (
-                          <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
-                            <input
-                              type="number" min="0" step="0.01" value={rmEditValue}
-                              onChange={e => setRmEditValue(e.target.value)}
-                              onKeyDown={async e => {
-                                if (e.key === 'Enter') { await updateRmQty(rm, parseFloat(rmEditValue) || 0); setRmEditingId(null); }
-                                if (e.key === 'Escape') setRmEditingId(null);
-                              }}
-                              autoFocus
-                              style={{ width: '58px', padding: '3px 5px', border: '1px solid var(--store-primary)', borderRadius: '5px', fontSize: '12px', textAlign: 'center', outline: 'none' }}
-                            />
-                            <button
-                              onClick={async () => { await updateRmQty(rm, parseFloat(rmEditValue) || 0); setRmEditingId(null); }}
-                              disabled={rmSaving}
-                              style={{ background: 'var(--store-primary)', border: 'none', borderRadius: '4px', padding: '3px 6px', cursor: 'pointer', color: 'var(--store-secondary)', fontSize: '11px' }}
-                            >✓</button>
-                            <button onClick={() => setRmEditingId(null)} style={{ background: '#eee', border: 'none', borderRadius: '4px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
+            {invTab === 'raw' ? (() => {
+              const rmAlerts = rawMats.filter(rm => {
+                const q = parseFloat(rm.quantity) || 0, m = parseFloat(rm.min_quantity) || 0;
+                return q <= 0 || (m > 0 && q <= m);
+              }).length;
+              const filteredRm = rawMats.filter(rm => !rmSearch || rm.name.toLowerCase().includes(rmSearch.toLowerCase()));
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {/* Alert banner */}
+                  {rmAlerts > 0 && (
+                    <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FontAwesomeIcon icon={faExclamationTriangle} />
+                      <span><strong>{rmAlerts}</strong> materia{rmAlerts > 1 ? 's' : ''} prima{rmAlerts > 1 ? 's' : ''} con stock bajo o agotado</span>
+                    </div>
+                  )}
+
+                  {/* Search + New button */}
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input
+                      value={rmSearch}
+                      onChange={e => setRmSearch(e.target.value)}
+                      placeholder="Buscar materia prima…"
+                      style={{ flex: 1, padding: '6px 10px', border: '1px solid #ddd', borderRadius: '7px', fontSize: '12px', outline: 'none', minWidth: 0 }}
+                    />
+                    <button
+                      onClick={() => { setRmForm({ name: '', quantity: '', unit: 'unidades', min_quantity: '', cost_per_unit: '' }); setRmModal('new'); }}
+                      style={{ background: 'var(--store-primary)', border: 'none', borderRadius: '7px', padding: '6px 12px', cursor: 'pointer', color: 'var(--store-secondary)', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}
+                    >
+                      <FontAwesomeIcon icon={faPlus} /> Nueva
+                    </button>
+                  </div>
+
+                  {/* List */}
+                  {rmLoading ? (
+                    <span style={{ color: '#999', fontSize: '13px', padding: '16px 8px', display: 'block', textAlign: 'center' }}>Cargando…</span>
+                  ) : filteredRm.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px 8px', color: '#aaa' }}>
+                      <FontAwesomeIcon icon={faFlask} style={{ fontSize: '22px', marginBottom: '8px', display: 'block' }} />
+                      <span style={{ fontSize: '12px' }}>{rawMats.length === 0 ? 'Sin materias primas. Crea la primera.' : 'Sin resultados'}</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {filteredRm.map(rm => {
+                        const b = rmBadge(rm);
+                        const isEditing = rmEditingId === rm.id;
+                        const isRestock = rmRestockId === rm.id;
+                        const qty = parseFloat(rm.quantity) || 0;
+                        return (
+                          <div key={rm.id} style={{ borderRadius: '10px', background: qty <= 0 ? 'rgba(239,68,68,0.04)' : '#fafafa', border: `1px solid ${qty <= 0 ? 'rgba(239,68,68,0.2)' : '#eee'}`, overflow: 'hidden' }}>
+                            {/* Main row */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 10px' }}>
+                              <FontAwesomeIcon icon={faFlask} style={{ color: '#D4AF37', fontSize: '12px', flexShrink: 0 }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '13px', fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rm.name}</div>
+                                {rm.cost_per_unit > 0 && (
+                                  <div style={{ fontSize: '10px', color: '#999' }}>${parseFloat(rm.cost_per_unit).toFixed(2)}/{rm.unit}</div>
+                                )}
+                              </div>
+
+                              {/* Quantity — click to edit */}
+                              {isEditing ? (
+                                <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+                                  <input type="number" min="0" step="0.01" value={rmEditValue}
+                                    onChange={e => setRmEditValue(e.target.value)}
+                                    onKeyDown={async e => {
+                                      if (e.key === 'Enter') { await updateRmQty(rm, parseFloat(rmEditValue) || 0); setRmEditingId(null); }
+                                      if (e.key === 'Escape') setRmEditingId(null);
+                                    }}
+                                    autoFocus
+                                    style={{ width: '60px', padding: '3px 5px', border: '1px solid var(--store-primary)', borderRadius: '5px', fontSize: '12px', textAlign: 'center', outline: 'none' }}
+                                  />
+                                  <button onClick={async () => { await updateRmQty(rm, parseFloat(rmEditValue) || 0); setRmEditingId(null); }} disabled={rmSaving}
+                                    style={{ background: '#22c55e', border: 'none', borderRadius: '4px', padding: '3px 7px', cursor: 'pointer', color: '#fff', fontSize: '11px' }}>✓</button>
+                                  <button onClick={() => setRmEditingId(null)}
+                                    style={{ background: '#eee', border: 'none', borderRadius: '4px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px' }}>✕</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => { setRmEditingId(rm.id); setRmEditValue(String(qty)); setRmRestockId(null); }}
+                                  title="Clic para ajustar cantidad"
+                                  style={{ background: 'none', border: '1px dashed #bbb', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: b.color, minWidth: '42px', textAlign: 'center' }}
+                                >
+                                  {qty % 1 === 0 ? qty : qty.toFixed(2)}
+                                </button>
+                              )}
+
+                              <span style={{ fontSize: '10px', color: '#888', flexShrink: 0 }}>{rm.unit}</span>
+
+                              {/* Status badge */}
+                              <span style={{ fontSize: '10px', fontWeight: '700', color: b.color, background: b.color + '18', borderRadius: '20px', padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0 }}>{b.label}</span>
+
+                              {/* Actions */}
+                              <button onClick={() => { setRmRestockId(isRestock ? null : rm.id); setRmRestockValue(''); setRmEditingId(null); }}
+                                title="Reponer stock"
+                                style={{ background: isRestock ? '#16a34a' : 'rgba(34,197,94,0.12)', border: `1px solid ${isRestock ? '#16a34a' : 'rgba(34,197,94,0.3)'}`, borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', color: isRestock ? '#fff' : '#16a34a', fontSize: '11px', flexShrink: 0 }}>
+                                <FontAwesomeIcon icon={faPlus} />
+                              </button>
+                              <button onClick={() => { setRmForm({ name: rm.name, quantity: String(qty), unit: rm.unit, min_quantity: rm.min_quantity > 0 ? String(rm.min_quantity) : '', cost_per_unit: rm.cost_per_unit > 0 ? String(rm.cost_per_unit) : '' }); setRmModal(rm); }}
+                                title="Editar"
+                                style={{ background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: '#b45309', flexShrink: 0 }}>
+                                <FontAwesomeIcon icon={faEdit} /></button>
+                              <button onClick={() => deleteRm(rm)} title="Eliminar"
+                                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: '#ef4444', flexShrink: 0 }}>
+                                <FontAwesomeIcon icon={faTrash} /></button>
+                            </div>
+
+                            {/* Restock row */}
+                            {isRestock && (
+                              <div style={{ display: 'flex', gap: '5px', padding: '8px 10px', borderTop: '1px solid #e5e7eb', background: '#f0fdf4', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: '700', flexShrink: 0 }}>+ Reponer:</span>
+                                <input type="number" min="0" step="0.01" autoFocus value={rmRestockValue}
+                                  onChange={e => setRmRestockValue(e.target.value)}
+                                  onKeyDown={async e => {
+                                    if (e.key === 'Enter') {
+                                      const add = parseFloat(rmRestockValue) || 0;
+                                      await updateRmQty(rm, qty + add);
+                                      setRmRestockId(null); setRmRestockValue('');
+                                    }
+                                    if (e.key === 'Escape') setRmRestockId(null);
+                                  }}
+                                  placeholder={`Agregar a ${qty % 1 === 0 ? qty : qty.toFixed(2)} ${rm.unit}`}
+                                  style={{ flex: 1, padding: '5px 8px', border: '1px solid #86efac', borderRadius: '6px', fontSize: '12px', outline: 'none', minWidth: 0 }}
+                                />
+                                <button onClick={async () => { const add = parseFloat(rmRestockValue) || 0; await updateRmQty(rm, qty + add); setRmRestockId(null); setRmRestockValue(''); }}
+                                  disabled={rmSaving || !rmRestockValue}
+                                  style={{ background: '#16a34a', border: 'none', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer', color: '#fff', fontSize: '12px', fontWeight: '700', flexShrink: 0, opacity: !rmRestockValue ? 0.5 : 1 }}>
+                                  Agregar
+                                </button>
+                                <button onClick={() => setRmRestockId(null)}
+                                  style={{ background: '#eee', border: 'none', borderRadius: '6px', padding: '5px 8px', cursor: 'pointer', fontSize: '11px', flexShrink: 0 }}>✕</button>
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <span
-                            onClick={() => { setRmEditingId(rm.id); setRmEditValue(String(qty)); }}
-                            title="Clic para editar cantidad"
-                            style={{ cursor: 'pointer', fontSize: '12px', fontWeight: '700', minWidth: '36px', textAlign: 'center', borderBottom: '1px dashed #bbb' }}
-                          >
-                            {qty % 1 === 0 ? qty : qty.toFixed(2)}
-                          </span>
-                        )}
-                        <button
-                          onClick={() => { setRmForm({ name: rm.name, quantity: String(qty), unit: rm.unit, min_quantity: rm.min_quantity > 0 ? String(rm.min_quantity) : '', cost_per_unit: rm.cost_per_unit > 0 ? String(rm.cost_per_unit) : '' }); setRmModal(rm); }}
-                          title="Editar"
-                          style={{ background: '#eee', border: 'none', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: '#555' }}
-                        ><FontAwesomeIcon icon={faEdit} /></button>
-                        <button
-                          onClick={() => deleteRm(rm)}
-                          title="Eliminar"
-                          style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '5px', padding: '3px 6px', cursor: 'pointer', fontSize: '11px', color: '#ef4444' }}
-                        ><FontAwesomeIcon icon={faTrash} /></button>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )
-            ) : invItems.length === 0 ? (
+              );
+            })() : invItems.length === 0 ? (
               <span style={{ color: '#999', fontSize: '13px', padding: '16px 8px', display: 'block', textAlign: 'center' }}>Sin ítems</span>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
