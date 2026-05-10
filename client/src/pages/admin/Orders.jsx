@@ -11,6 +11,8 @@ function Orders() {
   const [loading, setLoading] = useState(true);
   const [cashRegister, setCashRegister] = useState(null);
   const [cashLoading, setCashLoading] = useState(false);
+  const [showOpenCashModal, setShowOpenCashModal] = useState(false);
+  const [cashOpeningAmount, setCashOpeningAmount] = useState('');
 
   // CSV export — opens natively in Excel. Uses UTF-8 BOM and semicolon
   // separator so Excel in Spanish locales parses it correctly.
@@ -98,11 +100,13 @@ function Orders() {
       const res = await fetch('/api/admin/cash-register/open', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store_id: selectedStore.id })
+        body: JSON.stringify({ store_id: selectedStore.id, opening_amount: parseFloat(cashOpeningAmount) || 0 })
       });
       const data = await res.json();
       if (!res.ok) { alert(data.error || 'Error al abrir caja'); return; }
       setCashRegister(data);
+      setCashOpeningAmount('');
+      setShowOpenCashModal(false);
     } catch (e) {
       alert('Error de conexión al abrir la caja');
     } finally {
@@ -192,13 +196,18 @@ function Orders() {
                 {cashRegister && (
                   <div className="text-sm text-muted">
                     Abierta por {cashRegister.worker_name} · {new Date(cashRegister.opened_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                    {cashRegister.opening_amount > 0 && (
+                      <span style={{ marginLeft: 8, color: '#D4AF37', fontWeight: 700 }}>
+                        · Apertura: ${Number(cashRegister.opening_amount).toLocaleString('es-CL')}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
             </div>
             <button
               className={`btn ${cashRegister ? 'btn-danger' : 'btn-success'}`}
-              onClick={cashRegister ? closeAdminCashRegister : openAdminCashRegister}
+              onClick={cashRegister ? closeAdminCashRegister : () => setShowOpenCashModal(true)}
               disabled={cashLoading}
             >
               <FontAwesomeIcon icon={cashRegister ? faLock : faLockOpen} />
@@ -268,6 +277,59 @@ function Orders() {
           </div>
         )}
       </div>
+
+      {showOpenCashModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }} onClick={() => setShowOpenCashModal(false)}>
+          <div style={{
+            background: '#fff', borderRadius: 16, padding: '28px 24px',
+            width: '100%', maxWidth: 380, boxShadow: '0 8px 40px rgba(0,0,0,0.18)'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+              <FontAwesomeIcon icon={faCashRegister} style={{ fontSize: 22, color: '#D4AF37' }} />
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1e293b' }}>Abrir Caja</h3>
+            </div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#64748b', marginBottom: 8 }}>
+              Efectivo en caja al abrir
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0"
+              value={cashOpeningAmount}
+              onChange={e => setCashOpeningAmount(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') openAdminCashRegister(); if (e.key === 'Escape') setShowOpenCashModal(false); }}
+              autoFocus
+              style={{
+                width: '100%', padding: '14px', borderRadius: 10,
+                border: '2px solid #e2e8f0', fontSize: 22, fontWeight: 700,
+                textAlign: 'center', outline: 'none', boxSizing: 'border-box',
+                color: '#1e293b', marginBottom: 20
+              }}
+            />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                className="btn btn-success"
+                style={{ flex: 1 }}
+                onClick={openAdminCashRegister}
+                disabled={cashLoading}
+              >
+                <FontAwesomeIcon icon={faLockOpen} />
+                {cashLoading ? ' Abriendo...' : ' Abrir Caja'}
+              </button>
+              <button
+                className="btn"
+                onClick={() => { setShowOpenCashModal(false); setCashOpeningAmount(''); }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

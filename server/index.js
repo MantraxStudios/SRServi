@@ -9218,11 +9218,11 @@ async function startServer() {
     app.post('/api/admin/cash-register/open', authenticateToken, async (req, res) => {
       try {
         if (req.user.type === 'worker') return res.status(403).json({ error: 'Usar /api/cash-register/open para trabajadores' });
-        const { store_id } = req.body;
+        const { store_id, opening_amount } = req.body;
         if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
         const [storeRows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
         if (!storeRows.length) return res.status(403).json({ error: 'Acceso denegado' });
-        const register = await openCashRegister(store_id, 0, 'Administrador');
+        const register = await openCashRegister(store_id, 0, 'Administrador', opening_amount);
         io.to(`store_${store_id}`).emit('cash_register_changed', { open: true, register });
         res.json(register);
       } catch (err) { res.status(400).json({ error: err.message }); }
@@ -9249,10 +9249,11 @@ async function startServer() {
       try {
         if (req.user.type !== 'worker') return res.status(403).json({ error: 'Solo trabajadores pueden abrir la caja' });
         const storeId = req.user.store_id;
+        const { opening_amount } = req.body;
         const [workerRows] = await pool.execute('SELECT * FROM workers WHERE id = ?', [req.user.id]);
         const worker = workerRows[0];
         if (!worker) return res.status(404).json({ error: 'Trabajador no encontrado' });
-        const register = await openCashRegister(storeId, worker.id, worker.name || worker.username);
+        const register = await openCashRegister(storeId, worker.id, worker.name || worker.username, opening_amount);
         io.to(`store_${storeId}`).emit('cash_register_changed', { open: true, register });
         res.json(register);
       } catch (err) {

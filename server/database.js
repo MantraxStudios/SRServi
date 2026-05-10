@@ -476,6 +476,7 @@ async function createTables() {
       store_id INT NOT NULL,
       worker_id INT NOT NULL,
       worker_name VARCHAR(255) NOT NULL,
+      opening_amount DECIMAL(10,2) DEFAULT 0,
       opened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       closed_at TIMESTAMP NULL,
       closed_by VARCHAR(20) DEFAULT 'manual',
@@ -1290,6 +1291,16 @@ async function migrateTables() {
       console.log('ℹ️ Duplicados de inventory limpiados');
     } catch (err) {
       console.error('❌ Error limpiando inventory duplicados:', err.message);
+    }
+
+    try {
+      const [crCols] = await pool.execute('SHOW COLUMNS FROM cash_registers');
+      if (!crCols.map(c => c.Field).includes('opening_amount')) {
+        await pool.execute('ALTER TABLE cash_registers ADD COLUMN opening_amount DECIMAL(10,2) DEFAULT 0 AFTER worker_name');
+        console.log('✅ Columna opening_amount agregada a cash_registers');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando cash_registers:', err.message);
     }
 
     console.log('✅ Migración de tablas completada');
@@ -3830,15 +3841,15 @@ export async function saveChatGptKey(userId, apiKey) {
 // CAJA (CASH REGISTER)
 // ============================================================
 
-export async function openCashRegister(storeId, workerId, workerName) {
+export async function openCashRegister(storeId, workerId, workerName, openingAmount = 0) {
   const [open] = await pool.execute(
     'SELECT id FROM cash_registers WHERE store_id = ? AND closed_at IS NULL',
     [storeId]
   );
   if (open.length > 0) throw new Error('Ya hay una caja abierta para esta tienda');
   const [result] = await pool.execute(
-    'INSERT INTO cash_registers (store_id, worker_id, worker_name) VALUES (?, ?, ?)',
-    [storeId, workerId, workerName]
+    'INSERT INTO cash_registers (store_id, worker_id, worker_name, opening_amount) VALUES (?, ?, ?, ?)',
+    [storeId, workerId, workerName, parseFloat(openingAmount) || 0]
   );
   const [rows] = await pool.execute('SELECT * FROM cash_registers WHERE id = ?', [result.insertId]);
   return rows[0];

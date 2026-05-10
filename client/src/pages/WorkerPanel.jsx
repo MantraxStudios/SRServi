@@ -318,6 +318,7 @@ function WorkerPanel() {
   const [cashRegister, setCashRegister] = useState(null);
   const [cashLoading, setCashLoading] = useState(false);
   const [showCashModal, setShowCashModal] = useState(false);
+  const [cashOpeningAmount, setCashOpeningAmount] = useState('');
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [completingTask, setCompletingTask] = useState(null);
@@ -456,11 +457,13 @@ function WorkerPanel() {
     try {
       const res = await fetch('/api/cash-register/open', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opening_amount: parseFloat(cashOpeningAmount) || 0 })
       });
       const data = await res.json();
       if (!res.ok) { alert(data.error || 'Error al abrir caja'); return; }
       setCashRegister(data);
+      setCashOpeningAmount('');
       setShowCashModal(false);
     } catch (e) {
       alert('Error de conexión');
@@ -1443,6 +1446,11 @@ function WorkerPanel() {
                     <p style={{ color: '#555', fontSize: '12px', margin: '4px 0 0' }}>
                       Desde: {new Date(cashRegister.opened_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                     </p>
+                    {cashRegister.opening_amount > 0 && (
+                      <p style={{ color: '#D4AF37', fontSize: '13px', fontWeight: 700, margin: '6px 0 0' }}>
+                        Apertura: ${Number(cashRegister.opening_amount).toLocaleString('es-CL')}
+                      </p>
+                    )}
                   </div>
                   <button
                     onClick={closeCashRegisterFn}
@@ -1461,12 +1469,33 @@ function WorkerPanel() {
                 </>
               ) : (
                 <>
-                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                     <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(239,68,68,0.1)', border: '2px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                       <FontAwesomeIcon icon={faLock} style={{ fontSize: '28px', color: '#ef4444' }} />
                     </div>
-                    <p style={{ color: '#fff', fontWeight: 700, fontSize: '15px', margin: '0 0 6px' }}>Sin caja abierta</p>
+                    <p style={{ color: '#fff', fontWeight: 700, fontSize: '15px', margin: '0 0 4px' }}>Sin caja abierta</p>
                     <p style={{ color: '#666', fontSize: '13px', margin: 0 }}>Debes abrir la caja para poder atender pedidos</p>
+                  </div>
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ display: 'block', color: '#aaa', fontSize: '12px', fontWeight: 600, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Efectivo en caja al abrir
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0"
+                      value={cashOpeningAmount}
+                      onChange={e => setCashOpeningAmount(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') openCashRegisterFn(); }}
+                      autoFocus
+                      style={{
+                        width: '100%', padding: '12px 14px', borderRadius: '10px',
+                        border: '1.5px solid #333', background: '#111',
+                        color: '#fff', fontSize: '20px', fontWeight: 700,
+                        outline: 'none', boxSizing: 'border-box', textAlign: 'center'
+                      }}
+                    />
                   </div>
                   <button
                     onClick={openCashRegisterFn}
