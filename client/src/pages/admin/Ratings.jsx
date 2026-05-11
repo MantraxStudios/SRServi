@@ -371,7 +371,7 @@ export default function Ratings() {
       ctx.fillStyle = accentColor;
       ctx.fillRect(12, 12, W - 24, 8);
 
-      // ── Logo ──
+      // ── Logo (cover — preserva aspect ratio) ──
       const logoSize = 100;
       const logoY = 68;
       if (logoImg) {
@@ -379,7 +379,10 @@ export default function Ratings() {
         ctx.beginPath();
         ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
         ctx.clip();
-        ctx.drawImage(logoImg, cx - logoSize / 2, logoY, logoSize, logoSize);
+        const ls = Math.max(logoSize / logoImg.naturalWidth, logoSize / logoImg.naturalHeight);
+        const ldw2 = logoImg.naturalWidth * ls;
+        const ldh2 = logoImg.naturalHeight * ls;
+        ctx.drawImage(logoImg, cx - ldw2 / 2, logoY + logoSize / 2 - ldh2 / 2, ldw2, ldh2);
         ctx.restore();
         ctx.strokeStyle = accentColor;
         ctx.lineWidth = 4;
@@ -543,7 +546,7 @@ export default function Ratings() {
       const cardW = (W - pad * 2 - gap) / 2;
       const qrSize = 280;
       const cardH = 460;
-      const promoImgH = 280;
+      const promoImgH = 400;
       const hasPromo = activePromo.length > 0;
       const hasGiftText = !!promoGiftText.trim();
       const promoSectionH = hasPromo ? promoImgH + 60 : 0;
@@ -595,13 +598,16 @@ export default function Ratings() {
       roundRect(ctx, 12, 12, W - 24, H - 24, 28);
       ctx.stroke();
 
-      // ── 7. Logo ──
+      // ── 7. Logo (cover — preserva aspect ratio) ──
       if (logoImg) {
         ctx.save();
         ctx.beginPath();
         ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
         ctx.clip();
-        ctx.drawImage(logoImg, cx - logoSize / 2, logoY, logoSize, logoSize);
+        const logoScale = Math.max(logoSize / logoImg.naturalWidth, logoSize / logoImg.naturalHeight);
+        const ldw = logoImg.naturalWidth * logoScale;
+        const ldh = logoImg.naturalHeight * logoScale;
+        ctx.drawImage(logoImg, cx - ldw / 2, logoY + logoSize / 2 - ldh / 2, ldw, ldh);
         ctx.restore();
         ctx.strokeStyle = accentColor;
         ctx.lineWidth = 4;
