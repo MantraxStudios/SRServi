@@ -121,6 +121,24 @@ function Complements() {
       const savedItem = await response.json();
       await recipeEditorRef.current?.save(savedItem.id);
 
+      // Update items state immediately without waiting for fetchAll
+      const cat = categories.find(c => c.id === parseInt(savedItem.category_id));
+      const itemWithType = {
+        ...savedItem,
+        _type: type,
+        unlimited_stock: savedItem.unlimited_stock,
+        category_name: cat?.name || null,
+      };
+      if (editingItem) {
+        setItems(prev => prev.map(i =>
+          i.id === editingItem.id && i._type === type
+            ? { ...i, ...itemWithType }
+            : i
+        ));
+      } else {
+        setItems(prev => [...prev, itemWithType]);
+      }
+
       setShowModal(false);
       setEditingItem(null);
       resetForm();
@@ -162,6 +180,7 @@ function Complements() {
         throw new Error(`Error al eliminar el ${label}`);
       }
 
+      setItems(prev => prev.filter(i => !(i.id === item.id && i._type === item._type)));
       fetchAll();
     } catch (error) {
       alert(error.message);
