@@ -1643,6 +1643,7 @@ app.get('/api/store-clasificacion', authenticateToken, async (req, res) => {
 app.put('/api/store-clasificacion', authenticateToken, upload.fields([
   { name: 'image1', maxCount: 1 },
   { name: 'image2', maxCount: 1 },
+  { name: 'image3', maxCount: 1 },
 ]), async (req, res) => {
   try {
     await pool.execute(`CREATE TABLE IF NOT EXISTS store_clasificacion (
@@ -1654,25 +1655,29 @@ app.put('/api/store-clasificacion', authenticateToken, upload.fields([
       promo_gift_text VARCHAR(500),
       promo_image1 VARCHAR(500),
       promo_image2 VARCHAR(500),
+      promo_image3 VARCHAR(500),
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )`);
-    const { store_id, google_url, google_qr_desc, ideal_qr_desc, promo_gift_text, image1_existing, image2_existing } = req.body;
+    // Add promo_image3 column if missing (migration)
+    try { await pool.execute(`ALTER TABLE store_clasificacion ADD COLUMN promo_image3 VARCHAR(500)`); } catch {}
+    const { store_id, google_url, google_qr_desc, ideal_qr_desc, promo_gift_text, image1_existing, image2_existing, image3_existing } = req.body;
     if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
     const [storeRows] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [store_id, req.user.id]);
     if (!storeRows.length) return res.status(403).json({ error: 'No autorizado' });
     const image1Url = req.files?.image1?.[0] ? `/uploads/${req.files.image1[0].filename}` : (image1_existing || null);
     const image2Url = req.files?.image2?.[0] ? `/uploads/${req.files.image2[0].filename}` : (image2_existing || null);
+    const image3Url = req.files?.image3?.[0] ? `/uploads/${req.files.image3[0].filename}` : (image3_existing || null);
     await pool.execute(
-      `INSERT INTO store_clasificacion (store_id, google_url, google_qr_desc, ideal_qr_desc, promo_gift_text, promo_image1, promo_image2)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO store_clasificacion (store_id, google_url, google_qr_desc, ideal_qr_desc, promo_gift_text, promo_image1, promo_image2, promo_image3)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          google_url = VALUES(google_url), google_qr_desc = VALUES(google_qr_desc),
          ideal_qr_desc = VALUES(ideal_qr_desc), promo_gift_text = VALUES(promo_gift_text),
-         promo_image1 = VALUES(promo_image1), promo_image2 = VALUES(promo_image2)`,
-      [store_id, google_url || '', google_qr_desc || '', ideal_qr_desc || '', promo_gift_text || '', image1Url, image2Url]
+         promo_image1 = VALUES(promo_image1), promo_image2 = VALUES(promo_image2), promo_image3 = VALUES(promo_image3)`,
+      [store_id, google_url || '', google_qr_desc || '', ideal_qr_desc || '', promo_gift_text || '', image1Url, image2Url, image3Url]
     );
-    res.json({ success: true, promo_image1: image1Url, promo_image2: image2Url });
+    res.json({ success: true, promo_image1: image1Url, promo_image2: image2Url, promo_image3: image3Url });
   } catch (e) { console.error('Error saving clasificacion:', e); res.status(500).json({ error: e.message }); }
 });
 

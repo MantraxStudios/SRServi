@@ -147,7 +147,7 @@ export default function Ratings() {
   const [surveyDateFrom, setSurveyDateFrom] = useState('');
   const [surveyDateTo, setSurveyDateTo] = useState('');
 
-  const [promoImages, setPromoImages] = useState([null, null]);
+  const [promoImages, setPromoImages] = useState([null, null, null]);
   const [promoGiftText, setPromoGiftText] = useState('');
 
   const handlePromoImage = (index, file) => {
@@ -215,7 +215,7 @@ export default function Ratings() {
         setGoogleQrDesc(d.google_qr_desc || '');
         setIdealQrDesc(d.ideal_qr_desc || '');
         setPromoGiftText(d.promo_gift_text || '');
-        setPromoImages([d.promo_image1 || null, d.promo_image2 || null]);
+        setPromoImages([d.promo_image1 || null, d.promo_image2 || null, d.promo_image3 || null]);
       })
       .catch(() => {});
   }, [selectedStore?.id, token]);
@@ -297,7 +297,7 @@ export default function Ratings() {
       if (res.ok) {
         const data = await res.json();
         // Update state to server URLs so next save won't re-upload
-        setPromoImages([data.promo_image1 || null, data.promo_image2 || null]);
+        setPromoImages([data.promo_image1 || null, data.promo_image2 || null, data.promo_image3 || null]);
         setClasificacionSaved(true);
         setTimeout(() => setClasificacionSaved(false), 2500);
       }
@@ -656,11 +656,16 @@ export default function Ratings() {
         ctx.fillText('↓  Escanea los códigos QR abajo  ↓', cx, badgeY + 28);
       }
 
-      // ── 10. Imagen de producto/premio (solo 1, ancho completo) ──
-      if (hasPromo && activePromo[0]) {
+      // ── 10. Imágenes de producto/premio (1-3, ancho dividido equitativamente) ──
+      if (hasPromo) {
         const promoTopY = badgeY + 68;
-        const iw = W - pad * 2;
-        drawImageCover(ctx, activePromo[0], pad, promoTopY, iw, promoImgH, 36);
+        const n = activePromo.length;
+        const gapPromo = 16;
+        const iw = (W - pad * 2 - gapPromo * (n - 1)) / n;
+        activePromo.forEach((img, idx) => {
+          const ix = pad + idx * (iw + gapPromo);
+          drawImageCover(ctx, img, ix, promoTopY, iw, promoImgH, 28);
+        });
       }
 
       // ── 11. Separador sutil sobre los QR ──
@@ -1397,45 +1402,49 @@ export default function Ratings() {
               Producto / Premio
             </h3>
 
-            {/* Image upload slot — 1 imagen ancho completo */}
-            <div style={{ marginBottom: 14 }}>
-              {promoImages[0] ? (
-                <div style={{ position: 'relative' }}>
-                  <img
-                    src={promoImages[0]}
-                    alt="Producto"
-                    style={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 18, border: '1.5px solid #e5e7eb', display: 'block' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setPromoImages(prev => { const n = [...prev]; n[0] = null; return n; })}
-                    style={{
-                      position: 'absolute', top: 8, right: 8,
-                      width: 28, height: 28, borderRadius: '50%',
-                      border: 'none', background: 'rgba(0,0,0,0.55)',
-                      color: '#fff', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faTimes} />
-                  </button>
+            {/* Image upload slots — 1, 2 o 3 imágenes, ancho dividido equitativamente */}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ flex: 1 }}>
+                  {promoImages[i] ? (
+                    <div style={{ position: 'relative' }}>
+                      <img
+                        src={promoImages[i]}
+                        alt={`Producto ${i + 1}`}
+                        style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 14, border: '1.5px solid #e5e7eb', display: 'block' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPromoImages(prev => { const n = [...prev]; n[i] = null; return n; })}
+                        style={{
+                          position: 'absolute', top: 6, right: 6,
+                          width: 26, height: 26, borderRadius: '50%',
+                          border: 'none', background: 'rgba(0,0,0,0.55)',
+                          color: '#fff', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11,
+                        }}
+                      >
+                        <FontAwesomeIcon icon={faTimes} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      height: 160, borderRadius: 14, border: '2px dashed #d1d5db',
+                      background: '#f9fafb', cursor: 'pointer', gap: 6,
+                    }}>
+                      <FontAwesomeIcon icon={faImage} style={{ fontSize: 24, color: '#d1d5db' }} />
+                      <span style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>Imagen {i + 1}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={e => { if (e.target.files[0]) handlePromoImage(i, e.target.files[0]); e.target.value = ''; }}
+                      />
+                    </label>
+                  )}
                 </div>
-              ) : (
-                <label style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  height: 160, borderRadius: 14, border: '2px dashed #d1d5db',
-                  background: '#f9fafb', cursor: 'pointer', gap: 8,
-                }}>
-                  <FontAwesomeIcon icon={faImage} style={{ fontSize: 32, color: '#d1d5db' }} />
-                  <span style={{ fontSize: 13, color: '#9ca3af' }}>Subir imagen del premio</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={e => { if (e.target.files[0]) handlePromoImage(0, e.target.files[0]); e.target.value = ''; }}
-                  />
-                </label>
-              )}
+              ))}
             </div>
 
             {/* Gift text */}
@@ -1553,13 +1562,15 @@ export default function Ratings() {
                 )}
               </div>
 
-              {/* Imagen promo (solo 1, ancho completo) */}
-              {promoImages[0] && (
-                <div style={{ padding: '0 14px 10px', position: 'relative', zIndex: 1 }}>
-                  <img src={promoImages[0]} alt="" style={{
-                    width: '100%', height: 110, objectFit: 'cover', borderRadius: 10,
-                    border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.10)', display: 'block',
-                  }} />
+              {/* Imágenes promo (1-3, ancho dividido equitativamente) */}
+              {promoImages.some(Boolean) && (
+                <div style={{ display: 'flex', gap: 6, padding: '0 14px 10px', position: 'relative', zIndex: 1 }}>
+                  {promoImages.map((src, i) => src ? (
+                    <img key={i} src={src} alt="" style={{
+                      flex: 1, minWidth: 0, height: 90, objectFit: 'cover', borderRadius: 8,
+                      border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.08)', display: 'block',
+                    }} />
+                  ) : null)}
                 </div>
               )}
 
