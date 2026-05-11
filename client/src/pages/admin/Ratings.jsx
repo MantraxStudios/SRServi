@@ -656,17 +656,11 @@ export default function Ratings() {
         ctx.fillText('↓  Escanea los códigos QR abajo  ↓', cx, badgeY + 28);
       }
 
-      // ── 10. Imágenes de producto/premio (si hay) ──
-      if (hasPromo) {
+      // ── 10. Imagen de producto/premio (solo 1, ancho completo) ──
+      if (hasPromo && activePromo[0]) {
         const promoTopY = badgeY + 68;
-        if (activePromo.length === 1) {
-          const iw = 340;
-          drawImageCover(ctx, activePromo[0], cx - iw / 2, promoTopY, iw, promoImgH, 36);
-        } else {
-          const iw = (W - pad * 2 - 12) / 2;
-          drawImageCover(ctx, activePromo[0], pad, promoTopY, iw, promoImgH, 36);
-          drawImageCover(ctx, activePromo[1], W - pad - iw, promoTopY, iw, promoImgH, 36);
-        }
+        const iw = W - pad * 2;
+        drawImageCover(ctx, activePromo[0], pad, promoTopY, iw, promoImgH, 36);
       }
 
       // ── 11. Separador sutil sobre los QR ──
@@ -1401,52 +1395,47 @@ export default function Ratings() {
             <h3 style={styles.cardTitle}>
               <FontAwesomeIcon icon={faImage} style={{ color: accentColor, marginRight: 8 }} />
               Producto / Premio
-              <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af', marginLeft: 8 }}>(máx. 2 imágenes)</span>
             </h3>
 
-            {/* Image upload slots */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
-              {[0, 1].map(i => (
-                <div key={i} style={{ flex: 1 }}>
-                  {promoImages[i] ? (
-                    <div style={{ position: 'relative' }}>
-                      <img
-                        src={promoImages[i]}
-                        alt={`Producto ${i + 1}`}
-                        style={{ width: '100%', height: 150, objectFit: 'cover', borderRadius: 18, border: '1.5px solid #e5e7eb', display: 'block' }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setPromoImages(prev => { const n = [...prev]; n[i] = null; return n; })}
-                        style={{
-                          position: 'absolute', top: 6, right: 6,
-                          width: 26, height: 26, borderRadius: '50%',
-                          border: 'none', background: 'rgba(0,0,0,0.55)',
-                          color: '#fff', cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11,
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faTimes} />
-                      </button>
-                    </div>
-                  ) : (
-                    <label style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      height: 150, borderRadius: 10, border: '2px dashed #d1d5db',
-                      background: '#f9fafb', cursor: 'pointer', gap: 6,
-                    }}>
-                      <FontAwesomeIcon icon={faImage} style={{ fontSize: 24, color: '#d1d5db' }} />
-                      <span style={{ fontSize: 12, color: '#9ca3af' }}>Imagen {i + 1}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        onChange={e => { if (e.target.files[0]) handlePromoImage(i, e.target.files[0]); e.target.value = ''; }}
-                      />
-                    </label>
-                  )}
+            {/* Image upload slot — 1 imagen ancho completo */}
+            <div style={{ marginBottom: 14 }}>
+              {promoImages[0] ? (
+                <div style={{ position: 'relative' }}>
+                  <img
+                    src={promoImages[0]}
+                    alt="Producto"
+                    style={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 18, border: '1.5px solid #e5e7eb', display: 'block' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPromoImages(prev => { const n = [...prev]; n[0] = null; return n; })}
+                    style={{
+                      position: 'absolute', top: 8, right: 8,
+                      width: 28, height: 28, borderRadius: '50%',
+                      border: 'none', background: 'rgba(0,0,0,0.55)',
+                      color: '#fff', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faTimes} />
+                  </button>
                 </div>
-              ))}
+              ) : (
+                <label style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  height: 160, borderRadius: 14, border: '2px dashed #d1d5db',
+                  background: '#f9fafb', cursor: 'pointer', gap: 8,
+                }}>
+                  <FontAwesomeIcon icon={faImage} style={{ fontSize: 32, color: '#d1d5db' }} />
+                  <span style={{ fontSize: 13, color: '#9ca3af' }}>Subir imagen del premio</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={e => { if (e.target.files[0]) handlePromoImage(0, e.target.files[0]); e.target.value = ''; }}
+                  />
+                </label>
+              )}
             </div>
 
             {/* Gift text */}
@@ -1564,16 +1553,13 @@ export default function Ratings() {
                 )}
               </div>
 
-              {/* Imágenes promo (si las hay) */}
-              {promoImages.some(Boolean) && (
-                <div style={{ display: 'flex', gap: 8, padding: '0 14px 10px', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
-                  {promoImages.filter(Boolean).map((src, i) => (
-                    <img key={i} src={src} alt="" style={{
-                      width: promoImages.filter(Boolean).length === 1 ? 200 : 120,
-                      height: 88, objectFit: 'cover', borderRadius: 10,
-                      border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
-                    }} />
-                  ))}
+              {/* Imagen promo (solo 1, ancho completo) */}
+              {promoImages[0] && (
+                <div style={{ padding: '0 14px 10px', position: 'relative', zIndex: 1 }}>
+                  <img src={promoImages[0]} alt="" style={{
+                    width: '100%', height: 110, objectFit: 'cover', borderRadius: 10,
+                    border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.10)', display: 'block',
+                  }} />
                 </div>
               )}
 
