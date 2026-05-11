@@ -3907,6 +3907,7 @@ export async function getCashRegisterHistory(storeId, dateFrom, dateTo) {
   const [rows] = await pool.execute(`
     SELECT cr.*,
       COALESCE(SUM(o.total), 0) AS total_vendido,
+      COALESCE(SUM(CASE WHEN o.payment_method = 'cash' THEN o.total ELSE 0 END), 0) AS total_efectivo,
       COUNT(o.id) AS total_pedidos
     FROM cash_registers cr
     LEFT JOIN orders o ON o.store_id = cr.store_id

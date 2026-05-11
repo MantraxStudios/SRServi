@@ -95,6 +95,9 @@ export default function Tasks() {
   const [dupAllModal, setDupAllModal] = useState(null);
   const [dupAllTarget, setDupAllTarget] = useState('');
   const [dupAllSaving, setDupAllSaving] = useState(false);
+  const [dupDayModal, setDupDayModal] = useState(null); // { sourceDow }
+  const [dupDayTarget, setDupDayTarget] = useState('');
+  const [dupDaySaving, setDupDaySaving] = useState(false);
   const [historyModal, setHistoryModal] = useState(null); // { workerId, workerName, initials }
   const [historyData, setHistoryData] = useState(null);  // { tasks, weeks }
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -243,6 +246,41 @@ export default function Tasks() {
       setHistoryData({ tasks: [], weeks: [] });
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  const openDupDay = (dow) => {
+    const otherDays = WEEK_ORDER.filter(d => d !== dow);
+    setDupDayModal({ sourceDow: dow });
+    setDupDayTarget(otherDays[0].toString());
+    setDupDaySaving(false);
+  };
+
+  const handleDupDay = async () => {
+    if (!dupDayModal || dupDayTarget === '') return;
+    setDupDaySaving(true);
+    const sourceTasks = byDay[dupDayModal.sourceDow];
+    try {
+      await Promise.all(sourceTasks.map(task =>
+        fetch(`${API}/api/tasks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            store_id: selectedStore.id,
+            worker_id: task.worker_id,
+            name: task.name,
+            description: task.description || null,
+            day_of_week: parseInt(dupDayTarget),
+            due_time: task.due_time,
+          }),
+        })
+      ));
+      setDupDayModal(null);
+      fetchTasks(weekOffset);
+    } catch (err) {
+      alert('Error al duplicar tareas del día');
+    } finally {
+      setDupDaySaving(false);
     }
   };
 
@@ -457,9 +495,26 @@ export default function Tasks() {
                           <span>{DAYS[dow]}</span>
                           <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.7, letterSpacing: 0 }}>{dateLabel}</span>
                         </div>
-                        <span style={{ fontSize: 11, fontWeight: 700, minWidth: 22, textAlign: 'center', background: isToday ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.09)', borderRadius: 20, padding: '2px 8px' }}>
-                          {dayTasks.length}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {dayTasks.length > 0 && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openDupDay(dow); }}
+                              title="Duplicar tareas de este día"
+                              style={{
+                                width: 24, height: 24, borderRadius: 7, border: 'none',
+                                background: isToday ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.09)',
+                                color: isToday ? '#000' : '#374151',
+                                cursor: 'pointer', fontSize: 10,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faClone} />
+                            </button>
+                          )}
+                          <span style={{ fontSize: 11, fontWeight: 700, minWidth: 22, textAlign: 'center', background: isToday ? 'rgba(0,0,0,0.18)' : 'rgba(0,0,0,0.09)', borderRadius: 20, padding: '2px 8px' }}>
+                            {dayTasks.length}
+                          </span>
+                        </div>
                       </div>
 
                       {dayTasks.length === 0 ? (
@@ -781,6 +836,46 @@ export default function Tasks() {
                 </>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {dupDayModal && (
+        <div className="modal-overlay" onClick={() => !dupDaySaving && setDupDayModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Duplicar tareas del día</h2>
+              <button className="modal-close" onClick={() => !dupDaySaving && setDupDayModal(null)}>
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+            <p style={{ fontSize: 14, color: '#aaa', marginBottom: 16 }}>
+              Se copiarán las {byDay[dupDayModal.sourceDow]?.length} tareas del <strong style={{ color: '#fff' }}>{DAYS[dupDayModal.sourceDow]}</strong> al día seleccionado.
+            </p>
+            <div className="form-group">
+              <label>Día destino</label>
+              <select value={dupDayTarget} onChange={e => setDupDayTarget(e.target.value)}>
+                {WEEK_ORDER.filter(d => d !== dupDayModal.sourceDow).map(d => (
+                  <option key={d} value={d}>{DAYS[d]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-3" style={{ marginTop: 8 }}>
+              <button
+                className="btn btn-secondary flex-1"
+                onClick={() => setDupDayModal(null)}
+                disabled={dupDaySaving}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary flex-1"
+                onClick={handleDupDay}
+                disabled={dupDaySaving}
+              >
+                {dupDaySaving ? 'Duplicando...' : 'Duplicar tareas'}
+              </button>
+            </div>
           </div>
         </div>
       )}

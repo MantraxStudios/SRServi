@@ -188,12 +188,6 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
                 <FontAwesomeIcon icon={faEdit} style={{ color: '#555', width: 14 }} /> Editar
               </button>
               <button
-                onClick={(e) => { e.stopPropagation(); onRecipe(product); setMenuOpen(false); }}
-                style={{ width: '100%', padding: '12px 14px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10, color: '#111', borderTop: '1px solid #f0f0f0' }}
-              >
-                <FontAwesomeIcon icon={faUtensils} style={{ color: '#D4AF37', width: 14 }} /> Materias Primas
-              </button>
-              <button
                 onClick={(e) => { e.stopPropagation(); onDelete(product); setMenuOpen(false); }}
                 style={{ width: '100%', padding: '12px 14px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 10, color: '#e53e3e', borderTop: '1px solid #f0f0f0' }}
               >

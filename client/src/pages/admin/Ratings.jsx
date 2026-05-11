@@ -371,28 +371,34 @@ export default function Ratings() {
       ctx.fillStyle = accentColor;
       ctx.fillRect(12, 12, W - 24, 8);
 
-      // ── Logo (cover — preserva aspect ratio) ──
+      // ── Logo (contain — cuadrado con bordes redondeados) ──
       const logoSize = 100;
       const logoY = 68;
+      const logoRadius = 16;
+      const logoX = cx - logoSize / 2;
       if (logoImg) {
+        const nw = logoImg.naturalWidth || logoSize;
+        const nh = logoImg.naturalHeight || logoSize;
         ctx.save();
         ctx.beginPath();
-        ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+        roundRect(ctx, logoX, logoY, logoSize, logoSize, logoRadius);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
         ctx.clip();
-        const ls = Math.max(logoSize / logoImg.naturalWidth, logoSize / logoImg.naturalHeight);
-        const ldw2 = logoImg.naturalWidth * ls;
-        const ldh2 = logoImg.naturalHeight * ls;
+        const ls = Math.min(logoSize / nw, logoSize / nh);
+        const ldw2 = nw * ls;
+        const ldh2 = nh * ls;
         ctx.drawImage(logoImg, cx - ldw2 / 2, logoY + logoSize / 2 - ldh2 / 2, ldw2, ldh2);
         ctx.restore();
         ctx.strokeStyle = accentColor;
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(cx, logoY + logoSize / 2, logoSize / 2 + 4, 0, Math.PI * 2);
+        roundRect(ctx, logoX - 2, logoY - 2, logoSize + 4, logoSize + 4, logoRadius + 2);
         ctx.stroke();
       } else {
         ctx.fillStyle = accentColor;
         ctx.beginPath();
-        ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+        roundRect(ctx, logoX, logoY, logoSize, logoSize, logoRadius);
         ctx.fill();
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 44px Arial';
@@ -598,26 +604,32 @@ export default function Ratings() {
       roundRect(ctx, 12, 12, W - 24, H - 24, 28);
       ctx.stroke();
 
-      // ── 7. Logo (cover — preserva aspect ratio) ──
+      // ── 7. Logo (contain — cuadrado con bordes redondeados) ──
+      const logoRadiusC = 20;
+      const logoXC = cx - logoSize / 2;
       if (logoImg) {
+        const nwC = logoImg.naturalWidth || logoSize;
+        const nhC = logoImg.naturalHeight || logoSize;
         ctx.save();
         ctx.beginPath();
-        ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+        roundRect(ctx, logoXC, logoY, logoSize, logoSize, logoRadiusC);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
         ctx.clip();
-        const logoScale = Math.max(logoSize / logoImg.naturalWidth, logoSize / logoImg.naturalHeight);
-        const ldw = logoImg.naturalWidth * logoScale;
-        const ldh = logoImg.naturalHeight * logoScale;
+        const logoScale = Math.min(logoSize / nwC, logoSize / nhC);
+        const ldw = nwC * logoScale;
+        const ldh = nhC * logoScale;
         ctx.drawImage(logoImg, cx - ldw / 2, logoY + logoSize / 2 - ldh / 2, ldw, ldh);
         ctx.restore();
         ctx.strokeStyle = accentColor;
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(cx, logoY + logoSize / 2, logoSize / 2 + 4, 0, Math.PI * 2);
+        roundRect(ctx, logoXC - 2, logoY - 2, logoSize + 4, logoSize + 4, logoRadiusC + 2);
         ctx.stroke();
       } else {
         ctx.fillStyle = accentColor;
         ctx.beginPath();
-        ctx.arc(cx, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+        roundRect(ctx, logoXC, logoY, logoSize, logoSize, logoRadiusC);
         ctx.fill();
         ctx.fillStyle = '#fff';
         ctx.font = `bold ${Math.round(logoSize * 0.42)}px Arial`;
