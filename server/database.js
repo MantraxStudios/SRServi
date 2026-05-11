@@ -2116,63 +2116,69 @@ export async function deleteCoupon(couponId, storeId) {
 
 async function getProductIngredients(productId, categoryId = null) {
   const [prodRows] = await pool.execute(
-    'SELECT complements_configured FROM products WHERE id = ?', [productId]
+    'SELECT complements_configured, has_ingredients, store_id FROM products WHERE id = ?', [productId]
   );
-  const configured = prodRows.length > 0 && prodRows[0].complements_configured;
-  let query, params;
-  if (configured) {
-    query = `
+  if (!prodRows.length) return [];
+  const { complements_configured, has_ingredients, store_id } = prodRows[0];
+
+  const mapRow = row => ({
+    id: row.id, name: row.name, price: parseFloat(row.price), category_id: row.category_id, image: row.image,
+    stock: parseInt(row.stock) || 0, unlimited_stock: row.unlimited_stock || false,
+    is_required: false, max_selections: 1
+  });
+
+  if (complements_configured) {
+    const [rows] = await pool.execute(`
       SELECT i.*, COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
       FROM ingredients i
       INNER JOIN product_ingredients pi ON pi.ingredient_id = i.id AND pi.product_id = ?
       ORDER BY i.sort_order, i.name
-    `;
-    params = [productId];
-  } else {
-    query = `
-      SELECT i.*, COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
-      FROM ingredients i
-      WHERE i.store_id = (SELECT store_id FROM products WHERE id = ?)
-      ORDER BY i.sort_order, i.name
-    `;
-    params = [productId];
+    `, [productId]);
+    // If specifically configured but no links exist and product still expects ingredients,
+    // fall back to all store-level ingredients so the step is not silently skipped
+    if (rows.length > 0 || !has_ingredients) return rows.map(mapRow);
   }
-  const [rows] = await pool.execute(query, params);
-  return rows.map(row => ({
-    id: row.id, name: row.name, price: parseFloat(row.price), category_id: row.category_id, image: row.image,
-    stock: parseInt(row.stock) || 0, unlimited_stock: row.unlimited_stock || false,
-    is_required: false, max_selections: 1
-  }));
+
+  const [rows] = await pool.execute(`
+    SELECT i.*, COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock
+    FROM ingredients i
+    WHERE i.store_id = ?
+    ORDER BY i.sort_order, i.name
+  `, [store_id]);
+  return rows.map(mapRow);
 }
 
 async function getProductExtras(productId, categoryId = null) {
   const [prodRows] = await pool.execute(
-    'SELECT complements_configured FROM products WHERE id = ?', [productId]
+    'SELECT complements_configured, has_extras, store_id FROM products WHERE id = ?', [productId]
   );
-  const configured = prodRows.length > 0 && prodRows[0].complements_configured;
-  let query, params;
-  if (configured) {
-    query = `
+  if (!prodRows.length) return [];
+  const { complements_configured, has_extras, store_id } = prodRows[0];
+
+  const mapRow = row => ({
+    id: row.id, name: row.name, price: parseFloat(row.price), category_id: row.category_id, image: row.image,
+    stock: parseInt(row.stock) || 0, unlimited_stock: row.unlimited_stock || false
+  });
+
+  if (complements_configured) {
+    const [rows] = await pool.execute(`
       SELECT e.*, COALESCE(e.stock, 0) as stock, COALESCE(e.unlimited_stock, FALSE) as unlimited_stock
       FROM extras e
       INNER JOIN product_extras pe ON pe.extra_id = e.id AND pe.product_id = ?
       ORDER BY e.sort_order, e.name
-    `;
-    params = [productId];
-  } else {
-    query = `
-      SELECT e.*, COALESCE(e.stock, 0) as stock, COALESCE(e.unlimited_stock, FALSE) as unlimited_stock
-      FROM extras e
-      WHERE e.store_id = (SELECT store_id FROM products WHERE id = ?)
-      ORDER BY e.sort_order, e.name
-    `;
-    params = [productId];
+    `, [productId]);
+    // If specifically configured but no links exist and product still expects extras,
+    // fall back to all store-level extras so the step is not silently skipped
+    if (rows.length > 0 || !has_extras) return rows.map(mapRow);
   }
-  const [rows] = await pool.execute(query, params);
-  return rows.map(row => ({
-    id: row.id, name: row.name, price: parseFloat(row.price), category_id: row.category_id, image: row.image,
-    stock: parseInt(row.stock) || 0, unlimited_stock: row.unlimited_stock || false
-  }));
+
+  const [rows] = await pool.execute(`
+    SELECT e.*, COALESCE(e.stock, 0) as stock, COALESCE(e.unlimited_stock, FALSE) as unlimited_stock
+    FROM extras e
+    WHERE e.store_id = ?
+    ORDER BY e.sort_order, e.name
+  `, [store_id]);
+  return rows.map(mapRow);
 }
 
 export async function getProducts(storeId) {
