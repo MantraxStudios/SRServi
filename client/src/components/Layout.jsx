@@ -465,14 +465,25 @@ function Layout() {
                           <FontAwesomeIcon icon={faWarehouse} />
                           <span>Inventario</span>
                         </NavLink>
-                        <NavLink to="/admin/ratings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faStar} />
-                          <span>Calificaciones</span>
-                        </NavLink>
-                        <NavLink to="/admin/survey-config" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faClipboardList} />
-                          <span>Encuesta</span>
-                        </NavLink>
+                        <div className="subdropdown-container">
+                          <button className={`subdropdown-header${openDropdowns['calificaciones'] ? ' open' : ''}`} onClick={() => toggleDropdown('calificaciones')}>
+                            <FontAwesomeIcon icon={faStar} />
+                            <span>Calificaciones</span>
+                            <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['calificaciones'] ? 180 : 0} />
+                          </button>
+                          {openDropdowns['calificaciones'] && (
+                            <div className="subdropdown-content">
+                              <NavLink to="/admin/ratings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                                <FontAwesomeIcon icon={faStar} />
+                                <span>Calificaciones</span>
+                              </NavLink>
+                              <NavLink to="/admin/survey-config" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                                <FontAwesomeIcon icon={faClipboardList} />
+                                <span>Config Encuesta</span>
+                              </NavLink>
+                            </div>
+                          )}
+                        </div>
                         <NavLink to="/admin/cash-registers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faCashRegister} />
                           <span>Historial de Caja</span>
