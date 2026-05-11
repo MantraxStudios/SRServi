@@ -2,10 +2,84 @@ import { useState, useEffect, useContext, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faStar, faQrcode, faCommentAlt, faDownload, faArrowDown, faUsers, faChartBar, faGlobe, faLink, faTimes, faFilter, faCalendarAlt, faImage } from '@fortawesome/free-solid-svg-icons';
+import { faStar, faQrcode, faCommentAlt, faDownload, faArrowDown, faUsers, faChartBar, faGlobe, faLink, faTimes, faFilter, faCalendarAlt, faImage, faCog, faSave, faEdit, faUndo, faPlus, faTrash, faGripVertical, faCheck } from '@fortawesome/free-solid-svg-icons';
 import { QRCodeCanvas } from 'qrcode.react';
 
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : '';
+
+function genKey() {
+  return 'q_' + Math.random().toString(36).slice(2, 8);
+}
+
+const scIconBtn = (color) => ({
+  background: 'transparent', border: 'none', cursor: 'pointer',
+  color, fontSize: 13, padding: '4px 6px', borderRadius: 6,
+  display: 'flex', alignItems: 'center',
+});
+const scSmallBtn = (color) => ({
+  background: color, border: 'none', cursor: 'pointer', color: '#fff',
+  fontSize: 13, fontWeight: 600, padding: '7px 14px', borderRadius: 8,
+  display: 'inline-flex', alignItems: 'center', gap: 6,
+});
+const scLabel = { display: 'block', fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 4 };
+const scInput = {
+  width: '100%', padding: '9px 12px', borderRadius: 8,
+  border: '1.5px solid #d1d5db', fontSize: 14, color: '#1e293b',
+  outline: 'none', boxSizing: 'border-box', marginBottom: 0,
+};
+
+function QuestionEditor({ q, index, total, onChange, onDelete, onMove }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(q);
+  const save = () => { onChange(draft); setEditing(false); };
+  const cancel = () => { setDraft(q); setEditing(false); };
+  const setOption = (i, val) => setDraft(d => {
+    const opts = [...d.options]; opts[i] = val; return { ...d, options: opts };
+  });
+  const addOption = () => {
+    if (draft.options.length >= 4) return;
+    setDraft(d => ({ ...d, options: [...d.options, ''] }));
+  };
+  const removeOption = (i) => {
+    if (draft.options.length <= 2) return;
+    setDraft(d => ({ ...d, options: d.options.filter((_, idx) => idx !== i) }));
+  };
+  return (
+    <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 14, marginBottom: 12, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#f8fafc', borderBottom: editing ? '1px solid #e5e7eb' : 'none' }}>
+        <span style={{ color: '#9ca3af', cursor: 'grab', fontSize: 14 }}><FontAwesomeIcon icon={faGripVertical} /></span>
+        <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#1e293b', color: '#fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{index + 1}</span>
+        <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: '#1e293b', lineHeight: 1.3 }}>{q.text || <em style={{ color: '#9ca3af' }}>Sin texto</em>}</span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => onMove(index, -1)} disabled={index === 0} style={scIconBtn('#6b7280')}>▲</button>
+          <button onClick={() => onMove(index, 1)} disabled={index === total - 1} style={scIconBtn('#6b7280')}>▼</button>
+          <button onClick={() => setEditing(true)} style={scIconBtn('#3b82f6')}><FontAwesomeIcon icon={faEdit} /></button>
+          <button onClick={onDelete} style={scIconBtn('#ef4444')}><FontAwesomeIcon icon={faTrash} /></button>
+        </div>
+      </div>
+      {editing && (
+        <div style={{ padding: '14px 16px' }}>
+          <label style={scLabel}>Pregunta</label>
+          <input value={draft.text} onChange={e => setDraft(d => ({ ...d, text: e.target.value }))} placeholder="Escribe la pregunta..." style={scInput} />
+          <label style={{ ...scLabel, marginTop: 12 }}>Opciones ({draft.options.length}/4)</label>
+          {draft.options.map((opt, i) => (
+            <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+              <input value={opt} onChange={e => setOption(i, e.target.value)} placeholder={`Opción ${i + 1}`} style={{ ...scInput, marginBottom: 0, flex: 1 }} />
+              <button onClick={() => removeOption(i)} disabled={draft.options.length <= 2} style={{ ...scIconBtn('#ef4444'), opacity: draft.options.length <= 2 ? 0.4 : 1 }}><FontAwesomeIcon icon={faTimes} /></button>
+            </div>
+          ))}
+          {draft.options.length < 4 && (
+            <button onClick={addOption} style={{ ...scSmallBtn('#6b7280'), marginTop: 4 }}><FontAwesomeIcon icon={faPlus} /> Agregar opción</button>
+          )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+            <button onClick={save} style={scSmallBtn('#16a34a')}><FontAwesomeIcon icon={faCheck} /> Guardar</button>
+            <button onClick={cancel} style={scSmallBtn('#6b7280')}><FontAwesomeIcon icon={faTimes} /> Cancelar</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const SURVEY_QUESTIONS = [
   { key: 'frequency',      label: 'Frecuencia de visita' },
@@ -121,6 +195,14 @@ export default function Ratings() {
   const [clasificacionSaving, setClasificacionSaving] = useState(false);
   const [clasificacionSaved, setClasificacionSaved] = useState(false);
 
+  // ── Survey Config state ──
+  const [scQuestions, setScQuestions] = useState(null);
+  const [scDefaults, setScDefaults] = useState([]);
+  const [scIsCustom, setScIsCustom] = useState(false);
+  const [scLoading, setScLoading] = useState(false);
+  const [scSaving, setScSaving] = useState(false);
+  const [scSaved, setScSaved] = useState(false);
+
   // Load clasificacion settings from DB
   useEffect(() => {
     if (!selectedStore?.id || !token) return;
@@ -137,6 +219,50 @@ export default function Ratings() {
       })
       .catch(() => {});
   }, [selectedStore?.id, token]);
+
+  useEffect(() => {
+    if (!selectedStore?.id || !token) return;
+    setScLoading(true);
+    fetch(`/api/survey-config?store_id=${selectedStore.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        setScDefaults(data.defaults || []);
+        if (data.questions) { setScQuestions(data.questions); setScIsCustom(true); }
+        else { setScQuestions(null); setScIsCustom(false); }
+      })
+      .catch(() => {})
+      .finally(() => setScLoading(false));
+  }, [selectedStore?.id, token]);
+
+  const saveSurveyConfig = async (qs, custom) => {
+    setScSaving(true);
+    try {
+      await fetch('/api/survey-config', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: selectedStore.id, questions: custom ? qs : null }),
+      });
+      setScSaved(true);
+      setTimeout(() => setScSaved(false), 2000);
+    } catch { alert('Error al guardar'); }
+    finally { setScSaving(false); }
+  };
+
+  const scEnableCustom = () => {
+    const copy = scDefaults.map(q => ({ ...q, key: genKey(), options: [...q.options] }));
+    setScQuestions(copy);
+    setScIsCustom(true);
+  };
+
+  const scResetToDefaults = async () => {
+    if (!confirm('¿Volver a las preguntas por defecto?')) return;
+    setScIsCustom(false); setScQuestions(null);
+    await saveSurveyConfig(null, false);
+  };
+
+  const scActiveQuestions = scIsCustom ? (scQuestions || []) : scDefaults;
 
   const saveClasificacion = async () => {
     if (!selectedStore?.id || !token) return;
@@ -813,6 +939,7 @@ export default function Ratings() {
             { key: 'ratings', icon: faStar, label: 'Calificaciones' },
             { key: 'survey', icon: faUsers, label: 'Encuesta' },
             { key: 'clasificacion', icon: faGlobe, label: 'Clasificación' },
+            { key: 'surveyconfig', icon: faCog, label: 'Config Encuesta' },
           ].map(t => (
             <button
               key={t.key}
@@ -1522,6 +1649,94 @@ export default function Ratings() {
               {downloadingGoogle ? 'Generando imagen...' : 'Descargar diseño completo (.jpg)'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── CONFIG ENCUESTA TAB ── */}
+      {activeTab === 'surveyconfig' && (
+        <div style={{ padding: '0 0 20px' }}>
+          {/* Acciones */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16 }}>
+            {scIsCustom && (
+              <>
+                <button onClick={scResetToDefaults} disabled={scSaving}
+                  style={{ ...scSmallBtn('#6b7280'), border: '1.5px solid #d1d5db', background: '#fff', color: '#374151' }}>
+                  <FontAwesomeIcon icon={faUndo} /> Usar defaults
+                </button>
+                <button onClick={() => saveSurveyConfig(scActiveQuestions, true)} disabled={scSaving}
+                  style={scSmallBtn(scSaved ? '#16a34a' : accentColor)}>
+                  <FontAwesomeIcon icon={faSave} />
+                  {scSaving ? 'Guardando…' : scSaved ? '¡Guardado!' : 'Guardar cambios'}
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Toggle card */}
+          <div style={{ ...styles.card, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>
+                {scIsCustom ? 'Preguntas personalizadas' : 'Preguntas por defecto'}
+              </div>
+              <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>
+                {scIsCustom
+                  ? `${scActiveQuestions.length} preguntas — editables a tu gusto`
+                  : 'Las preguntas estándar de SRServi para todos tus clientes'}
+              </div>
+            </div>
+            {!scIsCustom && (
+              <button onClick={scEnableCustom} style={scSmallBtn(accentColor)}>
+                <FontAwesomeIcon icon={faEdit} /> Personalizar
+              </button>
+            )}
+          </div>
+
+          {/* Preguntas */}
+          {scLoading ? (
+            <div style={styles.empty}><p>Cargando...</p></div>
+          ) : (
+            <div>
+              {scActiveQuestions.map((q, i) => (
+                scIsCustom ? (
+                  <QuestionEditor
+                    key={q.key || i}
+                    q={q}
+                    index={i}
+                    total={scActiveQuestions.length}
+                    onChange={updated => setScQuestions(qs => qs.map((x, idx) => idx === i ? updated : x))}
+                    onDelete={() => setScQuestions(qs => qs.filter((_, idx) => idx !== i))}
+                    onMove={(idx, dir) => setScQuestions(qs => {
+                      const arr = [...qs];
+                      const t = idx + dir;
+                      if (t < 0 || t >= arr.length) return arr;
+                      [arr[idx], arr[t]] = [arr[t], arr[idx]];
+                      return arr;
+                    })}
+                  />
+                ) : (
+                  <div key={q.key || i} style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 14, padding: '12px 16px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#e5e7eb', color: '#6b7280', fontSize: 11, fontWeight: 800, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: '#1e293b', marginBottom: 4 }}>{q.text}</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {q.options.map(opt => (
+                          <span key={opt} style={{ fontSize: 12, background: '#f1f5f9', color: '#64748b', padding: '3px 10px', borderRadius: 20, fontWeight: 500 }}>{opt}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              ))}
+              {scIsCustom && (
+                <button
+                  onClick={() => setScQuestions(qs => [...(qs || []), { key: genKey(), text: '', options: ['', '', '', ''] }])}
+                  style={{ width: '100%', padding: '12px', marginTop: 4, background: 'transparent', border: '2px dashed #d1d5db', borderRadius: 14, color: '#6b7280', fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                >
+                  <FontAwesomeIcon icon={faPlus} /> Agregar pregunta
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
