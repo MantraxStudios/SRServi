@@ -161,6 +161,7 @@ export default function CCTV() {
   };
 
   return (
+    <div style={{ background: '#0a0a0a', minHeight: '100vh', color: '#fff' }}>
     <div style={{ padding: '24px', maxWidth: '1100px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
@@ -515,6 +516,7 @@ export default function CCTV() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }
