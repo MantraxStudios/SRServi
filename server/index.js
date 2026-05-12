@@ -9415,6 +9415,210 @@ async function startServer() {
       } catch (e) { console.error('[Caja] Cron error:', e.message); }
     });
 
+    // ─── CCTV Cartelería Digital ──────────────────────────────────────────────
+
+    const cctvDir = path.join(__serverDir, 'uploads', 'cctv');
+    if (!fs.existsSync(cctvDir)) fs.mkdirSync(cctvDir, { recursive: true });
+
+    const cctvStorage = multer.diskStorage({
+      destination: (req, file, cb) => cb(null, cctvDir),
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+      }
+    });
+    const cctvUpload = multer({
+      storage: cctvStorage,
+      limits: { fileSize: 4 * 1024 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        const allowedExts = ['.mp4', '.webm', '.avi', '.mov', '.mpeg', '.mpg', '.mkv'];
+        if (allowedExts.includes(path.extname(file.originalname).toLowerCase())) return cb(null, true);
+        cb(new Error('Solo se permiten videos (mp4, webm, avi, mov, mkv)'));
+      }
+    });
+
+    let _cctvReady = false;
+    async function ensureCctvTables() {
+      if (_cctvReady) return;
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS cctv_videos (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          filename VARCHAR(255) NOT NULL,
+          original_name VARCHAR(255) NOT NULL,
+          file_size BIGINT DEFAULT 0,
+          url VARCHAR(500) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_cctv_videos_user (user_id)
+        )
+      `);
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS cctv_screens (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          device_token VARCHAR(64) DEFAULT NULL,
+          device_name VARCHAR(100) DEFAULT 'TV',
+          pairing_code VARCHAR(10) DEFAULT NULL,
+          current_video_id INT DEFAULT NULL,
+          last_seen TIMESTAMP NULL DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE KEY uq_cctv_token (device_token),
+          INDEX idx_cctv_screens_user (user_id),
+          INDEX idx_cctv_screens_code (pairing_code)
+        )
+      `);
+      _cctvReady = true;
+    }
+
+    // Admin: list videos
+    app.get('/api/cctv/videos', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [rows] = await pool.execute('SELECT * FROM cctv_videos WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]);
+        res.json(rows);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: upload video
+    app.post('/api/cctv/videos', authenticateToken, cctvUpload.single('video'), async (req, res) => {
+      try {
+        await ensureCctvTables();
+        if (!req.file) return res.status(400).json({ error: 'No se recibió video' });
+        const url = `/uploads/cctv/${req.file.filename}`;
+        const [result] = await pool.execute(
+          'INSERT INTO cctv_videos (user_id, filename, original_name, file_size, url) VALUES (?, ?, ?, ?, ?)',
+          [req.user.id, req.file.filename, req.file.originalname, req.file.size, url]
+        );
+        const [rows] = await pool.execute('SELECT * FROM cctv_videos WHERE id = ?', [result.insertId]);
+        res.json(rows[0]);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: delete video
+    app.delete('/api/cctv/videos/:id', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [rows] = await pool.execute('SELECT * FROM cctv_videos WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        if (!rows.length) return res.status(404).json({ error: 'Video no encontrado' });
+        const filePath = path.join(cctvDir, rows[0].filename);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        await pool.execute('DELETE FROM cctv_videos WHERE id = ?', [req.params.id]);
+        await pool.execute('UPDATE cctv_screens SET current_video_id = NULL WHERE current_video_id = ?', [req.params.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: list screens
+    app.get('/api/cctv/screens', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [rows] = await pool.execute(`
+          SELECT s.*, v.original_name AS video_name, v.url AS video_url,
+            (CASE WHEN s.last_seen IS NOT NULL AND TIMESTAMPDIFF(SECOND, s.last_seen, NOW()) < 90 THEN 1 ELSE 0 END) AS is_online
+          FROM cctv_screens s
+          LEFT JOIN cctv_videos v ON v.id = s.current_video_id
+          WHERE s.user_id = ? AND s.device_token IS NOT NULL
+          ORDER BY s.created_at DESC
+        `, [req.user.id]);
+        res.json(rows);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: generate pairing code
+    app.post('/api/cctv/screens/generate-code', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        await pool.execute(
+          'DELETE FROM cctv_screens WHERE user_id = ? AND device_token IS NULL AND created_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE)',
+          [req.user.id]
+        );
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        await pool.execute('INSERT INTO cctv_screens (user_id, pairing_code) VALUES (?, ?)', [req.user.id, code]);
+        res.json({ code });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: assign video to screen
+    app.put('/api/cctv/screens/:id/assign', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { video_id } = req.body;
+        if (video_id) {
+          const [vRows] = await pool.execute('SELECT id FROM cctv_videos WHERE id = ? AND user_id = ?', [video_id, req.user.id]);
+          if (!vRows.length) return res.status(404).json({ error: 'Video no encontrado' });
+        }
+        await pool.execute(
+          'UPDATE cctv_screens SET current_video_id = ? WHERE id = ? AND user_id = ?',
+          [video_id || null, req.params.id, req.user.id]
+        );
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: rename screen
+    app.put('/api/cctv/screens/:id/name', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { name } = req.body;
+        await pool.execute('UPDATE cctv_screens SET device_name = ? WHERE id = ? AND user_id = ?', [name || 'TV', req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: delete screen
+    app.delete('/api/cctv/screens/:id', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        await pool.execute('DELETE FROM cctv_screens WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // TV Device: pair with code (public)
+    app.post('/api/cctv/pair', async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { pairing_code, device_name } = req.body;
+        if (!pairing_code) return res.status(400).json({ error: 'Código requerido' });
+        const [rows] = await pool.execute(
+          'SELECT * FROM cctv_screens WHERE pairing_code = ? AND device_token IS NULL',
+          [pairing_code]
+        );
+        if (!rows.length) {
+          const [existing] = await pool.execute('SELECT device_token FROM cctv_screens WHERE pairing_code = ?', [pairing_code]);
+          if (existing.length && existing[0].device_token) {
+            return res.json({ device_token: existing[0].device_token, paired: true });
+          }
+          return res.status(404).json({ error: 'Código inválido o expirado' });
+        }
+        const deviceToken = crypto.randomBytes(32).toString('hex');
+        await pool.execute(
+          'UPDATE cctv_screens SET device_token = ?, device_name = ? WHERE id = ?',
+          [deviceToken, device_name || 'TV Cartelería', rows[0].id]
+        );
+        res.json({ device_token: deviceToken, paired: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // TV Device: get config and update heartbeat (public)
+    app.get('/api/cctv/device-config', async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { device_token } = req.query;
+        if (!device_token) return res.status(400).json({ error: 'device_token requerido' });
+        const [rows] = await pool.execute(`
+          SELECT s.id, s.device_name, s.current_video_id,
+            v.url AS video_url, v.original_name AS video_name, v.filename AS video_filename
+          FROM cctv_screens s
+          LEFT JOIN cctv_videos v ON v.id = s.current_video_id
+          WHERE s.device_token = ?
+        `, [device_token]);
+        if (!rows.length) return res.status(404).json({ error: 'Dispositivo no encontrado' });
+        await pool.execute('UPDATE cctv_screens SET last_seen = NOW() WHERE device_token = ?', [device_token]);
+        res.json(rows[0]);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
     // Cron cada domingo a las 10:00
     cron.schedule('0 10 * * 0', async () => {
       console.log('[Instagram] Publicaciones automáticas semanales...');

@@ -41,6 +41,7 @@ import {
   faStar,
   faMotorcycle,
   faBell,
+  faVideo,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -557,6 +558,10 @@ function Layout() {
                         <NavLink to="/admin/screensaver" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faTv} />
                           <span>Salva Pantallas</span>
+                        </NavLink>
+                        <NavLink to="/admin/cctv" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                          <FontAwesomeIcon icon={faVideo} />
+                          <span>Cartelería Digital</span>
                         </NavLink>
                       </div>
                     )}
