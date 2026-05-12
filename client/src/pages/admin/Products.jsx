@@ -202,6 +202,19 @@ function Products() {
         });
       }
 
+      // Update products state immediately without waiting for fetchAll
+      const stock = parseInt(formData.stock) || 0;
+      const unlimited_stock = formData.unlimited_stock;
+      if (editingProduct) {
+        setProducts(prev => prev.map(p =>
+          p.id === productId
+            ? { ...p, ...productData, stock, unlimited_stock }
+            : p
+        ));
+      } else {
+        setProducts(prev => [...prev, { ...productData, stock, unlimited_stock }]);
+      }
+
       setShowModal(false);
       setEditingProduct(null);
       resetForm();
@@ -245,6 +258,7 @@ function Products() {
         throw new Error('Error al eliminar el producto');
       }
 
+      setProducts(prev => prev.filter(p => p.id !== id));
       fetchAll();
     } catch (error) {
       alert(error.message);
@@ -424,8 +438,6 @@ function Products() {
           store_id: selectedStore.id,
           products: newProducts.map(p => ({ id: p.id }))
         };
-        console.log('Sending order update:', payload);
-
         const response = await fetch(API + '/api/products/order', {
           method: 'PUT',
           headers: {
@@ -435,8 +447,7 @@ function Products() {
           body: JSON.stringify(payload)
         });
 
-        const data = await response.json();
-        console.log('Response:', response.status, data);
+        await response.json();
       } catch (error) {
         console.error('Error saving order:', error);
       }
@@ -773,6 +784,7 @@ function Products() {
                         value={formData.stock}
                         onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                         placeholder="0"
+                        disabled={formData.unlimited_stock}
                       />
                     </div>
                   </div>

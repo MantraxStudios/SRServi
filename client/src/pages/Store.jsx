@@ -95,7 +95,7 @@ function SortableCategoryTab({ catObj, activeCategory, onEdit, onDelete }) {
   );
 }
 
-function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymbol, hideDecimals }) {
+function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymbol, hideDecimals, selectionMode, isSelected, onToggleSelect }) {
   const {
     attributes,
     listeners,
@@ -139,12 +139,30 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
   return (
     <div ref={setNodeRef} style={{ ...style, zIndex: menuOpen ? 500 : (isDragging ? 1000 : 1) }}>
       <div className={`store-product-wrapper${isOutOfStock ? ' out-of-stock' : ''}`} style={{ position: 'relative' }}>
-        <div className="store-edit-drag-handle" {...attributes} {...listeners}>
-          <FontAwesomeIcon icon={faGripVertical} />
-        </div>
-        <div className={`store-product-card${isOutOfStock ? ' out-of-stock' : ''}`}>
+        {!selectionMode && (
+          <div className="store-edit-drag-handle" {...attributes} {...listeners}>
+            <FontAwesomeIcon icon={faGripVertical} />
+          </div>
+        )}
+        <div
+          className={`store-product-card${isOutOfStock ? ' out-of-stock' : ''}${selectionMode && isSelected ? ' selection-selected' : ''}`}
+          onClick={selectionMode ? (e) => { e.stopPropagation(); onToggleSelect(product.id); } : undefined}
+          style={selectionMode ? { cursor: 'pointer', outline: isSelected ? '3px solid #e53e3e' : '3px solid transparent', outlineOffset: '2px' } : {}}
+        >
           {isOutOfStock && (
             <div className="out-of-stock-badge">Agotado</div>
+          )}
+          {selectionMode && (
+            <div style={{ position: 'absolute', top: 6, left: 6, zIndex: 20 }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: 6,
+                background: isSelected ? '#e53e3e' : 'rgba(255,255,255,0.9)',
+                border: isSelected ? '2px solid #e53e3e' : '2px solid #ccc',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                {isSelected && <span style={{ color: '#fff', fontSize: 13, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+              </div>
+            </div>
           )}
           <div className="store-product-image">
             {product.image ? (
@@ -160,6 +178,7 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
         </div>
 
         {/* 3-dot menu — outside the card so it's not clipped by overflow:hidden */}
+        {!selectionMode && (
         <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 10 }}>
           <button
             ref={menuBtnRef}
@@ -196,6 +215,7 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
             </div>
           )}
         </div>
+        )}
         <div className="store-product-info">
           {product.description && (
             <p style={{ margin: '0 0 2px', fontSize: '10px', color: 'var(--store-primary)', opacity: 0.5, lineHeight: 1.3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{product.description}</p>
@@ -400,6 +420,14 @@ function Store() {
   const [vkbOpen, setVkbOpen] = useState(false);
   const inactivityTimerRef = useRef(null);
   const inactivityCountdownRef = useRef(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState(new Set());
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deleteAllCountdown, setDeleteAllCountdown] = useState(5);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
+  const [deleteSelectedCountdown, setDeleteSelectedCountdown] = useState(5);
+  const [deletingSelected, setDeletingSelected] = useState(false);
 
   // Screensaver
   const [screensaverCfg, setScreensaverCfg] = useState(null);
@@ -2945,6 +2973,64 @@ function Store() {
     }
   };
 
+  useEffect(() => {
+    if (!showDeleteAllModal) { setDeleteAllCountdown(5); return; }
+    setDeleteAllCountdown(5);
+    const interval = setInterval(() => {
+      setDeleteAllCountdown(prev => { if (prev <= 1) { clearInterval(interval); return 0; } return prev - 1; });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showDeleteAllModal]);
+
+  useEffect(() => {
+    if (!showDeleteSelectedModal) { setDeleteSelectedCountdown(5); return; }
+    setDeleteSelectedCountdown(5);
+    const interval = setInterval(() => {
+      setDeleteSelectedCountdown(prev => { if (prev <= 1) { clearInterval(interval); return 0; } return prev - 1; });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showDeleteSelectedModal]);
+
+  const deleteAllProducts = async () => {
+    const all = store?.products || [];
+    setDeletingAll(true);
+    for (const product of all) {
+      try {
+        await fetch(`/api/public/${code}/products/${product.id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(getAuthBody())
+        });
+      } catch (err) {
+        console.error('Error deleting product:', err);
+      }
+    }
+    setDeletingAll(false);
+    setShowDeleteAllModal(false);
+    fetchStore();
+  };
+
+  const deleteSelectedProducts = async () => {
+    const ids = Array.from(selectedProductIds);
+    setDeletingSelected(true);
+    for (const id of ids) {
+      try {
+        await fetch(`/api/public/${code}/products/${id}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(getAuthBody())
+        });
+      } catch (err) {
+        console.error('Error deleting product:', err);
+      }
+    }
+    setDeletingSelected(false);
+    setShowDeleteSelectedModal(false);
+    setSelectionMode(false);
+    setSelectedProductIds(new Set());
+    fetchStore();
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -3426,6 +3512,52 @@ function Store() {
               </button>
             ))}
           </div>
+          <div style={{ display: 'flex', gap: '8px', padding: '6px 16px 0', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              onClick={() => {
+                setSelectionMode(s => {
+                  if (s) setSelectedProductIds(new Set());
+                  return !s;
+                });
+              }}
+              style={{
+                padding: '6px 14px', borderRadius: '8px', border: selectionMode ? '2px solid #e53e3e' : '2px solid #ccc',
+                background: selectionMode ? '#fff0f0' : '#fff', color: selectionMode ? '#e53e3e' : '#555',
+                fontSize: '13px', fontWeight: '600', cursor: 'pointer'
+              }}
+            >
+              {selectionMode ? 'Cancelar selección' : 'Seleccionar'}
+            </button>
+            {selectionMode && (store?.products || []).length > 0 && (
+              <button
+                onClick={() => {
+                  const allIds = new Set((store?.products || []).map(p => p.id));
+                  setSelectedProductIds(prev => prev.size === allIds.size ? new Set() : allIds);
+                }}
+                style={{ padding: '6px 14px', borderRadius: '8px', border: '2px solid #ccc', background: '#fff', color: '#555', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
+              >
+                {selectedProductIds.size === (store?.products || []).length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+              </button>
+            )}
+            {selectionMode && selectedProductIds.size > 0 && (
+              <button
+                onClick={() => setShowDeleteSelectedModal(true)}
+                style={{ padding: '6px 14px', borderRadius: '8px', border: 'none', background: '#e53e3e', color: '#fff', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                <FontAwesomeIcon icon={faTrash} style={{ marginRight: 6 }} />
+                Eliminar {selectedProductIds.size} seleccionado{selectedProductIds.size !== 1 ? 's' : ''}
+              </button>
+            )}
+            {!selectionMode && (store?.products || []).length > 0 && (
+              <button
+                onClick={() => setShowDeleteAllModal(true)}
+                style={{ padding: '6px 14px', borderRadius: '8px', border: '2px solid #e53e3e', background: '#fff', color: '#e53e3e', fontSize: '13px', fontWeight: '600', cursor: 'pointer', marginLeft: 'auto' }}
+              >
+                <FontAwesomeIcon icon={faTrash} style={{ marginRight: 6 }} />
+                Eliminar todos
+              </button>
+            )}
+          </div>
         <DndContext
           sensors={editSensors}
           collisionDetection={closestCenter}
@@ -3443,7 +3575,7 @@ function Store() {
                 return uncategorized.length > 0 ? (
                   <div className="products-grid" style={{ padding: '0 16px' }}>
                     {uncategorized.map(product => (
-                      <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} onRecipe={setProdRecipeModal} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} />
+                      <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} onRecipe={setProdRecipeModal} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} selectionMode={selectionMode} isSelected={selectedProductIds.has(product.id)} onToggleSelect={(id) => setSelectedProductIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; })} />
                     ))}
                   </div>
                 ) : null;
@@ -3461,7 +3593,7 @@ function Store() {
                   </div>
                   <div className="products-grid" style={{ padding: '0 16px' }}>
                     {products.map(product => (
-                      <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} onRecipe={setProdRecipeModal} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} />
+                      <SortableProductCard key={product.id} product={product} onEdit={openProdModal} onDelete={deleteProd} onRecipe={setProdRecipeModal} currencySymbol={colors.currency.symbol} hideDecimals={!!(selectedConfiguration?.hide_decimals || store?.store?.hide_decimals)} selectionMode={selectionMode} isSelected={selectedProductIds.has(product.id)} onToggleSelect={(id) => setSelectedProductIds(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; })} />
                     ))}
                   </div>
                 </div>
@@ -6047,6 +6179,80 @@ function Store() {
               <button onClick={() => setRmModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
               <button onClick={saveRm} disabled={rmSaving || !rmForm.name.trim()} className={`store-prod-modal-btn confirm${(!rmForm.name.trim() || rmSaving) ? ' disabled' : ''}`}>
                 {rmSaving ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteAllModal && (
+        <div className="store-modal-overlay" onClick={() => !deletingAll && setShowDeleteAllModal(false)}>
+          <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px', textAlign: 'center' }}>
+            <div style={{ fontSize: '44px', marginBottom: '10px' }}>⚠️</div>
+            <h3 style={{ margin: '0 0 8px', color: '#e53e3e' }}>Eliminar todos los productos</h3>
+            <p style={{ margin: '0 0 6px', fontSize: '14px', color: '#444' }}>
+              Esta acción eliminará <strong>todos los {(store?.products || []).length} productos</strong> de tu tienda.
+            </p>
+            <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#e53e3e', fontWeight: '600' }}>
+              Esta acción no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={deleteAllProducts}
+                disabled={deleteAllCountdown > 0 || deletingAll}
+                style={{
+                  padding: '13px', border: 'none', borderRadius: '10px',
+                  background: deleteAllCountdown > 0 ? '#ccc' : '#e53e3e',
+                  color: '#fff', fontSize: '14px', fontWeight: '700',
+                  cursor: deleteAllCountdown > 0 || deletingAll ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.3s'
+                }}
+              >
+                {deletingAll ? 'Eliminando...' : deleteAllCountdown > 0 ? `Confirmar (${deleteAllCountdown}s)` : 'Sí, eliminar todo'}
+              </button>
+              <button
+                onClick={() => setShowDeleteAllModal(false)}
+                disabled={deletingAll}
+                style={{ padding: '13px', border: '2px solid #e0e0e0', borderRadius: '10px', background: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteSelectedModal && (
+        <div className="store-modal-overlay" onClick={() => !deletingSelected && setShowDeleteSelectedModal(false)}>
+          <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px', textAlign: 'center' }}>
+            <div style={{ fontSize: '44px', marginBottom: '10px' }}>⚠️</div>
+            <h3 style={{ margin: '0 0 8px', color: '#e53e3e' }}>Eliminar productos seleccionados</h3>
+            <p style={{ margin: '0 0 6px', fontSize: '14px', color: '#444' }}>
+              Vas a eliminar <strong>{selectedProductIds.size} producto{selectedProductIds.size !== 1 ? 's' : ''}</strong> seleccionado{selectedProductIds.size !== 1 ? 's' : ''}.
+            </p>
+            <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#e53e3e', fontWeight: '600' }}>
+              Esta acción no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={deleteSelectedProducts}
+                disabled={deleteSelectedCountdown > 0 || deletingSelected}
+                style={{
+                  padding: '13px', border: 'none', borderRadius: '10px',
+                  background: deleteSelectedCountdown > 0 ? '#ccc' : '#e53e3e',
+                  color: '#fff', fontSize: '14px', fontWeight: '700',
+                  cursor: deleteSelectedCountdown > 0 || deletingSelected ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.3s'
+                }}
+              >
+                {deletingSelected ? 'Eliminando...' : deleteSelectedCountdown > 0 ? `Confirmar (${deleteSelectedCountdown}s)` : 'Sí, eliminar seleccionados'}
+              </button>
+              <button
+                onClick={() => setShowDeleteSelectedModal(false)}
+                disabled={deletingSelected}
+                style={{ padding: '13px', border: '2px solid #e0e0e0', borderRadius: '10px', background: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}
+              >
+                Cancelar
               </button>
             </div>
           </div>

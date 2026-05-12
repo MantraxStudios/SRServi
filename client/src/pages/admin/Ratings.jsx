@@ -1541,17 +1541,20 @@ export default function Ratings() {
               {/* Header */}
               <div style={{ textAlign: 'center', padding: '14px 16px 6px', position: 'relative', zIndex: 1 }}>
                 {selectedStore?.logo_url ? (
-                  <img
-                    src={selectedStore.logo_url}
-                    alt={storeName}
-                    style={{
-                      width: 52, height: 52, borderRadius: '50%', objectFit: 'cover',
-                      border: `3px solid ${accentColor}`, display: 'block', margin: '0 auto 8px',
-                    }}
-                  />
+                  <div style={{
+                    width: 52, height: 52, borderRadius: 12, border: `3px solid ${accentColor}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: '#fff', margin: '0 auto 8px', overflow: 'hidden', flexShrink: 0,
+                  }}>
+                    <img
+                      src={selectedStore.logo_url}
+                      alt={storeName}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                    />
+                  </div>
                 ) : (
                   <div style={{
-                    width: 50, height: 50, borderRadius: '50%', background: accentColor,
+                    width: 50, height: 50, borderRadius: 12, background: accentColor,
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 20, fontWeight: 900, color: '#fff', marginBottom: 8,
                   }}>

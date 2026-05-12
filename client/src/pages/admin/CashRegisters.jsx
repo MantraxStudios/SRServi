@@ -62,6 +62,7 @@ function CashRegisters() {
   const totalVendido = history.reduce((s, r) => s + Number(r.total_vendido || 0), 0);
   const totalApertura = history.reduce((s, r) => s + Number(r.opening_amount || 0), 0);
   const totalEfectivo = history.reduce((s, r) => s + Number(r.total_efectivo || 0), 0);
+  const totalAlCierre = history.reduce((s, r) => s + Number(r.opening_amount || 0) + Number(r.total_efectivo || 0), 0);
 
   return (
     <div style={{ padding: '24px', maxWidth: 1100, margin: '0 auto' }}>
@@ -123,6 +124,11 @@ function CashRegisters() {
             <p style={{ color: '#888', fontSize: 11, margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 1 }}>Total efectivo</p>
             <p style={{ color: '#3b82f6', fontSize: 26, fontWeight: 900, margin: 0 }}>{currSym}{totalEfectivo.toFixed(2)}</p>
           </div>
+          <div style={{ background: '#111', border: '2px solid #D4AF37', borderRadius: 12, padding: '16px 20px' }}>
+            <p style={{ color: '#D4AF37', fontSize: 11, margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>Total al cierre</p>
+            <p style={{ color: '#D4AF37', fontSize: 26, fontWeight: 900, margin: 0 }}>{currSym}{totalAlCierre.toFixed(2)}</p>
+            <p style={{ color: '#888', fontSize: 10, margin: '4px 0 0' }}>Apertura + efectivo cobrado</p>
+          </div>
           <div style={{ background: '#111', border: '1px solid #222', borderRadius: 12, padding: '16px 20px' }}>
             <p style={{ color: '#888', fontSize: 11, margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 1 }}>Total pedidos</p>
             <p style={{ color: '#fff', fontSize: 26, fontWeight: 900, margin: 0 }}>{history.reduce((s, r) => s + Number(r.total_pedidos || 0), 0)}</p>
@@ -142,7 +148,7 @@ function CashRegisters() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #222' }}>
-                {['Fecha', 'Trabajador', 'Apertura', 'Cierre', 'Duración', 'Monto apertura', 'Total vendido', 'Efectivo', 'Diferencia', 'Pedidos', 'Cerrado por'].map(h => (
+                {['Fecha', 'Trabajador', 'Apertura', 'Cierre', 'Duración', 'Monto apertura', 'Total vendido', 'Efectivo', 'Total al cierre', 'Diferencia', 'Pedidos', 'Cerrado por'].map(h => (
                   <th key={h} style={{ padding: '12px 14px', textAlign: 'left', color: '#888', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -151,7 +157,9 @@ function CashRegisters() {
               {history.map((r, i) => {
                 const vendido = Number(r.total_vendido || 0);
                 const apertura = Number(r.opening_amount || 0);
-                const diff = vendido - apertura;
+                const efectivo = Number(r.total_efectivo || 0);
+                const alCierre = apertura + efectivo;
+                const diff = alCierre - apertura;
                 return (
                   <tr key={r.id} style={{ borderBottom: '1px solid #1a1a1a', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
                     <td style={{ padding: '12px 14px', color: '#ccc', whiteSpace: 'nowrap' }}>{fmtDate(r.opened_at)}</td>
@@ -170,7 +178,10 @@ function CashRegisters() {
                     <td style={{ padding: '12px 14px', color: '#888' }}>{duration(r.opened_at, r.closed_at)}</td>
                     <td style={{ padding: '12px 14px', color: '#D4AF37', fontWeight: 700 }}>{currSym}{apertura.toFixed(2)}</td>
                     <td style={{ padding: '12px 14px', color: '#22c55e', fontWeight: 700 }}>{currSym}{vendido.toFixed(2)}</td>
-                    <td style={{ padding: '12px 14px', color: '#3b82f6', fontWeight: 700 }}>{currSym}{Number(r.total_efectivo || 0).toFixed(2)}</td>
+                    <td style={{ padding: '12px 14px', color: '#3b82f6', fontWeight: 700 }}>{currSym}{efectivo.toFixed(2)}</td>
+                    <td style={{ padding: '12px 14px', color: '#D4AF37', fontWeight: 800, background: 'rgba(212,175,55,0.07)', whiteSpace: 'nowrap' }}>
+                      {currSym}{alCierre.toFixed(2)}
+                    </td>
                     <td style={{ padding: '12px 14px', fontWeight: 700, color: diff >= 0 ? '#22c55e' : '#ef4444' }}>
                       {diff >= 0 ? '+' : ''}{currSym}{diff.toFixed(2)}
                     </td>
