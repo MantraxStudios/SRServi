@@ -7088,6 +7088,13 @@ app.get('/api/download/windows', (req, res) => {
   res.sendFile(zipPath);
 });
 
+app.get('/api/download/cctv', (req, res) => {
+  const apkPath = path.join(__serverDir, '../client/public/CCTV.apk');
+  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.setHeader('Content-Disposition', 'attachment; filename="CCTV.apk"');
+  res.sendFile(apkPath);
+});
+
 // ==================== APK Releases ====================
 
 app.get('/api/superadmin/apks', authenticateSuperadminToken, async (req, res) => {

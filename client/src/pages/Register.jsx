@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faEnvelope, faLock, faStore, faDownload, faUserCog, faGlobe, faDesktop } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faEnvelope, faLock, faStore, faDownload, faUserCog, faGlobe, faDesktop, faVideo } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -367,6 +367,14 @@ function Register() {
           >
             <FontAwesomeIcon icon={faDesktop} style={{ color: '#D4AF37' }} />
             Descargar App Windows
+          </a>
+          <a
+            href="/api/download/cctv"
+            className="btn btn-lg btn-full"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', background: '#1a1a1a', color: '#D4AF37', border: '1px solid #D4AF37' }}
+          >
+            <FontAwesomeIcon icon={faVideo} />
+            Descargar App CCTV
           </a>
         </div>
       </div>

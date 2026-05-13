@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -22,6 +24,9 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -40,6 +45,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -73,15 +79,35 @@ private const val KEY_TOKEN = "device_token"
 private const val KEY_VIDEO_PATH = "current_video_path"
 private const val KEY_VIDEO_URL = "current_video_url"
 private const val KEY_LAUNCHER_CONFIRMED = "launcher_confirmed"
+private const val KEY_OFFLINE_MODE = "offline_mode"
+private const val KEY_AUTO_OFFLINE = "auto_offline"
 private const val TAG = "CCTVSignage"
 private const val PERM_NOTIFICATIONS = "android.permission.POST_NOTIFICATIONS"
+private const val PERM_STORAGE = "android.permission.WRITE_EXTERNAL_STORAGE"
+
+private fun isNetworkAvailable(context: Context): Boolean {
+    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    return if (Build.VERSION.SDK_INT >= 23) {
+        val network = cm.activeNetwork ?: return false
+        cm.getNetworkCapabilities(network)
+            ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    } else {
+        @Suppress("DEPRECATION")
+        cm.activeNetworkInfo?.isConnected == true
+    }
+}
+
+private fun getVideoStorageDir(context: Context): File {
+    val dir = context.getExternalFilesDir("videos") ?: context.filesDir
+    if (!dir.exists()) dir.mkdirs()
+    return dir
+}
 
 class MainActivity : ComponentActivity() {
 
     private var appScreen by mutableStateOf("init")
     private var kioskActive = false
     private var showBackMenu by mutableStateOf(false)
-    // Flag de sesión: se resetea cada vez que la app se mata y reinicia
     private var setupDone = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,13 +118,42 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val context = LocalContext.current
+            var offlineMode by remember { mutableStateOf(prefs.getBoolean(KEY_OFFLINE_MODE, false)) }
+            var isConnected by remember { mutableStateOf(isNetworkAvailable(context)) }
+            var showVideoList by remember { mutableStateOf(false) }
+            var overrideVideoPath by remember { mutableStateOf<String?>(null) }
+
+            // Monitorear conectividad cada 5 segundos
+            LaunchedEffect(Unit) {
+                while (true) {
+                    delay(5_000)
+                    val connected = isNetworkAvailable(context)
+                    if (connected != isConnected) {
+                        isConnected = connected
+                        if (connected && prefs.getBoolean(KEY_AUTO_OFFLINE, false)) {
+                            // Conectividad restaurada - volver a modo online automáticamente
+                            offlineMode = false
+                            prefs.edit()
+                                .putBoolean(KEY_OFFLINE_MODE, false)
+                                .putBoolean(KEY_AUTO_OFFLINE, false)
+                                .apply()
+                        } else if (!connected && !offlineMode) {
+                            // Conectividad perdida - cambiar a offline automáticamente
+                            offlineMode = true
+                            prefs.edit()
+                                .putBoolean(KEY_OFFLINE_MODE, true)
+                                .putBoolean(KEY_AUTO_OFFLINE, true)
+                                .apply()
+                        }
+                    }
+                }
+            }
 
             Box(modifier = Modifier.fillMaxSize()) {
                 when (appScreen) {
                     "setup_permissions" -> PermissionsSetupScreen(
-                        onAllGranted = {
-                            appScreen = "setup_launcher"
-                        }
+                        onAllGranted = { appScreen = "setup_launcher" }
                     )
                     "setup_launcher" -> SetupLauncherScreen(
                         onOpenLauncherSettings = { openLauncherSettings() },
@@ -116,13 +171,44 @@ class MainActivity : ComponentActivity() {
                         prefs.edit().putString(KEY_TOKEN, token).apply()
                         appScreen = "player"
                     })
-                    "player" -> PlayerScreen(prefs = prefs)
+                    "player" -> PlayerScreen(
+                        prefs = prefs,
+                        offlineMode = offlineMode,
+                        isConnected = isConnected,
+                        overrideVideoPath = overrideVideoPath
+                    )
                 }
 
                 if (showBackMenu) {
                     BackMenuDialog(
                         onStay = { showBackMenu = false },
-                        onSystemSettings = { showBackMenu = false; openSystemSettings() }
+                        onSystemSettings = { showBackMenu = false; openSystemSettings() },
+                        offlineMode = offlineMode,
+                        isConnected = isConnected,
+                        onToggleMode = {
+                            val newOffline = !offlineMode
+                            offlineMode = newOffline
+                            prefs.edit()
+                                .putBoolean(KEY_OFFLINE_MODE, newOffline)
+                                .putBoolean(KEY_AUTO_OFFLINE, false)
+                                .apply()
+                            showBackMenu = false
+                        },
+                        onShowVideoList = {
+                            showBackMenu = false
+                            showVideoList = true
+                        }
+                    )
+                }
+
+                if (showVideoList) {
+                    VideoListOverlay(
+                        currentPath = prefs.getString(KEY_VIDEO_PATH, null),
+                        onSelect = { path ->
+                            overrideVideoPath = path
+                            showVideoList = false
+                        },
+                        onDismiss = { showVideoList = false }
                     )
                 }
             }
@@ -146,7 +232,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        // Programar regreso automático en 15 segundos si el usuario sale de la app
         KioskService.instance?.scheduleRelaunch(15_000)
     }
 
@@ -193,11 +278,13 @@ class MainActivity : ComponentActivity() {
     }
 
     fun hasRequiredPermissions(): Boolean {
-        // Solo notificaciones es obligatorio (Android 13+). La batería no bloquea
-        // porque isIgnoringBatteryOptimizations() es poco fiable en Android TV.
-        return if (Build.VERSION.SDK_INT >= 33)
+        val notifOk = if (Build.VERSION.SDK_INT >= 33)
             checkSelfPermission(PERM_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         else true
+        val storageOk = if (Build.VERSION.SDK_INT < 29)
+            checkSelfPermission(PERM_STORAGE) == PackageManager.PERMISSION_GRANTED
+        else true
+        return notifOk && storageOk
     }
 
     private fun setupLockTask() {
@@ -224,13 +311,17 @@ fun PermissionsSetupScreen(onAllGranted: () -> Unit) {
         context.checkSelfPermission(PERM_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     else true
 
+    fun checkStorage() = if (Build.VERSION.SDK_INT < 29)
+        context.checkSelfPermission(PERM_STORAGE) == PackageManager.PERMISSION_GRANTED
+    else true
+
     fun checkBattery() = (context.getSystemService(PowerManager::class.java))
         .isIgnoringBatteryOptimizations(context.packageName)
 
     var notifOk by remember { mutableStateOf(checkNotif()) }
+    var storageOk by remember { mutableStateOf(checkStorage()) }
     var batteryOk by remember { mutableStateOf(checkBattery()) }
-    // Solo notificaciones es obligatorio; batería es recomendada pero no bloquea
-    val allOk = notifOk
+    val allOk = notifOk && storageOk
 
     LaunchedEffect(allOk) {
         if (allOk) { delay(1200); onAllGranted() }
@@ -240,12 +331,16 @@ fun PermissionsSetupScreen(onAllGranted: () -> Unit) {
         while (true) {
             delay(1000)
             notifOk = checkNotif()
+            storageOk = checkStorage()
             batteryOk = checkBattery()
         }
     }
 
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         notifOk = it
+    }
+    val storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        storageOk = it
     }
 
     fun openBatterySettings() {
@@ -269,6 +364,17 @@ fun PermissionsSetupScreen(onAllGranted: () -> Unit) {
 
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { delay(200); visible = true }
+
+    // Calcular numeración dinámica
+    val storageShown = Build.VERSION.SDK_INT < 29
+    val notifShown = Build.VERSION.SDK_INT >= 33
+    val storageNum = "1"
+    val notifNum = if (storageShown) "2" else "1"
+    val batteryNum = when {
+        storageShown && notifShown -> "3"
+        storageShown || notifShown -> "2"
+        else -> "1"
+    }
 
     Box(
         modifier = Modifier.fillMaxSize().background(DarkBg),
@@ -317,10 +423,22 @@ fun PermissionsSetupScreen(onAllGranted: () -> Unit) {
 
                     Spacer(Modifier.height(28.dp))
 
-                    // Notificaciones — solo muestra en Android 13+
-                    if (Build.VERSION.SDK_INT >= 33) {
+                    // Almacenamiento — solo en Android 9 y anteriores
+                    if (storageShown) {
                         PermissionItem(
-                            number = "1",
+                            number = storageNum,
+                            title = "Almacenamiento",
+                            description = "Necesario para guardar videos descargados en el dispositivo.",
+                            granted = storageOk,
+                            onEnable = { storageLauncher.launch(PERM_STORAGE) }
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+
+                    // Notificaciones — solo en Android 13+
+                    if (notifShown) {
+                        PermissionItem(
+                            number = notifNum,
                             title = "Notificaciones",
                             description = "Mantiene el servicio activo para que la app no se cierre.",
                             granted = notifOk,
@@ -330,7 +448,7 @@ fun PermissionsSetupScreen(onAllGranted: () -> Unit) {
                     }
 
                     PermissionItem(
-                        number = if (Build.VERSION.SDK_INT >= 33) "2" else "1",
+                        number = batteryNum,
                         title = "Sin restricción de batería (recomendado)",
                         description = "Recomendado. Evita que el sistema cierre la app. Si ya lo activaste y sigue en pendiente, ignóralo.",
                         granted = batteryOk,
@@ -339,7 +457,6 @@ fun PermissionsSetupScreen(onAllGranted: () -> Unit) {
 
                     Spacer(Modifier.height(24.dp))
 
-                    // Botón continuar — siempre visible
                     Button(
                         onClick = onAllGranted,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -422,7 +539,14 @@ fun PermissionItem(
 // ─── Back Menu ───────────────────────────────────────────────────────────────
 
 @Composable
-fun BackMenuDialog(onStay: () -> Unit, onSystemSettings: () -> Unit) {
+fun BackMenuDialog(
+    onStay: () -> Unit,
+    onSystemSettings: () -> Unit,
+    offlineMode: Boolean = false,
+    isConnected: Boolean = true,
+    onToggleMode: () -> Unit = {},
+    onShowVideoList: () -> Unit = {}
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -430,7 +554,7 @@ fun BackMenuDialog(onStay: () -> Unit, onSystemSettings: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Card(
-            modifier = Modifier.width(360.dp),
+            modifier = Modifier.width(380.dp),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = CardBg),
             border = BorderStroke(1.dp, Gold.copy(alpha = 0.35f)),
@@ -476,7 +600,47 @@ fun BackMenuDialog(onStay: () -> Unit, onSystemSettings: () -> Unit) {
                     Text("Cartelería Digital", color = DarkBg, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
+
+                // Toggle Online / Offline
+                Button(
+                    onClick = onToggleMode,
+                    modifier = Modifier.fillMaxWidth().height(58.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (offlineMode) Color(0xFF1C3461) else Color(0xFF163016)
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            if (offlineMode) "Cambiar a Modo Online" else "Cambiar a Modo Offline",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                        Text(
+                            if (offlineMode)
+                                if (isConnected) "Hay conexión disponible" else "Sin conexión detectada"
+                            else
+                                "Reproducir solo video guardado",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                OutlinedButton(
+                    onClick = onShowVideoList,
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    border = BorderStroke(1.dp, Gold.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("Ver videos guardados", color = Gold, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                Spacer(Modifier.height(10.dp))
 
                 OutlinedButton(
                     onClick = onSystemSettings,
@@ -536,7 +700,6 @@ fun SetupLauncherScreen(
                     modifier = Modifier.padding(horizontal = 40.dp, vertical = 44.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Logo
                     Box(
                         modifier = Modifier
                             .size(72.dp)
@@ -570,7 +733,6 @@ fun SetupLauncherScreen(
 
                     Spacer(Modifier.height(32.dp))
 
-                    // Estado del launcher
                     Row(
                         modifier = Modifier
                             .background(
@@ -620,7 +782,6 @@ fun SetupLauncherScreen(
 
                     Spacer(Modifier.height(20.dp))
 
-                    // Botón principal: abrir ajustes launcher
                     Button(
                         onClick = onOpenLauncherSettings,
                         modifier = Modifier
@@ -641,8 +802,6 @@ fun SetupLauncherScreen(
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Botón Continuar — siempre habilitado para no bloquear en TVs donde
-                    // isDefaultLauncher() no es confiable; el indicador de estado informa al usuario
                     Button(
                         onClick = onConfirmed,
                         modifier = Modifier
@@ -663,7 +822,6 @@ fun SetupLauncherScreen(
 
                     Spacer(Modifier.height(20.dp))
 
-                    // Acceso a ajustes del sistema
                     TextButton(onClick = { showSystemMenu = true }) {
                         Text(
                             "Problemas? Abrir ajustes del sistema",
@@ -675,7 +833,6 @@ fun SetupLauncherScreen(
             }
         }
 
-        // Menú ajustes del sistema
         if (showSystemMenu) {
             Box(
                 modifier = Modifier
@@ -1023,7 +1180,6 @@ fun WaitingSignalScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Logo con anillos de pulso
             Box(contentAlignment = Alignment.Center, modifier = Modifier.size(200.dp)) {
                 Box(
                     modifier = Modifier
@@ -1114,7 +1270,7 @@ fun WaitingSignalScreen() {
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(prefs: SharedPreferences) {
+fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Boolean, overrideVideoPath: String? = null) {
     val context = LocalContext.current
     var downloadProgress by remember { mutableFloatStateOf(-1f) }
     var downloadingName by remember { mutableStateOf("") }
@@ -1132,7 +1288,19 @@ fun PlayerScreen(prefs: SharedPreferences) {
         }
     }
 
-    // Load cached video on startup
+    // Cargar video seleccionado manualmente desde la lista
+    LaunchedEffect(overrideVideoPath) {
+        val path = overrideVideoPath ?: return@LaunchedEffect
+        val file = File(path)
+        if (file.exists()) {
+            exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
+            exoPlayer.prepare()
+            hasVideo = true
+            prefs.edit().putString(KEY_VIDEO_PATH, path).apply()
+        }
+    }
+
+    // Cargar video guardado al iniciar
     LaunchedEffect(Unit) {
         val savedPath = prefs.getString(KEY_VIDEO_PATH, null)
         if (savedPath != null) {
@@ -1145,9 +1313,10 @@ fun PlayerScreen(prefs: SharedPreferences) {
         }
     }
 
-    // Poll server every 30s for config changes
+    // Consultar servidor cada 30s — solo en modo online
     val deviceToken = remember { prefs.getString(KEY_TOKEN, "") ?: "" }
-    LaunchedEffect(deviceToken) {
+    LaunchedEffect(deviceToken, offlineMode) {
+        if (offlineMode) return@LaunchedEffect
         while (true) {
             try {
                 val config = fetchDeviceConfig(deviceToken)
@@ -1156,11 +1325,14 @@ fun PlayerScreen(prefs: SharedPreferences) {
 
                 if (videoUrl != null && videoUrl != savedUrl) {
                     val fullUrl = if (videoUrl.startsWith("http")) videoUrl else "$BASE_URL$videoUrl"
-                    val filename = Uri.parse(videoUrl).lastPathSegment ?: "video.mp4"
-                    val destFile = File(context.filesDir, filename)
+                    // Hash del URL en el nombre para evitar colisiones y no re-descargar el mismo video
+                    val urlHash = videoUrl.hashCode().toString().replace("-", "n")
+                    val originalName = Uri.parse(videoUrl).lastPathSegment ?: "video.mp4"
+                    val safeFilename = "${urlHash}_${originalName}"
+                    val destFile = File(getVideoStorageDir(context), safeFilename)
 
                     if (!destFile.exists()) {
-                        downloadingName = config.optString("video_name", filename)
+                        downloadingName = config.optString("video_name", originalName)
                         downloadProgress = 0f
 
                         var success = false
@@ -1177,7 +1349,6 @@ fun PlayerScreen(prefs: SharedPreferences) {
                         }
 
                         if (success) {
-                            val oldPath = prefs.getString(KEY_VIDEO_PATH, null)
                             prefs.edit()
                                 .putString(KEY_VIDEO_PATH, destFile.absolutePath)
                                 .putString(KEY_VIDEO_URL, videoUrl)
@@ -1186,12 +1357,9 @@ fun PlayerScreen(prefs: SharedPreferences) {
                             exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(destFile)))
                             exoPlayer.prepare()
                             hasVideo = true
-
-                            if (oldPath != null && oldPath != destFile.absolutePath) {
-                                File(oldPath).delete()
-                            }
                         }
                     } else {
+                        // Archivo ya existe — actualizar prefs sin re-descargar
                         prefs.edit().putString(KEY_VIDEO_URL, videoUrl).apply()
                         val currentPath = prefs.getString(KEY_VIDEO_PATH, null)
                         if (currentPath != destFile.absolutePath) {
@@ -1230,7 +1398,7 @@ fun PlayerScreen(prefs: SharedPreferences) {
             modifier = Modifier.fillMaxSize()
         )
 
-        // Pantalla de espera cuando no hay video asignado
+        // Pantalla de espera cuando no hay video
         AnimatedVisibility(
             visible = !hasVideo,
             enter = fadeIn(tween(600)),
@@ -1239,7 +1407,34 @@ fun PlayerScreen(prefs: SharedPreferences) {
             WaitingSignalScreen()
         }
 
-        // Download progress overlay
+        // Badge de estado online/offline (top-left)
+        AnimatedVisibility(
+            visible = offlineMode || !isConnected,
+            enter = fadeIn(tween(400)),
+            exit = fadeOut(tween(400)),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .background(
+                        if (!isConnected) Color(0xFFEF4444).copy(alpha = 0.85f)
+                        else Color(0xFF1C3461).copy(alpha = 0.85f),
+                        RoundedCornerShape(8.dp)
+                    )
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+            ) {
+                Text(
+                    if (!isConnected) "Sin conexión" else "Modo Offline",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        // Overlay de progreso de descarga
         AnimatedVisibility(
             visible = downloadProgress >= 0f,
             enter = fadeIn(tween(300)),
@@ -1311,6 +1506,164 @@ fun PlayerScreen(prefs: SharedPreferences) {
     }
 }
 
+// ─── Video List Overlay ──────────────────────────────────────────────────────
+
+@Composable
+fun VideoListOverlay(
+    currentPath: String?,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val videos = remember {
+        getVideoStorageDir(context)
+            .listFiles { f -> f.extension.lowercase() in listOf("mp4", "mkv", "avi", "mov", "webm") }
+            ?.sortedByDescending { it.lastModified() }
+            ?: emptyList()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.88f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier
+                .width(660.dp)
+                .fillMaxHeight(0.82f)
+                .padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = CardBg),
+            border = BorderStroke(1.dp, Gold.copy(alpha = 0.3f)),
+            elevation = CardDefaults.cardElevation(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(32.dp)) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            "Videos guardados",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "${videos.size} video${if (videos.size != 1) "s" else ""} disponible${if (videos.size != 1) "s" else ""}",
+                            color = Color.White.copy(alpha = 0.4f),
+                            fontSize = 13.sp
+                        )
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text("Cerrar", color = Gold, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                if (videos.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "Sin videos guardados",
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 16.sp
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Los videos se descargan automáticamente cuando el dispositivo está en modo online y tiene un video asignado.",
+                                color = Color.White.copy(alpha = 0.3f),
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 17.sp
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(videos) { file ->
+                            val isActive = file.absolutePath == currentPath
+                            val displayName = file.nameWithoutExtension
+                                .replace(Regex("^[n\\d]+_"), "")
+                                .ifBlank { file.nameWithoutExtension }
+                            val sizeMb = "%.1f MB".format(file.length().toFloat() / (1024 * 1024))
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        if (isActive) Gold.copy(alpha = 0.13f)
+                                        else Color.White.copy(alpha = 0.04f),
+                                        RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable { onSelect(file.absolutePath) }
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .background(
+                                            if (isActive) Gold else Color.White.copy(alpha = 0.09f),
+                                            RoundedCornerShape(12.dp)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        if (isActive) "▶" else "▷",
+                                        color = if (isActive) DarkBg else Color.White.copy(alpha = 0.6f),
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        displayName,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 14.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        sizeMb,
+                                        color = Color.White.copy(alpha = 0.4f),
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                if (isActive) {
+                                    Box(
+                                        modifier = Modifier
+                                            .background(Gold.copy(alpha = 0.18f), RoundedCornerShape(6.dp))
+                                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                                    ) {
+                                        Text(
+                                            "Reproduciendo",
+                                            color = Gold,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ─── API Helpers ─────────────────────────────────────────────────────────────
 
 /**
@@ -1331,7 +1684,6 @@ private fun openSecureConnection(urlStr: String): HttpURLConnection {
         val sc = SSLContext.getInstance("TLS")
         sc.init(null, arrayOf<TrustManager>(tm), SecureRandom())
         conn.sslSocketFactory = sc.socketFactory
-        // Solo aceptar nuestro servidor — no un HostnameVerifier abierto a todo
         conn.hostnameVerifier = HostnameVerifier { hostname, _ ->
             hostname == "srservi2.srautomatic.com"
         }
@@ -1388,7 +1740,6 @@ private fun downloadVideoFile(urlStr: String, destFile: File, onProgress: (Float
     conn.connect()
     val totalBytes = conn.contentLengthLong
 
-    // Temp file to avoid serving partial downloads
     val tempFile = File(destFile.parent, "${destFile.name}.tmp")
     try {
         val input = BufferedInputStream(conn.inputStream, 65536)
