@@ -149,7 +149,8 @@ export default function InstagramAuto() {
     try {
       const res = await fetch(`${API}/api/instagram/${storeId}/connect`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verificationCode: cfg.ig_code || '' }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -373,6 +374,23 @@ export default function InstagramAuto() {
                 </button>
               </div>
               <p style={s.hint}>Funciona con cuentas personales y Business. La contraseña se guarda cifrada.</p>
+            </div>
+
+            <div style={s.field}>
+              <label style={s.label}>
+                Código de autenticación
+                <span style={{ color: '#9ca3af', fontWeight: 400 }}> (si Instagram lo pide)</span>
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={8}
+                value={cfg.ig_code || ''}
+                onChange={e => setCfg(p => ({ ...p, ig_code: e.target.value.replace(/\D/g, '') }))}
+                placeholder="000000"
+                style={{ ...s.input, letterSpacing: '8px', textAlign: 'center', fontSize: 22, fontWeight: 700 }}
+              />
+              <p style={s.hint}>Ingresá el código de verificación o 2FA antes de hacer clic en Conectar.</p>
             </div>
 
             {/* Connection status */}

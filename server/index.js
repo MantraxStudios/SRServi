@@ -9326,7 +9326,8 @@ async function startServer() {
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getInstagramConfig(req.params.storeId);
         if (!cfg?.ig_username || !cfg?.ig_password) return res.status(400).json({ error: 'Guarda usuario y contraseña primero' });
-        const result = await startInstagramLogin(cfg.ig_username, cfg.ig_password);
+        const { verificationCode } = req.body;
+        const result = await startInstagramLogin(cfg.ig_username, cfg.ig_password, verificationCode || '');
         if (result.ok) {
           await saveInstagramSession(req.params.storeId, result.igState);
           return res.json({ ok: true });
