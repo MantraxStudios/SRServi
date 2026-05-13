@@ -779,34 +779,64 @@ async function buildIg(username) {
 }
 
 async function serializeIg(ig) {
-  const s = await ig.state.serialize();
-  delete s.constants;
-  return JSON.stringify(s);
+  try {
+    const s = await ig.state.serialize();
+    delete s.constants;
+    return JSON.stringify(s);
+  } catch { return '{}'; }
+}
+
+// Detect Instagram error type by name (instanceof fails with dynamic imports)
+function igErrorType(e) {
+  const name = e.name || e.constructor?.name || '';
+  const body = e.response?.body || {};
+  const msg  = body.message || body.error_type || '';
+
+  if (
+    name === 'IgLoginTwoFactorRequiredError' ||
+    body.two_factor_required ||
+    body.two_factor_info
+  ) return 'twoFactor';
+
+  if (
+    name === 'IgCheckpointError' ||
+    body.checkpoint_url ||
+    msg === 'checkpoint_required' ||
+    msg.includes('checkpoint')
+  ) return 'challenge';
+
+  return null;
 }
 
 // Start login. Returns:
 //   { ok: true, igState }                       — success
 //   { needsTwoFactor: true, info, igState }      — TOTP / SMS 2FA needed
-//   { needsChallenge: true, igState }             — checkpoint challenge needed
+//   { needsChallenge: true, igState }            — checkpoint challenge needed
 export async function startInstagramLogin(username, password) {
-  const { IgLoginTwoFactorRequiredError, IgCheckpointError } = await import('instagram-private-api');
   const ig = await buildIg(username);
+  let loginErr = null;
   try {
     await ig.simulate.preLoginFlow();
     await ig.account.login(username, password);
-    await ig.simulate.postLoginFlow();
+    try { await ig.simulate.postLoginFlow(); } catch (_) {}
     return { ok: true, igState: await serializeIg(ig) };
-  } catch (e) {
-    if (e instanceof IgLoginTwoFactorRequiredError) {
-      const info = e.response?.body?.two_factor_info || {};
-      return { needsTwoFactor: true, info, igState: await serializeIg(ig) };
-    }
-    if (e instanceof IgCheckpointError) {
-      try { await ig.challenge.auto(true); } catch (_) {}
-      return { needsChallenge: true, igState: await serializeIg(ig) };
-    }
-    throw e;
+  } catch (e) { loginErr = e; }
+
+  const type = igErrorType(loginErr);
+  const body = loginErr.response?.body || {};
+
+  if (type === 'twoFactor') {
+    const info = body.two_factor_info || {};
+    return { needsTwoFactor: true, info, igState: await serializeIg(ig) };
   }
+
+  if (type === 'challenge') {
+    try { await ig.challenge.auto(true); } catch (_) {}
+    return { needsChallenge: true, igState: await serializeIg(ig) };
+  }
+
+  // Unknown error — return message to help diagnose
+  throw new Error(loginErr.message || body.message || JSON.stringify(body) || 'Error de autenticación');
 }
 
 // Complete TOTP / SMS two-factor login
@@ -820,7 +850,7 @@ export async function completeInstagramTwoFactor(igState, { username, identifier
     verificationMethod,
     trustThisDevice: '1',
   });
-  await ig.simulate.postLoginFlow();
+  try { await ig.simulate.postLoginFlow(); } catch (_) {}
   return { ok: true, igState: await serializeIg(ig) };
 }
 
@@ -830,7 +860,7 @@ export async function completeInstagramChallenge(igState, code) {
   const ig = new IgApiClient();
   await ig.state.deserialize(JSON.parse(igState));
   await ig.challenge.sendSecurityCode(code);
-  await ig.simulate.postLoginFlow();
+  try { await ig.simulate.postLoginFlow(); } catch (_) {}
   return { ok: true, igState: await serializeIg(ig) };
 }
 
