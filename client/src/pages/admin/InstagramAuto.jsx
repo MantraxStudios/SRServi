@@ -6,6 +6,7 @@ import {
   faSave, faPlay, faEye, faEyeSlash,
   faCheckCircle, faTimesCircle, faSpinner, faDownload,
   faToggleOn, faToggleOff, faClock, faExclamationTriangle,
+  faLink, faUnlink, faShieldAlt, faMobileAlt,
 } from '@fortawesome/free-solid-svg-icons';
 
 const CSS = `
@@ -85,14 +86,20 @@ export default function InstagramAuto() {
   const { selectedStore } = useContext(StoreContext);
 
   const [cfg, setCfg]               = useState({ ig_username: '', ig_password: '', caption_template: '', enabled: false });
+  const [connected, setConnected]   = useState(false);
   const [loading, setLoading]       = useState(false);
   const [saving, setSaving]         = useState(false);
   const [posting, setPosting]       = useState(false);
-  const [previewing, setPreviewing] = useState(null); // null | 0 | 1 | 2
+  const [connecting, setConnecting] = useState(false);
+  const [previewing, setPreviewing] = useState(null);
   const [showPass, setShowPass]     = useState(false);
   const [previews, setPreviews]     = useState({ 0: null, 1: null, 2: null });
   const [lastStatus, setLastStatus] = useState(null);
   const [toast, setToast]           = useState(null);
+  // verification modal state
+  const [verifyModal, setVerifyModal] = useState(null); // null | { type: '2fa'|'challenge', info? }
+  const [verifyCode, setVerifyCode]   = useState('');
+  const [verifyMethod, setVerifyMethod] = useState('0'); // '0'=TOTP, '1'=SMS
 
   const storeId = selectedStore?.id;
   const nextTpl = ((lastStatus?.template_counter || 0)) % 3;
@@ -105,6 +112,7 @@ export default function InstagramAuto() {
       .then(r => r.json())
       .then(d => {
         setCfg({ ig_username: d.ig_username || '', ig_password: d.ig_password || '', caption_template: d.caption_template || '', enabled: !!d.enabled });
+        setConnected(!!d.ig_connected);
         setLastStatus({ last_posted_at: d.last_posted_at, last_error: d.last_error, template_counter: d.template_counter ?? 0 });
       })
       .catch(() => {})
@@ -129,6 +137,65 @@ export default function InstagramAuto() {
       showToast('Configuración guardada');
     } catch (e) { showToast(e.message, 'error'); }
     finally { setSaving(false); }
+  };
+
+  const connect = async () => {
+    if (!storeId) return;
+    if (!cfg.ig_username || !cfg.ig_password) {
+      showToast('Guardá usuario y contraseña primero', 'error');
+      return;
+    }
+    setConnecting(true);
+    try {
+      const res = await fetch(`${API}/api/instagram/${storeId}/connect`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.ok) {
+        setConnected(true);
+        showToast('¡Cuenta conectada exitosamente!');
+      } else if (data.needsTwoFactor) {
+        setVerifyCode('');
+        setVerifyModal({ type: '2fa', info: data.info });
+      } else if (data.needsChallenge) {
+        setVerifyCode('');
+        setVerifyModal({ type: 'challenge' });
+      }
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { setConnecting(false); }
+  };
+
+  const submitVerify = async () => {
+    if (!verifyCode.trim()) return;
+    setConnecting(true);
+    try {
+      const res = await fetch(`${API}/api/instagram/${storeId}/verify`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: verifyCode, type: verifyModal.type, verificationMethod: verifyMethod }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setConnected(true);
+      setVerifyModal(null);
+      showToast('¡Cuenta conectada exitosamente!');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { setConnecting(false); }
+  };
+
+  const disconnect = async () => {
+    if (!storeId) return;
+    if (!window.confirm('¿Desconectar la cuenta de Instagram?')) return;
+    try {
+      await fetch(`${API}/api/instagram/${storeId}/session`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setConnected(false);
+      showToast('Cuenta desconectada');
+    } catch (e) { showToast(e.message, 'error'); }
   };
 
   const loadPreview = async (tplIdx) => {
@@ -190,6 +257,63 @@ export default function InstagramAuto() {
   return (
     <div className="ig-page">
       <style>{CSS}</style>
+
+      {/* Verification modal */}
+      {verifyModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 20, padding: '32px 28px', width: '100%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                <FontAwesomeIcon icon={verifyModal.type === '2fa' ? faShieldAlt : faMobileAlt} style={{ fontSize: 22, color: '#D4AF37' }} />
+              </div>
+              <h3 style={{ fontWeight: 800, fontSize: 18, margin: '0 0 8px', color: '#111' }}>
+                {verifyModal.type === '2fa' ? 'Verificación en 2 pasos' : 'Código de verificación'}
+              </h3>
+              <p style={{ color: '#666', fontSize: 13, margin: 0, lineHeight: 1.5 }}>
+                {verifyModal.type === 'challenge'
+                  ? 'Instagram envió un código a tu email o teléfono. Ingresalo a continuación.'
+                  : 'Ingresá el código de 6 dígitos de tu app de autenticación o el código SMS.'}
+              </p>
+            </div>
+
+            {verifyModal.type === '2fa' && verifyModal.info?.totp_two_factor_on === false && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Método de verificación</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[{ val: '0', label: 'App TOTP' }, { val: '1', label: 'SMS' }].map(m => (
+                    <button key={m.val} onClick={() => setVerifyMethod(m.val)} style={{ flex: 1, padding: '8px', borderRadius: 8, border: `2px solid ${verifyMethod === m.val ? '#D4AF37' : '#e0e0e0'}`, background: verifyMethod === m.val ? '#fffbee' : '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', color: verifyMethod === m.val ? '#b8920a' : '#555' }}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={8}
+              value={verifyCode}
+              onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="000000"
+              autoFocus
+              style={{ width: '100%', fontSize: 30, letterSpacing: 10, textAlign: 'center', fontWeight: 700, padding: '14px 8px', border: '2px solid #e0e0e0', borderRadius: 12, outline: 'none', boxSizing: 'border-box', marginBottom: 14 }}
+              onFocus={e => { e.target.style.borderColor = '#D4AF37'; }}
+              onBlur={e => { e.target.style.borderColor = '#e0e0e0'; }}
+              onKeyDown={e => e.key === 'Enter' && submitVerify()}
+            />
+
+            <button onClick={submitVerify} disabled={connecting || verifyCode.length < 4} style={{ ...s.btnInstagram, marginBottom: 10 }}>
+              {connecting ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheckCircle} />}
+              {connecting ? ' Verificando...' : ' Confirmar código'}
+            </button>
+            <button onClick={() => setVerifyModal(null)} style={{ width: '100%', background: 'none', border: 'none', color: '#aaa', fontSize: 13, cursor: 'pointer', padding: '6px' }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Toast */}
       {toast && (
         <div style={{
@@ -248,7 +372,32 @@ export default function InstagramAuto() {
                   <FontAwesomeIcon icon={showPass ? faEyeSlash : faEye} />
                 </button>
               </div>
-              <p style={s.hint}>Usá una cuenta de Instagram Business. La contraseña se guarda cifrada.</p>
+              <p style={s.hint}>Funciona con cuentas personales y Business. La contraseña se guarda cifrada.</p>
+            </div>
+
+            {/* Connection status */}
+            <div style={{ padding: '12px 14px', borderRadius: 10, background: connected ? '#f0fdf4' : '#fef9f0', border: `1px solid ${connected ? '#bbf7d0' : '#fde68a'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FontAwesomeIcon icon={connected ? faCheckCircle : faTimesCircle} style={{ color: connected ? '#16a34a' : '#d97706', fontSize: 16 }} />
+                <div>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: connected ? '#15803d' : '#92400e' }}>
+                    {connected ? 'Cuenta conectada' : 'Cuenta no conectada'}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 11, color: connected ? '#166534' : '#78350f' }}>
+                    {connected ? 'Listo para publicar' : 'Conectá tu cuenta para publicar'}
+                  </p>
+                </div>
+              </div>
+              {connected ? (
+                <button onClick={disconnect} style={{ background: 'none', border: '1px solid #fca5a5', color: '#ef4444', fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  <FontAwesomeIcon icon={faUnlink} /> Desconectar
+                </button>
+              ) : (
+                <button onClick={connect} disabled={connecting} style={{ background: 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)', border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap', opacity: connecting ? 0.7 : 1 }}>
+                  {connecting ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faLink} />}
+                  {connecting ? ' Conectando...' : ' Conectar'}
+                </button>
+              )}
             </div>
 
             <div style={s.field}>
@@ -326,10 +475,15 @@ export default function InstagramAuto() {
             {saving ? ' Guardando...' : ' Guardar configuración'}
           </button>
 
-          <button onClick={postNow} disabled={posting || !cfg.ig_username} style={s.btnInstagram}>
+          <button onClick={postNow} disabled={posting || !cfg.ig_username || !connected} style={{ ...s.btnInstagram, opacity: (!connected || posting) ? 0.5 : 1 }}>
             {posting ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPlay} />}
             {posting ? ' Publicando...' : ' Publicar ahora'}
           </button>
+          {!connected && cfg.ig_username && (
+            <p style={{ textAlign: 'center', fontSize: 12, color: '#d97706', margin: '-4px 0 0', fontWeight: 600 }}>
+              Conectá tu cuenta para poder publicar
+            </p>
+          )}
         </div>
 
         {/* ── Right: Templates preview ── */}
@@ -412,7 +566,7 @@ export default function InstagramAuto() {
                 'Los cupones activos aparecen automáticamente en Neon Deals.',
                 'Publicación automática cada domingo a las 10:00 AM.',
                 'Podés publicar manualmente en cualquier momento.',
-                'Requiere cuenta de Instagram Business o Creator.',
+                'Funciona con cuentas personales, Business y Creator.',
               ].map((t, i) => (
                 <li key={i} style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{t}</li>
               ))}

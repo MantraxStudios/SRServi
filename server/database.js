@@ -279,8 +279,15 @@ async function createTables() {
   
   await pool.execute(createMercadoPagoTerminalsTable);
 
-  // Migration: add pos_pin column if not exists
-  await pool.execute(`ALTER TABLE mercado_pago_terminals ADD COLUMN IF NOT EXISTS pos_pin VARCHAR(8) NULL`).catch(() => {});
+  // Migration: add pos_pin column (compatible with all MySQL versions)
+  try {
+    const [hasPosPin] = await pool.execute(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mercado_pago_terminals' AND COLUMN_NAME = 'pos_pin'`
+    );
+    if (hasPosPin.length === 0) {
+      await pool.execute(`ALTER TABLE mercado_pago_terminals ADD COLUMN pos_pin VARCHAR(8) NULL`);
+    }
+  } catch (e) { console.warn('Migration pos_pin:', e.message); }
 
   // Auto-generate PINs for existing terminals that don't have one
   try {
@@ -465,10 +472,28 @@ async function createTables() {
       template_counter INT DEFAULT 0,
       last_posted_at TIMESTAMP NULL DEFAULT NULL,
       last_error TEXT,
+      ig_session MEDIUMTEXT NULL,
+      ig_temp_state MEDIUMTEXT NULL,
+      ig_connected TINYINT(1) DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )
   `);
+
+  // Migration: add session columns (compatible with all MySQL versions)
+  for (const [col, def] of [
+    ['ig_session', 'MEDIUMTEXT NULL'],
+    ['ig_temp_state', 'MEDIUMTEXT NULL'],
+    ['ig_connected', 'TINYINT(1) DEFAULT 0'],
+  ]) {
+    try {
+      const [has] = await pool.execute(
+        `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'instagram_configs' AND COLUMN_NAME = ?`,
+        [col]
+      );
+      if (has.length === 0) await pool.execute(`ALTER TABLE instagram_configs ADD COLUMN ${col} ${def}`);
+    } catch (e) { console.warn(`Migration instagram_configs.${col}:`, e.message); }
+  }
 
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS cash_registers (
@@ -2925,11 +2950,13 @@ export async function createMercadoPagoTerminal(userId, data) {
 }
 
 export async function getMercadoPagoTerminalByPin(pin) {
-  const [rows] = await pool.execute(
-    'SELECT * FROM mercado_pago_terminals WHERE pos_pin = ? LIMIT 1',
-    [pin]
-  );
-  return rows.length > 0 ? rows[0] : null;
+  try {
+    const [rows] = await pool.execute(
+      'SELECT * FROM mercado_pago_terminals WHERE pos_pin = ? LIMIT 1',
+      [pin]
+    );
+    return rows.length > 0 ? rows[0] : null;
+  } catch { return null; }
 }
 
 export async function getMercadoPagoTerminals(userId) {
@@ -3832,6 +3859,27 @@ export async function updateInstagramPosted(storeId, errorMsg = null) {
         last_error = ?
     WHERE store_id = ?
   `, [errorMsg, storeId]);
+}
+
+export async function saveInstagramSession(storeId, sessionJson) {
+  await pool.execute(
+    `UPDATE instagram_configs SET ig_session = ?, ig_temp_state = NULL, ig_connected = 1 WHERE store_id = ?`,
+    [sessionJson, storeId]
+  );
+}
+
+export async function saveInstagramTempState(storeId, tempStateJson) {
+  await pool.execute(
+    `UPDATE instagram_configs SET ig_temp_state = ? WHERE store_id = ?`,
+    [tempStateJson, storeId]
+  );
+}
+
+export async function clearInstagramSession(storeId) {
+  await pool.execute(
+    `UPDATE instagram_configs SET ig_session = NULL, ig_temp_state = NULL, ig_connected = 0 WHERE store_id = ?`,
+    [storeId]
+  );
 }
 
 export async function getChatGptKey(userId) {

@@ -17,8 +17,8 @@ import nodemailer from 'nodemailer';
 import * as XLSX from 'xlsx';
 import PluginManager from './plugins/PluginManager.js';
 import { initLeonIA } from './leon_ia/autostart.js';
-import { generatePromoImage, postToInstagram } from './instagram-service.js';
-import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted } from './database.js';
+import { generatePromoImage, postToInstagram, startInstagramLogin, completeInstagramTwoFactor, completeInstagramChallenge } from './instagram-service.js';
+import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, saveInstagramTempState, clearInstagramSession } from './database.js';
 import cron from 'node-cron';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
@@ -9296,6 +9296,7 @@ async function startServer() {
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getInstagramConfig(req.params.storeId);
         if (!cfg?.ig_username || !cfg?.ig_password) return res.status(400).json({ error: 'Configura usuario y contraseña primero' });
+        if (!cfg.ig_connected) return res.status(400).json({ error: 'Debes conectar tu cuenta de Instagram primero' });
         const [topProds] = await pool.execute(
           `SELECT p.id,p.name,p.description,p.price,p.image,COUNT(oi.id) AS sales
            FROM products p LEFT JOIN order_items oi ON oi.product_id=p.id
@@ -9308,13 +9309,72 @@ async function startServer() {
         );
         const buf = await generatePromoImage({ store, topProducts: topProds, coupons, templateCounter: cfg.template_counter || 0, currencySymbol: store.currency_symbol || '$' });
         const caption = cfg.caption_template || `✨ ${store.name} ✨\n\n🔥 Mirá nuestras ofertas y los más pedidos de la semana.\n\n📲 Pedí en: ${BASE_URL}/store/${store.code}\n\n#${store.name.replace(/\s+/g,'')} #SRServi`;
-        await postToInstagram({ username: cfg.ig_username, password: cfg.ig_password, imageBuffer: buf, caption });
+        const result = await postToInstagram({ username: cfg.ig_username, password: cfg.ig_password, imageBuffer: buf, caption, igSession: cfg.ig_session });
+        if (result?.igState) await saveInstagramSession(req.params.storeId, result.igState);
         await updateInstagramPosted(req.params.storeId, null);
         res.json({ ok: true });
       } catch (e) {
         await updateInstagramPosted(req.params.storeId, e.message).catch(() => {});
         res.status(500).json({ error: e.message });
       }
+    });
+
+    // Start Instagram login (handles personal accounts + 2FA + challenge)
+    app.post('/api/instagram/:storeId/connect', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const cfg = await getInstagramConfig(req.params.storeId);
+        if (!cfg?.ig_username || !cfg?.ig_password) return res.status(400).json({ error: 'Guarda usuario y contraseña primero' });
+        const result = await startInstagramLogin(cfg.ig_username, cfg.ig_password);
+        if (result.ok) {
+          await saveInstagramSession(req.params.storeId, result.igState);
+          return res.json({ ok: true });
+        }
+        if (result.needsTwoFactor) {
+          await saveInstagramTempState(req.params.storeId, JSON.stringify({ igState: result.igState, info: result.info }));
+          return res.json({ needsTwoFactor: true, info: result.info });
+        }
+        if (result.needsChallenge) {
+          await saveInstagramTempState(req.params.storeId, JSON.stringify({ igState: result.igState }));
+          return res.json({ needsChallenge: true });
+        }
+      } catch (e) { res.status(400).json({ error: e.message }); }
+    });
+
+    // Complete 2FA or challenge verification
+    app.post('/api/instagram/:storeId/verify', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const cfg = await getInstagramConfig(req.params.storeId);
+        if (!cfg?.ig_temp_state) return res.status(400).json({ error: 'No hay verificación pendiente' });
+        const temp = JSON.parse(cfg.ig_temp_state);
+        const { code, type, verificationMethod } = req.body;
+        let result;
+        if (type === 'challenge') {
+          result = await completeInstagramChallenge(temp.igState, code);
+        } else {
+          result = await completeInstagramTwoFactor(temp.igState, {
+            username: cfg.ig_username,
+            identifier: temp.info?.two_factor_identifier,
+            code,
+            verificationMethod: verificationMethod || '0',
+          });
+        }
+        await saveInstagramSession(req.params.storeId, result.igState);
+        res.json({ ok: true });
+      } catch (e) { res.status(400).json({ error: e.message }); }
+    });
+
+    // Disconnect Instagram session
+    app.delete('/api/instagram/:storeId/session', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        await clearInstagramSession(req.params.storeId);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
     // ============================================================
@@ -9645,7 +9705,8 @@ async function startServer() {
             );
             const buf = await generatePromoImage({ store: cfg, topProducts: topProds, coupons, templateCounter: cfg.template_counter || 0, currencySymbol: cfg.currency_symbol || '$' });
             const caption = cfg.caption_template || `✨ ${cfg.store_name} ✨\n\n🔥 Lo mejor de la semana!\n\n📲 ${BASE_URL}/store/${cfg.store_code}\n\n#${(cfg.store_name||'').replace(/\s+/g,'')} #SRServi`;
-            await postToInstagram({ username: cfg.ig_username, password: cfg.ig_password, imageBuffer: buf, caption });
+            const result = await postToInstagram({ username: cfg.ig_username, password: cfg.ig_password, imageBuffer: buf, caption, igSession: cfg.ig_session });
+            if (result?.igState) await saveInstagramSession(cfg.store_id, result.igState);
             await updateInstagramPosted(cfg.store_id, null);
             console.log(`[Instagram] ✅ ${cfg.store_name}`);
           } catch (e) {

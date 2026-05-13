@@ -769,12 +769,86 @@ export async function generatePromoImage({ store, topProducts, coupons, template
   return canvas.toBuffer('image/jpeg', { quality: 92 });
 }
 
-export async function postToInstagram({ username, password, imageBuffer, caption }) {
+// ─── Instagram auth helpers ───────────────────────────────────────────────────
+
+async function buildIg(username) {
   const { IgApiClient } = await import('instagram-private-api');
   const ig = new IgApiClient();
   ig.state.generateDevice(username);
-  await ig.simulate.preLoginFlow();
-  await ig.account.login(username, password);
+  return ig;
+}
+
+async function serializeIg(ig) {
+  const s = await ig.state.serialize();
+  delete s.constants;
+  return JSON.stringify(s);
+}
+
+// Start login. Returns:
+//   { ok: true, igState }                       — success
+//   { needsTwoFactor: true, info, igState }      — TOTP / SMS 2FA needed
+//   { needsChallenge: true, igState }             — checkpoint challenge needed
+export async function startInstagramLogin(username, password) {
+  const { IgLoginTwoFactorRequiredError, IgCheckpointError } = await import('instagram-private-api');
+  const ig = await buildIg(username);
+  try {
+    await ig.simulate.preLoginFlow();
+    await ig.account.login(username, password);
+    await ig.simulate.postLoginFlow();
+    return { ok: true, igState: await serializeIg(ig) };
+  } catch (e) {
+    if (e instanceof IgLoginTwoFactorRequiredError) {
+      const info = e.response?.body?.two_factor_info || {};
+      return { needsTwoFactor: true, info, igState: await serializeIg(ig) };
+    }
+    if (e instanceof IgCheckpointError) {
+      try { await ig.challenge.auto(true); } catch (_) {}
+      return { needsChallenge: true, igState: await serializeIg(ig) };
+    }
+    throw e;
+  }
+}
+
+// Complete TOTP / SMS two-factor login
+export async function completeInstagramTwoFactor(igState, { username, identifier, code, verificationMethod = '0' }) {
+  const ig = await buildIg(username);
+  await ig.state.deserialize(JSON.parse(igState));
+  await ig.account.twoFactorLogin({
+    username,
+    verificationCode: code.replace(/\s/g, ''),
+    twoFactorIdentifier: identifier,
+    verificationMethod,
+    trustThisDevice: '1',
+  });
   await ig.simulate.postLoginFlow();
+  return { ok: true, igState: await serializeIg(ig) };
+}
+
+// Complete checkpoint / challenge verification
+export async function completeInstagramChallenge(igState, code) {
+  const { IgApiClient } = await import('instagram-private-api');
+  const ig = new IgApiClient();
+  await ig.state.deserialize(JSON.parse(igState));
+  await ig.challenge.sendSecurityCode(code);
+  await ig.simulate.postLoginFlow();
+  return { ok: true, igState: await serializeIg(ig) };
+}
+
+// Post a photo. Prefers saved igSession; falls back to fresh login (no 2FA support).
+export async function postToInstagram({ username, password, imageBuffer, caption, igSession }) {
+  const ig = await buildIg(username);
+  if (igSession) {
+    try {
+      await ig.state.deserialize(JSON.parse(igSession));
+    } catch (_) {
+      igSession = null;
+    }
+  }
+  if (!igSession) {
+    await ig.simulate.preLoginFlow();
+    await ig.account.login(username, password);
+    await ig.simulate.postLoginFlow();
+  }
   await ig.publish.photo({ file: imageBuffer, caption });
+  return { igState: await serializeIg(ig) };
 }
