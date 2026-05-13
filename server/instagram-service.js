@@ -811,19 +811,24 @@ function igErrorType(e) {
 // Start login. Returns:
 //   { ok: true, igState }                       — success
 //   { needsTwoFactor: true, info, igState }      — TOTP / SMS 2FA needed
-//   { needsChallenge: true, igState }            — checkpoint challenge needed
+//   { needsChallenge: true, hint, igState }      — checkpoint / 401 / rate-limit
 export async function startInstagramLogin(username, password) {
   const ig = await buildIg(username);
+
+  // preLoginFlow makes optional warm-up requests — skip if Instagram rejects them
+  try { await ig.simulate.preLoginFlow(); } catch (_) {}
+
   let loginErr = null;
   try {
-    await ig.simulate.preLoginFlow();
     await ig.account.login(username, password);
     try { await ig.simulate.postLoginFlow(); } catch (_) {}
     return { ok: true, igState: await serializeIg(ig) };
   } catch (e) { loginErr = e; }
 
-  const type = igErrorType(loginErr);
-  const body = loginErr.response?.body || {};
+  const type  = igErrorType(loginErr);
+  const body  = loginErr.response?.body || {};
+  const status = loginErr.response?.statusCode || loginErr.response?.status || 0;
+  const msg   = loginErr.message || body.message || '';
 
   if (type === 'twoFactor') {
     const info = body.two_factor_info || {};
@@ -835,8 +840,13 @@ export async function startInstagramLogin(username, password) {
     return { needsChallenge: true, igState: await serializeIg(ig) };
   }
 
-  // Unknown error — return message to help diagnose
-  throw new Error(loginErr.message || body.message || JSON.stringify(body) || 'Error de autenticación');
+  // 401 / rate-limit / "wait" → Instagram is blocking but may accept a challenge code
+  if (status === 401 || msg.toLowerCase().includes('wait') || msg.toLowerCase().includes('try again')) {
+    try { await ig.challenge.auto(true); } catch (_) {}
+    return { needsChallenge: true, hint: msg, igState: await serializeIg(ig) };
+  }
+
+  throw new Error(msg || JSON.stringify(body) || 'Error de autenticación');
 }
 
 // Complete TOTP / SMS two-factor login
