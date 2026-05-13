@@ -856,7 +856,20 @@ export async function startInstagramLogin(username, password, verificationCode =
     return { needsChallenge: true, igState: await serializeIg(ig) };
   }
 
-  throw new Error(msg || JSON.stringify(body) || 'Error de autenticación');
+  // For wrong-password errors throw immediately — no point showing a code modal
+  const isHardError =
+    loginErr.name === 'IgLoginBadPasswordError' ||
+    msg.toLowerCase().includes('password') ||
+    msg.toLowerCase().includes('invalid user') ||
+    msg.toLowerCase().includes('contraseña') ||
+    msg.toLowerCase().includes('incorrect');
+
+  if (isHardError) throw new Error(msg || 'Usuario o contraseña incorrectos');
+
+  // Any other error (401, rate-limit, qe/sync blocked, etc.) → show verification modal
+  // so the user can enter a code if Instagram sent one
+  try { await ig.challenge.auto(true); } catch (_) {}
+  return { needsChallenge: true, hint: msg || 'Instagram requiere verificación', igState: await serializeIg(ig) };
 }
 
 // Complete TOTP / SMS two-factor login
@@ -875,11 +888,35 @@ export async function completeInstagramTwoFactor(igState, { username, identifier
 }
 
 // Complete checkpoint / challenge verification
-export async function completeInstagramChallenge(igState, code) {
+export async function completeInstagramChallenge(igState, code, username) {
   const { IgApiClient } = await import('instagram-private-api');
   const ig = new IgApiClient();
-  await ig.state.deserialize(JSON.parse(igState));
-  await ig.challenge.sendSecurityCode(code);
+  const parsed = JSON.parse(igState);
+  await ig.state.deserialize(parsed);
+  const cleanCode = (code || '').replace(/\s/g, '');
+  try {
+    await ig.challenge.sendSecurityCode(cleanCode);
+  } catch (err) {
+    if (err.message?.includes('No checkpoint data') || err.message?.includes('no_checkpoint')) {
+      // No real checkpoint URL in state — Instagram may have needed a TOTP/SMS code before login.
+      // Try submitting the code via the two-factor path as a fallback.
+      const uname = username || parsed?.account?.username || '';
+      if (!uname) throw new Error('Instagram no envió un código de verificación. Esperá unos minutos e intentá conectar de nuevo.');
+      try {
+        await ig.account.twoFactorLogin({
+          username: uname,
+          verificationCode: cleanCode,
+          twoFactorIdentifier: '',
+          verificationMethod: '0',
+          trustThisDevice: '1',
+        });
+      } catch (_) {
+        throw new Error('Código inválido o ya expirado. Esperá unos minutos e intentá conectar de nuevo.');
+      }
+    } else {
+      throw err;
+    }
+  }
   try { await ig.simulate.postLoginFlow(); } catch (_) {}
   return { ok: true, igState: await serializeIg(ig) };
 }

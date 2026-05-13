@@ -9338,7 +9338,7 @@ async function startServer() {
         }
         if (result.needsChallenge) {
           await saveInstagramTempState(req.params.storeId, JSON.stringify({ igState: result.igState }));
-          return res.json({ needsChallenge: true });
+          return res.json({ needsChallenge: true, hint: result.hint || '' });
         }
       } catch (e) { res.status(400).json({ error: e.message }); }
     });
@@ -9356,7 +9356,7 @@ async function startServer() {
 
         let result;
         if (type === 'challenge') {
-          result = await completeInstagramChallenge(temp.igState, code);
+          result = await completeInstagramChallenge(temp.igState, code, cfg?.ig_username || '');
         } else {
           result = await completeInstagramTwoFactor(temp.igState, {
             username: cfg?.ig_username || '',
