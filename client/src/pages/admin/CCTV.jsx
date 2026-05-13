@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { StoreContext } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faVideo, faUpload, faTrash, faDesktop, faKey, faCopy, faCheck,
-  faCircle, faPlay, faChevronDown, faPen, faTimes, faExclamationTriangle,
-  faWifi, faWifiSlash
+  faPlay, faPen, faTimes, faExclamationTriangle, faHistory, faPowerOff,
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -25,6 +25,7 @@ function formatDate(d) {
 
 export default function CCTV() {
   const { token } = useAuth();
+  const { selectedStore } = useContext(StoreContext);
   const [tab, setTab] = useState('videos');
   const [videos, setVideos] = useState([]);
   const [screens, setScreens] = useState([]);
@@ -32,8 +33,6 @@ export default function CCTV() {
   const [loadingScreens, setLoadingScreens] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [pairingCode, setPairingCode] = useState(null);
-  const [generatingCode, setGeneratingCode] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -42,6 +41,8 @@ export default function CCTV() {
   const [renameModal, setRenameModal] = useState(null);
   const [renameName, setRenameName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [powerLogModal, setPowerLogModal] = useState(null); // { screen, log: [] }
+  const [loadingLog, setLoadingLog] = useState(false);
   const fileInputRef = useRef();
 
   const headers = { Authorization: `Bearer ${token}` };
@@ -106,21 +107,19 @@ export default function CCTV() {
     setDeleteConfirm(null);
   };
 
-  const generateCode = async () => {
-    setGeneratingCode(true);
+  const openPowerLog = async (screen) => {
+    setLoadingLog(true);
+    setPowerLogModal({ screen, log: [] });
     try {
-      const r = await fetch(`${API}/api/cctv/screens/generate-code`, { method: 'POST', headers });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error);
-      setPairingCode(data.code);
-      setCopiedCode(false);
-      await fetchScreens();
-    } catch (e) { showError(e.message); }
-    finally { setGeneratingCode(false); }
+      const r = await fetch(`${API}/api/cctv/screens/${screen.id}/power-log`, { headers });
+      if (r.ok) setPowerLogModal({ screen, log: await r.json() });
+    } catch { }
+    finally { setLoadingLog(false); }
   };
 
-  const copyCode = () => {
-    navigator.clipboard.writeText(pairingCode);
+  const copyStoreCode = () => {
+    if (!selectedStore?.code) return;
+    navigator.clipboard.writeText(selectedStore.code);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
@@ -304,42 +303,24 @@ export default function CCTV() {
         <div>
           {/* Pairing card */}
           <div style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '20px 24px', marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 220 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <FontAwesomeIcon icon={faKey} style={{ color: GOLD, fontSize: 14 }} />
-                  <span style={{ color: '#09090b', fontWeight: 700, fontSize: 15 }}>Emparejar nueva pantalla</span>
-                </div>
-                <div style={{ color: '#71717a', fontSize: 13 }}>
-                  Genera un código e ingrésalo en la app de TV para vincularla
-                </div>
-              </div>
-              <button
-                onClick={generateCode}
-                disabled={generatingCode}
-                style={{
-                  background: GOLD, border: 'none', borderRadius: 8,
-                  padding: '9px 18px', color: '#0a0a0a', fontWeight: 700,
-                  fontSize: 14, cursor: generatingCode ? 'not-allowed' : 'pointer',
-                  opacity: generatingCode ? 0.7 : 1
-                }}
-              >
-                {generatingCode ? 'Generando...' : 'Generar Código'}
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <FontAwesomeIcon icon={faKey} style={{ color: GOLD, fontSize: 14 }} />
+              <span style={{ color: '#09090b', fontWeight: 700, fontSize: 15 }}>Código de vinculación</span>
             </div>
-
-            {pairingCode && (
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f4f4f5', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <span style={{ color: '#71717a', fontSize: 13 }}>Código:</span>
+            <div style={{ color: '#71717a', fontSize: 13, marginBottom: 14 }}>
+              Ingresá este código en la app de Cartelería TV para vincular la pantalla. Es permanente, no cambia nunca.
+            </div>
+            {selectedStore?.code ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{
-                  background: '#09090b', borderRadius: 8, padding: '8px 20px',
-                  letterSpacing: 8, fontSize: 22, fontWeight: 900, color: GOLD,
+                  background: '#09090b', borderRadius: 8, padding: '10px 24px',
+                  letterSpacing: 8, fontSize: 26, fontWeight: 900, color: GOLD,
                   fontFamily: 'monospace'
                 }}>
-                  {pairingCode}
+                  {selectedStore.code}
                 </div>
                 <button
-                  onClick={copyCode}
+                  onClick={copyStoreCode}
                   style={{
                     background: copiedCode ? '#f0fdf4' : '#f4f4f5',
                     border: `1px solid ${copiedCode ? '#bbf7d0' : '#e4e4e7'}`,
@@ -350,8 +331,9 @@ export default function CCTV() {
                   <FontAwesomeIcon icon={copiedCode ? faCheck : faCopy} style={{ marginRight: 6 }} />
                   {copiedCode ? 'Copiado' : 'Copiar'}
                 </button>
-                <span style={{ color: '#a1a1aa', fontSize: 12 }}>Válido por 15 min</span>
               </div>
+            ) : (
+              <div style={{ color: '#a1a1aa', fontSize: 13 }}>Seleccioná una tienda para ver el código.</div>
             )}
           </div>
 
@@ -414,6 +396,13 @@ export default function CCTV() {
                       >
                         <FontAwesomeIcon icon={faVideo} style={{ marginRight: 5, fontSize: 11 }} />
                         Cambiar video
+                      </button>
+                      <button
+                        onClick={() => openPowerLog(s)}
+                        style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#0369a1' }}
+                        title="Historial de encendido"
+                      >
+                        <FontAwesomeIcon icon={faHistory} style={{ fontSize: 12 }} />
                       </button>
                       <button
                         onClick={() => { setRenameModal(s); setRenameName(s.device_name); }}
@@ -506,6 +495,54 @@ export default function CCTV() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setRenameModal(null)} style={{ flex: 1, padding: '10px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#71717a', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
               <button onClick={renameScreen} style={{ flex: 1, padding: '10px', background: GOLD, border: 'none', borderRadius: 8, color: '#0a0a0a', fontWeight: 700, cursor: 'pointer' }}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Power Log Modal */}
+      {powerLogModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#09090b', fontSize: 17, fontWeight: 700 }}>
+                  Historial — <span style={{ color: GOLD }}>{powerLogModal.screen.device_name}</span>
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#71717a' }}>Últimos 100 eventos de encendido/apagado</p>
+              </div>
+              <button onClick={() => setPowerLogModal(null)} style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', fontSize: 16, padding: 4 }}>
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {loadingLog ? (
+                <div style={{ textAlign: 'center', color: '#71717a', padding: 32, fontSize: 14 }}>Cargando...</div>
+              ) : powerLogModal.log.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#a1a1aa', padding: 32, fontSize: 14 }}>
+                  Sin registros. La app de TV reporta los eventos al encenderse y apagarse.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {powerLogModal.log.map((entry, i) => (
+                    <div key={i} style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '10px 14px', borderRadius: 9,
+                      background: entry.event === 'on' ? '#f0fdf4' : '#fef2f2',
+                      border: `1px solid ${entry.event === 'on' ? '#bbf7d0' : '#fca5a5'}`
+                    }}>
+                      <FontAwesomeIcon
+                        icon={faPowerOff}
+                        style={{ color: entry.event === 'on' ? '#16a34a' : '#dc2626', fontSize: 14, flexShrink: 0 }}
+                      />
+                      <span style={{ fontWeight: 700, fontSize: 13, color: entry.event === 'on' ? '#15803d' : '#dc2626', minWidth: 60 }}>
+                        {entry.event === 'on' ? 'Encendida' : 'Apagada'}
+                      </span>
+                      <span style={{ color: '#71717a', fontSize: 13 }}>{formatDate(entry.logged_at)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -9537,6 +9537,16 @@ async function startServer() {
           INDEX idx_cctv_screens_code (pairing_code)
         )
       `);
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS cctv_power_log (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          screen_id INT NOT NULL,
+          event ENUM('on','off') NOT NULL,
+          logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_cctv_power_screen (screen_id),
+          INDEX idx_cctv_power_logged (logged_at)
+        )
+      `);
       _cctvReady = true;
     }
 
@@ -9644,12 +9654,38 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // TV Device: pair with code (public)
+    // TV Device: pair with store code (permanent) or legacy random code (public)
     app.post('/api/cctv/pair', async (req, res) => {
       try {
         await ensureCctvTables();
         const { pairing_code, device_name } = req.body;
         if (!pairing_code) return res.status(400).json({ error: 'Código requerido' });
+        const dname = device_name || 'TV Cartelería';
+
+        // Try as store code first (permanent — the recommended method)
+        const [storeRows] = await pool.execute(
+          'SELECT id, user_id FROM stores WHERE code = ?',
+          [pairing_code.toLowerCase().trim()]
+        );
+        if (storeRows.length) {
+          const { user_id } = storeRows[0];
+          // If same device_name already paired for this user, reuse its token
+          const [existing] = await pool.execute(
+            'SELECT id, device_token FROM cctv_screens WHERE user_id = ? AND device_name = ? AND device_token IS NOT NULL',
+            [user_id, dname]
+          );
+          if (existing.length) {
+            return res.json({ device_token: existing[0].device_token, paired: true });
+          }
+          const deviceToken = crypto.randomBytes(32).toString('hex');
+          await pool.execute(
+            'INSERT INTO cctv_screens (user_id, device_name, device_token) VALUES (?, ?, ?)',
+            [user_id, dname, deviceToken]
+          );
+          return res.json({ device_token: deviceToken, paired: true });
+        }
+
+        // Fall back to legacy random pairing code (temporary, 15-min expiry)
         const [rows] = await pool.execute(
           'SELECT * FROM cctv_screens WHERE pairing_code = ? AND device_token IS NULL',
           [pairing_code]
@@ -9664,7 +9700,7 @@ async function startServer() {
         const deviceToken = crypto.randomBytes(32).toString('hex');
         await pool.execute(
           'UPDATE cctv_screens SET device_token = ?, device_name = ? WHERE id = ?',
-          [deviceToken, device_name || 'TV Cartelería', rows[0].id]
+          [deviceToken, dname, rows[0].id]
         );
         res.json({ device_token: deviceToken, paired: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
@@ -9686,6 +9722,34 @@ async function startServer() {
         if (!rows.length) return res.status(404).json({ error: 'Dispositivo no encontrado' });
         await pool.execute('UPDATE cctv_screens SET last_seen = NOW() WHERE device_token = ?', [device_token]);
         res.json(rows[0]);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // TV Device: report power event (public) — called by TV app on boot/shutdown
+    app.post('/api/cctv/power-event', async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { device_token, event } = req.body;
+        if (!device_token || !['on', 'off'].includes(event)) return res.status(400).json({ error: 'device_token y event (on|off) requeridos' });
+        const [rows] = await pool.execute('SELECT id FROM cctv_screens WHERE device_token = ?', [device_token]);
+        if (!rows.length) return res.status(404).json({ error: 'Dispositivo no encontrado' });
+        await pool.execute('INSERT INTO cctv_power_log (screen_id, event) VALUES (?, ?)', [rows[0].id, event]);
+        await pool.execute('UPDATE cctv_screens SET last_seen = NOW() WHERE device_token = ?', [device_token]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: get power log for a screen
+    app.get('/api/cctv/screens/:id/power-log', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [screen] = await pool.execute('SELECT id FROM cctv_screens WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        if (!screen.length) return res.status(404).json({ error: 'Pantalla no encontrada' });
+        const [rows] = await pool.execute(
+          'SELECT event, logged_at FROM cctv_power_log WHERE screen_id = ? ORDER BY logged_at DESC LIMIT 100',
+          [req.params.id]
+        );
+        res.json(rows);
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
