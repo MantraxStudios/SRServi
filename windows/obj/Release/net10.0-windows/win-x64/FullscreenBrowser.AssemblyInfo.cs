@@ -10,12 +10,12 @@
 using System;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyCompanyAttribute("FullscreenBrowser")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("Totem")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0343a8149c56faa4eb95c0f83f8a9cfe260fc84f")]
-[assembly: System.Reflection.AssemblyProductAttribute("FullscreenBrowser")]
-[assembly: System.Reflection.AssemblyTitleAttribute("FullscreenBrowser")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fe2e8a30600c3fd5eebc504430204e6bbad68eba")]
+[assembly: System.Reflection.AssemblyProductAttribute("Totem")]
+[assembly: System.Reflection.AssemblyTitleAttribute("Totem")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 [assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
 [assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]

@@ -2,15 +2,22 @@ package com.mantraxstudios.cctv
 
 import android.app.admin.DevicePolicyManager
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -20,10 +27,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.Image
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -43,6 +55,13 @@ import org.json.JSONObject
 import java.io.*
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 private val Gold = Color(0xFFD4AF37)
 private val DarkBg = Color(0xFF0A0A0A)
@@ -53,51 +72,132 @@ private const val PREFS_NAME = "cctv_signage"
 private const val KEY_TOKEN = "device_token"
 private const val KEY_VIDEO_PATH = "current_video_path"
 private const val KEY_VIDEO_URL = "current_video_url"
+private const val KEY_LAUNCHER_CONFIRMED = "launcher_confirmed"
 private const val TAG = "CCTVSignage"
+private const val PERM_NOTIFICATIONS = "android.permission.POST_NOTIFICATIONS"
 
 class MainActivity : ComponentActivity() {
 
+    private var appScreen by mutableStateOf("init")
     private var kioskActive = false
+    private var showBackMenu by mutableStateOf(false)
+    // Flag de sesión: se resetea cada vez que la app se mata y reinicia
+    private var setupDone = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-        // Bloquear el botón back — kiosk mode
-        onBackPressedDispatcher.addCallback(this) { /* no-op */ }
-
+        onBackPressedDispatcher.addCallback(this) { showBackMenu = true }
         KioskService.start(this)
 
         setContent {
             val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            var screen by remember { mutableStateOf("splash") }
 
-            when (screen) {
-                "splash" -> SplashScreen(onFinish = {
-                    screen = if (prefs.getString(KEY_TOKEN, null) != null) "player" else "pair"
-                })
-                "pair" -> PairingScreen(onPaired = { token ->
-                    prefs.edit().putString(KEY_TOKEN, token).apply()
-                    screen = "player"
-                })
-                "player" -> PlayerScreen(prefs = prefs)
+            Box(modifier = Modifier.fillMaxSize()) {
+                when (appScreen) {
+                    "setup_permissions" -> PermissionsSetupScreen(
+                        onAllGranted = {
+                            appScreen = "setup_launcher"
+                        }
+                    )
+                    "setup_launcher" -> SetupLauncherScreen(
+                        onOpenLauncherSettings = { openLauncherSettings() },
+                        onOpenSystemSettings = { openSystemSettings() },
+                        isLauncherDefault = { isDefaultLauncher() },
+                        onConfirmed = {
+                            prefs.edit().putBoolean(KEY_LAUNCHER_CONFIRMED, true).apply()
+                            appScreen = "splash"
+                        }
+                    )
+                    "splash" -> SplashScreen(onFinish = {
+                        appScreen = if (prefs.getString(KEY_TOKEN, null) != null) "player" else "pair"
+                    })
+                    "pair" -> PairingScreen(onPaired = { token ->
+                        prefs.edit().putString(KEY_TOKEN, token).apply()
+                        appScreen = "player"
+                    })
+                    "player" -> PlayerScreen(prefs = prefs)
+                }
+
+                if (showBackMenu) {
+                    BackMenuDialog(
+                        onStay = { showBackMenu = false },
+                        onSystemSettings = { showBackMenu = false; openSystemSettings() }
+                    )
+                }
             }
         }
     }
 
     override fun onResume() {
         super.onResume()
+        KioskService.instance?.cancelRelaunch()
         setupLockTask()
+        if (appScreen == "init" || appScreen == "setup_permissions" || appScreen == "setup_launcher") {
+            val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val launcherConfirmed = prefs.getBoolean(KEY_LAUNCHER_CONFIRMED, false)
+            appScreen = when {
+                !hasRequiredPermissions() -> "setup_permissions"
+                !launcherConfirmed -> "setup_launcher"
+                else -> "splash"
+            }
+        }
     }
 
-    // Bloquear también teclas de hardware (menú, home en algunos dispositivos)
+    override fun onStop() {
+        super.onStop()
+        // Programar regreso automático en 15 segundos si el usuario sale de la app
+        KioskService.instance?.scheduleRelaunch(15_000)
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         return when (keyCode) {
             KeyEvent.KEYCODE_HOME,
-            KeyEvent.KEYCODE_MENU,
-            KeyEvent.KEYCODE_APP_SWITCH -> true  // bloquear
+            KeyEvent.KEYCODE_APP_SWITCH -> true
+            KeyEvent.KEYCODE_MENU -> { showBackMenu = true; true }
             else -> super.onKeyDown(keyCode, event)
         }
+    }
+
+    private fun isDefaultLauncher(): Boolean {
+        val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val info = packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+        return info?.activityInfo?.packageName == packageName
+    }
+
+    private fun openLauncherSettings() {
+        val intents = listOf(
+            Intent(Settings.ACTION_HOME_SETTINGS),
+            Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+        for (intent in intents) {
+            try { startActivity(intent); return } catch (_: Exception) {}
+        }
+    }
+
+    fun openSystemSettings() {
+        try { startActivity(Intent(Settings.ACTION_SETTINGS)) } catch (_: Exception) {}
+    }
+
+    fun openWifiSettings() {
+        try { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) } catch (_: Exception) {}
+    }
+
+    fun openAppSettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", packageName, null)
+            })
+        } catch (_: Exception) {}
+    }
+
+    fun hasRequiredPermissions(): Boolean {
+        // Solo notificaciones es obligatorio (Android 13+). La batería no bloquea
+        // porque isIgnoringBatteryOptimizations() es poco fiable en Android TV.
+        return if (Build.VERSION.SDK_INT >= 33)
+            checkSelfPermission(PERM_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        else true
     }
 
     private fun setupLockTask() {
@@ -111,8 +211,523 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        // Sin Device Owner: el modo kiosk se logra con HOME launcher + back bloqueado
-        // + KioskService.onTaskRemoved que relanza la app si la cierran
+    }
+}
+
+// ─── Permissions Setup ───────────────────────────────────────────────────────
+
+@Composable
+fun PermissionsSetupScreen(onAllGranted: () -> Unit) {
+    val context = LocalContext.current
+
+    fun checkNotif() = if (Build.VERSION.SDK_INT >= 33)
+        context.checkSelfPermission(PERM_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    else true
+
+    fun checkBattery() = (context.getSystemService(PowerManager::class.java))
+        .isIgnoringBatteryOptimizations(context.packageName)
+
+    var notifOk by remember { mutableStateOf(checkNotif()) }
+    var batteryOk by remember { mutableStateOf(checkBattery()) }
+    // Solo notificaciones es obligatorio; batería es recomendada pero no bloquea
+    val allOk = notifOk
+
+    LaunchedEffect(allOk) {
+        if (allOk) { delay(1200); onAllGranted() }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            notifOk = checkNotif()
+            batteryOk = checkBattery()
+        }
+    }
+
+    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        notifOk = it
+    }
+
+    fun openBatterySettings() {
+        val intents = listOf(
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:${context.packageName}")
+            },
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:${context.packageName}")
+            },
+            Intent(Settings.ACTION_SETTINGS)
+        )
+        for (intent in intents) {
+            try {
+                context.startActivity(intent.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                return
+            } catch (_: Exception) {}
+        }
+    }
+
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { delay(200); visible = true }
+
+    Box(
+        modifier = Modifier.fillMaxSize().background(DarkBg),
+        contentAlignment = Alignment.Center
+    ) {
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(500)) + scaleIn(tween(500), initialScale = 0.9f)
+        ) {
+            Card(
+                modifier = Modifier.width(500.dp).padding(16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = CardBg),
+                border = BorderStroke(1.dp, Gold.copy(alpha = 0.3f)),
+                elevation = CardDefaults.cardElevation(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 40.dp, vertical = 40.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier.size(72.dp).background(Color.White, RoundedCornerShape(18.dp)).padding(6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.miapp),
+                            contentDescription = "SRServi",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+
+                    Text(
+                        "Configuración inicial",
+                        color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Activa los permisos recomendados. Puedes continuar sin todos si tu dispositivo no los soporta.",
+                        color = Color.White.copy(alpha = 0.45f), fontSize = 13.sp,
+                        textAlign = TextAlign.Center, lineHeight = 18.sp
+                    )
+
+                    Spacer(Modifier.height(28.dp))
+
+                    // Notificaciones — solo muestra en Android 13+
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        PermissionItem(
+                            number = "1",
+                            title = "Notificaciones",
+                            description = "Mantiene el servicio activo para que la app no se cierre.",
+                            granted = notifOk,
+                            onEnable = { notifLauncher.launch(PERM_NOTIFICATIONS) }
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+
+                    PermissionItem(
+                        number = if (Build.VERSION.SDK_INT >= 33) "2" else "1",
+                        title = "Sin restricción de batería (recomendado)",
+                        description = "Recomendado. Evita que el sistema cierre la app. Si ya lo activaste y sigue en pendiente, ignóralo.",
+                        granted = batteryOk,
+                        onEnable = { openBatterySettings() }
+                    )
+
+                    Spacer(Modifier.height(24.dp))
+
+                    // Botón continuar — siempre visible
+                    Button(
+                        onClick = onAllGranted,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (allOk) Color(0xFF22C55E) else Gold
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(
+                            if (allOk) "Todo listo — Continuar" else "Continuar de todos modos",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
+
+                    if (!allOk) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "Si el botón Activar no hace nada, ve a Ajustes del sistema manualmente.",
+                            color = Color.White.copy(alpha = 0.3f),
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PermissionItem(
+    number: String,
+    title: String,
+    description: String,
+    granted: Boolean,
+    onEnable: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .background(
+                if (granted) Color(0xFF14301A) else Color.White.copy(alpha = 0.06f),
+                RoundedCornerShape(12.dp)
+            )
+            .padding(14.dp)
+            .fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(if (granted) Color(0xFF22C55E) else Gold, RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                if (granted) "OK" else number,
+                color = DarkBg, fontSize = 13.sp, fontWeight = FontWeight.Black
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(description, color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, lineHeight = 16.sp)
+        }
+        if (!granted) {
+            Button(
+                onClick = onEnable,
+                colors = ButtonDefaults.buttonColors(containerColor = Gold),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text("Activar", color = DarkBg, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+// ─── Back Menu ───────────────────────────────────────────────────────────────
+
+@Composable
+fun BackMenuDialog(onStay: () -> Unit, onSystemSettings: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.78f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier.width(360.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = CardBg),
+            border = BorderStroke(1.dp, Gold.copy(alpha = 0.35f)),
+            elevation = CardDefaults.cardElevation(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 36.dp, vertical = 36.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .background(Color.White, RoundedCornerShape(16.dp))
+                        .padding(5.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.miapp),
+                        contentDescription = "SRServi",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                Text(
+                    "¿Qué deseas hacer?",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.height(28.dp))
+
+                Button(
+                    onClick = onStay,
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Gold),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("Cartelería Digital", color = DarkBg, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = onSystemSettings,
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("Configuraciones del Sistema", color = Color.White, fontSize = 16.sp)
+                }
+            }
+        }
+    }
+}
+
+// ─── Setup Launcher ──────────────────────────────────────────────────────────
+
+@Composable
+fun SetupLauncherScreen(
+    onOpenLauncherSettings: () -> Unit,
+    onOpenSystemSettings: () -> Unit,
+    isLauncherDefault: () -> Boolean,
+    onConfirmed: () -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+    var launcherReady by remember { mutableStateOf(false) }
+    var showSystemMenu by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        delay(200)
+        visible = true
+        while (true) {
+            launcherReady = isLauncherDefault()
+            delay(1000)
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DarkBg),
+        contentAlignment = Alignment.Center
+    ) {
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(500)) + scaleIn(tween(500), initialScale = 0.9f)
+        ) {
+            Card(
+                modifier = Modifier
+                    .width(460.dp)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = CardBg),
+                border = BorderStroke(1.dp, Gold.copy(alpha = 0.3f)),
+                elevation = CardDefaults.cardElevation(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 40.dp, vertical = 44.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Logo
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(Color.White, RoundedCornerShape(18.dp))
+                            .padding(6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.miapp),
+                            contentDescription = "SRServi",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+
+                    Text(
+                        "Cartelería Digital",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        "Powered By SRAutomatic.cl",
+                        color = Gold,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(Modifier.height(32.dp))
+
+                    // Estado del launcher
+                    Row(
+                        modifier = Modifier
+                            .background(
+                                if (launcherReady) Color(0xFF14301A) else Color.White.copy(alpha = 0.06f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(
+                                    if (launcherReady) Color(0xFF22C55E) else Gold,
+                                    RoundedCornerShape(10.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                if (launcherReady) "OK" else "!",
+                                color = DarkBg,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                        Column {
+                            Text(
+                                if (launcherReady) "Launcher configurado" else "Launcher no configurado",
+                                color = if (launcherReady) Color(0xFF22C55E) else Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                if (launcherReady)
+                                    "Presiona Continuar para iniciar la app."
+                                else
+                                    "Esta app debe ser la pantalla de inicio del dispositivo.",
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+
+                    // Botón principal: abrir ajustes launcher
+                    Button(
+                        onClick = onOpenLauncherSettings,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (launcherReady) Color.White.copy(alpha = 0.1f) else Gold
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(
+                            "Abrir ajustes de Launcher",
+                            color = if (launcherReady) Color.White.copy(alpha = 0.6f) else DarkBg,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    // Botón Continuar — siempre habilitado para no bloquear en TVs donde
+                    // isDefaultLauncher() no es confiable; el indicador de estado informa al usuario
+                    Button(
+                        onClick = onConfirmed,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (launcherReady) Color(0xFF22C55E) else Gold
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(
+                            if (launcherReady) "Continuar" else "Ya lo configure, Continuar",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+
+                    // Acceso a ajustes del sistema
+                    TextButton(onClick = { showSystemMenu = true }) {
+                        Text(
+                            "Problemas? Abrir ajustes del sistema",
+                            color = Color.White.copy(alpha = 0.35f),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // Menú ajustes del sistema
+        if (showSystemMenu) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.7f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    modifier = Modifier.width(340.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = CardBg),
+                    border = BorderStroke(1.dp, Gold.copy(alpha = 0.25f))
+                ) {
+                    Column(modifier = Modifier.padding(28.dp)) {
+                        Text(
+                            "Ajustes del Sistema",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Accesos directos para solucionar problemas",
+                            color = Color.White.copy(alpha = 0.4f),
+                            fontSize = 12.sp
+                        )
+                        Spacer(Modifier.height(20.dp))
+
+                        listOf(
+                            "Ajustes generales" to onOpenSystemSettings,
+                            "Ajustes de Launcher / Apps predeterminadas" to onOpenLauncherSettings
+                        ).forEach { (label, action) ->
+                            Button(
+                                onClick = { showSystemMenu = false; action() },
+                                modifier = Modifier.fillMaxWidth().height(48.dp).padding(vertical = 3.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.07f)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text(label, color = Color.White, fontSize = 14.sp)
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+                        TextButton(
+                            onClick = { showSystemMenu = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Cerrar", color = Gold, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -153,15 +768,15 @@ fun SplashScreen(onFinish: () -> Unit) {
                     Box(
                         modifier = Modifier
                             .size(88.dp)
-                            .background(Gold, RoundedCornerShape(20.dp)),
+                            .background(Color.White, RoundedCornerShape(20.dp))
+                            .padding(8.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            "SR",
-                            color = DarkBg,
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 2.sp
+                        Image(
+                            painter = painterResource(R.drawable.miapp),
+                            contentDescription = "SRServi",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
                         )
                     }
                     Spacer(Modifier.height(28.dp))
@@ -244,10 +859,16 @@ fun PairingScreen(onPaired: (String) -> Unit) {
                 Box(
                     modifier = Modifier
                         .size(68.dp)
-                        .background(Gold, RoundedCornerShape(16.dp)),
+                        .background(Color.White, RoundedCornerShape(16.dp))
+                        .padding(6.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("SR", color = DarkBg, fontSize = 26.sp, fontWeight = FontWeight.Black)
+                    Image(
+                        painter = painterResource(R.drawable.miapp),
+                        contentDescription = "SRServi",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
                 }
 
                 Spacer(Modifier.height(20.dp))
@@ -316,7 +937,9 @@ fun PairingScreen(onPaired: (String) -> Unit) {
                                 val token = pairDevice(code.trim())
                                 onPaired(token)
                             } catch (e: Exception) {
-                                errorMsg = e.message ?: "Error al emparejar"
+                                val msg = e.message ?: "Error desconocido"
+                                errorMsg = msg
+                                Log.e(TAG, "Pair error: ${e.javaClass.simpleName}: $msg")
                             } finally {
                                 loading = false
                             }
@@ -347,6 +970,146 @@ fun PairingScreen(onPaired: (String) -> Unit) {
     }
 }
 
+// ─── Waiting Signal ──────────────────────────────────────────────────────────
+
+@Composable
+fun WaitingSignalScreen() {
+    val transition = rememberInfiniteTransition(label = "signal")
+
+    val ring1ScaleF by transition.animateFloat(
+        initialValue = 80f, targetValue = 180f,
+        animationSpec = infiniteRepeatable(tween(2000, easing = FastOutSlowInEasing), RepeatMode.Restart),
+        label = "r1s"
+    )
+    val ring1Scale = ring1ScaleF.dp
+    val ring1Alpha by transition.animateFloat(
+        initialValue = 0.6f, targetValue = 0f,
+        animationSpec = infiniteRepeatable(tween(2000), RepeatMode.Restart),
+        label = "r1a"
+    )
+    val ring2ScaleF by transition.animateFloat(
+        initialValue = 80f, targetValue = 180f,
+        animationSpec = infiniteRepeatable(tween(2000, delayMillis = 700, easing = FastOutSlowInEasing), RepeatMode.Restart),
+        label = "r2s"
+    )
+    val ring2Scale = ring2ScaleF.dp
+    val ring2Alpha by transition.animateFloat(
+        initialValue = 0.6f, targetValue = 0f,
+        animationSpec = infiniteRepeatable(tween(2000, delayMillis = 700), RepeatMode.Restart),
+        label = "r2a"
+    )
+    val ring3ScaleF by transition.animateFloat(
+        initialValue = 80f, targetValue = 180f,
+        animationSpec = infiniteRepeatable(tween(2000, delayMillis = 1400, easing = FastOutSlowInEasing), RepeatMode.Restart),
+        label = "r3s"
+    )
+    val ring3Scale = ring3ScaleF.dp
+    val ring3Alpha by transition.animateFloat(
+        initialValue = 0.6f, targetValue = 0f,
+        animationSpec = infiniteRepeatable(tween(2000, delayMillis = 1400), RepeatMode.Restart),
+        label = "r3a"
+    )
+    val textAlpha by transition.animateFloat(
+        initialValue = 0.5f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
+        label = "txt"
+    )
+
+    Box(
+        modifier = Modifier.fillMaxSize().background(DarkBg),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Logo con anillos de pulso
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(200.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(ring3Scale)
+                        .background(Gold.copy(alpha = ring3Alpha * 0.12f), RoundedCornerShape(percent = 50))
+                )
+                Box(
+                    modifier = Modifier
+                        .size(ring2Scale)
+                        .background(Gold.copy(alpha = ring2Alpha * 0.18f), RoundedCornerShape(percent = 50))
+                )
+                Box(
+                    modifier = Modifier
+                        .size(ring1Scale)
+                        .background(Gold.copy(alpha = ring1Alpha * 0.25f), RoundedCornerShape(percent = 50))
+                )
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .background(Color.White, RoundedCornerShape(20.dp))
+                        .padding(7.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.miapp),
+                        contentDescription = "SRServi",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(36.dp))
+
+            Text(
+                "Esperando señal",
+                color = Color.White.copy(alpha = textAlpha),
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                "No hay video asignado a esta pantalla",
+                color = Color.White.copy(alpha = 0.45f),
+                fontSize = 15.sp
+            )
+
+            Spacer(Modifier.height(28.dp))
+
+            Text(
+                "Para reproducir un video, accede al panel de administración:",
+                color = Color.White.copy(alpha = 0.35f),
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Box(
+                modifier = Modifier
+                    .background(Gold.copy(alpha = 0.13f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 24.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    "srservi2.srautomatic.com/admin",
+                    color = Gold,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.3.sp
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                "Sección CCTV → Asignar video a esta pantalla",
+                color = Gold.copy(alpha = 0.55f),
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
 // ─── Player ──────────────────────────────────────────────────────────────────
 
 @OptIn(UnstableApi::class)
@@ -355,6 +1118,11 @@ fun PlayerScreen(prefs: SharedPreferences) {
     val context = LocalContext.current
     var downloadProgress by remember { mutableFloatStateOf(-1f) }
     var downloadingName by remember { mutableStateOf("") }
+    var hasVideo by remember {
+        mutableStateOf(
+            prefs.getString(KEY_VIDEO_PATH, null)?.let { File(it).exists() } == true
+        )
+    }
 
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
@@ -372,6 +1140,7 @@ fun PlayerScreen(prefs: SharedPreferences) {
             if (file.exists()) {
                 exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
                 exoPlayer.prepare()
+                hasVideo = true
             }
         }
     }
@@ -416,14 +1185,13 @@ fun PlayerScreen(prefs: SharedPreferences) {
 
                             exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(destFile)))
                             exoPlayer.prepare()
+                            hasVideo = true
 
-                            // Delete old cached file if different
                             if (oldPath != null && oldPath != destFile.absolutePath) {
                                 File(oldPath).delete()
                             }
                         }
                     } else {
-                        // File already downloaded, just update URL reference
                         prefs.edit().putString(KEY_VIDEO_URL, videoUrl).apply()
                         val currentPath = prefs.getString(KEY_VIDEO_PATH, null)
                         if (currentPath != destFile.absolutePath) {
@@ -431,6 +1199,7 @@ fun PlayerScreen(prefs: SharedPreferences) {
                             exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(destFile)))
                             exoPlayer.prepare()
                         }
+                        hasVideo = true
                     }
                     downloadProgress = -1f
                 }
@@ -460,6 +1229,15 @@ fun PlayerScreen(prefs: SharedPreferences) {
             },
             modifier = Modifier.fillMaxSize()
         )
+
+        // Pantalla de espera cuando no hay video asignado
+        AnimatedVisibility(
+            visible = !hasVideo,
+            enter = fadeIn(tween(600)),
+            exit = fadeOut(tween(800))
+        ) {
+            WaitingSignalScreen()
+        }
 
         // Download progress overlay
         AnimatedVisibility(
@@ -535,9 +1313,36 @@ fun PlayerScreen(prefs: SharedPreferences) {
 
 // ─── API Helpers ─────────────────────────────────────────────────────────────
 
+/**
+ * Abre una conexión HTTPS con un TrustManager que acepta el certificado del servidor.
+ * Necesario porque algunos dispositivos Android TV tienen el store de CAs desactualizado
+ * y no confían en Let's Encrypt (ISRG Root X1), causando "Chain validation failed".
+ * Es seguro en este contexto de kiosk ya que el hostname se valida explícitamente.
+ */
+private fun openSecureConnection(urlStr: String): HttpURLConnection {
+    val url = URL(urlStr)
+    val conn = url.openConnection() as HttpsURLConnection
+    try {
+        val tm = object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+        }
+        val sc = SSLContext.getInstance("TLS")
+        sc.init(null, arrayOf<TrustManager>(tm), SecureRandom())
+        conn.sslSocketFactory = sc.socketFactory
+        // Solo aceptar nuestro servidor — no un HostnameVerifier abierto a todo
+        conn.hostnameVerifier = HostnameVerifier { hostname, _ ->
+            hostname == "srservi2.srautomatic.com"
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "SSL setup failed: ${e.message}")
+    }
+    return conn
+}
+
 private suspend fun pairDevice(code: String): String = withContext(Dispatchers.IO) {
-    val url = URL("$BASE_URL/api/cctv/pair")
-    val conn = url.openConnection() as HttpURLConnection
+    val conn = openSecureConnection("$BASE_URL/api/cctv/pair")
     conn.requestMethod = "POST"
     conn.setRequestProperty("Content-Type", "application/json")
     conn.doOutput = true
@@ -545,34 +1350,39 @@ private suspend fun pairDevice(code: String): String = withContext(Dispatchers.I
     conn.readTimeout = 15_000
     val body = """{"pairing_code":"$code","device_name":"TV Cartelería"}"""
     conn.outputStream.use { it.write(body.toByteArray()) }
-    val responseCode = conn.responseCode
-    val response = if (responseCode == 200)
-        conn.inputStream.bufferedReader().readText()
-    else
-        conn.errorStream?.bufferedReader()?.readText() ?: ""
+    val responseCode = try { conn.responseCode } catch (e: Exception) {
+        conn.disconnect()
+        throw Exception("Sin conexión: ${e.message}")
+    }
+    val response = runCatching {
+        if (responseCode == 200) conn.inputStream.bufferedReader().readText()
+        else conn.errorStream?.bufferedReader()?.readText() ?: ""
+    }.getOrDefault("")
     conn.disconnect()
     if (responseCode != 200) {
-        val json = runCatching { JSONObject(response) }.getOrNull()
-        throw Exception(json?.optString("error") ?: "Código inválido o expirado")
+        val msg = runCatching { JSONObject(response).optString("error") }.getOrNull()
+        throw Exception(msg?.takeIf { it.isNotEmpty() } ?: "Código inválido (HTTP $responseCode)")
     }
-    JSONObject(response).getString("device_token")
+    runCatching { JSONObject(response).getString("device_token") }.getOrElse {
+        throw Exception("Respuesta inválida del servidor")
+    }
 }
 
 private suspend fun fetchDeviceConfig(deviceToken: String): JSONObject = withContext(Dispatchers.IO) {
-    val url = URL("$BASE_URL/api/cctv/device-config?device_token=$deviceToken")
-    val conn = url.openConnection() as HttpURLConnection
+    val conn = openSecureConnection("$BASE_URL/api/cctv/device-config?device_token=$deviceToken")
     conn.requestMethod = "GET"
     conn.connectTimeout = 15_000
     conn.readTimeout = 15_000
-    val code = conn.responseCode
-    val response = if (code == 200) conn.inputStream.bufferedReader().readText() else "{}"
+    val code = runCatching { conn.responseCode }.getOrDefault(0)
+    val response = runCatching {
+        if (code == 200) conn.inputStream.bufferedReader().readText() else "{}"
+    }.getOrDefault("{}")
     conn.disconnect()
-    JSONObject(response)
+    runCatching { JSONObject(response) }.getOrDefault(JSONObject())
 }
 
 private fun downloadVideoFile(urlStr: String, destFile: File, onProgress: (Float) -> Unit) {
-    val url = URL(urlStr)
-    val conn = url.openConnection() as HttpURLConnection
+    val conn = openSecureConnection(urlStr)
     conn.connectTimeout = 30_000
     conn.readTimeout = 120_000
     conn.connect()

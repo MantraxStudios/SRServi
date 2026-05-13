@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>FullscreenBrowser</AssemblyName>
+    <AssemblyName>Totem</AssemblyName>
     <RootNamespace>FullscreenBrowser</RootNamespace>
     <!-- Incluir WebView2 runtime automáticamente -->
     <SelfContained>false</SelfContained>

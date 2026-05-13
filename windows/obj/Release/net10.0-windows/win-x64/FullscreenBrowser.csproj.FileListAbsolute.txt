@@ -1,9 +1,4 @@
 C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\runtimes\win-x64\native\WebView2Loader.dll
-C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\FullscreenBrowser.exe
-C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\FullscreenBrowser.deps.json
-C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\FullscreenBrowser.runtimeconfig.json
-C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\FullscreenBrowser.dll
-C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\FullscreenBrowser.pdb
 C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\Microsoft.Web.WebView2.Core.dll
 C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\Microsoft.Web.WebView2.WinForms.dll
 C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\Microsoft.Web.WebView2.Wpf.dll
@@ -281,8 +276,13 @@ C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\w
 C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\win-x64\FullscreenBrowser.csproj.CoreCompileInputs.cache
 C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\win-x64\FullscreenBrowser.sourcelink.json
 C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\win-x64\Fullscre.80BE0A2A.Up2Date
-C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\win-x64\FullscreenBrowser.dll
-C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\win-x64\refint\FullscreenBrowser.dll
-C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\win-x64\FullscreenBrowser.pdb
 C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\win-x64\FullscreenBrowser.genruntimeconfig.cache
-C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\win-x64\ref\FullscreenBrowser.dll
+C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\Totem.exe
+C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\Totem.deps.json
+C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\Totem.runtimeconfig.json
+C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\Totem.dll
+C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\bin\Release\net10.0-windows\win-x64\Totem.pdb
+C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\win-x64\Totem.dll
+C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\win-x64\refint\Totem.dll
+C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\win-x64\Totem.pdb
+C:\Users\tupap\OneDrive\Escritorio\SRServi\windows\obj\Release\net10.0-windows\win-x64\ref\Totem.dll

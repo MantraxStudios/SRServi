@@ -3,10 +3,12 @@ import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faVideo, faUpload, faTrash, faDesktop, faKey, faCopy, faCheck,
-  faCircle, faPlay, faChevronDown, faPen, faTimes, faExclamationTriangle
+  faCircle, faPlay, faChevronDown, faPen, faTimes, faExclamationTriangle,
+  faWifi, faWifiSlash
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
+const GOLD = '#D4AF37';
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B';
@@ -72,8 +74,8 @@ export default function CCTV() {
   const handleUpload = async (file) => {
     if (!file) return;
     const allowed = ['.mp4', '.webm', '.avi', '.mov', '.mkv', '.mpeg', '.mpg'];
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (!allowed.includes(`.${ext}`)) { showError('Solo se permiten videos (mp4, webm, avi, mov, mkv)'); return; }
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (!allowed.includes(ext)) { showError('Solo se permiten videos (mp4, webm, avi, mov, mkv)'); return; }
     setUploading(true);
     setUploadProgress(0);
     const formData = new FormData();
@@ -161,54 +163,56 @@ export default function CCTV() {
   };
 
   return (
-    <div style={{ background: '#0a0a0a', minHeight: '100vh', color: '#fff' }}>
-    <div style={{ padding: '24px', maxWidth: '1100px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+    <div style={{ padding: '32px', fontFamily: 'inherit' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-        <div style={{
-          width: 48, height: 48, background: 'linear-gradient(135deg,#D4AF37,#b8972e)',
-          borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-        }}>
-          <FontAwesomeIcon icon={faVideo} style={{ color: '#0a0a0a', fontSize: 20 }} />
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+          <div style={{
+            width: 40, height: 40, background: GOLD, borderRadius: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+          }}>
+            <FontAwesomeIcon icon={faVideo} style={{ color: '#0a0a0a', fontSize: 17 }} />
+          </div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#09090b' }}>Cartelería Digital</h1>
         </div>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#fff' }}>Cartelería Digital</h1>
-          <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>Control remoto de pantallas TV</p>
-        </div>
+        <p style={{ margin: 0, fontSize: 14, color: '#71717a', paddingLeft: 52 }}>
+          Control remoto de pantallas TV · Powered by SRAutomatic.cl
+        </p>
       </div>
 
       {/* Alerts */}
       {error && (
-        <div style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 16px', color: '#ef4444', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '11px 16px', color: '#991b1b', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
           <FontAwesomeIcon icon={faExclamationTriangle} />
           {error}
         </div>
       )}
       {success && (
-        <div style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 10, padding: '12px 16px', color: '#22c55e', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '11px 16px', color: '#15803d', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
           <FontAwesomeIcon icon={faCheck} />
           {success}
         </div>
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 4 }}>
-        {[['videos', faVideo, 'Videos'], ['screens', faDesktop, 'Pantallas']].map(([key, icon, label]) => (
+      <div style={{ display: 'flex', gap: 2, marginBottom: 24, borderBottom: '1px solid #e4e4e7' }}>
+        {[['videos', faVideo, 'Videos', videos.length], ['screens', faDesktop, 'Pantallas', screens.length]].map(([key, icon, label, count]) => (
           <button key={key} onClick={() => setTab(key)} style={{
-            flex: 1, padding: '10px 20px', border: 'none', borderRadius: 8, cursor: 'pointer',
-            background: tab === key ? 'linear-gradient(135deg,#D4AF37,#b8972e)' : 'transparent',
-            color: tab === key ? '#0a0a0a' : 'rgba(255,255,255,0.5)',
-            fontWeight: tab === key ? 700 : 500, fontSize: 14, transition: 'all 0.2s',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+            padding: '10px 18px', border: 'none', background: 'none', cursor: 'pointer',
+            borderBottom: tab === key ? `2px solid ${GOLD}` : '2px solid transparent',
+            color: tab === key ? '#09090b' : '#71717a',
+            fontWeight: tab === key ? 700 : 500, fontSize: 14,
+            display: 'flex', alignItems: 'center', gap: 7,
+            marginBottom: -1, transition: 'all 0.15s'
           }}>
             <FontAwesomeIcon icon={icon} />
             {label}
-            {key === 'screens' && screens.length > 0 && (
+            {count > 0 && (
               <span style={{
-                background: tab === key ? 'rgba(0,0,0,0.2)' : 'rgba(212,175,55,0.15)',
-                color: tab === key ? '#0a0a0a' : '#D4AF37',
-                borderRadius: 10, padding: '1px 7px', fontSize: 12, fontWeight: 700
-              }}>{screens.length}</span>
+                background: tab === key ? GOLD : '#f4f4f5',
+                color: tab === key ? '#0a0a0a' : '#71717a',
+                borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 700
+              }}>{count}</span>
             )}
           </button>
         ))}
@@ -217,77 +221,76 @@ export default function CCTV() {
       {/* VIDEOS TAB */}
       {tab === 'videos' && (
         <div>
-          {/* Upload area */}
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={(e) => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files[0]); }}
             onClick={() => !uploading && fileInputRef.current?.click()}
             style={{
-              border: `2px dashed ${dragOver ? '#D4AF37' : 'rgba(212,175,55,0.25)'}`,
-              borderRadius: 16, padding: '40px 24px', textAlign: 'center', cursor: uploading ? 'default' : 'pointer',
-              background: dragOver ? 'rgba(212,175,55,0.06)' : 'rgba(255,255,255,0.02)',
+              border: `2px dashed ${dragOver ? GOLD : '#d4d4d8'}`,
+              borderRadius: 12, padding: '36px 24px', textAlign: 'center',
+              cursor: uploading ? 'default' : 'pointer',
+              background: dragOver ? '#fffbeb' : '#fafafa',
               transition: 'all 0.2s', marginBottom: 24
             }}
           >
             <input ref={fileInputRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={e => handleUpload(e.target.files[0])} />
             {uploading ? (
               <div>
-                <div style={{ color: '#D4AF37', fontSize: 15, fontWeight: 600, marginBottom: 12 }}>
+                <div style={{ color: '#09090b', fontSize: 15, fontWeight: 600, marginBottom: 10 }}>
                   Subiendo video... {uploadProgress}%
                 </div>
-                <div style={{ height: 8, background: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', background: 'linear-gradient(90deg,#D4AF37,#b8972e)', borderRadius: 4, width: `${uploadProgress}%`, transition: 'width 0.3s' }} />
+                <div style={{ height: 6, background: '#e4e4e7', borderRadius: 4, overflow: 'hidden', maxWidth: 360, margin: '0 auto' }}>
+                  <div style={{ height: '100%', background: GOLD, borderRadius: 4, width: `${uploadProgress}%`, transition: 'width 0.3s' }} />
                 </div>
               </div>
             ) : (
               <>
-                <FontAwesomeIcon icon={faUpload} style={{ fontSize: 32, color: '#D4AF37', marginBottom: 12 }} />
-                <div style={{ color: '#fff', fontWeight: 600, fontSize: 15, marginBottom: 4 }}>
+                <div style={{ width: 44, height: 44, background: '#f4f4f5', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                  <FontAwesomeIcon icon={faUpload} style={{ fontSize: 18, color: '#71717a' }} />
+                </div>
+                <div style={{ color: '#09090b', fontWeight: 600, fontSize: 15, marginBottom: 4 }}>
                   Arrastra un video aquí o haz clic para seleccionar
                 </div>
-                <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13 }}>
-                  MP4, WebM, AVI, MOV, MKV — hasta 4 GB
-                </div>
+                <div style={{ color: '#71717a', fontSize: 13 }}>MP4, WebM, AVI, MOV, MKV — hasta 4 GB</div>
               </>
             )}
           </div>
 
-          {/* Videos list */}
           {loadingVideos ? (
-            <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: 40 }}>Cargando videos...</div>
+            <div style={{ textAlign: 'center', color: '#71717a', padding: 40, fontSize: 14 }}>Cargando videos...</div>
           ) : videos.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 48 }}>
-              <FontAwesomeIcon icon={faVideo} style={{ fontSize: 40, color: 'rgba(255,255,255,0.1)', marginBottom: 12 }} />
-              <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>No hay videos subidos aún</div>
+              <div style={{ width: 56, height: 56, background: '#f4f4f5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <FontAwesomeIcon icon={faVideo} style={{ fontSize: 22, color: '#a1a1aa' }} />
+              </div>
+              <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>No hay videos subidos aún</div>
+              <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Sube tu primer video para empezar</div>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {videos.map(v => (
                 <div key={v.id} style={{
-                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14
+                  background: '#fff', border: '1px solid #e4e4e7', borderRadius: 10,
+                  padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12
                 }}>
-                  <div style={{
-                    width: 40, height: 40, background: 'rgba(212,175,55,0.12)', borderRadius: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                  }}>
-                    <FontAwesomeIcon icon={faPlay} style={{ color: '#D4AF37', fontSize: 14 }} />
+                  <div style={{ width: 38, height: 38, background: '#fff8e1', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <FontAwesomeIcon icon={faPlay} style={{ color: GOLD, fontSize: 13 }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#fff', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {v.original_name}
                     </div>
-                    <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 2 }}>
+                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
                       {formatBytes(v.file_size)} · {formatDate(v.created_at)}
                     </div>
                   </div>
                   <button
                     onClick={() => setDeleteConfirm({ type: 'video', id: v.id, name: v.original_name })}
-                    style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', color: '#ef4444' }}
+                    style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: '#dc2626' }}
                     title="Eliminar"
                   >
-                    <FontAwesomeIcon icon={faTrash} />
+                    <FontAwesomeIcon icon={faTrash} style={{ fontSize: 13 }} />
                   </button>
                 </div>
               ))}
@@ -299,15 +302,15 @@ export default function CCTV() {
       {/* SCREENS TAB */}
       {tab === 'screens' && (
         <div>
-          {/* Generate code */}
-          <div style={{ background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 16, padding: '20px 24px', marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {/* Pairing card */}
+          <div style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '20px 24px', marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 220 }}>
-                <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
-                  <FontAwesomeIcon icon={faKey} style={{ color: '#D4AF37', marginRight: 8 }} />
-                  Emparejar nueva pantalla
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <FontAwesomeIcon icon={faKey} style={{ color: GOLD, fontSize: 14 }} />
+                  <span style={{ color: '#09090b', fontWeight: 700, fontSize: 15 }}>Emparejar nueva pantalla</span>
                 </div>
-                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>
+                <div style={{ color: '#71717a', fontSize: 13 }}>
                   Genera un código e ingrésalo en la app de TV para vincularla
                 </div>
               </div>
@@ -315,18 +318,22 @@ export default function CCTV() {
                 onClick={generateCode}
                 disabled={generatingCode}
                 style={{
-                  background: 'linear-gradient(135deg,#D4AF37,#b8972e)', border: 'none', borderRadius: 10,
-                  padding: '10px 20px', color: '#0a0a0a', fontWeight: 700, fontSize: 14, cursor: 'pointer'
+                  background: GOLD, border: 'none', borderRadius: 8,
+                  padding: '9px 18px', color: '#0a0a0a', fontWeight: 700,
+                  fontSize: 14, cursor: generatingCode ? 'not-allowed' : 'pointer',
+                  opacity: generatingCode ? 0.7 : 1
                 }}
               >
                 {generatingCode ? 'Generando...' : 'Generar Código'}
               </button>
             </div>
+
             {pairingCode && (
-              <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f4f4f5', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{ color: '#71717a', fontSize: 13 }}>Código:</span>
                 <div style={{
-                  background: '#0a0a0a', border: '1px solid rgba(212,175,55,0.4)', borderRadius: 10,
-                  padding: '12px 24px', letterSpacing: 6, fontSize: 24, fontWeight: 900, color: '#D4AF37',
+                  background: '#09090b', borderRadius: 8, padding: '8px 20px',
+                  letterSpacing: 8, fontSize: 22, fontWeight: 900, color: GOLD,
                   fontFamily: 'monospace'
                 }}>
                   {pairingCode}
@@ -334,89 +341,93 @@ export default function CCTV() {
                 <button
                   onClick={copyCode}
                   style={{
-                    background: copiedCode ? 'rgba(34,197,94,0.15)' : 'rgba(212,175,55,0.1)',
-                    border: `1px solid ${copiedCode ? 'rgba(34,197,94,0.3)' : 'rgba(212,175,55,0.2)'}`,
-                    borderRadius: 8, padding: '10px 16px', cursor: 'pointer',
-                    color: copiedCode ? '#22c55e' : '#D4AF37', fontWeight: 600, fontSize: 14
+                    background: copiedCode ? '#f0fdf4' : '#f4f4f5',
+                    border: `1px solid ${copiedCode ? '#bbf7d0' : '#e4e4e7'}`,
+                    borderRadius: 7, padding: '8px 14px', cursor: 'pointer',
+                    color: copiedCode ? '#15803d' : '#09090b', fontWeight: 600, fontSize: 13
                   }}
                 >
                   <FontAwesomeIcon icon={copiedCode ? faCheck : faCopy} style={{ marginRight: 6 }} />
                   {copiedCode ? 'Copiado' : 'Copiar'}
                 </button>
-                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Válido por 15 min</span>
+                <span style={{ color: '#a1a1aa', fontSize: 12 }}>Válido por 15 min</span>
               </div>
             )}
           </div>
 
           {/* Screens list */}
           {loadingScreens ? (
-            <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: 40 }}>Cargando pantallas...</div>
+            <div style={{ textAlign: 'center', color: '#71717a', padding: 40, fontSize: 14 }}>Cargando pantallas...</div>
           ) : screens.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 48 }}>
-              <FontAwesomeIcon icon={faDesktop} style={{ fontSize: 40, color: 'rgba(255,255,255,0.1)', marginBottom: 12 }} />
-              <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>No hay pantallas vinculadas aún</div>
-              <div style={{ color: 'rgba(255,255,255,0.18)', fontSize: 12, marginTop: 6 }}>Genera un código y úsalo en la app de TV</div>
+              <div style={{ width: 56, height: 56, background: '#f4f4f5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <FontAwesomeIcon icon={faDesktop} style={{ fontSize: 22, color: '#a1a1aa' }} />
+              </div>
+              <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>No hay pantallas vinculadas</div>
+              <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Genera un código y úsalo en la app de TV</div>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {screens.map(s => (
                 <div key={s.id} style={{
-                  background: 'rgba(255,255,255,0.04)', border: `1px solid ${s.is_online ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.07)'}`,
-                  borderRadius: 14, padding: '16px 20px'
+                  background: '#fff', border: '1px solid #e4e4e7',
+                  borderRadius: 12, padding: '16px 20px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 180 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 200 }}>
                       <div style={{
-                        width: 44, height: 44, background: s.is_online ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.06)',
+                        width: 40, height: 40,
+                        background: s.is_online ? '#f0fdf4' : '#f4f4f5',
                         borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                       }}>
-                        <FontAwesomeIcon icon={faDesktop} style={{ color: s.is_online ? '#22c55e' : 'rgba(255,255,255,0.3)', fontSize: 18 }} />
+                        <FontAwesomeIcon icon={faDesktop} style={{ color: s.is_online ? '#16a34a' : '#a1a1aa', fontSize: 16 }} />
                       </div>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{s.device_name}</span>
-                          <FontAwesomeIcon icon={faCircle} style={{ fontSize: 7, color: s.is_online ? '#22c55e' : 'rgba(255,255,255,0.2)' }} />
-                          <span style={{ fontSize: 12, color: s.is_online ? '#22c55e' : 'rgba(255,255,255,0.3)' }}>
-                            {s.is_online ? 'Encendida' : 'Apagada'}
+                          <span style={{ color: '#09090b', fontWeight: 700, fontSize: 15 }}>{s.device_name}</span>
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                            background: s.is_online ? '#f0fdf4' : '#f4f4f5',
+                            color: s.is_online ? '#15803d' : '#71717a',
+                            border: `1px solid ${s.is_online ? '#bbf7d0' : '#e4e4e7'}`
+                          }}>
+                            {s.is_online ? '● Encendida' : '○ Apagada'}
                           </span>
                         </div>
-                        <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 2 }}>
+                        <div style={{ color: '#a1a1aa', fontSize: 12, marginTop: 2 }}>
                           Última vez: {s.last_seen ? formatDate(s.last_seen) : 'Nunca'}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ flex: 1, minWidth: 180 }}>
-                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 3 }}>Reproduciendo:</div>
-                      <div style={{ color: s.video_name ? '#fff' : 'rgba(255,255,255,0.25)', fontSize: 14, fontWeight: 600 }}>
+                    <div style={{ flex: 1, minWidth: 160 }}>
+                      <div style={{ color: '#a1a1aa', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Reproduciendo</div>
+                      <div style={{ color: s.video_name ? '#09090b' : '#a1a1aa', fontSize: 14, fontWeight: s.video_name ? 500 : 400, fontStyle: s.video_name ? 'normal' : 'italic' }}>
                         {s.video_name || 'Sin video asignado'}
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
                       <button
                         onClick={() => setAssignModal(s)}
-                        style={{
-                          background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.25)',
-                          borderRadius: 8, padding: '8px 14px', cursor: 'pointer', color: '#D4AF37', fontSize: 13, fontWeight: 600
-                        }}
+                        style={{ background: '#fff8e1', border: `1px solid #fde68a`, borderRadius: 7, padding: '7px 13px', cursor: 'pointer', color: '#92400e', fontSize: 13, fontWeight: 600 }}
                       >
-                        <FontAwesomeIcon icon={faChevronDown} style={{ marginRight: 6 }} />
-                        Cambiar Video
+                        <FontAwesomeIcon icon={faVideo} style={{ marginRight: 5, fontSize: 11 }} />
+                        Cambiar video
                       </button>
                       <button
                         onClick={() => { setRenameModal(s); setRenameName(s.device_name); }}
-                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 10px', cursor: 'pointer', color: 'rgba(255,255,255,0.6)' }}
+                        style={{ background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#71717a' }}
                         title="Renombrar"
                       >
-                        <FontAwesomeIcon icon={faPen} />
+                        <FontAwesomeIcon icon={faPen} style={{ fontSize: 12 }} />
                       </button>
                       <button
                         onClick={() => setDeleteConfirm({ type: 'screen', id: s.id, name: s.device_name })}
-                        style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 8, padding: '8px 10px', cursor: 'pointer', color: '#ef4444' }}
+                        style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#dc2626' }}
                         title="Eliminar pantalla"
                       >
-                        <FontAwesomeIcon icon={faTrash} />
+                        <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12 }} />
                       </button>
                     </div>
                   </div>
@@ -429,22 +440,24 @@ export default function CCTV() {
 
       {/* Assign Video Modal */}
       {assignModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#141414', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 20, padding: '28px 32px', width: '90%', maxWidth: 480 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ margin: 0, color: '#fff', fontSize: 18 }}>Asignar video a <span style={{ color: '#D4AF37' }}>{assignModal.device_name}</span></h3>
-              <button onClick={() => setAssignModal(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 18 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <h3 style={{ margin: 0, color: '#09090b', fontSize: 17, fontWeight: 700 }}>
+                Asignar video a <span style={{ color: GOLD }}>{assignModal.device_name}</span>
+              </h3>
+              <button onClick={() => setAssignModal(null)} style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', fontSize: 16, padding: 4 }}>
                 <FontAwesomeIcon icon={faTimes} />
               </button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
               <button
                 onClick={() => assignVideo(assignModal.id, null)}
                 style={{
-                  background: !assignModal.current_video_id ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${!assignModal.current_video_id ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                  borderRadius: 10, padding: '12px 16px', cursor: 'pointer', color: 'rgba(255,255,255,0.4)',
-                  textAlign: 'left', fontStyle: 'italic', fontSize: 14
+                  background: !assignModal.current_video_id ? '#fff8e1' : '#fafafa',
+                  border: `1px solid ${!assignModal.current_video_id ? '#fde68a' : '#e4e4e7'}`,
+                  borderRadius: 8, padding: '11px 14px', cursor: 'pointer',
+                  textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14
                 }}
               >
                 Sin video (pantalla en negro)
@@ -454,18 +467,18 @@ export default function CCTV() {
                   key={v.id}
                   onClick={() => assignVideo(assignModal.id, v.id)}
                   style={{
-                    background: assignModal.current_video_id === v.id ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.04)',
-                    border: `1px solid ${assignModal.current_video_id === v.id ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                    borderRadius: 10, padding: '12px 16px', cursor: 'pointer', textAlign: 'left'
+                    background: assignModal.current_video_id === v.id ? '#fff8e1' : '#fafafa',
+                    border: `1px solid ${assignModal.current_video_id === v.id ? '#fde68a' : '#e4e4e7'}`,
+                    borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left'
                   }}
                 >
-                  <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{v.original_name}</div>
-                  <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 2 }}>{formatBytes(v.file_size)}</div>
+                  <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>{v.original_name}</div>
+                  <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(v.file_size)}</div>
                 </button>
               ))}
               {videos.length === 0 && (
-                <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', padding: 20 }}>
-                  No hay videos subidos. Ve a la pestaña Videos para subir uno.
+                <div style={{ color: '#71717a', fontSize: 13, textAlign: 'center', padding: 20 }}>
+                  No hay videos. Ve a la pestaña Videos para subir uno.
                 </div>
               )}
             </div>
@@ -475,9 +488,9 @@ export default function CCTV() {
 
       {/* Rename Modal */}
       {renameModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#141414', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 20, padding: '28px 32px', width: '90%', maxWidth: 400 }}>
-            <h3 style={{ margin: '0 0 20px', color: '#fff', fontSize: 18 }}>Renombrar pantalla</h3>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <h3 style={{ margin: '0 0 16px', color: '#09090b', fontSize: 17, fontWeight: 700 }}>Renombrar pantalla</h3>
             <input
               value={renameName}
               onChange={e => setRenameName(e.target.value)}
@@ -485,13 +498,14 @@ export default function CCTV() {
               placeholder="Nombre de la pantalla"
               autoFocus
               style={{
-                width: '100%', padding: '12px 14px', background: '#1a1a1a', border: '1px solid rgba(212,175,55,0.3)',
-                borderRadius: 10, color: '#fff', fontSize: 15, outline: 'none', boxSizing: 'border-box', marginBottom: 16
+                width: '100%', padding: '10px 12px', background: '#fafafa',
+                border: '1px solid #e4e4e7', borderRadius: 8, color: '#09090b',
+                fontSize: 15, outline: 'none', boxSizing: 'border-box', marginBottom: 14
               }}
             />
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setRenameModal(null)} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={renameScreen} style={{ flex: 1, padding: '10px', background: 'linear-gradient(135deg,#D4AF37,#b8972e)', border: 'none', borderRadius: 10, color: '#0a0a0a', fontWeight: 700, cursor: 'pointer' }}>Guardar</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setRenameModal(null)} style={{ flex: 1, padding: '10px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#71717a', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
+              <button onClick={renameScreen} style={{ flex: 1, padding: '10px', background: GOLD, border: 'none', borderRadius: 8, color: '#0a0a0a', fontWeight: 700, cursor: 'pointer' }}>Guardar</button>
             </div>
           </div>
         </div>
@@ -499,24 +513,27 @@ export default function CCTV() {
 
       {/* Delete Confirm Modal */}
       {deleteConfirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#141414', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 20, padding: '28px 32px', width: '90%', maxWidth: 380, textAlign: 'center' }}>
-            <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: 32, color: '#ef4444', marginBottom: 16 }} />
-            <h3 style={{ margin: '0 0 8px', color: '#fff', fontSize: 18 }}>¿Eliminar {deleteConfirm.type === 'video' ? 'video' : 'pantalla'}?</h3>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, margin: '0 0 24px' }}>
-              <strong style={{ color: '#fff' }}>{deleteConfirm.name}</strong> será eliminado permanentemente.
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 360, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <div style={{ width: 48, height: 48, background: '#fef2f2', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+              <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: 20, color: '#dc2626' }} />
+            </div>
+            <h3 style={{ margin: '0 0 8px', color: '#09090b', fontSize: 17, fontWeight: 700 }}>
+              ¿Eliminar {deleteConfirm.type === 'video' ? 'video' : 'pantalla'}?
+            </h3>
+            <p style={{ color: '#71717a', fontSize: 14, margin: '0 0 20px' }}>
+              <strong style={{ color: '#09090b' }}>{deleteConfirm.name}</strong> será eliminado permanentemente.
             </p>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, padding: '11px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#71717a', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
               <button
                 onClick={() => deleteConfirm.type === 'video' ? deleteVideo(deleteConfirm.id) : deleteScreen(deleteConfirm.id)}
-                style={{ flex: 1, padding: '12px', background: '#ef4444', border: 'none', borderRadius: 10, color: '#fff', cursor: 'pointer', fontWeight: 700 }}
+                style={{ flex: 1, padding: '11px', background: '#dc2626', border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontWeight: 700 }}
               >Eliminar</button>
             </div>
           </div>
         </div>
       )}
-    </div>
     </div>
   );
 }

@@ -18,9 +18,9 @@ namespace FullscreenBrowser
 
         private void InitializeComponents()
         {
-            // Pantalla completa sin bordes
             this.FormBorderStyle = FormBorderStyle.None;
-            this.WindowState = FormWindowState.Maximized;
+            this.WindowState = FormWindowState.Normal;
+            this.Bounds = Screen.PrimaryScreen.Bounds;
             this.TopMost = true;
             this.Text = "SR Automatica";
 
