@@ -9356,7 +9356,7 @@ async function startServer() {
 
         let result;
         if (type === 'challenge') {
-          result = await completeInstagramChallenge(temp.igState, code, cfg?.ig_username || '');
+          result = await completeInstagramChallenge(temp.igState, code, cfg?.ig_username || '', cfg?.ig_password || '');
         } else {
           result = await completeInstagramTwoFactor(temp.igState, {
             username: cfg?.ig_username || '',

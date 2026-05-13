@@ -888,34 +888,26 @@ export async function completeInstagramTwoFactor(igState, { username, identifier
 }
 
 // Complete checkpoint / challenge verification
-export async function completeInstagramChallenge(igState, code, username) {
+// username + password are required for the fallback when there's no real checkpoint in state
+export async function completeInstagramChallenge(igState, code, username, password) {
   const { IgApiClient } = await import('instagram-private-api');
   const ig = new IgApiClient();
-  const parsed = JSON.parse(igState);
-  await ig.state.deserialize(parsed);
+  await ig.state.deserialize(JSON.parse(igState));
   const cleanCode = (code || '').replace(/\s/g, '');
   try {
     await ig.challenge.sendSecurityCode(cleanCode);
   } catch (err) {
     if (err.message?.includes('No checkpoint data') || err.message?.includes('no_checkpoint')) {
-      // No real checkpoint URL in state — Instagram may have needed a TOTP/SMS code before login.
-      // Try submitting the code via the two-factor path as a fallback.
-      const uname = username || parsed?.account?.username || '';
-      if (!uname) throw new Error('Instagram no envió un código de verificación. Esperá unos minutos e intentá conectar de nuevo.');
-      try {
-        await ig.account.twoFactorLogin({
-          username: uname,
-          verificationCode: cleanCode,
-          twoFactorIdentifier: '',
-          verificationMethod: '0',
-          trustThisDevice: '1',
-        });
-      } catch (_) {
-        throw new Error('Código inválido o ya expirado. Esperá unos minutos e intentá conectar de nuevo.');
+      // No real checkpoint URL — the modal appeared due to a 401/rate-limit during login.
+      // Retry the full login now with the code so Instagram can complete 2FA/challenge properly.
+      if (username && password) {
+        const retryResult = await startInstagramLogin(username, password, cleanCode);
+        if (retryResult.ok) return retryResult;
+        throw new Error('Instagram todavía requiere verificación. Esperá unos minutos e intentá conectar de nuevo.');
       }
-    } else {
-      throw err;
+      throw new Error('Instagram no envió un código de verificación. Esperá unos minutos e intentá conectar de nuevo.');
     }
+    throw err;
   }
   try { await ig.simulate.postLoginFlow(); } catch (_) {}
   return { ok: true, igState: await serializeIg(ig) };
