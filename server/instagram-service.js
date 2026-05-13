@@ -825,10 +825,9 @@ export async function startInstagramLogin(username, password) {
     return { ok: true, igState: await serializeIg(ig) };
   } catch (e) { loginErr = e; }
 
-  const type  = igErrorType(loginErr);
-  const body  = loginErr.response?.body || {};
-  const status = loginErr.response?.statusCode || loginErr.response?.status || 0;
-  const msg   = loginErr.message || body.message || '';
+  const type = igErrorType(loginErr);
+  const body = loginErr.response?.body || {};
+  const msg  = loginErr.message || body.message || '';
 
   if (type === 'twoFactor') {
     const info = body.two_factor_info || {};
@@ -838,12 +837,6 @@ export async function startInstagramLogin(username, password) {
   if (type === 'challenge') {
     try { await ig.challenge.auto(true); } catch (_) {}
     return { needsChallenge: true, igState: await serializeIg(ig) };
-  }
-
-  // 401 / rate-limit / "wait" → Instagram is blocking but may accept a challenge code
-  if (status === 401 || msg.toLowerCase().includes('wait') || msg.toLowerCase().includes('try again')) {
-    try { await ig.challenge.auto(true); } catch (_) {}
-    return { needsChallenge: true, hint: msg, igState: await serializeIg(ig) };
   }
 
   throw new Error(msg || JSON.stringify(body) || 'Error de autenticación');

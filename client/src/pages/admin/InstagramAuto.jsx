@@ -161,14 +161,9 @@ export default function InstagramAuto() {
         setVerifyModal({ type: '2fa', info: data.info });
       } else if (data.needsChallenge) {
         setVerifyCode('');
-        setVerifyModal({ type: 'challenge', hint: data.hint });
+        setVerifyModal({ type: 'challenge' });
       }
-    } catch (e) {
-      showToast(e.message, 'error');
-      // Keep modal open with the challenge form so user can enter code manually
-      setVerifyCode('');
-      setVerifyModal({ type: 'challenge', hint: e.message });
-    }
+    } catch (e) { showToast(e.message, 'error'); }
     finally { setConnecting(false); }
   };
 
@@ -279,11 +274,6 @@ export default function InstagramAuto() {
                   ? 'Instagram envió un código a tu email o teléfono. Si no llegó, abrí la app de Instagram — puede haber una notificación de verificación.'
                   : 'Ingresá el código de 6 dígitos de tu app de autenticación o el código SMS.'}
               </p>
-              {verifyModal.hint && (
-                <p style={{ marginTop: 8, padding: '6px 10px', background: '#fef9f0', border: '1px solid #fde68a', borderRadius: 8, fontSize: 11, color: '#92400e', margin: '8px 0 0' }}>
-                  ⚠️ {verifyModal.hint}
-                </p>
-              )}
             </div>
 
             {verifyModal.type === '2fa' && verifyModal.info?.totp_two_factor_on === false && (

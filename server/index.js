@@ -9348,12 +9348,10 @@ async function startServer() {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getInstagramConfig(req.params.storeId);
+        if (!cfg?.ig_temp_state) return res.status(400).json({ error: 'No hay verificación pendiente. Volvé a hacer clic en Conectar.' });
         const { code, type, verificationMethod } = req.body;
         if (!code) return res.status(400).json({ error: 'Código requerido' });
-
-        // If there's no temp_state, try a fresh login just to attempt the code
-        const tempRaw = cfg?.ig_temp_state || '{"igState":"{}"}';
-        const temp = JSON.parse(tempRaw);
+        const temp = JSON.parse(cfg.ig_temp_state);
 
         let result;
         if (type === 'challenge') {
