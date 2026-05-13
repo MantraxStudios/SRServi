@@ -374,7 +374,7 @@ function Register() {
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', background: '#1a1a1a', color: '#D4AF37', border: '1px solid #D4AF37' }}
           >
             <FontAwesomeIcon icon={faVideo} />
-            Descargar App CCTV
+            Descargar Carteleria TV
           </a>
         </div>
       </div>
