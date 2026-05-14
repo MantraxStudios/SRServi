@@ -9567,9 +9567,19 @@ async function startServer() {
         )
       `);
       await pool.execute(`
+        CREATE TABLE IF NOT EXISTS cctv_albums (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_cctv_albums_user (user_id)
+        )
+      `);
+      await pool.execute(`
         CREATE TABLE IF NOT EXISTS cctv_images (
           id INT AUTO_INCREMENT PRIMARY KEY,
           user_id INT NOT NULL,
+          album_id INT DEFAULT NULL,
           filename VARCHAR(255) NOT NULL,
           original_name VARCHAR(255) NOT NULL,
           file_size BIGINT DEFAULT 0,
@@ -9583,7 +9593,9 @@ async function startServer() {
       for (const sql of [
         'ALTER TABLE cctv_screens ADD COLUMN video_muted TINYINT(1) DEFAULT 0',
         'ALTER TABLE cctv_screens ADD COLUMN current_music_id INT DEFAULT NULL',
-        "ALTER TABLE cctv_screens ADD COLUMN display_mode ENUM('video','images') DEFAULT 'video'"
+        "ALTER TABLE cctv_screens ADD COLUMN display_mode ENUM('video','images') DEFAULT 'video'",
+        'ALTER TABLE cctv_screens ADD COLUMN current_album_id INT DEFAULT NULL',
+        'ALTER TABLE cctv_images ADD COLUMN album_id INT DEFAULT NULL'
       ]) {
         try { await pool.execute(sql); } catch (_) { /* columna ya existe */ }
       }
@@ -9635,10 +9647,12 @@ async function startServer() {
         const [rows] = await pool.execute(`
           SELECT s.*, v.original_name AS video_name, v.url AS video_url,
             m.original_name AS music_name, m.id AS music_id,
+            alb.name AS album_name,
             (CASE WHEN s.last_seen IS NOT NULL AND TIMESTAMPDIFF(SECOND, s.last_seen, NOW()) < 90 THEN 1 ELSE 0 END) AS is_online
           FROM cctv_screens s
           LEFT JOIN cctv_videos v ON v.id = s.current_video_id
           LEFT JOIN cctv_music m ON m.id = s.current_music_id
+          LEFT JOIN cctv_albums alb ON alb.id = s.current_album_id
           WHERE s.user_id = ? AND s.device_token IS NOT NULL
           ORDER BY s.created_at DESC
         `, [req.user.id]);
@@ -9770,10 +9784,12 @@ async function startServer() {
         const userId = config.user_id;
         delete config.user_id;
         if (config.display_mode === 'images') {
-          const [imgs] = await pool.execute(
-            'SELECT url, duration_seconds FROM cctv_images WHERE user_id = ? ORDER BY sort_order ASC, created_at ASC',
-            [userId]
-          );
+          const albumId = rows[0].current_album_id;
+          let imgSql = 'SELECT url, duration_seconds FROM cctv_images WHERE user_id = ?';
+          const imgParams = [userId];
+          if (albumId) { imgSql += ' AND album_id = ?'; imgParams.push(albumId); }
+          imgSql += ' ORDER BY sort_order ASC, created_at ASC';
+          const [imgs] = await pool.execute(imgSql, imgParams);
           config.images = imgs;
         }
         res.json(config);
@@ -9852,6 +9868,60 @@ async function startServer() {
         await ensureCctvTables();
         const { muted } = req.body;
         await pool.execute('UPDATE cctv_screens SET video_muted = ? WHERE id = ? AND user_id = ?', [muted ? 1 : 0, req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: list albums
+    app.get('/api/cctv/albums', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [rows] = await pool.execute(
+          'SELECT a.*, COUNT(i.id) AS image_count FROM cctv_albums a LEFT JOIN cctv_images i ON i.album_id = a.id WHERE a.user_id = ? GROUP BY a.id ORDER BY a.created_at ASC',
+          [req.user.id]
+        );
+        res.json(rows);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: create album
+    app.post('/api/cctv/albums', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { name } = req.body;
+        if (!name?.trim()) return res.status(400).json({ error: 'Nombre requerido' });
+        const [result] = await pool.execute('INSERT INTO cctv_albums (user_id, name) VALUES (?, ?)', [req.user.id, name.trim()]);
+        res.json({ id: result.insertId, name: name.trim(), image_count: 0 });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: delete album (images move to no album)
+    app.delete('/api/cctv/albums/:id', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        await pool.execute('UPDATE cctv_images SET album_id = NULL WHERE album_id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        await pool.execute('UPDATE cctv_screens SET current_album_id = NULL WHERE current_album_id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        await pool.execute('DELETE FROM cctv_albums WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: assign image to album (null = remove from album)
+    app.put('/api/cctv/images/:id/album', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { album_id } = req.body;
+        await pool.execute('UPDATE cctv_images SET album_id = ? WHERE id = ? AND user_id = ?', [album_id || null, req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: assign album to screen (null = show all images)
+    app.put('/api/cctv/screens/:id/album', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { album_id } = req.body;
+        await pool.execute('UPDATE cctv_screens SET current_album_id = ? WHERE id = ? AND user_id = ?', [album_id || null, req.params.id, req.user.id]);
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });

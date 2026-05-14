@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faVideo, faUpload, faTrash, faDesktop, faKey, faCopy, faCheck,
   faPlay, faPen, faTimes, faExclamationTriangle, faHistory, faPowerOff,
-  faMusic, faVolumeMute, faVolumeUp, faImage, faArrowUp, faArrowDown,
+  faMusic, faVolumeMute, faVolumeUp, faImage, faArrowUp, faArrowDown, faFolder,
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -39,6 +39,10 @@ export default function CCTV() {
   const [screens, setScreens] = useState([]);
   const [music, setMusic] = useState([]);
   const [images, setImages] = useState([]);
+  const [albums, setAlbums] = useState([]);
+  const [albumFilter, setAlbumFilter] = useState(null); // null = todas
+  const [newAlbumName, setNewAlbumName] = useState('');
+  const [assignAlbumModal, setAssignAlbumModal] = useState(null); // screen
 
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [loadingScreens, setLoadingScreens] = useState(true);
@@ -99,8 +103,12 @@ export default function CCTV() {
       }
     } catch { } finally { setLoadingImages(false); }
   };
+  const fetchAlbums = async () => {
+    try { const r = await fetch(`${API}/api/cctv/albums`, { headers }); if (r.ok) setAlbums(await r.json()); }
+    catch { }
+  };
 
-  useEffect(() => { fetchVideos(); fetchScreens(); fetchMusic(); fetchImages(); }, []);
+  useEffect(() => { fetchVideos(); fetchScreens(); fetchMusic(); fetchImages(); fetchAlbums(); }, []);
   useEffect(() => {
     if (tab === 'screens') { const t = setInterval(fetchScreens, 15000); return () => clearInterval(t); }
   }, [tab]);
@@ -214,6 +222,58 @@ export default function CCTV() {
     setDeleteConfirm(null);
   };
 
+  // ── Album management ────────────────────────────────────────────────────────
+  const createAlbum = async () => {
+    if (!newAlbumName.trim()) return;
+    try {
+      const r = await fetch(`${API}/api/cctv/albums`, {
+        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newAlbumName.trim() })
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      const album = await r.json();
+      setAlbums(a => [...a, album]);
+      setNewAlbumName('');
+      showSuccess('Álbum creado');
+    } catch (e) { showError(e.message); }
+  };
+
+  const deleteAlbum = async (id) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/albums/${id}`, { method: 'DELETE', headers });
+      if (!r.ok) throw new Error((await r.json()).error);
+      setAlbums(a => a.filter(x => x.id !== id));
+      if (albumFilter === id) setAlbumFilter(null);
+      setImages(imgs => imgs.map(i => i.album_id === id ? { ...i, album_id: null } : i));
+      showSuccess('Álbum eliminado');
+    } catch (e) { showError(e.message); }
+    setDeleteConfirm(null);
+  };
+
+  const assignImageAlbum = async (imageId, albumId) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/images/${imageId}/album`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ album_id: albumId ? parseInt(albumId) : null })
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      setImages(imgs => imgs.map(i => i.id === imageId ? { ...i, album_id: albumId ? parseInt(albumId) : null } : i));
+    } catch (e) { showError(e.message); }
+  };
+
+  const assignScreenAlbum = async (screenId, albumId) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/screens/${screenId}/album`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ album_id: albumId || null })
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      await fetchScreens();
+      showSuccess(albumId ? 'Álbum asignado a la pantalla' : 'Pantalla configurada para mostrar todas las imágenes');
+      setAssignAlbumModal(null);
+    } catch (e) { showError(e.message); }
+  };
+
   // ── Screen controls ─────────────────────────────────────────────────────────
   const setScreenMode = async (screen, mode) => {
     try {
@@ -316,6 +376,7 @@ export default function CCTV() {
   };
 
   const totalLoopTime = images.reduce((s, i) => s + (localDurations[i.id] ?? i.duration_seconds), 0);
+  const filteredImages = albumFilter !== null ? images.filter(i => i.album_id === albumFilter) : images;
 
   // ── Upload zone helper ──────────────────────────────────────────────────────
   const UploadZone = ({ onUpload, uploading, progress, accept, icon, label, hint, dragOverState, setDragOverState, inputRef, multiple }) => (
@@ -426,83 +487,139 @@ export default function CCTV() {
             hint="JPG, PNG, GIF, WebP — hasta 20 MB por imagen"
             dragOverState={dragOverImages} setDragOverState={setDragOverImages} inputRef={imageInputRef} multiple={true} />
 
-          {images.length > 0 && (
-            <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 16px', marginBottom: 20, fontSize: 13, color: '#0369a1', display: 'flex', gap: 16, alignItems: 'center' }}>
-              <span><strong>{images.length}</strong> imagen{images.length !== 1 ? 'es' : ''}</span>
+          {/* Albums section */}
+          <div style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <FontAwesomeIcon icon={faFolder} style={{ color: GOLD, fontSize: 14 }} />
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#09090b' }}>Álbumes</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: albums.length > 0 ? 12 : 0 }}>
+              <input
+                value={newAlbumName}
+                onChange={e => setNewAlbumName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && createAlbum()}
+                placeholder="Nuevo álbum..."
+                style={{ padding: '7px 12px', border: '1px solid #e4e4e7', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fafafa', flex: '1 1 160px', minWidth: 120 }}
+              />
+              <button onClick={createAlbum} disabled={!newAlbumName.trim()}
+                style={{ padding: '7px 16px', background: GOLD, border: 'none', borderRadius: 8, cursor: newAlbumName.trim() ? 'pointer' : 'default', color: '#0a0a0a', fontWeight: 700, fontSize: 13, opacity: newAlbumName.trim() ? 1 : 0.5 }}>
+                Crear
+              </button>
+            </div>
+            {albums.length > 0 ? (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {albums.map(a => (
+                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', background: albumFilter === a.id ? GOLD : '#f4f4f5', borderRadius: 20, overflow: 'hidden', border: `1px solid ${albumFilter === a.id ? GOLD : '#e4e4e7'}` }}>
+                    <button onClick={() => setAlbumFilter(albumFilter === a.id ? null : a.id)}
+                      style={{ padding: '5px 12px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13, color: albumFilter === a.id ? '#0a0a0a' : '#71717a', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <FontAwesomeIcon icon={faFolder} style={{ fontSize: 11 }} />
+                      {a.name}
+                      <span style={{ fontSize: 11, color: albumFilter === a.id ? '#0a0a0a' : '#a1a1aa' }}>({images.filter(i => i.album_id === a.id).length})</span>
+                    </button>
+                    <button onClick={() => setDeleteConfirm({ type: 'album', id: a.id, name: a.name })}
+                      style={{ padding: '5px 8px', background: 'none', border: 'none', borderLeft: '1px solid rgba(0,0,0,0.1)', cursor: 'pointer', color: albumFilter === a.id ? '#0a0a0a' : '#a1a1aa' }}>
+                      <FontAwesomeIcon icon={faTimes} style={{ fontSize: 10 }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ color: '#a1a1aa', fontSize: 13 }}>Crea álbumes para agrupar imágenes y asignarlas por pantalla.</div>
+            )}
+          </div>
+
+          {/* Filter indicator */}
+          {albumFilter !== null && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, padding: '8px 14px', background: '#fff8e1', border: '1px solid #fde68a', borderRadius: 8, fontSize: 13, color: '#92400e' }}>
+              <FontAwesomeIcon icon={faFolder} style={{ fontSize: 12 }} />
+              Álbum: <strong>{albums.find(a => a.id === albumFilter)?.name}</strong>
+              <button onClick={() => setAlbumFilter(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <FontAwesomeIcon icon={faTimes} /> Ver todas
+              </button>
+            </div>
+          )}
+
+          {filteredImages.length > 0 && (
+            <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 16px', marginBottom: 20, fontSize: 13, color: '#0369a1', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span><strong>{filteredImages.length}</strong> imagen{filteredImages.length !== 1 ? 'es' : ''}</span>
               <span>·</span>
-              <span>Duración total del loop: <strong>{formatSeconds(totalLoopTime)}</strong></span>
-              <span>·</span>
-              <span>Asigná el modo imágenes en la pestaña <strong>Pantallas</strong></span>
+              <span>Loop: <strong>{formatSeconds(filteredImages.reduce((s, i) => s + (localDurations[i.id] ?? i.duration_seconds), 0))}</strong></span>
+              {albumFilter === null && <><span>·</span><span>Asigná el modo imágenes en la pestaña <strong>Pantallas</strong></span></>}
             </div>
           )}
 
           {loadingImages ? <div style={{ textAlign: 'center', color: '#71717a', padding: 40 }}>Cargando...</div>
-            : images.length === 0 ? (
+            : filteredImages.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 48 }}>
                 <div style={{ width: 56, height: 56, background: '#f4f4f5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                   <FontAwesomeIcon icon={faImage} style={{ fontSize: 22, color: '#a1a1aa' }} />
                 </div>
-                <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>No hay imágenes subidas aún</div>
-                <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Subí imágenes para crear un slideshow en tus pantallas</div>
+                <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>{albumFilter !== null ? 'No hay imágenes en este álbum' : 'No hay imágenes subidas aún'}</div>
+                <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>{albumFilter !== null ? 'Asigná imágenes a este álbum con el selector en cada fila' : 'Subí imágenes para crear un slideshow en tus pantallas'}</div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {images.map((img, idx) => (
-                  <div key={img.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                    {/* Orden badge */}
-                    <div style={{ width: 28, height: 28, background: '#f4f4f5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#71717a', fontSize: 12, fontWeight: 700 }}>
-                      {idx + 1}
-                    </div>
+                {filteredImages.map((img) => {
+                  const globalIdx = images.indexOf(img);
+                  return (
+                    <div key={img.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      {/* Orden badge */}
+                      <div style={{ width: 28, height: 28, background: '#f4f4f5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#71717a', fontSize: 12, fontWeight: 700 }}>
+                        {globalIdx + 1}
+                      </div>
 
-                    {/* Thumbnail */}
-                    <img
-                      src={`${API}${img.url}`}
-                      alt={img.original_name}
-                      style={{ width: 72, height: 48, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid #e4e4e7' }}
-                    />
+                      {/* Thumbnail */}
+                      <img src={`${API}${img.url}`} alt={img.original_name}
+                        style={{ width: 72, height: 48, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid #e4e4e7' }} />
 
-                    {/* Name */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{img.original_name}</div>
-                      <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(img.file_size)}</div>
-                    </div>
+                      {/* Name */}
+                      <div style={{ flex: 1, minWidth: 120 }}>
+                        <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{img.original_name}</div>
+                        <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(img.file_size)}</div>
+                      </div>
 
-                    {/* Duration */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                      <span style={{ color: '#71717a', fontSize: 13 }}>Duración:</span>
-                      <input
-                        type="number" min={1} max={300}
-                        value={localDurations[img.id] ?? img.duration_seconds}
-                        onChange={e => setLocalDurations(d => ({ ...d, [img.id]: e.target.value }))}
-                        onBlur={e => saveDuration(img.id, e.target.value)}
-                        style={{
-                          width: 60, padding: '5px 8px', border: '1px solid #e4e4e7', borderRadius: 7,
-                          fontSize: 13, fontWeight: 600, color: '#09090b', textAlign: 'center',
-                          outline: 'none', background: '#fafafa'
-                        }}
-                      />
-                      <span style={{ color: '#71717a', fontSize: 13 }}>seg</span>
-                    </div>
+                      {/* Album selector */}
+                      {albums.length > 0 && (
+                        <select value={img.album_id ? String(img.album_id) : ''} onChange={e => assignImageAlbum(img.id, e.target.value || null)}
+                          style={{ padding: '5px 8px', border: '1px solid #e4e4e7', borderRadius: 7, fontSize: 12, color: img.album_id ? '#7e22ce' : '#a1a1aa', background: img.album_id ? '#fdf4ff' : '#fafafa', cursor: 'pointer', flexShrink: 0, maxWidth: 130 }}>
+                          <option value="">Sin álbum</option>
+                          {albums.map(a => <option key={a.id} value={String(a.id)}>{a.name}</option>)}
+                        </select>
+                      )}
 
-                    {/* Order buttons */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
-                      <button onClick={() => moveImage(img.id, 'up')} disabled={idx === 0}
-                        style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: 5, padding: '2px 7px', cursor: idx === 0 ? 'default' : 'pointer', color: idx === 0 ? '#d4d4d8' : '#71717a', fontSize: 10 }}>
-                        <FontAwesomeIcon icon={faArrowUp} />
+                      {/* Duration */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <span style={{ color: '#71717a', fontSize: 13 }}>Duración:</span>
+                        <input type="number" min={1} max={300}
+                          value={localDurations[img.id] ?? img.duration_seconds}
+                          onChange={e => setLocalDurations(d => ({ ...d, [img.id]: e.target.value }))}
+                          onBlur={e => saveDuration(img.id, e.target.value)}
+                          style={{ width: 60, padding: '5px 8px', border: '1px solid #e4e4e7', borderRadius: 7, fontSize: 13, fontWeight: 600, color: '#09090b', textAlign: 'center', outline: 'none', background: '#fafafa' }} />
+                        <span style={{ color: '#71717a', fontSize: 13 }}>seg</span>
+                      </div>
+
+                      {/* Order buttons — hidden when filtering */}
+                      {albumFilter === null && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
+                          <button onClick={() => moveImage(img.id, 'up')} disabled={globalIdx === 0}
+                            style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: 5, padding: '2px 7px', cursor: globalIdx === 0 ? 'default' : 'pointer', color: globalIdx === 0 ? '#d4d4d8' : '#71717a', fontSize: 10 }}>
+                            <FontAwesomeIcon icon={faArrowUp} />
+                          </button>
+                          <button onClick={() => moveImage(img.id, 'down')} disabled={globalIdx === images.length - 1}
+                            style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: 5, padding: '2px 7px', cursor: globalIdx === images.length - 1 ? 'default' : 'pointer', color: globalIdx === images.length - 1 ? '#d4d4d8' : '#71717a', fontSize: 10 }}>
+                            <FontAwesomeIcon icon={faArrowDown} />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Delete */}
+                      <button onClick={() => setDeleteConfirm({ type: 'image', id: img.id, name: img.original_name })}
+                        style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: '#dc2626', flexShrink: 0 }}>
+                        <FontAwesomeIcon icon={faTrash} style={{ fontSize: 13 }} />
                       </button>
-                      <button onClick={() => moveImage(img.id, 'down')} disabled={idx === images.length - 1}
-                        style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: 5, padding: '2px 7px', cursor: idx === images.length - 1 ? 'default' : 'pointer', color: idx === images.length - 1 ? '#d4d4d8' : '#71717a', fontSize: 10 }}>
-                        <FontAwesomeIcon icon={faArrowDown} />
-                      </button>
                     </div>
-
-                    {/* Delete */}
-                    <button onClick={() => setDeleteConfirm({ type: 'image', id: img.id, name: img.original_name })}
-                      style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: '#dc2626', flexShrink: 0 }}>
-                      <FontAwesomeIcon icon={faTrash} style={{ fontSize: 13 }} />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
         </div>
@@ -596,7 +713,14 @@ export default function CCTV() {
                             </div>
                             <div style={{ color: '#a1a1aa', fontSize: 12, marginTop: 2 }}>Última vez: {s.last_seen ? formatDate(s.last_seen) : 'Nunca'}</div>
                             {mode === 'video' && s.video_name && <div style={{ color: '#71717a', fontSize: 12, marginTop: 1 }}>▶ {s.video_name}</div>}
-                            {mode === 'images' && images.length > 0 && <div style={{ color: '#7e22ce', fontSize: 12, marginTop: 1 }}>🖼 {images.length} imágenes · loop {formatSeconds(totalLoopTime)}</div>}
+                            {mode === 'images' && (
+                              <div style={{ color: '#7e22ce', fontSize: 12, marginTop: 1 }}>
+                                {s.album_name
+                                  ? <><FontAwesomeIcon icon={faFolder} style={{ fontSize: 10, marginRight: 4 }} />{s.album_name}</>
+                                  : `🖼 Todas las imágenes`}
+                                {images.length > 0 && ` · loop ${formatSeconds(totalLoopTime)}`}
+                              </div>
+                            )}
                             {s.music_name && <div style={{ color: '#0369a1', fontSize: 12, marginTop: 1 }}>♪ {s.music_name}</div>}
                           </div>
                         </div>
@@ -626,6 +750,14 @@ export default function CCTV() {
                             <FontAwesomeIcon icon={faMusic} style={{ fontSize: 11 }} />
                             Música
                           </button>
+                          {/* Album (solo en modo imágenes) */}
+                          {mode === 'images' && (
+                            <button onClick={() => setAssignAlbumModal(s)}
+                              style={{ background: s.album_name ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${s.album_name ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 11px', cursor: 'pointer', color: s.album_name ? '#7e22ce' : '#71717a', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <FontAwesomeIcon icon={faFolder} style={{ fontSize: 11 }} />
+                              {s.album_name ? s.album_name : 'Álbum'}
+                            </button>
+                          )}
                           {/* Assign video (solo en modo video) */}
                           {mode === 'video' && (
                             <button onClick={() => setAssignModal(s)}
@@ -741,6 +873,44 @@ export default function CCTV() {
         </div>
       )}
 
+      {/* Assign Album Modal */}
+      {assignAlbumModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Imágenes para <span style={{ color: GOLD }}>{assignAlbumModal.device_name}</span></h3>
+              <button onClick={() => setAssignAlbumModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
+            </div>
+            <p style={{ color: '#71717a', fontSize: 13, margin: '0 0 16px' }}>Elegí qué imágenes se muestran en esta pantalla.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 340, overflowY: 'auto' }}>
+              <button onClick={() => assignScreenAlbum(assignAlbumModal.id, null)}
+                style={{ background: !assignAlbumModal.current_album_id ? '#fff8e1' : '#fafafa', border: `1px solid ${!assignAlbumModal.current_album_id ? '#fde68a' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>🖼 Todas las imágenes</div>
+                <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{images.length} imagen{images.length !== 1 ? 'es' : ''}</div>
+              </button>
+              {albums.map(a => {
+                const count = images.filter(i => i.album_id === a.id).length;
+                return (
+                  <button key={a.id} onClick={() => assignScreenAlbum(assignAlbumModal.id, a.id)}
+                    style={{ background: assignAlbumModal.current_album_id === a.id ? '#fdf4ff' : '#fafafa', border: `1px solid ${assignAlbumModal.current_album_id === a.id ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <FontAwesomeIcon icon={faFolder} style={{ color: GOLD, fontSize: 18, flexShrink: 0 }} />
+                    <div>
+                      <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>{a.name}</div>
+                      <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{count} imagen{count !== 1 ? 'es' : ''}</div>
+                    </div>
+                  </button>
+                );
+              })}
+              {albums.length === 0 && (
+                <div style={{ color: '#a1a1aa', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
+                  No hay álbumes. Creá uno en la pestaña <strong>Imágenes</strong>.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirm Modal */}
       {deleteConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
@@ -749,7 +919,7 @@ export default function CCTV() {
               <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: 20, color: '#dc2626' }} />
             </div>
             <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700 }}>
-              ¿Eliminar {deleteConfirm.type === 'video' ? 'video' : deleteConfirm.type === 'music' ? 'música' : deleteConfirm.type === 'image' ? 'imagen' : 'pantalla'}?
+              ¿Eliminar {deleteConfirm.type === 'video' ? 'video' : deleteConfirm.type === 'music' ? 'música' : deleteConfirm.type === 'image' ? 'imagen' : deleteConfirm.type === 'album' ? 'álbum' : 'pantalla'}?
             </h3>
             <p style={{ color: '#71717a', fontSize: 14, margin: '0 0 20px' }}><strong style={{ color: '#09090b' }}>{deleteConfirm.name}</strong> será eliminado permanentemente.</p>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -759,6 +929,7 @@ export default function CCTV() {
                   if (deleteConfirm.type === 'video') deleteVideo(deleteConfirm.id);
                   else if (deleteConfirm.type === 'music') deleteMusic(deleteConfirm.id);
                   else if (deleteConfirm.type === 'image') deleteImage(deleteConfirm.id);
+                  else if (deleteConfirm.type === 'album') deleteAlbum(deleteConfirm.id);
                   else deleteScreen(deleteConfirm.id);
                 }}
                 style={{ flex: 1, padding: '11px', background: '#dc2626', border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontWeight: 700 }}>

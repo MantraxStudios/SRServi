@@ -58,6 +58,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.*
 import android.graphics.BitmapFactory
+import androidx.annotation.RequiresApi
 import androidx.compose.ui.graphics.asImageBitmap
 import org.json.JSONObject
 import java.io.*
@@ -1446,51 +1447,47 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                 val musicUrl = config.optString("music_url").takeIf { it.isNotEmpty() }
                 val savedMusicUrl = prefs.getString(KEY_MUSIC_URL, null)
 
-                if (musicUrl != savedMusicUrl) {
-                    if (musicUrl != null) {
-                        val fullMusicUrl = if (musicUrl.startsWith("http")) musicUrl else "$BASE_URL$musicUrl"
-                        val urlHash = musicUrl.hashCode().toString().replace("-", "n")
-                        val originalName = Uri.parse(musicUrl).lastPathSegment ?: "music.mp3"
-                        val safeFilename = "${urlHash}_${originalName}"
-                        val destFile = File(getMusicStorageDir(context), safeFilename)
+                if (musicUrl == null) {
+                    // Sin música — detener siempre si hay algo cargado o en prefs
+                    if (savedMusicUrl != null || musicPlayer.playbackState != Player.STATE_IDLE) {
+                        musicPlayer.stop()
+                        musicPlayer.clearMediaItems()
+                        prefs.edit().remove(KEY_MUSIC_URL).remove(KEY_MUSIC_PATH).apply()
+                    }
+                } else if (musicUrl != savedMusicUrl) {
+                    val fullMusicUrl = if (musicUrl.startsWith("http")) musicUrl else "$BASE_URL$musicUrl"
+                    val urlHash = musicUrl.hashCode().toString().replace("-", "n")
+                    val originalName = Uri.parse(musicUrl).lastPathSegment ?: "music.mp3"
+                    val safeFilename = "${urlHash}_${originalName}"
+                    val destFile = File(getMusicStorageDir(context), safeFilename)
 
-                        if (!destFile.exists()) {
-                            var success = false
-                            withContext(Dispatchers.IO) {
-                                try {
-                                    downloadVideoFile(fullMusicUrl, destFile) { _ -> }
-                                    success = true
-                                } catch (e: Exception) {
-                                    Log.e(TAG, "Music download error: ${e.message}")
-                                    destFile.delete()
-                                }
+                    if (!destFile.exists()) {
+                        var success = false
+                        withContext(Dispatchers.IO) {
+                            try {
+                                downloadVideoFile(fullMusicUrl, destFile) { _ -> }
+                                success = true
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Music download error: ${e.message}")
+                                destFile.delete()
                             }
-                            if (success) {
-                                prefs.edit()
-                                    .putString(KEY_MUSIC_URL, musicUrl)
-                                    .putString(KEY_MUSIC_PATH, destFile.absolutePath)
-                                    .apply()
-                                musicPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(destFile)))
-                                musicPlayer.prepare()
-                            }
-                        } else {
-                            prefs.edit()
-                                .putString(KEY_MUSIC_URL, musicUrl)
-                                .putString(KEY_MUSIC_PATH, destFile.absolutePath)
-                                .apply()
+                        }
+                        if (success) {
+                            prefs.edit().putString(KEY_MUSIC_URL, musicUrl).putString(KEY_MUSIC_PATH, destFile.absolutePath).apply()
                             musicPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(destFile)))
                             musicPlayer.prepare()
                         }
                     } else {
-                        musicPlayer.stop()
-                        prefs.edit().remove(KEY_MUSIC_URL).remove(KEY_MUSIC_PATH).apply()
+                        prefs.edit().putString(KEY_MUSIC_URL, musicUrl).putString(KEY_MUSIC_PATH, destFile.absolutePath).apply()
+                        musicPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(destFile)))
+                        musicPlayer.prepare()
                     }
                 }
 
             } catch (e: Exception) {
                 Log.e(TAG, "Poll error: ${e.message}")
             }
-            delay(30_000)
+            delay(10_000)
         }
     }
 
@@ -1912,6 +1909,7 @@ private suspend fun fetchDeviceConfig(deviceToken: String): JSONObject = withCon
     runCatching { JSONObject(response) }.getOrDefault(JSONObject())
 }
 
+@RequiresApi(Build.VERSION_CODES.N)
 private fun downloadVideoFile(urlStr: String, destFile: File, onProgress: (Float) -> Unit) {
     val conn = openSecureConnection(urlStr)
     conn.connectTimeout = 30_000
