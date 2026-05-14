@@ -877,19 +877,64 @@ export async function startInstagramLogin(username, password, verificationCode =
   return { needsChallenge: true, hint: msg || 'Instagram requiere verificación adicional', igState: await serializeIg(ig) };
 }
 
-// Complete TOTP / SMS two-factor login
-export async function completeInstagramTwoFactor(igState, { username, identifier, code, verificationMethod = '0' }) {
+// Complete TOTP / SMS two-factor login.
+// If the two_factor_identifier has expired (user took too long), it re-logs in to get a fresh one
+// and retries immediately with the same TOTP code (valid within the 30s window).
+export async function completeInstagramTwoFactor(igState, { username, password, identifier, code, verificationMethod = '0' }) {
+  const cleanCode = code.replace(/\s/g, '');
+
+  // First attempt with the saved identifier and session state
   const ig = await buildIg(username);
   await ig.state.deserialize(JSON.parse(igState));
-  await ig.account.twoFactorLogin({
-    username,
-    verificationCode: code.replace(/\s/g, ''),
-    twoFactorIdentifier: identifier,
-    verificationMethod,
-    trustThisDevice: '1',
-  });
-  try { await ig.simulate.postLoginFlow(); } catch (_) {}
-  return { ok: true, igState: await serializeIg(ig) };
+  try {
+    await ig.account.twoFactorLogin({
+      username,
+      verificationCode: cleanCode,
+      twoFactorIdentifier: identifier,
+      verificationMethod,
+      trustThisDevice: '1',
+    });
+    try { await ig.simulate.postLoginFlow(); } catch (_) {}
+    return { ok: true, igState: await serializeIg(ig) };
+  } catch (firstErr) {
+    const errType = igErrorType(firstErr);
+
+    // Instagram requires an additional checkpoint after 2FA — return it for the caller to handle
+    if (errType === 'challenge') {
+      try { await ig.challenge.auto(true); } catch (_) {}
+      return { needsChallenge: true, igState: await serializeIg(ig) };
+    }
+
+    // Identifier may have expired — do a fresh login to get a new one and retry with the same code
+    if (password) {
+      const ig2 = await buildIg(username);
+      try { await ig2.simulate.preLoginFlow(); } catch (_) {}
+      let loginErr2;
+      try {
+        await ig2.account.login(username, password);
+        // Login succeeded without 2FA on retry
+        try { await ig2.simulate.postLoginFlow(); } catch (_) {}
+        return { ok: true, igState: await serializeIg(ig2) };
+      } catch (e) { loginErr2 = e; }
+
+      if (igErrorType(loginErr2) === 'twoFactor') {
+        const info2 = loginErr2.response?.body?.two_factor_info || {};
+        if (info2.two_factor_identifier) {
+          await ig2.account.twoFactorLogin({
+            username,
+            verificationCode: cleanCode,
+            twoFactorIdentifier: info2.two_factor_identifier,
+            verificationMethod,
+            trustThisDevice: '1',
+          });
+          try { await ig2.simulate.postLoginFlow(); } catch (_) {}
+          return { ok: true, igState: await serializeIg(ig2) };
+        }
+      }
+    }
+
+    throw firstErr;
+  }
 }
 
 // Complete checkpoint / challenge verification

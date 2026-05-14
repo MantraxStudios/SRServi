@@ -9360,10 +9360,16 @@ async function startServer() {
         } else {
           result = await completeInstagramTwoFactor(temp.igState, {
             username: cfg?.ig_username || '',
+            password: cfg?.ig_password || '',
             identifier: temp.info?.two_factor_identifier,
             code,
             verificationMethod: verificationMethod || '0',
           });
+        }
+        // 2FA completed but Instagram now requires an extra challenge (email/SMS code)
+        if (result.needsChallenge) {
+          await saveInstagramTempState(req.params.storeId, JSON.stringify({ igState: result.igState }));
+          return res.json({ needsChallenge: true, hint: 'Instagram pide verificación adicional. Ingresá el código que llegó a tu email o teléfono.' });
         }
         await saveInstagramSession(req.params.storeId, result.igState);
         res.json({ ok: true });

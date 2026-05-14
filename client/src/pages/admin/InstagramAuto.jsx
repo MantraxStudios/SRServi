@@ -180,6 +180,13 @@ export default function InstagramAuto() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      if (data.needsChallenge) {
+        // 2FA passed but Instagram now wants an extra email/SMS code
+        setVerifyCode('');
+        setVerifyModal({ type: 'challenge', hint: data.hint || 'Instagram requiere un código adicional de email o SMS.' });
+        showToast('Instagram pide un código adicional', 'error');
+        return;
+      }
       setConnected(true);
       setVerifyModal(null);
       showToast('¡Cuenta conectada exitosamente!');
@@ -273,8 +280,8 @@ export default function InstagramAuto() {
               </h3>
               <p style={{ color: '#666', fontSize: 13, margin: 0, lineHeight: 1.5 }}>
                 {verifyModal.type === 'challenge'
-                  ? 'Instagram envió un código a tu email o teléfono. Si no llegó, abrí la app de Instagram — puede haber una notificación de verificación.'
-                  : 'Ingresá el código de 6 dígitos de tu app de autenticación o el código SMS.'}
+                  ? 'Instagram envió un código a tu correo o teléfono. Revisá tu email/SMS. No uses el código de tu app de autenticación — ese es solo para la verificación en 2 pasos.'
+                  : 'Ingresá el código de 6 dígitos de tu app de autenticación (TOTP) o el código que llegó por SMS.'}
               </p>
               {verifyModal.type === 'challenge' && verifyModal.hint && (
                 <p style={{ color: '#d97706', fontSize: 12, margin: '8px 0 0', lineHeight: 1.4, background: '#fffbeb', padding: '8px 10px', borderRadius: 8, border: '1px solid #fde68a' }}>
