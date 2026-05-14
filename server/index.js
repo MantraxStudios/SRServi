@@ -10219,8 +10219,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     });
 
     // Auto-start WhatsApp if auth session exists
-    const fs = await import('fs');
-    const waAuthDir = new URL('./whatsapp_auth', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
+    const waAuthDir = path.join(__serverDir, 'whatsapp_auth');
     if (fs.existsSync(waAuthDir)) {
       initWhatsApp().catch(e => console.warn('[WhatsApp] Auto-start failed:', e.message));
     }
