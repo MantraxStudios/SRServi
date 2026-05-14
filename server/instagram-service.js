@@ -847,13 +847,19 @@ export async function startInstagramLogin(username, password, verificationCode =
   }
 
   if (type === 'challenge') {
-    try { await ig.challenge.auto(true); } catch (_) {}
     if (code) {
-      await ig.challenge.sendSecurityCode(code);
-      try { await ig.simulate.postLoginFlow(); } catch (_) {}
-      return { ok: true, igState: await serializeIg(ig) };
+      // Code already provided — get challenge context without sending a new code, then submit
+      try {
+        await ig.challenge.auto(false);
+        await ig.challenge.sendSecurityCode(code);
+        try { await ig.simulate.postLoginFlow(); } catch (_) {}
+        return { ok: true, igState: await serializeIg(ig) };
+      } catch (_) {
+        // Code failed or expired — fall through to send a fresh code and show modal
+      }
     }
-    return { needsChallenge: true, igState: await serializeIg(ig) };
+    try { await ig.challenge.auto(true); } catch (_) {}
+    return { needsChallenge: true, hint: msg || 'Instagram requiere verificación', igState: await serializeIg(ig) };
   }
 
   // For wrong-password errors throw immediately — no point showing a code modal
@@ -867,9 +873,8 @@ export async function startInstagramLogin(username, password, verificationCode =
   if (isHardError) throw new Error(msg || 'Usuario o contraseña incorrectos');
 
   // Any other error (401, rate-limit, qe/sync blocked, etc.) → show verification modal
-  // so the user can enter a code if Instagram sent one
   try { await ig.challenge.auto(true); } catch (_) {}
-  return { needsChallenge: true, hint: msg || 'Instagram requiere verificación', igState: await serializeIg(ig) };
+  return { needsChallenge: true, hint: msg || 'Instagram requiere verificación adicional', igState: await serializeIg(ig) };
 }
 
 // Complete TOTP / SMS two-factor login

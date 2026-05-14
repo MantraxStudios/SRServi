@@ -159,6 +159,7 @@ export default function InstagramAuto() {
         showToast('¡Cuenta conectada exitosamente!');
       } else if (data.needsTwoFactor) {
         setVerifyCode('');
+        setVerifyMethod(data.info?.totp_two_factor_on !== false ? '0' : '1');
         setVerifyModal({ type: '2fa', info: data.info });
       } else if (data.needsChallenge) {
         setVerifyCode('');
@@ -282,7 +283,7 @@ export default function InstagramAuto() {
               )}
             </div>
 
-            {verifyModal.type === '2fa' && verifyModal.info?.totp_two_factor_on === false && (
+            {verifyModal.type === '2fa' && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: '#555', display: 'block', marginBottom: 6 }}>Método de verificación</label>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -395,7 +396,7 @@ export default function InstagramAuto() {
                 placeholder="000000"
                 style={{ ...s.input, letterSpacing: '8px', textAlign: 'center', fontSize: 22, fontWeight: 700 }}
               />
-              <p style={s.hint}>Ingresá el código de verificación o 2FA antes de hacer clic en Conectar.</p>
+              <p style={s.hint}>Solo para reintento con código previo. Si nunca conectaste, dejá vacío y hacé clic en Conectar — el modal pedirá el código automáticamente.</p>
             </div>
 
             {/* Connection status */}
