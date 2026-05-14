@@ -19,7 +19,7 @@ import PluginManager from './plugins/PluginManager.js';
 import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
 import { initInstagramService } from './instagram_autostart.js';
-import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession } from './database.js';
+import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, disconnectWhatsApp } from './whatsapp.js';
 import cron from 'node-cron';
@@ -10227,6 +10227,88 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
         await sendWhatsAppMessage(to, message);
         res.json({ success: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Scheduled WhatsApp messages — CRUD
+    app.get('/api/whatsapp/scheduled', authenticateToken, async (req, res) => {
+      try {
+        const messages = await getScheduledMessages(req.user.id);
+        res.json(messages);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/whatsapp/scheduled', authenticateToken, async (req, res) => {
+      try {
+        const { store_id, message, recipients, scheduled_at } = req.body;
+        if (!store_id || !message || !recipients || !scheduled_at) {
+          return res.status(400).json({ error: 'store_id, message, recipients y scheduled_at son requeridos' });
+        }
+        if (new Date(scheduled_at) <= new Date()) {
+          return res.status(400).json({ error: 'La fecha programada debe ser futura' });
+        }
+        const id = await createScheduledMessage({
+          userId: req.user.id,
+          storeId: store_id,
+          message,
+          recipients,
+          scheduledAt: scheduled_at
+        });
+        res.json({ id, success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.delete('/api/whatsapp/scheduled/:id', authenticateToken, async (req, res) => {
+      try {
+        const ok = await cancelScheduledMessage(parseInt(req.params.id), req.user.id);
+        if (!ok) return res.status(404).json({ error: 'Mensaje no encontrado o ya procesado' });
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Cron: procesar mensajes programados cada minuto
+    cron.schedule('* * * * *', async () => {
+      try {
+        const pending = await getPendingScheduledMessages();
+        for (const msg of pending) {
+          try {
+            const recipients = typeof msg.recipients === 'string' ? JSON.parse(msg.recipients) : msg.recipients;
+            let phones = [];
+
+            if (recipients.type === 'all') {
+              const workers = await getWorkersWithPhone(msg.store_id);
+              phones = workers.map(w => w.phone);
+            } else if (recipients.type === 'specific' && Array.isArray(recipients.worker_ids)) {
+              const workers = await getWorkersWithPhone(msg.store_id);
+              const ids = new Set(recipients.worker_ids);
+              phones = workers.filter(w => ids.has(w.id)).map(w => w.phone);
+            }
+
+            if (phones.length === 0) {
+              await markScheduledMessageFailed(msg.id);
+              continue;
+            }
+
+            const wa = getWhatsAppStatus();
+            if (!wa.connected) {
+              console.warn('[WhatsApp Sched] No conectado, saltando mensaje', msg.id);
+              continue;
+            }
+
+            for (const phone of phones) {
+              await sendWhatsAppMessage(phone, msg.message).catch(e =>
+                console.error(`[WhatsApp Sched] Error enviando a ${phone}:`, e.message)
+              );
+            }
+            await markScheduledMessageSent(msg.id);
+            console.log(`[WhatsApp Sched] Mensaje ${msg.id} enviado a ${phones.length} destinatarios`);
+          } catch (e) {
+            console.error(`[WhatsApp Sched] Error procesando mensaje ${msg.id}:`, e.message);
+            await markScheduledMessageFailed(msg.id);
+          }
+        }
+      } catch (e) {
+        console.error('[WhatsApp Sched] Error en cron:', e.message);
+      }
     });
 
     // Auto-start WhatsApp if auth session exists

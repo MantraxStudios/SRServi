@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCheckCircle, faTimesCircle, faSpinner,
-  faPaperPlane, faUnlink, faLink, faSync
+  faPaperPlane, faUnlink, faLink, faSync,
+  faCalendarPlus, faClock, faTrash, faUsers, faUser
 } from '@fortawesome/free-solid-svg-icons';
 
 function WaIcon({ size = 24, color = '#25D366' }) {
@@ -15,14 +16,47 @@ function WaIcon({ size = 24, color = '#25D366' }) {
 
 const API = 'https://srservi2.srautomatic.com';
 
+const STATUS_LABEL = {
+  pending: { label: 'Pendiente', color: '#f59e0b', bg: '#fffbeb', border: '#fde68a' },
+  sent: { label: 'Enviado', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+  failed: { label: 'Fallido', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+  cancelled: { label: 'Cancelado', color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
+};
+
+function formatDateTime(dt) {
+  if (!dt) return '—';
+  return new Date(dt).toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function localDatetimeValue() {
+  const d = new Date(Date.now() + 5 * 60 * 1000);
+  d.setSeconds(0, 0);
+  return d.toISOString().slice(0, 16);
+}
+
 function WhatsApp() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [testTo, setTestTo] = useState('');
-  const [testMsg, setTestMsg] = useState('Hola! Este es un mensaje de prueba desde SRServi.');
-  const [testResult, setTestResult] = useState(null);
   const pollRef = useRef(null);
+
+  // Stores & workers for scheduling
+  const [stores, setStores] = useState([]);
+  const [selectedStore, setSelectedStore] = useState('');
+  const [workers, setWorkers] = useState([]);
+  const [workersLoading, setWorkersLoading] = useState(false);
+
+  // Schedule form
+  const [recipientType, setRecipientType] = useState('all');
+  const [selectedWorkers, setSelectedWorkers] = useState([]);
+  const [schedMsg, setSchedMsg] = useState('');
+  const [schedAt, setSchedAt] = useState(localDatetimeValue());
+  const [schedResult, setSchedResult] = useState(null);
+  const [schedLoading, setSchedLoading] = useState(false);
+
+  // Scheduled messages list
+  const [scheduled, setScheduled] = useState([]);
+  const [schedListLoading, setSchedListLoading] = useState(false);
 
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -39,11 +73,56 @@ function WhatsApp() {
     }
   };
 
+  const fetchStores = async () => {
+    try {
+      const res = await fetch(`${API}/api/stores`, { headers });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setStores(data);
+        if (data.length > 0 && !selectedStore) setSelectedStore(String(data[0].id));
+      }
+    } catch {}
+  };
+
+  const fetchWorkers = async (storeId) => {
+    if (!storeId) return;
+    setWorkersLoading(true);
+    setSelectedWorkers([]);
+    try {
+      const res = await fetch(`${API}/api/workers?store_id=${storeId}`, { headers });
+      const data = await res.json();
+      setWorkers(Array.isArray(data) ? data : []);
+    } catch {
+      setWorkers([]);
+    } finally {
+      setWorkersLoading(false);
+    }
+  };
+
+  const fetchScheduled = async () => {
+    setSchedListLoading(true);
+    try {
+      const res = await fetch(`${API}/api/whatsapp/scheduled`, { headers });
+      const data = await res.json();
+      setScheduled(Array.isArray(data) ? data : []);
+    } catch {
+      setScheduled([]);
+    } finally {
+      setSchedListLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchStatus();
+    fetchStores();
+    fetchScheduled();
     pollRef.current = setInterval(fetchStatus, 4000);
     return () => clearInterval(pollRef.current);
   }, []);
+
+  useEffect(() => {
+    if (selectedStore) fetchWorkers(selectedStore);
+  }, [selectedStore]);
 
   const handleConnect = async () => {
     setActionLoading(true);
@@ -60,24 +139,69 @@ function WhatsApp() {
     fetchStatus();
   };
 
-  const handleSendTest = async (e) => {
+  const toggleWorker = (id) => {
+    setSelectedWorkers(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSchedule = async (e) => {
     e.preventDefault();
-    setTestResult(null);
+    setSchedResult(null);
+    setSchedLoading(true);
     try {
-      const res = await fetch(`${API}/api/whatsapp/send`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ to: testTo, message: testMsg })
+      const recipients = recipientType === 'all'
+        ? { type: 'all' }
+        : { type: 'specific', worker_ids: selectedWorkers };
+
+      if (recipientType === 'specific' && selectedWorkers.length === 0) {
+        setSchedResult({ ok: false, msg: 'Selecciona al menos un trabajador' });
+        setSchedLoading(false);
+        return;
+      }
+
+      const res = await fetch(`${API}/api/whatsapp/scheduled`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          store_id: parseInt(selectedStore),
+          message: schedMsg,
+          recipients,
+          scheduled_at: new Date(schedAt).toISOString()
+        })
       });
       const data = await res.json();
-      setTestResult(res.ok ? { ok: true, msg: 'Mensaje enviado correctamente' } : { ok: false, msg: data.error });
+      if (res.ok) {
+        setSchedResult({ ok: true, msg: 'Mensaje programado correctamente' });
+        setSchedMsg('');
+        setSchedAt(localDatetimeValue());
+        setSelectedWorkers([]);
+        setRecipientType('all');
+        fetchScheduled();
+      } else {
+        setSchedResult({ ok: false, msg: data.error });
+      }
     } catch (e) {
-      setTestResult({ ok: false, msg: e.message });
+      setSchedResult({ ok: false, msg: e.message });
+    } finally {
+      setSchedLoading(false);
     }
+  };
+
+  const handleCancel = async (id) => {
+    if (!confirm('¿Cancelar este mensaje programado?')) return;
+    await fetch(`${API}/api/whatsapp/scheduled/${id}`, { method: 'DELETE', headers });
+    fetchScheduled();
   };
 
   const statusColor = status?.connected ? '#22c55e' : status?.hasQR ? '#f59e0b' : '#ef4444';
   const statusText = status?.connected ? 'Conectado' : status?.hasQR ? 'Esperando escaneo QR' : status?.connecting ? 'Conectando...' : 'Desconectado';
   const statusIcon = status?.connected ? faCheckCircle : status?.hasQR || status?.connecting ? faSpinner : faTimesCircle;
+
+  const card = {
+    background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0',
+    padding: '24px 28px', marginBottom: 24, boxShadow: '0 1px 4px rgba(0,0,0,.05)'
+  };
 
   return (
     <>
@@ -87,17 +211,14 @@ function WhatsApp() {
             <WaIcon size={26} />
             WhatsApp
           </h1>
-          <p className="text-sm text-muted">Número global — se usa para enviar mensajes a trabajadores de todas las tiendas</p>
+          <p className="text-sm text-muted">Conecta WhatsApp y programa mensajes para tus trabajadores</p>
         </div>
       </header>
 
-      <div className="admin-main" style={{ maxWidth: 640, margin: '0 auto' }}>
+      <div className="admin-main" style={{ maxWidth: 680, margin: '0 auto' }}>
 
         {/* Status card */}
-        <div style={{
-          background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0',
-          padding: '24px 28px', marginBottom: 24, boxShadow: '0 1px 4px rgba(0,0,0,.05)'
-        }}>
+        <div style={card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
             <div style={{
               width: 48, height: 48, background: '#f0fdf4', borderRadius: 12,
@@ -134,7 +255,7 @@ function WhatsApp() {
                 background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10,
                 padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#166534'
               }}>
-                WhatsApp conectado. Los mensajes automáticos del SRBrain se enviarán por WhatsApp.
+                WhatsApp conectado. Los mensajes programados se enviarán por WhatsApp.
               </div>
               <button
                 onClick={handleDisconnect}
@@ -171,7 +292,7 @@ function WhatsApp() {
                 background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
                 padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#7f1d1d'
               }}>
-                Sin conexión. Haz clic en "Conectar", escanea el QR con tu WhatsApp y listo — ese número se usará para todas las tiendas.
+                Sin conexión. Haz clic en "Conectar", escanea el QR con tu WhatsApp y listo.
               </div>
               <button
                 onClick={handleConnect}
@@ -190,79 +311,244 @@ function WhatsApp() {
           )}
         </div>
 
-        {/* Test message */}
-        {status?.connected && (
-          <div style={{
-            background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0',
-            padding: '24px 28px', boxShadow: '0 1px 4px rgba(0,0,0,.05)'
-          }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>
-              <FontAwesomeIcon icon={faPaperPlane} style={{ marginRight: 8, color: '#25D366' }} />
-              Enviar mensaje de prueba
-            </h3>
-            <form onSubmit={handleSendTest}>
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>
-                  Número de teléfono (con código de país)
-                </label>
-                <input
-                  type="text"
-                  value={testTo}
-                  onChange={e => setTestTo(e.target.value)}
-                  placeholder="+56912345678"
-                  required
-                  style={{
-                    width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb',
-                    borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>Mensaje</label>
-                <textarea
-                  value={testMsg}
-                  onChange={e => setTestMsg(e.target.value)}
-                  rows={3}
-                  style={{
-                    width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb',
-                    borderRadius: 8, fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-              {testResult && (
-                <div style={{
-                  padding: '10px 14px', borderRadius: 8, marginBottom: 12, fontSize: 13,
-                  background: testResult.ok ? '#f0fdf4' : '#fef2f2',
-                  color: testResult.ok ? '#166534' : '#dc2626',
-                  border: `1px solid ${testResult.ok ? '#bbf7d0' : '#fecaca'}`
-                }}>
-                  <FontAwesomeIcon icon={testResult.ok ? faCheckCircle : faTimesCircle} style={{ marginRight: 7 }} />
-                  {testResult.msg}
-                </div>
-              )}
-              <button
-                type="submit"
+        {/* Schedule message form */}
+        <div style={card}>
+          <h3 style={{ margin: '0 0 18px', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FontAwesomeIcon icon={faCalendarPlus} style={{ color: '#25D366' }} />
+            Programar mensaje
+          </h3>
+
+          <form onSubmit={handleSchedule}>
+            {/* Store selector */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>Tienda</label>
+              <select
+                value={selectedStore}
+                onChange={e => setSelectedStore(e.target.value)}
+                required
                 style={{
-                  padding: '10px 20px', borderRadius: 8, border: 'none',
-                  background: '#25D366', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 14
+                  width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb',
+                  borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box',
+                  background: '#fff', cursor: 'pointer'
                 }}
               >
-                <FontAwesomeIcon icon={faPaperPlane} style={{ marginRight: 7 }} />
-                Enviar prueba
-              </button>
-            </form>
-          </div>
-        )}
+                {stores.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
 
-        <div style={{
-          marginTop: 24, padding: '16px 20px', background: '#f9fafb', borderRadius: 12,
-          border: '1px solid #e5e7eb', fontSize: 13, color: '#6b7280', lineHeight: 1.6
-        }}>
-          <strong style={{ color: '#374151' }}>Una sola conexión para todo</strong><br />
-          Este número se comparte entre todas las tiendas de la plataforma. Solo necesitas conectarlo una vez —
-          León IA lo usará para enviar recordatorios de tareas y mensajes de ánimo a los trabajadores de cualquier tienda.
-          La sesión se guarda en el servidor y se reconecta automáticamente al reiniciar.
+            {/* Recipients */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Destinatarios</label>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setRecipientType('all')}
+                  style={{
+                    padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    border: `2px solid ${recipientType === 'all' ? '#25D366' : '#e5e7eb'}`,
+                    background: recipientType === 'all' ? '#f0fdf4' : '#fff',
+                    color: recipientType === 'all' ? '#166534' : '#6b7280'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faUsers} style={{ marginRight: 6 }} />
+                  Todos los trabajadores
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipientType('specific')}
+                  style={{
+                    padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    border: `2px solid ${recipientType === 'specific' ? '#25D366' : '#e5e7eb'}`,
+                    background: recipientType === 'specific' ? '#f0fdf4' : '#fff',
+                    color: recipientType === 'specific' ? '#166534' : '#6b7280'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faUser} style={{ marginRight: 6 }} />
+                  Específicos
+                </button>
+              </div>
+
+              {recipientType === 'specific' && (
+                <div style={{
+                  border: '1px solid #e5e7eb', borderRadius: 8, maxHeight: 180,
+                  overflowY: 'auto', padding: '4px 0'
+                }}>
+                  {workersLoading ? (
+                    <div style={{ padding: '12px 16px', color: '#aaa', fontSize: 13 }}>
+                      <FontAwesomeIcon icon={faSpinner} spin style={{ marginRight: 6 }} />Cargando trabajadores...
+                    </div>
+                  ) : workers.length === 0 ? (
+                    <div style={{ padding: '12px 16px', color: '#aaa', fontSize: 13 }}>
+                      No hay trabajadores en esta tienda
+                    </div>
+                  ) : workers.map(w => (
+                    <label key={w.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px',
+                      cursor: 'pointer', borderBottom: '1px solid #f5f5f5',
+                      background: selectedWorkers.includes(w.id) ? '#f0fdf4' : '#fff'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedWorkers.includes(w.id)}
+                        onChange={() => toggleWorker(w.id)}
+                        style={{ width: 15, height: 15, accentColor: '#25D366' }}
+                      />
+                      <span style={{ fontSize: 14, fontWeight: 500 }}>{w.name}</span>
+                      <span style={{ fontSize: 12, color: '#9ca3af', marginLeft: 'auto' }}>{w.username}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Message */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>Mensaje</label>
+              <textarea
+                value={schedMsg}
+                onChange={e => setSchedMsg(e.target.value)}
+                rows={4}
+                required
+                placeholder="Escribe el mensaje que quieres enviar..."
+                style={{
+                  width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb',
+                  borderRadius: 8, fontSize: 14, outline: 'none', resize: 'vertical',
+                  boxSizing: 'border-box', fontFamily: 'inherit'
+                }}
+              />
+            </div>
+
+            {/* Date/time */}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>
+                <FontAwesomeIcon icon={faClock} style={{ marginRight: 6, color: '#6b7280' }} />
+                Fecha y hora de envío
+              </label>
+              <input
+                type="datetime-local"
+                value={schedAt}
+                onChange={e => setSchedAt(e.target.value)}
+                required
+                style={{
+                  width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb',
+                  borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {schedResult && (
+              <div style={{
+                padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 13,
+                background: schedResult.ok ? '#f0fdf4' : '#fef2f2',
+                color: schedResult.ok ? '#166534' : '#dc2626',
+                border: `1px solid ${schedResult.ok ? '#bbf7d0' : '#fecaca'}`
+              }}>
+                <FontAwesomeIcon icon={schedResult.ok ? faCheckCircle : faTimesCircle} style={{ marginRight: 7 }} />
+                {schedResult.msg}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={schedLoading || !selectedStore}
+              style={{
+                padding: '11px 24px', borderRadius: 8, border: 'none',
+                background: schedLoading ? '#a7f3d0' : '#25D366',
+                color: '#fff', fontWeight: 700, cursor: schedLoading ? 'not-allowed' : 'pointer', fontSize: 14
+              }}
+            >
+              {schedLoading
+                ? <><FontAwesomeIcon icon={faSpinner} spin style={{ marginRight: 7 }} />Programando...</>
+                : <><FontAwesomeIcon icon={faCalendarPlus} style={{ marginRight: 7 }} />Programar mensaje</>
+              }
+            </button>
+          </form>
         </div>
+
+        {/* Scheduled messages list */}
+        <div style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FontAwesomeIcon icon={faClock} style={{ color: '#6b7280' }} />
+              Mensajes programados
+            </h3>
+            <button
+              onClick={fetchScheduled}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 14 }}
+            >
+              <FontAwesomeIcon icon={faSync} />
+            </button>
+          </div>
+
+          {schedListLoading ? (
+            <div style={{ textAlign: 'center', padding: '20px 0', color: '#aaa' }}>
+              <FontAwesomeIcon icon={faSpinner} spin /> Cargando...
+            </div>
+          ) : scheduled.length === 0 ? (
+            <div style={{
+              textAlign: 'center', padding: '28px 0', color: '#aaa', fontSize: 14,
+              background: '#f9fafb', borderRadius: 10, border: '1px dashed #e5e7eb'
+            }}>
+              No hay mensajes programados
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {scheduled.map(m => {
+                const st = STATUS_LABEL[m.status] || STATUS_LABEL.pending;
+                const recipients = typeof m.recipients === 'string' ? JSON.parse(m.recipients) : m.recipients;
+                const recipientLabel = recipients?.type === 'all'
+                  ? 'Todos los trabajadores'
+                  : `${recipients?.worker_ids?.length || 0} trabajador(es)`;
+                return (
+                  <div key={m.id} style={{
+                    border: `1px solid ${st.border}`, borderRadius: 10,
+                    padding: '14px 16px', background: st.bg
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{
+                          display: 'inline-block', padding: '2px 10px', borderRadius: 99,
+                          fontSize: 11, fontWeight: 700, color: st.color,
+                          border: `1px solid ${st.border}`, background: '#fff', marginBottom: 6
+                        }}>
+                          {st.label}
+                        </div>
+                        <p style={{
+                          margin: '0 0 8px', fontSize: 14, color: '#111',
+                          whiteSpace: 'pre-wrap', wordBreak: 'break-word'
+                        }}>
+                          {m.message}
+                        </p>
+                        <div style={{ fontSize: 12, color: '#6b7280', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                          <span><FontAwesomeIcon icon={faClock} style={{ marginRight: 4 }} />{formatDateTime(m.scheduled_at)}</span>
+                          <span><FontAwesomeIcon icon={faUsers} style={{ marginRight: 4 }} />{recipientLabel}</span>
+                          {m.status === 'sent' && m.sent_at && (
+                            <span style={{ color: '#16a34a' }}>Enviado: {formatDateTime(m.sent_at)}</span>
+                          )}
+                        </div>
+                      </div>
+                      {m.status === 'pending' && (
+                        <button
+                          onClick={() => handleCancel(m.id)}
+                          title="Cancelar"
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            color: '#9ca3af', fontSize: 15, padding: 4, flexShrink: 0
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
       </div>
     </>
   );

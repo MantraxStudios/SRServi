@@ -1393,6 +1393,28 @@ async function migrateTables() {
       console.error('❌ Error migrando cash_registers:', err.message);
     }
 
+    // Scheduled WhatsApp messages
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS scheduled_whatsapp_messages (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          user_id INT NOT NULL,
+          store_id INT NOT NULL,
+          message TEXT NOT NULL,
+          recipients JSON NOT NULL,
+          scheduled_at DATETIME NOT NULL,
+          status ENUM('pending','sent','failed','cancelled') DEFAULT 'pending',
+          sent_at DATETIME DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_swm_status (status),
+          INDEX idx_swm_scheduled (scheduled_at)
+        )
+      `);
+      console.log('ℹ️ Tabla scheduled_whatsapp_messages verificada/creada');
+    } catch (err) {
+      console.error('❌ Error creando tabla scheduled_whatsapp_messages:', err.message);
+    }
+
     console.log('✅ Migración de tablas completada');
   } catch (error) {
     console.error('❌ Error en migración:', error.message);
@@ -4173,6 +4195,62 @@ export async function updateProcedure(id, storeId, data) {
 
 export async function deleteProcedure(id, storeId) {
   await pool.execute('DELETE FROM worker_procedures WHERE id = ? AND store_id = ?', [id, storeId]);
+}
+
+// Scheduled WhatsApp messages
+export async function createScheduledMessage({ userId, storeId, message, recipients, scheduledAt }) {
+  const [result] = await pool.execute(
+    'INSERT INTO scheduled_whatsapp_messages (user_id, store_id, message, recipients, scheduled_at) VALUES (?, ?, ?, ?, ?)',
+    [userId, storeId, message, JSON.stringify(recipients), scheduledAt]
+  );
+  return result.insertId;
+}
+
+export async function getScheduledMessages(userId) {
+  const [rows] = await pool.execute(
+    `SELECT id, store_id, message, recipients, scheduled_at, status, sent_at, created_at
+     FROM scheduled_whatsapp_messages WHERE user_id = ? ORDER BY scheduled_at DESC LIMIT 100`,
+    [userId]
+  );
+  return rows;
+}
+
+export async function cancelScheduledMessage(id, userId) {
+  const [result] = await pool.execute(
+    `UPDATE scheduled_whatsapp_messages SET status = 'cancelled' WHERE id = ? AND user_id = ? AND status = 'pending'`,
+    [id, userId]
+  );
+  return result.affectedRows > 0;
+}
+
+export async function getPendingScheduledMessages() {
+  const [rows] = await pool.execute(
+    `SELECT id, store_id, message, recipients FROM scheduled_whatsapp_messages
+     WHERE status = 'pending' AND scheduled_at <= NOW()`
+  );
+  return rows;
+}
+
+export async function markScheduledMessageSent(id) {
+  await pool.execute(
+    `UPDATE scheduled_whatsapp_messages SET status = 'sent', sent_at = NOW() WHERE id = ?`,
+    [id]
+  );
+}
+
+export async function markScheduledMessageFailed(id) {
+  await pool.execute(
+    `UPDATE scheduled_whatsapp_messages SET status = 'failed' WHERE id = ?`,
+    [id]
+  );
+}
+
+export async function getWorkersWithPhone(storeId) {
+  const [rows] = await pool.execute(
+    `SELECT id, name, phone FROM workers WHERE store_id = ? AND phone IS NOT NULL AND phone != '' ORDER BY name`,
+    [storeId]
+  );
+  return rows;
 }
 
 export { pool };

@@ -166,34 +166,9 @@ async function executeAction(storeId, action, config, workers) {
     }
   }
 
-  if (type === 'send_worker_reminder' && config.worker_reminders) {
-    const worker = workers.find(w => w.id === data.worker_id);
-    const phone = data.worker_phone || worker?.phone;
-    const name = data.worker_name || worker?.name || 'equipo';
-    const message = data.message
-      .replace('[nombre]', name)
-      .replace('[tarea]', data.missed_task || 'la tarea asignada');
-    const senderLine = `\n— ${config.sender_name}`;
-    const smsText = message + senderLine;
-
-    if (phone) {
-      const sent = await sendMessage(phone, smsText);
-      await logAiActivity(storeId, 'worker_reminder_sent', `Recordatorio enviado a ${name} (${phone}): ${data.missed_task}`, { sent, phone, message });
-    } else {
-      await logAiActivity(storeId, 'worker_reminder_skipped', `${name} no tiene teléfono registrado`, { worker_id: data.worker_id });
-    }
-  }
-
-  if (type === 'send_morale' && config.morale_messages) {
-    const message = (data.message || getRandomMorale()) + `\n— ${config.sender_name}`;
-    let sentCount = 0;
-    for (const w of workers) {
-      if (w.phone) {
-        await sendMessage(w.phone, message);
-        sentCount++;
-      }
-    }
-    await logAiActivity(storeId, 'morale_sent', `Mensaje de ánimo enviado a ${sentCount}/${workers.length} trabajadores`, { message: data.message });
+  if (type === 'send_worker_reminder' || type === 'send_morale') {
+    // Mensajes automáticos deshabilitados — el admin programa los mensajes manualmente
+    await logAiActivity(storeId, 'message_skipped', `Acción "${type}" omitida: mensajes automáticos deshabilitados`);
   }
 }
 
@@ -256,16 +231,7 @@ async function runForStore(storeId) {
     const decisions = await getDecisionsFromLeon(storeId, context);
 
     if (!decisions) {
-      // Fallback: ejecutar acciones básicas sin IA
-      await logAiActivity(storeId, 'brain_run', 'León IA no disponible — ejecutando acciones básicas');
-      if (config.morale_messages) {
-        const message = getRandomMorale() + `\n— ${config.sender_name}`;
-        let sentCount = 0;
-        for (const w of workers) {
-          if (w.phone) { await sendMessage(w.phone, message); sentCount++; }
-        }
-        await logAiActivity(storeId, 'morale_sent', `Mensaje de ánimo (fallback) enviado a ${sentCount} trabajadores`, { message });
-      }
+      await logAiActivity(storeId, 'brain_run', 'León IA no disponible');
       await updateAiConfigLastRun(storeId);
       return;
     }
