@@ -1049,27 +1049,27 @@ export default function Tasks() {
                     return (
                       <div key={sourceWId} style={{
                         borderRadius: 12,
-                        border: `1px solid ${mapped ? 'rgba(212,175,55,0.35)' : 'rgba(255,255,255,0.08)'}`,
-                        background: mapped ? 'rgba(212,175,55,0.04)' : 'rgba(255,255,255,0.02)',
+                        border: `1px solid ${mapped ? '#D4AF37' : '#e5e7eb'}`,
+                        background: mapped ? '#fffdf0' : '#f9fafb',
                         overflow: 'hidden'
                       }}>
                         {/* Cabecera del trabajador origen */}
                         <div style={{
                           padding: '10px 14px 8px',
-                          borderBottom: '1px solid rgba(255,255,255,0.06)',
+                          borderBottom: '1px solid #e5e7eb',
                           display: 'flex', alignItems: 'center', gap: 10
                         }}>
                           <div style={{
-                            width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                            width: 34, height: 34, borderRadius: 9, flexShrink: 0,
                             background: 'linear-gradient(135deg,#D4AF37,#8B6914)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 12, fontWeight: 900, color: '#000'
+                            fontSize: 13, fontWeight: 900, color: '#000'
                           }}>
                             {sourceWorker.name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 700, fontSize: 14, color: '#f1f5f9' }}>{sourceWorker.name}</div>
-                            <div style={{ fontSize: 11, color: '#64748b' }}>{workerTasks.length} tarea{workerTasks.length !== 1 ? 's' : ''}</div>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>{sourceWorker.name}</div>
+                            <div style={{ fontSize: 11, color: '#6b7280' }}>{workerTasks.length} tarea{workerTasks.length !== 1 ? 's' : ''}</div>
                           </div>
                         </div>
 
@@ -1078,8 +1078,8 @@ export default function Tasks() {
                           {workerTasks.map(t => (
                             <span key={t.id} style={{
                               fontSize: 11, padding: '3px 9px', borderRadius: 20,
-                              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                              color: '#94a3b8', whiteSpace: 'nowrap'
+                              background: '#f3f4f6', border: '1px solid #e5e7eb',
+                              color: '#374151', whiteSpace: 'nowrap'
                             }}>
                               {DAYS[t.day_of_week].slice(0, 3)} · {t.due_time} — {t.name}
                             </span>
@@ -1089,9 +1089,9 @@ export default function Tasks() {
                         {/* Selector destino */}
                         <div style={{ padding: '8px 14px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                           <FontAwesomeIcon icon={faArrowRight} style={{ color: '#D4AF37', fontSize: 11, flexShrink: 0 }} />
-                          <span style={{ fontSize: 12, color: '#64748b', flexShrink: 0 }}>Asignar a</span>
+                          <span style={{ fontSize: 12, color: '#6b7280', flexShrink: 0 }}>Asignar a</span>
                           {dupTargetWorkers.length === 0 ? (
-                            <span style={{ fontSize: 12, color: '#555', fontStyle: 'italic' }}>Sin trabajadores en esa tienda</span>
+                            <span style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>Sin trabajadores en esa tienda</span>
                           ) : (
                             <select
                               value={workerMapping[sourceWId] || ''}
@@ -1099,8 +1099,8 @@ export default function Tasks() {
                               disabled={dupStoreSaving}
                               style={{
                                 flex: 1, padding: '7px 10px', borderRadius: 8,
-                                border: `1px solid ${mapped ? 'rgba(212,175,55,0.5)' : 'rgba(255,255,255,0.12)'}`,
-                                background: '#1a2535', color: '#f1f5f9', fontSize: 13
+                                border: `1px solid ${mapped ? '#D4AF37' : '#d1d5db'}`,
+                                background: '#fff', color: '#111', fontSize: 13
                               }}
                             >
                               <option value="">— Elige un trabajador —</option>
