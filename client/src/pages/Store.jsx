@@ -3276,6 +3276,10 @@ function Store() {
         </div>
       </header>
 
+      <div style={{ background: '#f0f0f0', textAlign: 'center', padding: '3px 0', fontSize: 10, color: '#aaa', letterSpacing: '0.4px', lineHeight: 1 }}>
+        powered by <strong style={{ color: '#888' }}>srautomatic.cl</strong>
+      </div>
+
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
 
       <div className="category-tabs">
