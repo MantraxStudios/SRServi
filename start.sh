@@ -15,8 +15,8 @@ cd "$SCRIPT_DIR"
 
 # Kill existing screens if running
 echo "[1/4] Limpiando pantallas existentes..."
-screen -X -S srservi-server 2>/dev/null && screen -S -X srservi-server quit 2>/dev/null || true
-screen -X -S srservi-client 2>/dev/null && screen -S -X srservi-client quit 2>/dev/null || true
+screen -S srservi-server -X quit 2>/dev/null || true
+screen -S srservi-client -X quit 2>/dev/null || true
 
 # Install server dependencies if needed
 echo "[2/4] Verificando dependencias del servidor..."
@@ -38,29 +38,26 @@ cd client
 npm run build
 cd ..
 
-# Start server in screen
-echo "Iniciando servidor en screen 'srservi-server'..."
-screen -dmS srservi-server bash -c "cd $SCRIPT_DIR/server && npm run dev; exec bash"
+SERVER_LOG="/tmp/srservi-server.log"
+> "$SERVER_LOG"
 
-sleep 2
+# Start server in screen with logging
+echo "Iniciando servidor..."
+screen -dmS srservi-server bash -c "cd $SCRIPT_DIR/server && npm run dev 2>&1 | tee $SERVER_LOG; exec bash"
 
 # Start client preview in screen
-echo "Iniciando cliente en screen 'srservi-client'..."
+echo "Iniciando cliente..."
 screen -dmS srservi-client bash -c "cd $SCRIPT_DIR/client && npm run preview -- --host 0.0.0.0 --port 6666; exec bash"
-
-sleep 2
 
 echo ""
 echo "=========================================="
-echo "  SRServi iniciado correctamente!"
+echo "  SRServi iniciado!"
 echo "=========================================="
 echo ""
 echo "Servidor API: http://localhost:8888"
 echo "Cliente:      http://localhost:6666"
 echo ""
-echo "Para ver los logs:"
-echo "  screen -r srservi-server  (servidor)"
-echo "  screen -r srservi-client  (cliente)"
+echo "--- LOGS EN TIEMPO REAL (Ctrl+C para salir, el servidor sigue corriendo) ---"
 echo ""
-echo "Para salir de un screen: Ctrl+A, luego D"
-echo ""
+
+tail -f "$SERVER_LOG"
