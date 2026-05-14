@@ -322,6 +322,7 @@ function WorkerPanel() {
   const [activeTab, setActiveTab] = useState('active');
   const [procedures, setProcedures] = useState([]);
   const [procedureOpen, setProcedureOpen] = useState(null);
+  const [lightboxImg, setLightboxImg] = useState(null);
   const [addonImages, setAddonImages] = useState({}); // { 'nombre en minúscula': 'url imagen' }
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [storeCode, setStoreCode] = useState(() => {
@@ -1409,7 +1410,14 @@ function WorkerPanel() {
                               {step.title && <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>{step.title}</div>}
                               <div style={{ fontSize: 13, color: '#444', lineHeight: 1.5 }}>{step.instruction}</div>
                               {step.tip && <div style={{ marginTop: 5, fontSize: 12, color: '#888', background: '#fffbe6', padding: '4px 8px', borderRadius: 5, borderLeft: '3px solid #D4AF37' }}>💡 {step.tip}</div>}
-                              {step.image_url && <img src={step.image_url.startsWith('http') ? step.image_url : 'https://srservi2.srautomatic.com' + step.image_url} alt="" style={{ marginTop: 8, width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 8 }} />}
+                              {step.image_url && (
+                                <img
+                                  src={step.image_url.startsWith('http') ? step.image_url : 'https://srservi2.srautomatic.com' + step.image_url}
+                                  alt=""
+                                  onClick={() => setLightboxImg(step.image_url.startsWith('http') ? step.image_url : 'https://srservi2.srautomatic.com' + step.image_url)}
+                                  style={{ marginTop: 8, width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 8, cursor: 'zoom-in' }}
+                                />
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1818,6 +1826,33 @@ function WorkerPanel() {
           onClose={() => setShowNewOrder(false)}
           onOrderCreated={() => fetchOrders(worker.store_id)}
         />
+      )}
+
+      {lightboxImg && (
+        <div
+          onClick={() => setLightboxImg(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 99999,
+            background: 'rgba(0,0,0,0.93)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'zoom-out', padding: 16
+          }}
+        >
+          <img
+            src={lightboxImg}
+            alt=""
+            style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 10, objectFit: 'contain' }}
+          />
+          <button
+            onClick={() => setLightboxImg(null)}
+            style={{
+              position: 'fixed', top: 16, right: 16,
+              background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%',
+              width: 40, height: 40, color: '#fff', fontSize: 20, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1
+            }}
+          >✕</button>
+        </div>
       )}
     </div>
   );

@@ -27,6 +27,7 @@ export default function Procedures() {
   const [genContext, setGenContext] = useState('');
   const [uploadingStep, setUploadingStep] = useState(null);
   const [previewProcedure, setPreviewProcedure] = useState(null);
+  const [lightboxImg, setLightboxImg] = useState(null);
   const fileRefs = useRef({});
 
   const storeId = selectedStore?.id;
@@ -288,8 +289,12 @@ export default function Procedures() {
                         {uploadingStep === i ? 'Subiendo...' : 'Agregar imagen'}
                       </button>
                       {step.image_url && (
-                        <img src={step.image_url.startsWith('http') ? step.image_url : API + step.image_url}
-                          alt="paso" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid #e2e2e2' }} />
+                        <img
+                          src={step.image_url.startsWith('http') ? step.image_url : API + step.image_url}
+                          alt="paso"
+                          onClick={() => setLightboxImg(step.image_url.startsWith('http') ? step.image_url : API + step.image_url)}
+                          style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid #e2e2e2', cursor: 'zoom-in' }}
+                        />
                       )}
                     </div>
                   </div>
@@ -308,6 +313,34 @@ export default function Procedures() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxImg && (
+        <div
+          onClick={() => setLightboxImg(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.92)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'zoom-out', padding: 20
+          }}
+        >
+          <img
+            src={lightboxImg}
+            alt="imagen completa"
+            style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 10, boxShadow: '0 8px 40px rgba(0,0,0,0.6)', objectFit: 'contain' }}
+          />
+          <button
+            onClick={() => setLightboxImg(null)}
+            style={{
+              position: 'fixed', top: 18, right: 18,
+              background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%',
+              width: 38, height: 38, color: '#fff', fontSize: 18, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}
+          >✕</button>
         </div>
       )}
 
@@ -331,8 +364,12 @@ export default function Procedures() {
                     <div style={{ fontSize: 13, color: '#444', lineHeight: 1.5 }}>{step.instruction}</div>
                     {step.tip && <div style={{ marginTop: 6, fontSize: 12, color: '#888', background: '#fffbe6', padding: '5px 10px', borderRadius: 6, borderLeft: `3px solid ${GOLD}` }}>💡 {step.tip}</div>}
                     {step.image_url && (
-                      <img src={step.image_url.startsWith('http') ? step.image_url : API + step.image_url}
-                        alt="" style={{ marginTop: 10, width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 10 }} />
+                      <img
+                        src={step.image_url.startsWith('http') ? step.image_url : API + step.image_url}
+                        alt=""
+                        onClick={() => setLightboxImg(step.image_url.startsWith('http') ? step.image_url : API + step.image_url)}
+                        style={{ marginTop: 10, width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 10, cursor: 'zoom-in' }}
+                      />
                     )}
                   </div>
                 </div>

@@ -82,7 +82,8 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(sort -t: -k1 -n)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\" -Recurse -Directory -ErrorAction SilentlyContinue | Select-Object -First 40 | ForEach-Object { $_.FullName })",
-      "Bash(findstr /R \"cron\\\\.\" server\\\\index.js)"
+      "Bash(findstr /R \"cron\\\\.\" server\\\\index.js)",
+      "Bash(grep -n \"^  \\);\\\\|^}$\\\\|^export default\" \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\client\\\\src\\\\pages\\\\WorkerPanel.jsx\")"
     ]
   }
 }
