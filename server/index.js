@@ -9366,10 +9366,14 @@ async function startServer() {
             verificationMethod: verificationMethod || '0',
           });
         }
-        // 2FA completed but Instagram now requires an extra challenge (email/SMS code)
+        // After challenge/2FA, Instagram may still require more verification
         if (result.needsChallenge) {
           await saveInstagramTempState(req.params.storeId, JSON.stringify({ igState: result.igState }));
-          return res.json({ needsChallenge: true, hint: 'Instagram pide verificación adicional. Ingresá el código que llegó a tu email o teléfono.' });
+          return res.json({ needsChallenge: true, hint: 'Instagram pide verificación adicional. Revisá tu email o SMS.' });
+        }
+        if (result.needsTwoFactor) {
+          await saveInstagramTempState(req.params.storeId, JSON.stringify({ igState: result.igState, info: result.info }));
+          return res.json({ needsTwoFactor: true, info: result.info });
         }
         await saveInstagramSession(req.params.storeId, result.igState);
         res.json({ ok: true });

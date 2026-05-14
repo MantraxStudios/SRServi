@@ -782,8 +782,17 @@ async function serializeIg(ig) {
   try {
     const s = await ig.state.serialize();
     delete s.constants;
+    // challengeUrl is NOT included in state.serialize() — persist it manually
+    if (ig.state.challengeUrl) s.challengeUrl = ig.state.challengeUrl;
     return JSON.stringify(s);
   } catch { return '{}'; }
+}
+
+// Deserialize ig state and restore challengeUrl (not included in state.deserialize)
+async function deserializeIg(ig, igState) {
+  const parsed = typeof igState === 'string' ? JSON.parse(igState) : igState;
+  await ig.state.deserialize(parsed);
+  if (parsed.challengeUrl) ig.state.challengeUrl = parsed.challengeUrl;
 }
 
 // Detect Instagram error type by name (instanceof fails with dynamic imports)
@@ -885,7 +894,7 @@ export async function completeInstagramTwoFactor(igState, { username, password, 
 
   // First attempt with the saved identifier and session state
   const ig = await buildIg(username);
-  await ig.state.deserialize(JSON.parse(igState));
+  await deserializeIg(ig, igState);
   try {
     await ig.account.twoFactorLogin({
       username,
@@ -937,25 +946,29 @@ export async function completeInstagramTwoFactor(igState, { username, password, 
   }
 }
 
-// Complete checkpoint / challenge verification
-// username + password are required for the fallback when there's no real checkpoint in state
+// Complete checkpoint / challenge verification.
+// username + password required for fallback when no real checkpoint URL is in state.
 export async function completeInstagramChallenge(igState, code, username, password) {
   const { IgApiClient } = await import('instagram-private-api');
   const ig = new IgApiClient();
-  await ig.state.deserialize(JSON.parse(igState));
+  if (username) ig.state.generateDevice(username);
+  await deserializeIg(ig, igState); // restores challengeUrl too
   const cleanCode = (code || '').replace(/\s/g, '');
   try {
     await ig.challenge.sendSecurityCode(cleanCode);
   } catch (err) {
-    if (err.message?.includes('No checkpoint data') || err.message?.includes('no_checkpoint')) {
-      // No real checkpoint URL — the modal appeared due to a 401/rate-limit during login.
-      // Retry the full login now with the code so Instagram can complete 2FA/challenge properly.
+    const noCheckpoint = err.message?.includes('No checkpoint') || err.message?.includes('no_checkpoint') || err.name === 'IgNoCheckpointError';
+    if (noCheckpoint) {
+      // No real checkpoint URL — the modal appeared because of a 401/rate-limit.
+      // Retry a full login; if it asks for 2FA the user will get the proper 2FA modal.
       if (username && password) {
         const retryResult = await startInstagramLogin(username, password, cleanCode);
-        if (retryResult.ok) return retryResult;
-        throw new Error('Instagram todavía requiere verificación. Esperá unos minutos e intentá conectar de nuevo.');
+        // Propagate any result — ok, needsTwoFactor, or needsChallenge — to the verify route
+        if (retryResult.ok || retryResult.needsTwoFactor || retryResult.needsChallenge) {
+          return retryResult;
+        }
       }
-      throw new Error('Instagram no envió un código de verificación. Esperá unos minutos e intentá conectar de nuevo.');
+      throw new Error('Código inválido o sesión expirada. Hacé clic en Conectar de nuevo para recibir un código nuevo.');
     }
     throw err;
   }

@@ -181,10 +181,16 @@ export default function InstagramAuto() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       if (data.needsChallenge) {
-        // 2FA passed but Instagram now wants an extra email/SMS code
         setVerifyCode('');
-        setVerifyModal({ type: 'challenge', hint: data.hint || 'Instagram requiere un código adicional de email o SMS.' });
-        showToast('Instagram pide un código adicional', 'error');
+        setVerifyModal({ type: 'challenge', hint: data.hint || '' });
+        showToast('Instagram pide un código de email o SMS adicional', 'error');
+        return;
+      }
+      if (data.needsTwoFactor) {
+        setVerifyCode('');
+        setVerifyMethod(data.info?.totp_two_factor_on !== false ? '0' : '1');
+        setVerifyModal({ type: '2fa', info: data.info });
+        showToast('Instagram requiere código de autenticación 2FA', 'error');
         return;
       }
       setConnected(true);

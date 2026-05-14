@@ -69,7 +69,10 @@
       "Bash(Select-String -Pattern \"instagram\")",
       "PowerShell(head *)",
       "Read(//c/Users/tupap/**)",
-      "Bash(find . -name \"instagram-private-api\" -type d)"
+      "Bash(find . -name \"instagram-private-api\" -type d)",
+      "Bash(Get-Content \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\node_modules\\\\instagram-private-api\\\\dist\\\\core\\\\state.js\")",
+      "Bash(Select-String -Pattern \"serialize|challengeUrl|challenge\")",
+      "Bash(dir \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\")"
     ]
   }
 }
