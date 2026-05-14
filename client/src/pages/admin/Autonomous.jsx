@@ -4,8 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Link } from 'react-router-dom';
 import {
-  faBrain, faToggleOn, faToggleOff, faPlay, faHistory,
-  faTag, faBell, faSmile, faSave, faChartLine, faCheckCircle,
+  faRobot, faToggleOn, faToggleOff, faPlay, faHistory,
+  faTag, faBell, faSmile, faSave, faChartLine,
   faExclamationTriangle, faInfoCircle, faSpinner, faArrowRight
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -103,7 +103,7 @@ export default function Autonomous() {
     return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
-  if (loadingConfig) return <div className="loading">Cargando SRBrain...</div>;
+  if (loadingConfig) return <div className="loading">Cargando León IA...</div>;
 
   const card = { background: '#fff', border: '1px solid #ebebeb', borderRadius: 14, padding: '22px 24px', marginBottom: 20 };
   const label = { display: 'block', fontSize: 12, fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 };
@@ -113,11 +113,14 @@ export default function Autonomous() {
     <div style={{ maxWidth: 780, margin: '0 auto', padding: '24px 16px' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 28 }}>
-        <div style={{ width: 48, height: 48, borderRadius: 12, background: '#faf7ee', border: `2px solid ${GOLD}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <FontAwesomeIcon icon={faBrain} style={{ color: GOLD, fontSize: 20 }} />
+        <div style={{ width: 48, height: 48, borderRadius: 12, background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          <FontAwesomeIcon icon={faRobot} style={{ color: GOLD, fontSize: 22 }} />
+          <span style={{ position: 'absolute', top: -5, right: -5, background: GOLD, color: '#000', fontSize: 8, fontWeight: 900, borderRadius: 4, padding: '1px 4px', letterSpacing: '0.5px' }}>AUTO</span>
         </div>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111' }}>SRBrain — Sistema Autónomo</h1>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111', display: 'flex', alignItems: 'center', gap: 8 }}>
+            León IA <span style={{ fontSize: 13, fontWeight: 600, color: '#888' }}>— Modo Autónomo</span>
+          </h1>
           <p style={{ margin: 0, fontSize: 13, color: '#888' }}>Analiza tu negocio diariamente y actúa en forma automática</p>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
@@ -132,20 +135,20 @@ export default function Autonomous() {
       </div>
 
       {/* Master toggle */}
-      <div style={{ ...card, background: config.enabled ? '#faf7ee' : '#fff', border: `1.5px solid ${config.enabled ? GOLD : '#ebebeb'}` }}>
+      <div style={{ ...card, background: config.enabled ? '#0a0a0a' : '#fff', border: `1.5px solid ${config.enabled ? GOLD : '#ebebeb'}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>SRBrain Activado</div>
-            <div style={{ fontSize: 13, color: '#666', marginTop: 3 }}>
-              {config.enabled ? '✅ El sistema analiza y actúa automáticamente cada día a las 8:00 AM' : 'El sistema está desactivado. Actívalo para comenzar.'}
+            <div style={{ fontSize: 16, fontWeight: 700, color: config.enabled ? '#fff' : '#111' }}>León IA Autónomo</div>
+            <div style={{ fontSize: 13, color: config.enabled ? 'rgba(255,255,255,0.55)' : '#666', marginTop: 3 }}>
+              {config.enabled ? '✅ Analizando y actuando automáticamente cada día a las 8:00 AM' : 'Desactivado. Actívalo para que León IA opere solo cada mañana.'}
             </div>
           </div>
-          <button onClick={() => toggle('enabled')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 30, color: config.enabled ? GOLD : '#ccc' }}>
+          <button onClick={() => toggle('enabled')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 30, color: config.enabled ? GOLD : '#ccc', flexShrink: 0 }}>
             <FontAwesomeIcon icon={config.enabled ? faToggleOn : faToggleOff} />
           </button>
         </div>
         {config.last_run_at && (
-          <div style={{ fontSize: 11, color: '#aaa', marginTop: 10 }}>
+          <div style={{ fontSize: 11, color: config.enabled ? 'rgba(255,255,255,0.35)' : '#aaa', marginTop: 10 }}>
             Última ejecución: {formatDate(config.last_run_at)}
           </div>
         )}
@@ -237,7 +240,7 @@ export default function Autonomous() {
         {log.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#bbb', padding: '30px 0', fontSize: 14 }}>
             No hay actividad registrada aún.<br />
-            <span style={{ fontSize: 12 }}>Activa SRBrain y ejecuta el primer ciclo.</span>
+            <span style={{ fontSize: 12 }}>Activa León IA y ejecuta el primer ciclo.</span>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
