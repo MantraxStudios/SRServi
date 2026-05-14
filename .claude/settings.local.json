@@ -80,7 +80,9 @@
       "Bash(git commit -m ' *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\client\\\\src\" -Recurse -Directory)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(sort -t: -k1 -n)"
+      "Bash(sort -t: -k1 -n)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\" -Recurse -Directory -ErrorAction SilentlyContinue | Select-Object -First 40 | ForEach-Object { $_.FullName })",
+      "Bash(findstr /R \"cron\\\\.\" server\\\\index.js)"
     ]
   }
 }

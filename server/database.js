@@ -511,8 +511,65 @@ async function createTables() {
 
   await migrateToUnifiedPos();
   await migrateTables();
+  await migrateSrBrain();
 
   console.log('✅ Tablas creadas/verificadas correctamente');
+}
+
+async function migrateSrBrain() {
+  // Phone column for workers
+  try {
+    const [cols] = await pool.execute(`SHOW COLUMNS FROM workers`);
+    if (!cols.map(c => c.Field).includes('phone')) {
+      await pool.execute(`ALTER TABLE workers ADD COLUMN phone VARCHAR(20) DEFAULT NULL`);
+      console.log('✅ Columna phone agregada a workers');
+    }
+  } catch (e) { console.warn('migrateSrBrain workers.phone:', e.message); }
+
+  // AI config per store
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS ai_config (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      store_id INT NOT NULL UNIQUE,
+      enabled BOOLEAN DEFAULT FALSE,
+      auto_promotions BOOLEAN DEFAULT TRUE,
+      worker_reminders BOOLEAN DEFAULT TRUE,
+      morale_messages BOOLEAN DEFAULT TRUE,
+      promotion_threshold INT DEFAULT 20,
+      sender_name VARCHAR(100) DEFAULT 'El Administrador',
+      last_run_at TIMESTAMP NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
+  // AI activity log
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS ai_activity_log (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      store_id INT NOT NULL,
+      action_type VARCHAR(60) NOT NULL,
+      description TEXT NOT NULL,
+      metadata JSON,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_store_date (store_id, created_at)
+    )
+  `);
+
+  // Worker procedures
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS worker_procedures (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      store_id INT NOT NULL,
+      product_id INT NULL,
+      title VARCHAR(255) NOT NULL,
+      steps JSON NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
 }
 
 async function migrateTables() {
@@ -3975,6 +4032,133 @@ export async function getCashRegisterHistory(storeId, dateFrom, dateTo) {
     ORDER BY cr.opened_at DESC
   `, [storeId, dateFrom, dateTo]);
   return rows;
+}
+
+// ─── SRBrain ─────────────────────────────────────────────────────────────────
+
+export async function getAiConfig(storeId) {
+  const [rows] = await pool.execute('SELECT * FROM ai_config WHERE store_id = ? LIMIT 1', [storeId]);
+  return rows[0] || null;
+}
+
+export async function saveAiConfig(storeId, data) {
+  const { enabled, auto_promotions, worker_reminders, morale_messages, promotion_threshold, sender_name } = data;
+  await pool.execute(`
+    INSERT INTO ai_config (store_id, enabled, auto_promotions, worker_reminders, morale_messages, promotion_threshold, sender_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      enabled = VALUES(enabled),
+      auto_promotions = VALUES(auto_promotions),
+      worker_reminders = VALUES(worker_reminders),
+      morale_messages = VALUES(morale_messages),
+      promotion_threshold = VALUES(promotion_threshold),
+      sender_name = VALUES(sender_name),
+      updated_at = CURRENT_TIMESTAMP
+  `, [storeId, enabled ?? false, auto_promotions ?? true, worker_reminders ?? true, morale_messages ?? true, promotion_threshold ?? 20, sender_name || 'El Administrador']);
+  return getAiConfig(storeId);
+}
+
+export async function updateAiConfigLastRun(storeId) {
+  await pool.execute('UPDATE ai_config SET last_run_at = CURRENT_TIMESTAMP WHERE store_id = ?', [storeId]);
+}
+
+export async function getAllEnabledAiConfigs() {
+  const [rows] = await pool.execute(`
+    SELECT ai.*, s.name AS store_name
+    FROM ai_config ai
+    JOIN stores s ON s.id = ai.store_id
+    WHERE ai.enabled = TRUE
+  `);
+  return rows;
+}
+
+export async function logAiActivity(storeId, actionType, description, metadata = null) {
+  await pool.execute(
+    'INSERT INTO ai_activity_log (store_id, action_type, description, metadata) VALUES (?, ?, ?, ?)',
+    [storeId, actionType, description, metadata ? JSON.stringify(metadata) : null]
+  );
+}
+
+export async function getAiActivityLog(storeId, limit = 50) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM ai_activity_log WHERE store_id = ? ORDER BY created_at DESC LIMIT ?',
+    [storeId, limit]
+  );
+  return rows;
+}
+
+export async function getMonthlySalesHistory(storeId, months = 6) {
+  const [rows] = await pool.execute(`
+    SELECT
+      DATE_FORMAT(created_at, '%Y-%m') AS month,
+      COUNT(*) AS order_count,
+      COALESCE(SUM(total), 0) AS revenue
+    FROM orders
+    WHERE store_id = ? AND status = 'completed'
+      AND created_at >= DATE_SUB(CURDATE(), INTERVAL ? MONTH)
+    GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+    ORDER BY month ASC
+  `, [storeId, months]);
+  return rows;
+}
+
+export async function getYesterdayTaskStatus(storeId) {
+  const [rows] = await pool.execute(`
+    SELECT
+      t.id, t.name, t.worker_id, t.day_of_week, t.due_time,
+      w.name AS worker_name, w.phone AS worker_phone,
+      tc.completed_at
+    FROM tasks t
+    JOIN workers w ON w.id = t.worker_id
+    LEFT JOIN task_completions tc
+      ON tc.task_id = t.id
+      AND tc.week_start = DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+    WHERE t.store_id = ?
+      AND t.day_of_week = WEEKDAY(DATE_SUB(CURDATE(), INTERVAL 1 DAY))
+  `, [storeId]);
+  return rows;
+}
+
+export async function updateWorkerPhone(workerId, phone) {
+  await pool.execute('UPDATE workers SET phone = ? WHERE id = ?', [phone, workerId]);
+}
+
+// Worker Procedures
+export async function getProcedures(storeId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM worker_procedures WHERE store_id = ? ORDER BY created_at DESC',
+    [storeId]
+  );
+  return rows.map(r => ({ ...r, steps: typeof r.steps === 'string' ? JSON.parse(r.steps) : r.steps }));
+}
+
+export async function getProcedureById(id) {
+  const [rows] = await pool.execute('SELECT * FROM worker_procedures WHERE id = ? LIMIT 1', [id]);
+  if (!rows[0]) return null;
+  const r = rows[0];
+  return { ...r, steps: typeof r.steps === 'string' ? JSON.parse(r.steps) : r.steps };
+}
+
+export async function createProcedure(storeId, data) {
+  const { product_id, title, steps } = data;
+  const [result] = await pool.execute(
+    'INSERT INTO worker_procedures (store_id, product_id, title, steps) VALUES (?, ?, ?, ?)',
+    [storeId, product_id || null, title, JSON.stringify(steps || [])]
+  );
+  return getProcedureById(result.insertId);
+}
+
+export async function updateProcedure(id, storeId, data) {
+  const { title, steps, product_id } = data;
+  await pool.execute(
+    'UPDATE worker_procedures SET title = ?, steps = ?, product_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND store_id = ?',
+    [title, JSON.stringify(steps || []), product_id || null, id, storeId]
+  );
+  return getProcedureById(id);
+}
+
+export async function deleteProcedure(id, storeId) {
+  await pool.execute('DELETE FROM worker_procedures WHERE id = ? AND store_id = ?', [id, storeId]);
 }
 
 export { pool };

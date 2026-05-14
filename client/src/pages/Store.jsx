@@ -3252,7 +3252,6 @@ function Store() {
           </div>
           <div className="store-header-spacer" />
           <div className="store-header-actions">
-            <p className="store-header-powered">{t('poweredBy', lang)}</p>
             <div style={{ position: 'relative' }}>
               <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', padding: '5px 9px', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', color: 'rgba(255,255,255,0.75)', fontSize: '13px' }}>
                 <FontAwesomeIcon icon={faGlobe} style={{ fontSize: '11px' }} />
@@ -3277,7 +3276,7 @@ function Store() {
       </header>
 
       <div style={{ background: '#f0f0f0', textAlign: 'center', padding: '3px 0', fontSize: 10, color: '#aaa', letterSpacing: '0.4px', lineHeight: 1 }}>
-        powered by <strong style={{ color: '#888' }}>srautomatic.cl</strong>
+        {t('poweredBy', lang)}
       </div>
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />

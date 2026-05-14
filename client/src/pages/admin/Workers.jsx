@@ -1,12 +1,46 @@
 import { useState, useEffect, useContext } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserPlus, faTrash, faUser, faEnvelope, faSignInAlt } from '@fortawesome/free-solid-svg-icons';
+import { faUserPlus, faTrash, faUser, faEnvelope, faSignInAlt, faPhone, faSave } from '@fortawesome/free-solid-svg-icons';
 import { StoreContext } from '../../components/Layout';
+import { useAuth } from '../../context/AuthContext';
 
 const API = 'https://srservi2.srautomatic.com';
 
+function PhoneEditor({ worker, token }) {
+  const [editing, setEditing] = useState(false);
+  const [phone, setPhone] = useState(worker.phone || '');
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    setSaving(true);
+    await fetch(`${API}/api/workers/${worker.id}/phone`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ phone })
+    });
+    setSaving(false); setEditing(false); worker.phone = phone;
+  };
+  if (!editing) return (
+    <p style={{ fontSize: 12, color: '#888', margin: '2px 0', cursor: 'pointer' }} onClick={() => setEditing(true)}>
+      <FontAwesomeIcon icon={faPhone} style={{ marginRight: 5, fontSize: 10 }} />
+      {phone || <span style={{ color: '#bbb' }}>Agregar teléfono SMS</span>}
+    </p>
+  );
+  return (
+    <div style={{ display: 'flex', gap: 5, marginTop: 4 }}>
+      <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+56912345678"
+        style={{ fontSize: 12, padding: '3px 7px', border: '1px solid #e2e2e2', borderRadius: 6, width: 130, outline: 'none' }} />
+      <button onClick={save} disabled={saving}
+        style={{ padding: '3px 8px', borderRadius: 6, border: 'none', background: '#D4AF37', color: '#000', fontSize: 11, cursor: 'pointer' }}>
+        <FontAwesomeIcon icon={faSave} />
+      </button>
+      <button onClick={() => setEditing(false)}
+        style={{ padding: '3px 7px', borderRadius: 6, border: '1px solid #e2e2e2', background: '#fff', fontSize: 11, cursor: 'pointer' }}>✕</button>
+    </div>
+  );
+}
+
 function Workers() {
   const { selectedStore } = useContext(StoreContext);
+  const { token } = useAuth();
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -185,6 +219,7 @@ function Workers() {
                   <p className="worker-created-date">
                     Creado: {new Date(worker.created_at).toLocaleDateString('es-ES')}
                   </p>
+                  <PhoneEditor worker={worker} token={token} />
                 </div>
                 <div className="worker-actions">
                   <button 

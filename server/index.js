@@ -20,6 +20,7 @@ import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
 import { initInstagramService } from './instagram_autostart.js';
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession } from './database.js';
+import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
 import cron from 'node-cron';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
@@ -149,6 +150,16 @@ import {
   getTodayOrdersForStore,
   getCashRegisterHistory,
   generateUniqueOrderNumber,
+  getAiConfig,
+  saveAiConfig,
+  getAiActivityLog,
+  logAiActivity,
+  getProcedures,
+  getProcedureById,
+  createProcedure,
+  updateProcedure,
+  deleteProcedure,
+  updateWorkerPhone,
   pool
 } from './database.js';
 
@@ -10020,6 +10031,157 @@ async function startServer() {
           }
         }
       } catch (e) { console.error('[Instagram] Cron error:', e.message); }
+    });
+
+    // ─── SRBrain Routes ──────────────────────────────────────────────────────
+
+    app.get('/api/brain/config', authenticateToken, async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+        const store = await getStoreById(storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        const config = await getAiConfig(storeId);
+        res.json(config || { enabled: false, auto_promotions: true, worker_reminders: true, morale_messages: true, promotion_threshold: 20, sender_name: 'El Administrador' });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/brain/config', authenticateToken, async (req, res) => {
+      try {
+        const storeId = parseInt(req.body.store_id);
+        if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+        const store = await getStoreById(storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        const config = await saveAiConfig(storeId, req.body);
+        res.json(config);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.get('/api/brain/log', authenticateToken, async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+        const store = await getStoreById(storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        const log = await getAiActivityLog(storeId, 100);
+        res.json(log);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/brain/run', authenticateToken, async (req, res) => {
+      try {
+        const storeId = parseInt(req.body.store_id);
+        if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+        const store = await getStoreById(storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        res.json({ message: 'SRBrain ejecutándose en background...' });
+        runSrBrainForStore(storeId).catch(e => console.error('[Brain manual]', e.message));
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Worker phone update
+    app.patch('/api/workers/:id/phone', authenticateToken, async (req, res) => {
+      try {
+        const { phone } = req.body;
+        await updateWorkerPhone(parseInt(req.params.id), phone || null);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Procedures
+    app.get('/api/procedures', authenticateToken, async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+        const store = await getStoreById(storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        res.json(await getProcedures(storeId));
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/procedures', authenticateToken, async (req, res) => {
+      try {
+        const { store_id, title, product_id, steps } = req.body;
+        if (!store_id || !title) return res.status(400).json({ error: 'store_id y title requeridos' });
+        const store = await getStoreById(parseInt(store_id));
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        const procedure = await createProcedure(parseInt(store_id), { title, product_id, steps: steps || [] });
+        res.json(procedure);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.put('/api/procedures/:id', authenticateToken, async (req, res) => {
+      try {
+        const { store_id, title, product_id, steps } = req.body;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const store = await getStoreById(parseInt(store_id));
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        const procedure = await updateProcedure(parseInt(req.params.id), parseInt(store_id), { title, product_id, steps });
+        res.json(procedure);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.delete('/api/procedures/:id', authenticateToken, async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        const store = await getStoreById(storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        await deleteProcedure(parseInt(req.params.id), storeId);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Public: workers can see procedures for their store
+    app.get('/api/public/procedures/:storeCode', async (req, res) => {
+      try {
+        const store = await getStoreByCode(req.params.storeCode.toUpperCase());
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+        res.json(await getProcedures(store.id));
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // León IA procedure generation
+    app.post('/api/brain/generate-procedure', authenticateToken, async (req, res) => {
+      try {
+        const { store_id, product_name, extra_context } = req.body;
+        if (!store_id || !product_name) return res.status(400).json({ error: 'store_id y product_name requeridos' });
+        const store = await getStoreById(parseInt(store_id));
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+
+        const prompt = `Genera un procedimiento de preparación paso a paso para: "${product_name}".
+${extra_context ? 'Contexto adicional: ' + extra_context : ''}
+
+Responde SOLO con JSON válido, sin texto extra:
+{
+  "title": "Procedimiento: ${product_name}",
+  "steps": [
+    { "step": 1, "title": "Título del paso", "instruction": "Instrucción detallada del paso. Sé específico y claro.", "tip": "Consejo opcional" },
+    { "step": 2, "title": "...", "instruction": "...", "tip": "..." }
+  ]
+}
+
+Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador nuevo.`;
+
+        const leonRes = await fetch('http://localhost:7777/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: prompt, store_id: parseInt(store_id), history: [] }),
+          signal: AbortSignal.timeout(90000)
+        });
+
+        if (!leonRes.ok) return res.status(503).json({ error: 'León IA no disponible' });
+        const leonData = await leonRes.json();
+        const raw = leonData.answer || '';
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (!match) return res.status(422).json({ error: 'León IA no devolvió JSON válido', raw });
+        const parsed = JSON.parse(match[0]);
+        res.json(parsed);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Cron SRBrain — todos los días a las 8:00 AM
+    cron.schedule('0 8 * * *', async () => {
+      runSrBrain().catch(e => console.error('[SRBrain] Cron error:', e.message));
     });
 
     server.listen(PORT, HOST, () => {

@@ -308,6 +308,8 @@ function WorkerPanel() {
   const [showWorkerSwitch, setShowWorkerSwitch] = useState(false);
   const [switchingWorker, setSwitchingWorker] = useState(null);
   const [activeTab, setActiveTab] = useState('active');
+  const [procedures, setProcedures] = useState([]);
+  const [procedureOpen, setProcedureOpen] = useState(null);
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [storeCode, setStoreCode] = useState(() => {
     try { return JSON.parse(localStorage.getItem('worker') || '{}').store_code || ''; } catch { return ''; }
@@ -348,6 +350,10 @@ function WorkerPanel() {
     fetchWorkers(parsedWorker.store_id);
     fetchCashRegister();
     fetchTasks();
+    if (parsedWorker.store_code) {
+      fetch(`https://srservi2.srautomatic.com/api/public/procedures/${parsedWorker.store_code}`)
+        .then(r => r.ok ? r.json() : []).then(data => setProcedures(Array.isArray(data) ? data : [])).catch(() => {});
+    }
 
     // Socket con reconexion automatica
     const socket = io(SOCKET_URL, {
@@ -1061,8 +1067,15 @@ function WorkerPanel() {
                 <span className="worker-tab-count">{tasks.filter(t => !t.completed_at).length}</span>
               )}
             </button>
+            <button
+              className={`worker-tab ${activeTab === 'procedures' ? 'active' : ''}`}
+              onClick={() => setActiveTab('procedures')}
+            >
+              <FontAwesomeIcon icon={faClipboardList} />
+              Guías
+            </button>
           </div>
-          {activeTab !== 'tasks' && (
+          {activeTab !== 'tasks' && activeTab !== 'procedures' && (
           <div className="worker-filters">
             {['all', 'pending', 'preparing', 'ready'].map(f => (
               <button
@@ -1321,6 +1334,43 @@ function WorkerPanel() {
               getTaskStatus={getTaskStatus}
               getCountdown={getCountdown}
             />
+          </div>
+        )}
+        {activeTab === 'procedures' && (
+          <div style={{ maxWidth: '600px', margin: '0 auto', paddingTop: '16px', paddingBottom: '24px' }}>
+            {procedures.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 24px', color: '#888' }}>
+                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 32, marginBottom: 10, display: 'block', margin: '0 auto 12px' }} />
+                No hay guías de preparación todavía.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {procedures.map(proc => (
+                  <div key={proc.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+                    <button onClick={() => setProcedureOpen(procedureOpen === proc.id ? null : proc.id)}
+                      style={{ width: '100%', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{proc.title}</span>
+                      <span style={{ fontSize: 12, color: '#888' }}>{proc.steps?.length} pasos {procedureOpen === proc.id ? '▲' : '▼'}</span>
+                    </button>
+                    {procedureOpen === proc.id && (
+                      <div style={{ borderTop: '1px solid #f0f0f0', padding: '14px 16px' }}>
+                        {(proc.steps || []).map((step, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#D4AF37', color: '#000', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
+                            <div style={{ flex: 1 }}>
+                              {step.title && <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>{step.title}</div>}
+                              <div style={{ fontSize: 13, color: '#444', lineHeight: 1.5 }}>{step.instruction}</div>
+                              {step.tip && <div style={{ marginTop: 5, fontSize: 12, color: '#888', background: '#fffbe6', padding: '4px 8px', borderRadius: 5, borderLeft: '3px solid #D4AF37' }}>💡 {step.tip}</div>}
+                              {step.image_url && <img src={step.image_url.startsWith('http') ? step.image_url : 'https://srservi2.srautomatic.com' + step.image_url} alt="" style={{ marginTop: 8, width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 8 }} />}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

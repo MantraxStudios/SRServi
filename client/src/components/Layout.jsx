@@ -42,6 +42,7 @@ import {
   faMotorcycle,
   faBell,
   faVideo,
+  faBrain,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -465,6 +466,14 @@ function Layout() {
                         <NavLink to="/admin/inventory" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faWarehouse} />
                           <span>Inventario</span>
+                        </NavLink>
+                        <NavLink to="/admin/procedures" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                          <FontAwesomeIcon icon={faClipboardList} />
+                          <span>Procedimientos</span>
+                        </NavLink>
+                        <NavLink to="/admin/autonomous" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                          <FontAwesomeIcon icon={faBrain} />
+                          <span>SRBrain IA</span>
                         </NavLink>
                         <NavLink to="/admin/ratings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faStar} />
