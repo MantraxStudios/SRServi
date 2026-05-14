@@ -418,7 +418,8 @@ function WorkerPanel() {
   const [switchingWorker, setSwitchingWorker] = useState(null);
   const [activeTab, setActiveTab] = useState('active');
   const [procedures, setProcedures] = useState([]);
-  const [procedureOpen, setProcedureOpen] = useState(null);
+  const [selectedProc, setSelectedProc] = useState(null);
+  const [procStep, setProcStep] = useState(0);
   const [lightboxImg, setLightboxImg] = useState(null);
   const [addonImages, setAddonImages] = useState({}); // { 'nombre en minúscula': 'url imagen' }
   const [showNewOrder, setShowNewOrder] = useState(false);
@@ -1480,50 +1481,205 @@ function WorkerPanel() {
             />
           </div>
         )}
-        {activeTab === 'procedures' && (
-          <div style={{ maxWidth: '600px', margin: '0 auto', paddingTop: '16px', paddingBottom: '24px' }}>
+        {activeTab === 'procedures' && !selectedProc && (
+          <div style={{ padding: '16px 12px 80px', maxWidth: 600, margin: '0 auto' }}>
             {procedures.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 24px', color: '#888' }}>
-                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 32, marginBottom: 10, display: 'block', margin: '0 auto 12px' }} />
-                No hay guías de preparación todavía.
+              <div style={{ textAlign: 'center', padding: '60px 24px', color: '#555' }}>
+                <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 40, marginBottom: 14, display: 'block', margin: '0 auto 14px', color: '#333' }} />
+                <div style={{ fontSize: 15, color: '#666' }}>No hay guías todavía.</div>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {procedures.map(proc => (
-                  <div key={proc.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
-                    <button onClick={() => setProcedureOpen(procedureOpen === proc.id ? null : proc.id)}
-                      style={{ width: '100%', padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{proc.title}</span>
-                      <span style={{ fontSize: 12, color: '#888' }}>{proc.steps?.length} pasos {procedureOpen === proc.id ? '▲' : '▼'}</span>
-                    </button>
-                    {procedureOpen === proc.id && (
-                      <div style={{ borderTop: '1px solid #f0f0f0', padding: '14px 16px' }}>
-                        {(proc.steps || []).map((step, i) => (
-                          <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#D4AF37', color: '#000', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
-                            <div style={{ flex: 1 }}>
-                              {step.title && <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 3 }}>{step.title}</div>}
-                              <div style={{ fontSize: 13, color: '#444', lineHeight: 1.5 }}>{step.instruction}</div>
-                              {step.tip && <div style={{ marginTop: 5, fontSize: 12, color: '#888', background: '#fffbe6', padding: '4px 8px', borderRadius: 5, borderLeft: '3px solid #D4AF37' }}>💡 {step.tip}</div>}
-                              {step.image_url && (
-                                <img
-                                  src={step.image_url.startsWith('http') ? step.image_url : 'https://srservi2.srautomatic.com' + step.image_url}
-                                  alt=""
-                                  onClick={() => setLightboxImg(step.image_url.startsWith('http') ? step.image_url : 'https://srservi2.srautomatic.com' + step.image_url)}
-                                  style={{ marginTop: 8, width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 8, cursor: 'zoom-in' }}
-                                />
-                              )}
-                            </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {procedures.map(proc => {
+                  const firstStep = proc.steps?.[0];
+                  const imgUrl = firstStep?.image_url
+                    ? (firstStep.image_url.startsWith('http') ? firstStep.image_url : 'https://srservi2.srautomatic.com' + firstStep.image_url)
+                    : null;
+                  return (
+                    <button
+                      key={proc.id}
+                      onClick={() => { setSelectedProc(proc); setProcStep(0); }}
+                      style={{
+                        display: 'flex', alignItems: 'stretch', gap: 0,
+                        background: '#161616', border: '1px solid #2a2a2a',
+                        borderRadius: 14, overflow: 'hidden',
+                        cursor: 'pointer', textAlign: 'left', padding: 0,
+                        width: '100%'
+                      }}
+                    >
+                      {imgUrl && (
+                        <div style={{ width: 88, flexShrink: 0 }}>
+                          <img src={imgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        </div>
+                      )}
+                      <div style={{ flex: 1, padding: '14px 16px', minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', marginBottom: 5, lineHeight: 1.2 }}>{proc.title}</div>
+                        {firstStep?.instruction && (
+                          <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                            {firstStep.instruction}
                           </div>
-                        ))}
+                        )}
+                        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#D4AF37', background: 'rgba(212,175,55,0.1)', padding: '2px 8px', borderRadius: 20 }}>
+                            {proc.steps?.length || 0} pasos
+                          </span>
+                          <span style={{ color: '#444', fontSize: 16, marginLeft: 'auto' }}>›</span>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         )}
+
+        {activeTab === 'procedures' && selectedProc && (() => {
+          const steps = selectedProc.steps || [];
+          const step = steps[procStep];
+          const imgUrl = step?.image_url
+            ? (step.image_url.startsWith('http') ? step.image_url : 'https://srservi2.srautomatic.com' + step.image_url)
+            : null;
+          const isLast = procStep === steps.length - 1;
+          const isFirst = procStep === 0;
+
+          return (
+            <div style={{
+              display: 'flex', flexDirection: 'column',
+              height: 'calc(100svh - 115px)',
+              background: '#0d0d0d'
+            }}>
+              {/* Top bar */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '12px 16px',
+                borderBottom: '1px solid #1e1e1e',
+                flexShrink: 0
+              }}>
+                <button
+                  onClick={() => setSelectedProc(null)}
+                  style={{ background: '#1e1e1e', border: 'none', color: '#aaa', fontSize: 13, fontWeight: 700, padding: '6px 12px', borderRadius: 8, cursor: 'pointer' }}
+                >
+                  ← Volver
+                </button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {selectedProc.title}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: '#666', flexShrink: 0 }}>
+                  {procStep + 1} / {steps.length}
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div style={{ height: 3, background: '#1e1e1e', flexShrink: 0 }}>
+                <div style={{
+                  height: '100%',
+                  width: `${((procStep + 1) / steps.length) * 100}%`,
+                  background: '#D4AF37',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+
+              {/* Step content */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px' }}>
+                {/* Step number badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: '#D4AF37', color: '#000',
+                    fontWeight: 900, fontSize: 16,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    {procStep + 1}
+                  </div>
+                  {step?.title && (
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
+                      {step.title}
+                    </div>
+                  )}
+                </div>
+
+                {/* Image */}
+                {imgUrl && (
+                  <div
+                    onClick={() => setLightboxImg(imgUrl)}
+                    style={{ cursor: 'zoom-in', borderRadius: 12, overflow: 'hidden', marginBottom: 18 }}
+                  >
+                    <img
+                      src={imgUrl}
+                      alt=""
+                      style={{ width: '100%', maxHeight: 240, objectFit: 'cover', display: 'block' }}
+                    />
+                  </div>
+                )}
+
+                {/* Instruction */}
+                {step?.instruction && (
+                  <div style={{ fontSize: 15, color: '#ddd', lineHeight: 1.7, marginBottom: 16 }}>
+                    {step.instruction}
+                  </div>
+                )}
+
+                {/* Tip */}
+                {step?.tip && (
+                  <div style={{
+                    background: 'rgba(212,175,55,0.08)',
+                    border: '1px solid rgba(212,175,55,0.25)',
+                    borderRadius: 10, padding: '10px 14px',
+                    fontSize: 13, color: '#c9a227', lineHeight: 1.5
+                  }}>
+                    💡 {step.tip}
+                  </div>
+                )}
+              </div>
+
+              {/* Navigation */}
+              <div style={{
+                display: 'flex', gap: 10, padding: '12px 16px 20px',
+                borderTop: '1px solid #1e1e1e', flexShrink: 0
+              }}>
+                <button
+                  onClick={() => setProcStep(s => s - 1)}
+                  disabled={isFirst}
+                  style={{
+                    flex: 1, padding: '13px', borderRadius: 12, border: 'none',
+                    background: isFirst ? '#1a1a1a' : '#222',
+                    color: isFirst ? '#333' : '#aaa',
+                    fontSize: 15, fontWeight: 700, cursor: isFirst ? 'default' : 'pointer'
+                  }}
+                >
+                  ← Anterior
+                </button>
+                {isLast ? (
+                  <button
+                    onClick={() => setSelectedProc(null)}
+                    style={{
+                      flex: 1, padding: '13px', borderRadius: 12, border: 'none',
+                      background: '#D4AF37', color: '#000',
+                      fontSize: 15, fontWeight: 800, cursor: 'pointer'
+                    }}
+                  >
+                    ✓ Listo
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setProcStep(s => s + 1)}
+                    style={{
+                      flex: 1, padding: '13px', borderRadius: 12, border: 'none',
+                      background: '#D4AF37', color: '#000',
+                      fontSize: 15, fontWeight: 800, cursor: 'pointer'
+                    }}
+                  >
+                    Siguiente →
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {selectedOrder && (

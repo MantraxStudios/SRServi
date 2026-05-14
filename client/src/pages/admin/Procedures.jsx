@@ -3,8 +3,10 @@ import { useStore } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faClipboardList, faPlus, faEdit, faTrash, faBrain, faImage,
-  faSave, faTimes, faChevronUp, faChevronDown, faSpinner, faEye
+  faClipboardList, faPlus, faEdit, faTrash, faBrain,
+  faImage, faSave, faTimes, faChevronUp, faChevronDown,
+  faSpinner, faArrowLeft, faLightbulb, faGripLines,
+  faEye, faEyeSlash, faCheck
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -12,31 +14,231 @@ const GOLD = '#D4AF37';
 
 const emptyStep = () => ({ title: '', instruction: '', tip: '', image_url: '' });
 
+function imgSrc(url) {
+  if (!url) return '';
+  return url.startsWith('http') ? url : API + url;
+}
+
+/* ── Zona de imagen de un paso ── */
+function ImageZone({ stepIdx, imageUrl, uploading, onUpload, onClear }) {
+  const ref = useRef();
+  const [dragging, setDragging] = useState(false);
+
+  const handleDrop = (e) => {
+    e.preventDefault(); setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) onUpload(stepIdx, file);
+  };
+
+  if (imageUrl) {
+    return (
+      <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', marginTop: 12 }}>
+        <img src={imgSrc(imageUrl)} alt="paso"
+          style={{ width: '100%', maxHeight: 260, objectFit: 'cover', display: 'block' }} />
+        <button onClick={onClear}
+          style={{
+            position: 'absolute', top: 8, right: 8,
+            background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: 8,
+            color: '#fff', width: 30, height: 30, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13
+          }}>
+          <FontAwesomeIcon icon={faTimes} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={() => ref.current?.click()}
+      onDragOver={e => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}
+      style={{
+        marginTop: 12, borderRadius: 12, border: `2px dashed ${dragging ? GOLD : '#d1d5db'}`,
+        background: dragging ? '#fffdf0' : '#f9fafb',
+        padding: '22px 16px', textAlign: 'center', cursor: 'pointer',
+        transition: 'all 0.15s'
+      }}
+    >
+      <input ref={ref} type="file" accept="image/*" style={{ display: 'none' }}
+        onChange={e => onUpload(stepIdx, e.target.files[0])} />
+      {uploading ? (
+        <div style={{ color: '#888', fontSize: 13 }}>
+          <FontAwesomeIcon icon={faSpinner} spin style={{ marginRight: 7, color: GOLD }} />
+          Subiendo imagen...
+        </div>
+      ) : (
+        <>
+          <FontAwesomeIcon icon={faImage} style={{ fontSize: 24, color: '#d1d5db', marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />
+          <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>Haz clic o arrastra una imagen</div>
+          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>PNG, JPG, WEBP</div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ── Card de un paso en el editor ── */
+function StepCard({ step, index, total, onChange, onMove, onRemove, onUpload, uploadingStep }) {
+  const [showTip, setShowTip] = useState(!!step.tip);
+
+  const field = (label, key, multiline = false, placeholder = '') => (
+    <div style={{ marginBottom: 12 }}>
+      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
+        {label}
+      </label>
+      {multiline ? (
+        <textarea
+          value={step[key]}
+          onChange={e => onChange(index, key, e.target.value)}
+          placeholder={placeholder}
+          rows={3}
+          style={{
+            width: '100%', padding: '10px 12px', border: '1.5px solid #e5e7eb',
+            borderRadius: 9, fontSize: 14, outline: 'none', resize: 'vertical',
+            boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: 1.5,
+            transition: 'border-color 0.15s'
+          }}
+          onFocus={e => e.target.style.borderColor = GOLD}
+          onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+        />
+      ) : (
+        <input
+          type="text"
+          value={step[key]}
+          onChange={e => onChange(index, key, e.target.value)}
+          placeholder={placeholder}
+          style={{
+            width: '100%', padding: '10px 12px', border: '1.5px solid #e5e7eb',
+            borderRadius: 9, fontSize: 14, outline: 'none',
+            boxSizing: 'border-box', transition: 'border-color 0.15s'
+          }}
+          onFocus={e => e.target.style.borderColor = GOLD}
+          onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+        />
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{
+      background: '#fff', borderRadius: 16,
+      border: '1.5px solid #e5e7eb',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+      overflow: 'hidden'
+    }}>
+      {/* Cabecera del paso */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '14px 18px', background: '#f9fafb',
+        borderBottom: '1px solid #f0f0f0'
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: '50%',
+          background: GOLD, color: '#000', fontWeight: 900,
+          fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0
+        }}>
+          {index + 1}
+        </div>
+        <span style={{ fontWeight: 700, fontSize: 14, color: '#374151', flex: 1 }}>
+          Paso {index + 1}
+        </span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button onClick={() => onMove(index, -1)} disabled={index === 0}
+            style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? '#d1d5db' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
+            <FontAwesomeIcon icon={faChevronUp} />
+          </button>
+          <button onClick={() => onMove(index, 1)} disabled={index === total - 1}
+            style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', cursor: index === total - 1 ? 'default' : 'pointer', color: index === total - 1 ? '#d1d5db' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
+            <FontAwesomeIcon icon={faChevronDown} />
+          </button>
+          {total > 1 && (
+            <button onClick={() => onRemove(index)}
+              style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid #fecaca', background: '#fef2f2', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
+              <FontAwesomeIcon icon={faTrash} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Contenido del paso */}
+      <div style={{ padding: '18px 18px 14px' }}>
+        {field('Título del paso', 'title', false, 'Ej: Preparar los ingredientes')}
+        {field('Instrucción', 'instruction', true, 'Describe exactamente qué debe hacer el trabajador en este paso...')}
+
+        {/* Imagen */}
+        <ImageZone
+          stepIdx={index}
+          imageUrl={step.image_url}
+          uploading={uploadingStep === index}
+          onUpload={onUpload}
+          onClear={() => onChange(index, 'image_url', '')}
+        />
+
+        {/* Consejo (toggle) */}
+        <div style={{ marginTop: 12 }}>
+          <button
+            onClick={() => setShowTip(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 12, color: showTip ? '#92400e' : '#9ca3af',
+              fontWeight: 600, padding: 0
+            }}
+          >
+            <FontAwesomeIcon icon={faLightbulb} style={{ color: showTip ? GOLD : '#d1d5db' }} />
+            {showTip ? 'Ocultar consejo' : 'Agregar consejo (opcional)'}
+          </button>
+          {showTip && (
+            <div style={{ marginTop: 8 }}>
+              <input
+                type="text"
+                value={step.tip}
+                onChange={e => onChange(index, 'tip', e.target.value)}
+                placeholder="Ej: Asegúrate de que la plancha esté bien caliente"
+                style={{
+                  width: '100%', padding: '9px 12px', border: '1.5px solid #fde68a',
+                  borderRadius: 9, fontSize: 13, outline: 'none',
+                  boxSizing: 'border-box', background: '#fffdf0'
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Componente principal ── */
 export default function Procedures() {
   const { selectedStore } = useStore() || {};
   const { token } = useAuth();
 
   const [procedures, setProcedures] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [view, setView] = useState('list'); // 'list' | 'editor'
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ title: '', product_id: '', steps: [emptyStep()] });
+  const [form, setForm] = useState({ title: '', steps: [emptyStep()] });
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genProduct, setGenProduct] = useState('');
   const [genContext, setGenContext] = useState('');
   const [uploadingStep, setUploadingStep] = useState(null);
-  const [previewProcedure, setPreviewProcedure] = useState(null);
   const [lightboxImg, setLightboxImg] = useState(null);
-  const fileRefs = useRef({});
-
+  const [previewMode, setPreviewMode] = useState(false);
+  const [saveOk, setSaveOk] = useState(false);
   const storeId = selectedStore?.id;
 
   const load = async () => {
     if (!storeId || !token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/procedures?store_id=${storeId}`, { headers: { Authorization: 'Bearer ' + token } });
+      const res = await fetch(`${API}/api/procedures?store_id=${storeId}`, {
+        headers: { Authorization: 'Bearer ' + token }
+      });
       if (res.ok) setProcedures(await res.json());
     } finally { setLoading(false); }
   };
@@ -45,17 +247,21 @@ export default function Procedures() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ title: '', product_id: '', steps: [emptyStep()] });
-    setShowModal(true);
+    setForm({ title: '', steps: [emptyStep()] });
+    setGenProduct(''); setGenContext('');
+    setPreviewMode(false); setSaveOk(false);
+    setView('editor');
   };
 
   const openEdit = (proc) => {
     setEditing(proc);
-    setForm({ title: proc.title, product_id: proc.product_id || '', steps: proc.steps.length ? proc.steps : [emptyStep()] });
-    setShowModal(true);
+    setForm({ title: proc.title, steps: proc.steps.length ? proc.steps : [emptyStep()] });
+    setGenProduct(''); setGenContext('');
+    setPreviewMode(false); setSaveOk(false);
+    setView('editor');
   };
 
-  const closeModal = () => { setShowModal(false); setEditing(null); setGenProduct(''); setGenContext(''); };
+  const backToList = () => { setView('list'); setEditing(null); };
 
   const save = async () => {
     if (!form.title.trim()) return;
@@ -64,16 +270,23 @@ export default function Procedures() {
       const url = editing ? `${API}/api/procedures/${editing.id}` : `${API}/api/procedures`;
       const method = editing ? 'PUT' : 'POST';
       const res = await fetch(url, {
-        method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ ...form, store_id: storeId })
       });
-      if (res.ok) { closeModal(); load(); }
+      if (res.ok) {
+        setSaveOk(true);
+        await load();
+        setTimeout(() => { setSaveOk(false); backToList(); }, 900);
+      }
     } finally { setSaving(false); }
   };
 
   const deleteProcedure = async (id) => {
     if (!confirm('¿Eliminar este procedimiento?')) return;
-    await fetch(`${API}/api/procedures/${id}?store_id=${storeId}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+    await fetch(`${API}/api/procedures/${id}?store_id=${storeId}`, {
+      method: 'DELETE', headers: { Authorization: 'Bearer ' + token }
+    });
     load();
   };
 
@@ -93,8 +306,9 @@ export default function Procedures() {
           title: data.title || `Procedimiento: ${genProduct}`,
           steps: data.steps.map(s => ({ title: s.title || '', instruction: s.instruction || '', tip: s.tip || '', image_url: '' }))
         }));
+        setGenProduct(''); setGenContext('');
       } else {
-        alert('León IA no disponible o error al generar. Puedes crear los pasos manualmente.');
+        alert('León IA no disponible. Puedes crear los pasos manualmente.');
       }
     } finally { setGenerating(false); }
   };
@@ -128,254 +342,289 @@ export default function Procedures() {
       const fd = new FormData();
       fd.append('image', file);
       fd.append('store_id', storeId);
-      const res = await fetch(`${API}/api/upload`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+      const res = await fetch(`${API}/api/upload`, {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd
+      });
       if (res.ok) {
         const data = await res.json();
-        const url = data.url || data.path || data.file || '';
-        updateStep(stepIdx, 'image_url', url);
+        updateStep(stepIdx, 'image_url', data.url || data.path || data.file || '');
       }
     } finally { setUploadingStep(null); }
   };
 
+  /* ── Vista lista ── */
   if (loading) return <div className="loading">Cargando procedimientos...</div>;
 
-  const cardStyle = { background: '#fff', border: '1px solid #ebebeb', borderRadius: 14, overflow: 'hidden' };
-  const inputStyle = { width: '100%', padding: '8px 11px', border: '1.5px solid #e2e2e2', borderRadius: 8, fontSize: 13, boxSizing: 'border-box', outline: 'none' };
-  const labelStyle = { display: 'block', fontSize: 11, fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 5 };
-
-  return (
-    <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 16px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 10, background: '#faf7ee', border: `2px solid ${GOLD}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FontAwesomeIcon icon={faClipboardList} style={{ color: GOLD, fontSize: 18 }} />
-          </div>
+  if (view === 'list') {
+    return (
+      <>
+        <header className="admin-header">
           <div>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Procedimientos</h1>
-            <p style={{ margin: 0, fontSize: 13, color: '#888' }}>Guías paso a paso para tus trabajadores</p>
+            <h1>Procedimientos</h1>
+            <p className="text-sm text-muted">Guías paso a paso para tus trabajadores</p>
           </div>
-        </div>
-        <button onClick={openNew}
-          style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: '#111', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FontAwesomeIcon icon={faPlus} /> Nuevo procedimiento
-        </button>
-      </div>
+          <button className="btn btn-primary" onClick={openNew}>
+            <FontAwesomeIcon icon={faPlus} /> Nueva guía
+          </button>
+        </header>
 
-      {/* List */}
-      {procedures.length === 0 ? (
-        <div style={{ ...cardStyle, padding: '50px 0', textAlign: 'center', color: '#bbb' }}>
-          <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 36, marginBottom: 12 }} /><br />
-          No hay procedimientos creados.<br />
-          <span style={{ fontSize: 13 }}>Crea el primero para que tus trabajadores sepan cómo preparar cada producto.</span>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {procedures.map(proc => (
-            <div key={proc.id} style={{ ...cardStyle, padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>{proc.title}</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 3 }}>{proc.steps?.length || 0} pasos</div>
+        <div className="admin-main">
+          {procedures.length === 0 ? (
+            <div style={{
+              textAlign: 'center', padding: '60px 24px',
+              background: '#fff', borderRadius: 16, border: '1px solid #f0f0f0'
+            }}>
+              <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 40, color: '#d1d5db', marginBottom: 14, display: 'block' }} />
+              <div style={{ fontWeight: 700, fontSize: 16, color: '#374151', marginBottom: 6 }}>Sin guías todavía</div>
+              <div style={{ fontSize: 14, color: '#9ca3af', marginBottom: 20 }}>
+                Crea guías paso a paso para que tus trabajadores sepan exactamente cómo preparar cada producto.
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setPreviewProcedure(proc)}
-                  style={{ padding: '7px 13px', borderRadius: 7, border: '1.5px solid #e2e2e2', background: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#444' }}>
-                  <FontAwesomeIcon icon={faEye} /> Ver
-                </button>
-                <button onClick={() => openEdit(proc)}
-                  style={{ padding: '7px 13px', borderRadius: 7, border: '1.5px solid #e2e2e2', background: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#444' }}>
-                  <FontAwesomeIcon icon={faEdit} /> Editar
-                </button>
-                <button onClick={() => deleteProcedure(proc.id)}
-                  style={{ padding: '7px 13px', borderRadius: 7, border: '1.5px solid #fecaca', background: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#ef4444' }}>
-                  <FontAwesomeIcon icon={faTrash} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Edit/Create Modal */}
-      {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9000, overflow: 'auto', padding: '20px' }}>
-          <div style={{ maxWidth: 680, margin: '0 auto', background: '#fff', borderRadius: 16, padding: '28px', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{editing ? 'Editar procedimiento' : 'Nuevo procedimiento'}</h2>
-              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#888' }}>
-                <FontAwesomeIcon icon={faTimes} />
+              <button className="btn btn-primary" onClick={openNew}>
+                <FontAwesomeIcon icon={faPlus} /> Crear primera guía
               </button>
             </div>
-
-            {/* AI Generation */}
-            {!editing && (
-              <div style={{ background: '#faf7ee', border: `1px solid ${GOLD}40`, borderRadius: 10, padding: '16px', marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontWeight: 700, fontSize: 13, color: '#7a5c00' }}>
-                  <FontAwesomeIcon icon={faBrain} /> Generar con León IA
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-                  <div>
-                    <label style={labelStyle}>Nombre del producto</label>
-                    <input style={inputStyle} value={genProduct} onChange={e => setGenProduct(e.target.value)} placeholder="ej: Hamburguesa Clásica" />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Contexto adicional (opcional)</label>
-                    <input style={inputStyle} value={genContext} onChange={e => setGenContext(e.target.value)} placeholder="ej: con queso derretido y lechuga fresca" />
-                  </div>
-                </div>
-                <button onClick={generateWithAI} disabled={generating || !genProduct.trim()}
-                  style={{ padding: '8px 16px', borderRadius: 7, border: 'none', background: GOLD, color: '#000', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, opacity: generating || !genProduct.trim() ? 0.6 : 1 }}>
-                  <FontAwesomeIcon icon={generating ? faSpinner : faBrain} spin={generating} />
-                  {generating ? 'Generando...' : 'Generar pasos con IA'}
-                </button>
-              </div>
-            )}
-
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Título del procedimiento</label>
-              <input style={inputStyle} value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="ej: Preparación de Hamburguesa Clásica" />
-            </div>
-
-            {/* Steps */}
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <label style={{ ...labelStyle, margin: 0 }}>Pasos ({form.steps.length})</label>
-                <button onClick={addStep}
-                  style={{ padding: '5px 12px', borderRadius: 6, border: '1.5px solid #e2e2e2', background: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <FontAwesomeIcon icon={faPlus} /> Agregar paso
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '50vh', overflowY: 'auto', paddingRight: 4 }}>
-                {form.steps.map((step, i) => (
-                  <div key={i} style={{ border: '1.5px solid #e2e2e2', borderRadius: 10, padding: '14px', background: '#fafafa' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: GOLD, background: '#faf7ee', padding: '3px 9px', borderRadius: 20 }}>Paso {i + 1}</span>
-                      <div style={{ display: 'flex', gap: 5 }}>
-                        <button onClick={() => moveStep(i, -1)} disabled={i === 0} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: 13, padding: '2px 5px' }}>
-                          <FontAwesomeIcon icon={faChevronUp} />
-                        </button>
-                        <button onClick={() => moveStep(i, 1)} disabled={i === form.steps.length - 1} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: 13, padding: '2px 5px' }}>
-                          <FontAwesomeIcon icon={faChevronDown} />
-                        </button>
-                        <button onClick={() => removeStep(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 13, padding: '2px 5px' }}>
-                          <FontAwesomeIcon icon={faTimes} />
-                        </button>
-                      </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+              {procedures.map(proc => (
+                <div key={proc.id} style={{
+                  background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden',
+                  display: 'flex', flexDirection: 'column'
+                }}>
+                  <div style={{ padding: '18px 18px 14px', flex: 1 }}>
+                    <div style={{ fontWeight: 800, fontSize: 15, color: '#111', marginBottom: 6, lineHeight: 1.3 }}>
+                      {proc.title}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                      <div>
-                        <label style={labelStyle}>Título del paso</label>
-                        <input style={inputStyle} value={step.title} onChange={e => updateStep(i, 'title', e.target.value)} placeholder="ej: Preparar la carne" />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Consejo (opcional)</label>
-                        <input style={inputStyle} value={step.tip} onChange={e => updateStep(i, 'tip', e.target.value)} placeholder="ej: Mantén la plancha caliente" />
-                      </div>
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <label style={labelStyle}>Instrucción detallada</label>
-                      <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={step.instruction}
-                        onChange={e => updateStep(i, 'instruction', e.target.value)}
-                        placeholder="Describe el paso en detalle para que cualquier trabajador pueda seguirlo..." />
-                    </div>
-                    {/* Image upload */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <input ref={el => fileRefs.current[i] = el} type="file" accept="image/*" style={{ display: 'none' }}
-                        onChange={e => uploadImage(i, e.target.files[0])} />
-                      <button onClick={() => fileRefs.current[i]?.click()} disabled={uploadingStep === i}
-                        style={{ padding: '5px 11px', borderRadius: 6, border: '1.5px solid #e2e2e2', background: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#555' }}>
-                        <FontAwesomeIcon icon={uploadingStep === i ? faSpinner : faImage} spin={uploadingStep === i} />
-                        {uploadingStep === i ? 'Subiendo...' : 'Agregar imagen'}
-                      </button>
-                      {step.image_url && (
-                        <img
-                          src={step.image_url.startsWith('http') ? step.image_url : API + step.image_url}
-                          alt="paso"
-                          onClick={() => setLightboxImg(step.image_url.startsWith('http') ? step.image_url : API + step.image_url)}
-                          style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid #e2e2e2', cursor: 'zoom-in' }}
-                        />
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {(proc.steps || []).slice(0, 3).map((s, i) => (
+                        <span key={i} style={{
+                          fontSize: 11, padding: '2px 9px', borderRadius: 20,
+                          background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb'
+                        }}>
+                          {i + 1}. {s.title || s.instruction?.slice(0, 22) || 'Paso'}
+                        </span>
+                      ))}
+                      {proc.steps?.length > 3 && (
+                        <span style={{ fontSize: 11, color: '#9ca3af' }}>+{proc.steps.length - 3} más</span>
                       )}
                     </div>
                   </div>
-                ))}
+                  <div style={{ padding: '10px 18px', borderTop: '1px solid #f5f5f5', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <button onClick={() => openEdit(proc)}
+                      style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: '#374151' }}>
+                      <FontAwesomeIcon icon={faEdit} /> Editar
+                    </button>
+                    <button onClick={() => deleteProcedure(proc.id)}
+                      style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', fontSize: 12, cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
+                      <FontAwesomeIcon icon={faTrash} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  /* ── Vista editor (página completa) ── */
+  return (
+    <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
+
+      {/* Barra superior del editor */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 100,
+        background: '#fff', borderBottom: '1px solid #e5e7eb',
+        padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 14
+      }}>
+        <button onClick={backToList}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontWeight: 600, fontSize: 13, padding: 0 }}>
+          <FontAwesomeIcon icon={faArrowLeft} /> Volver
+        </button>
+        <div style={{ width: 1, height: 20, background: '#e5e7eb' }} />
+        <span style={{ fontWeight: 700, fontSize: 15, color: '#111', flex: 1 }}>
+          {editing ? 'Editar guía' : 'Nueva guía'}
+        </span>
+        <button
+          onClick={() => setPreviewMode(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 14px', borderRadius: 8,
+            border: `1.5px solid ${previewMode ? GOLD : '#e5e7eb'}`,
+            background: previewMode ? '#fffdf0' : '#fff',
+            color: previewMode ? '#92400e' : '#6b7280',
+            fontWeight: 600, fontSize: 13, cursor: 'pointer'
+          }}>
+          <FontAwesomeIcon icon={previewMode ? faEyeSlash : faEye} />
+          {previewMode ? 'Editar' : 'Vista previa'}
+        </button>
+        <button onClick={save} disabled={saving || !form.title.trim()}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            padding: '9px 20px', borderRadius: 8, border: 'none',
+            background: saveOk ? '#16a34a' : saving ? '#555' : '#111',
+            color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer',
+            transition: 'background 0.2s', opacity: !form.title.trim() ? 0.5 : 1
+          }}>
+          <FontAwesomeIcon icon={saveOk ? faCheck : saving ? faSpinner : faSave} spin={saving} />
+          {saveOk ? 'Guardado' : saving ? 'Guardando...' : 'Guardar'}
+        </button>
+      </div>
+
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
+
+        {previewMode ? (
+          /* ── VISTA PREVIA ── */
+          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+            <div style={{ background: '#111', padding: '20px 24px' }}>
+              <div style={{ color: GOLD, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                Guía de preparación
+              </div>
+              <div style={{ color: '#fff', fontSize: 20, fontWeight: 800 }}>
+                {form.title || 'Sin título'}
+              </div>
+              <div style={{ color: '#888', fontSize: 12, marginTop: 4 }}>
+                {form.steps.length} paso{form.steps.length !== 1 ? 's' : ''}
               </div>
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={closeModal} style={{ padding: '9px 18px', borderRadius: 8, border: '1.5px solid #e2e2e2', background: '#fff', fontSize: 13, cursor: 'pointer' }}>
-                Cancelar
-              </button>
-              <button onClick={save} disabled={saving || !form.title.trim()}
-                style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: '#111', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, opacity: saving ? 0.7 : 1 }}>
-                <FontAwesomeIcon icon={saving ? faSpinner : faSave} spin={saving} />
-                {saving ? 'Guardando...' : 'Guardar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Lightbox */}
-      {lightboxImg && (
-        <div
-          onClick={() => setLightboxImg(null)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(0,0,0,0.92)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'zoom-out', padding: 20
-          }}
-        >
-          <img
-            src={lightboxImg}
-            alt="imagen completa"
-            style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 10, boxShadow: '0 8px 40px rgba(0,0,0,0.6)', objectFit: 'contain' }}
-          />
-          <button
-            onClick={() => setLightboxImg(null)}
-            style={{
-              position: 'fixed', top: 18, right: 18,
-              background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%',
-              width: 38, height: 38, color: '#fff', fontSize: 18, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}
-          >✕</button>
-        </div>
-      )}
-
-      {/* Preview Modal (worker view) */}
-      {previewProcedure && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9100, overflow: 'auto', padding: '20px' }}>
-          <div style={{ maxWidth: 600, margin: '0 auto', background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-            <div style={{ background: '#111', padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ color: '#fff', fontSize: 16, fontWeight: 800 }}>{previewProcedure.title}</div>
-              <button onClick={() => setPreviewProcedure(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 20 }}>
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
-            </div>
-            <div style={{ padding: '20px 24px' }}>
-              <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Vista del trabajador · {previewProcedure.steps?.length} pasos</div>
-              {(previewProcedure.steps || []).map((step, i) => (
-                <div key={i} style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: GOLD, color: '#000', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
+            <div style={{ padding: '24px' }}>
+              {form.steps.map((step, i) => (
+                <div key={i} style={{ display: 'flex', gap: 16, marginBottom: 28 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%', background: GOLD,
+                    color: '#000', fontWeight: 900, fontSize: 16, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>{i + 1}</div>
                   <div style={{ flex: 1 }}>
-                    {step.title && <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginBottom: 4 }}>{step.title}</div>}
-                    <div style={{ fontSize: 13, color: '#444', lineHeight: 1.5 }}>{step.instruction}</div>
-                    {step.tip && <div style={{ marginTop: 6, fontSize: 12, color: '#888', background: '#fffbe6', padding: '5px 10px', borderRadius: 6, borderLeft: `3px solid ${GOLD}` }}>💡 {step.tip}</div>}
+                    {step.title && <div style={{ fontWeight: 700, fontSize: 15, color: '#111', marginBottom: 5 }}>{step.title}</div>}
+                    {step.instruction && <div style={{ fontSize: 14, color: '#444', lineHeight: 1.6 }}>{step.instruction}</div>}
+                    {step.tip && (
+                      <div style={{ marginTop: 8, fontSize: 13, color: '#92400e', background: '#fffdf0', borderLeft: `3px solid ${GOLD}`, padding: '6px 12px', borderRadius: '0 8px 8px 0' }}>
+                        💡 {step.tip}
+                      </div>
+                    )}
                     {step.image_url && (
-                      <img
-                        src={step.image_url.startsWith('http') ? step.image_url : API + step.image_url}
-                        alt=""
-                        onClick={() => setLightboxImg(step.image_url.startsWith('http') ? step.image_url : API + step.image_url)}
-                        style={{ marginTop: 10, width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 10, cursor: 'zoom-in' }}
-                      />
+                      <img src={imgSrc(step.image_url)} alt=""
+                        onClick={() => setLightboxImg(imgSrc(step.image_url))}
+                        style={{ marginTop: 12, width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 10, cursor: 'zoom-in' }} />
                     )}
                   </div>
                 </div>
               ))}
             </div>
           </div>
+        ) : (
+          /* ── EDITOR ── */
+          <>
+            {/* León IA */}
+            {!editing && (
+              <div style={{
+                background: '#fffdf0', border: `1.5px solid ${GOLD}60`,
+                borderRadius: 14, padding: '18px 20px', marginBottom: 24
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                  <FontAwesomeIcon icon={faBrain} style={{ color: GOLD, fontSize: 16 }} />
+                  <span style={{ fontWeight: 800, fontSize: 14, color: '#7a5c00' }}>Generar con León IA</span>
+                  <span style={{ fontSize: 12, color: '#a0804a', marginLeft: 4 }}>— escribe el nombre del producto y la IA crea los pasos</span>
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <input
+                    value={genProduct}
+                    onChange={e => setGenProduct(e.target.value)}
+                    placeholder="Nombre del producto (ej: Hamburguesa Clásica)"
+                    style={{
+                      flex: 2, minWidth: 180, padding: '10px 13px', border: '1.5px solid #e5c84a',
+                      borderRadius: 9, fontSize: 13, outline: 'none', background: '#fff'
+                    }}
+                  />
+                  <input
+                    value={genContext}
+                    onChange={e => setGenContext(e.target.value)}
+                    placeholder="Detalles extras (opcional)"
+                    style={{
+                      flex: 1, minWidth: 120, padding: '10px 13px', border: '1.5px solid #e5c84a',
+                      borderRadius: 9, fontSize: 13, outline: 'none', background: '#fff'
+                    }}
+                  />
+                  <button onClick={generateWithAI} disabled={generating || !genProduct.trim()}
+                    style={{
+                      padding: '10px 18px', borderRadius: 9, border: 'none',
+                      background: generating || !genProduct.trim() ? '#ccc' : GOLD,
+                      color: '#000', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap'
+                    }}>
+                    <FontAwesomeIcon icon={generating ? faSpinner : faBrain} spin={generating} />
+                    {generating ? 'Generando...' : 'Generar pasos'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Título */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                Título de la guía
+              </label>
+              <input
+                value={form.title}
+                onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+                placeholder="Ej: Cómo preparar la Hamburguesa Clásica"
+                style={{
+                  width: '100%', padding: '13px 16px', border: '2px solid #e5e7eb',
+                  borderRadius: 12, fontSize: 18, fontWeight: 700, outline: 'none',
+                  boxSizing: 'border-box', transition: 'border-color 0.15s'
+                }}
+                onFocus={e => e.target.style.borderColor = GOLD}
+                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+              />
+            </div>
+
+            {/* Pasos */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {form.steps.map((step, i) => (
+                <StepCard
+                  key={i}
+                  step={step}
+                  index={i}
+                  total={form.steps.length}
+                  onChange={updateStep}
+                  onMove={moveStep}
+                  onRemove={removeStep}
+                  onUpload={uploadImage}
+                  uploadingStep={uploadingStep}
+                />
+              ))}
+            </div>
+
+            {/* Agregar paso */}
+            <button onClick={addStep}
+              style={{
+                width: '100%', marginTop: 16, padding: '14px',
+                border: '2px dashed #d1d5db', borderRadius: 14,
+                background: 'transparent', color: '#9ca3af',
+                fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                transition: 'all 0.15s'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = GOLD; e.currentTarget.style.color = GOLD; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.color = '#9ca3af'; }}
+            >
+              <FontAwesomeIcon icon={faPlus} /> Agregar paso
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Lightbox */}
+      {lightboxImg && (
+        <div onClick={() => setLightboxImg(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out', padding: 20 }}>
+          <img src={lightboxImg} alt="" style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 10, objectFit: 'contain' }} />
+          <button onClick={() => setLightboxImg(null)}
+            style={{ position: 'fixed', top: 18, right: 18, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 38, height: 38, color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            ✕
+          </button>
         </div>
       )}
     </div>
