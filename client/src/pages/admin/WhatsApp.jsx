@@ -87,7 +87,7 @@ function WhatsApp() {
             <WaIcon size={26} />
             WhatsApp
           </h1>
-          <p className="text-sm text-muted">Conecta tu número personal para enviar mensajes automáticos</p>
+          <p className="text-sm text-muted">Número global — se usa para enviar mensajes a trabajadores de todas las tiendas</p>
         </div>
       </header>
 
@@ -171,7 +171,7 @@ function WhatsApp() {
                 background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
                 padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#7f1d1d'
               }}>
-                WhatsApp no conectado. Haz clic en "Conectar" para escanear el QR con tu teléfono.
+                Sin conexión. Haz clic en "Conectar", escanea el QR con tu WhatsApp y listo — ese número se usará para todas las tiendas.
               </div>
               <button
                 onClick={handleConnect}
@@ -258,10 +258,10 @@ function WhatsApp() {
           marginTop: 24, padding: '16px 20px', background: '#f9fafb', borderRadius: 12,
           border: '1px solid #e5e7eb', fontSize: 13, color: '#6b7280', lineHeight: 1.6
         }}>
-          <strong style={{ color: '#374151' }}>¿Cómo funciona?</strong><br />
-          Usa tu número personal de WhatsApp para enviar mensajes automáticos a trabajadores. No requiere API de pago.
-          La sesión se guarda en el servidor y se reconecta automáticamente. El SRBrain usará WhatsApp para recordatorios
-          de tareas y mensajes de ánimo; si no hay conexión, usará SMS como respaldo.
+          <strong style={{ color: '#374151' }}>Una sola conexión para todo</strong><br />
+          Este número se comparte entre todas las tiendas de la plataforma. Solo necesitas conectarlo una vez —
+          León IA lo usará para enviar recordatorios de tareas y mensajes de ánimo a los trabajadores de cualquier tienda.
+          La sesión se guarda en el servidor y se reconecta automáticamente al reiniciar.
         </div>
       </div>
     </>
