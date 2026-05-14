@@ -140,6 +140,14 @@ def _login_worker(store_id: str, username: str, password: str, ctx: LoginCtx):
         ctx.init_event.set()
         ctx.final_event.set()
 
+    except TypeError:
+        # instagrapi ignora el 429 de rate-limit y sigue intentando; el response
+        # viene vacío y int(None) explota aquí. Lo tratamos como throttle.
+        ctx.result = "error"
+        ctx.error = "Instagram limitó los intentos desde este servidor. Esperá 5-10 minutos e intentá de nuevo."
+        ctx.init_event.set()
+        ctx.final_event.set()
+
     except Exception as e:
         ctx.result = "error"
         ctx.error = str(e)
