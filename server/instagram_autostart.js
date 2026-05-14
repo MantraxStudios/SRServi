@@ -63,7 +63,7 @@ async function ensurePythonEnv() {
   }
 
   log('Instalando dependencias Python (instagrapi, fastapi, uvicorn)...');
-  const ok = await spawnStream(PIP_BIN, ['install', '-r', REQ_TXT, '--quiet']);
+  const ok = await spawnStream(PIP_BIN, ['install', '-r', REQ_TXT, '--timeout', '120']);
   if (!ok) { warn('Error instalando dependencias'); return false; }
   log('Dependencias instaladas ✓');
   return true;
