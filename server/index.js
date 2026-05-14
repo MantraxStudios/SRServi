@@ -9787,30 +9787,43 @@ async function startServer() {
 }
 
 function startInstagramService() {
-  const cmd  = process.platform === 'win32' ? 'uvicorn' : 'uvicorn';
-  const args = [
-    'instagram_python_service:app',
-    '--host', '127.0.0.1',
-    '--port', '8787',
-    '--log-level', 'warning',
-  ];
-  const opts = { cwd: __serverDir, stdio: 'pipe' };
+  const isWin  = process.platform === 'win32';
+  const pip    = isWin ? 'pip' : 'pip3';
+  const reqFile = path.join(__serverDir, 'requirements_instagram.txt');
 
-  function launch() {
-    const proc = spawn(cmd, args, opts);
+  function launchUvicorn() {
+    const args = [
+      'instagram_python_service:app',
+      '--host', '127.0.0.1',
+      '--port', '8787',
+      '--log-level', 'warning',
+    ];
+    const proc = spawn('uvicorn', args, { cwd: __serverDir, stdio: 'pipe' });
     proc.stdout.on('data', d => process.stdout.write(`[IG-Service] ${d}`));
     proc.stderr.on('data', d => process.stderr.write(`[IG-Service] ${d}`));
     proc.on('close', code => {
       if (code !== 0 && code !== null) {
-        console.warn(`[IG-Service] Proceso terminó (código ${code}), reiniciando en 5s...`);
-        setTimeout(launch, 5000);
+        console.warn(`[IG-Service] terminó (código ${code}), reiniciando en 5s...`);
+        setTimeout(launchUvicorn, 5000);
       }
     });
     process.on('exit', () => proc.kill());
+    console.log('[IG-Service] Servicio Instagram iniciado en puerto 8787');
   }
 
-  launch();
-  console.log('[IG-Service] Servicio Instagram iniciado en puerto 8787');
+  // Instalar dependencias Python automáticamente, luego lanzar uvicorn
+  const install = spawn(pip, ['install', '-r', reqFile, '-q', '--disable-pip-version-check'], {
+    cwd: __serverDir, stdio: 'pipe',
+  });
+  install.stderr.on('data', d => process.stderr.write(`[IG-Service] pip: ${d}`));
+  install.on('close', code => {
+    if (code !== 0) console.warn('[IG-Service] pip install tuvo errores, intentando igualmente...');
+    launchUvicorn();
+  });
+  install.on('error', err => {
+    console.warn(`[IG-Service] pip no encontrado (${err.message}), intentando igualmente...`);
+    launchUvicorn();
+  });
 }
 
 startServer();
