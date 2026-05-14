@@ -1003,15 +1003,10 @@ app.get('/api/public/:code', async (req, res) => {
 
 app.get('/api/public/:code/mercado-pago-terminals', async (req, res) => {
   try {
-    const { code } = req.params;
-    const store = await getStoreByCode(code.toUpperCase());
-    
-    if (!store) {
-      return res.status(404).json({ error: 'Código no encontrado' });
-    }
-
-    const terminals = await getMercadoPagoTerminalsByStore(store.id);
-    res.json(terminals);
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Código no encontrado' });
+    const all = await getPosTerminalsByStore(store.id);
+    res.json(all.filter(t => t.provider === 'mercadopago'));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1019,8 +1014,8 @@ app.get('/api/public/:code/mercado-pago-terminals', async (req, res) => {
 
 app.get('/api/public/terminals/:storeId', async (req, res) => {
   try {
-    const { storeId } = req.params;
-    const terminals = await getMercadoPagoTerminalsByStore(parseInt(storeId));
+    const all = await getPosTerminalsByStore(parseInt(req.params.storeId));
+    const terminals = all.filter(t => t.provider === 'mercadopago');
     res.json(terminals);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -6066,28 +6061,10 @@ app.get('/api/public/:code/pos-terminals', async (req, res) => {
 app.get('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id ? parseInt(req.query.store_id) : null;
-    let terminals;
-
-    if (storeId) {
-      const store = await getStoreById(storeId);
-      if (!store || store.user_id !== req.user.id) {
-        return res.json([]);
-      }
-      try {
-        const [rows] = await pool.execute(
-          `SELECT m.id, m.name, m.mercadopago_terminal_id, m.mercadopago_access_token, m.user_id, m.created_at, m.pos_pin
-           FROM mercado_pago_terminals m
-           JOIN mercadopago_terminal_stores ms ON ms.mercadopago_terminal_id = m.id
-           WHERE ms.store_id = ? AND m.user_id = ?`,
-          [storeId, req.user.id]
-        );
-        terminals = rows;
-      } catch {
-        terminals = await getMercadoPagoTerminals(req.user.id);
-      }
-    } else {
-      terminals = await getMercadoPagoTerminals(req.user.id);
-    }
+    const all = await getPosTerminals(req.user.id, storeId);
+    const terminals = all
+      .filter(t => t.provider === 'mercadopago')
+      .map(t => ({ ...t, mercadopago_access_token: t.api_key, mercadopago_terminal_id: t.device_id }));
     res.json(terminals);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -6098,35 +6075,30 @@ app.post('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
   try {
     const { name, mercadopago_access_token, mercadopago_terminal_id, store_id } = req.body;
 
-    if (!name || !mercadopago_access_token || !mercadopago_terminal_id) {
+    if (!name || !mercadopago_access_token || !mercadopago_terminal_id || !store_id) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
 
-    // Generate unique 6-digit PIN
     let pos_pin;
     let attempts = 0;
     do {
       pos_pin = String(Math.floor(100000 + Math.random() * 900000));
-      const existing = await getMercadoPagoTerminalByPin(pos_pin);
+      const existing = await getPosTerminalByPin(pos_pin);
       if (!existing) break;
       attempts++;
     } while (attempts < 10);
 
-    const terminal = await createMercadoPagoTerminal(req.user.id, {
-      name,
-      mercadopago_access_token,
-      mercadopago_terminal_id,
+    const terminal = await createPosTerminal({
+      user_id: req.user.id,
+      store_id: parseInt(store_id),
+      provider: 'mercadopago',
+      name: name.trim(),
+      api_key: mercadopago_access_token,
+      device_id: mercadopago_terminal_id,
       pos_pin
     });
 
-    if (store_id) {
-      await pool.execute(
-        'INSERT IGNORE INTO mercadopago_terminal_stores (mercadopago_terminal_id, store_id) VALUES (?, ?)',
-        [terminal.id, store_id]
-      );
-    }
-
-    res.json(terminal);
+    res.json({ ...terminal, mercadopago_access_token: terminal.api_key, mercadopago_terminal_id: terminal.device_id });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -6134,20 +6106,16 @@ app.post('/api/mercado-pago-terminals', authenticateToken, async (req, res) => {
 
 app.put('/api/mercado-pago-terminals/:id', authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
     const { name, mercadopago_access_token, mercadopago_terminal_id } = req.body;
-    
     if (!name || !mercadopago_access_token || !mercadopago_terminal_id) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
-    
-    const terminal = await updateMercadoPagoTerminal(parseInt(id), req.user.id, {
+    const result = await updatePosTerminal(parseInt(req.params.id), req.user.id, {
       name,
-      mercadopago_access_token,
-      mercadopago_terminal_id
+      api_key: mercadopago_access_token,
+      device_id: mercadopago_terminal_id
     });
-    
-    res.json(terminal);
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -6155,8 +6123,7 @@ app.put('/api/mercado-pago-terminals/:id', authenticateToken, async (req, res) =
 
 app.delete('/api/mercado-pago-terminals/:id', authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
-    await deleteMercadoPagoTerminal(parseInt(id), req.user.id);
+    await deletePosTerminal(parseInt(req.params.id), req.user.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -6180,10 +6147,10 @@ app.post('/api/mercado-pago-detect-devices', authenticateToken, async (req, res)
 // List MP devices from API
 app.get('/api/mercado-pago-terminals/:id/devices', authenticateToken, async (req, res) => {
   try {
-    const terminal = await getMercadoPagoTerminalById(parseInt(req.params.id));
+    const terminal = await getPosTerminalById(parseInt(req.params.id));
     if (!terminal || terminal.user_id !== req.user.id) return res.status(404).json({ error: 'Terminal no encontrada' });
     const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/list?limit=50', {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.mercadopago_access_token}` }
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.api_key}` }
     });
     if (!mpRes.ok) return res.status(mpRes.status).json({ error: 'Error al consultar MercadoPago' });
     const data = await mpRes.json();
@@ -6194,14 +6161,14 @@ app.get('/api/mercado-pago-terminals/:id/devices', authenticateToken, async (req
 // Change MP terminal operating mode
 app.patch('/api/mercado-pago-terminals/:id/mode', authenticateToken, async (req, res) => {
   try {
-    const terminal = await getMercadoPagoTerminalById(parseInt(req.params.id));
+    const terminal = await getPosTerminalById(parseInt(req.params.id));
     if (!terminal || terminal.user_id !== req.user.id) return res.status(404).json({ error: 'Terminal no encontrada' });
     const { device_id, operating_mode } = req.body;
     if (!device_id || !operating_mode) return res.status(400).json({ error: 'device_id y operating_mode requeridos' });
     if (!['PDV', 'STANDALONE'].includes(operating_mode)) return res.status(400).json({ error: 'Modo debe ser PDV o STANDALONE' });
     const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/setup', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.mercadopago_access_token}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.api_key}` },
       body: JSON.stringify({ terminals: [{ id: device_id, operating_mode }] })
     });
     if (!mpRes.ok) {
@@ -6216,15 +6183,15 @@ app.patch('/api/mercado-pago-terminals/:id/mode', authenticateToken, async (req,
 // Get MP terminal status (operating_mode) from MercadoPago API
 app.get('/api/mercado-pago-terminals/:id/status', authenticateToken, async (req, res) => {
   try {
-    const terminal = await getMercadoPagoTerminalById(parseInt(req.params.id));
+    const terminal = await getPosTerminalById(parseInt(req.params.id));
     if (!terminal || terminal.user_id !== req.user.id) return res.status(404).json({ error: 'Terminal no encontrada' });
     const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/list?limit=50', {
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.mercadopago_access_token}` }
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.api_key}` }
     });
     if (!mpRes.ok) return res.status(mpRes.status).json({ error: 'Error al consultar MercadoPago' });
     const data = await mpRes.json();
     const terminals = data.data?.terminals || [];
-    const found = terminals.find(t => t.id === terminal.mercadopago_terminal_id);
+    const found = terminals.find(t => t.id === terminal.device_id);
     if (!found) return res.status(404).json({ error: 'Dispositivo no encontrado en MercadoPago' });
     res.json({ operating_mode: found.operating_mode || 'UNDEFINED', terminal: found });
   } catch (error) { res.status(500).json({ error: error.message }); }

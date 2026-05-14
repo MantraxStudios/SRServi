@@ -894,7 +894,7 @@ function MercadoPagoPoints() {
       const response = await fetch(API + '/api/mercado-pago-terminals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ name, mercadopago_access_token: setupToken.trim(), mercadopago_terminal_id: device.id })
+        body: JSON.stringify({ name, mercadopago_access_token: setupToken.trim(), mercadopago_terminal_id: device.id, store_id: selectedStore?.id })
       });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Error al guardar'); }
       const created = await response.json();
@@ -923,7 +923,7 @@ function MercadoPagoPoints() {
 
   const openEditModal = (terminal) => {
     setEditingTerminal(terminal);
-    setFormData({ name: terminal.name, mercadopago_access_token: terminal.mercadopago_access_token, mercadopago_terminal_id: terminal.mercadopago_terminal_id });
+    setFormData({ name: terminal.name, mercadopago_access_token: terminal.api_key || terminal.mercadopago_access_token || '', mercadopago_terminal_id: terminal.device_id || terminal.mercadopago_terminal_id || '' });
     setShowModal(true);
     setSetupStep('edit');
   };
