@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faVideo, faUpload, faTrash, faDesktop, faKey, faCopy, faCheck,
   faPlay, faPen, faTimes, faExclamationTriangle, faHistory, faPowerOff,
+  faMusic, faVolumeMute, faVolumeUp,
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -29,21 +30,28 @@ export default function CCTV() {
   const [tab, setTab] = useState('videos');
   const [videos, setVideos] = useState([]);
   const [screens, setScreens] = useState([]);
+  const [music, setMusic] = useState([]);
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [loadingScreens, setLoadingScreens] = useState(true);
+  const [loadingMusic, setLoadingMusic] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadingMusic, setUploadingMusic] = useState(false);
+  const [uploadMusicProgress, setUploadMusicProgress] = useState(0);
   const [copiedCode, setCopiedCode] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [dragOver, setDragOver] = useState(false);
+  const [dragOverMusic, setDragOverMusic] = useState(false);
   const [assignModal, setAssignModal] = useState(null);
+  const [assignMusicModal, setAssignMusicModal] = useState(null);
   const [renameModal, setRenameModal] = useState(null);
   const [renameName, setRenameName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [powerLogModal, setPowerLogModal] = useState(null); // { screen, log: [] }
+  const [powerLogModal, setPowerLogModal] = useState(null);
   const [loadingLog, setLoadingLog] = useState(false);
   const fileInputRef = useRef();
+  const musicInputRef = useRef();
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -61,7 +69,14 @@ export default function CCTV() {
     } catch { } finally { setLoadingScreens(false); }
   };
 
-  useEffect(() => { fetchVideos(); fetchScreens(); }, []);
+  const fetchMusic = async () => {
+    try {
+      const r = await fetch(`${API}/api/cctv/music`, { headers });
+      if (r.ok) setMusic(await r.json());
+    } catch { } finally { setLoadingMusic(false); }
+  };
+
+  useEffect(() => { fetchVideos(); fetchScreens(); fetchMusic(); }, []);
   useEffect(() => {
     if (tab === 'screens') {
       const interval = setInterval(fetchScreens, 15000);
@@ -97,6 +112,31 @@ export default function CCTV() {
     finally { setUploading(false); setUploadProgress(0); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
+  const handleUploadMusic = async (file) => {
+    if (!file) return;
+    const allowed = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac'];
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (!allowed.includes(ext)) { showError('Solo se permiten audios (mp3, m4a, aac, wav, ogg, flac)'); return; }
+    setUploadingMusic(true);
+    setUploadMusicProgress(0);
+    const formData = new FormData();
+    formData.append('music', file);
+    try {
+      const xhr = new XMLHttpRequest();
+      await new Promise((resolve, reject) => {
+        xhr.upload.onprogress = (e) => { if (e.lengthComputable) setUploadMusicProgress(Math.round(e.loaded / e.total * 100)); };
+        xhr.onload = () => { if (xhr.status === 200) resolve(); else reject(new Error(JSON.parse(xhr.responseText)?.error || 'Error al subir')); };
+        xhr.onerror = () => reject(new Error('Error de red'));
+        xhr.open('POST', `${API}/api/cctv/music`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.send(formData);
+      });
+      await fetchMusic();
+      showSuccess('Música subida correctamente');
+    } catch (e) { showError(e.message); }
+    finally { setUploadingMusic(false); setUploadMusicProgress(0); if (musicInputRef.current) musicInputRef.current.value = ''; }
+  };
+
   const deleteVideo = async (id) => {
     try {
       const r = await fetch(`${API}/api/cctv/videos/${id}`, { method: 'DELETE', headers });
@@ -105,6 +145,43 @@ export default function CCTV() {
       showSuccess('Video eliminado');
     } catch (e) { showError(e.message); }
     setDeleteConfirm(null);
+  };
+
+  const deleteMusic = async (id) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/music/${id}`, { method: 'DELETE', headers });
+      if (!r.ok) throw new Error((await r.json()).error);
+      setMusic(m => m.filter(x => x.id !== id));
+      await fetchScreens();
+      showSuccess('Música eliminada');
+    } catch (e) { showError(e.message); }
+    setDeleteConfirm(null);
+  };
+
+  const toggleMute = async (screen) => {
+    const newMuted = !screen.video_muted;
+    try {
+      const r = await fetch(`${API}/api/cctv/screens/${screen.id}/mute`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ muted: newMuted })
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      setScreens(s => s.map(x => x.id === screen.id ? { ...x, video_muted: newMuted } : x));
+      showSuccess(newMuted ? 'Video muteado' : 'Audio del video activado');
+    } catch (e) { showError(e.message); }
+  };
+
+  const assignMusic = async (screenId, musicId) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/screens/${screenId}/music`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ music_id: musicId || null })
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      await fetchScreens();
+      showSuccess(musicId ? 'Música asignada a la pantalla' : 'Música removida de la pantalla');
+      setAssignMusicModal(null);
+    } catch (e) { showError(e.message); }
   };
 
   const openPowerLog = async (screen) => {
@@ -195,7 +272,11 @@ export default function CCTV() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 2, marginBottom: 24, borderBottom: '1px solid #e4e4e7' }}>
-        {[['videos', faVideo, 'Videos', videos.length], ['screens', faDesktop, 'Pantallas', screens.length]].map(([key, icon, label, count]) => (
+        {[
+          ['videos', faVideo, 'Videos', videos.length],
+          ['music', faMusic, 'Música', music.length],
+          ['screens', faDesktop, 'Pantallas', screens.length]
+        ].map(([key, icon, label, count]) => (
           <button key={key} onClick={() => setTab(key)} style={{
             padding: '10px 18px', border: 'none', background: 'none', cursor: 'pointer',
             borderBottom: tab === key ? `2px solid ${GOLD}` : '2px solid transparent',
@@ -298,6 +379,91 @@ export default function CCTV() {
         </div>
       )}
 
+      {/* MUSIC TAB */}
+      {tab === 'music' && (
+        <div>
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOverMusic(true); }}
+            onDragLeave={() => setDragOverMusic(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOverMusic(false); handleUploadMusic(e.dataTransfer.files[0]); }}
+            onClick={() => !uploadingMusic && musicInputRef.current?.click()}
+            style={{
+              border: `2px dashed ${dragOverMusic ? GOLD : '#d4d4d8'}`,
+              borderRadius: 12, padding: '36px 24px', textAlign: 'center',
+              cursor: uploadingMusic ? 'default' : 'pointer',
+              background: dragOverMusic ? '#fffbeb' : '#fafafa',
+              transition: 'all 0.2s', marginBottom: 24
+            }}
+          >
+            <input ref={musicInputRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => handleUploadMusic(e.target.files[0])} />
+            {uploadingMusic ? (
+              <div>
+                <div style={{ color: '#09090b', fontSize: 15, fontWeight: 600, marginBottom: 10 }}>
+                  Subiendo música... {uploadMusicProgress}%
+                </div>
+                <div style={{ height: 6, background: '#e4e4e7', borderRadius: 4, overflow: 'hidden', maxWidth: 360, margin: '0 auto' }}>
+                  <div style={{ height: '100%', background: GOLD, borderRadius: 4, width: `${uploadMusicProgress}%`, transition: 'width 0.3s' }} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ width: 44, height: 44, background: '#f4f4f5', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                  <FontAwesomeIcon icon={faMusic} style={{ fontSize: 18, color: '#71717a' }} />
+                </div>
+                <div style={{ color: '#09090b', fontWeight: 600, fontSize: 15, marginBottom: 4 }}>
+                  Arrastra un archivo de audio aquí o haz clic para seleccionar
+                </div>
+                <div style={{ color: '#71717a', fontSize: 13 }}>MP3, M4A, AAC, WAV, OGG, FLAC — hasta 200 MB</div>
+              </>
+            )}
+          </div>
+
+          <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 16px', marginBottom: 20, fontSize: 13, color: '#0369a1' }}>
+            La música se reproduce en loop en las pantallas. Asignala desde la pestaña <strong>Pantallas</strong> → botón <strong>Música</strong>.
+          </div>
+
+          {loadingMusic ? (
+            <div style={{ textAlign: 'center', color: '#71717a', padding: 40, fontSize: 14 }}>Cargando música...</div>
+          ) : music.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 48 }}>
+              <div style={{ width: 56, height: 56, background: '#f4f4f5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <FontAwesomeIcon icon={faMusic} style={{ fontSize: 22, color: '#a1a1aa' }} />
+              </div>
+              <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>No hay música subida aún</div>
+              <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Sube tu primer archivo de audio para empezar</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {music.map(m => (
+                <div key={m.id} style={{
+                  background: '#fff', border: '1px solid #e4e4e7', borderRadius: 10,
+                  padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12
+                }}>
+                  <div style={{ width: 38, height: 38, background: '#f0f9ff', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <FontAwesomeIcon icon={faMusic} style={{ color: '#0369a1', fontSize: 13 }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {m.original_name}
+                    </div>
+                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
+                      {formatBytes(m.file_size)} · {formatDate(m.created_at)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setDeleteConfirm({ type: 'music', id: m.id, name: m.original_name })}
+                    style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: '#dc2626' }}
+                    title="Eliminar"
+                  >
+                    <FontAwesomeIcon icon={faTrash} style={{ fontSize: 13 }} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* SCREENS TAB */}
       {tab === 'screens' && (
         <div>
@@ -382,20 +548,50 @@ export default function CCTV() {
                       </div>
                     </div>
 
-                    <div style={{ flex: 1, minWidth: 160 }}>
-                      <div style={{ color: '#a1a1aa', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Reproduciendo</div>
-                      <div style={{ color: s.video_name ? '#09090b' : '#a1a1aa', fontSize: 14, fontWeight: s.video_name ? 500 : 400, fontStyle: s.video_name ? 'normal' : 'italic' }}>
+                    <div style={{ flex: 1, minWidth: 140 }}>
+                      <div style={{ color: '#a1a1aa', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Video</div>
+                      <div style={{ color: s.video_name ? '#09090b' : '#a1a1aa', fontSize: 13, fontStyle: s.video_name ? 'normal' : 'italic' }}>
                         {s.video_name || 'Sin video asignado'}
                       </div>
+                      {s.music_name && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+                          <FontAwesomeIcon icon={faMusic} style={{ color: '#0369a1', fontSize: 10 }} />
+                          <span style={{ color: '#0369a1', fontSize: 12 }}>{s.music_name}</span>
+                        </div>
+                      )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {/* Mute toggle */}
+                      <button
+                        onClick={() => toggleMute(s)}
+                        title={s.video_muted ? 'Activar audio del video' : 'Mutear video'}
+                        style={{
+                          background: s.video_muted ? '#fef2f2' : '#f0fdf4',
+                          border: `1px solid ${s.video_muted ? '#fca5a5' : '#bbf7d0'}`,
+                          borderRadius: 7, padding: '7px 11px', cursor: 'pointer',
+                          color: s.video_muted ? '#dc2626' : '#15803d', fontSize: 13, fontWeight: 600,
+                          display: 'flex', alignItems: 'center', gap: 5
+                        }}
+                      >
+                        <FontAwesomeIcon icon={s.video_muted ? faVolumeMute : faVolumeUp} style={{ fontSize: 12 }} />
+                        {s.video_muted ? 'Muteado' : 'Con audio'}
+                      </button>
+                      {/* Assign music */}
+                      <button
+                        onClick={() => setAssignMusicModal(s)}
+                        style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 7, padding: '7px 11px', cursor: 'pointer', color: '#0369a1', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}
+                      >
+                        <FontAwesomeIcon icon={faMusic} style={{ fontSize: 11 }} />
+                        Música
+                      </button>
+                      {/* Assign video */}
                       <button
                         onClick={() => setAssignModal(s)}
                         style={{ background: '#fff8e1', border: `1px solid #fde68a`, borderRadius: 7, padding: '7px 13px', cursor: 'pointer', color: '#92400e', fontSize: 13, fontWeight: 600 }}
                       >
                         <FontAwesomeIcon icon={faVideo} style={{ marginRight: 5, fontSize: 11 }} />
-                        Cambiar video
+                        Video
                       </button>
                       <button
                         onClick={() => openPowerLog(s)}
@@ -433,7 +629,7 @@ export default function CCTV() {
           <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
               <h3 style={{ margin: 0, color: '#09090b', fontSize: 17, fontWeight: 700 }}>
-                Asignar video a <span style={{ color: GOLD }}>{assignModal.device_name}</span>
+                Video para <span style={{ color: GOLD }}>{assignModal.device_name}</span>
               </h3>
               <button onClick={() => setAssignModal(null)} style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', fontSize: 16, padding: 4 }}>
                 <FontAwesomeIcon icon={faTimes} />
@@ -468,6 +664,58 @@ export default function CCTV() {
               {videos.length === 0 && (
                 <div style={{ color: '#71717a', fontSize: 13, textAlign: 'center', padding: 20 }}>
                   No hay videos. Ve a la pestaña Videos para subir uno.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Music Modal */}
+      {assignMusicModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+              <h3 style={{ margin: 0, color: '#09090b', fontSize: 17, fontWeight: 700 }}>
+                Música para <span style={{ color: GOLD }}>{assignMusicModal.device_name}</span>
+              </h3>
+              <button onClick={() => setAssignMusicModal(null)} style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', fontSize: 16, padding: 4 }}>
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
+              <button
+                onClick={() => assignMusic(assignMusicModal.id, null)}
+                style={{
+                  background: !assignMusicModal.music_id ? '#f0f9ff' : '#fafafa',
+                  border: `1px solid ${!assignMusicModal.music_id ? '#bae6fd' : '#e4e4e7'}`,
+                  borderRadius: 8, padding: '11px 14px', cursor: 'pointer',
+                  textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14
+                }}
+              >
+                Sin música (silencio)
+              </button>
+              {music.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => assignMusic(assignMusicModal.id, m.id)}
+                  style={{
+                    background: assignMusicModal.music_id === m.id ? '#f0f9ff' : '#fafafa',
+                    border: `1px solid ${assignMusicModal.music_id === m.id ? '#bae6fd' : '#e4e4e7'}`,
+                    borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left',
+                    display: 'flex', alignItems: 'center', gap: 10
+                  }}
+                >
+                  <FontAwesomeIcon icon={faMusic} style={{ color: '#0369a1', fontSize: 14, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>{m.original_name}</div>
+                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(m.file_size)}</div>
+                  </div>
+                </button>
+              ))}
+              {music.length === 0 && (
+                <div style={{ color: '#71717a', fontSize: 13, textAlign: 'center', padding: 20 }}>
+                  No hay música. Ve a la pestaña Música para subir un archivo.
                 </div>
               )}
             </div>
@@ -556,7 +804,7 @@ export default function CCTV() {
               <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: 20, color: '#dc2626' }} />
             </div>
             <h3 style={{ margin: '0 0 8px', color: '#09090b', fontSize: 17, fontWeight: 700 }}>
-              ¿Eliminar {deleteConfirm.type === 'video' ? 'video' : 'pantalla'}?
+              ¿Eliminar {deleteConfirm.type === 'video' ? 'video' : deleteConfirm.type === 'music' ? 'música' : 'pantalla'}?
             </h3>
             <p style={{ color: '#71717a', fontSize: 14, margin: '0 0 20px' }}>
               <strong style={{ color: '#09090b' }}>{deleteConfirm.name}</strong> será eliminado permanentemente.
@@ -564,7 +812,11 @@ export default function CCTV() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, padding: '11px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#71717a', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
               <button
-                onClick={() => deleteConfirm.type === 'video' ? deleteVideo(deleteConfirm.id) : deleteScreen(deleteConfirm.id)}
+                onClick={() => {
+                  if (deleteConfirm.type === 'video') deleteVideo(deleteConfirm.id);
+                  else if (deleteConfirm.type === 'music') deleteMusic(deleteConfirm.id);
+                  else deleteScreen(deleteConfirm.id);
+                }}
                 style={{ flex: 1, padding: '11px', background: '#dc2626', border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontWeight: 700 }}
               >Eliminar</button>
             </div>

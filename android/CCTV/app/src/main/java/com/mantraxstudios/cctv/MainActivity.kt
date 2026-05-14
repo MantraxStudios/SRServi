@@ -78,6 +78,8 @@ private const val PREFS_NAME = "cctv_signage"
 private const val KEY_TOKEN = "device_token"
 private const val KEY_VIDEO_PATH = "current_video_path"
 private const val KEY_VIDEO_URL = "current_video_url"
+private const val KEY_MUSIC_URL = "current_music_url"
+private const val KEY_MUSIC_PATH = "current_music_path"
 private const val KEY_LAUNCHER_CONFIRMED = "launcher_confirmed"
 private const val KEY_OFFLINE_MODE = "offline_mode"
 private const val KEY_AUTO_OFFLINE = "auto_offline"
@@ -99,6 +101,12 @@ private fun isNetworkAvailable(context: Context): Boolean {
 
 private fun getVideoStorageDir(context: Context): File {
     val dir = context.getExternalFilesDir("videos") ?: context.filesDir
+    if (!dir.exists()) dir.mkdirs()
+    return dir
+}
+
+private fun getMusicStorageDir(context: Context): File {
+    val dir = context.getExternalFilesDir("music") ?: context.filesDir
     if (!dir.exists()) dir.mkdirs()
     return dir
 }
@@ -1288,6 +1296,14 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
         }
     }
 
+    val musicPlayer = remember {
+        ExoPlayer.Builder(context).build().apply {
+            repeatMode = Player.REPEAT_MODE_ALL
+            playWhenReady = true
+            volume = 1f
+        }
+    }
+
     // Cargar video seleccionado manualmente desde la lista
     LaunchedEffect(overrideVideoPath) {
         val path = overrideVideoPath ?: return@LaunchedEffect
@@ -1300,7 +1316,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
         }
     }
 
-    // Cargar video guardado al iniciar
+    // Cargar video y música guardados al iniciar
     LaunchedEffect(Unit) {
         val savedPath = prefs.getString(KEY_VIDEO_PATH, null)
         if (savedPath != null) {
@@ -1309,6 +1325,14 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                 exoPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
                 exoPlayer.prepare()
                 hasVideo = true
+            }
+        }
+        val savedMusicPath = prefs.getString(KEY_MUSIC_PATH, null)
+        if (savedMusicPath != null) {
+            val file = File(savedMusicPath)
+            if (file.exists()) {
+                musicPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(file)))
+                musicPlayer.prepare()
             }
         }
     }
@@ -1320,12 +1344,17 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
         while (true) {
             try {
                 val config = fetchDeviceConfig(deviceToken)
+
+                // ── Mute de video ──────────────────────────────────────────────
+                val videoMuted = config.optInt("video_muted", 0) == 1
+                exoPlayer.volume = if (videoMuted) 0f else 1f
+
+                // ── Video ──────────────────────────────────────────────────────
                 val videoUrl = config.optString("video_url").takeIf { it.isNotEmpty() }
                 val savedUrl = prefs.getString(KEY_VIDEO_URL, null)
 
                 if (videoUrl != null && videoUrl != savedUrl) {
                     val fullUrl = if (videoUrl.startsWith("http")) videoUrl else "$BASE_URL$videoUrl"
-                    // Hash del URL en el nombre para evitar colisiones y no re-descargar el mismo video
                     val urlHash = videoUrl.hashCode().toString().replace("-", "n")
                     val originalName = Uri.parse(videoUrl).lastPathSegment ?: "video.mp4"
                     val safeFilename = "${urlHash}_${originalName}"
@@ -1359,7 +1388,6 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                             hasVideo = true
                         }
                     } else {
-                        // Archivo ya existe — actualizar prefs sin re-descargar
                         prefs.edit().putString(KEY_VIDEO_URL, videoUrl).apply()
                         val currentPath = prefs.getString(KEY_VIDEO_PATH, null)
                         if (currentPath != destFile.absolutePath) {
@@ -1371,6 +1399,52 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                     }
                     downloadProgress = -1f
                 }
+
+                // ── Música en loop ─────────────────────────────────────────────
+                val musicUrl = config.optString("music_url").takeIf { it.isNotEmpty() }
+                val savedMusicUrl = prefs.getString(KEY_MUSIC_URL, null)
+
+                if (musicUrl != savedMusicUrl) {
+                    if (musicUrl != null) {
+                        val fullMusicUrl = if (musicUrl.startsWith("http")) musicUrl else "$BASE_URL$musicUrl"
+                        val urlHash = musicUrl.hashCode().toString().replace("-", "n")
+                        val originalName = Uri.parse(musicUrl).lastPathSegment ?: "music.mp3"
+                        val safeFilename = "${urlHash}_${originalName}"
+                        val destFile = File(getMusicStorageDir(context), safeFilename)
+
+                        if (!destFile.exists()) {
+                            var success = false
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    downloadVideoFile(fullMusicUrl, destFile) { _ -> }
+                                    success = true
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Music download error: ${e.message}")
+                                    destFile.delete()
+                                }
+                            }
+                            if (success) {
+                                prefs.edit()
+                                    .putString(KEY_MUSIC_URL, musicUrl)
+                                    .putString(KEY_MUSIC_PATH, destFile.absolutePath)
+                                    .apply()
+                                musicPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(destFile)))
+                                musicPlayer.prepare()
+                            }
+                        } else {
+                            prefs.edit()
+                                .putString(KEY_MUSIC_URL, musicUrl)
+                                .putString(KEY_MUSIC_PATH, destFile.absolutePath)
+                                .apply()
+                            musicPlayer.setMediaItem(MediaItem.fromUri(Uri.fromFile(destFile)))
+                            musicPlayer.prepare()
+                        }
+                    } else {
+                        musicPlayer.stop()
+                        prefs.edit().remove(KEY_MUSIC_URL).remove(KEY_MUSIC_PATH).apply()
+                    }
+                }
+
             } catch (e: Exception) {
                 Log.e(TAG, "Poll error: ${e.message}")
             }
@@ -1379,7 +1453,10 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
     }
 
     DisposableEffect(Unit) {
-        onDispose { exoPlayer.release() }
+        onDispose {
+            exoPlayer.release()
+            musicPlayer.release()
+        }
     }
 
     Box(

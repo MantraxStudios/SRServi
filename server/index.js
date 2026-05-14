@@ -9494,6 +9494,16 @@ async function startServer() {
       }
     });
 
+    const cctvMusicUpload = multer({
+      storage: cctvStorage,
+      limits: { fileSize: 200 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        const allowedExts = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac'];
+        if (allowedExts.includes(path.extname(file.originalname).toLowerCase())) return cb(null, true);
+        cb(new Error('Solo se permiten audios (mp3, m4a, aac, wav, ogg, flac)'));
+      }
+    });
+
     let _cctvReady = false;
     async function ensureCctvTables() {
       if (_cctvReady) return;
@@ -9534,6 +9544,24 @@ async function startServer() {
           INDEX idx_cctv_power_logged (logged_at)
         )
       `);
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS cctv_music (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          filename VARCHAR(255) NOT NULL,
+          original_name VARCHAR(255) NOT NULL,
+          file_size BIGINT DEFAULT 0,
+          url VARCHAR(500) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_cctv_music_user (user_id)
+        )
+      `);
+      for (const sql of [
+        'ALTER TABLE cctv_screens ADD COLUMN video_muted TINYINT(1) DEFAULT 0',
+        'ALTER TABLE cctv_screens ADD COLUMN current_music_id INT DEFAULT NULL'
+      ]) {
+        try { await pool.execute(sql); } catch (_) { /* columna ya existe */ }
+      }
       _cctvReady = true;
     }
 
@@ -9581,9 +9609,11 @@ async function startServer() {
         await ensureCctvTables();
         const [rows] = await pool.execute(`
           SELECT s.*, v.original_name AS video_name, v.url AS video_url,
+            m.original_name AS music_name, m.id AS music_id,
             (CASE WHEN s.last_seen IS NOT NULL AND TIMESTAMPDIFF(SECOND, s.last_seen, NOW()) < 90 THEN 1 ELSE 0 END) AS is_online
           FROM cctv_screens s
           LEFT JOIN cctv_videos v ON v.id = s.current_video_id
+          LEFT JOIN cctv_music m ON m.id = s.current_music_id
           WHERE s.user_id = ? AND s.device_token IS NOT NULL
           ORDER BY s.created_at DESC
         `, [req.user.id]);
@@ -9700,10 +9730,12 @@ async function startServer() {
         const { device_token } = req.query;
         if (!device_token) return res.status(400).json({ error: 'device_token requerido' });
         const [rows] = await pool.execute(`
-          SELECT s.id, s.device_name, s.current_video_id,
-            v.url AS video_url, v.original_name AS video_name, v.filename AS video_filename
+          SELECT s.id, s.device_name, s.current_video_id, s.video_muted,
+            v.url AS video_url, v.original_name AS video_name, v.filename AS video_filename,
+            m.url AS music_url, m.original_name AS music_name
           FROM cctv_screens s
           LEFT JOIN cctv_videos v ON v.id = s.current_video_id
+          LEFT JOIN cctv_music m ON m.id = s.current_music_id
           WHERE s.device_token = ?
         `, [device_token]);
         if (!rows.length) return res.status(404).json({ error: 'Dispositivo no encontrado' });
@@ -9737,6 +9769,68 @@ async function startServer() {
           [req.params.id]
         );
         res.json(rows);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: list music
+    app.get('/api/cctv/music', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [rows] = await pool.execute('SELECT * FROM cctv_music WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]);
+        res.json(rows);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: upload music
+    app.post('/api/cctv/music', authenticateToken, cctvMusicUpload.single('music'), async (req, res) => {
+      try {
+        await ensureCctvTables();
+        if (!req.file) return res.status(400).json({ error: 'No se recibió archivo de música' });
+        const url = `/uploads/cctv/${req.file.filename}`;
+        const [result] = await pool.execute(
+          'INSERT INTO cctv_music (user_id, filename, original_name, file_size, url) VALUES (?, ?, ?, ?, ?)',
+          [req.user.id, req.file.filename, req.file.originalname, req.file.size, url]
+        );
+        const [rows] = await pool.execute('SELECT * FROM cctv_music WHERE id = ?', [result.insertId]);
+        res.json(rows[0]);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: delete music
+    app.delete('/api/cctv/music/:id', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [rows] = await pool.execute('SELECT * FROM cctv_music WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        if (!rows.length) return res.status(404).json({ error: 'Música no encontrada' });
+        const filePath = path.join(cctvDir, rows[0].filename);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        await pool.execute('DELETE FROM cctv_music WHERE id = ?', [req.params.id]);
+        await pool.execute('UPDATE cctv_screens SET current_music_id = NULL WHERE current_music_id = ?', [req.params.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: toggle mute for a screen
+    app.put('/api/cctv/screens/:id/mute', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { muted } = req.body;
+        await pool.execute('UPDATE cctv_screens SET video_muted = ? WHERE id = ? AND user_id = ?', [muted ? 1 : 0, req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: assign music to screen
+    app.put('/api/cctv/screens/:id/music', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { music_id } = req.body;
+        if (music_id) {
+          const [mRows] = await pool.execute('SELECT id FROM cctv_music WHERE id = ? AND user_id = ?', [music_id, req.user.id]);
+          if (!mRows.length) return res.status(404).json({ error: 'Música no encontrada' });
+        }
+        await pool.execute('UPDATE cctv_screens SET current_music_id = ? WHERE id = ? AND user_id = ?', [music_id || null, req.params.id, req.user.id]);
+        res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
