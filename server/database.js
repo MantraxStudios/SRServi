@@ -509,6 +509,14 @@ async function createTables() {
     )
   `);
 
+  // Tabla de control de migraciones — evita que corran más de una vez
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      name VARCHAR(100) PRIMARY KEY,
+      ran_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   await migrateToUnifiedPos();
   await migrateTables();
   await migrateSrBrain();
@@ -3720,6 +3728,10 @@ export async function getRecentOrders(storeId, limit = 10) {
 
 async function migrateToUnifiedPos() {
   try {
+    // Solo corre una vez — si ya está marcada, salir
+    const [done] = await pool.execute("SELECT name FROM _migrations WHERE name = 'pos_unified_v1'");
+    if (done.length > 0) return;
+
     // ── Mercado Pago ──
     const [mpTerminals] = await pool.execute('SELECT * FROM mercado_pago_terminals').catch(() => [[]]);
     for (const t of mpTerminals) {
@@ -3796,6 +3808,8 @@ async function migrateToUnifiedPos() {
       await pool.execute('UPDATE pos_terminals SET pos_pin = ? WHERE id = ?', [pin, row.id]);
     }
 
+    // Marcar como completada para no volver a correr
+    await pool.execute("INSERT IGNORE INTO _migrations (name) VALUES ('pos_unified_v1')");
     console.log('✅ Migración pos_terminals completada');
   } catch (e) {
     console.error('⚠️ migrateToUnifiedPos:', e.message);
