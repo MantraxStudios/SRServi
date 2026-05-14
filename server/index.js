@@ -10,7 +10,7 @@ import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import speakeasy from 'speakeasy';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
@@ -9773,6 +9773,9 @@ async function startServer() {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
     });
 
+    // Instagram Python service — se inicia automáticamente con el servidor
+    startInstagramService();
+
     // León IA — configuración automática en background (no bloquea el servidor)
     if (process.platform === 'linux') {
       initLeonIA().catch(e => console.warn('[León IA] Error autostart:', e.message));
@@ -9781,6 +9784,33 @@ async function startServer() {
     console.error('Error al iniciar el servidor:', error);
     process.exit(1);
   }
+}
+
+function startInstagramService() {
+  const cmd  = process.platform === 'win32' ? 'uvicorn' : 'uvicorn';
+  const args = [
+    'instagram_python_service:app',
+    '--host', '127.0.0.1',
+    '--port', '8787',
+    '--log-level', 'warning',
+  ];
+  const opts = { cwd: __serverDir, stdio: 'pipe' };
+
+  function launch() {
+    const proc = spawn(cmd, args, opts);
+    proc.stdout.on('data', d => process.stdout.write(`[IG-Service] ${d}`));
+    proc.stderr.on('data', d => process.stderr.write(`[IG-Service] ${d}`));
+    proc.on('close', code => {
+      if (code !== 0 && code !== null) {
+        console.warn(`[IG-Service] Proceso terminó (código ${code}), reiniciando en 5s...`);
+        setTimeout(launch, 5000);
+      }
+    });
+    process.on('exit', () => proc.kill());
+  }
+
+  launch();
+  console.log('[IG-Service] Servicio Instagram iniciado en puerto 8787');
 }
 
 startServer();
