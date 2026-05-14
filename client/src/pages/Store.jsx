@@ -3251,21 +3251,21 @@ function Store() {
             </h1>
           </div>
           <div className="store-header-spacer" />
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
-            <p style={{ margin: 0, fontSize: '9px', opacity: 0.4, whiteSpace: 'nowrap', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{t('poweredBy', lang)}</p>
+          <div className="store-header-actions">
+            <p className="store-header-powered">{t('poweredBy', lang)}</p>
             <div style={{ position: 'relative' }}>
-              <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', color: 'rgba(255,255,255,0.65)', fontSize: '12px' }}>
+              <button onClick={() => setShowLangPicker(!showLangPicker)} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', padding: '5px 9px', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', color: 'rgba(255,255,255,0.75)', fontSize: '13px' }}>
                 <FontAwesomeIcon icon={faGlobe} style={{ fontSize: '11px' }} />
                 <span>{LANGUAGES.find(l => l.code === lang)?.flag || '🌐'}</span>
               </button>
               {showLangPicker && (
                 <>
                 <div onClick={() => setShowLangPicker(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
-                <div style={{ position: 'fixed', top: '58px', right: '12px', background: '#fff', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.25)', overflow: 'hidden', minWidth: '140px', zIndex: 9999 }}>
+                <div style={{ position: 'fixed', top: '58px', right: '12px', background: '#fff', borderRadius: '10px', boxShadow: '0 4px 24px rgba(0,0,0,0.25)', overflow: 'hidden', minWidth: '150px', zIndex: 9999 }}>
                   {LANGUAGES.map(l => (
                     <button key={l.code} onClick={() => { setLang(l.code); localStorage.setItem('srservi_lang', l.code); setShowLangPicker(false); }}
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px', border: 'none', background: lang === l.code ? '#f0f0f0' : '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: lang === l.code ? '700' : '400' }}>
-                      <span>{l.flag}</span> {l.label}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '12px 16px', border: 'none', background: lang === l.code ? '#f5f5f5' : '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: lang === l.code ? '700' : '400', borderBottom: '1px solid #f0f0f0' }}>
+                      <span style={{ fontSize: '18px' }}>{l.flag}</span> {l.label}
                     </button>
                   ))}
                 </div>
