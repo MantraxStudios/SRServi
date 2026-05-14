@@ -57,6 +57,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.*
+import android.graphics.BitmapFactory
+import androidx.compose.ui.graphics.asImageBitmap
 import org.json.JSONObject
 import java.io.*
 import java.net.HttpURLConnection
@@ -107,6 +109,12 @@ private fun getVideoStorageDir(context: Context): File {
 
 private fun getMusicStorageDir(context: Context): File {
     val dir = context.getExternalFilesDir("music") ?: context.filesDir
+    if (!dir.exists()) dir.mkdirs()
+    return dir
+}
+
+private fun getImageStorageDir(context: Context): File {
+    val dir = context.getExternalFilesDir("images") ?: context.filesDir
     if (!dir.exists()) dir.mkdirs()
     return dir
 }
@@ -1288,6 +1296,9 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
         )
     }
 
+    var displayMode by remember { mutableStateOf("video") }
+    var slideshowImages by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
+
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
             repeatMode = Player.REPEAT_MODE_ONE
@@ -1400,6 +1411,37 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                     downloadProgress = -1f
                 }
 
+                // ── Modo display (video / imágenes) ────────────────────────────
+                val mode = config.optString("display_mode", "video").ifEmpty { "video" }
+                displayMode = mode
+
+                if (mode == "images") {
+                    exoPlayer.pause()
+                    val imagesArray = config.optJSONArray("images")
+                    if (imagesArray != null) {
+                        val downloaded = mutableListOf<Pair<String, Int>>()
+                        for (i in 0 until imagesArray.length()) {
+                            val obj = imagesArray.getJSONObject(i)
+                            val imgUrl = obj.optString("url").takeIf { it.isNotEmpty() } ?: continue
+                            val durationMs = obj.optInt("duration_seconds", 5) * 1000
+                            val fullImgUrl = if (imgUrl.startsWith("http")) imgUrl else "$BASE_URL$imgUrl"
+                            val ext = "." + (Uri.parse(imgUrl).lastPathSegment?.substringAfterLast('.', "jpg") ?: "jpg")
+                            val urlHash = imgUrl.hashCode().toString().replace("-", "n")
+                            val destFile = File(getImageStorageDir(context), "${urlHash}${ext}")
+                            if (!destFile.exists()) {
+                                withContext(Dispatchers.IO) {
+                                    try { downloadVideoFile(fullImgUrl, destFile) { _ -> } }
+                                    catch (e: Exception) { Log.e(TAG, "Img dl error: ${e.message}"); destFile.delete() }
+                                }
+                            }
+                            if (destFile.exists()) downloaded.add(Pair(destFile.absolutePath, durationMs))
+                        }
+                        if (downloaded.isNotEmpty()) slideshowImages = downloaded
+                    }
+                } else {
+                    if (exoPlayer.playbackState != Player.STATE_IDLE) exoPlayer.play()
+                }
+
                 // ── Música en loop ─────────────────────────────────────────────
                 val musicUrl = config.optString("music_url").takeIf { it.isNotEmpty() }
                 val savedMusicUrl = prefs.getString(KEY_MUSIC_URL, null)
@@ -1464,24 +1506,28 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        AndroidView(
-            factory = { ctx ->
-                PlayerView(ctx).apply {
-                    player = exoPlayer
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                }
-            },
-            modifier = Modifier.fillMaxSize()
-        )
+        if (displayMode == "images") {
+            ImageSlideshowScreen(images = slideshowImages)
+        } else {
+            AndroidView(
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        player = exoPlayer
+                        useController = false
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
 
-        // Pantalla de espera cuando no hay video
-        AnimatedVisibility(
-            visible = !hasVideo,
-            enter = fadeIn(tween(600)),
-            exit = fadeOut(tween(800))
-        ) {
-            WaitingSignalScreen()
+            // Pantalla de espera cuando no hay video
+            AnimatedVisibility(
+                visible = !hasVideo,
+                enter = fadeIn(tween(600)),
+                exit = fadeOut(tween(800))
+            ) {
+                WaitingSignalScreen()
+            }
         }
 
         // Badge de estado online/offline (top-left)
@@ -1579,6 +1625,62 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(12.dp)
+        )
+    }
+}
+
+// ─── Image Slideshow ─────────────────────────────────────────────────────────
+
+@Composable
+fun ImageSlideshowScreen(images: List<Pair<String, Int>>) {
+    if (images.isEmpty()) {
+        WaitingSignalScreen()
+        return
+    }
+
+    var currentIndex by remember { mutableIntStateOf(0) }
+    val slideshowKey = images.joinToString(",") { it.first }
+
+    LaunchedEffect(slideshowKey) {
+        currentIndex = 0
+        while (true) {
+            val duration = images.getOrNull(currentIndex)?.second?.toLong() ?: 5000L
+            delay(duration.coerceAtLeast(1000L))
+            currentIndex = (currentIndex + 1) % images.size
+        }
+    }
+
+    AnimatedContent(
+        targetState = currentIndex,
+        transitionSpec = { fadeIn(tween(800)) togetherWith fadeOut(tween(800)) },
+        label = "slideshow"
+    ) { idx ->
+        val path = images.getOrNull(idx)?.first
+        val bitmap = remember(path) {
+            path?.let { runCatching { BitmapFactory.decodeFile(it)?.asImageBitmap() }.getOrNull() }
+        }
+        Box(
+            modifier = Modifier.fillMaxSize().background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
+    }
+
+    // Watermark
+    Box(modifier = Modifier.fillMaxSize()) {
+        Text(
+            "Powered By SRAutomatic.cl",
+            color = Color.White.copy(alpha = 0.12f),
+            fontSize = 11.sp,
+            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)
         )
     }
 }

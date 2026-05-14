@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faVideo, faUpload, faTrash, faDesktop, faKey, faCopy, faCheck,
   faPlay, faPen, faTimes, faExclamationTriangle, faHistory, faPowerOff,
-  faMusic, faVolumeMute, faVolumeUp,
+  faMusic, faVolumeMute, faVolumeUp, faImage, faArrowUp, faArrowDown,
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -24,25 +24,43 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+function formatSeconds(s) {
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60), r = s % 60;
+  return r ? `${m}m ${r}s` : `${m}m`;
+}
+
 export default function CCTV() {
   const { token } = useAuth();
   const { selectedStore } = useContext(StoreContext);
   const [tab, setTab] = useState('videos');
+
   const [videos, setVideos] = useState([]);
   const [screens, setScreens] = useState([]);
   const [music, setMusic] = useState([]);
+  const [images, setImages] = useState([]);
+
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [loadingScreens, setLoadingScreens] = useState(true);
   const [loadingMusic, setLoadingMusic] = useState(true);
+  const [loadingImages, setLoadingImages] = useState(true);
+
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadingMusic, setUploadingMusic] = useState(false);
   const [uploadMusicProgress, setUploadMusicProgress] = useState(0);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadImagesProgress, setUploadImagesProgress] = useState(0);
+
+  const [localDurations, setLocalDurations] = useState({});
+
   const [copiedCode, setCopiedCode] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [dragOverMusic, setDragOverMusic] = useState(false);
+  const [dragOverImages, setDragOverImages] = useState(false);
+
   const [assignModal, setAssignModal] = useState(null);
   const [assignMusicModal, setAssignMusicModal] = useState(null);
   const [renameModal, setRenameModal] = useState(null);
@@ -50,64 +68,64 @@ export default function CCTV() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [powerLogModal, setPowerLogModal] = useState(null);
   const [loadingLog, setLoadingLog] = useState(false);
+
   const fileInputRef = useRef();
   const musicInputRef = useRef();
+  const imageInputRef = useRef();
 
   const headers = { Authorization: `Bearer ${token}` };
 
   const fetchVideos = async () => {
-    try {
-      const r = await fetch(`${API}/api/cctv/videos`, { headers });
-      if (r.ok) setVideos(await r.json());
-    } catch { } finally { setLoadingVideos(false); }
+    try { const r = await fetch(`${API}/api/cctv/videos`, { headers }); if (r.ok) setVideos(await r.json()); }
+    catch { } finally { setLoadingVideos(false); }
   };
-
   const fetchScreens = async () => {
-    try {
-      const r = await fetch(`${API}/api/cctv/screens`, { headers });
-      if (r.ok) setScreens(await r.json());
-    } catch { } finally { setLoadingScreens(false); }
+    try { const r = await fetch(`${API}/api/cctv/screens`, { headers }); if (r.ok) setScreens(await r.json()); }
+    catch { } finally { setLoadingScreens(false); }
   };
-
   const fetchMusic = async () => {
+    try { const r = await fetch(`${API}/api/cctv/music`, { headers }); if (r.ok) setMusic(await r.json()); }
+    catch { } finally { setLoadingMusic(false); }
+  };
+  const fetchImages = async () => {
     try {
-      const r = await fetch(`${API}/api/cctv/music`, { headers });
-      if (r.ok) setMusic(await r.json());
-    } catch { } finally { setLoadingMusic(false); }
+      const r = await fetch(`${API}/api/cctv/images`, { headers });
+      if (r.ok) {
+        const data = await r.json();
+        setImages(data);
+        const durations = {};
+        data.forEach(img => { durations[img.id] = img.duration_seconds; });
+        setLocalDurations(durations);
+      }
+    } catch { } finally { setLoadingImages(false); }
   };
 
-  useEffect(() => { fetchVideos(); fetchScreens(); fetchMusic(); }, []);
+  useEffect(() => { fetchVideos(); fetchScreens(); fetchMusic(); fetchImages(); }, []);
   useEffect(() => {
-    if (tab === 'screens') {
-      const interval = setInterval(fetchScreens, 15000);
-      return () => clearInterval(interval);
-    }
+    if (tab === 'screens') { const t = setInterval(fetchScreens, 15000); return () => clearInterval(t); }
   }, [tab]);
 
   const showSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3000); };
   const showError = (msg) => { setError(msg); setTimeout(() => setError(''), 5000); };
 
+  // ── Upload helpers ──────────────────────────────────────────────────────────
   const handleUpload = async (file) => {
     if (!file) return;
     const allowed = ['.mp4', '.webm', '.avi', '.mov', '.mkv', '.mpeg', '.mpg'];
-    const ext = '.' + file.name.split('.').pop().toLowerCase();
-    if (!allowed.includes(ext)) { showError('Solo se permiten videos (mp4, webm, avi, mov, mkv)'); return; }
-    setUploading(true);
-    setUploadProgress(0);
-    const formData = new FormData();
-    formData.append('video', file);
+    if (!allowed.includes('.' + file.name.split('.').pop().toLowerCase())) { showError('Solo se permiten videos (mp4, webm, avi, mov, mkv)'); return; }
+    setUploading(true); setUploadProgress(0);
+    const formData = new FormData(); formData.append('video', file);
     try {
       const xhr = new XMLHttpRequest();
-      await new Promise((resolve, reject) => {
-        xhr.upload.onprogress = (e) => { if (e.lengthComputable) setUploadProgress(Math.round(e.loaded / e.total * 100)); };
-        xhr.onload = () => { if (xhr.status === 200) resolve(); else reject(new Error(JSON.parse(xhr.responseText)?.error || 'Error al subir')); };
-        xhr.onerror = () => reject(new Error('Error de red'));
+      await new Promise((res, rej) => {
+        xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadProgress(Math.round(e.loaded / e.total * 100)); };
+        xhr.onload = () => xhr.status === 200 ? res() : rej(new Error(JSON.parse(xhr.responseText)?.error || 'Error'));
+        xhr.onerror = () => rej(new Error('Error de red'));
         xhr.open('POST', `${API}/api/cctv/videos`);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         xhr.send(formData);
       });
-      await fetchVideos();
-      showSuccess('Video subido correctamente');
+      await fetchVideos(); showSuccess('Video subido correctamente');
     } catch (e) { showError(e.message); }
     finally { setUploading(false); setUploadProgress(0); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
@@ -115,47 +133,98 @@ export default function CCTV() {
   const handleUploadMusic = async (file) => {
     if (!file) return;
     const allowed = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac'];
-    const ext = '.' + file.name.split('.').pop().toLowerCase();
-    if (!allowed.includes(ext)) { showError('Solo se permiten audios (mp3, m4a, aac, wav, ogg, flac)'); return; }
-    setUploadingMusic(true);
-    setUploadMusicProgress(0);
-    const formData = new FormData();
-    formData.append('music', file);
+    if (!allowed.includes('.' + file.name.split('.').pop().toLowerCase())) { showError('Solo se permiten audios (mp3, m4a, aac, wav, ogg, flac)'); return; }
+    setUploadingMusic(true); setUploadMusicProgress(0);
+    const formData = new FormData(); formData.append('music', file);
     try {
       const xhr = new XMLHttpRequest();
-      await new Promise((resolve, reject) => {
-        xhr.upload.onprogress = (e) => { if (e.lengthComputable) setUploadMusicProgress(Math.round(e.loaded / e.total * 100)); };
-        xhr.onload = () => { if (xhr.status === 200) resolve(); else reject(new Error(JSON.parse(xhr.responseText)?.error || 'Error al subir')); };
-        xhr.onerror = () => reject(new Error('Error de red'));
+      await new Promise((res, rej) => {
+        xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadMusicProgress(Math.round(e.loaded / e.total * 100)); };
+        xhr.onload = () => xhr.status === 200 ? res() : rej(new Error(JSON.parse(xhr.responseText)?.error || 'Error'));
+        xhr.onerror = () => rej(new Error('Error de red'));
         xhr.open('POST', `${API}/api/cctv/music`);
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         xhr.send(formData);
       });
-      await fetchMusic();
-      showSuccess('Música subida correctamente');
+      await fetchMusic(); showSuccess('Música subida correctamente');
     } catch (e) { showError(e.message); }
     finally { setUploadingMusic(false); setUploadMusicProgress(0); if (musicInputRef.current) musicInputRef.current.value = ''; }
   };
 
-  const deleteVideo = async (id) => {
+  const handleUploadImages = async (files) => {
+    if (!files?.length) return;
+    const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const valid = Array.from(files).filter(f => allowed.includes('.' + f.name.split('.').pop().toLowerCase()));
+    if (!valid.length) { showError('Solo se permiten imágenes (jpg, png, gif, webp)'); return; }
+    setUploadingImages(true); setUploadImagesProgress(0);
+    const formData = new FormData();
+    valid.forEach(f => formData.append('images', f));
     try {
-      const r = await fetch(`${API}/api/cctv/videos/${id}`, { method: 'DELETE', headers });
+      const xhr = new XMLHttpRequest();
+      await new Promise((res, rej) => {
+        xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadImagesProgress(Math.round(e.loaded / e.total * 100)); };
+        xhr.onload = () => xhr.status === 200 ? res() : rej(new Error(JSON.parse(xhr.responseText)?.error || 'Error'));
+        xhr.onerror = () => rej(new Error('Error de red'));
+        xhr.open('POST', `${API}/api/cctv/images`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.send(formData);
+      });
+      await fetchImages();
+      showSuccess(`${valid.length} imagen${valid.length > 1 ? 'es' : ''} subida${valid.length > 1 ? 's' : ''}`);
+    } catch (e) { showError(e.message); }
+    finally { setUploadingImages(false); setUploadImagesProgress(0); if (imageInputRef.current) imageInputRef.current.value = ''; }
+  };
+
+  // ── Image management ────────────────────────────────────────────────────────
+  const saveDuration = async (id, seconds) => {
+    const dur = Math.max(1, Math.min(300, parseInt(seconds) || 5));
+    setLocalDurations(d => ({ ...d, [id]: dur }));
+    try {
+      await fetch(`${API}/api/cctv/images/${id}/duration`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration_seconds: dur })
+      });
+      setImages(imgs => imgs.map(i => i.id === id ? { ...i, duration_seconds: dur } : i));
+    } catch (e) { showError(e.message); }
+  };
+
+  const moveImage = async (id, direction) => {
+    const idx = images.findIndex(i => i.id === id);
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === images.length - 1) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    const newOrder = [...images];
+    [newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]];
+    setImages(newOrder);
+    try {
+      await fetch(`${API}/api/cctv/images/order`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: newOrder.map((img, i) => ({ id: img.id, sort_order: i })) })
+      });
+    } catch (e) { showError(e.message); await fetchImages(); }
+  };
+
+  const deleteImage = async (id) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/images/${id}`, { method: 'DELETE', headers });
       if (!r.ok) throw new Error((await r.json()).error);
-      setVideos(v => v.filter(x => x.id !== id));
-      showSuccess('Video eliminado');
+      setImages(imgs => imgs.filter(i => i.id !== id));
+      showSuccess('Imagen eliminada');
     } catch (e) { showError(e.message); }
     setDeleteConfirm(null);
   };
 
-  const deleteMusic = async (id) => {
+  // ── Screen controls ─────────────────────────────────────────────────────────
+  const setScreenMode = async (screen, mode) => {
     try {
-      const r = await fetch(`${API}/api/cctv/music/${id}`, { method: 'DELETE', headers });
+      const r = await fetch(`${API}/api/cctv/screens/${screen.id}/mode`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode })
+      });
       if (!r.ok) throw new Error((await r.json()).error);
-      setMusic(m => m.filter(x => x.id !== id));
-      await fetchScreens();
-      showSuccess('Música eliminada');
+      setScreens(s => s.map(x => x.id === screen.id ? { ...x, display_mode: mode } : x));
+      showSuccess(`Pantalla cambiada a ${mode === 'images' ? 'modo imágenes' : 'modo video'}`);
     } catch (e) { showError(e.message); }
-    setDeleteConfirm(null);
   };
 
   const toggleMute = async (screen) => {
@@ -171,36 +240,6 @@ export default function CCTV() {
     } catch (e) { showError(e.message); }
   };
 
-  const assignMusic = async (screenId, musicId) => {
-    try {
-      const r = await fetch(`${API}/api/cctv/screens/${screenId}/music`, {
-        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ music_id: musicId || null })
-      });
-      if (!r.ok) throw new Error((await r.json()).error);
-      await fetchScreens();
-      showSuccess(musicId ? 'Música asignada a la pantalla' : 'Música removida de la pantalla');
-      setAssignMusicModal(null);
-    } catch (e) { showError(e.message); }
-  };
-
-  const openPowerLog = async (screen) => {
-    setLoadingLog(true);
-    setPowerLogModal({ screen, log: [] });
-    try {
-      const r = await fetch(`${API}/api/cctv/screens/${screen.id}/power-log`, { headers });
-      if (r.ok) setPowerLogModal({ screen, log: await r.json() });
-    } catch { }
-    finally { setLoadingLog(false); }
-  };
-
-  const copyStoreCode = () => {
-    if (!selectedStore?.code) return;
-    navigator.clipboard.writeText(selectedStore.code);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
   const assignVideo = async (screenId, videoId) => {
     try {
       const r = await fetch(`${API}/api/cctv/screens/${screenId}/assign`, {
@@ -208,9 +247,18 @@ export default function CCTV() {
         body: JSON.stringify({ video_id: videoId || null })
       });
       if (!r.ok) throw new Error((await r.json()).error);
-      await fetchScreens();
-      showSuccess('Video asignado a la pantalla');
-      setAssignModal(null);
+      await fetchScreens(); showSuccess('Video asignado'); setAssignModal(null);
+    } catch (e) { showError(e.message); }
+  };
+
+  const assignMusic = async (screenId, musicId) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/screens/${screenId}/music`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ music_id: musicId || null })
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      await fetchScreens(); showSuccess(musicId ? 'Música asignada' : 'Música removida'); setAssignMusicModal(null);
     } catch (e) { showError(e.message); }
   };
 
@@ -222,78 +270,121 @@ export default function CCTV() {
         body: JSON.stringify({ name: renameName })
       });
       if (!r.ok) throw new Error((await r.json()).error);
-      await fetchScreens();
-      showSuccess('Pantalla renombrada');
-      setRenameModal(null);
+      await fetchScreens(); showSuccess('Pantalla renombrada'); setRenameModal(null);
     } catch (e) { showError(e.message); }
+  };
+
+  const openPowerLog = async (screen) => {
+    setLoadingLog(true); setPowerLogModal({ screen, log: [] });
+    try {
+      const r = await fetch(`${API}/api/cctv/screens/${screen.id}/power-log`, { headers });
+      if (r.ok) setPowerLogModal({ screen, log: await r.json() });
+    } catch { } finally { setLoadingLog(false); }
+  };
+
+  const deleteVideo = async (id) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/videos/${id}`, { method: 'DELETE', headers });
+      if (!r.ok) throw new Error((await r.json()).error);
+      setVideos(v => v.filter(x => x.id !== id)); showSuccess('Video eliminado');
+    } catch (e) { showError(e.message); }
+    setDeleteConfirm(null);
+  };
+
+  const deleteMusic = async (id) => {
+    try {
+      const r = await fetch(`${API}/api/cctv/music/${id}`, { method: 'DELETE', headers });
+      if (!r.ok) throw new Error((await r.json()).error);
+      setMusic(m => m.filter(x => x.id !== id)); await fetchScreens(); showSuccess('Música eliminada');
+    } catch (e) { showError(e.message); }
+    setDeleteConfirm(null);
   };
 
   const deleteScreen = async (id) => {
     try {
       const r = await fetch(`${API}/api/cctv/screens/${id}`, { method: 'DELETE', headers });
       if (!r.ok) throw new Error((await r.json()).error);
-      setScreens(s => s.filter(x => x.id !== id));
-      showSuccess('Pantalla eliminada');
+      setScreens(s => s.filter(x => x.id !== id)); showSuccess('Pantalla eliminada');
     } catch (e) { showError(e.message); }
     setDeleteConfirm(null);
   };
+
+  const copyStoreCode = () => {
+    if (!selectedStore?.code) return;
+    navigator.clipboard.writeText(selectedStore.code);
+    setCopiedCode(true); setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const totalLoopTime = images.reduce((s, i) => s + (localDurations[i.id] ?? i.duration_seconds), 0);
+
+  // ── Upload zone helper ──────────────────────────────────────────────────────
+  const UploadZone = ({ onUpload, uploading, progress, accept, icon, label, hint, dragOverState, setDragOverState, inputRef, multiple }) => (
+    <div
+      onDragOver={e => { e.preventDefault(); setDragOverState(true); }}
+      onDragLeave={() => setDragOverState(false)}
+      onDrop={e => { e.preventDefault(); setDragOverState(false); multiple ? onUpload(e.dataTransfer.files) : onUpload(e.dataTransfer.files[0]); }}
+      onClick={() => !uploading && inputRef.current?.click()}
+      style={{
+        border: `2px dashed ${dragOverState ? GOLD : '#d4d4d8'}`, borderRadius: 12,
+        padding: '36px 24px', textAlign: 'center', cursor: uploading ? 'default' : 'pointer',
+        background: dragOverState ? '#fffbeb' : '#fafafa', transition: 'all 0.2s', marginBottom: 24
+      }}
+    >
+      <input ref={inputRef} type="file" accept={accept} multiple={multiple} style={{ display: 'none' }}
+        onChange={e => multiple ? onUpload(e.target.files) : onUpload(e.target.files[0])} />
+      {uploading ? (
+        <div>
+          <div style={{ color: '#09090b', fontSize: 15, fontWeight: 600, marginBottom: 10 }}>Subiendo... {progress}%</div>
+          <div style={{ height: 6, background: '#e4e4e7', borderRadius: 4, overflow: 'hidden', maxWidth: 360, margin: '0 auto' }}>
+            <div style={{ height: '100%', background: GOLD, borderRadius: 4, width: `${progress}%`, transition: 'width 0.3s' }} />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={{ width: 44, height: 44, background: '#f4f4f5', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+            <FontAwesomeIcon icon={icon} style={{ fontSize: 18, color: '#71717a' }} />
+          </div>
+          <div style={{ color: '#09090b', fontWeight: 600, fontSize: 15, marginBottom: 4 }}>{label}</div>
+          <div style={{ color: '#71717a', fontSize: 13 }}>{hint}</div>
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div style={{ padding: '32px', fontFamily: 'inherit' }}>
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-          <div style={{
-            width: 40, height: 40, background: GOLD, borderRadius: 10,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-          }}>
+          <div style={{ width: 40, height: 40, background: GOLD, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <FontAwesomeIcon icon={faVideo} style={{ color: '#0a0a0a', fontSize: 17 }} />
           </div>
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#09090b' }}>Cartelería Digital</h1>
         </div>
-        <p style={{ margin: 0, fontSize: 14, color: '#71717a', paddingLeft: 52 }}>
-          Control remoto de pantallas TV · Powered by SRAutomatic.cl
-        </p>
+        <p style={{ margin: 0, fontSize: 14, color: '#71717a', paddingLeft: 52 }}>Control remoto de pantallas TV · Powered by SRAutomatic.cl</p>
       </div>
 
       {/* Alerts */}
-      {error && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '11px 16px', color: '#991b1b', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FontAwesomeIcon icon={faExclamationTriangle} />
-          {error}
-        </div>
-      )}
-      {success && (
-        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '11px 16px', color: '#15803d', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FontAwesomeIcon icon={faCheck} />
-          {success}
-        </div>
-      )}
+      {error && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '11px 16px', color: '#991b1b', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}><FontAwesomeIcon icon={faExclamationTriangle} />{error}</div>}
+      {success && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '11px 16px', color: '#15803d', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}><FontAwesomeIcon icon={faCheck} />{success}</div>}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 2, marginBottom: 24, borderBottom: '1px solid #e4e4e7' }}>
         {[
           ['videos', faVideo, 'Videos', videos.length],
+          ['images', faImage, 'Imágenes', images.length],
           ['music', faMusic, 'Música', music.length],
-          ['screens', faDesktop, 'Pantallas', screens.length]
+          ['screens', faDesktop, 'Pantallas', screens.length],
         ].map(([key, icon, label, count]) => (
           <button key={key} onClick={() => setTab(key)} style={{
             padding: '10px 18px', border: 'none', background: 'none', cursor: 'pointer',
             borderBottom: tab === key ? `2px solid ${GOLD}` : '2px solid transparent',
-            color: tab === key ? '#09090b' : '#71717a',
-            fontWeight: tab === key ? 700 : 500, fontSize: 14,
-            display: 'flex', alignItems: 'center', gap: 7,
-            marginBottom: -1, transition: 'all 0.15s'
+            color: tab === key ? '#09090b' : '#71717a', fontWeight: tab === key ? 700 : 500, fontSize: 14,
+            display: 'flex', alignItems: 'center', gap: 7, marginBottom: -1, transition: 'all 0.15s'
           }}>
             <FontAwesomeIcon icon={icon} />
             {label}
-            {count > 0 && (
-              <span style={{
-                background: tab === key ? GOLD : '#f4f4f5',
-                color: tab === key ? '#0a0a0a' : '#71717a',
-                borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 700
-              }}>{count}</span>
-            )}
+            {count > 0 && <span style={{ background: tab === key ? GOLD : '#f4f4f5', color: tab === key ? '#0a0a0a' : '#71717a', borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{count}</span>}
           </button>
         ))}
       </div>
@@ -301,166 +392,151 @@ export default function CCTV() {
       {/* VIDEOS TAB */}
       {tab === 'videos' && (
         <div>
-          <div
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files[0]); }}
-            onClick={() => !uploading && fileInputRef.current?.click()}
-            style={{
-              border: `2px dashed ${dragOver ? GOLD : '#d4d4d8'}`,
-              borderRadius: 12, padding: '36px 24px', textAlign: 'center',
-              cursor: uploading ? 'default' : 'pointer',
-              background: dragOver ? '#fffbeb' : '#fafafa',
-              transition: 'all 0.2s', marginBottom: 24
-            }}
-          >
-            <input ref={fileInputRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={e => handleUpload(e.target.files[0])} />
-            {uploading ? (
-              <div>
-                <div style={{ color: '#09090b', fontSize: 15, fontWeight: 600, marginBottom: 10 }}>
-                  Subiendo video... {uploadProgress}%
-                </div>
-                <div style={{ height: 6, background: '#e4e4e7', borderRadius: 4, overflow: 'hidden', maxWidth: 360, margin: '0 auto' }}>
-                  <div style={{ height: '100%', background: GOLD, borderRadius: 4, width: `${uploadProgress}%`, transition: 'width 0.3s' }} />
-                </div>
-              </div>
-            ) : (
-              <>
-                <div style={{ width: 44, height: 44, background: '#f4f4f5', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                  <FontAwesomeIcon icon={faUpload} style={{ fontSize: 18, color: '#71717a' }} />
-                </div>
-                <div style={{ color: '#09090b', fontWeight: 600, fontSize: 15, marginBottom: 4 }}>
-                  Arrastra un video aquí o haz clic para seleccionar
-                </div>
-                <div style={{ color: '#71717a', fontSize: 13 }}>MP4, WebM, AVI, MOV, MKV — hasta 4 GB</div>
-              </>
-            )}
-          </div>
-
-          {loadingVideos ? (
-            <div style={{ textAlign: 'center', color: '#71717a', padding: 40, fontSize: 14 }}>Cargando videos...</div>
-          ) : videos.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 48 }}>
-              <div style={{ width: 56, height: 56, background: '#f4f4f5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                <FontAwesomeIcon icon={faVideo} style={{ fontSize: 22, color: '#a1a1aa' }} />
-              </div>
-              <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>No hay videos subidos aún</div>
-              <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Sube tu primer video para empezar</div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <UploadZone onUpload={handleUpload} uploading={uploading} progress={uploadProgress} accept="video/*"
+            icon={faUpload} label="Arrastra un video aquí o haz clic para seleccionar"
+            hint="MP4, WebM, AVI, MOV, MKV — hasta 4 GB"
+            dragOverState={dragOver} setDragOverState={setDragOver} inputRef={fileInputRef} multiple={false} />
+          {loadingVideos ? <div style={{ textAlign: 'center', color: '#71717a', padding: 40 }}>Cargando...</div>
+            : videos.length === 0 ? <div style={{ textAlign: 'center', padding: 48, color: '#71717a' }}>No hay videos subidos aún</div>
+            : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {videos.map(v => (
-                <div key={v.id} style={{
-                  background: '#fff', border: '1px solid #e4e4e7', borderRadius: 10,
-                  padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12
-                }}>
+                <div key={v.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: 38, height: 38, background: '#fff8e1', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <FontAwesomeIcon icon={faPlay} style={{ color: GOLD, fontSize: 13 }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {v.original_name}
-                    </div>
-                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
-                      {formatBytes(v.file_size)} · {formatDate(v.created_at)}
-                    </div>
+                    <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.original_name}</div>
+                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(v.file_size)} · {formatDate(v.created_at)}</div>
                   </div>
-                  <button
-                    onClick={() => setDeleteConfirm({ type: 'video', id: v.id, name: v.original_name })}
-                    style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: '#dc2626' }}
-                    title="Eliminar"
-                  >
+                  <button onClick={() => setDeleteConfirm({ type: 'video', id: v.id, name: v.original_name })}
+                    style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: '#dc2626' }}>
                     <FontAwesomeIcon icon={faTrash} style={{ fontSize: 13 }} />
                   </button>
                 </div>
               ))}
+            </div>}
+        </div>
+      )}
+
+      {/* IMAGES TAB */}
+      {tab === 'images' && (
+        <div>
+          <UploadZone onUpload={handleUploadImages} uploading={uploadingImages} progress={uploadImagesProgress} accept="image/*"
+            icon={faImage} label="Arrastra imágenes aquí o haz clic para seleccionar (múltiples)"
+            hint="JPG, PNG, GIF, WebP — hasta 20 MB por imagen"
+            dragOverState={dragOverImages} setDragOverState={setDragOverImages} inputRef={imageInputRef} multiple={true} />
+
+          {images.length > 0 && (
+            <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 16px', marginBottom: 20, fontSize: 13, color: '#0369a1', display: 'flex', gap: 16, alignItems: 'center' }}>
+              <span><strong>{images.length}</strong> imagen{images.length !== 1 ? 'es' : ''}</span>
+              <span>·</span>
+              <span>Duración total del loop: <strong>{formatSeconds(totalLoopTime)}</strong></span>
+              <span>·</span>
+              <span>Asigná el modo imágenes en la pestaña <strong>Pantallas</strong></span>
             </div>
           )}
+
+          {loadingImages ? <div style={{ textAlign: 'center', color: '#71717a', padding: 40 }}>Cargando...</div>
+            : images.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 48 }}>
+                <div style={{ width: 56, height: 56, background: '#f4f4f5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                  <FontAwesomeIcon icon={faImage} style={{ fontSize: 22, color: '#a1a1aa' }} />
+                </div>
+                <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>No hay imágenes subidas aún</div>
+                <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Subí imágenes para crear un slideshow en tus pantallas</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {images.map((img, idx) => (
+                  <div key={img.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {/* Orden badge */}
+                    <div style={{ width: 28, height: 28, background: '#f4f4f5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#71717a', fontSize: 12, fontWeight: 700 }}>
+                      {idx + 1}
+                    </div>
+
+                    {/* Thumbnail */}
+                    <img
+                      src={`${API}${img.url}`}
+                      alt={img.original_name}
+                      style={{ width: 72, height: 48, objectFit: 'cover', borderRadius: 6, flexShrink: 0, border: '1px solid #e4e4e7' }}
+                    />
+
+                    {/* Name */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{img.original_name}</div>
+                      <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(img.file_size)}</div>
+                    </div>
+
+                    {/* Duration */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <span style={{ color: '#71717a', fontSize: 13 }}>Duración:</span>
+                      <input
+                        type="number" min={1} max={300}
+                        value={localDurations[img.id] ?? img.duration_seconds}
+                        onChange={e => setLocalDurations(d => ({ ...d, [img.id]: e.target.value }))}
+                        onBlur={e => saveDuration(img.id, e.target.value)}
+                        style={{
+                          width: 60, padding: '5px 8px', border: '1px solid #e4e4e7', borderRadius: 7,
+                          fontSize: 13, fontWeight: 600, color: '#09090b', textAlign: 'center',
+                          outline: 'none', background: '#fafafa'
+                        }}
+                      />
+                      <span style={{ color: '#71717a', fontSize: 13 }}>seg</span>
+                    </div>
+
+                    {/* Order buttons */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
+                      <button onClick={() => moveImage(img.id, 'up')} disabled={idx === 0}
+                        style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: 5, padding: '2px 7px', cursor: idx === 0 ? 'default' : 'pointer', color: idx === 0 ? '#d4d4d8' : '#71717a', fontSize: 10 }}>
+                        <FontAwesomeIcon icon={faArrowUp} />
+                      </button>
+                      <button onClick={() => moveImage(img.id, 'down')} disabled={idx === images.length - 1}
+                        style={{ background: 'none', border: '1px solid #e4e4e7', borderRadius: 5, padding: '2px 7px', cursor: idx === images.length - 1 ? 'default' : 'pointer', color: idx === images.length - 1 ? '#d4d4d8' : '#71717a', fontSize: 10 }}>
+                        <FontAwesomeIcon icon={faArrowDown} />
+                      </button>
+                    </div>
+
+                    {/* Delete */}
+                    <button onClick={() => setDeleteConfirm({ type: 'image', id: img.id, name: img.original_name })}
+                      style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: '#dc2626', flexShrink: 0 }}>
+                      <FontAwesomeIcon icon={faTrash} style={{ fontSize: 13 }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
         </div>
       )}
 
       {/* MUSIC TAB */}
       {tab === 'music' && (
         <div>
-          <div
-            onDragOver={(e) => { e.preventDefault(); setDragOverMusic(true); }}
-            onDragLeave={() => setDragOverMusic(false)}
-            onDrop={(e) => { e.preventDefault(); setDragOverMusic(false); handleUploadMusic(e.dataTransfer.files[0]); }}
-            onClick={() => !uploadingMusic && musicInputRef.current?.click()}
-            style={{
-              border: `2px dashed ${dragOverMusic ? GOLD : '#d4d4d8'}`,
-              borderRadius: 12, padding: '36px 24px', textAlign: 'center',
-              cursor: uploadingMusic ? 'default' : 'pointer',
-              background: dragOverMusic ? '#fffbeb' : '#fafafa',
-              transition: 'all 0.2s', marginBottom: 24
-            }}
-          >
-            <input ref={musicInputRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => handleUploadMusic(e.target.files[0])} />
-            {uploadingMusic ? (
-              <div>
-                <div style={{ color: '#09090b', fontSize: 15, fontWeight: 600, marginBottom: 10 }}>
-                  Subiendo música... {uploadMusicProgress}%
-                </div>
-                <div style={{ height: 6, background: '#e4e4e7', borderRadius: 4, overflow: 'hidden', maxWidth: 360, margin: '0 auto' }}>
-                  <div style={{ height: '100%', background: GOLD, borderRadius: 4, width: `${uploadMusicProgress}%`, transition: 'width 0.3s' }} />
-                </div>
-              </div>
-            ) : (
-              <>
-                <div style={{ width: 44, height: 44, background: '#f4f4f5', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                  <FontAwesomeIcon icon={faMusic} style={{ fontSize: 18, color: '#71717a' }} />
-                </div>
-                <div style={{ color: '#09090b', fontWeight: 600, fontSize: 15, marginBottom: 4 }}>
-                  Arrastra un archivo de audio aquí o haz clic para seleccionar
-                </div>
-                <div style={{ color: '#71717a', fontSize: 13 }}>MP3, M4A, AAC, WAV, OGG, FLAC — hasta 200 MB</div>
-              </>
-            )}
-          </div>
-
+          <UploadZone onUpload={handleUploadMusic} uploading={uploadingMusic} progress={uploadMusicProgress} accept="audio/*"
+            icon={faMusic} label="Arrastra un archivo de audio aquí o haz clic para seleccionar"
+            hint="MP3, M4A, AAC, WAV, OGG, FLAC — hasta 200 MB"
+            dragOverState={dragOverMusic} setDragOverState={setDragOverMusic} inputRef={musicInputRef} multiple={false} />
           <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 16px', marginBottom: 20, fontSize: 13, color: '#0369a1' }}>
-            La música se reproduce en loop en las pantallas. Asignala desde la pestaña <strong>Pantallas</strong> → botón <strong>Música</strong>.
+            La música se reproduce en loop. Asignala desde la pestaña <strong>Pantallas</strong> → botón <strong>Música</strong>.
           </div>
-
-          {loadingMusic ? (
-            <div style={{ textAlign: 'center', color: '#71717a', padding: 40, fontSize: 14 }}>Cargando música...</div>
-          ) : music.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 48 }}>
-              <div style={{ width: 56, height: 56, background: '#f4f4f5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                <FontAwesomeIcon icon={faMusic} style={{ fontSize: 22, color: '#a1a1aa' }} />
-              </div>
-              <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>No hay música subida aún</div>
-              <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Sube tu primer archivo de audio para empezar</div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {loadingMusic ? <div style={{ textAlign: 'center', color: '#71717a', padding: 40 }}>Cargando...</div>
+            : music.length === 0 ? <div style={{ textAlign: 'center', padding: 48, color: '#71717a' }}>No hay música subida aún</div>
+            : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {music.map(m => (
-                <div key={m.id} style={{
-                  background: '#fff', border: '1px solid #e4e4e7', borderRadius: 10,
-                  padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12
-                }}>
+                <div key={m.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: 38, height: 38, background: '#f0f9ff', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <FontAwesomeIcon icon={faMusic} style={{ color: '#0369a1', fontSize: 13 }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {m.original_name}
-                    </div>
-                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>
-                      {formatBytes(m.file_size)} · {formatDate(m.created_at)}
-                    </div>
+                    <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.original_name}</div>
+                    <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(m.file_size)} · {formatDate(m.created_at)}</div>
                   </div>
-                  <button
-                    onClick={() => setDeleteConfirm({ type: 'music', id: m.id, name: m.original_name })}
-                    style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: '#dc2626' }}
-                    title="Eliminar"
-                  >
+                  <button onClick={() => setDeleteConfirm({ type: 'music', id: m.id, name: m.original_name })}
+                    style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', color: '#dc2626' }}>
                     <FontAwesomeIcon icon={faTrash} style={{ fontSize: 13 }} />
                   </button>
                 </div>
               ))}
-            </div>
-          )}
+            </div>}
         </div>
       )}
 
@@ -474,152 +550,106 @@ export default function CCTV() {
               <span style={{ color: '#09090b', fontWeight: 700, fontSize: 15 }}>Código de vinculación</span>
             </div>
             <div style={{ color: '#71717a', fontSize: 13, marginBottom: 14 }}>
-              Ingresá este código en la app de Cartelería TV para vincular la pantalla. Es permanente, no cambia nunca.
+              Ingresá este código en la app de Cartelería TV para vincular la pantalla.
             </div>
             {selectedStore?.code ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <div style={{
-                  background: '#09090b', borderRadius: 8, padding: '10px 24px',
-                  letterSpacing: 8, fontSize: 26, fontWeight: 900, color: GOLD,
-                  fontFamily: 'monospace'
-                }}>
+                <div style={{ background: '#09090b', borderRadius: 8, padding: '10px 24px', letterSpacing: 8, fontSize: 26, fontWeight: 900, color: GOLD, fontFamily: 'monospace' }}>
                   {selectedStore.code}
                 </div>
-                <button
-                  onClick={copyStoreCode}
-                  style={{
-                    background: copiedCode ? '#f0fdf4' : '#f4f4f5',
-                    border: `1px solid ${copiedCode ? '#bbf7d0' : '#e4e4e7'}`,
-                    borderRadius: 7, padding: '8px 14px', cursor: 'pointer',
-                    color: copiedCode ? '#15803d' : '#09090b', fontWeight: 600, fontSize: 13
-                  }}
-                >
+                <button onClick={copyStoreCode} style={{ background: copiedCode ? '#f0fdf4' : '#f4f4f5', border: `1px solid ${copiedCode ? '#bbf7d0' : '#e4e4e7'}`, borderRadius: 7, padding: '8px 14px', cursor: 'pointer', color: copiedCode ? '#15803d' : '#09090b', fontWeight: 600, fontSize: 13 }}>
                   <FontAwesomeIcon icon={copiedCode ? faCheck : faCopy} style={{ marginRight: 6 }} />
                   {copiedCode ? 'Copiado' : 'Copiar'}
                 </button>
               </div>
-            ) : (
-              <div style={{ color: '#a1a1aa', fontSize: 13 }}>Seleccioná una tienda para ver el código.</div>
-            )}
+            ) : <div style={{ color: '#a1a1aa', fontSize: 13 }}>Seleccioná una tienda para ver el código.</div>}
           </div>
 
-          {/* Screens list */}
-          {loadingScreens ? (
-            <div style={{ textAlign: 'center', color: '#71717a', padding: 40, fontSize: 14 }}>Cargando pantallas...</div>
-          ) : screens.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 48 }}>
-              <div style={{ width: 56, height: 56, background: '#f4f4f5', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                <FontAwesomeIcon icon={faDesktop} style={{ fontSize: 22, color: '#a1a1aa' }} />
+          {loadingScreens ? <div style={{ textAlign: 'center', color: '#71717a', padding: 40 }}>Cargando...</div>
+            : screens.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 48 }}>
+                <FontAwesomeIcon icon={faDesktop} style={{ fontSize: 32, color: '#a1a1aa', marginBottom: 12 }} />
+                <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>No hay pantallas vinculadas</div>
               </div>
-              <div style={{ color: '#71717a', fontSize: 14, fontWeight: 500 }}>No hay pantallas vinculadas</div>
-              <div style={{ color: '#a1a1aa', fontSize: 13, marginTop: 4 }}>Genera un código y úsalo en la app de TV</div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {screens.map(s => (
-                <div key={s.id} style={{
-                  background: '#fff', border: '1px solid #e4e4e7',
-                  borderRadius: 12, padding: '16px 20px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 200 }}>
-                      <div style={{
-                        width: 40, height: 40,
-                        background: s.is_online ? '#f0fdf4' : '#f4f4f5',
-                        borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                      }}>
-                        <FontAwesomeIcon icon={faDesktop} style={{ color: s.is_online ? '#16a34a' : '#a1a1aa', fontSize: 16 }} />
-                      </div>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ color: '#09090b', fontWeight: 700, fontSize: 15 }}>{s.device_name}</span>
-                          <span style={{
-                            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                            background: s.is_online ? '#f0fdf4' : '#f4f4f5',
-                            color: s.is_online ? '#15803d' : '#71717a',
-                            border: `1px solid ${s.is_online ? '#bbf7d0' : '#e4e4e7'}`
-                          }}>
-                            {s.is_online ? '● Encendida' : '○ Apagada'}
-                          </span>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {screens.map(s => {
+                  const mode = s.display_mode || 'video';
+                  return (
+                    <div key={s.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '16px 20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+                        {/* Screen info */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 200 }}>
+                          <div style={{ width: 40, height: 40, background: s.is_online ? '#f0fdf4' : '#f4f4f5', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <FontAwesomeIcon icon={faDesktop} style={{ color: s.is_online ? '#16a34a' : '#a1a1aa', fontSize: 16 }} />
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ color: '#09090b', fontWeight: 700, fontSize: 15 }}>{s.device_name}</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: s.is_online ? '#f0fdf4' : '#f4f4f5', color: s.is_online ? '#15803d' : '#71717a', border: `1px solid ${s.is_online ? '#bbf7d0' : '#e4e4e7'}` }}>
+                                {s.is_online ? '● Encendida' : '○ Apagada'}
+                              </span>
+                              {/* Mode badge */}
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: mode === 'images' ? '#fdf4ff' : '#fff8e1', color: mode === 'images' ? '#7e22ce' : '#92400e', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#fde68a'}` }}>
+                                {mode === 'images' ? '🖼 Imágenes' : '▶ Video'}
+                              </span>
+                            </div>
+                            <div style={{ color: '#a1a1aa', fontSize: 12, marginTop: 2 }}>Última vez: {s.last_seen ? formatDate(s.last_seen) : 'Nunca'}</div>
+                            {mode === 'video' && s.video_name && <div style={{ color: '#71717a', fontSize: 12, marginTop: 1 }}>▶ {s.video_name}</div>}
+                            {mode === 'images' && images.length > 0 && <div style={{ color: '#7e22ce', fontSize: 12, marginTop: 1 }}>🖼 {images.length} imágenes · loop {formatSeconds(totalLoopTime)}</div>}
+                            {s.music_name && <div style={{ color: '#0369a1', fontSize: 12, marginTop: 1 }}>♪ {s.music_name}</div>}
+                          </div>
                         </div>
-                        <div style={{ color: '#a1a1aa', fontSize: 12, marginTop: 2 }}>
-                          Última vez: {s.last_seen ? formatDate(s.last_seen) : 'Nunca'}
-                        </div>
-                      </div>
-                    </div>
 
-                    <div style={{ flex: 1, minWidth: 140 }}>
-                      <div style={{ color: '#a1a1aa', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Video</div>
-                      <div style={{ color: s.video_name ? '#09090b' : '#a1a1aa', fontSize: 13, fontStyle: s.video_name ? 'normal' : 'italic' }}>
-                        {s.video_name || 'Sin video asignado'}
-                      </div>
-                      {s.music_name && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
-                          <FontAwesomeIcon icon={faMusic} style={{ color: '#0369a1', fontSize: 10 }} />
-                          <span style={{ color: '#0369a1', fontSize: 12 }}>{s.music_name}</span>
+                        {/* Action buttons */}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                          {/* Mode toggle */}
+                          <button
+                            onClick={() => setScreenMode(s, mode === 'images' ? 'video' : 'images')}
+                            style={{ background: mode === 'images' ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 11px', cursor: 'pointer', color: mode === 'images' ? '#7e22ce' : '#71717a', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}
+                            title={mode === 'images' ? 'Cambiar a modo video' : 'Cambiar a modo imágenes'}
+                          >
+                            <FontAwesomeIcon icon={mode === 'images' ? faVideo : faImage} style={{ fontSize: 12 }} />
+                            {mode === 'images' ? 'Usar video' : 'Usar imágenes'}
+                          </button>
+                          {/* Mute (solo aplica en modo video) */}
+                          {mode === 'video' && (
+                            <button onClick={() => toggleMute(s)}
+                              style={{ background: s.video_muted ? '#fef2f2' : '#f0fdf4', border: `1px solid ${s.video_muted ? '#fca5a5' : '#bbf7d0'}`, borderRadius: 7, padding: '7px 11px', cursor: 'pointer', color: s.video_muted ? '#dc2626' : '#15803d', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <FontAwesomeIcon icon={s.video_muted ? faVolumeMute : faVolumeUp} style={{ fontSize: 12 }} />
+                              {s.video_muted ? 'Muteado' : 'Con audio'}
+                            </button>
+                          )}
+                          {/* Music */}
+                          <button onClick={() => setAssignMusicModal(s)}
+                            style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 7, padding: '7px 11px', cursor: 'pointer', color: '#0369a1', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <FontAwesomeIcon icon={faMusic} style={{ fontSize: 11 }} />
+                            Música
+                          </button>
+                          {/* Assign video (solo en modo video) */}
+                          {mode === 'video' && (
+                            <button onClick={() => setAssignModal(s)}
+                              style={{ background: '#fff8e1', border: '1px solid #fde68a', borderRadius: 7, padding: '7px 11px', cursor: 'pointer', color: '#92400e', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <FontAwesomeIcon icon={faVideo} style={{ fontSize: 11 }} />
+                              Video
+                            </button>
+                          )}
+                          <button onClick={() => openPowerLog(s)} style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#0369a1' }} title="Historial">
+                            <FontAwesomeIcon icon={faHistory} style={{ fontSize: 12 }} />
+                          </button>
+                          <button onClick={() => { setRenameModal(s); setRenameName(s.device_name); }} style={{ background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#71717a' }} title="Renombrar">
+                            <FontAwesomeIcon icon={faPen} style={{ fontSize: 12 }} />
+                          </button>
+                          <button onClick={() => setDeleteConfirm({ type: 'screen', id: s.id, name: s.device_name })} style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#dc2626' }} title="Eliminar">
+                            <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12 }} />
+                          </button>
                         </div>
-                      )}
+                      </div>
                     </div>
-
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {/* Mute toggle */}
-                      <button
-                        onClick={() => toggleMute(s)}
-                        title={s.video_muted ? 'Activar audio del video' : 'Mutear video'}
-                        style={{
-                          background: s.video_muted ? '#fef2f2' : '#f0fdf4',
-                          border: `1px solid ${s.video_muted ? '#fca5a5' : '#bbf7d0'}`,
-                          borderRadius: 7, padding: '7px 11px', cursor: 'pointer',
-                          color: s.video_muted ? '#dc2626' : '#15803d', fontSize: 13, fontWeight: 600,
-                          display: 'flex', alignItems: 'center', gap: 5
-                        }}
-                      >
-                        <FontAwesomeIcon icon={s.video_muted ? faVolumeMute : faVolumeUp} style={{ fontSize: 12 }} />
-                        {s.video_muted ? 'Muteado' : 'Con audio'}
-                      </button>
-                      {/* Assign music */}
-                      <button
-                        onClick={() => setAssignMusicModal(s)}
-                        style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 7, padding: '7px 11px', cursor: 'pointer', color: '#0369a1', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}
-                      >
-                        <FontAwesomeIcon icon={faMusic} style={{ fontSize: 11 }} />
-                        Música
-                      </button>
-                      {/* Assign video */}
-                      <button
-                        onClick={() => setAssignModal(s)}
-                        style={{ background: '#fff8e1', border: `1px solid #fde68a`, borderRadius: 7, padding: '7px 13px', cursor: 'pointer', color: '#92400e', fontSize: 13, fontWeight: 600 }}
-                      >
-                        <FontAwesomeIcon icon={faVideo} style={{ marginRight: 5, fontSize: 11 }} />
-                        Video
-                      </button>
-                      <button
-                        onClick={() => openPowerLog(s)}
-                        style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#0369a1' }}
-                        title="Historial de encendido"
-                      >
-                        <FontAwesomeIcon icon={faHistory} style={{ fontSize: 12 }} />
-                      </button>
-                      <button
-                        onClick={() => { setRenameModal(s); setRenameName(s.device_name); }}
-                        style={{ background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#71717a' }}
-                        title="Renombrar"
-                      >
-                        <FontAwesomeIcon icon={faPen} style={{ fontSize: 12 }} />
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirm({ type: 'screen', id: s.id, name: s.device_name })}
-                        style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#dc2626' }}
-                        title="Eliminar pantalla"
-                      >
-                        <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12 }} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
         </div>
       )}
 
@@ -628,44 +658,17 @@ export default function CCTV() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <h3 style={{ margin: 0, color: '#09090b', fontSize: 17, fontWeight: 700 }}>
-                Video para <span style={{ color: GOLD }}>{assignModal.device_name}</span>
-              </h3>
-              <button onClick={() => setAssignModal(null)} style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', fontSize: 16, padding: 4 }}>
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Video para <span style={{ color: GOLD }}>{assignModal.device_name}</span></h3>
+              <button onClick={() => setAssignModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
-              <button
-                onClick={() => assignVideo(assignModal.id, null)}
-                style={{
-                  background: !assignModal.current_video_id ? '#fff8e1' : '#fafafa',
-                  border: `1px solid ${!assignModal.current_video_id ? '#fde68a' : '#e4e4e7'}`,
-                  borderRadius: 8, padding: '11px 14px', cursor: 'pointer',
-                  textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14
-                }}
-              >
-                Sin video (pantalla en negro)
-              </button>
+              <button onClick={() => assignVideo(assignModal.id, null)} style={{ background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14 }}>Sin video</button>
               {videos.map(v => (
-                <button
-                  key={v.id}
-                  onClick={() => assignVideo(assignModal.id, v.id)}
-                  style={{
-                    background: assignModal.current_video_id === v.id ? '#fff8e1' : '#fafafa',
-                    border: `1px solid ${assignModal.current_video_id === v.id ? '#fde68a' : '#e4e4e7'}`,
-                    borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left'
-                  }}
-                >
+                <button key={v.id} onClick={() => assignVideo(assignModal.id, v.id)} style={{ background: assignModal.current_video_id === v.id ? '#fff8e1' : '#fafafa', border: `1px solid ${assignModal.current_video_id === v.id ? '#fde68a' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left' }}>
                   <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>{v.original_name}</div>
                   <div style={{ color: '#71717a', fontSize: 12, marginTop: 2 }}>{formatBytes(v.file_size)}</div>
                 </button>
               ))}
-              {videos.length === 0 && (
-                <div style={{ color: '#71717a', fontSize: 13, textAlign: 'center', padding: 20 }}>
-                  No hay videos. Ve a la pestaña Videos para subir uno.
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -676,36 +679,13 @@ export default function CCTV() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <h3 style={{ margin: 0, color: '#09090b', fontSize: 17, fontWeight: 700 }}>
-                Música para <span style={{ color: GOLD }}>{assignMusicModal.device_name}</span>
-              </h3>
-              <button onClick={() => setAssignMusicModal(null)} style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', fontSize: 16, padding: 4 }}>
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Música para <span style={{ color: GOLD }}>{assignMusicModal.device_name}</span></h3>
+              <button onClick={() => setAssignMusicModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
-              <button
-                onClick={() => assignMusic(assignMusicModal.id, null)}
-                style={{
-                  background: !assignMusicModal.music_id ? '#f0f9ff' : '#fafafa',
-                  border: `1px solid ${!assignMusicModal.music_id ? '#bae6fd' : '#e4e4e7'}`,
-                  borderRadius: 8, padding: '11px 14px', cursor: 'pointer',
-                  textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14
-                }}
-              >
-                Sin música (silencio)
-              </button>
+              <button onClick={() => assignMusic(assignMusicModal.id, null)} style={{ background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', color: '#71717a', fontStyle: 'italic', fontSize: 14 }}>Sin música</button>
               {music.map(m => (
-                <button
-                  key={m.id}
-                  onClick={() => assignMusic(assignMusicModal.id, m.id)}
-                  style={{
-                    background: assignMusicModal.music_id === m.id ? '#f0f9ff' : '#fafafa',
-                    border: `1px solid ${assignMusicModal.music_id === m.id ? '#bae6fd' : '#e4e4e7'}`,
-                    borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left',
-                    display: 'flex', alignItems: 'center', gap: 10
-                  }}
-                >
+                <button key={m.id} onClick={() => assignMusic(assignMusicModal.id, m.id)} style={{ background: assignMusicModal.music_id === m.id ? '#f0f9ff' : '#fafafa', border: `1px solid ${assignMusicModal.music_id === m.id ? '#bae6fd' : '#e4e4e7'}`, borderRadius: 8, padding: '11px 14px', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <FontAwesomeIcon icon={faMusic} style={{ color: '#0369a1', fontSize: 14, flexShrink: 0 }} />
                   <div>
                     <div style={{ color: '#09090b', fontWeight: 600, fontSize: 14 }}>{m.original_name}</div>
@@ -713,11 +693,6 @@ export default function CCTV() {
                   </div>
                 </button>
               ))}
-              {music.length === 0 && (
-                <div style={{ color: '#71717a', fontSize: 13, textAlign: 'center', padding: 20 }}>
-                  No hay música. Ve a la pestaña Música para subir un archivo.
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -727,19 +702,9 @@ export default function CCTV() {
       {renameModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-            <h3 style={{ margin: '0 0 16px', color: '#09090b', fontSize: 17, fontWeight: 700 }}>Renombrar pantalla</h3>
-            <input
-              value={renameName}
-              onChange={e => setRenameName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && renameScreen()}
-              placeholder="Nombre de la pantalla"
-              autoFocus
-              style={{
-                width: '100%', padding: '10px 12px', background: '#fafafa',
-                border: '1px solid #e4e4e7', borderRadius: 8, color: '#09090b',
-                fontSize: 15, outline: 'none', boxSizing: 'border-box', marginBottom: 14
-              }}
-            />
+            <h3 style={{ margin: '0 0 16px', fontSize: 17, fontWeight: 700 }}>Renombrar pantalla</h3>
+            <input value={renameName} onChange={e => setRenameName(e.target.value)} onKeyDown={e => e.key === 'Enter' && renameScreen()} placeholder="Nombre de la pantalla" autoFocus
+              style={{ width: '100%', padding: '10px 12px', background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 8, color: '#09090b', fontSize: 15, outline: 'none', boxSizing: 'border-box', marginBottom: 14 }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setRenameModal(null)} style={{ flex: 1, padding: '10px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#71717a', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
               <button onClick={renameScreen} style={{ flex: 1, padding: '10px', background: GOLD, border: 'none', borderRadius: 8, color: '#0a0a0a', fontWeight: 700, cursor: 'pointer' }}>Guardar</button>
@@ -754,43 +719,23 @@ export default function CCTV() {
           <div style={{ background: '#fff', borderRadius: 16, padding: '24px 28px', width: '90%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
               <div>
-                <h3 style={{ margin: 0, color: '#09090b', fontSize: 17, fontWeight: 700 }}>
-                  Historial — <span style={{ color: GOLD }}>{powerLogModal.screen.device_name}</span>
-                </h3>
-                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#71717a' }}>Últimos 100 eventos de encendido/apagado</p>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Historial — <span style={{ color: GOLD }}>{powerLogModal.screen.device_name}</span></h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#71717a' }}>Últimos 100 eventos</p>
               </div>
-              <button onClick={() => setPowerLogModal(null)} style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', fontSize: 16, padding: 4 }}>
-                <FontAwesomeIcon icon={faTimes} />
-              </button>
+              <button onClick={() => setPowerLogModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              {loadingLog ? (
-                <div style={{ textAlign: 'center', color: '#71717a', padding: 32, fontSize: 14 }}>Cargando...</div>
-              ) : powerLogModal.log.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#a1a1aa', padding: 32, fontSize: 14 }}>
-                  Sin registros. La app de TV reporta los eventos al encenderse y apagarse.
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {loadingLog ? <div style={{ textAlign: 'center', color: '#71717a', padding: 32 }}>Cargando...</div>
+                : powerLogModal.log.length === 0 ? <div style={{ textAlign: 'center', color: '#a1a1aa', padding: 32 }}>Sin registros.</div>
+                : <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {powerLogModal.log.map((entry, i) => (
-                    <div key={i} style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '10px 14px', borderRadius: 9,
-                      background: entry.event === 'on' ? '#f0fdf4' : '#fef2f2',
-                      border: `1px solid ${entry.event === 'on' ? '#bbf7d0' : '#fca5a5'}`
-                    }}>
-                      <FontAwesomeIcon
-                        icon={faPowerOff}
-                        style={{ color: entry.event === 'on' ? '#16a34a' : '#dc2626', fontSize: 14, flexShrink: 0 }}
-                      />
-                      <span style={{ fontWeight: 700, fontSize: 13, color: entry.event === 'on' ? '#15803d' : '#dc2626', minWidth: 60 }}>
-                        {entry.event === 'on' ? 'Encendida' : 'Apagada'}
-                      </span>
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 9, background: entry.event === 'on' ? '#f0fdf4' : '#fef2f2', border: `1px solid ${entry.event === 'on' ? '#bbf7d0' : '#fca5a5'}` }}>
+                      <FontAwesomeIcon icon={faPowerOff} style={{ color: entry.event === 'on' ? '#16a34a' : '#dc2626', fontSize: 14, flexShrink: 0 }} />
+                      <span style={{ fontWeight: 700, fontSize: 13, color: entry.event === 'on' ? '#15803d' : '#dc2626', minWidth: 60 }}>{entry.event === 'on' ? 'Encendida' : 'Apagada'}</span>
                       <span style={{ color: '#71717a', fontSize: 13 }}>{formatDate(entry.logged_at)}</span>
                     </div>
                   ))}
-                </div>
-              )}
+                </div>}
             </div>
           </div>
         </div>
@@ -803,22 +748,22 @@ export default function CCTV() {
             <div style={{ width: 48, height: 48, background: '#fef2f2', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
               <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: 20, color: '#dc2626' }} />
             </div>
-            <h3 style={{ margin: '0 0 8px', color: '#09090b', fontSize: 17, fontWeight: 700 }}>
-              ¿Eliminar {deleteConfirm.type === 'video' ? 'video' : deleteConfirm.type === 'music' ? 'música' : 'pantalla'}?
+            <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 700 }}>
+              ¿Eliminar {deleteConfirm.type === 'video' ? 'video' : deleteConfirm.type === 'music' ? 'música' : deleteConfirm.type === 'image' ? 'imagen' : 'pantalla'}?
             </h3>
-            <p style={{ color: '#71717a', fontSize: 14, margin: '0 0 20px' }}>
-              <strong style={{ color: '#09090b' }}>{deleteConfirm.name}</strong> será eliminado permanentemente.
-            </p>
+            <p style={{ color: '#71717a', fontSize: 14, margin: '0 0 20px' }}><strong style={{ color: '#09090b' }}>{deleteConfirm.name}</strong> será eliminado permanentemente.</p>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, padding: '11px', background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 8, color: '#71717a', cursor: 'pointer', fontWeight: 600 }}>Cancelar</button>
               <button
                 onClick={() => {
                   if (deleteConfirm.type === 'video') deleteVideo(deleteConfirm.id);
                   else if (deleteConfirm.type === 'music') deleteMusic(deleteConfirm.id);
+                  else if (deleteConfirm.type === 'image') deleteImage(deleteConfirm.id);
                   else deleteScreen(deleteConfirm.id);
                 }}
-                style={{ flex: 1, padding: '11px', background: '#dc2626', border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontWeight: 700 }}
-              >Eliminar</button>
+                style={{ flex: 1, padding: '11px', background: '#dc2626', border: 'none', borderRadius: 8, color: '#fff', cursor: 'pointer', fontWeight: 700 }}>
+                Eliminar
+              </button>
             </div>
           </div>
         </div>

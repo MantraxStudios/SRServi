@@ -9504,6 +9504,16 @@ async function startServer() {
       }
     });
 
+    const cctvImageUpload = multer({
+      storage: cctvStorage,
+      limits: { fileSize: 20 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        const allowedExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+        if (allowedExts.includes(path.extname(file.originalname).toLowerCase())) return cb(null, true);
+        cb(new Error('Solo se permiten imágenes (jpg, jpeg, png, gif, webp)'));
+      }
+    });
+
     let _cctvReady = false;
     async function ensureCctvTables() {
       if (_cctvReady) return;
@@ -9556,9 +9566,24 @@ async function startServer() {
           INDEX idx_cctv_music_user (user_id)
         )
       `);
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS cctv_images (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          filename VARCHAR(255) NOT NULL,
+          original_name VARCHAR(255) NOT NULL,
+          file_size BIGINT DEFAULT 0,
+          url VARCHAR(500) NOT NULL,
+          duration_seconds INT DEFAULT 5,
+          sort_order INT DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_cctv_images_user (user_id)
+        )
+      `);
       for (const sql of [
         'ALTER TABLE cctv_screens ADD COLUMN video_muted TINYINT(1) DEFAULT 0',
-        'ALTER TABLE cctv_screens ADD COLUMN current_music_id INT DEFAULT NULL'
+        'ALTER TABLE cctv_screens ADD COLUMN current_music_id INT DEFAULT NULL',
+        "ALTER TABLE cctv_screens ADD COLUMN display_mode ENUM('video','images') DEFAULT 'video'"
       ]) {
         try { await pool.execute(sql); } catch (_) { /* columna ya existe */ }
       }
@@ -9730,7 +9755,8 @@ async function startServer() {
         const { device_token } = req.query;
         if (!device_token) return res.status(400).json({ error: 'device_token requerido' });
         const [rows] = await pool.execute(`
-          SELECT s.id, s.device_name, s.current_video_id, s.video_muted,
+          SELECT s.id, s.user_id, s.device_name, s.current_video_id, s.video_muted,
+            COALESCE(s.display_mode, 'video') AS display_mode,
             v.url AS video_url, v.original_name AS video_name, v.filename AS video_filename,
             m.url AS music_url, m.original_name AS music_name
           FROM cctv_screens s
@@ -9740,7 +9766,17 @@ async function startServer() {
         `, [device_token]);
         if (!rows.length) return res.status(404).json({ error: 'Dispositivo no encontrado' });
         await pool.execute('UPDATE cctv_screens SET last_seen = NOW() WHERE device_token = ?', [device_token]);
-        res.json(rows[0]);
+        const config = { ...rows[0] };
+        const userId = config.user_id;
+        delete config.user_id;
+        if (config.display_mode === 'images') {
+          const [imgs] = await pool.execute(
+            'SELECT url, duration_seconds FROM cctv_images WHERE user_id = ? ORDER BY sort_order ASC, created_at ASC',
+            [userId]
+          );
+          config.images = imgs;
+        }
+        res.json(config);
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
@@ -9816,6 +9852,79 @@ async function startServer() {
         await ensureCctvTables();
         const { muted } = req.body;
         await pool.execute('UPDATE cctv_screens SET video_muted = ? WHERE id = ? AND user_id = ?', [muted ? 1 : 0, req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: list images
+    app.get('/api/cctv/images', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [rows] = await pool.execute('SELECT * FROM cctv_images WHERE user_id = ? ORDER BY sort_order ASC, created_at ASC', [req.user.id]);
+        res.json(rows);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: upload images (multiple)
+    app.post('/api/cctv/images', authenticateToken, cctvImageUpload.array('images', 30), async (req, res) => {
+      try {
+        await ensureCctvTables();
+        if (!req.files?.length) return res.status(400).json({ error: 'No se recibieron imágenes' });
+        const [[maxRow]] = await pool.execute('SELECT COALESCE(MAX(sort_order), -1) AS max_order FROM cctv_images WHERE user_id = ?', [req.user.id]);
+        let nextOrder = (maxRow.max_order ?? -1) + 1;
+        for (const file of req.files) {
+          await pool.execute(
+            'INSERT INTO cctv_images (user_id, filename, original_name, file_size, url, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+            [req.user.id, file.filename, file.originalname, file.size, `/uploads/cctv/${file.filename}`, nextOrder++]
+          );
+        }
+        const [rows] = await pool.execute('SELECT * FROM cctv_images WHERE user_id = ? ORDER BY sort_order ASC', [req.user.id]);
+        res.json(rows);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: update image order
+    app.put('/api/cctv/images/order', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { order } = req.body;
+        for (const item of order) {
+          await pool.execute('UPDATE cctv_images SET sort_order = ? WHERE id = ? AND user_id = ?', [item.sort_order, item.id, req.user.id]);
+        }
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: set image duration
+    app.put('/api/cctv/images/:id/duration', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const dur = Math.max(1, Math.min(300, parseInt(req.body.duration_seconds) || 5));
+        await pool.execute('UPDATE cctv_images SET duration_seconds = ? WHERE id = ? AND user_id = ?', [dur, req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: delete image
+    app.delete('/api/cctv/images/:id', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [rows] = await pool.execute('SELECT * FROM cctv_images WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        if (!rows.length) return res.status(404).json({ error: 'Imagen no encontrada' });
+        const filePath = path.join(cctvDir, rows[0].filename);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        await pool.execute('DELETE FROM cctv_images WHERE id = ?', [req.params.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: set screen display mode (video / images)
+    app.put('/api/cctv/screens/:id/mode', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { mode } = req.body;
+        if (!['video', 'images'].includes(mode)) return res.status(400).json({ error: 'Modo inválido' });
+        await pool.execute('UPDATE cctv_screens SET display_mode = ? WHERE id = ? AND user_id = ?', [mode, req.params.id, req.user.id]);
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
