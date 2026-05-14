@@ -413,16 +413,16 @@ export default function CCTV() {
   );
 
   return (
-    <div style={{ padding: '32px', fontFamily: 'inherit' }}>
+    <div style={{ padding: '20px 12px', fontFamily: 'inherit', maxWidth: '100%', boxSizing: 'border-box' }}>
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-          <div style={{ width: 40, height: 40, background: GOLD, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <FontAwesomeIcon icon={faVideo} style={{ color: '#0a0a0a', fontSize: 17 }} />
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <div style={{ width: 36, height: 36, background: GOLD, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <FontAwesomeIcon icon={faVideo} style={{ color: '#0a0a0a', fontSize: 15 }} />
           </div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#09090b' }}>Cartelería Digital</h1>
+          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#09090b' }}>Cartelería Digital</h1>
         </div>
-        <p style={{ margin: 0, fontSize: 14, color: '#71717a', paddingLeft: 52 }}>Control remoto de pantallas TV · Powered by SRAutomatic.cl</p>
+        <p style={{ margin: 0, fontSize: 12, color: '#71717a' }}>Control remoto de pantallas TV</p>
       </div>
 
       {/* Alerts */}
@@ -430,7 +430,7 @@ export default function CCTV() {
       {success && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '11px 16px', color: '#15803d', marginBottom: 16, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}><FontAwesomeIcon icon={faCheck} />{success}</div>}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 2, marginBottom: 24, borderBottom: '1px solid #e4e4e7' }}>
+      <div style={{ display: 'flex', marginBottom: 20, borderBottom: '1px solid #e4e4e7' }}>
         {[
           ['videos', faVideo, 'Videos', videos.length],
           ['images', faImage, 'Imágenes', images.length],
@@ -438,14 +438,15 @@ export default function CCTV() {
           ['screens', faDesktop, 'Pantallas', screens.length],
         ].map(([key, icon, label, count]) => (
           <button key={key} onClick={() => setTab(key)} style={{
-            padding: '10px 18px', border: 'none', background: 'none', cursor: 'pointer',
+            flex: 1, padding: '9px 4px', border: 'none', background: 'none', cursor: 'pointer',
             borderBottom: tab === key ? `2px solid ${GOLD}` : '2px solid transparent',
-            color: tab === key ? '#09090b' : '#71717a', fontWeight: tab === key ? 700 : 500, fontSize: 14,
-            display: 'flex', alignItems: 'center', gap: 7, marginBottom: -1, transition: 'all 0.15s'
+            color: tab === key ? '#09090b' : '#71717a', fontWeight: tab === key ? 700 : 500, fontSize: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+            marginBottom: -1, transition: 'all 0.15s', whiteSpace: 'nowrap',
           }}>
-            <FontAwesomeIcon icon={icon} />
+            <FontAwesomeIcon icon={icon} style={{ fontSize: 12 }} />
             {label}
-            {count > 0 && <span style={{ background: tab === key ? GOLD : '#f4f4f5', color: tab === key ? '#0a0a0a' : '#71717a', borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{count}</span>}
+            {count > 0 && <span style={{ background: tab === key ? GOLD : '#f4f4f5', color: tab === key ? '#0a0a0a' : '#71717a', borderRadius: 20, padding: '1px 5px', fontSize: 10, fontWeight: 700 }}>{count}</span>}
           </button>
         ))}
       </div>
@@ -693,22 +694,22 @@ export default function CCTV() {
                 {screens.map(s => {
                   const mode = s.display_mode || 'video';
                   return (
-                    <div key={s.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '16px 20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+                    <div key={s.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
                         {/* Screen info */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 200 }}>
-                          <div style={{ width: 40, height: 40, background: s.is_online ? '#f0fdf4' : '#f4f4f5', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <FontAwesomeIcon icon={faDesktop} style={{ color: s.is_online ? '#16a34a' : '#a1a1aa', fontSize: 16 }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                          <div style={{ width: 36, height: 36, background: s.is_online ? '#f0fdf4' : '#f4f4f5', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <FontAwesomeIcon icon={faDesktop} style={{ color: s.is_online ? '#16a34a' : '#a1a1aa', fontSize: 14 }} />
                           </div>
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ color: '#09090b', fontWeight: 700, fontSize: 15 }}>{s.device_name}</span>
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: s.is_online ? '#f0fdf4' : '#f4f4f5', color: s.is_online ? '#15803d' : '#71717a', border: `1px solid ${s.is_online ? '#bbf7d0' : '#e4e4e7'}` }}>
-                                {s.is_online ? '● Encendida' : '○ Apagada'}
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span style={{ color: '#09090b', fontWeight: 700, fontSize: 14 }}>{s.device_name}</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: s.is_online ? '#f0fdf4' : '#f4f4f5', color: s.is_online ? '#15803d' : '#71717a', border: `1px solid ${s.is_online ? '#bbf7d0' : '#e4e4e7'}`, whiteSpace: 'nowrap' }}>
+                                {s.is_online ? '● On' : '○ Off'}
                               </span>
                               {/* Mode badge */}
-                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: mode === 'images' ? '#fdf4ff' : '#fff8e1', color: mode === 'images' ? '#7e22ce' : '#92400e', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#fde68a'}` }}>
-                                {mode === 'images' ? '🖼 Imágenes' : '▶ Video'}
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: mode === 'images' ? '#fdf4ff' : '#fff8e1', color: mode === 'images' ? '#7e22ce' : '#92400e', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#fde68a'}`, whiteSpace: 'nowrap' }}>
+                                {mode === 'images' ? '🖼 Imgs' : '▶ Video'}
                               </span>
                             </div>
                             <div style={{ color: '#a1a1aa', fontSize: 12, marginTop: 2 }}>Última vez: {s.last_seen ? formatDate(s.last_seen) : 'Nunca'}</div>
@@ -726,47 +727,44 @@ export default function CCTV() {
                         </div>
 
                         {/* Action buttons */}
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'flex-start', width: '100%' }}>
                           {/* Mode toggle */}
-                          <button
-                            onClick={() => setScreenMode(s, mode === 'images' ? 'video' : 'images')}
-                            style={{ background: mode === 'images' ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 11px', cursor: 'pointer', color: mode === 'images' ? '#7e22ce' : '#71717a', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}
-                            title={mode === 'images' ? 'Cambiar a modo video' : 'Cambiar a modo imágenes'}
-                          >
-                            <FontAwesomeIcon icon={mode === 'images' ? faVideo : faImage} style={{ fontSize: 12 }} />
-                            {mode === 'images' ? 'Usar video' : 'Usar imágenes'}
+                          <button onClick={() => setScreenMode(s, mode === 'images' ? 'video' : 'images')}
+                            style={{ background: mode === 'images' ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${mode === 'images' ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: mode === 'images' ? '#7e22ce' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <FontAwesomeIcon icon={mode === 'images' ? faVideo : faImage} style={{ fontSize: 11 }} />
+                            {mode === 'images' ? 'Video' : 'Imgs'}
                           </button>
-                          {/* Mute (solo aplica en modo video) */}
+                          {/* Mute */}
                           {mode === 'video' && (
                             <button onClick={() => toggleMute(s)}
-                              style={{ background: s.video_muted ? '#fef2f2' : '#f0fdf4', border: `1px solid ${s.video_muted ? '#fca5a5' : '#bbf7d0'}`, borderRadius: 7, padding: '7px 11px', cursor: 'pointer', color: s.video_muted ? '#dc2626' : '#15803d', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <FontAwesomeIcon icon={s.video_muted ? faVolumeMute : faVolumeUp} style={{ fontSize: 12 }} />
-                              {s.video_muted ? 'Muteado' : 'Con audio'}
+                              style={{ background: s.video_muted ? '#fef2f2' : '#f0fdf4', border: `1px solid ${s.video_muted ? '#fca5a5' : '#bbf7d0'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: s.video_muted ? '#dc2626' : '#15803d', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <FontAwesomeIcon icon={s.video_muted ? faVolumeMute : faVolumeUp} style={{ fontSize: 11 }} />
+                              {s.video_muted ? 'Mute' : 'Audio'}
                             </button>
                           )}
                           {/* Music */}
                           <button onClick={() => setAssignMusicModal(s)}
-                            style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 7, padding: '7px 11px', cursor: 'pointer', color: '#0369a1', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                            style={{ background: s.music_name ? '#f0f9ff' : '#f4f4f5', border: `1px solid ${s.music_name ? '#bae6fd' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: s.music_name ? '#0369a1' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                             <FontAwesomeIcon icon={faMusic} style={{ fontSize: 11 }} />
                             Música
                           </button>
-                          {/* Album (solo en modo imágenes) */}
+                          {/* Album */}
                           {mode === 'images' && (
                             <button onClick={() => setAssignAlbumModal(s)}
-                              style={{ background: s.album_name ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${s.album_name ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 11px', cursor: 'pointer', color: s.album_name ? '#7e22ce' : '#71717a', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <FontAwesomeIcon icon={faFolder} style={{ fontSize: 11 }} />
-                              {s.album_name ? s.album_name : 'Álbum'}
+                              style={{ background: s.album_name ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${s.album_name ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: s.album_name ? '#7e22ce' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, maxWidth: 110, overflow: 'hidden' }}>
+                              <FontAwesomeIcon icon={faFolder} style={{ fontSize: 11, flexShrink: 0 }} />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.album_name || 'Álbum'}</span>
                             </button>
                           )}
-                          {/* Assign video (solo en modo video) */}
+                          {/* Assign video */}
                           {mode === 'video' && (
                             <button onClick={() => setAssignModal(s)}
-                              style={{ background: '#fff8e1', border: '1px solid #fde68a', borderRadius: 7, padding: '7px 11px', cursor: 'pointer', color: '#92400e', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                              style={{ background: s.video_name ? '#fff8e1' : '#f4f4f5', border: `1px solid ${s.video_name ? '#fde68a' : '#e4e4e7'}`, borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: s.video_name ? '#92400e' : '#71717a', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                               <FontAwesomeIcon icon={faVideo} style={{ fontSize: 11 }} />
                               Video
                             </button>
                           )}
-                          <button onClick={() => openPowerLog(s)} style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#0369a1' }} title="Historial">
+                          <button onClick={() => openPowerLog(s)} style={{ background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#71717a' }} title="Historial">
                             <FontAwesomeIcon icon={faHistory} style={{ fontSize: 12 }} />
                           </button>
                           <button onClick={() => { setRenameModal(s); setRenameName(s.device_name); }} style={{ background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#71717a' }} title="Renombrar">
