@@ -51,28 +51,28 @@ function TaskDetailModal({ task, getTaskStatus, getCountdown, completeTask, comp
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
         background: 'rgba(0,0,0,0.75)',
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        padding: '0 0 env(safe-area-inset-bottom, 0)'
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '16px'
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          width: '100%', maxWidth: 480,
+          width: '100%', maxWidth: 420,
+          maxHeight: 'calc(100svh - 32px)',
+          overflowY: 'auto',
           background: '#111',
-          borderRadius: '20px 20px 0 0',
+          borderRadius: 20,
           border: `2px solid ${borderColor}`,
-          borderBottom: 'none',
-          padding: '20px 20px 32px',
-          boxShadow: `0 -4px 30px rgba(0,0,0,0.6)`,
+          padding: '20px 20px 24px',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.8)',
         }}
       >
-        {/* Handle + cerrar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div style={{ width: 36, height: 4, background: '#333', borderRadius: 2, margin: '0 auto' }} />
+        {/* Cerrar */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#555', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: 0 }}
+            style={{ background: '#1e1e1e', border: 'none', color: '#888', fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: '4px 10px', borderRadius: 8 }}
           >
             ×
           </button>
