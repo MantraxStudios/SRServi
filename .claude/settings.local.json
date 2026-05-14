@@ -73,7 +73,11 @@
       "Bash(Get-Content \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\node_modules\\\\instagram-private-api\\\\dist\\\\core\\\\state.js\")",
       "Bash(Select-String -Pattern \"serialize|challengeUrl|challenge\")",
       "Bash(dir \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\")",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(Format-Table -HideTableHeaders)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
