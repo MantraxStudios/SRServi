@@ -1006,7 +1006,7 @@ export default function Tasks() {
 
       {dupStoreModal && (
         <div className="modal-overlay" onClick={() => !dupStoreSaving && setDupStoreModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520, width: '100%' }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 540, width: '100%' }}>
             <div className="modal-header">
               <h2 className="modal-title">
                 <FontAwesomeIcon icon={faStore} style={{ marginRight: 8, color: '#D4AF37' }} />
@@ -1017,17 +1017,13 @@ export default function Tasks() {
               </button>
             </div>
 
-            <p style={{ fontSize: 13, color: '#aaa', marginBottom: 18 }}>
-              Se copiarán las <strong style={{ color: '#f1f5f9' }}>{tasks.length} tareas</strong> de <strong style={{ color: '#D4AF37' }}>{selectedStore.name}</strong> a la tienda destino. Para cada trabajador origen, elige quién recibirá sus tareas.
-            </p>
-
             {allStores.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '24px 0', color: '#666', fontSize: 13 }}>
                 No tienes otras tiendas disponibles.
               </div>
             ) : (
               <>
-                {/* Selector de tienda destino */}
+                {/* Tienda destino */}
                 <div className="form-group">
                   <label>Tienda destino</label>
                   <select
@@ -1041,45 +1037,73 @@ export default function Tasks() {
                   </select>
                 </div>
 
-                {/* Mapeo de trabajadores */}
-                <div style={{ marginBottom: 18 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 10 }}>
-                    Asignar trabajadores
-                  </label>
-
+                {/* Bloque por trabajador */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
                   {[...new Set(tasks.map(t => t.worker_id))].map(sourceWId => {
                     const sourceWorker = workers.find(w => w.id === sourceWId);
                     if (!sourceWorker) return null;
-                    const taskCount = tasks.filter(t => t.worker_id === sourceWId).length;
+                    const workerTasks = tasks.filter(t => t.worker_id === sourceWId)
+                      .sort((a, b) => a.day_of_week - b.day_of_week || a.due_time.localeCompare(b.due_time));
+                    const mapped = workerMapping[sourceWId];
+
                     return (
                       <div key={sourceWId} style={{
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '10px 14px', marginBottom: 8,
-                        background: 'rgba(255,255,255,0.03)', borderRadius: 10,
-                        border: '1px solid rgba(255,255,255,0.07)'
+                        borderRadius: 12,
+                        border: `1px solid ${mapped ? 'rgba(212,175,55,0.35)' : 'rgba(255,255,255,0.08)'}`,
+                        background: mapped ? 'rgba(212,175,55,0.04)' : 'rgba(255,255,255,0.02)',
+                        overflow: 'hidden'
                       }}>
-                        {/* Origen */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: 13, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {sourceWorker.name}
+                        {/* Cabecera del trabajador origen */}
+                        <div style={{
+                          padding: '10px 14px 8px',
+                          borderBottom: '1px solid rgba(255,255,255,0.06)',
+                          display: 'flex', alignItems: 'center', gap: 10
+                        }}>
+                          <div style={{
+                            width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                            background: 'linear-gradient(135deg,#D4AF37,#8B6914)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 12, fontWeight: 900, color: '#000'
+                          }}>
+                            {sourceWorker.name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                           </div>
-                          <div style={{ fontSize: 11, color: '#64748b' }}>{taskCount} tarea{taskCount !== 1 ? 's' : ''}</div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: '#f1f5f9' }}>{sourceWorker.name}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>{workerTasks.length} tarea{workerTasks.length !== 1 ? 's' : ''}</div>
+                          </div>
                         </div>
 
-                        <FontAwesomeIcon icon={faArrowRight} style={{ color: '#D4AF37', fontSize: 12, flexShrink: 0 }} />
+                        {/* Lista de tareas */}
+                        <div style={{ padding: '8px 14px', display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {workerTasks.map(t => (
+                            <span key={t.id} style={{
+                              fontSize: 11, padding: '3px 9px', borderRadius: 20,
+                              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                              color: '#94a3b8', whiteSpace: 'nowrap'
+                            }}>
+                              {DAYS[t.day_of_week].slice(0, 3)} · {t.due_time} — {t.name}
+                            </span>
+                          ))}
+                        </div>
 
-                        {/* Destino */}
-                        <div style={{ flex: 1 }}>
+                        {/* Selector destino */}
+                        <div style={{ padding: '8px 14px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <FontAwesomeIcon icon={faArrowRight} style={{ color: '#D4AF37', fontSize: 11, flexShrink: 0 }} />
+                          <span style={{ fontSize: 12, color: '#64748b', flexShrink: 0 }}>Asignar a</span>
                           {dupTargetWorkers.length === 0 ? (
-                            <span style={{ fontSize: 12, color: '#555', fontStyle: 'italic' }}>Sin trabajadores</span>
+                            <span style={{ fontSize: 12, color: '#555', fontStyle: 'italic' }}>Sin trabajadores en esa tienda</span>
                           ) : (
                             <select
                               value={workerMapping[sourceWId] || ''}
                               onChange={e => setWorkerMapping(prev => ({ ...prev, [sourceWId]: parseInt(e.target.value) }))}
                               disabled={dupStoreSaving}
-                              style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: '#1a2535', color: '#f1f5f9', fontSize: 13 }}
+                              style={{
+                                flex: 1, padding: '7px 10px', borderRadius: 8,
+                                border: `1px solid ${mapped ? 'rgba(212,175,55,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                                background: '#1a2535', color: '#f1f5f9', fontSize: 13
+                              }}
                             >
-                              <option value="">— Elegir —</option>
+                              <option value="">— Elige un trabajador —</option>
                               {dupTargetWorkers.map(w => (
                                 <option key={w.id} value={w.id}>{w.name}</option>
                               ))}
@@ -1106,7 +1130,7 @@ export default function Tasks() {
                     onClick={handleDupStore}
                     disabled={dupStoreSaving || dupTargetWorkers.length === 0}
                   >
-                    {dupStoreSaving ? 'Copiando...' : `Copiar ${tasks.length} tareas`}
+                    {dupStoreSaving ? 'Copiando...' : 'Copiar tareas'}
                   </button>
                 </div>
               </>
