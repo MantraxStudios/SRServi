@@ -10,7 +10,7 @@ import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
-import { execFile, spawn } from 'child_process';
+import { execFile } from 'child_process';
 import speakeasy from 'speakeasy';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
@@ -18,6 +18,7 @@ import * as XLSX from 'xlsx';
 import PluginManager from './plugins/PluginManager.js';
 import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
+import { initInstagramService } from './instagram_autostart.js';
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession } from './database.js';
 import cron from 'node-cron';
 
@@ -9774,7 +9775,7 @@ async function startServer() {
     });
 
     // Instagram Python service — se inicia automáticamente con el servidor
-    startInstagramService();
+    initInstagramService().catch(e => console.warn('[IG-Service] Error autostart:', e.message));
 
     // León IA — configuración automática en background (no bloquea el servidor)
     if (process.platform === 'linux') {
@@ -9784,46 +9785,6 @@ async function startServer() {
     console.error('Error al iniciar el servidor:', error);
     process.exit(1);
   }
-}
-
-function startInstagramService() {
-  const isWin  = process.platform === 'win32';
-  const pip    = isWin ? 'pip' : 'pip3';
-  const reqFile = path.join(__serverDir, 'requirements_instagram.txt');
-
-  function launchUvicorn() {
-    const args = [
-      'instagram_python_service:app',
-      '--host', '127.0.0.1',
-      '--port', '8787',
-      '--log-level', 'warning',
-    ];
-    const proc = spawn('uvicorn', args, { cwd: __serverDir, stdio: 'pipe' });
-    proc.stdout.on('data', d => process.stdout.write(`[IG-Service] ${d}`));
-    proc.stderr.on('data', d => process.stderr.write(`[IG-Service] ${d}`));
-    proc.on('close', code => {
-      if (code !== 0 && code !== null) {
-        console.warn(`[IG-Service] terminó (código ${code}), reiniciando en 5s...`);
-        setTimeout(launchUvicorn, 5000);
-      }
-    });
-    process.on('exit', () => proc.kill());
-    console.log('[IG-Service] Servicio Instagram iniciado en puerto 8787');
-  }
-
-  // Instalar dependencias Python automáticamente, luego lanzar uvicorn
-  const install = spawn(pip, ['install', '-r', reqFile, '-q', '--disable-pip-version-check'], {
-    cwd: __serverDir, stdio: 'pipe',
-  });
-  install.stderr.on('data', d => process.stderr.write(`[IG-Service] pip: ${d}`));
-  install.on('close', code => {
-    if (code !== 0) console.warn('[IG-Service] pip install tuvo errores, intentando igualmente...');
-    launchUvicorn();
-  });
-  install.on('error', err => {
-    console.warn(`[IG-Service] pip no encontrado (${err.message}), intentando igualmente...`);
-    launchUvicorn();
-  });
 }
 
 startServer();
