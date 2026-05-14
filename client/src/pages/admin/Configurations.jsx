@@ -1,596 +1,479 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faMoneyBillWave, faCreditCard, faCheck, faCreditCardAlt, faUtensils, faShoppingBag, faExclamationTriangle, faDesktop, faHashtag, faPercent, faTruck } from '@fortawesome/free-solid-svg-icons';
+import {
+  faMoneyBillWave, faCreditCard, faUtensils, faShoppingBag,
+  faHashtag, faPercent, faTruck, faTabletAlt, faClock,
+  faCheck, faExclamationTriangle, faSave, faSync, faPlus,
+  faChevronDown, faChevronUp
+} from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
-function Configurations() {
+const API = 'https://srservi2.srautomatic.com';
+const GOLD = '#D4AF37';
+
+const DEFAULT_FORM = {
+  name: 'Principal',
+  description: '',
+  accept_cash: true,
+  accept_card: true,
+  is_active: true,
+  is_default: true,
+  default_terminal: '',
+  allow_serve: true,
+  allow_takeout: true,
+  hide_decimals: false,
+  allow_table_service: false,
+  tip_percentage: 0,
+  delivery_enabled: false,
+  delivery_payment_methods: 'tuu,mercadopago'
+};
+
+function Toggle({ active, onClick, icon, label, sub, color = '#16a34a', activeBg = '#f0fdf4' }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+        borderRadius: 10, cursor: 'pointer', width: '100%', textAlign: 'left',
+        border: `2px solid ${active ? color : '#e8e8e8'}`,
+        background: active ? activeBg : '#fafafa',
+        transition: 'all 0.15s'
+      }}
+    >
+      <FontAwesomeIcon icon={icon} style={{ fontSize: 18, color: active ? color : '#ccc', flexShrink: 0 }} />
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: active ? '#111' : '#888' }}>{label}</div>
+        {sub && <div style={{ fontSize: 11, color: '#aaa', marginTop: 1 }}>{sub}</div>}
+      </div>
+      <div style={{
+        width: 20, height: 20, borderRadius: '50%',
+        border: `2px solid ${active ? color : '#ddd'}`,
+        background: active ? color : 'transparent',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+      }}>
+        {active && <FontAwesomeIcon icon={faCheck} style={{ fontSize: 9, color: '#fff' }} />}
+      </div>
+    </button>
+  );
+}
+
+function ConfigCard({ config, isDefault, onSave, saving }) {
+  const [form, setForm] = useState(config);
+  const [open, setOpen] = useState(isDefault);
+  const dirty = JSON.stringify(form) !== JSON.stringify(config);
+
+  const set = (key, val) => setForm(p => ({ ...p, [key]: val }));
+
+  return (
+    <div style={{
+      border: `1.5px solid ${isDefault ? GOLD : '#e8e8e8'}`,
+      borderRadius: 14, overflow: 'hidden', marginBottom: 12,
+      background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,.04)'
+    }}>
+      {/* Header */}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+          padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer',
+          borderBottom: open ? '1px solid #f0f0f0' : 'none'
+        }}
+      >
+        <div style={{
+          width: 8, height: 8, borderRadius: '50%',
+          background: form.is_active ? '#22c55e' : '#e5e7eb', flexShrink: 0
+        }} />
+        <span style={{ fontWeight: 700, fontSize: 15, color: '#111', flex: 1, textAlign: 'left' }}>
+          {form.name}
+        </span>
+        {isDefault && (
+          <span style={{ fontSize: 11, background: '#faf7ee', color: '#92400e', border: `1px solid ${GOLD}`, borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>
+            Predeterminada
+          </span>
+        )}
+        <FontAwesomeIcon icon={open ? faChevronUp : faChevronDown} style={{ color: '#aaa', fontSize: 12 }} />
+      </button>
+
+      {open && (
+        <div style={{ padding: '18px 18px 20px' }}>
+          {/* Payment methods */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+              Métodos de pago
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <Toggle active={form.accept_cash} onClick={() => set('accept_cash', !form.accept_cash)}
+                icon={faMoneyBillWave} label="Efectivo" sub="Pago en caja" color="#16a34a" activeBg="#f0fdf4" />
+              <Toggle active={form.accept_card} onClick={() => set('accept_card', !form.accept_card)}
+                icon={faCreditCard} label="Tarjeta / POS" sub="Débito · Crédito · QR" color="#2563eb" activeBg="#eff6ff" />
+            </div>
+            {!form.accept_cash && !form.accept_card && (
+              <p style={{ margin: '8px 0 0', fontSize: 12, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <FontAwesomeIcon icon={faExclamationTriangle} /> Activa al menos un método de pago
+              </p>
+            )}
+          </div>
+
+          {/* Order types */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+              Tipo de pedido
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <Toggle active={form.allow_serve} onClick={() => set('allow_serve', !form.allow_serve)}
+                icon={faUtensils} label="Comer aquí" sub="Servir en mesa" color="#16a34a" activeBg="#f0fdf4" />
+              <Toggle active={form.allow_takeout} onClick={() => set('allow_takeout', !form.allow_takeout)}
+                icon={faShoppingBag} label="Para llevar" sub="Pedido para llevar" color="#2563eb" activeBg="#eff6ff" />
+            </div>
+          </div>
+
+          {/* Extras */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+              Opciones adicionales
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <Toggle active={form.hide_decimals} onClick={() => set('hide_decimals', !form.hide_decimals)}
+                icon={faHashtag} label="Ocultar decimales (.00)" sub="Los precios enteros no mostrarán centavos" color="#475569" activeBg="#f8fafc" />
+              <Toggle active={form.allow_table_service} onClick={() => set('allow_table_service', !form.allow_table_service)}
+                icon={faHashtag} label="Llevar a mesa" sub="Pedir número de mesa al confirmar pago" color="#b45309" activeBg="#fffdf0" />
+
+              {/* Tip */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                borderRadius: 10, border: `2px solid ${form.tip_percentage > 0 ? '#059669' : '#e8e8e8'}`,
+                background: form.tip_percentage > 0 ? '#f0fdf4' : '#fafafa'
+              }}>
+                <FontAwesomeIcon icon={faPercent} style={{ fontSize: 18, color: form.tip_percentage > 0 ? '#059669' : '#ccc', flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: form.tip_percentage > 0 ? '#111' : '#888' }}>Propina sugerida</div>
+                  <div style={{ fontSize: 11, color: '#aaa' }}>0 = sin propina</div>
+                </div>
+                <input
+                  type="number" min="0" max="100" step="1" value={form.tip_percentage}
+                  onChange={e => set('tip_percentage', Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)))}
+                  style={{ width: 56, padding: '6px 8px', border: '2px solid #e0e0e0', borderRadius: 8, fontSize: 14, fontWeight: 700, textAlign: 'center' }}
+                />
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#666' }}>%</span>
+              </div>
+
+              {/* QR delivery */}
+              <Toggle active={form.delivery_enabled} onClick={() => set('delivery_enabled', !form.delivery_enabled)}
+                icon={faTruck} label="Pedidos por QR" sub="Permite pedidos desde el teléfono del cliente" color="#b45309" activeBg="#fffdf0" />
+            </div>
+          </div>
+
+          {/* Active / Default toggles */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+            <Toggle active={form.is_active} onClick={() => set('is_active', !form.is_active)}
+              icon={faCheck} label="Activa" color="#16a34a" activeBg="#f0fdf4" />
+            <Toggle active={form.is_default} onClick={() => set('is_default', !form.is_default)}
+              icon={faCheck} label="Predeterminada" color="#7c3aed" activeBg="#f5f3ff" />
+          </div>
+
+          <button
+            type="button"
+            disabled={saving || (!dirty && config.id)}
+            onClick={() => onSave(form)}
+            style={{
+              width: '100%', padding: '12px', borderRadius: 10, border: 'none',
+              background: dirty ? '#111' : '#f0f0f0',
+              color: dirty ? '#fff' : '#aaa',
+              fontWeight: 700, fontSize: 14, cursor: dirty ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+            }}
+          >
+            <FontAwesomeIcon icon={saving ? faSync : faSave} spin={saving} />
+            {saving ? 'Guardando...' : dirty ? 'Guardar cambios' : 'Sin cambios'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeviceCard({ device, configs, onSave, saving }) {
+  const [label, setLabel] = useState(device.label || '');
+  const [configId, setConfigId] = useState(device.config_id || '');
+  const [restartTime, setRestartTime] = useState(device.restart_time || '');
+  const dirty = label !== (device.label || '') || String(configId) !== String(device.config_id || '') || String(restartTime) !== String(device.restart_time || '');
+
+  const online = device.last_seen && (new Date() - new Date(device.last_seen)) < 300000;
+  const formatDate = (d) => {
+    if (!d) return 'Nunca';
+    const diff = Math.floor((new Date() - new Date(d)) / 60000);
+    if (diff < 1) return 'Ahora';
+    if (diff < 60) return `Hace ${diff}m`;
+    if (diff < 1440) return `Hace ${Math.floor(diff / 60)}h`;
+    return new Date(d).toLocaleDateString('es-CL');
+  };
+
+  return (
+    <div style={{
+      background: '#fff', border: `1.5px solid ${online ? '#bbf7d0' : '#e8e8e8'}`,
+      borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,.04)'
+    }}>
+      {/* Status row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+          background: online ? '#f0fdf4' : '#f5f5f5',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <FontAwesomeIcon icon={faTabletAlt} style={{ fontSize: 18, color: online ? '#16a34a' : '#aaa' }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%', background: online ? '#22c55e' : '#d1d5db',
+              display: 'inline-block', flexShrink: 0
+            }} />
+            <span style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>{device.label || 'Sin nombre'}</span>
+            {online && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>En línea</span>}
+          </div>
+          <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
+            Último acceso: {formatDate(device.last_seen)}
+          </div>
+        </div>
+      </div>
+
+      {/* Edit fields */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div>
+          <label style={{ fontSize: 11, fontWeight: 700, color: '#888', display: 'block', marginBottom: 4 }}>NOMBRE DEL DISPOSITIVO</label>
+          <input
+            value={label}
+            onChange={e => setLabel(e.target.value)}
+            placeholder="Ej: Tótem entrada, Caja 1..."
+            style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e2e2e2', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: '#888', display: 'block', marginBottom: 4 }}>CONFIGURACIÓN</label>
+            <select
+              value={configId}
+              onChange={e => setConfigId(e.target.value)}
+              style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e2e2e2', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff', boxSizing: 'border-box' }}
+            >
+              <option value="">Predeterminada</option>
+              {configs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: '#888', display: 'block', marginBottom: 4 }}>
+              <FontAwesomeIcon icon={faClock} style={{ marginRight: 4 }} />REINICIO (segundos)
+            </label>
+            <input
+              type="number" min="0" value={restartTime} onChange={e => setRestartTime(e.target.value)}
+              placeholder="0 = sin reinicio"
+              style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e2e2e2', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={() => onSave(device.id, { label, config_id: configId ? parseInt(configId) : null, restart_time: restartTime || null })}
+          disabled={!dirty || saving}
+          style={{
+            padding: '10px', borderRadius: 9, border: 'none',
+            background: dirty ? '#111' : '#f0f0f0',
+            color: dirty ? '#fff' : '#bbb',
+            fontWeight: 700, fontSize: 13, cursor: dirty ? 'pointer' : 'default',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7
+          }}
+        >
+          <FontAwesomeIcon icon={saving ? faSync : faSave} spin={saving} />
+          {saving ? 'Guardando...' : dirty ? 'Guardar' : 'Sin cambios'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function Configurations() {
   const { selectedStore } = useStore();
-  const [configurations, setConfigurations] = useState([]);
+  const [configs, setConfigs] = useState([]);
+  const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingConfig, setEditingConfig] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    accept_cash: true,
-    accept_card: true,
-    is_active: true,
-    is_default: false,
-    default_terminal: '',
-    allow_serve: true,
-    allow_takeout: true,
-    hide_decimals: false,
-    allow_table_service: false,
-    tip_percentage: 0,
-    delivery_enabled: false,
-    delivery_payment_methods: 'tuu,mercadopago'
-  });
-  const [error, setError] = useState('');
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [savingDevice, setSavingDevice] = useState(null);
+  const [showAddConfig, setShowAddConfig] = useState(false);
+  const [newConfigName, setNewConfigName] = useState('');
 
   useEffect(() => {
-    if (selectedStore) {
-      setLoading(true);
-      fetchConfigurations();
-    } else {
-      setLoading(false);
-      setConfigurations([]);
-    }
+    if (selectedStore) loadAll();
+    else { setLoading(false); setConfigs([]); setDevices([]); }
   }, [selectedStore]);
 
-  const fetchConfigurations = async () => {
-    if (!selectedStore) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/store-configurations?store_id=${selectedStore.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      setConfigurations(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching configurations:', error);
-    } finally {
-      setLoading(false);
-    }
+  const loadAll = async () => {
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    const [cfgRes, devRes] = await Promise.all([
+      fetch(`/api/store-configurations?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(API + `/api/store-devices?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } })
+    ]);
+    const cfgData = await cfgRes.json();
+    const devData = devRes.ok ? await devRes.json() : [];
+    setConfigs(Array.isArray(cfgData) ? cfgData : []);
+    setDevices(Array.isArray(devData) ? devData : []);
+    setLoading(false);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (!selectedStore?.id) {
-      setError('Selecciona una tienda primero');
-      return;
-    }
-
-    if (!formData.accept_cash && !formData.accept_card) {
-      setError('Debes aceptar al menos un método de pago');
-      return;
-    }
-
-    if (!formData.allow_serve && !formData.allow_takeout) {
-      setError('Debes habilitar al menos una opción de pedido (comer aquí o llevar)');
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('token');
-      const url = editingConfig
-        ? `/api/store-configurations/${editingConfig.id}`
-        : '/api/store-configurations';
-
-      const response = await fetch(url, {
-        method: editingConfig ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ ...formData, store_id: selectedStore.id })
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Error al guardar la configuración');
-      }
-
-      setShowModal(false);
-      setEditingConfig(null);
-      setFormData({
-        name: '',
-        description: '',
-        accept_cash: true,
-        accept_card: true,
-        is_active: true,
-        is_default: false,
-        allow_serve: true,
-        allow_takeout: true,
-        hide_decimals: false,
-        allow_table_service: false,
-        delivery_enabled: false,
-        delivery_payment_methods: 'tuu,mercadopago'
-      });
-      fetchConfigurations();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleEdit = (config) => {
-    setEditingConfig(config);
-    setFormData({
-      name: config.name,
-      description: config.description || '',
-      accept_cash: Boolean(config.accept_cash),
-      accept_card: Boolean(config.accept_card),
-      is_active: Boolean(config.is_active),
-      is_default: Boolean(config.is_default),
-      default_terminal: config.default_terminal || '',
-      allow_serve: Boolean(config.allow_serve),
-      allow_takeout: Boolean(config.allow_takeout),
-      hide_decimals: Boolean(config.hide_decimals),
-      allow_table_service: Boolean(config.allow_table_service),
-      tip_percentage: parseFloat(config.tip_percentage) || 0,
-      delivery_enabled: Boolean(config.delivery_enabled),
-      delivery_payment_methods: config.delivery_payment_methods || 'tuu,mercadopago'
+  const saveConfig = async (form) => {
+    setSavingConfig(true);
+    const token = localStorage.getItem('token');
+    const isNew = !form.id;
+    await fetch(isNew ? '/api/store-configurations' : `/api/store-configurations/${form.id}`, {
+      method: isNew ? 'POST' : 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...form, store_id: selectedStore.id })
     });
-    setShowModal(true);
+    setSavingConfig(false);
+    loadAll();
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar esta configuración?')) return;
-
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/store-configurations/${id}?store_id=${selectedStore.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al eliminar la configuración');
-      }
-
-      fetchConfigurations();
-    } catch (error) {
-      alert(error.message);
-    }
-  };
-
-  const openModal = () => {
-    setEditingConfig(null);
-    setFormData({
-      name: '',
-      description: '',
-      accept_cash: true,
-      accept_card: true,
-      is_active: true,
-      is_default: false,
-      is_minimarket: false,
-      default_minimarket_terminal: '',
-      default_terminal: '',
-      allow_serve: true,
-      allow_takeout: true,
-      hide_decimals: false,
-      allow_table_service: false,
-      delivery_enabled: false,
-      delivery_payment_methods: 'tuu,mercadopago'
+  const saveDevice = async (deviceId, data) => {
+    setSavingDevice(deviceId);
+    const token = localStorage.getItem('token');
+    await fetch(API + `/api/store-devices/${deviceId}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
     });
-    setShowModal(true);
+    setSavingDevice(null);
+    loadAll();
   };
 
-  if (loading) {
-    return <div className="loading">Cargando...</div>;
-  }
+  const addConfig = async () => {
+    if (!newConfigName.trim()) return;
+    await saveConfig({ ...DEFAULT_FORM, name: newConfigName.trim(), is_default: false });
+    setShowAddConfig(false);
+    setNewConfigName('');
+  };
+
+  if (!selectedStore) return (
+    <div className="empty-state">
+      <p className="empty-state-text">Selecciona una tienda</p>
+    </div>
+  );
+
+  if (loading) return <div className="loading">Cargando...</div>;
+
+  const defaultConfig = configs.find(c => c.is_default) || configs[0];
+  const otherConfigs = configs.filter(c => c.id !== defaultConfig?.id);
 
   return (
     <>
       <header className="admin-header">
-        <h1>Configuraciones de Pago</h1>
-        <button className="btn btn-primary" onClick={openModal}>
-          <FontAwesomeIcon icon={faPlus} />
-          Nueva Configuracion
-        </button>
+        <div>
+          <h1>Punto de Venta</h1>
+          <p className="text-sm text-muted">Pago, pedidos y tótems — {selectedStore.name}</p>
+        </div>
       </header>
 
-      <div className="admin-main">
-        {error && <div className="error">{error}</div>}
+      <div className="admin-main" style={{ maxWidth: 680 }}>
 
-        <div className="card">
-          {configurations.length === 0 ? (
-            <div className="empty-state">
-              <p className="empty-state-text">
-                No hay configuraciones. Crea una para definir los metodos de pago disponibles.
-              </p>
+        {/* ── SECCIÓN 1: Configuración de pago ── */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>
+            Configuración de pago
+          </div>
+
+          {configs.length === 0 ? (
+            <div style={{
+              background: '#fff', border: '1.5px dashed #e0e0e0', borderRadius: 14,
+              padding: '28px 24px', textAlign: 'center'
+            }}>
+              <p style={{ color: '#aaa', fontSize: 14, margin: '0 0 16px' }}>No hay configuración creada aún</p>
+              <button
+                onClick={() => saveConfig(DEFAULT_FORM)}
+                disabled={savingConfig}
+                style={{ padding: '10px 22px', borderRadius: 9, border: 'none', background: GOLD, color: '#000', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+              >
+                <FontAwesomeIcon icon={faPlus} style={{ marginRight: 7 }} />
+                Crear configuración predeterminada
+              </button>
             </div>
           ) : (
-            <div className="admin-table-wrapper">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>Efectivo</th>
-                    <th>Tarjeta</th>
-                    <th>POS</th>
-                    <th>Activo</th>
-                    <th>Predeterminada</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                {configurations.map(config => (
-                  <tr key={config.id}>
-                    <td className="font-semibold">{config.name}</td>
-                    <td>
-                      {config.accept_cash ? (
-                        <span className="icon-success"><FontAwesomeIcon icon={faCheck} /></span>
-                      ) : (
-                        <span className="icon-danger">-</span>
-                      )}
-                    </td>
-                    <td>
-                      {config.accept_card ? (
-                        <span className="icon-success"><FontAwesomeIcon icon={faCheck} /></span>
-                      ) : (
-                        <span className="icon-danger">-</span>
-                      )}
-                    </td>
-                    <td>
-                      {config.default_terminal ? (
-                        <span style={{ fontSize: '12px', color: '#555' }}>
-                          <FontAwesomeIcon icon={faDesktop} style={{ color: '#666', marginRight: '4px' }} />
-                          #{config.default_terminal}
-                        </span>
-                      ) : (
-                        <span className="text-muted">-</span>
-                      )}
-                    </td>
-                    <td>
-                      {config.is_active ? (
-                        <span className="badge badge-success">Activo</span>
-                      ) : (
-                        <span className="badge badge-secondary">Inactivo</span>
-                      )}
-                    </td>
-                    <td>
-                      {config.is_default ? (
-                        <span className="badge badge-primary"><FontAwesomeIcon icon={faCheck} /> Predeterminada</span>
-                      ) : (
-                        <span className="text-muted">-</span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="flex gap-2">
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          onClick={() => handleEdit(config)}
-                        >
-                          <FontAwesomeIcon icon={faEdit} />
-                        </button>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => handleDelete(config.id)}
-                        >
-                          <FontAwesomeIcon icon={faTrash} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <>
+              {defaultConfig && (
+                <ConfigCard
+                  key={defaultConfig.id}
+                  config={defaultConfig}
+                  isDefault={true}
+                  onSave={saveConfig}
+                  saving={savingConfig}
+                />
+              )}
+              {otherConfigs.map(cfg => (
+                <ConfigCard
+                  key={cfg.id}
+                  config={cfg}
+                  isDefault={false}
+                  onSave={saveConfig}
+                  saving={savingConfig}
+                />
+              ))}
+
+              {/* Add config */}
+              {showAddConfig ? (
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <input
+                    autoFocus
+                    value={newConfigName}
+                    onChange={e => setNewConfigName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addConfig()}
+                    placeholder="Nombre de la configuración"
+                    style={{ flex: 1, padding: '9px 12px', border: '1.5px solid #e2e2e2', borderRadius: 9, fontSize: 13, outline: 'none' }}
+                  />
+                  <button onClick={addConfig} style={{ padding: '9px 16px', borderRadius: 9, border: 'none', background: '#111', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>Crear</button>
+                  <button onClick={() => setShowAddConfig(false)} style={{ padding: '9px 14px', borderRadius: 9, border: '1px solid #e2e2e2', background: '#fff', cursor: 'pointer', color: '#888' }}>✕</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowAddConfig(true)}
+                  style={{ marginTop: 4, padding: '8px 14px', borderRadius: 9, border: '1.5px dashed #ddd', background: 'transparent', color: '#aaa', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <FontAwesomeIcon icon={faPlus} /> Agregar configuración extra
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* ── SECCIÓN 2: Tótems ── */}
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>
+            Tótems registrados
+          </div>
+          <p style={{ fontSize: 12, color: '#bbb', margin: '0 0 12px' }}>
+            Se registran automáticamente al abrir la tienda desde un dispositivo
+          </p>
+
+          {devices.length === 0 ? (
+            <div style={{ background: '#fafafa', border: '1.5px dashed #e0e0e0', borderRadius: 14, padding: '28px 24px', textAlign: 'center' }}>
+              <FontAwesomeIcon icon={faTabletAlt} style={{ fontSize: 32, color: '#ddd', marginBottom: 10 }} />
+              <p style={{ color: '#bbb', fontSize: 13, margin: 0 }}>Ningún dispositivo conectado aún.<br />Abre la tienda desde un tablet o computador para que aparezca aquí.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 12 }}>
+              {devices.map(device => (
+                <DeviceCard
+                  key={device.id}
+                  device={device}
+                  configs={configs}
+                  onSave={saveDevice}
+                  saving={savingDevice === device.id}
+                />
+              ))}
             </div>
           )}
         </div>
       </div>
-
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
-            <div className="modal-header">
-              <h2 className="modal-title">
-                {editingConfig ? 'Editar Configuracion' : 'Nueva Configuracion'}
-              </h2>
-              <button className="modal-close" onClick={() => setShowModal(false)}>
-                &times;
-              </button>
-            </div>
-            <form onSubmit={handleSubmit}>
-              {error && <div className="error" style={{ marginBottom: '16px' }}>{error}</div>}
-
-              <div className="form-group">
-                <label>Nombre</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  placeholder="Ej: Tarjeta + Efectivo"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Descripcion <span style={{ fontWeight: 400, color: '#aaa', fontSize: '12px' }}>(opcional)</span></label>
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Ej: Solo pagos con tarjeta de credito o debito"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Métodos de Pago</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setFormData(p => ({ ...p, accept_cash: !p.accept_cash }))}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px',
-                      borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
-                      border: `2px solid ${formData.accept_cash ? '#16a34a' : '#e0e0e0'}`,
-                      background: formData.accept_cash ? '#f0fdf4' : '#fafafa',
-                      color: formData.accept_cash ? '#15803d' : '#666'
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '20px', color: formData.accept_cash ? '#16a34a' : '#aaa' }} />
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontWeight: '700', fontSize: '14px' }}>Efectivo</div>
-                      <div style={{ fontSize: '11px', opacity: 0.7 }}>Pago en caja</div>
-                    </div>
-                    {formData.accept_cash && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#16a34a' }} />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setFormData(p => ({ ...p, accept_card: !p.accept_card }))}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px',
-                      borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
-                      border: `2px solid ${formData.accept_card ? '#2563eb' : '#e0e0e0'}`,
-                      background: formData.accept_card ? '#eff6ff' : '#fafafa',
-                      color: formData.accept_card ? '#1d4ed8' : '#666'
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '20px', color: formData.accept_card ? '#2563eb' : '#aaa' }} />
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontWeight: '700', fontSize: '14px' }}>Tarjeta / POS</div>
-                      <div style={{ fontSize: '11px', opacity: 0.7 }}>Débito · Crédito · QR</div>
-                    </div>
-                    {formData.accept_card && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#2563eb' }} />}
-                  </button>
-                </div>
-                {!formData.accept_cash && !formData.accept_card && (
-                  <p className="validation-warning" style={{ marginTop: '8px' }}>
-                    <FontAwesomeIcon icon={faExclamationTriangle} /> Debes habilitar al menos un método de pago
-                  </p>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label>Tipo de Pedido</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setFormData(p => ({ ...p, allow_serve: !p.allow_serve }))}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px',
-                      borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
-                      border: `2px solid ${formData.allow_serve ? '#16a34a' : '#e0e0e0'}`,
-                      background: formData.allow_serve ? '#f0fdf4' : '#fafafa',
-                      color: formData.allow_serve ? '#15803d' : '#666'
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faUtensils} style={{ fontSize: '18px', color: formData.allow_serve ? '#16a34a' : '#aaa' }} />
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontWeight: '700', fontSize: '14px' }}>Comer aquí</div>
-                      <div style={{ fontSize: '11px', opacity: 0.7 }}>Servir en mesa</div>
-                    </div>
-                    {formData.allow_serve && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#16a34a' }} />}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setFormData(p => ({ ...p, allow_takeout: !p.allow_takeout }))}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px',
-                      borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
-                      border: `2px solid ${formData.allow_takeout ? '#2563eb' : '#e0e0e0'}`,
-                      background: formData.allow_takeout ? '#eff6ff' : '#fafafa',
-                      color: formData.allow_takeout ? '#1d4ed8' : '#666'
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faShoppingBag} style={{ fontSize: '18px', color: formData.allow_takeout ? '#2563eb' : '#aaa' }} />
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontWeight: '700', fontSize: '14px' }}>Para llevar</div>
-                      <div style={{ fontSize: '11px', opacity: 0.7 }}>Pedido para llevar</div>
-                    </div>
-                    {formData.allow_takeout && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#2563eb' }} />}
-                  </button>
-                </div>
-                {!formData.allow_serve && !formData.allow_takeout && (
-                  <p className="validation-warning" style={{ marginTop: '8px' }}>
-                    <FontAwesomeIcon icon={faExclamationTriangle} /> Al menos una opción de pedido debe estar habilitada
-                  </p>
-                )}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-                <button
-                  type="button"
-                  onClick={() => setFormData(p => ({ ...p, is_active: !p.is_active }))}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px',
-                    borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
-                    border: `2px solid ${formData.is_active ? '#16a34a' : '#e0e0e0'}`,
-                    background: formData.is_active ? '#f0fdf4' : '#fafafa',
-                    color: formData.is_active ? '#15803d' : '#666'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faCheck} style={{ fontSize: '18px', color: formData.is_active ? '#16a34a' : '#aaa' }} />
-                  <span style={{ fontSize: '12px', fontWeight: '700' }}>Activo</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFormData(p => ({ ...p, is_default: !p.is_default }))}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px',
-                    borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
-                    border: `2px solid ${formData.is_default ? '#7c3aed' : '#e0e0e0'}`,
-                    background: formData.is_default ? '#f5f3ff' : '#fafafa',
-                    color: formData.is_default ? '#6d28d9' : '#666'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faCheck} style={{ fontSize: '18px', color: formData.is_default ? '#7c3aed' : '#aaa' }} />
-                  <span style={{ fontSize: '12px', fontWeight: '700' }}>Predeterminada</span>
-                </button>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <button
-                  type="button"
-                  onClick={() => setFormData(p => ({ ...p, hide_decimals: !p.hide_decimals }))}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', width: '100%',
-                    borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
-                    border: `2px solid ${formData.hide_decimals ? '#475569' : '#e0e0e0'}`,
-                    background: formData.hide_decimals ? '#f8fafc' : '#fafafa',
-                    color: formData.hide_decimals ? '#1e293b' : '#888'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faCreditCardAlt} style={{ fontSize: '16px', color: formData.hide_decimals ? '#475569' : '#ccc' }} />
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px' }}>Ocultar decimales (.00)</div>
-                    <div style={{ fontSize: '11px', opacity: 0.65 }}>Los precios enteros no mostrarán centavos</div>
-                  </div>
-                  {formData.hide_decimals && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#475569' }} />}
-                </button>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <button
-                  type="button"
-                  onClick={() => setFormData(p => ({ ...p, allow_table_service: !p.allow_table_service }))}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', width: '100%',
-                    borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
-                    border: `2px solid ${formData.allow_table_service ? '#D4AF37' : '#e0e0e0'}`,
-                    background: formData.allow_table_service ? '#fffdf0' : '#fafafa',
-                    color: formData.allow_table_service ? '#92400e' : '#888'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faHashtag} style={{ fontSize: '16px', color: formData.allow_table_service ? '#D4AF37' : '#ccc' }} />
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px' }}>Llevar a mesa</div>
-                    <div style={{ fontSize: '11px', opacity: 0.65 }}>Pedir número de mesa al confirmar pago</div>
-                  </div>
-                  {formData.allow_table_service && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#D4AF37' }} />}
-                </button>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px',
-                  borderRadius: '10px', border: `2px solid ${formData.tip_percentage > 0 ? '#059669' : '#e0e0e0'}`,
-                  background: formData.tip_percentage > 0 ? '#f0fdf4' : '#fafafa'
-                }}>
-                  <FontAwesomeIcon icon={faPercent} style={{ fontSize: '16px', color: formData.tip_percentage > 0 ? '#059669' : '#ccc', flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px', color: formData.tip_percentage > 0 ? '#065f46' : '#888' }}>Propina sugerida</div>
-                    <div style={{ fontSize: '11px', color: '#999' }}>0 = sin propina · el cliente puede aceptarla o cambiarla al pagar</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={formData.tip_percentage}
-                      onChange={(e) => setFormData(p => ({ ...p, tip_percentage: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) }))}
-                      style={{ width: '64px', padding: '6px 8px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '14px', fontWeight: '700', textAlign: 'center' }}
-                    />
-                    <span style={{ fontWeight: '700', fontSize: '14px', color: '#666' }}>%</span>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontWeight: '700', fontSize: '13px', color: '#555', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <FontAwesomeIcon icon={faTruck} style={{ color: '#D4AF37' }} /> Pedidos por QR
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFormData(p => ({ ...p, delivery_enabled: !p.delivery_enabled }))}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', width: '100%',
-                    borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '10px',
-                    border: `2px solid ${formData.delivery_enabled ? '#D4AF37' : '#e0e0e0'}`,
-                    background: formData.delivery_enabled ? '#fffdf0' : '#fafafa',
-                    color: formData.delivery_enabled ? '#92400e' : '#888'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faTruck} style={{ fontSize: '16px', color: formData.delivery_enabled ? '#D4AF37' : '#ccc' }} />
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontWeight: '700', fontSize: '13px' }}>Habilitar pedidos por QR</div>
-                    <div style={{ fontSize: '11px', opacity: 0.65 }}>Permite pedidos desde el teléfono con el QR de la tienda</div>
-                  </div>
-                  {formData.delivery_enabled && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color: '#D4AF37' }} />}
-                </button>
-                {formData.delivery_enabled && (
-                  <div>
-                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>Métodos de pago para pedidos por QR:</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                      {[
-                        { key: 'tuu', label: 'TUU', icon: faCreditCard, color: '#2563eb' },
-                        { key: 'mercadopago', label: 'MercadoPago', icon: faMoneyBillWave, color: '#009ee3' }
-                      ].map(({ key, label, icon, color }) => {
-                        const methods = formData.delivery_payment_methods.split(',').map(m => m.trim());
-                        const active = methods.includes(key);
-                        const toggle = () => {
-                          const next = active ? methods.filter(m => m !== key) : [...methods, key];
-                          setFormData(p => ({ ...p, delivery_payment_methods: next.join(',') }));
-                        };
-                        return (
-                          <button
-                            key={key}
-                            type="button"
-                            onClick={toggle}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px',
-                              borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s',
-                              border: `2px solid ${active ? color : '#e0e0e0'}`,
-                              background: active ? '#f0f7ff' : '#fafafa',
-                              color: active ? color : '#888'
-                            }}
-                          >
-                            <FontAwesomeIcon icon={icon} style={{ fontSize: '16px', color: active ? color : '#ccc' }} />
-                            <span style={{ fontWeight: '700', fontSize: '13px' }}>{label}</span>
-                            {active && <FontAwesomeIcon icon={faCheck} style={{ marginLeft: 'auto', color }} />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="form-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  {editingConfig ? 'Actualizar' : 'Crear'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </>
   );
 }
-
-export default Configurations;

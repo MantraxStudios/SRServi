@@ -1171,6 +1171,17 @@ app.get('/api/stores/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Generic image upload — used by Procedures and other modules
+app.post('/api/upload', authenticateToken, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No se recibió imagen' });
+    const url = `/uploads/${req.file.filename}`;
+    res.json({ url });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/stores', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
     const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name } = req.body;

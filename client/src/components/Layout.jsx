@@ -553,8 +553,8 @@ function Layout() {
                           <span>Colores y QR</span>
                         </NavLink>
                         <NavLink to="/admin/configurations" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faCreditCard} />
-                          <span>Pagos</span>
+                          <FontAwesomeIcon icon={faTabletAlt} />
+                          <span>Tótems y Pagos</span>
                         </NavLink>
                         <NavLink to="/admin/worker-config" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faCreditCard} />
@@ -563,10 +563,6 @@ function Layout() {
                         <NavLink to="/admin/store-pin" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faLock} />
                           <span>PIN Tienda</span>
-                        </NavLink>
-                        <NavLink to="/admin/devices" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faTabletAlt} />
-                          <span>Dispositivos</span>
                         </NavLink>
                         <NavLink to="/admin/screensaver" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faTv} />
