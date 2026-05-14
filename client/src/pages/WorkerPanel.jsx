@@ -10,6 +10,18 @@ const DAY_NAMES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','S
 const DAY_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const WEEK_ORDER = [1,2,3,4,5,6,0];
 
+function AddonChip({ name, img, prefix, size = 'sm' }) {
+  const dim = size === 'md' ? 22 : 16;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f5f5f5', borderRadius: 5, padding: size === 'md' ? '3px 7px 3px 3px' : '2px 5px 2px 2px', fontSize: size === 'md' ? 12 : 11, color: '#444', whiteSpace: 'nowrap' }}>
+      {img
+        ? <img src={img} alt={name} style={{ width: dim, height: dim, borderRadius: 3, objectFit: 'cover', flexShrink: 0 }} />
+        : prefix && <span style={{ color: '#888', fontSize: 10 }}>{prefix}</span>}
+      {!img && prefix && ' '}{name}
+    </span>
+  );
+}
+
 function TaskCard({ task, getTaskStatus, getCountdown, completeTask, completingTask }) {
   const status = getTaskStatus(task);
   const countdown = status === 'active' ? getCountdown(task) : null;
@@ -310,6 +322,7 @@ function WorkerPanel() {
   const [activeTab, setActiveTab] = useState('active');
   const [procedures, setProcedures] = useState([]);
   const [procedureOpen, setProcedureOpen] = useState(null);
+  const [addonImages, setAddonImages] = useState({}); // { 'nombre en minúscula': 'url imagen' }
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [storeCode, setStoreCode] = useState(() => {
     try { return JSON.parse(localStorage.getItem('worker') || '{}').store_code || ''; } catch { return ''; }
@@ -351,8 +364,27 @@ function WorkerPanel() {
     fetchCashRegister();
     fetchTasks();
     if (parsedWorker.store_code) {
-      fetch(`https://srservi2.srautomatic.com/api/public/procedures/${parsedWorker.store_code}`)
+      const BASE = 'https://srservi2.srautomatic.com';
+      const code = parsedWorker.store_code;
+
+      fetch(`${BASE}/api/public/procedures/${code}`)
         .then(r => r.ok ? r.json() : []).then(data => setProcedures(Array.isArray(data) ? data : [])).catch(() => {});
+
+      // Cargar imágenes de extras e ingredientes para mostrar en órdenes
+      Promise.all([
+        fetch(`${BASE}/api/public/${code}/extras`).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch(`${BASE}/api/public/${code}/ingredients`).then(r => r.ok ? r.json() : []).catch(() => []),
+      ]).then(([extras, ingredients]) => {
+        const map = {};
+        const toUrl = (img) => {
+          if (!img) return null;
+          return img.startsWith('http') ? img : BASE + img;
+        };
+        [...(extras || []), ...(ingredients || [])].forEach(item => {
+          if (item.name && item.image) map[item.name.toLowerCase()] = toUrl(item.image);
+        });
+        setAddonImages(map);
+      });
     }
 
     // Socket con reconexion automatica
@@ -1159,14 +1191,22 @@ function WorkerPanel() {
                           <div className="worker-order-item-detail">
                             <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
                             {item.selected_ingredients && item.selected_ingredients.length > 0 && (
-                              <span className="worker-order-item-addons">
-                                {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients.map(i => i.name || i).join(', ') : item.selected_ingredients)}
-                              </span>
+                              <div className="worker-order-item-addons">
+                                {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients : []).map((ing, i) => {
+                                  const name = typeof ing === 'object' ? (ing.name || '') : (ing || '');
+                                  const img = addonImages[name.toLowerCase()];
+                                  return <AddonChip key={i} name={name} img={img} />;
+                                })}
+                              </div>
                             )}
                             {item.selected_extras && item.selected_extras.length > 0 && (
-                              <span className="worker-order-item-addons">
-                                + {(Array.isArray(item.selected_extras) ? item.selected_extras.map(e => e.name || e).join(', ') : item.selected_extras)}
-                              </span>
+                              <div className="worker-order-item-addons">
+                                {(Array.isArray(item.selected_extras) ? item.selected_extras : []).map((ext, i) => {
+                                  const name = typeof ext === 'object' ? (ext.name || '') : (ext || '');
+                                  const img = addonImages[name.toLowerCase()];
+                                  return <AddonChip key={i} name={name} img={img} prefix="+" />;
+                                })}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1278,14 +1318,22 @@ function WorkerPanel() {
                           <div className="worker-order-item-detail">
                             <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
                             {item.selected_ingredients && item.selected_ingredients.length > 0 && (
-                              <span className="worker-order-item-addons">
-                                {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients.map(i => i.name || i).join(', ') : item.selected_ingredients)}
-                              </span>
+                              <div className="worker-order-item-addons">
+                                {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients : []).map((ing, i) => {
+                                  const name = typeof ing === 'object' ? (ing.name || '') : (ing || '');
+                                  const img = addonImages[name.toLowerCase()];
+                                  return <AddonChip key={i} name={name} img={img} />;
+                                })}
+                              </div>
                             )}
                             {item.selected_extras && item.selected_extras.length > 0 && (
-                              <span className="worker-order-item-addons">
-                                + {(Array.isArray(item.selected_extras) ? item.selected_extras.map(e => e.name || e).join(', ') : item.selected_extras)}
-                              </span>
+                              <div className="worker-order-item-addons">
+                                {(Array.isArray(item.selected_extras) ? item.selected_extras : []).map((ext, i) => {
+                                  const name = typeof ext === 'object' ? (ext.name || '') : (ext || '');
+                                  const img = addonImages[name.toLowerCase()];
+                                  return <AddonChip key={i} name={name} img={img} prefix="+" />;
+                                })}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1424,12 +1472,26 @@ function WorkerPanel() {
                         </div>
                         {item.selected_ingredients && item.selected_ingredients.length > 0 && (
                           <div className="worker-item-extras">
-                            <strong>Complementos:</strong> {Array.isArray(item.selected_ingredients) ? item.selected_ingredients.map(i => i.name || i).join(', ') : item.selected_ingredients}
+                            <strong>Complementos: </strong>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: 4 }}>
+                              {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients : []).map((ing, i) => {
+                                const name = typeof ing === 'object' ? (ing.name || '') : (ing || '');
+                                const img = addonImages[name.toLowerCase()];
+                                return <AddonChip key={i} name={name} img={img} size="md" />;
+                              })}
+                            </div>
                           </div>
                         )}
                         {item.selected_extras && item.selected_extras.length > 0 && (
                           <div className="worker-item-extras">
-                            <strong>Extras:</strong> {Array.isArray(item.selected_extras) ? item.selected_extras.map(e => e.name || e).join(', ') : item.selected_extras}
+                            <strong>Extras: </strong>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: 4 }}>
+                              {(Array.isArray(item.selected_extras) ? item.selected_extras : []).map((ext, i) => {
+                                const name = typeof ext === 'object' ? (ext.name || '') : (ext || '');
+                                const img = addonImages[name.toLowerCase()];
+                                return <AddonChip key={i} name={name} img={img} size="md" prefix="+" />;
+                              })}
+                            </div>
                           </div>
                         )}
                       </div>

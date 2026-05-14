@@ -44,6 +44,7 @@ import {
   faVideo,
   faBrain,
 } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 export const StoreContext = createContext();
 
@@ -474,6 +475,10 @@ function Layout() {
                         <NavLink to="/admin/autonomous" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faBrain} />
                           <span>SRBrain IA</span>
+                        </NavLink>
+                        <NavLink to="/admin/whatsapp" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                          <FontAwesomeIcon icon={faWhatsapp} style={{ color: '#25D366' }} />
+                          <span>WhatsApp</span>
                         </NavLink>
                         <NavLink to="/admin/ratings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                           <FontAwesomeIcon icon={faStar} />

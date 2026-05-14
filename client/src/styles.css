@@ -4334,6 +4334,10 @@ html body .store-container .store-product-card * {
 }
 
 .worker-order-item-addons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
   font-size: 11px;
   color: #999;
   white-space: normal;

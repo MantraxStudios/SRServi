@@ -15,10 +15,29 @@ import {
   createCoupon,
   pool
 } from './database.js';
+import { getWhatsAppStatus, sendWhatsAppMessage } from './whatsapp.js';
 
 const LEON_URL = 'http://localhost:7777';
 
-// ─── SMS via Twilio (opcional, solo si está configurado) ─────────────────────
+// ─── Mensajería: WhatsApp (preferido) o SMS via Twilio (fallback) ────────────
+
+async function sendMessage(to, message) {
+  if (!to) return false;
+
+  // Intentar WhatsApp primero
+  const wa = getWhatsAppStatus();
+  if (wa.connected) {
+    try {
+      await sendWhatsAppMessage(to, message);
+      return { channel: 'whatsapp', success: true };
+    } catch (e) {
+      console.warn('[SRBrain] WhatsApp send failed, falling back to SMS:', e.message);
+    }
+  }
+
+  // Fallback: Twilio SMS
+  return sendSMS(to, message);
+}
 
 async function sendSMS(to, message) {
   const sid = process.env.TWILIO_ACCOUNT_SID;
@@ -33,7 +52,7 @@ async function sendSMS(to, message) {
       headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString()
     });
-    return res.ok;
+    return res.ok ? { channel: 'sms', success: true } : false;
   } catch { return false; }
 }
 
@@ -158,7 +177,7 @@ async function executeAction(storeId, action, config, workers) {
     const smsText = message + senderLine;
 
     if (phone) {
-      const sent = await sendSMS(phone, smsText);
+      const sent = await sendMessage(phone, smsText);
       await logAiActivity(storeId, 'worker_reminder_sent', `Recordatorio enviado a ${name} (${phone}): ${data.missed_task}`, { sent, phone, message });
     } else {
       await logAiActivity(storeId, 'worker_reminder_skipped', `${name} no tiene teléfono registrado`, { worker_id: data.worker_id });
@@ -170,7 +189,7 @@ async function executeAction(storeId, action, config, workers) {
     let sentCount = 0;
     for (const w of workers) {
       if (w.phone) {
-        await sendSMS(w.phone, message);
+        await sendMessage(w.phone, message);
         sentCount++;
       }
     }
@@ -243,7 +262,7 @@ async function runForStore(storeId) {
         const message = getRandomMorale() + `\n— ${config.sender_name}`;
         let sentCount = 0;
         for (const w of workers) {
-          if (w.phone) { await sendSMS(w.phone, message); sentCount++; }
+          if (w.phone) { await sendMessage(w.phone, message); sentCount++; }
         }
         await logAiActivity(storeId, 'morale_sent', `Mensaje de ánimo (fallback) enviado a ${sentCount} trabajadores`, { message });
       }

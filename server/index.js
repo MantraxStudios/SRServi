@@ -21,6 +21,7 @@ import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postT
 import { initInstagramService } from './instagram_autostart.js';
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
+import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, disconnectWhatsApp } from './whatsapp.js';
 import cron from 'node-cron';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
@@ -10183,6 +10184,46 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     cron.schedule('0 8 * * *', async () => {
       runSrBrain().catch(e => console.error('[SRBrain] Cron error:', e.message));
     });
+
+    // WhatsApp routes
+    app.get('/api/whatsapp/status', authenticateToken, (req, res) => {
+      const status = getWhatsAppStatus();
+      res.json(status);
+    });
+
+    app.get('/api/whatsapp/qr', authenticateToken, (req, res) => {
+      const status = getWhatsAppStatus();
+      if (!status.hasQR) return res.status(404).json({ error: 'Sin QR disponible. Inicia la conexión primero.' });
+      res.json({ qr: status.qr });
+    });
+
+    app.post('/api/whatsapp/connect', authenticateToken, (req, res) => {
+      initWhatsApp().catch(e => console.error('[WhatsApp]', e.message));
+      res.json({ message: 'Iniciando conexión WhatsApp...' });
+    });
+
+    app.post('/api/whatsapp/disconnect', authenticateToken, async (req, res) => {
+      try {
+        await disconnectWhatsApp();
+        res.json({ message: 'WhatsApp desconectado' });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/whatsapp/send', authenticateToken, async (req, res) => {
+      try {
+        const { to, message } = req.body;
+        if (!to || !message) return res.status(400).json({ error: 'to y message requeridos' });
+        await sendWhatsAppMessage(to, message);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Auto-start WhatsApp if auth session exists
+    const fs = await import('fs');
+    const waAuthDir = new URL('./whatsapp_auth', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
+    if (fs.existsSync(waAuthDir)) {
+      initWhatsApp().catch(e => console.warn('[WhatsApp] Auto-start failed:', e.message));
+    }
 
     server.listen(PORT, HOST, () => {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);

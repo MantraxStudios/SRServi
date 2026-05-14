@@ -56,6 +56,7 @@ import Novedades from './pages/admin/Novedades';
 import InstagramAuto from './pages/admin/InstagramAuto';
 import CashRegisters from './pages/admin/CashRegisters';
 import CCTV from './pages/admin/CCTV';
+import WhatsApp from './pages/admin/WhatsApp';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 
@@ -223,6 +224,7 @@ function App() {
             <Route path="instagram" element={<InstagramAuto />} />
             <Route path="cash-registers" element={<CashRegisters />} />
             <Route path="cctv" element={<CCTV />} />
+            <Route path="whatsapp" element={<WhatsApp />} />
             <Route path="editor/:code" element={<Store />} />
           </Route>
           <Route path="/worker-login" element={<WorkerLogin />} />
