@@ -838,6 +838,7 @@ export async function startInstagramLogin(username, password, verificationCode =
   const type = igErrorType(loginErr);
   const body = loginErr.response?.body || {};
   const msg  = loginErr.message || body.message || '';
+  console.log(`[IG login] user=${username} errorName=${loginErr.name} type=${type} msg=${msg} body=${JSON.stringify(body).slice(0,300)}`);
 
   if (type === 'twoFactor') {
     if (code) {
@@ -855,35 +856,50 @@ export async function startInstagramLogin(username, password, verificationCode =
     return { needsTwoFactor: true, info: body.two_factor_info || {}, igState: await serializeIg(ig) };
   }
 
-  if (type === 'challenge') {
-    if (code) {
-      // Code already provided — get challenge context without sending a new code, then submit
-      try {
-        await ig.challenge.auto(false);
-        await ig.challenge.sendSecurityCode(code);
-        try { await ig.simulate.postLoginFlow(); } catch (_) {}
-        return { ok: true, igState: await serializeIg(ig) };
-      } catch (_) {
-        // Code failed or expired — fall through to send a fresh code and show modal
-      }
-    }
-    try { await ig.challenge.auto(true); } catch (_) {}
-    return { needsChallenge: true, hint: msg || 'Instagram requiere verificación', igState: await serializeIg(ig) };
-  }
-
-  // For wrong-password errors throw immediately — no point showing a code modal
+  // For wrong-password errors throw immediately
   const isHardError =
     loginErr.name === 'IgLoginBadPasswordError' ||
     msg.toLowerCase().includes('password') ||
     msg.toLowerCase().includes('invalid user') ||
     msg.toLowerCase().includes('contraseña') ||
     msg.toLowerCase().includes('incorrect');
-
   if (isHardError) throw new Error(msg || 'Usuario o contraseña incorrectos');
 
-  // Any other error (401, rate-limit, qe/sync blocked, etc.) → show verification modal
-  try { await ig.challenge.auto(true); } catch (_) {}
-  return { needsChallenge: true, hint: msg || 'Instagram requiere verificación adicional', igState: await serializeIg(ig) };
+  if (type === 'challenge') {
+    // Explicitly set challengeUrl from error body — the library may not do this automatically
+    if (body.checkpoint_url) ig.state.challengeUrl = body.checkpoint_url;
+    console.log(`[IG challenge] challengeUrl=${ig.state.challengeUrl}`);
+
+    if (code) {
+      // Code pre-supplied — try submitting without requesting a new one first
+      try {
+        await ig.challenge.auto(false);
+        await ig.challenge.sendSecurityCode(code);
+        try { await ig.simulate.postLoginFlow(); } catch (_) {}
+        return { ok: true, igState: await serializeIg(ig) };
+      } catch (_) {
+        // Code failed — fall through to request a fresh code
+      }
+    }
+
+    // Ask Instagram to send the verification code (email or SMS)
+    let challengeInfo = {};
+    try { challengeInfo = await ig.challenge.auto(true) || {}; } catch (_) {}
+    const hint = challengeInfo?.step_data?.contact_point
+      || challengeInfo?.step_name
+      || 'Revisá tu email o teléfono para obtener el código';
+    return { needsChallenge: true, hint, igState: await serializeIg(ig) };
+  }
+
+  // Non-checkpoint errors: only show challenge modal if there's actually a checkpoint URL
+  if (body.checkpoint_url) {
+    ig.state.challengeUrl = body.checkpoint_url;
+    try { await ig.challenge.auto(true); } catch (_) {}
+    return { needsChallenge: true, hint: msg || 'Instagram requiere verificación adicional', igState: await serializeIg(ig) };
+  }
+
+  // No checkpoint at all — throw the real error so the user sees what's wrong
+  throw new Error(msg || 'Error al conectar con Instagram. Revisá usuario y contraseña.');
 }
 
 // Complete TOTP / SMS two-factor login.
@@ -895,6 +911,7 @@ export async function completeInstagramTwoFactor(igState, { username, password, 
   // First attempt with the saved identifier and session state
   const ig = await buildIg(username);
   await deserializeIg(ig, igState);
+  console.log(`[IG 2FA] user=${username} method=${verificationMethod} identifier=${identifier} code=${cleanCode ? '***' : 'empty'}`);
   try {
     await ig.account.twoFactorLogin({
       username,
@@ -907,6 +924,7 @@ export async function completeInstagramTwoFactor(igState, { username, password, 
     return { ok: true, igState: await serializeIg(ig) };
   } catch (firstErr) {
     const errType = igErrorType(firstErr);
+    console.log(`[IG 2FA] twoFactorLogin error: name=${firstErr.name} type=${errType} msg=${firstErr.message} body=${JSON.stringify(firstErr.response?.body||{}).slice(0,200)}`);
 
     // Instagram requires an additional checkpoint after 2FA — return it for the caller to handle
     if (errType === 'challenge') {
@@ -954,9 +972,11 @@ export async function completeInstagramChallenge(igState, code, username, passwo
   if (username) ig.state.generateDevice(username);
   await deserializeIg(ig, igState); // restores challengeUrl too
   const cleanCode = (code || '').replace(/\s/g, '');
+  console.log(`[IG challenge] user=${username} challengeUrl=${ig.state.challengeUrl} code=${cleanCode ? '***' : 'empty'}`);
   try {
     await ig.challenge.sendSecurityCode(cleanCode);
   } catch (err) {
+    console.log(`[IG challenge] sendSecurityCode error: name=${err.name} msg=${err.message}`);
     const noCheckpoint = err.message?.includes('No checkpoint') || err.message?.includes('no_checkpoint') || err.name === 'IgNoCheckpointError';
     if (noCheckpoint) {
       // No real checkpoint URL — the modal appeared because of a 401/rate-limit.
