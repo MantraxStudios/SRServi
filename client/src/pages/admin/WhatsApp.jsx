@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCheckCircle, faTimesCircle, faSpinner,
   faPaperPlane, faUnlink, faLink, faSync,
-  faCalendarPlus, faClock, faTrash, faUsers, faUser
+  faCalendarPlus, faClock, faTrash, faUsers, faUser, faRepeat
 } from '@fortawesome/free-solid-svg-icons';
 
 function WaIcon({ size = 24, color = '#25D366' }) {
@@ -51,6 +51,7 @@ function WhatsApp() {
   const [selectedWorkers, setSelectedWorkers] = useState([]);
   const [schedMsg, setSchedMsg] = useState('');
   const [schedAt, setSchedAt] = useState(localDatetimeValue());
+  const [recurrence, setRecurrence] = useState('none');
   const [schedResult, setSchedResult] = useState(null);
   const [schedLoading, setSchedLoading] = useState(false);
 
@@ -167,7 +168,8 @@ function WhatsApp() {
           store_id: parseInt(selectedStore),
           message: schedMsg,
           recipients,
-          scheduled_at: new Date(schedAt).toISOString()
+          scheduled_at: schedAt,
+          recurrence
         })
       });
       const data = await res.json();
@@ -177,6 +179,7 @@ function WhatsApp() {
         setSchedAt(localDatetimeValue());
         setSelectedWorkers([]);
         setRecipientType('all');
+        setRecurrence('none');
         fetchScheduled();
       } else {
         setSchedResult({ ok: false, msg: data.error });
@@ -421,10 +424,10 @@ function WhatsApp() {
             </div>
 
             {/* Date/time */}
-            <div style={{ marginBottom: 18 }}>
+            <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>
                 <FontAwesomeIcon icon={faClock} style={{ marginRight: 6, color: '#6b7280' }} />
-                Fecha y hora de envío
+                {recurrence === 'daily' ? 'Primera fecha y hora de envío' : 'Fecha y hora de envío'}
               </label>
               <input
                 type="datetime-local"
@@ -436,6 +439,46 @@ function WhatsApp() {
                   borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box'
                 }}
               />
+            </div>
+
+            {/* Recurrence */}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                <FontAwesomeIcon icon={faRepeat} style={{ marginRight: 6, color: '#6b7280' }} />
+                Repetición
+              </label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setRecurrence('none')}
+                  style={{
+                    flex: 1, padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    border: `2px solid ${recurrence === 'none' ? '#6366f1' : '#e5e7eb'}`,
+                    background: recurrence === 'none' ? '#eef2ff' : '#fff',
+                    color: recurrence === 'none' ? '#4338ca' : '#6b7280'
+                  }}
+                >
+                  Solo una vez
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecurrence('daily')}
+                  style={{
+                    flex: 1, padding: '9px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    border: `2px solid ${recurrence === 'daily' ? '#6366f1' : '#e5e7eb'}`,
+                    background: recurrence === 'daily' ? '#eef2ff' : '#fff',
+                    color: recurrence === 'daily' ? '#4338ca' : '#6b7280'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faRepeat} style={{ marginRight: 6 }} />
+                  Todos los días a esta hora
+                </button>
+              </div>
+              {recurrence === 'daily' && (
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: '#6b7280' }}>
+                  Se enviará automáticamente cada día a la misma hora. Puedes cancelarlo desde la lista.
+                </p>
+              )}
             </div>
 
             {schedResult && (
@@ -524,6 +567,11 @@ function WhatsApp() {
                         <div style={{ fontSize: 12, color: '#6b7280', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                           <span><FontAwesomeIcon icon={faClock} style={{ marginRight: 4 }} />{formatDateTime(m.scheduled_at)}</span>
                           <span><FontAwesomeIcon icon={faUsers} style={{ marginRight: 4 }} />{recipientLabel}</span>
+                          {m.recurrence === 'daily' && (
+                            <span style={{ color: '#4338ca' }}>
+                              <FontAwesomeIcon icon={faRepeat} style={{ marginRight: 4 }} />Diario
+                            </span>
+                          )}
                           {m.status === 'sent' && m.sent_at && (
                             <span style={{ color: '#16a34a' }}>Enviado: {formatDateTime(m.sent_at)}</span>
                           )}

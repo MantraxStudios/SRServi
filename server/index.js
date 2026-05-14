@@ -10239,10 +10239,12 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
 
     app.post('/api/whatsapp/scheduled', authenticateToken, async (req, res) => {
       try {
-        const { store_id, message, recipients, scheduled_at } = req.body;
+        const { store_id, message, recipients, scheduled_at, recurrence } = req.body;
         if (!store_id || !message || !recipients || !scheduled_at) {
           return res.status(400).json({ error: 'store_id, message, recipients y scheduled_at son requeridos' });
         }
+        // Convert "YYYY-MM-DDTHH:MM" (datetime-local) to MySQL format "YYYY-MM-DD HH:MM:00"
+        const sqlDatetime = scheduled_at.replace('T', ' ') + (scheduled_at.length === 16 ? ':00' : '');
         if (new Date(scheduled_at) <= new Date()) {
           return res.status(400).json({ error: 'La fecha programada debe ser futura' });
         }
@@ -10251,7 +10253,8 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
           storeId: store_id,
           message,
           recipients,
-          scheduledAt: scheduled_at
+          scheduledAt: sqlDatetime,
+          recurrence: recurrence || 'none'
         });
         res.json({ id, success: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
@@ -10301,6 +10304,23 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
             }
             await markScheduledMessageSent(msg.id);
             console.log(`[WhatsApp Sched] Mensaje ${msg.id} enviado a ${phones.length} destinatarios`);
+
+            // Si es recurrente diario, crear la próxima ocurrencia (mismo horario mañana)
+            if (msg.recurrence === 'daily') {
+              const next = new Date();
+              next.setDate(next.getDate() + 1);
+              const pad = n => String(n).padStart(2, '0');
+              const nextSql = `${next.getFullYear()}-${pad(next.getMonth()+1)}-${pad(next.getDate())} ${pad(next.getHours())}:${pad(next.getMinutes())}:00`;
+              await createScheduledMessage({
+                userId: msg.user_id,
+                storeId: msg.store_id,
+                message: msg.message,
+                recipients,
+                scheduledAt: nextSql,
+                recurrence: 'daily'
+              });
+              console.log(`[WhatsApp Sched] Próxima ocurrencia diaria creada para ${nextSql}`);
+            }
           } catch (e) {
             console.error(`[WhatsApp Sched] Error procesando mensaje ${msg.id}:`, e.message);
             await markScheduledMessageFailed(msg.id);

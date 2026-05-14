@@ -1403,6 +1403,7 @@ async function migrateTables() {
           message TEXT NOT NULL,
           recipients JSON NOT NULL,
           scheduled_at DATETIME NOT NULL,
+          recurrence ENUM('none','daily') DEFAULT 'none',
           status ENUM('pending','sent','failed','cancelled') DEFAULT 'pending',
           sent_at DATETIME DEFAULT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1410,6 +1411,10 @@ async function migrateTables() {
           INDEX idx_swm_scheduled (scheduled_at)
         )
       `);
+      // Add recurrence column if table already existed without it
+      try {
+        await pool.execute(`ALTER TABLE scheduled_whatsapp_messages ADD COLUMN recurrence ENUM('none','daily') DEFAULT 'none'`);
+      } catch {}
       console.log('ℹ️ Tabla scheduled_whatsapp_messages verificada/creada');
     } catch (err) {
       console.error('❌ Error creando tabla scheduled_whatsapp_messages:', err.message);
@@ -4198,17 +4203,17 @@ export async function deleteProcedure(id, storeId) {
 }
 
 // Scheduled WhatsApp messages
-export async function createScheduledMessage({ userId, storeId, message, recipients, scheduledAt }) {
+export async function createScheduledMessage({ userId, storeId, message, recipients, scheduledAt, recurrence = 'none' }) {
   const [result] = await pool.execute(
-    'INSERT INTO scheduled_whatsapp_messages (user_id, store_id, message, recipients, scheduled_at) VALUES (?, ?, ?, ?, ?)',
-    [userId, storeId, message, JSON.stringify(recipients), scheduledAt]
+    'INSERT INTO scheduled_whatsapp_messages (user_id, store_id, message, recipients, scheduled_at, recurrence) VALUES (?, ?, ?, ?, ?, ?)',
+    [userId, storeId, message, JSON.stringify(recipients), scheduledAt, recurrence]
   );
   return result.insertId;
 }
 
 export async function getScheduledMessages(userId) {
   const [rows] = await pool.execute(
-    `SELECT id, store_id, message, recipients, scheduled_at, status, sent_at, created_at
+    `SELECT id, store_id, message, recipients, scheduled_at, recurrence, status, sent_at, created_at
      FROM scheduled_whatsapp_messages WHERE user_id = ? ORDER BY scheduled_at DESC LIMIT 100`,
     [userId]
   );
@@ -4225,7 +4230,7 @@ export async function cancelScheduledMessage(id, userId) {
 
 export async function getPendingScheduledMessages() {
   const [rows] = await pool.execute(
-    `SELECT id, store_id, message, recipients FROM scheduled_whatsapp_messages
+    `SELECT id, user_id, store_id, message, recipients, recurrence FROM scheduled_whatsapp_messages
      WHERE status = 'pending' AND scheduled_at <= NOW()`
   );
   return rows;
