@@ -4237,10 +4237,12 @@ export async function getPendingScheduledMessages() {
 }
 
 export async function markScheduledMessageSent(id) {
-  await pool.execute(
-    `UPDATE scheduled_whatsapp_messages SET status = 'sent', sent_at = NOW() WHERE id = ?`,
+  // Solo marca si aún está pending — retorna true si lo reclamó (evita doble envío)
+  const [result] = await pool.execute(
+    `UPDATE scheduled_whatsapp_messages SET status = 'sent', sent_at = NOW() WHERE id = ? AND status = 'pending'`,
     [id]
   );
+  return result.affectedRows > 0;
 }
 
 export async function markScheduledMessageFailed(id) {

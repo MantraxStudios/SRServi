@@ -10269,11 +10269,18 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     });
 
     // Cron: procesar mensajes programados cada minuto
+    let schedLock = false;
     cron.schedule('* * * * *', async () => {
+      if (schedLock) return; // evita ejecuciones simultáneas
+      schedLock = true;
       try {
         const pending = await getPendingScheduledMessages();
         for (const msg of pending) {
           try {
+            // Marcar como enviado ANTES de procesar — evita doble envío si hay overlap
+            const claimed = await markScheduledMessageSent(msg.id);
+            if (!claimed) continue; // otro proceso ya lo tomó
+
             const recipients = typeof msg.recipients === 'string' ? JSON.parse(msg.recipients) : msg.recipients;
             let phones = [];
 
@@ -10293,7 +10300,8 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
 
             const wa = getWhatsAppStatus();
             if (!wa.connected) {
-              console.warn('[WhatsApp Sched] No conectado, saltando mensaje', msg.id);
+              await markScheduledMessageFailed(msg.id);
+              console.warn('[WhatsApp Sched] No conectado, mensaje', msg.id, 'marcado como fallido');
               continue;
             }
 
@@ -10302,7 +10310,6 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
                 console.error(`[WhatsApp Sched] Error enviando a ${phone}:`, e.message)
               );
             }
-            await markScheduledMessageSent(msg.id);
             console.log(`[WhatsApp Sched] Mensaje ${msg.id} enviado a ${phones.length} destinatarios`);
 
             // Si es recurrente diario, crear la próxima ocurrencia (mismo horario mañana)
@@ -10328,6 +10335,8 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
         }
       } catch (e) {
         console.error('[WhatsApp Sched] Error en cron:', e.message);
+      } finally {
+        schedLock = false;
       }
     });
 
