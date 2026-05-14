@@ -40,9 +40,10 @@ export default function CCTV() {
   const [music, setMusic] = useState([]);
   const [images, setImages] = useState([]);
   const [albums, setAlbums] = useState([]);
-  const [albumFilter, setAlbumFilter] = useState(null); // null = todas
+  const [albumFilter, setAlbumFilter] = useState(null);
   const [newAlbumName, setNewAlbumName] = useState('');
-  const [assignAlbumModal, setAssignAlbumModal] = useState(null); // screen
+  const [assignAlbumModal, setAssignAlbumModal] = useState(null);
+  const [localVolumes, setLocalVolumes] = useState({});
 
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [loadingScreens, setLoadingScreens] = useState(true);
@@ -84,8 +85,16 @@ export default function CCTV() {
     catch { } finally { setLoadingVideos(false); }
   };
   const fetchScreens = async () => {
-    try { const r = await fetch(`${API}/api/cctv/screens`, { headers }); if (r.ok) setScreens(await r.json()); }
-    catch { } finally { setLoadingScreens(false); }
+    try {
+      const r = await fetch(`${API}/api/cctv/screens`, { headers });
+      if (r.ok) {
+        const data = await r.json();
+        setScreens(data);
+        const vols = {};
+        data.forEach(s => { vols[s.id] = s.volume_level ?? 100; });
+        setLocalVolumes(vols);
+      }
+    } catch { } finally { setLoadingScreens(false); }
   };
   const fetchMusic = async () => {
     try { const r = await fetch(`${API}/api/cctv/music`, { headers }); if (r.ok) setMusic(await r.json()); }
@@ -183,9 +192,21 @@ export default function CCTV() {
     finally { setUploadingImages(false); setUploadImagesProgress(0); if (imageInputRef.current) imageInputRef.current.value = ''; }
   };
 
+  // ── Screen volume ───────────────────────────────────────────────────────────
+  const setScreenVolume = async (screenId, level) => {
+    try {
+      await fetch(`${API}/api/cctv/screens/${screenId}/volume`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume_level: level })
+      });
+      setScreens(s => s.map(x => x.id === screenId ? { ...x, volume_level: level } : x));
+    } catch (e) { showError(e.message); }
+  };
+
   // ── Image management ────────────────────────────────────────────────────────
   const saveDuration = async (id, seconds) => {
-    const dur = Math.max(1, Math.min(300, parseInt(seconds) || 5));
+    const parsed = parseInt(seconds);
+    const dur = parsed === 0 ? 0 : Math.max(1, Math.min(300, parsed || 5));
     setLocalDurations(d => ({ ...d, [id]: dur }));
     try {
       await fetch(`${API}/api/cctv/images/${id}/duration`, {
@@ -544,7 +565,12 @@ export default function CCTV() {
             <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 16px', marginBottom: 20, fontSize: 13, color: '#0369a1', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
               <span><strong>{filteredImages.length}</strong> imagen{filteredImages.length !== 1 ? 'es' : ''}</span>
               <span>·</span>
-              <span>Loop: <strong>{formatSeconds(filteredImages.reduce((s, i) => s + (localDurations[i.id] ?? i.duration_seconds), 0))}</strong></span>
+              <span>Loop: <strong>
+                {filteredImages.some(i => parseInt(localDurations[i.id] ?? i.duration_seconds) === 0)
+                  ? '∞'
+                  : formatSeconds(filteredImages.reduce((s, i) => s + (parseInt(localDurations[i.id] ?? i.duration_seconds) || 0), 0))
+                }
+              </strong></span>
               {albumFilter === null && <><span>·</span><span>Asigná el modo imágenes en la pestaña <strong>Pantallas</strong></span></>}
             </div>
           )}
@@ -562,6 +588,8 @@ export default function CCTV() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {filteredImages.map((img) => {
                   const globalIdx = images.indexOf(img);
+                  const durVal = parseInt(localDurations[img.id] ?? img.duration_seconds);
+                  const isInfinite = durVal === 0;
                   return (
                     <div key={img.id} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                       {/* Orden badge */}
@@ -589,14 +617,25 @@ export default function CCTV() {
                       )}
 
                       {/* Duration */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                        <span style={{ color: '#71717a', fontSize: 13 }}>Duración:</span>
-                        <input type="number" min={1} max={300}
-                          value={localDurations[img.id] ?? img.duration_seconds}
-                          onChange={e => setLocalDurations(d => ({ ...d, [img.id]: e.target.value }))}
-                          onBlur={e => saveDuration(img.id, e.target.value)}
-                          style={{ width: 60, padding: '5px 8px', border: '1px solid #e4e4e7', borderRadius: 7, fontSize: 13, fontWeight: 600, color: '#09090b', textAlign: 'center', outline: 'none', background: '#fafafa' }} />
-                        <span style={{ color: '#71717a', fontSize: 13 }}>seg</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                        <span style={{ color: '#71717a', fontSize: 13 }}>Dur:</span>
+                        {!isInfinite ? (
+                          <>
+                            <input type="number" min={1} max={300}
+                              value={localDurations[img.id] ?? img.duration_seconds}
+                              onChange={e => setLocalDurations(d => ({ ...d, [img.id]: e.target.value }))}
+                              onBlur={e => saveDuration(img.id, e.target.value)}
+                              style={{ width: 52, padding: '5px 6px', border: '1px solid #e4e4e7', borderRadius: 7, fontSize: 13, fontWeight: 600, color: '#09090b', textAlign: 'center', outline: 'none', background: '#fafafa' }} />
+                            <span style={{ color: '#71717a', fontSize: 13 }}>s</span>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: 20, fontWeight: 800, color: '#7e22ce', lineHeight: 1, padding: '0 6px' }}>∞</span>
+                        )}
+                        <button title={isInfinite ? 'Cambiar a tiempo fijo' : 'Imagen permanente (no cambia)'}
+                          onClick={() => { const d = isInfinite ? 5 : 0; setLocalDurations(v => ({ ...v, [img.id]: d })); saveDuration(img.id, d); }}
+                          style={{ background: isInfinite ? '#fdf4ff' : '#f4f4f5', border: `1px solid ${isInfinite ? '#e9d5ff' : '#e4e4e7'}`, borderRadius: 7, padding: '4px 8px', cursor: 'pointer', color: isInfinite ? '#7e22ce' : '#71717a', fontSize: 15, fontWeight: 800, lineHeight: 1 }}>
+                          ∞
+                        </button>
                       </div>
 
                       {/* Order buttons — hidden when filtering */}
@@ -773,6 +812,20 @@ export default function CCTV() {
                           <button onClick={() => setDeleteConfirm({ type: 'screen', id: s.id, name: s.device_name })} style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 7, padding: '7px 9px', cursor: 'pointer', color: '#dc2626' }} title="Eliminar">
                             <FontAwesomeIcon icon={faTrash} style={{ fontSize: 12 }} />
                           </button>
+                        </div>
+
+                        {/* Volume slider */}
+                        <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 8, borderTop: '1px solid #f4f4f5' }}>
+                          <FontAwesomeIcon icon={localVolumes[s.id] === 0 ? faVolumeMute : faVolumeUp} style={{ color: localVolumes[s.id] === 0 ? '#dc2626' : '#71717a', fontSize: 12, flexShrink: 0 }} />
+                          <input
+                            type="range" min={0} max={100} step={5}
+                            value={localVolumes[s.id] ?? 100}
+                            onChange={e => setLocalVolumes(v => ({ ...v, [s.id]: parseInt(e.target.value) }))}
+                            onMouseUp={e => setScreenVolume(s.id, parseInt(e.target.value))}
+                            onTouchEnd={e => setScreenVolume(s.id, parseInt(e.target.value))}
+                            style={{ flex: 1, accentColor: GOLD, cursor: 'pointer', height: 4 }}
+                          />
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#71717a', minWidth: 32, textAlign: 'right' }}>{localVolumes[s.id] ?? 100}%</span>
                         </div>
                       </div>
                     </div>

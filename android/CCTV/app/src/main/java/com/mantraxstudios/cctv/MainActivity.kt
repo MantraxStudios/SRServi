@@ -1357,10 +1357,6 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
             try {
                 val config = fetchDeviceConfig(deviceToken)
 
-                // ── Mute de video ──────────────────────────────────────────────
-                val videoMuted = config.optInt("video_muted", 0) == 1
-                exoPlayer.volume = if (videoMuted) 0f else 1f
-
                 // ── Video ──────────────────────────────────────────────────────
                 val videoUrl = config.optString("video_url").takeIf { it.isNotEmpty() }
                 val savedUrl = prefs.getString(KEY_VIDEO_URL, null)
@@ -1447,9 +1443,16 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                 val musicUrl = config.optString("music_url").takeIf { it.isNotEmpty() }
                 val savedMusicUrl = prefs.getString(KEY_MUSIC_URL, null)
 
+                // ── Volumen (afecta video Y música) ────────────────────────
+                val videoMuted = config.optBoolean("video_muted", false)
+                val volumeLevel = config.optInt("volume_level", 100).coerceIn(0, 100) / 100f
+                val effectiveVolume = if (videoMuted) 0f else volumeLevel
+                exoPlayer.volume = effectiveVolume
+                musicPlayer.volume = effectiveVolume
+
                 if (musicUrl == null) {
-                    // Sin música — detener siempre si hay algo cargado o en prefs
                     if (savedMusicUrl != null || musicPlayer.playbackState != Player.STATE_IDLE) {
+                        musicPlayer.pause()
                         musicPlayer.stop()
                         musicPlayer.clearMediaItems()
                         prefs.edit().remove(KEY_MUSIC_URL).remove(KEY_MUSIC_PATH).apply()
@@ -1641,9 +1644,13 @@ fun ImageSlideshowScreen(images: List<Pair<String, Int>>) {
     LaunchedEffect(slideshowKey) {
         currentIndex = 0
         while (true) {
-            val duration = images.getOrNull(currentIndex)?.second?.toLong() ?: 5000L
-            delay(duration.coerceAtLeast(1000L))
-            currentIndex = (currentIndex + 1) % images.size
+            val durationMs = images.getOrNull(currentIndex)?.second?.toLong() ?: 5000L
+            if (durationMs == 0L) {
+                delay(Long.MAX_VALUE) // infinito — coroutine es cancelable cuando cambia la lista
+            } else {
+                delay(durationMs.coerceAtLeast(1000L))
+                currentIndex = (currentIndex + 1) % images.size
+            }
         }
     }
 

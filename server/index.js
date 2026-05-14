@@ -9595,6 +9595,7 @@ async function startServer() {
         'ALTER TABLE cctv_screens ADD COLUMN current_music_id INT DEFAULT NULL',
         "ALTER TABLE cctv_screens ADD COLUMN display_mode ENUM('video','images') DEFAULT 'video'",
         'ALTER TABLE cctv_screens ADD COLUMN current_album_id INT DEFAULT NULL',
+        'ALTER TABLE cctv_screens ADD COLUMN volume_level TINYINT(3) UNSIGNED NOT NULL DEFAULT 100',
         'ALTER TABLE cctv_images ADD COLUMN album_id INT DEFAULT NULL'
       ]) {
         try { await pool.execute(sql); } catch (_) { /* columna ya existe */ }
@@ -9770,6 +9771,7 @@ async function startServer() {
         if (!device_token) return res.status(400).json({ error: 'device_token requerido' });
         const [rows] = await pool.execute(`
           SELECT s.id, s.user_id, s.device_name, s.current_video_id, s.video_muted,
+            COALESCE(s.volume_level, 100) AS volume_level,
             COALESCE(s.display_mode, 'video') AS display_mode,
             v.url AS video_url, v.original_name AS video_name, v.filename AS video_filename,
             m.url AS music_url, m.original_name AS music_name
@@ -9868,6 +9870,16 @@ async function startServer() {
         await ensureCctvTables();
         const { muted } = req.body;
         await pool.execute('UPDATE cctv_screens SET video_muted = ? WHERE id = ? AND user_id = ?', [muted ? 1 : 0, req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: set volume for a screen (0-100)
+    app.put('/api/cctv/screens/:id/volume', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const vol = Math.max(0, Math.min(100, parseInt(req.body.volume_level) || 100));
+        await pool.execute('UPDATE cctv_screens SET volume_level = ? WHERE id = ? AND user_id = ?', [vol, req.params.id, req.user.id]);
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
