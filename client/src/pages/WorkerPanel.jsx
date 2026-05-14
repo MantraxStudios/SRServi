@@ -22,9 +22,166 @@ function AddonChip({ name, img, prefix, size = 'sm' }) {
   );
 }
 
-function MiniTaskCard({ task, getTaskStatus, getCountdown, completeTask, completingTask }) {
+function TaskDetailModal({ task, getTaskStatus, getCountdown, completeTask, completingTask, onClose }) {
   const status = getTaskStatus(task);
   const countdown = status === 'active' ? getCountdown(task) : null;
+
+  const [dh, dm] = task.due_time.split(':').map(Number);
+  const expireDate = new Date();
+  expireDate.setHours(dh, dm + 60, 0, 0);
+  const expireStr = expireDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+  const borderColor = status === 'completed' ? '#16a34a'
+    : status === 'active' ? '#D4AF37'
+    : status === 'expired' ? '#ef4444'
+    : '#2a2a2a';
+
+  const statusLabel = status === 'completed' ? 'Completada'
+    : status === 'active' ? 'En curso'
+    : status === 'expired' ? 'Vencida'
+    : 'Pendiente';
+
+  const completedTime = task.completed_at
+    ? new Date(task.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+    : null;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.75)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        padding: '0 0 env(safe-area-inset-bottom, 0)'
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 480,
+          background: '#111',
+          borderRadius: '20px 20px 0 0',
+          border: `2px solid ${borderColor}`,
+          borderBottom: 'none',
+          padding: '20px 20px 32px',
+          boxShadow: `0 -4px 30px rgba(0,0,0,0.6)`,
+        }}
+      >
+        {/* Handle + cerrar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div style={{ width: 36, height: 4, background: '#333', borderRadius: 2, margin: '0 auto' }} />
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', color: '#555', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: 0 }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Estado badge */}
+        <div style={{ marginBottom: 12 }}>
+          <span style={{
+            fontSize: 11, fontWeight: 800, padding: '4px 12px', borderRadius: 20,
+            color: borderColor, border: `1px solid ${borderColor}`,
+            background: status === 'active' ? 'rgba(212,175,55,0.08)'
+              : status === 'completed' ? 'rgba(22,163,74,0.08)'
+              : status === 'expired' ? 'rgba(239,68,68,0.08)'
+              : 'rgba(255,255,255,0.04)',
+            letterSpacing: 0.5
+          }}>
+            {status === 'completed' && <FontAwesomeIcon icon={faCheck} style={{ marginRight: 5 }} />}
+            {statusLabel}
+          </span>
+        </div>
+
+        {/* Nombre */}
+        <h2 style={{ margin: '0 0 10px', fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
+          {task.name}
+        </h2>
+
+        {/* Descripción */}
+        {task.description && (
+          <p style={{ margin: '0 0 16px', fontSize: 14, color: '#888', lineHeight: 1.6 }}>
+            {task.description}
+          </p>
+        )}
+
+        {/* Horario */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: '#1a1a1a', borderRadius: 10, padding: '10px 14px',
+          marginBottom: 16, fontSize: 14, color: '#aaa'
+        }}>
+          <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37', fontSize: 13 }} />
+          <span>Disponible desde <strong style={{ color: '#fff' }}>{task.due_time}</strong> hasta <strong style={{ color: '#fff' }}>{expireStr}</strong></span>
+        </div>
+
+        {/* Completada */}
+        {status === 'completed' && completedTime && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.2)',
+            borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 14, color: '#16a34a'
+          }}>
+            <FontAwesomeIcon icon={faCheck} />
+            Completada a las <strong style={{ marginLeft: 4 }}>{completedTime}</strong>
+          </div>
+        )}
+
+        {/* Countdown activo */}
+        {status === 'active' && countdown && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            background: 'rgba(212,175,55,0.06)', border: '1px solid rgba(212,175,55,0.25)',
+            borderRadius: 12, padding: '14px', marginBottom: 18
+          }}>
+            <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37', fontSize: 16 }} />
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 28, fontWeight: 900, color: '#D4AF37', letterSpacing: 2, lineHeight: 1 }}>
+                {countdown}
+              </div>
+              <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>restantes para completar</div>
+            </div>
+          </div>
+        )}
+
+        {/* Botón completar */}
+        {status === 'active' && (
+          <button
+            onClick={() => { completeTask(task.id); onClose(); }}
+            disabled={completingTask === task.id}
+            style={{
+              width: '100%', padding: '16px',
+              background: completingTask === task.id ? '#1a1a1a' : '#D4AF37',
+              color: completingTask === task.id ? '#555' : '#000',
+              border: 'none', borderRadius: 14,
+              fontWeight: 900, fontSize: 16, letterSpacing: 0.3,
+              cursor: completingTask === task.id ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              transition: 'all 0.15s'
+            }}
+          >
+            <FontAwesomeIcon icon={faCheck} />
+            {completingTask === task.id ? 'Registrando...' : 'Marcar como completada'}
+          </button>
+        )}
+
+        {status === 'expired' && (
+          <div style={{
+            textAlign: 'center', padding: '12px', fontSize: 13, color: '#ef4444',
+            background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: 10
+          }}>
+            El tiempo para completar esta tarea ya venció
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MiniTaskCard({ task, getTaskStatus, getCountdown, onOpen }) {
+  const status = getTaskStatus(task);
 
   const [dh, dm] = task.due_time.split(':').map(Number);
   const expireDate = new Date();
@@ -41,21 +198,18 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown, completeTask, complet
     : null;
 
   return (
-    <div style={{
-      flexShrink: 0,
-      width: 148,
-      height: '100%',
-      background: '#111',
-      border: `2px solid ${borderColor}`,
-      borderRadius: 10,
-      padding: '8px 10px',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      boxSizing: 'border-box',
-      boxShadow: status === 'active' ? '0 0 10px rgba(212,175,55,0.15)' : 'none',
-      transition: 'border-color 0.2s'
-    }}>
+    <div
+      onClick={onOpen}
+      style={{
+        flexShrink: 0, width: 148, height: '100%',
+        background: '#111', border: `2px solid ${borderColor}`,
+        borderRadius: 10, padding: '8px 10px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        boxSizing: 'border-box', cursor: 'pointer',
+        boxShadow: status === 'active' ? '0 0 10px rgba(212,175,55,0.15)' : 'none',
+        transition: 'border-color 0.2s, opacity 0.15s'
+      }}
+    >
       {/* Nombre y hora */}
       <div>
         <div style={{
@@ -72,50 +226,29 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown, completeTask, complet
         </div>
       </div>
 
-      {/* Estado / acción */}
+      {/* Indicador de estado (solo texto pequeño, sin botón) */}
       <div>
-        {status === 'active' && countdown && (
+        {status === 'active' && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 4,
             background: 'rgba(212,175,55,0.08)', borderRadius: 5,
-            padding: '3px 6px', marginBottom: 5
+            padding: '3px 6px'
           }}>
             <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37', fontSize: 9 }} />
-            <span style={{ fontSize: 10, fontWeight: 800, color: '#D4AF37', letterSpacing: 0.5 }}>{countdown}</span>
+            <span style={{ fontSize: 9, fontWeight: 800, color: '#D4AF37' }}>Toca para completar</span>
           </div>
         )}
-
-        {status === 'active' && (
-          <button
-            onClick={() => completeTask(task.id)}
-            disabled={completingTask === task.id}
-            style={{
-              width: '100%', padding: '5px 0',
-              background: completingTask === task.id ? '#1a1a1a' : '#D4AF37',
-              color: completingTask === task.id ? '#555' : '#000',
-              border: 'none', borderRadius: 6,
-              fontWeight: 800, fontSize: 10, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
-            }}
-          >
-            <FontAwesomeIcon icon={faCheck} />
-            {completingTask === task.id ? '...' : 'Completar'}
-          </button>
-        )}
-
         {status === 'completed' && (
           <div style={{ fontSize: 10, color: '#16a34a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
             <FontAwesomeIcon icon={faCheck} />
             {completedTime}
           </div>
         )}
-
         {status === 'expired' && (
           <div style={{ fontSize: 10, color: '#ef4444', fontWeight: 700 }}>Vencida</div>
         )}
-
         {status === 'upcoming' && (
-          <div style={{ fontSize: 10, color: '#333', fontWeight: 600 }}>Próxima</div>
+          <div style={{ fontSize: 9, color: '#333', fontWeight: 600 }}>Ver detalles →</div>
         )}
       </div>
     </div>
@@ -125,6 +258,7 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown, completeTask, complet
 function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError, tasksLoading, getTaskStatus, getCountdown }) {
   const todayDow = new Date().getDay();
   const totalDone = tasks.filter(t => t.completed_at).length;
+  const [openTask, setOpenTask] = useState(null);
 
   if (tasksLoading) {
     return (
@@ -244,8 +378,7 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
                       task={task}
                       getTaskStatus={getTaskStatus}
                       getCountdown={getCountdown}
-                      completeTask={completeTask}
-                      completingTask={completingTask}
+                      onOpen={() => setOpenTask(task)}
                     />
                   ))
                 )}
@@ -254,6 +387,17 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
           );
         })}
       </div>
+
+      {openTask && (
+        <TaskDetailModal
+          task={openTask}
+          getTaskStatus={getTaskStatus}
+          getCountdown={getCountdown}
+          completeTask={completeTask}
+          completingTask={completingTask}
+          onClose={() => setOpenTask(null)}
+        />
+      )}
     </div>
   );
 }

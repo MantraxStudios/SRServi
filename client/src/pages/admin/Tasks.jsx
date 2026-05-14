@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faTrash, faPencilAlt, faCheck, faClock, faUser,
   faExclamationTriangle, faClipboardList, faTimes, faCopy, faClone,
-  faChartBar, faChevronLeft, faChevronRight, faCalendar
+  faChartBar, faChevronLeft, faChevronRight, faCalendar, faStore, faArrowRight
 } from '@fortawesome/free-solid-svg-icons';
 import { StoreContext } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
@@ -104,6 +104,15 @@ export default function Tasks() {
   const [historyWeekIdx, setHistoryWeekIdx] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
   const [, tick] = useState(0);
+
+  // Duplicar a otra tienda
+  const [dupStoreModal, setDupStoreModal] = useState(false);
+  const [allStores, setAllStores] = useState([]);
+  const [dupTargetStore, setDupTargetStore] = useState('');
+  const [dupTargetWorkers, setDupTargetWorkers] = useState([]);
+  const [workerMapping, setWorkerMapping] = useState({}); // { source_worker_id: target_worker_id }
+  const [dupStoreSaving, setDupStoreSaving] = useState(false);
+  const [dupStoreError, setDupStoreError] = useState('');
 
   useEffect(() => {
     const id = setInterval(() => tick(t => t + 1), 30000);
@@ -315,6 +324,73 @@ export default function Tasks() {
     }
   };
 
+  const openDupStore = async () => {
+    setDupStoreError('');
+    setDupStoreSaving(false);
+    setWorkerMapping({});
+    setDupTargetWorkers([]);
+    setDupTargetStore('');
+    try {
+      const res = await fetch(`${API}/api/stores`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      const others = Array.isArray(data) ? data.filter(s => s.id !== selectedStore.id) : [];
+      setAllStores(others);
+      if (others.length > 0) {
+        setDupTargetStore(String(others[0].id));
+        await loadTargetWorkers(others[0].id);
+      }
+    } catch {}
+    setDupStoreModal(true);
+  };
+
+  const loadTargetWorkers = async (storeId) => {
+    try {
+      const res = await fetch(`${API}/api/workers?store_id=${storeId}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      setDupTargetWorkers(Array.isArray(data) ? data : []);
+    } catch {
+      setDupTargetWorkers([]);
+    }
+    setWorkerMapping({});
+  };
+
+  const handleDupStoreTargetChange = async (storeId) => {
+    setDupTargetStore(storeId);
+    await loadTargetWorkers(parseInt(storeId));
+  };
+
+  const handleDupStore = async () => {
+    setDupStoreError('');
+    // Verificar que todos los workers origen con tareas tengan un mapeo
+    const sourceWorkersWithTasks = [...new Set(tasks.map(t => t.worker_id))];
+    const unmapped = sourceWorkersWithTasks.filter(id => !workerMapping[id]);
+    if (unmapped.length > 0) {
+      const names = unmapped.map(id => workers.find(w => w.id === id)?.name || id).join(', ');
+      setDupStoreError(`Asigna un trabajador destino para: ${names}`);
+      return;
+    }
+    setDupStoreSaving(true);
+    try {
+      const res = await fetch(`${API}/api/tasks/duplicate-to-store`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          source_store_id: selectedStore.id,
+          target_store_id: parseInt(dupTargetStore),
+          worker_mapping: workerMapping,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al duplicar');
+      setDupStoreModal(false);
+      alert(`✓ ${data.count} tareas copiadas correctamente a ${allStores.find(s => s.id === parseInt(dupTargetStore))?.name}`);
+    } catch (err) {
+      setDupStoreError(err.message);
+    } finally {
+      setDupStoreSaving(false);
+    }
+  };
+
   const displayedTasks = detailWorkerId
     ? tasks.filter(t => Number(t.worker_id) === Number(detailWorkerId))
     : tasks;
@@ -375,10 +451,18 @@ export default function Tasks() {
             </>
           )}
         </div>
-        <button className="btn btn-primary" onClick={() => openCreate(detailWorkerId)} disabled={workers.length === 0}>
-          <FontAwesomeIcon icon={faPlus} />
-          Nueva Tarea
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {tasks.length > 0 && !detailWorkerId && (
+            <button className="btn btn-secondary" onClick={openDupStore}>
+              <FontAwesomeIcon icon={faStore} />
+              Copiar a otra tienda
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={() => openCreate(detailWorkerId)} disabled={workers.length === 0}>
+            <FontAwesomeIcon icon={faPlus} />
+            Nueva Tarea
+          </button>
+        </div>
       </header>
 
       <div className="admin-main">
@@ -916,6 +1000,117 @@ export default function Tasks() {
                 {dupAllSaving ? 'Duplicando...' : 'Duplicar tareas'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {dupStoreModal && (
+        <div className="modal-overlay" onClick={() => !dupStoreSaving && setDupStoreModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520, width: '100%' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">
+                <FontAwesomeIcon icon={faStore} style={{ marginRight: 8, color: '#D4AF37' }} />
+                Copiar tareas a otra tienda
+              </h2>
+              <button className="modal-close" onClick={() => !dupStoreSaving && setDupStoreModal(false)}>
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: 13, color: '#aaa', marginBottom: 18 }}>
+              Se copiarán las <strong style={{ color: '#f1f5f9' }}>{tasks.length} tareas</strong> de <strong style={{ color: '#D4AF37' }}>{selectedStore.name}</strong> a la tienda destino. Para cada trabajador origen, elige quién recibirá sus tareas.
+            </p>
+
+            {allStores.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px 0', color: '#666', fontSize: 13 }}>
+                No tienes otras tiendas disponibles.
+              </div>
+            ) : (
+              <>
+                {/* Selector de tienda destino */}
+                <div className="form-group">
+                  <label>Tienda destino</label>
+                  <select
+                    value={dupTargetStore}
+                    onChange={e => handleDupStoreTargetChange(e.target.value)}
+                    disabled={dupStoreSaving}
+                  >
+                    {allStores.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Mapeo de trabajadores */}
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 10 }}>
+                    Asignar trabajadores
+                  </label>
+
+                  {[...new Set(tasks.map(t => t.worker_id))].map(sourceWId => {
+                    const sourceWorker = workers.find(w => w.id === sourceWId);
+                    if (!sourceWorker) return null;
+                    const taskCount = tasks.filter(t => t.worker_id === sourceWId).length;
+                    return (
+                      <div key={sourceWId} style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '10px 14px', marginBottom: 8,
+                        background: 'rgba(255,255,255,0.03)', borderRadius: 10,
+                        border: '1px solid rgba(255,255,255,0.07)'
+                      }}>
+                        {/* Origen */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {sourceWorker.name}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#64748b' }}>{taskCount} tarea{taskCount !== 1 ? 's' : ''}</div>
+                        </div>
+
+                        <FontAwesomeIcon icon={faArrowRight} style={{ color: '#D4AF37', fontSize: 12, flexShrink: 0 }} />
+
+                        {/* Destino */}
+                        <div style={{ flex: 1 }}>
+                          {dupTargetWorkers.length === 0 ? (
+                            <span style={{ fontSize: 12, color: '#555', fontStyle: 'italic' }}>Sin trabajadores</span>
+                          ) : (
+                            <select
+                              value={workerMapping[sourceWId] || ''}
+                              onChange={e => setWorkerMapping(prev => ({ ...prev, [sourceWId]: parseInt(e.target.value) }))}
+                              disabled={dupStoreSaving}
+                              style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: '#1a2535', color: '#f1f5f9', fontSize: 13 }}
+                            >
+                              <option value="">— Elegir —</option>
+                              {dupTargetWorkers.map(w => (
+                                <option key={w.id} value={w.id}>{w.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {dupStoreError && (
+                  <div style={{ fontSize: 13, color: '#f87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '8px 12px', marginBottom: 14 }}>
+                    {dupStoreError}
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button className="btn btn-secondary flex-1" onClick={() => setDupStoreModal(false)} disabled={dupStoreSaving}>
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn btn-primary flex-1"
+                    onClick={handleDupStore}
+                    disabled={dupStoreSaving || dupTargetWorkers.length === 0}
+                  >
+                    {dupStoreSaving ? 'Copiando...' : `Copiar ${tasks.length} tareas`}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

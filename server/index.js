@@ -5841,6 +5841,42 @@ app.post('/api/tasks/duplicate-worker', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/api/tasks/duplicate-to-store', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
+    const { source_store_id, target_store_id, worker_mapping } = req.body;
+    // worker_mapping: { "source_worker_id": target_worker_id, ... }
+    if (!source_store_id || !target_store_id || !worker_mapping || typeof worker_mapping !== 'object') {
+      return res.status(400).json({ error: 'Faltan campos requeridos' });
+    }
+    const [srcOk, tgtOk] = await Promise.all([
+      verifyStoreOwnership(parseInt(source_store_id), req.user.id),
+      verifyStoreOwnership(parseInt(target_store_id), req.user.id),
+    ]);
+    if (!srcOk) return res.status(403).json({ error: 'Sin acceso a la tienda origen' });
+    if (!tgtOk) return res.status(403).json({ error: 'Sin acceso a la tienda destino' });
+
+    const [sourceTasks] = await pool.execute(
+      'SELECT name, description, day_of_week, due_time, worker_id FROM tasks WHERE store_id = ?',
+      [source_store_id]
+    );
+
+    let count = 0;
+    for (const t of sourceTasks) {
+      const targetWorkerId = worker_mapping[String(t.worker_id)];
+      if (!targetWorkerId) continue; // sin mapeo definido para este worker, se omite
+      await pool.execute(
+        'INSERT INTO tasks (store_id, worker_id, name, description, day_of_week, due_time) VALUES (?, ?, ?, ?, ?, ?)',
+        [target_store_id, targetWorkerId, t.name, t.description, t.day_of_week, t.due_time]
+      );
+      count++;
+    }
+    res.json({ success: true, count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
   try {
     if (req.user.type !== 'user') return res.status(403).json({ error: 'Acceso denegado' });
