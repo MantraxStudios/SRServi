@@ -3045,12 +3045,12 @@ export async function processMercadoPagoPayment(storeId, orderData) {
   let mercadopago_terminal_id = null;
 
   if (selected_terminal_id) {
-    const terminal = await getMercadoPagoTerminalForStore(storeId, selected_terminal_id);
+    const terminal = await getPosTerminalForStore(storeId, selected_terminal_id);
     if (!terminal) {
       throw new Error('La máquina seleccionada no está disponible para esta tienda');
     }
-    mercadopago_access_token = terminal.mercadopago_access_token;
-    mercadopago_terminal_id = terminal.mercadopago_terminal_id;
+    mercadopago_access_token = terminal.api_key;
+    mercadopago_terminal_id = terminal.device_id;
   } else {
     const store = await getStoreById(storeId);
     mercadopago_access_token = store?.mercadopago_access_token || null;
