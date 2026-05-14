@@ -769,248 +769,55 @@ export async function generatePromoImage({ store, topProducts, coupons, template
   return canvas.toBuffer('image/jpeg', { quality: 92 });
 }
 
-// ─── Instagram auth helpers ───────────────────────────────────────────────────
+// ─── Instagram Python service client ─────────────────────────────────────────
 
-async function buildIg(username) {
-  const { IgApiClient } = await import('instagram-private-api');
-  const ig = new IgApiClient();
-  ig.state.generateDevice(username);
-  return ig;
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { writeFile, unlink } from 'fs/promises';
+
+const PY_BASE = process.env.INSTAGRAM_SERVICE_URL || 'http://127.0.0.1:8787';
+
+async function pyCall(path, options = {}) {
+  const res = await fetch(`${PY_BASE}${path}`, options);
+  const data = await res.json().catch(() => ({ detail: 'Respuesta inválida del servicio Instagram' }));
+  if (!res.ok) throw new Error(data.detail || `Error ${res.status} del servicio Instagram`);
+  return data;
 }
 
-async function serializeIg(ig) {
+// Start login. Returns { status: 'ok' | '2fa_required' | 'challenge_required', hint?, info? }
+export async function startInstagramLogin(storeId, username, password) {
+  return pyCall(`/${storeId}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+// Send verification code (challenge or 2FA). Returns { status: 'ok' }
+export async function completeInstagramVerify(storeId, code, type = 'challenge') {
+  return pyCall(`/${storeId}/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, type }),
+  });
+}
+
+// Post a photo to Instagram via the Python service.
+export async function postToInstagram({ storeId, imageBuffer, caption }) {
+  const tmpPath = join(tmpdir(), `ig_post_${storeId}_${Date.now()}.jpg`);
+  await writeFile(tmpPath, imageBuffer);
   try {
-    const s = await ig.state.serialize();
-    delete s.constants;
-    // challengeUrl is NOT included in state.serialize() — persist it manually
-    if (ig.state.challengeUrl) s.challengeUrl = ig.state.challengeUrl;
-    return JSON.stringify(s);
-  } catch { return '{}'; }
-}
-
-// Deserialize ig state and restore challengeUrl (not included in state.deserialize)
-async function deserializeIg(ig, igState) {
-  const parsed = typeof igState === 'string' ? JSON.parse(igState) : igState;
-  await ig.state.deserialize(parsed);
-  if (parsed.challengeUrl) ig.state.challengeUrl = parsed.challengeUrl;
-}
-
-// Detect Instagram error type by name (instanceof fails with dynamic imports)
-function igErrorType(e) {
-  const name = e.name || e.constructor?.name || '';
-  const body = e.response?.body || {};
-  const msg  = body.message || body.error_type || '';
-
-  if (
-    name === 'IgLoginTwoFactorRequiredError' ||
-    body.two_factor_required ||
-    body.two_factor_info
-  ) return 'twoFactor';
-
-  if (
-    name === 'IgCheckpointError' ||
-    body.checkpoint_url ||
-    msg === 'checkpoint_required' ||
-    msg.includes('checkpoint')
-  ) return 'challenge';
-
-  return null;
-}
-
-// Start login. Returns:
-//   { ok: true, igState }                       — success
-//   { needsTwoFactor: true, info, igState }      — TOTP / SMS 2FA needed
-//   { needsChallenge: true, hint, igState }      — checkpoint / 401 / rate-limit
-export async function startInstagramLogin(username, password, verificationCode = '') {
-  const ig = await buildIg(username);
-  const code = (verificationCode || '').replace(/\s/g, '');
-
-  // preLoginFlow makes optional warm-up requests — skip if Instagram rejects them
-  try { await ig.simulate.preLoginFlow(); } catch (_) {}
-
-  let loginErr = null;
-  try {
-    await ig.account.login(username, password);
-    try { await ig.simulate.postLoginFlow(); } catch (_) {}
-    return { ok: true, igState: await serializeIg(ig) };
-  } catch (e) { loginErr = e; }
-
-  const type = igErrorType(loginErr);
-  const body = loginErr.response?.body || {};
-  const msg  = loginErr.message || body.message || '';
-  console.log(`[IG login] user=${username} errorName=${loginErr.name} type=${type} msg=${msg} body=${JSON.stringify(body).slice(0,300)}`);
-
-  if (type === 'twoFactor') {
-    if (code) {
-      const info = body.two_factor_info || {};
-      await ig.account.twoFactorLogin({
-        username,
-        verificationCode: code,
-        twoFactorIdentifier: info.two_factor_identifier,
-        verificationMethod: '0',
-        trustThisDevice: '1',
-      });
-      try { await ig.simulate.postLoginFlow(); } catch (_) {}
-      return { ok: true, igState: await serializeIg(ig) };
-    }
-    return { needsTwoFactor: true, info: body.two_factor_info || {}, igState: await serializeIg(ig) };
-  }
-
-  // For wrong-password errors throw immediately
-  const isHardError =
-    loginErr.name === 'IgLoginBadPasswordError' ||
-    msg.toLowerCase().includes('password') ||
-    msg.toLowerCase().includes('invalid user') ||
-    msg.toLowerCase().includes('contraseña') ||
-    msg.toLowerCase().includes('incorrect');
-  if (isHardError) throw new Error(msg || 'Usuario o contraseña incorrectos');
-
-  if (type === 'challenge') {
-    // Explicitly set challengeUrl from error body — the library may not do this automatically
-    if (body.checkpoint_url) ig.state.challengeUrl = body.checkpoint_url;
-    console.log(`[IG challenge] challengeUrl=${ig.state.challengeUrl}`);
-
-    if (code) {
-      // Code pre-supplied — try submitting without requesting a new one first
-      try {
-        await ig.challenge.auto(false);
-        await ig.challenge.sendSecurityCode(code);
-        try { await ig.simulate.postLoginFlow(); } catch (_) {}
-        return { ok: true, igState: await serializeIg(ig) };
-      } catch (_) {
-        // Code failed — fall through to request a fresh code
-      }
-    }
-
-    // Ask Instagram to send the verification code (email or SMS)
-    let challengeInfo = {};
-    try { challengeInfo = await ig.challenge.auto(true) || {}; } catch (_) {}
-    const hint = challengeInfo?.step_data?.contact_point
-      || challengeInfo?.step_name
-      || 'Revisá tu email o teléfono para obtener el código';
-    return { needsChallenge: true, hint, igState: await serializeIg(ig) };
-  }
-
-  // Non-checkpoint errors: only show challenge modal if there's actually a checkpoint URL
-  if (body.checkpoint_url) {
-    ig.state.challengeUrl = body.checkpoint_url;
-    try { await ig.challenge.auto(true); } catch (_) {}
-    return { needsChallenge: true, hint: msg || 'Instagram requiere verificación adicional', igState: await serializeIg(ig) };
-  }
-
-  // No checkpoint at all — throw the real error so the user sees what's wrong
-  throw new Error(msg || 'Error al conectar con Instagram. Revisá usuario y contraseña.');
-}
-
-// Complete TOTP / SMS two-factor login.
-// If the two_factor_identifier has expired (user took too long), it re-logs in to get a fresh one
-// and retries immediately with the same TOTP code (valid within the 30s window).
-export async function completeInstagramTwoFactor(igState, { username, password, identifier, code, verificationMethod = '0' }) {
-  const cleanCode = code.replace(/\s/g, '');
-
-  // First attempt with the saved identifier and session state
-  const ig = await buildIg(username);
-  await deserializeIg(ig, igState);
-  console.log(`[IG 2FA] user=${username} method=${verificationMethod} identifier=${identifier} code=${cleanCode ? '***' : 'empty'}`);
-  try {
-    await ig.account.twoFactorLogin({
-      username,
-      verificationCode: cleanCode,
-      twoFactorIdentifier: identifier,
-      verificationMethod,
-      trustThisDevice: '1',
+    return await pyCall(`/${storeId}/post`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_path: tmpPath, caption }),
     });
-    try { await ig.simulate.postLoginFlow(); } catch (_) {}
-    return { ok: true, igState: await serializeIg(ig) };
-  } catch (firstErr) {
-    const errType = igErrorType(firstErr);
-    console.log(`[IG 2FA] twoFactorLogin error: name=${firstErr.name} type=${errType} msg=${firstErr.message} body=${JSON.stringify(firstErr.response?.body||{}).slice(0,200)}`);
-
-    // Instagram requires an additional checkpoint after 2FA — return it for the caller to handle
-    if (errType === 'challenge') {
-      try { await ig.challenge.auto(true); } catch (_) {}
-      return { needsChallenge: true, igState: await serializeIg(ig) };
-    }
-
-    // Identifier may have expired — do a fresh login to get a new one and retry with the same code
-    if (password) {
-      const ig2 = await buildIg(username);
-      try { await ig2.simulate.preLoginFlow(); } catch (_) {}
-      let loginErr2;
-      try {
-        await ig2.account.login(username, password);
-        // Login succeeded without 2FA on retry
-        try { await ig2.simulate.postLoginFlow(); } catch (_) {}
-        return { ok: true, igState: await serializeIg(ig2) };
-      } catch (e) { loginErr2 = e; }
-
-      if (igErrorType(loginErr2) === 'twoFactor') {
-        const info2 = loginErr2.response?.body?.two_factor_info || {};
-        if (info2.two_factor_identifier) {
-          await ig2.account.twoFactorLogin({
-            username,
-            verificationCode: cleanCode,
-            twoFactorIdentifier: info2.two_factor_identifier,
-            verificationMethod,
-            trustThisDevice: '1',
-          });
-          try { await ig2.simulate.postLoginFlow(); } catch (_) {}
-          return { ok: true, igState: await serializeIg(ig2) };
-        }
-      }
-    }
-
-    throw firstErr;
+  } finally {
+    await unlink(tmpPath).catch(() => {});
   }
 }
 
-// Complete checkpoint / challenge verification.
-// username + password required for fallback when no real checkpoint URL is in state.
-export async function completeInstagramChallenge(igState, code, username, password) {
-  const { IgApiClient } = await import('instagram-private-api');
-  const ig = new IgApiClient();
-  if (username) ig.state.generateDevice(username);
-  await deserializeIg(ig, igState); // restores challengeUrl too
-  const cleanCode = (code || '').replace(/\s/g, '');
-  console.log(`[IG challenge] user=${username} challengeUrl=${ig.state.challengeUrl} code=${cleanCode ? '***' : 'empty'}`);
-  try {
-    await ig.challenge.sendSecurityCode(cleanCode);
-  } catch (err) {
-    console.log(`[IG challenge] sendSecurityCode error: name=${err.name} msg=${err.message}`);
-    const noCheckpoint = err.message?.includes('No checkpoint') || err.message?.includes('no_checkpoint') || err.name === 'IgNoCheckpointError';
-    if (noCheckpoint) {
-      // No real checkpoint URL — the modal appeared because of a 401/rate-limit.
-      // Retry a full login; if it asks for 2FA the user will get the proper 2FA modal.
-      if (username && password) {
-        const retryResult = await startInstagramLogin(username, password, cleanCode);
-        // Propagate any result — ok, needsTwoFactor, or needsChallenge — to the verify route
-        if (retryResult.ok || retryResult.needsTwoFactor || retryResult.needsChallenge) {
-          return retryResult;
-        }
-      }
-      throw new Error('Código inválido o sesión expirada. Hacé clic en Conectar de nuevo para recibir un código nuevo.');
-    }
-    throw err;
-  }
-  try { await ig.simulate.postLoginFlow(); } catch (_) {}
-  return { ok: true, igState: await serializeIg(ig) };
-}
-
-// Post a photo. Prefers saved igSession; falls back to fresh login (no 2FA support).
-export async function postToInstagram({ username, password, imageBuffer, caption, igSession }) {
-  const ig = await buildIg(username);
-  if (igSession) {
-    try {
-      await ig.state.deserialize(JSON.parse(igSession));
-    } catch (_) {
-      igSession = null;
-    }
-  }
-  if (!igSession) {
-    await ig.simulate.preLoginFlow();
-    await ig.account.login(username, password);
-    await ig.simulate.postLoginFlow();
-  }
-  await ig.publish.photo({ file: imageBuffer, caption });
-  return { igState: await serializeIg(ig) };
+// Delete Instagram session from the Python service.
+export async function deleteInstagramSession(storeId) {
+  await fetch(`${PY_BASE}/${storeId}/session`, { method: 'DELETE' }).catch(() => {});
 }

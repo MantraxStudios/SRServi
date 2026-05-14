@@ -3844,6 +3844,7 @@ export async function getActiveInstagramConfigs() {
     FROM instagram_configs ic
     JOIN stores s ON s.id = ic.store_id
     WHERE ic.enabled = TRUE
+      AND ic.ig_connected = 1
       AND ic.ig_username != ''
       AND ic.ig_password != ''
       AND (ic.last_posted_at IS NULL OR ic.last_posted_at < DATE_SUB(NOW(), INTERVAL 6 DAY))
