@@ -222,9 +222,9 @@ const CSS = `
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    gap: clamp(6px, 2vw, 20px);
+    gap: clamp(4px, 1.5vw, 16px);
     width: 100%;
-    max-width: 920px;
+    max-width: 1100px;
   }
   .rv-face-btn {
     flex: 1;
@@ -247,8 +247,8 @@ const CSS = `
   .rv-face-btn:not(:disabled):active { transform: scale(0.87); }
 
   .rv-face-svg {
-    width: min(18vw, 190px);
-    height: min(18vw, 190px);
+    width: min(18vw, 260px);
+    height: min(18vw, 260px);
     filter: drop-shadow(0 8px 20px rgba(0,0,0,0.35)) drop-shadow(0 2px 5px rgba(0,0,0,0.20));
     display: block;
     overflow: visible;
@@ -309,7 +309,7 @@ const CSS = `
     .rv-logo-img, .rv-logo-ph { width: 72px; height: 72px; font-size: 32px; border-radius: 14px; }
     .rv-store-name { font-size: clamp(22px, 5vh, 40px); }
     .rv-headline   { font-size: clamp(26px, 7vh, 56px); }
-    .rv-face-svg   { width: min(16vh, 140px); height: min(16vh, 140px); }
+    .rv-face-svg   { width: min(20vh, 175px); height: min(20vh, 175px); }
     .rv-face-label { font-size: clamp(8px, 1.5vh, 13px); }
     .rv-faces      { gap: clamp(6px, 1.8vw, 18px); max-width: 1020px; }
     .rv-body       { gap: clamp(10px, 2.5vh, 30px); }
@@ -319,9 +319,9 @@ const CSS = `
   @media (min-width: 600px) and (orientation: portrait) {
     .rv-logo-img, .rv-logo-ph { width: 140px; height: 140px; font-size: 62px; border-radius: 24px; }
     .rv-store-name { font-size: clamp(34px, 6vw, 62px); }
-    .rv-face-svg   { width: min(16vw, 210px); height: min(16vw, 210px); }
+    .rv-face-svg   { width: min(18vw, 280px); height: min(18vw, 280px); }
     .rv-face-label { font-size: clamp(12px, 2vw, 18px); }
-    .rv-faces      { max-width: 860px; gap: clamp(10px, 2.5vw, 28px); }
+    .rv-faces      { max-width: 1100px; gap: clamp(8px, 2vw, 22px); }
     .rv-done-svg   { width: min(34vw, 220px); height: min(34vw, 220px); }
   }
 `;
