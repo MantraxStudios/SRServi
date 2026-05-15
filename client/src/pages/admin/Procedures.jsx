@@ -82,10 +82,12 @@ function ImageSearchModal({ onSelect, onClose }) {
                   onMouseEnter={e => { e.currentTarget.style.borderColor = GOLD; e.currentTarget.style.transform = 'scale(1.03)'; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = '#f0f0f0'; e.currentTarget.style.transform = 'scale(1)'; }}
                 >
-                  <img src={p.image_url} alt={p.product_name || ''}
-                    style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }}
-                    onError={e => { e.target.parentElement.style.display = 'none'; }}
-                  />
+                  <div style={{ width: '100%', height: 120, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src={p.image_url} alt={p.product_name || ''}
+                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
+                      onError={e => { e.target.parentElement.parentElement.style.display = 'none'; }}
+                    />
+                  </div>
                   {p.product_name && (
                     <div style={{ fontSize: 10, padding: '4px 6px', color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {p.product_name}
