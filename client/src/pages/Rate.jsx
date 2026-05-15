@@ -78,20 +78,20 @@ const CSS = `
     flex-shrink: 0;
   }
   .rv-logo-img {
-    width: 80px; height: 80px;
-    border-radius: 16px;
+    width: 110px; height: 110px;
+    border-radius: 20px;
     object-fit: contain;
     flex-shrink: 0;
   }
   .rv-logo-ph {
-    width: 80px; height: 80px;
-    border-radius: 16px;
+    width: 110px; height: 110px;
+    border-radius: 20px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 36px; font-weight: 900;
+    font-size: 50px; font-weight: 900;
     flex-shrink: 0;
   }
   .rv-store-name {
-    font-size: clamp(22px, 5vw, 40px);
+    font-size: clamp(30px, 7vw, 58px);
     font-weight: 900;
     color: #1e293b;
     line-height: 1.1;
@@ -147,14 +147,14 @@ const CSS = `
   .rv-face-btn:not(:disabled):active { transform: scale(0.87); }
 
   .rv-face-svg {
-    width: min(17vw, 140px);
-    height: min(17vw, 140px);
+    width: min(18vw, 190px);
+    height: min(18vw, 190px);
     filter: drop-shadow(0 4px 14px rgba(0,0,0,0.20));
     display: block;
     overflow: visible;
   }
   .rv-face-label {
-    font-size: clamp(9px, 1.8vw, 14px);
+    font-size: clamp(10px, 2vw, 16px);
     font-weight: 800;
     text-align: center;
     letter-spacing: 0.4px;
@@ -172,7 +172,7 @@ const CSS = `
     padding: 24px;
     animation: pop 0.35s ease-out;
   }
-  .rv-done-svg   { width: min(38vw, 150px); height: min(38vw, 150px); filter: drop-shadow(0 6px 20px rgba(0,0,0,0.22)); overflow: visible; }
+  .rv-done-svg   { width: min(40vw, 200px); height: min(40vw, 200px); filter: drop-shadow(0 6px 20px rgba(0,0,0,0.22)); overflow: visible; }
   .rv-done-title { font-size: clamp(36px, 9vw, 60px); font-weight: 900; color: #1e293b; }
   .rv-done-sub   { font-size: clamp(16px, 3vw, 22px); color: #64748b; }
 
@@ -187,22 +187,23 @@ const CSS = `
 
   @media (orientation: landscape) {
     .rv-topbar { padding: 6px 24px; }
-    .rv-logo-img, .rv-logo-ph { width: 56px; height: 56px; font-size: 24px; border-radius: 12px; }
-    .rv-store-name { font-size: clamp(18px, 4vh, 30px); }
+    .rv-logo-img, .rv-logo-ph { width: 72px; height: 72px; font-size: 32px; border-radius: 14px; }
+    .rv-store-name { font-size: clamp(22px, 5vh, 40px); }
     .rv-headline   { font-size: clamp(26px, 7vh, 56px); }
-    .rv-face-svg   { width: min(14vh, 110px); height: min(14vh, 110px); }
-    .rv-face-label { font-size: clamp(7px, 1.4vh, 11px); }
+    .rv-face-svg   { width: min(16vh, 140px); height: min(16vh, 140px); }
+    .rv-face-label { font-size: clamp(8px, 1.5vh, 13px); }
     .rv-faces      { gap: clamp(6px, 1.8vw, 18px); max-width: 1020px; }
     .rv-body       { gap: clamp(10px, 2.5vh, 30px); }
-    .rv-done-svg   { width: min(26vh, 120px); height: min(26vh, 120px); }
+    .rv-done-svg   { width: min(28vh, 150px); height: min(28vh, 150px); }
     .rv-done-title { font-size: clamp(28px, 7vh, 52px); }
   }
   @media (min-width: 600px) and (orientation: portrait) {
-    .rv-logo-img, .rv-logo-ph { width: 100px; height: 100px; font-size: 44px; }
-    .rv-face-svg   { width: min(15vw, 160px); height: min(15vw, 160px); }
-    .rv-face-label { font-size: clamp(11px, 2vw, 16px); }
-    .rv-faces      { max-width: 800px; gap: clamp(10px, 2.5vw, 26px); }
-    .rv-done-svg   { width: min(32vw, 180px); height: min(32vw, 180px); }
+    .rv-logo-img, .rv-logo-ph { width: 140px; height: 140px; font-size: 62px; border-radius: 24px; }
+    .rv-store-name { font-size: clamp(34px, 6vw, 62px); }
+    .rv-face-svg   { width: min(16vw, 210px); height: min(16vw, 210px); }
+    .rv-face-label { font-size: clamp(12px, 2vw, 18px); }
+    .rv-faces      { max-width: 860px; gap: clamp(10px, 2.5vw, 28px); }
+    .rv-done-svg   { width: min(34vw, 220px); height: min(34vw, 220px); }
   }
 `;
 
