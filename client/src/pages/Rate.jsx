@@ -1,95 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
-/* ── Ambient (day/night cycle) ──────────────────────────────────────── */
-function getAmbientKey() {
-  const h = new Date().getHours();
-  if (h >= 5  && h < 9)  return 'dawn';
-  if (h >= 9  && h < 14) return 'morning';
-  if (h >= 14 && h < 19) return 'afternoon';
-  if (h >= 19 && h < 22) return 'sunset';
-  return 'night';
-}
-
-const AMBIENTS = {
-  dawn: {
-    bg:      'linear-gradient(160deg, #fdb97d 0%, #f7927a 45%, #f06a7a 100%)',
-    text:    '#3d1500',
-    sub:     '#7a3a1a',
-    brand:   'rgba(61,21,0,0.35)',
-    stars:   false,
-    clouds:  true,
-    label:   '🌅 Amanecer',
-  },
-  morning: {
-    bg:      'linear-gradient(160deg, #c6e4f5 0%, #ddf0fa 55%, #c0dff0 100%)',
-    text:    '#1e293b',
-    sub:     '#64748b',
-    brand:   'rgba(30,41,59,0.30)',
-    stars:   false,
-    clouds:  false,
-    label:   '☀️ Mañana',
-  },
-  afternoon: {
-    bg:      'linear-gradient(160deg, #fff0c4 0%, #ffe080 45%, #ffcc00 100%)',
-    text:    '#3d2a00',
-    sub:     '#7a5500',
-    brand:   'rgba(61,42,0,0.30)',
-    stars:   false,
-    clouds:  false,
-    label:   '🌤️ Tarde',
-  },
-  sunset: {
-    bg:      'linear-gradient(160deg, #ff6b35 0%, #d9534f 38%, #7b2fa0 100%)',
-    text:    '#ffffff',
-    sub:     'rgba(255,255,255,0.75)',
-    brand:   'rgba(255,255,255,0.30)',
-    stars:   false,
-    clouds:  false,
-    label:   '🌆 Atardecer',
-  },
-  night: {
-    bg:      'linear-gradient(160deg, #0d1b2a 0%, #1b2b4b 55%, #0a1628 100%)',
-    text:    '#e2e8f0',
-    sub:     '#94a3b8',
-    brand:   'rgba(226,232,240,0.25)',
-    stars:   true,
-    clouds:  false,
-    label:   '🌙 Noche',
-  },
-};
-
-/* ── Stars (night) ──────────────────────────────────────────────────── */
-const STARS = [
-  {cx:8,  cy:8,  r:0.7, d:0.0 },{cx:22, cy:4,  r:0.5, d:0.4 },{cx:35, cy:14, r:1.0, d:0.8 },
-  {cx:48, cy:6,  r:0.6, d:1.2 },{cx:61, cy:12, r:0.8, d:0.3 },{cx:74, cy:5,  r:0.5, d:1.6 },
-  {cx:85, cy:16, r:1.1, d:0.7 },{cx:93, cy:9,  r:0.6, d:1.0 },{cx:14, cy:26, r:0.5, d:2.0 },
-  {cx:28, cy:32, r:0.9, d:0.5 },{cx:42, cy:22, r:0.6, d:1.4 },{cx:55, cy:28, r:0.8, d:0.1 },
-  {cx:67, cy:20, r:0.5, d:1.8 },{cx:79, cy:30, r:1.0, d:0.6 },{cx:96, cy:24, r:0.7, d:1.1 },
-  {cx:5,  cy:42, r:0.8, d:1.5 },{cx:19, cy:48, r:0.5, d:0.2 },{cx:33, cy:50, r:0.7, d:1.9 },
-  {cx:50, cy:38, r:1.0, d:0.9 },{cx:64, cy:44, r:0.6, d:0.4 },{cx:77, cy:52, r:0.9, d:1.3 },
-  {cx:90, cy:40, r:0.5, d:0.7 },{cx:10, cy:60, r:0.8, d:1.7 },{cx:25, cy:65, r:0.6, d:0.3 },
-  {cx:40, cy:70, r:1.0, d:1.0 },{cx:57, cy:58, r:0.7, d:2.1 },{cx:72, cy:62, r:0.5, d:0.6 },
-  {cx:84, cy:68, r:0.9, d:1.4 },{cx:97, cy:55, r:0.6, d:0.8 },{cx:3,  cy:75, r:0.8, d:1.2 },
-];
-
-function Stars() {
-  return (
-    <svg
-      style={{ position:'fixed', inset:0, width:'100%', height:'75%', pointerEvents:'none', zIndex:0 }}
-      viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"
-    >
-      {STARS.map((s, i) => (
-        <circle key={i} cx={s.cx} cy={s.cy} r={s.r}
-          fill="white"
-          style={{ animation:`rv-twinkle ${1.5 + (i % 5) * 0.4}s ease-in-out ${s.d}s infinite` }}
-        />
-      ))}
-    </svg>
-  );
-}
-
-/* ── Faces ──────────────────────────────────────────────────────────── */
 const FACES = [
   { label: 'MUY INSATISFECHO', value: 2,  color: '#cc1f1f', dark: '#7a0000', type: 'verysad',   delay: 0   },
   { label: 'INSATISFECHO',     value: 4,  color: '#e07020', dark: '#7a3000', type: 'sad',       delay: 0.2 },
@@ -98,18 +9,11 @@ const FACES = [
   { label: 'MUY SATISFECHO',   value: 10, color: '#1e8a1e', dark: '#0d4d0d', type: 'veryhappy', delay: 0.8 },
 ];
 
-/* ── CSS ─────────────────────────────────────────────────────────────── */
 const CSS = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes pop  { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-
-  /* Ambient */
-  @keyframes rv-twinkle {
-    0%, 100% { opacity: 0.25; r: 0.5; }
-    50%      { opacity: 1;    r: 1.1; }
-  }
 
   /* Eye animations */
   @keyframes rv-blink {
@@ -161,11 +65,10 @@ const CSS = `
     display: flex;
     flex-direction: column;
     font-family: system-ui, -apple-system, sans-serif;
+    background: #ffffff;
     overflow: hidden;
-    position: relative;
-    transition: background 4s ease;
   }
-  .rv-gold-line { height: 5px; width: 100%; flex-shrink: 0; position: relative; z-index: 1; }
+  .rv-gold-line { height: 5px; width: 100%; flex-shrink: 0; }
 
   .rv-topbar {
     display: flex;
@@ -173,8 +76,6 @@ const CSS = `
     gap: 14px;
     padding: 14px 24px;
     flex-shrink: 0;
-    position: relative;
-    z-index: 1;
   }
   .rv-logo-img {
     width: 110px; height: 110px;
@@ -192,6 +93,7 @@ const CSS = `
   .rv-store-name {
     font-size: clamp(30px, 7vw, 58px);
     font-weight: 900;
+    color: #1e293b;
     line-height: 1.1;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -205,9 +107,7 @@ const CSS = `
     align-items: center;
     justify-content: center;
     gap: clamp(20px, 4vh, 52px);
-    padding: 0 16px 20px;
-    position: relative;
-    z-index: 1;
+    padding: 0 12px 20px;
   }
   .rv-headline {
     font-size: clamp(38px, 10vw, 76px);
@@ -255,11 +155,11 @@ const CSS = `
   .rv-face-label {
     font-size: clamp(13px, 2.8vw, 22px);
     font-weight: 900;
+    color: #1e293b;
     text-align: center;
     letter-spacing: 0.5px;
     text-transform: uppercase;
     line-height: 1.3;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.30);
     align-self: center;
   }
 
@@ -272,37 +172,18 @@ const CSS = `
     gap: clamp(14px, 3vh, 28px);
     padding: 24px;
     animation: pop 0.35s ease-out;
-    position: relative;
-    z-index: 1;
   }
   .rv-done-svg   { width: min(40vw, 200px); height: min(40vw, 200px); filter: drop-shadow(0 10px 24px rgba(0,0,0,0.38)) drop-shadow(0 3px 6px rgba(0,0,0,0.20)); overflow: visible; }
-  .rv-done-title { font-size: clamp(36px, 9vw, 60px); font-weight: 900; }
-  .rv-done-sub   { font-size: clamp(16px, 3vw, 22px); }
+  .rv-done-title { font-size: clamp(36px, 9vw, 60px); font-weight: 900; color: #1e293b; }
+  .rv-done-sub   { font-size: clamp(16px, 3vw, 22px); color: #64748b; }
 
   .rv-brand {
     font-size: 12px;
+    color: rgba(30,41,59,0.30);
     letter-spacing: 1px;
     text-align: center;
     flex-shrink: 0;
     padding-bottom: 10px;
-    position: relative;
-    z-index: 1;
-  }
-
-  /* Ambient badge */
-  .rv-ambient-badge {
-    position: fixed;
-    top: 10px;
-    right: 14px;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 3px 9px;
-    border-radius: 20px;
-    background: rgba(255,255,255,0.18);
-    backdrop-filter: blur(6px);
-    letter-spacing: 0.3px;
-    z-index: 10;
-    pointer-events: none;
   }
 
   @media (orientation: landscape) {
@@ -327,7 +208,6 @@ const CSS = `
   }
 `;
 
-/* ── FaceSVG ─────────────────────────────────────────────────────────── */
 function FaceSVG({ type, color, dark, delay = 0, className = 'rv-face-svg' }) {
   const d   = (n) => `${(delay + n).toFixed(2)}s`;
   const gId = `sg-${type}`;
@@ -402,7 +282,6 @@ function FaceSVG({ type, color, dark, delay = 0, className = 'rv-face-svg' }) {
   );
 }
 
-/* ── Rate ────────────────────────────────────────────────────────────── */
 export default function Rate() {
   const { code } = useParams();
   const [searchParams] = useSearchParams();
@@ -413,13 +292,6 @@ export default function Rate() {
   const [error, setError]           = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone]             = useState(null);
-  const [ambientKey, setAmbientKey] = useState(getAmbientKey);
-
-  /* refresh ambient every minute (for long-running kiosk sessions) */
-  useEffect(() => {
-    const t = setInterval(() => setAmbientKey(getAmbientKey()), 60_000);
-    return () => clearInterval(t);
-  }, []);
 
   useEffect(() => {
     fetch(`/api/public/${code}`)
@@ -455,9 +327,6 @@ export default function Rate() {
   const accent  = store?.accent_color  || '#D4AF37';
   const primary = store?.primary_color || '#1a1a2e';
   const name    = store?.name || '';
-  const amb     = AMBIENTS[ambientKey];
-
-  const wrapStyle = { background: amb.bg };
 
   const topBar = (
     <div className="rv-topbar">
@@ -469,14 +338,14 @@ export default function Rate() {
           {name[0]?.toUpperCase() || '★'}
         </div>
       ) : null}
-      <span className="rv-store-name" style={{ color: amb.text }}>{name}</span>
+      <span className="rv-store-name">{name}</span>
     </div>
   );
 
   if (loading) return (
     <>
       <style>{CSS}</style>
-      <div className="rv-wrap" style={{ ...wrapStyle, justifyContent: 'center', alignItems: 'center' }}>
+      <div className="rv-wrap" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <div style={spinnerStyle(accent)} />
       </div>
     </>
@@ -485,7 +354,7 @@ export default function Rate() {
   if (error) return (
     <>
       <style>{CSS}</style>
-      <div className="rv-wrap" style={{ ...wrapStyle, justifyContent: 'center', alignItems: 'center' }}>
+      <div className="rv-wrap" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <p style={{ color: '#ef4444', fontSize: 16 }}>{error}</p>
       </div>
     </>
@@ -494,17 +363,15 @@ export default function Rate() {
   if (done) return (
     <>
       <style>{CSS}</style>
-      <div className="rv-wrap" style={wrapStyle}>
-        {amb.stars && <Stars />}
-        <div className="rv-ambient-badge" style={{ color: amb.text }}>{amb.label}</div>
+      <div className="rv-wrap">
         <div className="rv-gold-line" style={{ background: accent }} />
         {topBar}
         <div className="rv-done">
           <FaceSVG type={done.type} color={done.color} dark={done.dark} className="rv-done-svg" />
-          <h2 className="rv-done-title" style={{ color: amb.text }}>¡Gracias!</h2>
-          <p className="rv-done-sub"   style={{ color: amb.sub  }}>Tu opinión nos ayuda a mejorar.</p>
+          <h2 className="rv-done-title">¡Gracias!</h2>
+          <p className="rv-done-sub">Tu opinión nos ayuda a mejorar.</p>
         </div>
-        <p className="rv-brand" style={{ color: amb.brand }}>Powered by SRAutomatic.cl</p>
+        <p className="rv-brand">Powered by SRAutomatic.cl</p>
         <div className="rv-gold-line" style={{ background: accent }} />
       </div>
     </>
@@ -513,9 +380,7 @@ export default function Rate() {
   return (
     <>
       <style>{CSS}</style>
-      <div className="rv-wrap" style={wrapStyle}>
-        {amb.stars && <Stars />}
-        <div className="rv-ambient-badge" style={{ color: amb.text }}>{amb.label}</div>
+      <div className="rv-wrap">
         <div className="rv-gold-line" style={{ background: accent }} />
         {topBar}
 
@@ -534,15 +399,13 @@ export default function Rate() {
                 style={{ opacity: submitting ? 0.5 : 1 }}
               >
                 <FaceSVG type={face.type} color={face.color} dark={face.dark} delay={face.delay} />
-                <span className="rv-face-label" style={{ color: amb.text }}>
-                  {face.label}
-                </span>
+                <span className="rv-face-label">{face.label}</span>
               </button>
             ))}
           </div>
         </div>
 
-        <p className="rv-brand" style={{ color: amb.brand }}>Powered by SRAutomatic.cl</p>
+        <p className="rv-brand">Powered by SRAutomatic.cl</p>
         <div className="rv-gold-line" style={{ background: accent }} />
       </div>
     </>
@@ -551,7 +414,7 @@ export default function Rate() {
 
 const spinnerStyle = (accent) => ({
   width: 40, height: 40,
-  border: '4px solid rgba(255,255,255,0.3)',
+  border: '4px solid #e5e7eb',
   borderTopColor: accent || '#D4AF37',
   borderRadius: '50%',
   animation: 'spin 0.8s linear infinite',
