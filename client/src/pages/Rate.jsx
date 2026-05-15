@@ -149,7 +149,7 @@ const CSS = `
   .rv-face-svg {
     width: min(18vw, 190px);
     height: min(18vw, 190px);
-    filter: drop-shadow(0 4px 14px rgba(0,0,0,0.20));
+    filter: drop-shadow(0 8px 20px rgba(0,0,0,0.35)) drop-shadow(0 2px 5px rgba(0,0,0,0.20));
     display: block;
     overflow: visible;
   }
@@ -172,7 +172,7 @@ const CSS = `
     padding: 24px;
     animation: pop 0.35s ease-out;
   }
-  .rv-done-svg   { width: min(40vw, 200px); height: min(40vw, 200px); filter: drop-shadow(0 6px 20px rgba(0,0,0,0.22)); overflow: visible; }
+  .rv-done-svg   { width: min(40vw, 200px); height: min(40vw, 200px); filter: drop-shadow(0 10px 24px rgba(0,0,0,0.38)) drop-shadow(0 3px 6px rgba(0,0,0,0.20)); overflow: visible; }
   .rv-done-title { font-size: clamp(36px, 9vw, 60px); font-weight: 900; color: #1e293b; }
   .rv-done-sub   { font-size: clamp(16px, 3vw, 22px); color: #64748b; }
 
@@ -209,6 +209,8 @@ const CSS = `
 
 function FaceSVG({ type, color, dark, delay = 0, className = 'rv-face-svg' }) {
   const d = (n) => `${(delay + n).toFixed(2)}s`;
+  const gId = `sg-${type}`;
+  const hId = `hl-${type}`;
 
   const eyeCircle = (extra = 0) => ({
     transformBox: 'fill-box',
@@ -242,7 +244,28 @@ function FaceSVG({ type, color, dark, delay = 0, className = 'rv-face-svg' }) {
 
   return (
     <svg viewBox="0 0 100 100" className={className}>
+      <defs>
+        {/* Sphere shading: bright top-left (light source), dark bottom-right (shadow) */}
+        <radialGradient id={gId} cx="35%" cy="28%" r="72%" gradientUnits="objectBoundingBox">
+          <stop offset="0%"   stopColor="#ffffff" stopOpacity="0.32"/>
+          <stop offset="42%"  stopColor="#ffffff" stopOpacity="0"/>
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.36"/>
+        </radialGradient>
+        {/* Specular highlight: glossy bright spot top-left */}
+        <radialGradient id={hId} cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
+          <stop offset="0%"   stopColor="#ffffff" stopOpacity="0.70"/>
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0"/>
+        </radialGradient>
+      </defs>
+
+      {/* Base color */}
       <circle cx="50" cy="50" r="50" fill={color}/>
+      {/* 3D sphere shading overlay */}
+      <circle cx="50" cy="50" r="50" fill={`url(#${gId})`}/>
+      {/* Glossy specular highlight — top left */}
+      <ellipse cx="34" cy="27" rx="19" ry="13" fill={`url(#${hId})`}/>
+      {/* Subtle rim to give depth at the edge */}
+      <circle cx="50" cy="50" r="49" fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth="3"/>
 
       {type === 'veryhappy' && <>
         {/* squinting happy eyes — bounce upward joyfully */}
