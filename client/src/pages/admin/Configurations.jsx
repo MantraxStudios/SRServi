@@ -166,95 +166,128 @@ function ConfigCard({ config, isDefault, onSave, saving }) {
 }
 
 function DeviceCard({ device, configs, onSave, saving }) {
+  const [open, setOpen] = useState(false);
   const [label, setLabel] = useState(device.label || '');
   const [configId, setConfigId] = useState(device.config_id || '');
   const [restartTime, setRestartTime] = useState(device.restart_time || '');
   const dirty = label !== (device.label || '') || String(configId) !== String(device.config_id || '') || String(restartTime) !== String(device.restart_time || '');
 
   const online = device.last_seen && (new Date() - new Date(device.last_seen)) < 300000;
+  const configName = configs.find(c => String(c.id) === String(device.config_id))?.name || 'Predeterminada';
+
   const formatDate = (d) => {
     if (!d) return 'Nunca';
     const diff = Math.floor((new Date() - new Date(d)) / 60000);
-    if (diff < 1) return 'Ahora';
-    if (diff < 60) return `Hace ${diff}m`;
+    if (diff < 1) return 'Ahora mismo';
+    if (diff < 60) return `Hace ${diff} min`;
     if (diff < 1440) return `Hace ${Math.floor(diff / 60)}h`;
     return new Date(d).toLocaleDateString('es-CL');
   };
 
+  const inputStyle = {
+    width: '100%', padding: '9px 12px', border: '1.5px solid #e8e8e8',
+    borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box',
+    background: '#fafafa', color: '#111'
+  };
+
   return (
     <div style={{
-      background: '#fff', border: `1.5px solid ${online ? '#bbf7d0' : '#e8e8e8'}`,
-      borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,.04)'
+      background: '#fff',
+      border: '1.5px solid #e8e8e8',
+      borderLeft: `4px solid ${online ? '#22c55e' : '#d1d5db'}`,
+      borderRadius: 12,
+      overflow: 'hidden'
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: 9, flexShrink: 0,
-          background: online ? '#f0fdf4' : '#f5f5f5',
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <FontAwesomeIcon icon={faTabletAlt} style={{ fontSize: 17, color: online ? '#16a34a' : '#bbb' }} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: online ? '#22c55e' : '#d1d5db', display: 'inline-block', flexShrink: 0 }} />
-            <span style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>{device.label || 'Sin nombre'}</span>
-            {online && <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>En línea</span>}
+      {/* Header row — siempre visible */}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+          padding: '13px 16px', background: 'none', border: 'none', cursor: 'pointer',
+          borderBottom: open ? '1px solid #f0f0f0' : 'none'
+        }}
+      >
+        <FontAwesomeIcon icon={faTabletAlt} style={{ fontSize: 16, color: online ? '#22c55e' : '#ccc', flexShrink: 0 }} />
+        <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: '#111', lineHeight: 1.2 }}>
+            {device.label || <span style={{ color: '#bbb', fontStyle: 'italic', fontWeight: 400 }}>Sin nombre</span>}
           </div>
-          <div style={{ fontSize: 11, color: '#aaa', marginTop: 1 }}>Último acceso: {formatDate(device.last_seen)}</div>
+          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+            {online
+              ? <span style={{ color: '#16a34a', fontWeight: 600 }}>En línea</span>
+              : `Última vez: ${formatDate(device.last_seen)}`}
+            {' · '}{configName}
+          </div>
         </div>
-      </div>
+        <FontAwesomeIcon icon={open ? faChevronUp : faChevronDown} style={{ color: '#ccc', fontSize: 11, flexShrink: 0 }} />
+      </button>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Nombre</label>
-          <input
-            value={label}
-            onChange={e => setLabel(e.target.value)}
-            placeholder="Ej: Tótem entrada, Caja 1..."
-            style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e2e2e2', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
-          />
-        </div>
+      {/* Cuerpo expandible */}
+      {open && (
+        <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Configuración</label>
+            <label style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Nombre del dispositivo
+            </label>
+            <input
+              value={label}
+              onChange={e => setLabel(e.target.value)}
+              placeholder="Ej: Tótem entrada, Caja 1..."
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Configuración asignada
+            </label>
             <select
               value={configId}
               onChange={e => setConfigId(e.target.value)}
-              style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e2e2e2', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff', boxSizing: 'border-box' }}
+              style={inputStyle}
             >
               <option value="">Predeterminada</option>
               {configs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
+
           <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              <FontAwesomeIcon icon={faClock} style={{ marginRight: 4 }} />Reinicio (seg)
+            <label style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <FontAwesomeIcon icon={faClock} style={{ marginRight: 5 }} />
+              Reinicio automático (segundos)
             </label>
             <input
-              type="number" min="0" value={restartTime} onChange={e => setRestartTime(e.target.value)}
+              type="number" min="0" value={restartTime}
+              onChange={e => setRestartTime(e.target.value)}
               placeholder="0 = desactivado"
-              style={{ width: '100%', padding: '9px 12px', border: '1.5px solid #e2e2e2', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+              style={inputStyle}
             />
+            {restartTime > 0 && (
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                Se reiniciará cada {restartTime}s sin actividad
+              </div>
+            )}
           </div>
-        </div>
 
-        <button
-          onClick={() => onSave(device.id, { label, config_id: configId ? parseInt(configId) : null, restart_time: restartTime || null })}
-          disabled={!dirty || saving}
-          style={{
-            padding: '10px', borderRadius: 9, border: 'none',
-            background: dirty ? '#111' : '#f0f0f0',
-            color: dirty ? '#fff' : '#bbb',
-            fontWeight: 700, fontSize: 13, cursor: dirty ? 'pointer' : 'default',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            transition: 'background 0.15s'
-          }}
-        >
-          <FontAwesomeIcon icon={saving ? faSync : faSave} spin={saving} />
-          {saving ? 'Guardando...' : dirty ? 'Guardar' : 'Sin cambios'}
-        </button>
-      </div>
+          <button
+            onClick={() => onSave(device.id, { label, config_id: configId ? parseInt(configId) : null, restart_time: restartTime || null })}
+            disabled={!dirty || saving}
+            style={{
+              padding: '10px', borderRadius: 9, border: 'none',
+              background: dirty ? '#111' : '#f0f0f0',
+              color: dirty ? '#fff' : '#bbb',
+              fontWeight: 700, fontSize: 13, cursor: dirty ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              transition: 'background 0.15s', marginTop: 2
+            }}
+          >
+            <FontAwesomeIcon icon={saving ? faSync : faSave} spin={saving} />
+            {saving ? 'Guardando...' : dirty ? 'Guardar' : 'Sin cambios'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -4202,6 +4202,35 @@ export async function deleteProcedure(id, storeId) {
   await pool.execute('DELETE FROM worker_procedures WHERE id = ? AND store_id = ?', [id, storeId]);
 }
 
+export async function getPrepTemplate(storeId) {
+  try {
+    await pool.execute(`CREATE TABLE IF NOT EXISTS store_prep_templates (
+      id INT AUTO_INCREMENT PRIMARY KEY, store_id INT NOT NULL UNIQUE,
+      template_json MEDIUMTEXT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`);
+  } catch {}
+  const [rows] = await pool.execute('SELECT template_json FROM store_prep_templates WHERE store_id = ?', [storeId]);
+  if (!rows.length) return null;
+  const t = rows[0].template_json;
+  return typeof t === 'string' ? JSON.parse(t) : t;
+}
+
+export async function savePrepTemplate(storeId, template) {
+  try {
+    await pool.execute(`CREATE TABLE IF NOT EXISTS store_prep_templates (
+      id INT AUTO_INCREMENT PRIMARY KEY, store_id INT NOT NULL UNIQUE,
+      template_json MEDIUMTEXT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`);
+  } catch {}
+  await pool.execute(
+    `INSERT INTO store_prep_templates (store_id, template_json) VALUES (?, ?)
+     ON DUPLICATE KEY UPDATE template_json = VALUES(template_json)`,
+    [storeId, JSON.stringify(template)]
+  );
+}
+
 // Scheduled WhatsApp messages
 export async function createScheduledMessage({ userId, storeId, message, recipients, scheduledAt, recurrence = 'none' }) {
   const [result] = await pool.execute(

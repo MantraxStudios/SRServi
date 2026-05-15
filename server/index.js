@@ -160,6 +160,8 @@ import {
   createProcedure,
   updateProcedure,
   deleteProcedure,
+  getPrepTemplate,
+  savePrepTemplate,
   updateWorkerPhone,
   pool
 } from './database.js';
@@ -10185,6 +10187,36 @@ async function startServer() {
         const store = await getStoreByCode(req.params.storeCode.toUpperCase());
         if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
         res.json(await getProcedures(store.id));
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Prep Template (tabla de preparación de productos)
+    app.get('/api/prep-template', authenticateToken, async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+        const store = await getStoreById(storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        res.json(await getPrepTemplate(storeId));
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.put('/api/prep-template', authenticateToken, async (req, res) => {
+      try {
+        const { store_id, template } = req.body;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const store = await getStoreById(parseInt(store_id));
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        await savePrepTemplate(parseInt(store_id), template);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.get('/api/public/prep-template/:storeCode', async (req, res) => {
+      try {
+        const store = await getStoreByCode(req.params.storeCode.toUpperCase());
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+        res.json(await getPrepTemplate(store.id));
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
