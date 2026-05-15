@@ -2543,22 +2543,22 @@ function Store() {
     return Object.fromEntries(sortedEntries);
   };
 
-  // Long-press en cualquier parte: mousedown/touchstart en document → 2s → abre PIN
+  // Long-press en cualquier parte: mousedown/touchstart en document → 15s → abre PIN
   useEffect(() => {
     let timer = null;
     const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
     const start = () => {
       if (anyModalOpenRef.current) return;
       cancel();
-      console.log('[PIN] press inicio — timer 2s');
+      console.log('[PIN] press inicio — timer 15s');
       timer = setTimeout(() => {
         timer = null;
         if (anyModalOpenRef.current) return;
-        console.log('[PIN] 2s cumplidos — abriendo modal PIN');
+        console.log('[PIN] 15s cumplidos — abriendo modal PIN');
         setPinInput('');
         setPinError('');
         setPinModalOpen(true);
-      }, 2000);
+      }, 15000);
     };
     document.addEventListener('mousedown', start);
     document.addEventListener('mouseup', cancel);
