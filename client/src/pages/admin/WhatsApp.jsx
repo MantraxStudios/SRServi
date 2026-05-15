@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCheckCircle, faTimesCircle, faSpinner,
   faPaperPlane, faUnlink, faLink, faSync,
-  faCalendarPlus, faClock, faTrash, faUsers, faUser, faRepeat
+  faCalendarPlus, faClock, faTrash, faUsers, faUser, faRepeat, faUserGroup
 } from '@fortawesome/free-solid-svg-icons';
 
 function WaIcon({ size = 24, color = '#25D366' }) {
@@ -49,6 +49,9 @@ function WhatsApp() {
   // Schedule form
   const [recipientType, setRecipientType] = useState('all');
   const [selectedWorkers, setSelectedWorkers] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [selectedGroups, setSelectedGroups] = useState([]);
   const [schedMsg, setSchedMsg] = useState('');
   const [schedAt, setSchedAt] = useState(localDatetimeValue());
   const [recurrence, setRecurrence] = useState('none');
@@ -89,6 +92,21 @@ function WhatsApp() {
         }
       }
     } catch {}
+  };
+
+  const fetchGroups = async (storeId) => {
+    if (!storeId) return;
+    setGroupsLoading(true);
+    setSelectedGroups([]);
+    try {
+      const res = await fetch(`${API}/api/whatsapp/groups?store_id=${storeId}`, { headers });
+      const data = await res.json();
+      setGroups(Array.isArray(data) ? data : []);
+    } catch {
+      setGroups([]);
+    } finally {
+      setGroupsLoading(false);
+    }
   };
 
   const fetchWorkers = async (storeId) => {
@@ -177,17 +195,33 @@ function WhatsApp() {
     );
   };
 
+  const toggleGroup = (jid) => {
+    setSelectedGroups(prev =>
+      prev.includes(jid) ? prev.filter(x => x !== jid) : [...prev, jid]
+    );
+  };
+
   const handleSchedule = async (e) => {
     e.preventDefault();
     setSchedResult(null);
     setSchedLoading(true);
     try {
-      const recipients = recipientType === 'all'
-        ? { type: 'all' }
-        : { type: 'specific', worker_ids: selectedWorkers };
+      let recipients;
+      if (recipientType === 'all') {
+        recipients = { type: 'all' };
+      } else if (recipientType === 'specific') {
+        recipients = { type: 'specific', worker_ids: selectedWorkers };
+      } else {
+        recipients = { type: 'groups', group_jids: selectedGroups };
+      }
 
       if (recipientType === 'specific' && selectedWorkers.length === 0) {
         setSchedResult({ ok: false, msg: 'Selecciona al menos un trabajador' });
+        setSchedLoading(false);
+        return;
+      }
+      if (recipientType === 'groups' && selectedGroups.length === 0) {
+        setSchedResult({ ok: false, msg: 'Selecciona al menos un grupo' });
         setSchedLoading(false);
         return;
       }
@@ -209,6 +243,7 @@ function WhatsApp() {
         setSchedMsg('');
         setSchedAt(localDatetimeValue());
         setSelectedWorkers([]);
+        setSelectedGroups([]);
         setRecipientType('all');
         setRecurrence('none');
         fetchScheduled();
@@ -411,33 +446,32 @@ function WhatsApp() {
             {/* Recipients */}
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Destinatarios</label>
-              <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => setRecipientType('all')}
-                  style={{
-                    padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                    border: `2px solid ${recipientType === 'all' ? '#25D366' : '#e5e7eb'}`,
-                    background: recipientType === 'all' ? '#f0fdf4' : '#fff',
-                    color: recipientType === 'all' ? '#166534' : '#6b7280'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faUsers} style={{ marginRight: 6 }} />
-                  Todos los trabajadores
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRecipientType('specific')}
-                  style={{
-                    padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                    border: `2px solid ${recipientType === 'specific' ? '#25D366' : '#e5e7eb'}`,
-                    background: recipientType === 'specific' ? '#f0fdf4' : '#fff',
-                    color: recipientType === 'specific' ? '#166534' : '#6b7280'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faUser} style={{ marginRight: 6 }} />
-                  Específicos
-                </button>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                {[
+                  { type: 'all', icon: faUsers, label: 'Todos los trabajadores' },
+                  { type: 'specific', icon: faUser, label: 'Trabajadores' },
+                  { type: 'groups', icon: faUserGroup, label: 'Grupos' },
+                ].map(opt => (
+                  <button
+                    key={opt.type}
+                    type="button"
+                    onClick={() => {
+                      setRecipientType(opt.type);
+                      if (opt.type === 'groups' && groups.length === 0 && status?.connected) {
+                        fetchGroups(selectedStore);
+                      }
+                    }}
+                    style={{
+                      padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                      border: `2px solid ${recipientType === opt.type ? '#25D366' : '#e5e7eb'}`,
+                      background: recipientType === opt.type ? '#f0fdf4' : '#fff',
+                      color: recipientType === opt.type ? '#166534' : '#6b7280'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={opt.icon} style={{ marginRight: 6 }} />
+                    {opt.label}
+                  </button>
+                ))}
               </div>
 
               {recipientType === 'specific' && (
@@ -467,6 +501,47 @@ function WhatsApp() {
                       />
                       <span style={{ fontSize: 14, fontWeight: 500 }}>{w.name}</span>
                       <span style={{ fontSize: 12, color: '#9ca3af', marginLeft: 'auto' }}>{w.username}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {recipientType === 'groups' && (
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, maxHeight: 200, overflowY: 'auto', padding: '4px 0' }}>
+                  {!status?.connected ? (
+                    <div style={{ padding: '12px 16px', color: '#aaa', fontSize: 13 }}>
+                      Conecta WhatsApp primero para ver tus grupos
+                    </div>
+                  ) : groupsLoading ? (
+                    <div style={{ padding: '12px 16px', color: '#aaa', fontSize: 13 }}>
+                      <FontAwesomeIcon icon={faSpinner} spin style={{ marginRight: 6 }} />Cargando grupos...
+                    </div>
+                  ) : groups.length === 0 ? (
+                    <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <span style={{ color: '#aaa', fontSize: 13 }}>No se encontraron grupos</span>
+                      <button
+                        type="button"
+                        onClick={() => fetchGroups(selectedStore)}
+                        style={{ fontSize: 12, color: '#25D366', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}
+                      >
+                        <FontAwesomeIcon icon={faSync} style={{ marginRight: 4 }} />Recargar grupos
+                      </button>
+                    </div>
+                  ) : groups.map(g => (
+                    <label key={g.jid} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px',
+                      cursor: 'pointer', borderBottom: '1px solid #f5f5f5',
+                      background: selectedGroups.includes(g.jid) ? '#f0fdf4' : '#fff'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedGroups.includes(g.jid)}
+                        onChange={() => toggleGroup(g.jid)}
+                        style={{ width: 15, height: 15, accentColor: '#25D366' }}
+                      />
+                      <FontAwesomeIcon icon={faUserGroup} style={{ color: '#9ca3af', fontSize: 13 }} />
+                      <span style={{ fontSize: 14, fontWeight: 500 }}>{g.name}</span>
+                      <span style={{ fontSize: 12, color: '#9ca3af', marginLeft: 'auto' }}>{g.participants} miembros</span>
                     </label>
                   ))}
                 </div>
@@ -610,7 +685,9 @@ function WhatsApp() {
                 const recipients = typeof m.recipients === 'string' ? JSON.parse(m.recipients) : m.recipients;
                 const recipientLabel = recipients?.type === 'all'
                   ? 'Todos los trabajadores'
-                  : `${recipients?.worker_ids?.length || 0} trabajador(es)`;
+                  : recipients?.type === 'groups'
+                    ? `${recipients?.group_jids?.length || 0} grupo(s)`
+                    : `${recipients?.worker_ids?.length || 0} trabajador(es)`;
                 return (
                   <div key={m.id} style={{
                     border: `1px solid ${st.border}`, borderRadius: 10,
@@ -633,7 +710,13 @@ function WhatsApp() {
                         </p>
                         <div style={{ fontSize: 12, color: '#6b7280', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                           <span><FontAwesomeIcon icon={faClock} style={{ marginRight: 4 }} />{formatDateTime(m.scheduled_at)}</span>
-                          <span><FontAwesomeIcon icon={faUsers} style={{ marginRight: 4 }} />{recipientLabel}</span>
+                          <span>
+                            <FontAwesomeIcon
+                              icon={recipients?.type === 'groups' ? faUserGroup : faUsers}
+                              style={{ marginRight: 4 }}
+                            />
+                            {recipientLabel}
+                          </span>
                           {m.recurrence === 'daily' && (
                             <span style={{ color: '#4338ca' }}>
                               <FontAwesomeIcon icon={faRepeat} style={{ marginRight: 4 }} />Diario

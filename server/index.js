@@ -21,7 +21,7 @@ import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postT
 import { initInstagramService } from './instagram_autostart.js';
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
-import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds } from './whatsapp.js';
+import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds } from './whatsapp.js';
 import cron from 'node-cron';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
@@ -10280,6 +10280,15 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
+    app.get('/api/whatsapp/groups', authenticateToken, async (req, res) => {
+      const storeId = await verifyStoreOwner(req, res);
+      if (!storeId) return;
+      try {
+        const groups = await getWhatsAppGroups(storeId);
+        res.json(groups);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
     app.post('/api/whatsapp/send', authenticateToken, async (req, res) => {
       const storeId = await verifyStoreOwner(req, res);
       if (!storeId) return;
@@ -10353,6 +10362,9 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
               const workers = await getWorkersWithPhone(msg.store_id);
               const ids = new Set(recipients.worker_ids);
               phones = workers.filter(w => ids.has(w.id)).map(w => w.phone);
+            } else if (recipients.type === 'groups' && Array.isArray(recipients.group_jids)) {
+              // Los JIDs de grupos se usan directamente (@g.us)
+              phones = recipients.group_jids;
             }
 
             if (phones.length === 0) {

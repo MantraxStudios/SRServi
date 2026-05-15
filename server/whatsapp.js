@@ -128,11 +128,22 @@ export function getWhatsAppStatus(storeId) {
 export async function sendWhatsAppMessage(storeId, to, message) {
   const conn = getConn(storeId);
   if (!conn.isConnected || !conn.sock) throw new Error('WhatsApp no conectado');
-  const number = to.replace(/[^0-9]/g, '');
-  const jid = `${number}@s.whatsapp.net`;
+  // Si ya es un JID completo (grupo @g.us o individual @s.whatsapp.net), usarlo directo
+  const jid = to.includes('@') ? to : `${to.replace(/[^0-9]/g, '')}@s.whatsapp.net`;
   await conn.sock.sendMessage(jid, { text: message });
-  console.log(`[WhatsApp:${storeId}] Enviado a ${number}`);
+  console.log(`[WhatsApp:${storeId}] Enviado a ${jid}`);
   return true;
+}
+
+export async function getWhatsAppGroups(storeId) {
+  const conn = getConn(storeId);
+  if (!conn.isConnected || !conn.sock) throw new Error('WhatsApp no conectado');
+  const groups = await conn.sock.groupFetchAllParticipating();
+  return Object.values(groups).map(g => ({
+    jid: g.id,
+    name: g.subject,
+    participants: g.participants?.length || 0,
+  })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function disconnectWhatsApp(storeId) {
