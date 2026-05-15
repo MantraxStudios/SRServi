@@ -254,12 +254,13 @@ const CSS = `
     overflow: visible;
   }
   .rv-face-label {
-    font-size: clamp(10px, 2vw, 16px);
-    font-weight: 800;
+    font-size: clamp(13px, 2.8vw, 22px);
+    font-weight: 900;
     text-align: center;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
-    line-height: 1.25;
+    line-height: 1.3;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.30);
   }
 
   .rv-done {
@@ -310,7 +311,7 @@ const CSS = `
     .rv-store-name { font-size: clamp(22px, 5vh, 40px); }
     .rv-headline   { font-size: clamp(26px, 7vh, 56px); }
     .rv-face-svg   { width: min(20vh, 175px); height: min(20vh, 175px); }
-    .rv-face-label { font-size: clamp(8px, 1.5vh, 13px); }
+    .rv-face-label { font-size: clamp(10px, 2vh, 16px); }
     .rv-faces      { gap: clamp(6px, 1.8vw, 18px); max-width: 1020px; }
     .rv-body       { gap: clamp(10px, 2.5vh, 30px); }
     .rv-done-svg   { width: min(28vh, 150px); height: min(28vh, 150px); }
@@ -320,7 +321,7 @@ const CSS = `
     .rv-logo-img, .rv-logo-ph { width: 140px; height: 140px; font-size: 62px; border-radius: 24px; }
     .rv-store-name { font-size: clamp(34px, 6vw, 62px); }
     .rv-face-svg   { width: min(18vw, 280px); height: min(18vw, 280px); }
-    .rv-face-label { font-size: clamp(12px, 2vw, 18px); }
+    .rv-face-label { font-size: clamp(14px, 2.5vw, 24px); }
     .rv-faces      { max-width: 1100px; gap: clamp(8px, 2vw, 22px); }
     .rv-done-svg   { width: min(34vw, 220px); height: min(34vw, 220px); }
   }
@@ -533,7 +534,7 @@ export default function Rate() {
                 style={{ opacity: submitting ? 0.5 : 1 }}
               >
                 <FaceSVG type={face.type} color={face.color} dark={face.dark} delay={face.delay} />
-                <span className="rv-face-label" style={{ color: accent }}>
+                <span className="rv-face-label" style={{ color: amb.text }}>
                   {face.label}
                 </span>
               </button>
