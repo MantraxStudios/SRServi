@@ -2152,28 +2152,37 @@ function WorkerPanel() {
                 </tr>
               </thead>
               <tbody>
-                {Array.from({ length: Math.max(1, activePrepTable.rows || 8) }, (_, rowIdx) => (
-                  <tr key={rowIdx} style={{ borderBottom: '1px solid #1a1a1a' }}>
-                    <td style={{ padding: '10px 14px', fontWeight: 900, fontSize: 16, color: '#D4AF37', textAlign: 'center', background: '#111', borderRight: '1px solid #2a2a2a', position: 'sticky', left: 0 }}>
-                      {rowIdx + 1}
-                    </td>
-                    {(activePrepTable.columns || []).map(col => {
-                      const cell = (activePrepTable.cells || {})[`${col.id}_${rowIdx}`] || {};
-                      const imgUrl = cell.image_url ? (cell.image_url.startsWith('http') ? cell.image_url : 'https://srservi2.srautomatic.com' + cell.image_url) : null;
-                      return (
-                        <td key={col.id} style={{ padding: '10px 12px', borderRight: '1px solid #1a1a1a', verticalAlign: 'middle', textAlign: 'center', minWidth: 120 }}>
-                          {(cell.name || imgUrl) ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                              {imgUrl && <img src={imgUrl} alt={cell.name} onClick={() => setLightboxImg(imgUrl)} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, cursor: 'zoom-in' }} />}
-                              {cell.name && <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{cell.name}</div>}
-                              {cell.note && <div style={{ fontSize: 11, color: '#888', lineHeight: 1.2 }}>{cell.note}</div>}
-                            </div>
-                          ) : <span style={{ color: '#333', fontSize: 16 }}>—</span>}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                {(() => {
+                  const cols = activePrepTable.columns || [];
+                  const defaultRows = activePrepTable.rows || 8;
+                  const maxRows = cols.length > 0 ? Math.max(1, ...cols.map(c => c.rows || defaultRows)) : defaultRows;
+                  return Array.from({ length: maxRows }, (_, rowIdx) => (
+                    <tr key={rowIdx} style={{ borderBottom: '1px solid #1a1a1a' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: 900, fontSize: 16, color: '#D4AF37', textAlign: 'center', background: '#111', borderRight: '1px solid #2a2a2a', position: 'sticky', left: 0 }}>
+                        {rowIdx + 1}
+                      </td>
+                      {cols.map(col => {
+                        const colRows = col.rows || defaultRows;
+                        if (rowIdx >= colRows) {
+                          return <td key={col.id} style={{ padding: '10px 12px', borderRight: '1px solid #1a1a1a', background: '#060606', minWidth: 120 }} />;
+                        }
+                        const cell = (activePrepTable.cells || {})[`${col.id}_${rowIdx}`] || {};
+                        const imgUrl = cell.image_url ? (cell.image_url.startsWith('http') ? cell.image_url : 'https://srservi2.srautomatic.com' + cell.image_url) : null;
+                        return (
+                          <td key={col.id} style={{ padding: '10px 12px', borderRight: '1px solid #1a1a1a', verticalAlign: 'middle', textAlign: 'center', minWidth: 120 }}>
+                            {(cell.name || imgUrl) ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                                {imgUrl && <img src={imgUrl} alt={cell.name} onClick={() => setLightboxImg(imgUrl)} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, cursor: 'zoom-in' }} />}
+                                {cell.name && <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{cell.name}</div>}
+                                {cell.note && <div style={{ fontSize: 11, color: '#888', lineHeight: 1.2 }}>{cell.note}</div>}
+                              </div>
+                            ) : <span style={{ color: '#333', fontSize: 16 }}>—</span>}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ));
+                })()}
               </tbody>
             </table>
           </div>

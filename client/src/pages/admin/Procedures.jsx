@@ -224,7 +224,7 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
   const addColumn = () => {
     if (!newColName.trim()) return;
     const id = 'c' + Date.now();
-    setTable(t => ({ ...t, columns: [...(t.columns || []), { id, name: newColName.trim() }] }));
+    setTable(t => ({ ...t, columns: [...(t.columns || []), { id, name: newColName.trim(), rows: t.rows || 8 }] }));
     setNewColName(''); setAddingCol(false);
   };
   const removeColumn = (id) => setTable(t => {
@@ -233,6 +233,7 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
     return { ...t, columns: t.columns.filter(c => c.id !== id), cells };
   });
   const renameColumn = (id, name) => setTable(t => ({ ...t, columns: t.columns.map(c => c.id === id ? { ...c, name } : c) }));
+  const setColumnRows = (id, rows) => setTable(t => ({ ...t, columns: t.columns.map(c => c.id === id ? { ...c, rows } : c) }));
   const cellKey = (colId, rowIdx) => `${colId}_${rowIdx}`;
   const getCell = (colId, rowIdx) => (table.cells || {})[cellKey(colId, rowIdx)] || {};
   const openCell = (colId, rowIdx) => { const cell = getCell(colId, rowIdx); setCellForm({ name: cell.name || '', note: cell.note || '', image_url: cell.image_url || '' }); setEditingCell({ colId, rowIdx }); };
@@ -248,7 +249,9 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
     } finally { setUploadingCell(false); }
   };
 
-  const rowArr = Array.from({ length: Math.max(1, table.rows || 8) }, (_, i) => i);
+  const colRowsList = (table.columns || []).map(c => c.rows || table.rows || 8);
+  const maxRows = colRowsList.length > 0 ? Math.max(1, ...colRowsList) : (table.rows || 8);
+  const rowArr = Array.from({ length: maxRows }, (_, i) => i);
   const inputStyle = { width: '100%', padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' };
   const labelStyle = { display: 'block', fontSize: 11, fontWeight: 700, color: '#9ca3af', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' };
 
@@ -273,38 +276,35 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
           style={{ ...inputStyle, fontSize: 15, fontWeight: 700 }} />
       </div>
 
-      {/* Columnas + filas */}
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 20, alignItems: 'flex-end' }}>
-        <div style={{ flex: 1, minWidth: 240 }}>
-          <label style={labelStyle}>Columnas</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-            {(table.columns || []).map(col => (
-              <div key={col.id} style={{ display: 'flex', alignItems: 'center', background: '#f3f4f6', border: '1.5px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-                <input value={col.name} onChange={e => renameColumn(col.id, e.target.value)}
-                  style={{ padding: '5px 8px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, outline: 'none', width: Math.max(60, col.name.length * 8 + 16) }} />
-                <button onClick={() => removeColumn(col.id)} style={{ padding: '5px 7px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#ef4444', fontSize: 13 }}>×</button>
-              </div>
-            ))}
-            {addingCol ? (
-              <div style={{ display: 'flex', gap: 4 }}>
-                <input autoFocus value={newColName} onChange={e => setNewColName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addColumn(); if (e.key === 'Escape') { setAddingCol(false); setNewColName(''); } }}
-                  placeholder="Nombre..." style={{ padding: '5px 9px', border: `1.5px solid ${GOLD}`, borderRadius: 8, fontSize: 13, outline: 'none', width: 120 }} />
-                <button onClick={addColumn} style={{ padding: '5px 10px', borderRadius: 8, border: 'none', background: GOLD, color: '#000', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>OK</button>
-                <button onClick={() => { setAddingCol(false); setNewColName(''); }} style={{ padding: '5px 9px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', color: '#888' }}>✕</button>
-              </div>
-            ) : (
-              <button onClick={() => setAddingCol(true)} style={{ padding: '5px 10px', border: '1.5px dashed #d1d5db', borderRadius: 8, background: 'transparent', color: '#9ca3af', fontSize: 12, cursor: 'pointer' }}>
-                <FontAwesomeIcon icon={faPlus} style={{ marginRight: 4 }} />Columna
-              </button>
-            )}
-          </div>
-        </div>
-        <div>
-          <label style={labelStyle}>Filas</label>
-          <input type="number" min="1" max="30" value={table.rows || 8}
-            onChange={e => setTable(t => ({ ...t, rows: Math.max(1, Math.min(30, parseInt(e.target.value) || 1)) }))}
-            style={{ width: 64, padding: '7px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 14, fontWeight: 700, textAlign: 'center', outline: 'none' }} />
+      {/* Columnas (filas por columna) */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={labelStyle}>Columnas — nombre y filas de cada una</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          {(table.columns || []).map(col => (
+            <div key={col.id} style={{ display: 'flex', alignItems: 'center', background: '#f3f4f6', border: '1.5px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+              <input value={col.name} onChange={e => renameColumn(col.id, e.target.value)}
+                style={{ padding: '5px 8px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, outline: 'none', width: Math.max(60, col.name.length * 8 + 16) }} />
+              <div style={{ width: 1, height: 18, background: '#d1d5db', margin: '0 2px' }} />
+              <input type="number" min="1" max="30" value={col.rows || table.rows || 8}
+                onChange={e => setColumnRows(col.id, Math.max(1, Math.min(30, parseInt(e.target.value) || 1)))}
+                style={{ width: 34, padding: '5px 3px', border: 'none', background: 'transparent', fontSize: 12, fontWeight: 700, outline: 'none', textAlign: 'center', color: '#6b7280' }} />
+              <span style={{ fontSize: 10, color: '#aaa', paddingRight: 4 }}>fil</span>
+              <button onClick={() => removeColumn(col.id)} style={{ padding: '5px 7px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#ef4444', fontSize: 13 }}>×</button>
+            </div>
+          ))}
+          {addingCol ? (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <input autoFocus value={newColName} onChange={e => setNewColName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addColumn(); if (e.key === 'Escape') { setAddingCol(false); setNewColName(''); } }}
+                placeholder="Nombre..." style={{ padding: '5px 9px', border: `1.5px solid ${GOLD}`, borderRadius: 8, fontSize: 13, outline: 'none', width: 120 }} />
+              <button onClick={addColumn} style={{ padding: '5px 10px', borderRadius: 8, border: 'none', background: GOLD, color: '#000', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>OK</button>
+              <button onClick={() => { setAddingCol(false); setNewColName(''); }} style={{ padding: '5px 9px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', color: '#888' }}>✕</button>
+            </div>
+          ) : (
+            <button onClick={() => setAddingCol(true)} style={{ padding: '5px 10px', border: '1.5px dashed #d1d5db', borderRadius: 8, background: 'transparent', color: '#9ca3af', fontSize: 12, cursor: 'pointer' }}>
+              <FontAwesomeIcon icon={faPlus} style={{ marginRight: 4 }} />Columna
+            </button>
+          )}
         </div>
       </div>
 
@@ -329,6 +329,10 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
                 <tr key={rowIdx} style={{ borderBottom: '1px solid #f0f0f0' }}>
                   <td style={{ padding: '8px 14px', fontWeight: 800, fontSize: 14, color: '#111', textAlign: 'center', background: '#fafafa', borderRight: '1px solid #e5e7eb' }}>{rowIdx + 1}</td>
                   {table.columns.map(col => {
+                    const colRows = col.rows || table.rows || 8;
+                    if (rowIdx >= colRows) {
+                      return <td key={col.id} style={{ padding: '8px 10px', borderRight: '1px solid #f0f0f0', background: '#f3f4f6', minWidth: 110 }} />;
+                    }
                     const cell = getCell(col.id, rowIdx);
                     const active = editingCell?.colId === col.id && editingCell?.rowIdx === rowIdx;
                     return (
@@ -476,7 +480,8 @@ function PrepTableEditor({ storeId, token }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 14, color: '#111', lineHeight: 1.2 }}>{t.title}</div>
                   <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-                    {(t.columns || []).length} columnas · {t.rows || 8} filas
+                    {(t.columns || []).length} columna{(t.columns || []).length !== 1 ? 's' : ''}
+                    {(t.columns || []).length > 0 && ` · hasta ${Math.max(...(t.columns || []).map(c => c.rows || t.rows || 8))} filas`}
                   </div>
                 </div>
                 <FontAwesomeIcon icon={faChevronDown} style={{ transform: 'rotate(-90deg)', color: '#bbb', fontSize: 11, flexShrink: 0 }} />
