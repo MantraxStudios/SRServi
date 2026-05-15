@@ -2172,7 +2172,7 @@ function WorkerPanel() {
                           <td key={col.id} style={{ padding: '10px 12px', borderRight: '1px solid #1a1a1a', verticalAlign: 'middle', textAlign: 'center', minWidth: 120 }}>
                             {(cell.name || imgUrl) ? (
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                                {imgUrl && <img src={imgUrl} alt={cell.name} onClick={() => setLightboxImg(imgUrl)} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, cursor: 'zoom-in' }} />}
+                                {imgUrl && <img src={imgUrl} alt={cell.name} onClick={() => setLightboxImg(imgUrl)} style={{ width: 130, height: 130, objectFit: 'cover', borderRadius: 10, cursor: 'zoom-in' }} />}
                                 {cell.name && <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{cell.name}</div>}
                                 {cell.note && <div style={{ fontSize: 11, color: '#888', lineHeight: 1.2 }}>{cell.note}</div>}
                               </div>
