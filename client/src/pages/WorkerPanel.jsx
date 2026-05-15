@@ -420,8 +420,8 @@ function WorkerPanel() {
   const [procedures, setProcedures] = useState([]);
   const [selectedProc, setSelectedProc] = useState(null);
   const [procStep, setProcStep] = useState(0);
-  const [prepTemplate, setPrepTemplate] = useState(null);
-  const [showPrepTable, setShowPrepTable] = useState(false);
+  const [prepTables, setPrepTables] = useState([]);
+  const [activePrepTable, setActivePrepTable] = useState(null);
   const [lightboxImg, setLightboxImg] = useState(null);
   const [addonImages, setAddonImages] = useState({}); // { 'nombre en minúscula': 'url imagen' }
   const [showNewOrder, setShowNewOrder] = useState(false);
@@ -471,8 +471,8 @@ function WorkerPanel() {
       fetch(`${BASE}/api/public/procedures/${code}`)
         .then(r => r.ok ? r.json() : []).then(data => setProcedures(Array.isArray(data) ? data : [])).catch(() => {});
 
-      fetch(`${BASE}/api/public/prep-template/${code}`)
-        .then(r => r.ok ? r.json() : null).then(data => { if (data) setPrepTemplate(data); }).catch(() => {});
+      fetch(`${BASE}/api/public/prep-tables/${code}`)
+        .then(r => r.ok ? r.json() : []).then(data => { if (Array.isArray(data)) setPrepTables(data); }).catch(() => {});
 
       // Cargar imágenes de extras e ingredientes para mostrar en órdenes
       Promise.all([
@@ -1488,37 +1488,41 @@ function WorkerPanel() {
         )}
         {activeTab === 'procedures' && !selectedProc && (
           <div style={{ padding: '16px 12px 80px', maxWidth: 600, margin: '0 auto' }}>
-            {/* Tabla de preparación */}
-            {prepTemplate && prepTemplate.columns?.length > 0 && (
-              <button
-                onClick={() => setShowPrepTable(true)}
-                style={{
-                  width: '100%', marginBottom: 16, padding: '16px 18px',
-                  background: '#1a1a1a', border: `1.5px solid #D4AF37`,
-                  borderRadius: 14, cursor: 'pointer', textAlign: 'left',
-                  display: 'flex', alignItems: 'center', gap: 14
-                }}
-              >
-                <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(212,175,55,0.12)', border: '1.5px solid rgba(212,175,55,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <FontAwesomeIcon icon={faClipboardList} style={{ color: '#D4AF37', fontSize: 18 }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', marginBottom: 2 }}>
-                    {prepTemplate.title || 'Tabla de preparación'}
-                  </div>
-                  <div style={{ fontSize: 12, color: '#888' }}>
-                    {prepTemplate.columns.length} productos · {prepTemplate.rows || 8} pasos
-                  </div>
-                </div>
-                <span style={{ color: '#D4AF37', fontSize: 20 }}>›</span>
-              </button>
+            {/* Tablas de preparación */}
+            {prepTables.length > 0 && (
+              <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {prepTables.map(tbl => (
+                  <button
+                    key={tbl.id}
+                    onClick={() => setActivePrepTable(tbl)}
+                    style={{
+                      width: '100%', padding: '14px 16px',
+                      background: '#1a1a1a', border: '1px solid #2a2a2a',
+                      borderRadius: 12, cursor: 'pointer', textAlign: 'left',
+                      display: 'flex', alignItems: 'center', gap: 12
+                    }}
+                  >
+                    <div style={{ width: 38, height: 38, borderRadius: 9, background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <FontAwesomeIcon icon={faClipboardList} style={{ color: '#D4AF37', fontSize: 15 }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>{tbl.title}</div>
+                      <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
+                        {(tbl.columns || []).length} productos · {tbl.rows || 8} pasos
+                      </div>
+                    </div>
+                    <span style={{ color: '#D4AF37', fontSize: 18 }}>›</span>
+                  </button>
+                ))}
+              </div>
             )}
-            {procedures.length === 0 && !prepTemplate ? (
+            {procedures.length === 0 && prepTables.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 24px', color: '#555' }}>
                 <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 40, marginBottom: 14, display: 'block', margin: '0 auto 14px', color: '#333' }} />
                 <div style={{ fontSize: 15, color: '#666' }}>No hay guías todavía.</div>
               </div>
             ) : procedures.length === 0 ? null : (
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {procedures.map(proc => {
                   const firstStep = proc.steps?.[0];
@@ -2110,27 +2114,37 @@ function WorkerPanel() {
       )}
 
       {/* Tabla de preparación full-screen */}
-      {showPrepTable && prepTemplate && (
+      {activePrepTable && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: '#0a0a0a', display: 'flex', flexDirection: 'column' }}>
-          {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderBottom: '1px solid #1e1e1e', flexShrink: 0 }}>
-            <button onClick={() => setShowPrepTable(false)}
+            <button onClick={() => setActivePrepTable(null)}
               style={{ background: '#1e1e1e', border: 'none', borderRadius: 9, color: '#aaa', padding: '8px 12px', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
               ← Volver
             </button>
             <div style={{ flex: 1, fontWeight: 800, fontSize: 15, color: '#fff', textAlign: 'center' }}>
-              {prepTemplate.title || 'Tabla de preparación'}
+              {activePrepTable.title}
             </div>
-            <div style={{ width: 72 }} />
+            {prepTables.length > 1 && (
+              <div style={{ display: 'flex', gap: 6 }}>
+                {prepTables.map((tbl, i) => (
+                  <button key={tbl.id} onClick={() => setActivePrepTable(tbl)}
+                    style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                      background: activePrepTable.id === tbl.id ? '#D4AF37' : '#2a2a2a',
+                      color: activePrepTable.id === tbl.id ? '#000' : '#888'
+                    }}>
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Grid scrollable */}
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '16px 12px 32px' }}>
             <table style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
               <thead>
                 <tr>
                   <th style={{ padding: '10px 14px', background: '#1a1a1a', color: '#fff', fontSize: 11, fontWeight: 700, borderRight: '1px solid #2a2a2a', width: 36, textAlign: 'center', position: 'sticky', left: 0, zIndex: 2 }}>#</th>
-                  {(prepTemplate.columns || []).map(col => (
+                  {(activePrepTable.columns || []).map(col => (
                     <th key={col.id} style={{ padding: '10px 16px', background: '#1a1a1a', color: '#D4AF37', fontSize: 12, fontWeight: 800, borderRight: '1px solid #2a2a2a', textAlign: 'center', whiteSpace: 'nowrap', minWidth: 120 }}>
                       {col.name}
                     </th>
@@ -2138,31 +2152,23 @@ function WorkerPanel() {
                 </tr>
               </thead>
               <tbody>
-                {Array.from({ length: Math.max(1, prepTemplate.rows || 8) }, (_, rowIdx) => (
+                {Array.from({ length: Math.max(1, activePrepTable.rows || 8) }, (_, rowIdx) => (
                   <tr key={rowIdx} style={{ borderBottom: '1px solid #1a1a1a' }}>
                     <td style={{ padding: '10px 14px', fontWeight: 900, fontSize: 16, color: '#D4AF37', textAlign: 'center', background: '#111', borderRight: '1px solid #2a2a2a', position: 'sticky', left: 0 }}>
                       {rowIdx + 1}
                     </td>
-                    {(prepTemplate.columns || []).map(col => {
-                      const cell = (prepTemplate.cells || {})[`${col.id}_${rowIdx}`] || {};
+                    {(activePrepTable.columns || []).map(col => {
+                      const cell = (activePrepTable.cells || {})[`${col.id}_${rowIdx}`] || {};
+                      const imgUrl = cell.image_url ? (cell.image_url.startsWith('http') ? cell.image_url : 'https://srservi2.srautomatic.com' + cell.image_url) : null;
                       return (
                         <td key={col.id} style={{ padding: '10px 12px', borderRight: '1px solid #1a1a1a', verticalAlign: 'middle', textAlign: 'center', minWidth: 120 }}>
-                          {(cell.name || cell.image_url) ? (
+                          {(cell.name || imgUrl) ? (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                              {cell.image_url && (
-                                <img
-                                  src={cell.image_url.startsWith('http') ? cell.image_url : 'https://srservi2.srautomatic.com' + cell.image_url}
-                                  alt={cell.name}
-                                  onClick={() => setLightboxImg(cell.image_url.startsWith('http') ? cell.image_url : 'https://srservi2.srautomatic.com' + cell.image_url)}
-                                  style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, cursor: 'zoom-in' }}
-                                />
-                              )}
+                              {imgUrl && <img src={imgUrl} alt={cell.name} onClick={() => setLightboxImg(imgUrl)} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 10, cursor: 'zoom-in' }} />}
                               {cell.name && <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{cell.name}</div>}
                               {cell.note && <div style={{ fontSize: 11, color: '#888', lineHeight: 1.2 }}>{cell.note}</div>}
                             </div>
-                          ) : (
-                            <span style={{ color: '#333', fontSize: 16 }}>—</span>
-                          )}
+                          ) : <span style={{ color: '#333', fontSize: 16 }}>—</span>}
                         </td>
                       );
                     })}

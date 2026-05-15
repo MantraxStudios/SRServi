@@ -4202,33 +4202,54 @@ export async function deleteProcedure(id, storeId) {
   await pool.execute('DELETE FROM worker_procedures WHERE id = ? AND store_id = ?', [id, storeId]);
 }
 
-export async function getPrepTemplate(storeId) {
+async function ensurePrepTablesTable() {
   try {
-    await pool.execute(`CREATE TABLE IF NOT EXISTS store_prep_templates (
-      id INT AUTO_INCREMENT PRIMARY KEY, store_id INT NOT NULL UNIQUE,
+    await pool.execute(`CREATE TABLE IF NOT EXISTS store_prep_tables (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      store_id INT NOT NULL,
+      title VARCHAR(255) NOT NULL DEFAULT 'Preparación',
       template_json MEDIUMTEXT,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      sort_order INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_spt_store (store_id)
     )`);
   } catch {}
-  const [rows] = await pool.execute('SELECT template_json FROM store_prep_templates WHERE store_id = ?', [storeId]);
-  if (!rows.length) return null;
-  const t = rows[0].template_json;
-  return typeof t === 'string' ? JSON.parse(t) : t;
 }
 
-export async function savePrepTemplate(storeId, template) {
-  try {
-    await pool.execute(`CREATE TABLE IF NOT EXISTS store_prep_templates (
-      id INT AUTO_INCREMENT PRIMARY KEY, store_id INT NOT NULL UNIQUE,
-      template_json MEDIUMTEXT,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )`);
-  } catch {}
-  await pool.execute(
-    `INSERT INTO store_prep_templates (store_id, template_json) VALUES (?, ?)
-     ON DUPLICATE KEY UPDATE template_json = VALUES(template_json)`,
-    [storeId, JSON.stringify(template)]
+export async function getPrepTables(storeId) {
+  await ensurePrepTablesTable();
+  const [rows] = await pool.execute(
+    'SELECT * FROM store_prep_tables WHERE store_id = ? ORDER BY sort_order ASC, id ASC',
+    [storeId]
   );
+  return rows.map(r => {
+    const parsed = typeof r.template_json === 'string' ? JSON.parse(r.template_json || '{}') : (r.template_json || {});
+    return { id: r.id, store_id: r.store_id, title: r.title, sort_order: r.sort_order, ...parsed };
+  });
+}
+
+export async function createPrepTable(storeId, data) {
+  await ensurePrepTablesTable();
+  const { title, columns, rows, cells } = data;
+  const [result] = await pool.execute(
+    'INSERT INTO store_prep_tables (store_id, title, template_json) VALUES (?, ?, ?)',
+    [storeId, title || 'Nueva tabla', JSON.stringify({ columns: columns || [], rows: rows || 8, cells: cells || {} })]
+  );
+  return result.insertId;
+}
+
+export async function updatePrepTable(id, storeId, data) {
+  await ensurePrepTablesTable();
+  const { title, columns, rows, cells } = data;
+  await pool.execute(
+    'UPDATE store_prep_tables SET title = ?, template_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND store_id = ?',
+    [title || 'Nueva tabla', JSON.stringify({ columns: columns || [], rows: rows || 8, cells: cells || {} }), id, storeId]
+  );
+}
+
+export async function deletePrepTable(id, storeId) {
+  await pool.execute('DELETE FROM store_prep_tables WHERE id = ? AND store_id = ?', [id, storeId]);
 }
 
 // Scheduled WhatsApp messages

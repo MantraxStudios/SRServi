@@ -212,116 +212,73 @@ function StepCard({ step, index, total, onChange, onMove, onRemove, onUpload, up
   );
 }
 
-/* ── Editor de tabla de preparación ── */
-function PrepTableEditor({ storeId, token }) {
-  const [template, setTemplate] = useState({ title: 'PREPARACION DE PRODUCTOS', columns: [], rows: 8, cells: {} });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saveOk, setSaveOk] = useState(false);
+/* ── Editor de una tabla individual ── */
+function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack, saving }) {
+  const [table, setTable] = useState(initialTable);
   const [editingCell, setEditingCell] = useState(null);
   const [cellForm, setCellForm] = useState({ name: '', note: '', image_url: '' });
   const [uploadingCell, setUploadingCell] = useState(false);
   const [newColName, setNewColName] = useState('');
   const [addingCol, setAddingCol] = useState(false);
 
-  useEffect(() => {
-    if (!storeId || !token) return;
-    fetch(`${API}/api/prep-template?store_id=${storeId}`, { headers: { Authorization: 'Bearer ' + token } })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setTemplate(data); })
-      .finally(() => setLoading(false));
-  }, [storeId, token]);
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      await fetch(`${API}/api/prep-template`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ store_id: storeId, template })
-      });
-      setSaveOk(true);
-      setTimeout(() => setSaveOk(false), 2000);
-    } finally { setSaving(false); }
-  };
-
   const addColumn = () => {
     if (!newColName.trim()) return;
     const id = 'c' + Date.now();
-    setTemplate(t => ({ ...t, columns: [...t.columns, { id, name: newColName.trim() }] }));
-    setNewColName('');
-    setAddingCol(false);
+    setTable(t => ({ ...t, columns: [...(t.columns || []), { id, name: newColName.trim() }] }));
+    setNewColName(''); setAddingCol(false);
   };
-
-  const removeColumn = (id) => {
-    setTemplate(t => {
-      const cells = { ...t.cells };
-      Object.keys(cells).forEach(k => { if (k.startsWith(id + '_')) delete cells[k]; });
-      return { ...t, columns: t.columns.filter(c => c.id !== id), cells };
-    });
-  };
-
-  const renameColumn = (id, name) =>
-    setTemplate(t => ({ ...t, columns: t.columns.map(c => c.id === id ? { ...c, name } : c) }));
-
+  const removeColumn = (id) => setTable(t => {
+    const cells = { ...t.cells };
+    Object.keys(cells).forEach(k => { if (k.startsWith(id + '_')) delete cells[k]; });
+    return { ...t, columns: t.columns.filter(c => c.id !== id), cells };
+  });
+  const renameColumn = (id, name) => setTable(t => ({ ...t, columns: t.columns.map(c => c.id === id ? { ...c, name } : c) }));
   const cellKey = (colId, rowIdx) => `${colId}_${rowIdx}`;
-  const getCell = (colId, rowIdx) => template.cells[cellKey(colId, rowIdx)] || {};
-
-  const openCell = (colId, rowIdx) => {
-    const cell = getCell(colId, rowIdx);
-    setCellForm({ name: cell.name || '', note: cell.note || '', image_url: cell.image_url || '' });
-    setEditingCell({ colId, rowIdx });
-  };
-
-  const saveCell = () => {
-    const key = cellKey(editingCell.colId, editingCell.rowIdx);
-    setTemplate(t => ({ ...t, cells: { ...t.cells, [key]: { ...cellForm } } }));
-    setEditingCell(null);
-  };
-
-  const clearCell = () => {
-    const key = cellKey(editingCell.colId, editingCell.rowIdx);
-    setTemplate(t => { const cells = { ...t.cells }; delete cells[key]; return { ...t, cells }; });
-    setEditingCell(null);
-  };
-
+  const getCell = (colId, rowIdx) => (table.cells || {})[cellKey(colId, rowIdx)] || {};
+  const openCell = (colId, rowIdx) => { const cell = getCell(colId, rowIdx); setCellForm({ name: cell.name || '', note: cell.note || '', image_url: cell.image_url || '' }); setEditingCell({ colId, rowIdx }); };
+  const saveCell = () => { setTable(t => ({ ...t, cells: { ...t.cells, [cellKey(editingCell.colId, editingCell.rowIdx)]: { ...cellForm } } })); setEditingCell(null); };
+  const clearCell = () => { const cells = { ...table.cells }; delete cells[cellKey(editingCell.colId, editingCell.rowIdx)]; setTable(t => ({ ...t, cells })); setEditingCell(null); };
   const uploadCellImage = async (file) => {
     if (!file) return;
     setUploadingCell(true);
     try {
-      const fd = new FormData();
-      fd.append('image', file);
-      fd.append('store_id', storeId);
+      const fd = new FormData(); fd.append('image', file); fd.append('store_id', storeId);
       const res = await fetch(`${API}/api/upload`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
-      if (res.ok) {
-        const data = await res.json();
-        setCellForm(f => ({ ...f, image_url: data.url || data.path || data.file || '' }));
-      }
+      if (res.ok) { const data = await res.json(); setCellForm(f => ({ ...f, image_url: data.url || data.path || data.file || '' })); }
     } finally { setUploadingCell(false); }
   };
 
-  if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#aaa' }}>Cargando...</div>;
-
-  const rows = Array.from({ length: Math.max(1, template.rows || 8) }, (_, i) => i);
-
+  const rowArr = Array.from({ length: Math.max(1, table.rows || 8) }, (_, i) => i);
   const inputStyle = { width: '100%', padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' };
   const labelStyle = { display: 'block', fontSize: 11, fontWeight: 700, color: '#9ca3af', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.5px' };
 
   return (
     <div>
+      {/* Back + save bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontWeight: 600, fontSize: 13, padding: 0 }}>
+          <FontAwesomeIcon icon={faArrowLeft} /> Tablas
+        </button>
+        <div style={{ flex: 1 }} />
+        <button onClick={() => onSave(table)} disabled={saving} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: '#111', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
+          <FontAwesomeIcon icon={saving ? faSpinner : faSave} spin={saving} />
+          {saving ? 'Guardando...' : 'Guardar'}
+        </button>
+      </div>
+
       {/* Título */}
       <div style={{ marginBottom: 18 }}>
         <label style={labelStyle}>Título</label>
-        <input value={template.title} onChange={e => setTemplate(t => ({ ...t, title: e.target.value }))}
+        <input value={table.title || ''} onChange={e => setTable(t => ({ ...t, title: e.target.value }))}
           style={{ ...inputStyle, fontSize: 15, fontWeight: 700 }} />
       </div>
 
       {/* Columnas + filas */}
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 18, alignItems: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 20, alignItems: 'flex-end' }}>
         <div style={{ flex: 1, minWidth: 240 }}>
-          <label style={labelStyle}>Columnas (productos)</label>
+          <label style={labelStyle}>Columnas</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-            {template.columns.map(col => (
+            {(table.columns || []).map(col => (
               <div key={col.id} style={{ display: 'flex', alignItems: 'center', background: '#f3f4f6', border: '1.5px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
                 <input value={col.name} onChange={e => renameColumn(col.id, e.target.value)}
                   style={{ padding: '5px 8px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, outline: 'none', width: Math.max(60, col.name.length * 8 + 16) }} />
@@ -345,24 +302,14 @@ function PrepTableEditor({ storeId, token }) {
         </div>
         <div>
           <label style={labelStyle}>Filas</label>
-          <input type="number" min="1" max="30" value={template.rows}
-            onChange={e => setTemplate(t => ({ ...t, rows: Math.max(1, Math.min(30, parseInt(e.target.value) || 1)) }))}
+          <input type="number" min="1" max="30" value={table.rows || 8}
+            onChange={e => setTable(t => ({ ...t, rows: Math.max(1, Math.min(30, parseInt(e.target.value) || 1)) }))}
             style={{ width: 64, padding: '7px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 14, fontWeight: 700, textAlign: 'center', outline: 'none' }} />
         </div>
       </div>
 
-      <button onClick={save} disabled={saving} style={{
-        marginBottom: 20, padding: '10px 22px', borderRadius: 9, border: 'none',
-        background: saveOk ? '#16a34a' : saving ? '#555' : '#111',
-        color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', gap: 7, transition: 'background 0.2s'
-      }}>
-        <FontAwesomeIcon icon={saveOk ? faCheck : saving ? faSpinner : faSave} spin={saving} />
-        {saveOk ? '¡Guardado!' : saving ? 'Guardando...' : 'Guardar tabla'}
-      </button>
-
       {/* Grid */}
-      {template.columns.length === 0 ? (
+      {!(table.columns || []).length ? (
         <div style={{ textAlign: 'center', padding: '40px 24px', border: '2px dashed #e5e7eb', borderRadius: 14, color: '#9ca3af', fontSize: 14 }}>
           Agrega columnas para armar la tabla
         </div>
@@ -372,20 +319,16 @@ function PrepTableEditor({ storeId, token }) {
             <thead>
               <tr>
                 <th style={{ padding: '10px 14px', background: '#111', color: '#fff', fontSize: 12, fontWeight: 700, borderRight: '1px solid #333', width: 36, textAlign: 'center' }}>#</th>
-                {template.columns.map(col => (
-                  <th key={col.id} style={{ padding: '10px 16px', background: '#111', color: GOLD, fontSize: 12, fontWeight: 700, borderRight: '1px solid #333', textAlign: 'center', whiteSpace: 'nowrap', minWidth: 110 }}>
-                    {col.name}
-                  </th>
+                {table.columns.map(col => (
+                  <th key={col.id} style={{ padding: '10px 16px', background: '#111', color: GOLD, fontSize: 12, fontWeight: 700, borderRight: '1px solid #333', textAlign: 'center', whiteSpace: 'nowrap', minWidth: 110 }}>{col.name}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.map(rowIdx => (
+              {rowArr.map(rowIdx => (
                 <tr key={rowIdx} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '8px 14px', fontWeight: 800, fontSize: 14, color: '#111', textAlign: 'center', background: '#fafafa', borderRight: '1px solid #e5e7eb' }}>
-                    {rowIdx + 1}
-                  </td>
-                  {template.columns.map(col => {
+                  <td style={{ padding: '8px 14px', fontWeight: 800, fontSize: 14, color: '#111', textAlign: 'center', background: '#fafafa', borderRight: '1px solid #e5e7eb' }}>{rowIdx + 1}</td>
+                  {table.columns.map(col => {
                     const cell = getCell(col.id, rowIdx);
                     const active = editingCell?.colId === col.id && editingCell?.rowIdx === rowIdx;
                     return (
@@ -393,16 +336,11 @@ function PrepTableEditor({ storeId, token }) {
                         style={{ padding: '8px 10px', cursor: 'pointer', borderRight: '1px solid #f0f0f0', background: active ? '#fffdf0' : '#fff', transition: 'background 0.1s', verticalAlign: 'middle', textAlign: 'center', minWidth: 110 }}>
                         {(cell.name || cell.image_url) ? (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                            {cell.image_url && (
-                              <img src={cell.image_url.startsWith('http') ? cell.image_url : API + cell.image_url} alt=""
-                                style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8 }} />
-                            )}
+                            {cell.image_url && <img src={cell.image_url.startsWith('http') ? cell.image_url : API + cell.image_url} alt="" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8 }} />}
                             {cell.name && <div style={{ fontSize: 11, fontWeight: 700, color: '#111', lineHeight: 1.2 }}>{cell.name}</div>}
                             {cell.note && <div style={{ fontSize: 10, color: '#888' }}>{cell.note}</div>}
                           </div>
-                        ) : (
-                          <span style={{ color: '#d1d5db', fontSize: 18, lineHeight: 1 }}>+</span>
-                        )}
+                        ) : <span style={{ color: '#d1d5db', fontSize: 18 }}>+</span>}
                       </td>
                     );
                   })}
@@ -413,29 +351,21 @@ function PrepTableEditor({ storeId, token }) {
         </div>
       )}
 
-      {/* Modal editar celda */}
+      {/* Modal celda */}
       {editingCell && (
         <div onClick={e => { if (e.target === e.currentTarget) setEditingCell(null); }}
           style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: '20px 20px 18px', width: '100%', maxWidth: 360, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}
-            onClick={e => e.stopPropagation()}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '20px 20px 18px', width: '100%', maxWidth: 360, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: '#111' }}>
-                {template.columns.find(c => c.id === editingCell.colId)?.name} — Fila {editingCell.rowIdx + 1}
-              </div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: '#111' }}>{table.columns.find(c => c.id === editingCell.colId)?.name} — Fila {editingCell.rowIdx + 1}</div>
               <button onClick={() => setEditingCell(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: 20, lineHeight: 1 }}>×</button>
             </div>
-
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Imagen</label>
               {cellForm.image_url ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <img src={cellForm.image_url.startsWith('http') ? cellForm.image_url : API + cellForm.image_url} alt=""
-                    style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10 }} />
-                  <button onClick={() => setCellForm(f => ({ ...f, image_url: '' }))}
-                    style={{ padding: '5px 10px', border: '1px solid #fecaca', borderRadius: 7, background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>
-                    Quitar
-                  </button>
+                  <img src={cellForm.image_url.startsWith('http') ? cellForm.image_url : API + cellForm.image_url} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10 }} />
+                  <button onClick={() => setCellForm(f => ({ ...f, image_url: '' }))} style={{ padding: '5px 10px', border: '1px solid #fecaca', borderRadius: 7, background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>Quitar</button>
                 </div>
               ) : (
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: '1.5px dashed #d1d5db', borderRadius: 10, cursor: 'pointer', color: '#9ca3af', fontSize: 13 }}>
@@ -445,25 +375,17 @@ function PrepTableEditor({ storeId, token }) {
                 </label>
               )}
             </div>
-
             <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>Nombre del ingrediente</label>
-              <input value={cellForm.name} onChange={e => setCellForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Ej: Mayonesa" style={inputStyle} />
+              <label style={labelStyle}>Nombre</label>
+              <input value={cellForm.name} onChange={e => setCellForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Mayonesa" style={inputStyle} />
             </div>
             <div style={{ marginBottom: 18 }}>
               <label style={labelStyle}>Cantidad / nota</label>
-              <input value={cellForm.note} onChange={e => setCellForm(f => ({ ...f, note: e.target.value }))}
-                placeholder="Ej: 2 cdas" style={inputStyle} />
+              <input value={cellForm.note} onChange={e => setCellForm(f => ({ ...f, note: e.target.value }))} placeholder="Ej: 2 cdas" style={inputStyle} />
             </div>
-
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={saveCell} style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: '#111', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-                Guardar
-              </button>
-              <button onClick={clearCell} style={{ padding: '11px 14px', borderRadius: 9, border: '1px solid #fecaca', background: '#fef2f2', color: '#ef4444', cursor: 'pointer' }}>
-                <FontAwesomeIcon icon={faTrash} />
-              </button>
+              <button onClick={saveCell} style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: '#111', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Guardar</button>
+              <button onClick={clearCell} style={{ padding: '11px 14px', borderRadius: 9, border: '1px solid #fecaca', background: '#fef2f2', color: '#ef4444', cursor: 'pointer' }}><FontAwesomeIcon icon={faTrash} /></button>
             </div>
           </div>
         </div>
@@ -471,6 +393,105 @@ function PrepTableEditor({ storeId, token }) {
     </div>
   );
 }
+
+/* ── Administrador de múltiples tablas ── */
+function PrepTableEditor({ storeId, token }) {
+  const [tables, setTables] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editingTable, setEditingTable] = useState(null); // null = lista, object = editor
+
+  const load = async () => {
+    if (!storeId || !token) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/api/prep-tables?store_id=${storeId}`, { headers: { Authorization: 'Bearer ' + token } });
+      if (res.ok) setTables(await res.json());
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, [storeId, token]);
+
+  const newTable = async () => {
+    const res = await fetch(`${API}/api/prep-tables`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ store_id: storeId, title: 'Nueva tabla', columns: [], rows: 8, cells: {} })
+    });
+    const data = await res.json();
+    await load();
+    setEditingTable({ id: data.id, title: 'Nueva tabla', columns: [], rows: 8, cells: {} });
+  };
+
+  const saveTable = async (tableData) => {
+    setSaving(true);
+    try {
+      await fetch(`${API}/api/prep-tables/${tableData.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ store_id: storeId, ...tableData })
+      });
+      await load();
+      setEditingTable(null);
+    } finally { setSaving(false); }
+  };
+
+  const deleteTable = async (id) => {
+    if (!confirm('¿Eliminar esta tabla?')) return;
+    await fetch(`${API}/api/prep-tables/${id}?store_id=${storeId}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+    load();
+  };
+
+  if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#aaa' }}>Cargando...</div>;
+
+  if (editingTable) {
+    return <SingleTableEditor table={editingTable} storeId={storeId} token={token} onSave={saveTable} onBack={() => setEditingTable(null)} saving={saving} />;
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button onClick={newTable} style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: '#111', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
+          <FontAwesomeIcon icon={faPlus} /> Nueva tabla
+        </button>
+      </div>
+
+      {tables.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 24px', border: '2px dashed #e5e7eb', borderRadius: 14, color: '#9ca3af' }}>
+          <FontAwesomeIcon icon={faTable} style={{ fontSize: 36, marginBottom: 12, display: 'block' }} />
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6, color: '#374151' }}>Sin tablas todavía</div>
+          <div style={{ fontSize: 13, marginBottom: 18 }}>Crea una tabla visual para que tus trabajadores vean las preparaciones</div>
+          <button onClick={newTable} style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: GOLD, color: '#000', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+            <FontAwesomeIcon icon={faPlus} style={{ marginRight: 7 }} />Crear primera tabla
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {tables.map(t => (
+            <div key={t.id} style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', display: 'flex', alignItems: 'stretch' }}>
+              <button onClick={() => setEditingTable(t)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ width: 40, height: 40, borderRadius: 9, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <FontAwesomeIcon icon={faTable} style={{ color: '#6b7280', fontSize: 16 }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#111', lineHeight: 1.2 }}>{t.title}</div>
+                  <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+                    {(t.columns || []).length} columnas · {t.rows || 8} filas
+                  </div>
+                </div>
+                <FontAwesomeIcon icon={faChevronDown} style={{ transform: 'rotate(-90deg)', color: '#bbb', fontSize: 11, flexShrink: 0 }} />
+              </button>
+              <button onClick={() => deleteTable(t.id)} style={{ padding: '14px 16px', background: 'none', border: 'none', borderLeft: '1px solid #f3f4f6', cursor: 'pointer', color: '#ef4444', flexShrink: 0 }}>
+                <FontAwesomeIcon icon={faTrash} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 /* ── Componente principal ── */
 export default function Procedures() {

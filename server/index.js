@@ -160,8 +160,10 @@ import {
   createProcedure,
   updateProcedure,
   deleteProcedure,
-  getPrepTemplate,
-  savePrepTemplate,
+  getPrepTables,
+  createPrepTable,
+  updatePrepTable,
+  deletePrepTable,
   updateWorkerPhone,
   pool
 } from './database.js';
@@ -10190,33 +10192,54 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Prep Template (tabla de preparación de productos)
-    app.get('/api/prep-template', authenticateToken, async (req, res) => {
+    // Prep Tables (tablas de preparación de productos — múltiples por tienda)
+    app.get('/api/prep-tables', authenticateToken, async (req, res) => {
       try {
         const storeId = parseInt(req.query.store_id);
         if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
         const store = await getStoreById(storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
-        res.json(await getPrepTemplate(storeId));
+        res.json(await getPrepTables(storeId));
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    app.put('/api/prep-template', authenticateToken, async (req, res) => {
+    app.post('/api/prep-tables', authenticateToken, async (req, res) => {
       try {
-        const { store_id, template } = req.body;
+        const { store_id, ...data } = req.body;
         if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
         const store = await getStoreById(parseInt(store_id));
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
-        await savePrepTemplate(parseInt(store_id), template);
+        const id = await createPrepTable(parseInt(store_id), data);
+        res.json({ id });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.put('/api/prep-tables/:id', authenticateToken, async (req, res) => {
+      try {
+        const { store_id, ...data } = req.body;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const store = await getStoreById(parseInt(store_id));
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        await updatePrepTable(parseInt(req.params.id), parseInt(store_id), data);
         res.json({ success: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    app.get('/api/public/prep-template/:storeCode', async (req, res) => {
+    app.delete('/api/prep-tables/:id', authenticateToken, async (req, res) => {
+      try {
+        const storeId = parseInt(req.query.store_id);
+        const store = await getStoreById(storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        await deletePrepTable(parseInt(req.params.id), storeId);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.get('/api/public/prep-tables/:storeCode', async (req, res) => {
       try {
         const store = await getStoreByCode(req.params.storeCode.toUpperCase());
         if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
-        res.json(await getPrepTemplate(store.id));
+        res.json(await getPrepTables(store.id));
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
