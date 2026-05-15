@@ -91,11 +91,11 @@ function Stars() {
 
 /* ── Faces ──────────────────────────────────────────────────────────── */
 const FACES = [
-  { label: 'MUY SATISFECHO',   value: 10, color: '#1e8a1e', dark: '#0d4d0d', type: 'veryhappy', delay: 0   },
-  { label: 'SATISFECHO',       value: 8,  color: '#7ac52e', dark: '#3d6e14', type: 'happy',     delay: 0.2 },
+  { label: 'MUY INSATISFECHO', value: 2,  color: '#cc1f1f', dark: '#7a0000', type: 'verysad',   delay: 0   },
+  { label: 'INSATISFECHO',     value: 4,  color: '#e07020', dark: '#7a3000', type: 'sad',       delay: 0.2 },
   { label: 'INDIFERENTE',      value: 6,  color: '#f5c200', dark: '#7a6000', type: 'neutral',   delay: 0.4 },
-  { label: 'INSATISFECHO',     value: 4,  color: '#e07020', dark: '#7a3000', type: 'sad',       delay: 0.6 },
-  { label: 'MUY INSATISFECHO', value: 2,  color: '#cc1f1f', dark: '#7a0000', type: 'verysad',   delay: 0.8 },
+  { label: 'SATISFECHO',       value: 8,  color: '#7ac52e', dark: '#3d6e14', type: 'happy',     delay: 0.6 },
+  { label: 'MUY SATISFECHO',   value: 10, color: '#1e8a1e', dark: '#0d4d0d', type: 'veryhappy', delay: 0.8 },
 ];
 
 /* ── CSS ─────────────────────────────────────────────────────────────── */
