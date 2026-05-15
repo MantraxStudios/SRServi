@@ -25,13 +25,20 @@ const silentLogger = {
   child: () => silentLogger
 };
 
-// Map<storeId, { sock, currentQR, isConnected, isConnecting, reconnectAttempts }>
+// Map<storeId, ConnectionState>
 const connections = new Map();
 
 function getConn(storeId) {
   const key = String(storeId);
   if (!connections.has(key)) {
-    connections.set(key, { sock: null, currentQR: null, isConnected: false, isConnecting: false, reconnectAttempts: 0 });
+    connections.set(key, {
+      sock: null,
+      currentQR: null,
+      isConnected: false,
+      isConnecting: false,
+      reconnectAttempts: 0,
+      ignoreClose: false,   // set before closing intentionally to skip auto-reconnect
+    });
   }
   return connections.get(key);
 }
@@ -80,6 +87,14 @@ export async function initWhatsApp(storeId) {
     if (connection === 'close') {
       conn.isConnected = false;
       conn.isConnecting = false;
+
+      // Si el cierre fue iniciado intencionalmente (reconnect manual), ignorar
+      if (conn.ignoreClose) {
+        conn.ignoreClose = false;
+        console.log(`[WhatsApp:${storeId}] Cierre intencional — omitiendo auto-reconexión`);
+        return;
+      }
+
       const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
 
       if (reason === DisconnectReason.loggedOut) {
@@ -122,7 +137,7 @@ export async function sendWhatsAppMessage(storeId, to, message) {
 
 export async function disconnectWhatsApp(storeId) {
   const conn = getConn(storeId);
-  conn.reconnectAttempts = MAX_RECONNECT;
+  conn.ignoreClose = true;
   if (conn.sock) {
     await conn.sock.logout().catch(() => {});
     conn.sock = null;
@@ -130,17 +145,19 @@ export async function disconnectWhatsApp(storeId) {
   conn.isConnected = false;
   conn.isConnecting = false;
   conn.currentQR = null;
+  conn.reconnectAttempts = 0;
   const authDir = path.join(AUTH_BASE, `store_${storeId}`);
   if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
   console.log(`[WhatsApp:${storeId}] Desconectado y sesión eliminada`);
 }
 
-// Cierra el socket actual y abre uno nuevo para generar un QR fresco
-// sin borrar la sesión guardada (device keys se conservan)
+// Genera un QR nuevo sin borrar la sesión guardada
 export async function reconnectWhatsApp(storeId) {
   const conn = getConn(storeId);
-  // Detener reconexiones automáticas del socket anterior
-  conn.reconnectAttempts = MAX_RECONNECT;
+
+  // Marcar ANTES de cerrar para que el evento 'close' no programe otro reconect
+  conn.ignoreClose = true;
+
   if (conn.sock) {
     conn.sock.end().catch(() => {});
     conn.sock = null;
@@ -149,8 +166,12 @@ export async function reconnectWhatsApp(storeId) {
   conn.isConnecting = false;
   conn.currentQR = null;
   conn.reconnectAttempts = 0;
+
+  // Pequeña pausa para que el evento 'close' se procese antes de iniciar nuevo socket
+  await new Promise(r => setTimeout(r, 300));
+
+  console.log(`[WhatsApp:${storeId}] Generando nuevo QR`);
   await initWhatsApp(storeId);
-  console.log(`[WhatsApp:${storeId}] Reconectando para nuevo QR`);
 }
 
 // Returns list of store IDs that have saved auth sessions
