@@ -9281,7 +9281,7 @@ async function startServer() {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getInstagramConfig(req.params.storeId);
-        const safe = cfg ? { ...cfg, ig_password: cfg.ig_password ? '••••••' : '' } : { ig_username: '', ig_password: '', caption_template: '', enabled: false, last_posted_at: null, last_error: null, template_counter: 0 };
+        const safe = cfg ? { ...cfg, ig_password: cfg.ig_password ? '••••••' : '' } : { ig_username: '', ig_password: '', caption_template: '', enabled: false, last_posted_at: null, last_error: null, template_counter: 0, post_time: '10:00', post_days: '0' };
         res.json(safe);
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -9290,10 +9290,10 @@ async function startServer() {
       try {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
-        const { ig_username, ig_password, caption_template, enabled } = req.body;
+        const { ig_username, ig_password, caption_template, enabled, post_time, post_days } = req.body;
         const existing = await getInstagramConfig(req.params.storeId);
         const finalPass = ig_password === '••••••' ? (existing?.ig_password || '') : ig_password;
-        await saveInstagramConfig(req.params.storeId, { ig_username, ig_password: finalPass, caption_template, enabled });
+        await saveInstagramConfig(req.params.storeId, { ig_username, ig_password: finalPass, caption_template, enabled, post_time, post_days });
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -10056,12 +10056,33 @@ async function startServer() {
     });
 
     // Cron cada domingo a las 10:00
-    cron.schedule('0 10 * * 0', async () => {
-      console.log('[Instagram] Publicaciones automáticas semanales...');
+    cron.schedule('0 * * * *', async () => {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentDay  = now.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
+      const todayStr    = now.toISOString().slice(0, 10); // YYYY-MM-DD
+      console.log(`[Instagram] Revisando publicaciones automáticas — ${now.toLocaleString('es-CL')}...`);
       try {
         const configs = await getActiveInstagramConfigs();
         for (const cfg of configs) {
           try {
+            // Verificar hora
+            const [postHour] = (cfg.post_time || '10:00').split(':').map(Number);
+            if (postHour !== currentHour) continue;
+
+            // Verificar día
+            const days = (cfg.post_days || '0').split(',').map(Number);
+            if (!days.includes(currentDay)) continue;
+
+            // Verificar que no se haya publicado hoy ya
+            if (cfg.last_posted_at) {
+              const lastStr = new Date(cfg.last_posted_at).toISOString().slice(0, 10);
+              if (lastStr === todayStr) {
+                console.log(`[Instagram] ${cfg.store_name}: ya publicado hoy`);
+                continue;
+              }
+            }
+
             const [topProds] = await pool.execute(
               `SELECT p.id,p.name,p.description,p.price,p.image,COUNT(oi.id) AS sales
                FROM products p LEFT JOIN order_items oi ON oi.product_id=p.id

@@ -85,7 +85,7 @@ export default function InstagramAuto() {
   const { token } = useAuth();
   const { selectedStore } = useContext(StoreContext);
 
-  const [cfg, setCfg]               = useState({ ig_username: '', ig_password: '', caption_template: '', enabled: false });
+  const [cfg, setCfg]               = useState({ ig_username: '', ig_password: '', caption_template: '', enabled: false, post_time: '10:00', post_days: '0' });
   const [connected, setConnected]   = useState(false);
   const [loading, setLoading]       = useState(false);
   const [saving, setSaving]         = useState(false);
@@ -111,7 +111,7 @@ export default function InstagramAuto() {
     fetch(`${API}/api/instagram/${storeId}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
-        setCfg({ ig_username: d.ig_username || '', ig_password: d.ig_password || '', caption_template: d.caption_template || '', enabled: !!d.enabled });
+        setCfg({ ig_username: d.ig_username || '', ig_password: d.ig_password || '', caption_template: d.caption_template || '', enabled: !!d.enabled, post_time: d.post_time || '10:00', post_days: d.post_days || '0' });
         setConnected(!!d.ig_connected);
         setLastStatus({ last_posted_at: d.last_posted_at, last_error: d.last_error, template_counter: d.template_counter ?? 0 });
       })
@@ -450,24 +450,92 @@ export default function InstagramAuto() {
             </div>
           </div>
 
-          {/* Auto-post toggle */}
+          {/* Auto-post toggle + schedule */}
           <div style={s.card}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
                 <h3 style={{ ...s.cardTitle, marginBottom: 4 }}>Publicación automática</h3>
-                <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>Publica cada domingo a las 10:00 AM</p>
+                <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>
+                  {cfg.enabled
+                    ? (() => {
+                        const days = (cfg.post_days || '0').split(',').map(Number);
+                        const NAMES = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+                        const allDays = days.length === 7;
+                        const dayLabel = allDays ? 'todos los días' : days.map(d => NAMES[d]).join(', ');
+                        return `Publica ${dayLabel} a las ${cfg.post_time || '10:00'}`;
+                      })()
+                    : 'Activá para programar publicaciones automáticas'}
+                </p>
               </div>
               <button
                 onClick={() => setCfg(p => ({ ...p, enabled: !p.enabled }))}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 36, color: cfg.enabled ? '#22c55e' : '#d1d5db' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 36, color: cfg.enabled ? '#22c55e' : '#d1d5db', flexShrink: 0 }}
               >
                 <FontAwesomeIcon icon={cfg.enabled ? faToggleOn : faToggleOff} />
               </button>
             </div>
+
+            {/* Hora */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                <FontAwesomeIcon icon={faClock} style={{ marginRight: 6 }} />
+                Hora de publicación
+              </label>
+              <input
+                type="time"
+                value={cfg.post_time || '10:00'}
+                onChange={e => setCfg(p => ({ ...p, post_time: e.target.value }))}
+                style={{ padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 9, fontSize: 15, fontWeight: 700, outline: 'none', cursor: 'pointer', width: 140 }}
+                onFocus={e => e.target.style.borderColor = '#D4AF37'}
+                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+              />
+            </div>
+
+            {/* Días */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Días de publicación
+                </label>
+                <button
+                  onClick={() => {
+                    const all = '0,1,2,3,4,5,6';
+                    const isAll = (cfg.post_days || '') === all;
+                    setCfg(p => ({ ...p, post_days: isAll ? '0' : all }));
+                  }}
+                  style={{ fontSize: 11, fontWeight: 700, color: (cfg.post_days || '') === '0,1,2,3,4,5,6' ? '#D4AF37' : '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  {(cfg.post_days || '') === '0,1,2,3,4,5,6' ? '✓ Todos los días' : 'Todos los días'}
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[['Dom',0],['Lun',1],['Mar',2],['Mié',3],['Jue',4],['Vie',5],['Sáb',6]].map(([label, num]) => {
+                  const days = (cfg.post_days || '0').split(',').map(Number);
+                  const active = days.includes(num);
+                  return (
+                    <button key={num}
+                      onClick={() => {
+                        const cur = (cfg.post_days || '0').split(',').map(Number).filter(n => n !== 99);
+                        const next = active ? cur.filter(d => d !== num) : [...cur, num].sort((a,b)=>a-b);
+                        setCfg(p => ({ ...p, post_days: (next.length ? next : [0]).join(',') }));
+                      }}
+                      style={{
+                        padding: '7px 12px', borderRadius: 8, border: `2px solid ${active ? '#D4AF37' : '#e5e7eb'}`,
+                        background: active ? '#fffbee' : '#fff', fontWeight: 700, fontSize: 12,
+                        color: active ? '#92740a' : '#6b7280', cursor: 'pointer', transition: 'all 0.15s'
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {cfg.enabled && (
-              <div style={{ marginTop: 12, padding: '10px 14px', background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0' }}>
+              <div style={{ marginTop: 14, padding: '10px 14px', background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0' }}>
                 <p style={{ margin: 0, fontSize: 13, color: '#16a34a', fontWeight: 600 }}>
-                  ✅ Activo — se publicará automáticamente cada semana rotando entre las 3 plantillas.
+                  ✅ Activo — rotando entre las 6 plantillas automáticamente.
                 </p>
               </div>
             )}

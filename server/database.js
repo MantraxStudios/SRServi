@@ -485,6 +485,8 @@ async function createTables() {
     ['ig_session', 'MEDIUMTEXT NULL'],
     ['ig_temp_state', 'MEDIUMTEXT NULL'],
     ['ig_connected', 'TINYINT(1) DEFAULT 0'],
+    ['post_time', "VARCHAR(5) NOT NULL DEFAULT '10:00'"],
+    ['post_days', "VARCHAR(20) NOT NULL DEFAULT '0'"],
   ]) {
     try {
       const [has] = await pool.execute(
@@ -3923,16 +3925,18 @@ export async function getInstagramConfig(storeId) {
   return rows[0] || null;
 }
 
-export async function saveInstagramConfig(storeId, { ig_username, ig_password, caption_template, enabled }) {
+export async function saveInstagramConfig(storeId, { ig_username, ig_password, caption_template, enabled, post_time, post_days }) {
   await pool.execute(`
-    INSERT INTO instagram_configs (store_id, ig_username, ig_password, caption_template, enabled)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO instagram_configs (store_id, ig_username, ig_password, caption_template, enabled, post_time, post_days)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       ig_username = VALUES(ig_username),
       ig_password = VALUES(ig_password),
       caption_template = VALUES(caption_template),
-      enabled = VALUES(enabled)
-  `, [storeId, ig_username || '', ig_password || '', caption_template || '', enabled ? 1 : 0]);
+      enabled = VALUES(enabled),
+      post_time = VALUES(post_time),
+      post_days = VALUES(post_days)
+  `, [storeId, ig_username || '', ig_password || '', caption_template || '', enabled ? 1 : 0, post_time || '10:00', post_days || '0']);
 }
 
 export async function getActiveInstagramConfigs() {
@@ -3945,7 +3949,6 @@ export async function getActiveInstagramConfigs() {
       AND ic.ig_connected = 1
       AND ic.ig_username != ''
       AND ic.ig_password != ''
-      AND (ic.last_posted_at IS NULL OR ic.last_posted_at < DATE_SUB(NOW(), INTERVAL 6 DAY))
   `);
   return rows;
 }
