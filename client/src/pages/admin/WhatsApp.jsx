@@ -158,6 +158,19 @@ function WhatsApp() {
     fetchStatus(selectedStore);
   };
 
+  const handleReconnect = async () => {
+    if (!selectedStore) return;
+    setActionLoading(true);
+    setStatus(prev => ({ ...prev, hasQR: false, qr: null, connecting: true }));
+    await fetch(`${API}/api/whatsapp/reconnect`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ store_id: parseInt(selectedStore) })
+    });
+    setActionLoading(false);
+    // Esperar un momento y luego empezar a hacer polling hasta ver el nuevo QR
+    setTimeout(() => fetchStatus(selectedStore), 2000);
+  };
+
   const toggleWorker = (id) => {
     setSelectedWorkers(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -313,15 +326,32 @@ function WhatsApp() {
                 background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10,
                 padding: '12px 16px', marginBottom: 20, fontSize: 14, color: '#92400e'
               }}>
-                <strong>Escanea el código QR</strong> con tu WhatsApp. Abre WhatsApp → Dispositivos vinculados → Vincular dispositivo.
+                <strong>Escanea el código QR</strong> con tu WhatsApp.<br />
+                <span style={{ fontSize: 13 }}>Abre WhatsApp → Dispositivos vinculados → Vincular dispositivo.</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
                 <div style={{ background: '#fff', padding: 12, borderRadius: 12, border: '2px solid #25D366' }}>
                   <img src={status.qr} alt="QR WhatsApp" style={{ width: 240, height: 240, display: 'block' }} />
                 </div>
               </div>
-              <p style={{ textAlign: 'center', fontSize: 12, color: '#888', marginTop: 8 }}>
-                El QR expira en ~60 segundos. Si expira, haz clic en "Reconectar".
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  onClick={handleReconnect}
+                  disabled={actionLoading}
+                  style={{
+                    padding: '10px 20px', borderRadius: 8, border: 'none',
+                    background: '#f59e0b', color: '#fff', fontWeight: 700,
+                    cursor: actionLoading ? 'not-allowed' : 'pointer', fontSize: 14
+                  }}
+                >
+                  {actionLoading
+                    ? <><FontAwesomeIcon icon={faSpinner} spin style={{ marginRight: 7 }} />Generando...</>
+                    : <><FontAwesomeIcon icon={faSync} style={{ marginRight: 7 }} />QR expiró — Generar nuevo</>
+                  }
+                </button>
+              </div>
+              <p style={{ textAlign: 'center', fontSize: 12, color: '#888', marginTop: 10 }}>
+                El QR expira cada ~60 segundos. Si no puedes escanearlo, usa el botón de arriba.
               </p>
             </div>
           ) : (

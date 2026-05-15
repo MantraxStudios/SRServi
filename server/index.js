@@ -21,7 +21,7 @@ import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postT
 import { initInstagramService } from './instagram_autostart.js';
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
-import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, disconnectWhatsApp, getAutoStartStoreIds } from './whatsapp.js';
+import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds } from './whatsapp.js';
 import cron from 'node-cron';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
@@ -10268,6 +10268,15 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       try {
         await disconnectWhatsApp(storeId);
         res.json({ message: 'WhatsApp desconectado' });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/whatsapp/reconnect', authenticateToken, async (req, res) => {
+      const storeId = await verifyStoreOwner(req, res);
+      if (!storeId) return;
+      try {
+        await reconnectWhatsApp(storeId);
+        res.json({ message: 'Reconectando...' });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
