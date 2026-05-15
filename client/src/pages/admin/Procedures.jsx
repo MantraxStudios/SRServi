@@ -6,7 +6,7 @@ import {
   faClipboardList, faPlus, faEdit, faTrash, faBrain,
   faImage, faSave, faTimes, faChevronUp, faChevronDown,
   faSpinner, faArrowLeft, faLightbulb, faGripLines,
-  faEye, faEyeSlash, faCheck, faTable
+  faEye, faEyeSlash, faCheck, faTable, faPrint, faSearch
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -20,9 +20,94 @@ function imgSrc(url) {
 }
 
 /* ── Zona de imagen de un paso ── */
-function ImageZone({ stepIdx, imageUrl, uploading, onUpload, onClear }) {
+function ImageSearchModal({ onSelect, onClose }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+
+  const search = async () => {
+    if (!query.trim()) return;
+    setLoading(true); setSearched(true);
+    try {
+      const res = await fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&action=process&json=1&fields=product_name,image_url&page_size=30`
+      );
+      const data = await res.json();
+      setResults((data.products || []).filter(p => p.image_url));
+    } catch { setResults([]); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 640, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ fontWeight: 800, fontSize: 15, flex: 1 }}>Buscar imagen</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: '#aaa', lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: 8 }}>
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && search()}
+            placeholder="Ej: tomate, queso, mayonesa..."
+            autoFocus
+            style={{ flex: 1, padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 9, fontSize: 14, outline: 'none' }}
+            onFocus={e => e.target.style.borderColor = GOLD}
+            onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+          />
+          <button onClick={search} disabled={loading}
+            style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: '#111', color: '#fff', fontWeight: 700, fontSize: 13, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+            {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Buscar'}
+          </button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
+          {loading && <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>Buscando imágenes...</div>}
+          {!loading && searched && !results.length && (
+            <div style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>Sin resultados para "{query}"</div>
+          )}
+          {!loading && !searched && (
+            <div style={{ textAlign: 'center', padding: 40, color: '#bbb', fontSize: 13 }}>
+              <FontAwesomeIcon icon={faSearch} style={{ fontSize: 28, display: 'block', margin: '0 auto 12px' }} />
+              Escribí un ingrediente y presioná Buscar
+            </div>
+          )}
+          {!loading && results.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 10 }}>
+              {results.map((p, i) => (
+                <div key={i} onClick={() => { onSelect(p.image_url); onClose(); }}
+                  style={{ cursor: 'pointer', borderRadius: 10, overflow: 'hidden', border: '2px solid #f0f0f0', transition: 'all 0.15s', background: '#fafafa' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = GOLD; e.currentTarget.style.transform = 'scale(1.03)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#f0f0f0'; e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                  <img src={p.image_url} alt={p.product_name || ''}
+                    style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }}
+                    onError={e => { e.target.parentElement.style.display = 'none'; }}
+                  />
+                  {p.product_name && (
+                    <div style={{ fontSize: 10, padding: '4px 6px', color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {p.product_name}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '8px 16px', borderTop: '1px solid #f0f0f0', fontSize: 10, color: '#bbb', textAlign: 'center' }}>
+          Fotos de Open Food Facts · Licencia libre
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImageZone({ stepIdx, imageUrl, uploading, onUpload, onClear, onSelectUrl }) {
   const ref = useRef();
   const [dragging, setDragging] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   const handleDrop = (e) => {
     e.preventDefault(); setDragging(false);
@@ -49,38 +134,55 @@ function ImageZone({ stepIdx, imageUrl, uploading, onUpload, onClear }) {
   }
 
   return (
-    <div
-      onClick={() => ref.current?.click()}
-      onDragOver={e => { e.preventDefault(); setDragging(true); }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={handleDrop}
-      style={{
-        marginTop: 12, borderRadius: 12, border: `2px dashed ${dragging ? GOLD : '#d1d5db'}`,
-        background: dragging ? '#fffdf0' : '#f9fafb',
-        padding: '22px 16px', textAlign: 'center', cursor: 'pointer',
-        transition: 'all 0.15s'
-      }}
-    >
-      <input ref={ref} type="file" accept="image/*" style={{ display: 'none' }}
-        onChange={e => onUpload(stepIdx, e.target.files[0])} />
-      {uploading ? (
-        <div style={{ color: '#888', fontSize: 13 }}>
-          <FontAwesomeIcon icon={faSpinner} spin style={{ marginRight: 7, color: GOLD }} />
-          Subiendo imagen...
-        </div>
-      ) : (
-        <>
-          <FontAwesomeIcon icon={faImage} style={{ fontSize: 24, color: '#d1d5db', marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />
-          <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>Haz clic o arrastra una imagen</div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>PNG, JPG, WEBP</div>
-        </>
+    <div style={{ marginTop: 12 }}>
+      {showSearch && (
+        <ImageSearchModal
+          onSelect={(url) => { onSelectUrl(stepIdx, url); setShowSearch(false); }}
+          onClose={() => setShowSearch(false)}
+        />
       )}
+      <div
+        onClick={() => ref.current?.click()}
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        style={{
+          borderRadius: 12, border: `2px dashed ${dragging ? GOLD : '#d1d5db'}`,
+          background: dragging ? '#fffdf0' : '#f9fafb',
+          padding: '18px 16px', textAlign: 'center', cursor: 'pointer',
+          transition: 'all 0.15s'
+        }}
+      >
+        <input ref={ref} type="file" accept="image/*" style={{ display: 'none' }}
+          onChange={e => onUpload(stepIdx, e.target.files[0])} />
+        {uploading ? (
+          <div style={{ color: '#888', fontSize: 13 }}>
+            <FontAwesomeIcon icon={faSpinner} spin style={{ marginRight: 7, color: GOLD }} />
+            Subiendo imagen...
+          </div>
+        ) : (
+          <>
+            <FontAwesomeIcon icon={faImage} style={{ fontSize: 22, color: '#d1d5db', display: 'block', margin: '0 auto 7px' }} />
+            <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>Subir desde mi dispositivo</div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Clic o arrastra · PNG, JPG, WEBP</div>
+          </>
+        )}
+      </div>
+      <button
+        onClick={e => { e.stopPropagation(); setShowSearch(true); }}
+        style={{ marginTop: 7, width: '100%', padding: '9px', border: '1.5px solid #e5e7eb', borderRadius: 10, background: '#fff', cursor: 'pointer', fontSize: 12, color: '#6b7280', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'border-color 0.15s' }}
+        onMouseEnter={e => e.currentTarget.style.borderColor = GOLD}
+        onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
+      >
+        <FontAwesomeIcon icon={faSearch} style={{ color: GOLD }} />
+        Buscar imagen en internet
+      </button>
     </div>
   );
 }
 
 /* ── Card de un paso en el editor ── */
-function StepCard({ step, index, total, onChange, onMove, onRemove, onUpload, uploadingStep }) {
+function StepCard({ step, index, total, onChange, onMove, onRemove, onUpload, onSelectUrl, uploadingStep }) {
   const [showTip, setShowTip] = useState(!!step.tip);
 
   const field = (label, key, multiline = false, placeholder = '') => (
@@ -175,6 +277,7 @@ function StepCard({ step, index, total, onChange, onMove, onRemove, onUpload, up
           uploading={uploadingStep === index}
           onUpload={onUpload}
           onClear={() => onChange(index, 'image_url', '')}
+          onSelectUrl={onSelectUrl}
         />
 
         {/* Consejo (toggle) */}
@@ -214,10 +317,12 @@ function StepCard({ step, index, total, onChange, onMove, onRemove, onUpload, up
 
 /* ── Editor de una tabla individual ── */
 function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack, saving }) {
+  const { selectedStore } = useStore() || {};
   const [table, setTable] = useState(initialTable);
   const [editingCell, setEditingCell] = useState(null);
   const [cellForm, setCellForm] = useState({ name: '', note: '', image_url: '' });
   const [uploadingCell, setUploadingCell] = useState(false);
+  const [searchingCellImg, setSearchingCellImg] = useState(false);
   const [newColName, setNewColName] = useState('');
   const [addingCol, setAddingCol] = useState(false);
 
@@ -249,6 +354,37 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
     } finally { setUploadingCell(false); }
   };
 
+  const downloadPrepTablePDF = () => {
+    const cols = table.columns || [];
+    const defaultRows = table.rows || 8;
+    const maxRows = cols.length > 0 ? Math.max(1, ...cols.map(c => c.rows || defaultRows)) : defaultRows;
+    const isLandscape = cols.length > 4;
+    const storeName = selectedStore?.name || 'SRServi';
+    const headerCells = cols.map(col => `<th>${col.name}</th>`).join('');
+    const bodyRows = Array.from({ length: maxRows }, (_, rowIdx) => {
+      const tds = cols.map(col => {
+        const colRows = col.rows || defaultRows;
+        if (rowIdx >= colRows) return `<td class="empty"></td>`;
+        const cell = (table.cells || {})[`${col.id}_${rowIdx}`] || {};
+        const imgUrl = cell.image_url ? (cell.image_url.startsWith('http') ? cell.image_url : API + cell.image_url) : null;
+        let content = '';
+        if (imgUrl) content += `<img src="${imgUrl}" class="cell-img">`;
+        if (cell.name) content += `<div class="cell-name">${cell.name}</div>`;
+        if (cell.note) content += `<div class="cell-note">${cell.note}</div>`;
+        return `<td>${content || '<span class="empty-cell">—</span>'}</td>`;
+      }).join('');
+      return `<tr><td class="row-num">${rowIdx + 1}</td>${tds}</tr>`;
+    }).join('');
+    const css = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;color:#111;padding:10px}.hdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid #000}.hdr h1{font-size:18px;font-weight:800}.hdr p{font-size:11px;color:#666;margin-top:3px}.hdr-r{text-align:right;font-size:11px;color:#666}table{width:100%;border-collapse:collapse}th{background:#111;color:#D4AF37;padding:8px 10px;font-size:11px;font-weight:800;text-align:center;border:1px solid #333}td{padding:6px 8px;border:1px solid #ddd;vertical-align:middle;text-align:center}.row-num{font-weight:800;font-size:13px;color:#D4AF37;background:#111;width:32px}.empty{background:#f5f5f5}.cell-img{width:60px;height:60px;object-fit:cover;border-radius:6px;display:block;margin:0 auto 4px}.cell-name{font-weight:700;font-size:12px;line-height:1.2}.cell-note{font-size:10px;color:#666;margin-top:2px}.empty-cell{color:#ccc}.footer{margin-top:14px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#888;text-align:center}@media print{body{padding:0}@page{size:A4 ${isLandscape ? 'landscape' : 'portrait'};margin:12mm}}`;
+    const date = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${table.title || 'Tabla de preparación'}</title><style>${css}</style></head><body><div class="hdr"><div><h1>${table.title || 'Tabla de preparación'}</h1><p>${storeName}</p></div><div class="hdr-r"><p>${date}</p></div></div><table><thead><tr><th>#</th>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table><div class="footer">SRServi — ${storeName} — ${new Date().toLocaleString('es-ES')}</div></body></html>`;
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) { alert('Permite ventanas emergentes para generar el PDF.'); return; }
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 700);
+  };
+
   const colRowsList = (table.columns || []).map(c => c.rows || table.rows || 8);
   const maxRows = colRowsList.length > 0 ? Math.max(1, ...colRowsList) : (table.rows || 8);
   const rowArr = Array.from({ length: maxRows }, (_, i) => i);
@@ -263,6 +399,10 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
           <FontAwesomeIcon icon={faArrowLeft} /> Tablas
         </button>
         <div style={{ flex: 1 }} />
+        <button onClick={downloadPrepTablePDF} style={{ padding: '9px 16px', borderRadius: 9, border: '1.5px solid #D4AF37', background: '#fff', color: '#111', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
+          <FontAwesomeIcon icon={faPrint} style={{ color: '#D4AF37' }} />
+          PDF A4
+        </button>
         <button onClick={() => onSave(table)} disabled={saving} style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: '#111', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
           <FontAwesomeIcon icon={saving ? faSpinner : faSave} spin={saving} />
           {saving ? 'Guardando...' : 'Guardar'}
@@ -372,11 +512,27 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
                   <button onClick={() => setCellForm(f => ({ ...f, image_url: '' }))} style={{ padding: '5px 10px', border: '1px solid #fecaca', borderRadius: 7, background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>Quitar</button>
                 </div>
               ) : (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: '1.5px dashed #d1d5db', borderRadius: 10, cursor: 'pointer', color: '#9ca3af', fontSize: 13 }}>
-                  <FontAwesomeIcon icon={uploadingCell ? faSpinner : faImage} spin={uploadingCell} />
-                  {uploadingCell ? 'Subiendo...' : 'Subir imagen'}
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => uploadCellImage(e.target.files[0])} />
-                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {searchingCellImg && (
+                    <ImageSearchModal
+                      onSelect={(url) => { setCellForm(f => ({ ...f, image_url: url })); setSearchingCellImg(false); }}
+                      onClose={() => setSearchingCellImg(false)}
+                    />
+                  )}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: '1.5px dashed #d1d5db', borderRadius: 10, cursor: 'pointer', color: '#9ca3af', fontSize: 13 }}>
+                    <FontAwesomeIcon icon={uploadingCell ? faSpinner : faImage} spin={uploadingCell} />
+                    {uploadingCell ? 'Subiendo...' : 'Subir desde mi dispositivo'}
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => uploadCellImage(e.target.files[0])} />
+                  </label>
+                  <button onClick={() => setSearchingCellImg(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 10, cursor: 'pointer', color: '#6b7280', fontSize: 13, background: '#fff', fontWeight: 600, transition: 'border-color 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = GOLD}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
+                  >
+                    <FontAwesomeIcon icon={faSearch} style={{ color: GOLD }} />
+                    Buscar imagen en internet
+                  </button>
+                </div>
               )}
             </div>
             <div style={{ marginBottom: 12 }}>
@@ -902,6 +1058,7 @@ export default function Procedures() {
                   onMove={moveStep}
                   onRemove={removeStep}
                   onUpload={uploadImage}
+                  onSelectUrl={(stepIdx, url) => updateStep(stepIdx, 'image_url', url)}
                   uploadingStep={uploadingStep}
                 />
               ))}
