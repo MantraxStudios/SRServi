@@ -25,6 +25,11 @@ from instagrapi.exceptions import (
     FeedbackRequired,
 )
 
+try:
+    from instagrapi.exceptions import ChallengeResolveRequired
+except ImportError:
+    ChallengeResolveRequired = None
+
 # ─── Config ───────────────────────────────────────────────────────────────────
 
 SESSIONS_DIR = Path(os.environ.get("IG_SESSIONS_DIR", "./instagram_sessions"))
@@ -63,6 +68,15 @@ def make_client() -> Client:
 
 
 # ─── Worker thread ────────────────────────────────────────────────────────────
+
+def _bloks_challenge_msg():
+    return (
+        "Instagram requiere verificación especial para esta cuenta. "
+        "Abre la app de Instagram en tu teléfono, "
+        "completa cualquier verificación que te pida (email o SMS), "
+        "y luego vuelve a intentar conectar aquí."
+    )
+
 
 def _login_worker(store_id: str, username: str, password: str, ctx: LoginCtx):
     cl = make_client()
@@ -149,8 +163,19 @@ def _login_worker(store_id: str, username: str, password: str, ctx: LoginCtx):
         ctx.final_event.set()
 
     except Exception as e:
+        err_str = str(e)
+        # Challenge de tipo Bloks (cuentas nuevas) — instagrapi no puede resolverlo automáticamente
+        if (
+            "Unknown step_name" in err_str
+            or "STEP_NAME" in err_str
+            or "bloks_action" in err_str
+            or "ChallengeResolve" in err_str
+            or (ChallengeResolveRequired and isinstance(e, ChallengeResolveRequired))
+        ):
+            ctx.error = _bloks_challenge_msg()
+        else:
+            ctx.error = err_str
         ctx.result = "error"
-        ctx.error = str(e)
         ctx.init_event.set()
         ctx.final_event.set()
 
@@ -273,7 +298,16 @@ def post_photo(store_id: str, req: PostReq):
         session.unlink(missing_ok=True)
         raise HTTPException(401, "Sesión expirada. Reconectá la cuenta de Instagram.")
     except Exception as e:
-        raise HTTPException(400, str(e))
+        err_str = str(e)
+        if (
+            "Unknown step_name" in err_str
+            or "STEP_NAME" in err_str
+            or "bloks_action" in err_str
+            or "ChallengeResolve" in err_str
+        ):
+            session.unlink(missing_ok=True)
+            raise HTTPException(401, _bloks_challenge_msg())
+        raise HTTPException(400, err_str)
 
 
 @app.delete("/{store_id}/session")
