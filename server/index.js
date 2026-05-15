@@ -10280,6 +10280,21 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
+    // Diagnóstico: ver mensajes pendientes y estado de conexión por tienda
+    app.get('/api/whatsapp/debug', authenticateToken, async (req, res) => {
+      try {
+        const pending = await getPendingScheduledMessages();
+        const result = pending.map(msg => ({
+          id: msg.id,
+          store_id: msg.store_id,
+          scheduled_at: msg.scheduled_at,
+          wa_connected: getWhatsAppStatus(msg.store_id).connected,
+          recipients: typeof msg.recipients === 'string' ? JSON.parse(msg.recipients) : msg.recipients,
+        }));
+        res.json({ pending_count: result.length, messages: result });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
     app.get('/api/whatsapp/groups', authenticateToken, async (req, res) => {
       const storeId = await verifyStoreOwner(req, res);
       if (!storeId) return;
@@ -10342,51 +10357,64 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     // Cron: procesar mensajes programados cada minuto
     let schedLock = false;
     cron.schedule('* * * * *', async () => {
-      if (schedLock) return; // evita ejecuciones simultáneas
+      if (schedLock) return;
       schedLock = true;
       try {
         const pending = await getPendingScheduledMessages();
+        if (pending.length > 0) console.log(`[WhatsApp Sched] ${pending.length} mensaje(s) pendiente(s)`);
+
         for (const msg of pending) {
           try {
-            // Marcar como enviado ANTES de procesar — evita doble envío si hay overlap
-            const claimed = await markScheduledMessageSent(msg.id);
-            if (!claimed) continue; // otro proceso ya lo tomó
-
             const recipients = typeof msg.recipients === 'string' ? JSON.parse(msg.recipients) : msg.recipients;
-            let phones = [];
 
+            // 1. Verificar conexión WhatsApp PRIMERO — si no hay conexión, reintentar el próximo minuto
+            const wa = getWhatsAppStatus(msg.store_id);
+            if (!wa.connected) {
+              console.warn(`[WhatsApp Sched] Tienda ${msg.store_id} sin WhatsApp conectado — mensaje ${msg.id} reintentará`);
+              continue;
+            }
+
+            // 2. Resolver destinatarios
+            let targets = [];
             if (recipients.type === 'all') {
               const workers = await getWorkersWithPhone(msg.store_id);
-              phones = workers.map(w => w.phone);
+              targets = workers.map(w => w.phone);
             } else if (recipients.type === 'specific' && Array.isArray(recipients.worker_ids)) {
               const workers = await getWorkersWithPhone(msg.store_id);
               const ids = new Set(recipients.worker_ids);
-              phones = workers.filter(w => ids.has(w.id)).map(w => w.phone);
+              targets = workers.filter(w => ids.has(w.id)).map(w => w.phone);
             } else if (recipients.type === 'groups' && Array.isArray(recipients.group_jids)) {
-              // Los JIDs de grupos se usan directamente (@g.us)
-              phones = recipients.group_jids;
+              targets = recipients.group_jids;
             }
 
-            if (phones.length === 0) {
+            if (targets.length === 0) {
+              console.warn(`[WhatsApp Sched] Mensaje ${msg.id} sin destinatarios válidos — marcando fallido`);
               await markScheduledMessageFailed(msg.id);
               continue;
             }
 
-            const wa = getWhatsAppStatus(msg.store_id);
-            if (!wa.connected) {
+            // 3. Reclamar atómicamente (evita doble envío si hubiera overlap)
+            const claimed = await markScheduledMessageSent(msg.id);
+            if (!claimed) continue; // ya fue tomado por otra instancia
+
+            // 4. Enviar
+            let sent = 0;
+            for (const target of targets) {
+              try {
+                await sendWhatsAppMessage(msg.store_id, target, msg.message);
+                sent++;
+              } catch (e) {
+                console.error(`[WhatsApp Sched] Error enviando a ${target}:`, e.message);
+              }
+            }
+            console.log(`[WhatsApp Sched] Mensaje ${msg.id} enviado a ${sent}/${targets.length} destinatarios`);
+
+            // 5. Si hubo error total (0 enviados), marcar fallido
+            if (sent === 0) {
               await markScheduledMessageFailed(msg.id);
-              console.warn('[WhatsApp Sched] No conectado para tienda', msg.store_id, '— mensaje', msg.id, 'fallido');
-              continue;
             }
 
-            for (const phone of phones) {
-              await sendWhatsAppMessage(msg.store_id, phone, msg.message).catch(e =>
-                console.error(`[WhatsApp Sched] Error enviando a ${phone}:`, e.message)
-              );
-            }
-            console.log(`[WhatsApp Sched] Mensaje ${msg.id} enviado a ${phones.length} destinatarios`);
-
-            // Si es recurrente diario, crear la próxima ocurrencia (mismo horario mañana)
+            // 6. Recurrencia diaria
             if (msg.recurrence === 'daily') {
               const next = new Date();
               next.setDate(next.getDate() + 1);
@@ -10400,7 +10428,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
                 scheduledAt: nextSql,
                 recurrence: 'daily'
               });
-              console.log(`[WhatsApp Sched] Próxima ocurrencia diaria creada para ${nextSql}`);
+              console.log(`[WhatsApp Sched] Próxima ocurrencia diaria para mensaje ${msg.id}: ${nextSql}`);
             }
           } catch (e) {
             console.error(`[WhatsApp Sched] Error procesando mensaje ${msg.id}:`, e.message);
