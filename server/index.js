@@ -21,7 +21,7 @@ import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postT
 import { initInstagramService } from './instagram_autostart.js';
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
-import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, disconnectWhatsApp } from './whatsapp.js';
+import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, disconnectWhatsApp, getAutoStartStoreIds } from './whatsapp.js';
 import cron from 'node-cron';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
@@ -10232,35 +10232,52 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       runSrBrain().catch(e => console.error('[SRBrain] Cron error:', e.message));
     });
 
-    // WhatsApp routes
-    app.get('/api/whatsapp/status', authenticateToken, (req, res) => {
-      const status = getWhatsAppStatus();
-      res.json(status);
+    // WhatsApp routes — todas requieren store_id que pertenece al usuario autenticado
+    async function verifyStoreOwner(req, res) {
+      const storeId = parseInt(req.query.store_id || req.body?.store_id);
+      if (!storeId) { res.status(400).json({ error: 'store_id requerido' }); return null; }
+      const ok = await verifyStoreOwnership(storeId, req.user.id);
+      if (!ok) { res.status(403).json({ error: 'Sin acceso a esta tienda' }); return null; }
+      return storeId;
+    }
+
+    app.get('/api/whatsapp/status', authenticateToken, async (req, res) => {
+      const storeId = await verifyStoreOwner(req, res);
+      if (!storeId) return;
+      res.json(getWhatsAppStatus(storeId));
     });
 
-    app.get('/api/whatsapp/qr', authenticateToken, (req, res) => {
-      const status = getWhatsAppStatus();
+    app.get('/api/whatsapp/qr', authenticateToken, async (req, res) => {
+      const storeId = await verifyStoreOwner(req, res);
+      if (!storeId) return;
+      const status = getWhatsAppStatus(storeId);
       if (!status.hasQR) return res.status(404).json({ error: 'Sin QR disponible. Inicia la conexión primero.' });
       res.json({ qr: status.qr });
     });
 
-    app.post('/api/whatsapp/connect', authenticateToken, (req, res) => {
-      initWhatsApp().catch(e => console.error('[WhatsApp]', e.message));
+    app.post('/api/whatsapp/connect', authenticateToken, async (req, res) => {
+      const storeId = await verifyStoreOwner(req, res);
+      if (!storeId) return;
+      initWhatsApp(storeId).catch(e => console.error(`[WhatsApp:${storeId}]`, e.message));
       res.json({ message: 'Iniciando conexión WhatsApp...' });
     });
 
     app.post('/api/whatsapp/disconnect', authenticateToken, async (req, res) => {
+      const storeId = await verifyStoreOwner(req, res);
+      if (!storeId) return;
       try {
-        await disconnectWhatsApp();
+        await disconnectWhatsApp(storeId);
         res.json({ message: 'WhatsApp desconectado' });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
     app.post('/api/whatsapp/send', authenticateToken, async (req, res) => {
+      const storeId = await verifyStoreOwner(req, res);
+      if (!storeId) return;
       try {
         const { to, message } = req.body;
         if (!to || !message) return res.status(400).json({ error: 'to y message requeridos' });
-        await sendWhatsAppMessage(to, message);
+        await sendWhatsAppMessage(storeId, to, message);
         res.json({ success: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -10334,15 +10351,15 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
               continue;
             }
 
-            const wa = getWhatsAppStatus();
+            const wa = getWhatsAppStatus(msg.store_id);
             if (!wa.connected) {
               await markScheduledMessageFailed(msg.id);
-              console.warn('[WhatsApp Sched] No conectado, mensaje', msg.id, 'marcado como fallido');
+              console.warn('[WhatsApp Sched] No conectado para tienda', msg.store_id, '— mensaje', msg.id, 'fallido');
               continue;
             }
 
             for (const phone of phones) {
-              await sendWhatsAppMessage(phone, msg.message).catch(e =>
+              await sendWhatsAppMessage(msg.store_id, phone, msg.message).catch(e =>
                 console.error(`[WhatsApp Sched] Error enviando a ${phone}:`, e.message)
               );
             }
@@ -10376,10 +10393,9 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       }
     });
 
-    // Auto-start WhatsApp if auth session exists
-    const waAuthDir = path.join(__serverDir, 'whatsapp_auth');
-    if (fs.existsSync(waAuthDir)) {
-      initWhatsApp().catch(e => console.warn('[WhatsApp] Auto-start failed:', e.message));
+    // Auto-start WhatsApp for each store that has a saved session
+    for (const storeId of getAutoStartStoreIds()) {
+      initWhatsApp(storeId).catch(e => console.warn(`[WhatsApp:${storeId}] Auto-start failed:`, e.message));
     }
 
     server.listen(PORT, HOST, () => {

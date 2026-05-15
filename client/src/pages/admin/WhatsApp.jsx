@@ -62,9 +62,11 @@ function WhatsApp() {
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
-  const fetchStatus = async () => {
+  const fetchStatus = async (storeId) => {
+    const sid = storeId || selectedStore;
+    if (!sid) { setLoading(false); return; }
     try {
-      const res = await fetch(`${API}/api/whatsapp/status`, { headers });
+      const res = await fetch(`${API}/api/whatsapp/status?store_id=${sid}`, { headers });
       const data = await res.json();
       setStatus(data);
     } catch {
@@ -80,7 +82,11 @@ function WhatsApp() {
       const data = await res.json();
       if (Array.isArray(data)) {
         setStores(data);
-        if (data.length > 0 && !selectedStore) setSelectedStore(String(data[0].id));
+        if (data.length > 0 && !selectedStore) {
+          const firstId = String(data[0].id);
+          setSelectedStore(firstId);
+          fetchStatus(firstId);
+        }
       }
     } catch {}
   };
@@ -114,30 +120,42 @@ function WhatsApp() {
   };
 
   useEffect(() => {
-    fetchStatus();
     fetchStores();
     fetchScheduled();
-    pollRef.current = setInterval(fetchStatus, 4000);
-    return () => clearInterval(pollRef.current);
   }, []);
 
   useEffect(() => {
-    if (selectedStore) fetchWorkers(selectedStore);
+    if (!selectedStore) return;
+    setLoading(true);
+    setStatus(null);
+    fetchStatus(selectedStore);
+    fetchWorkers(selectedStore);
+    clearInterval(pollRef.current);
+    pollRef.current = setInterval(() => fetchStatus(selectedStore), 4000);
+    return () => clearInterval(pollRef.current);
   }, [selectedStore]);
 
   const handleConnect = async () => {
+    if (!selectedStore) return;
     setActionLoading(true);
-    await fetch(`${API}/api/whatsapp/connect`, { method: 'POST', headers });
+    await fetch(`${API}/api/whatsapp/connect`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ store_id: parseInt(selectedStore) })
+    });
     setActionLoading(false);
-    fetchStatus();
+    fetchStatus(selectedStore);
   };
 
   const handleDisconnect = async () => {
+    if (!selectedStore) return;
     if (!confirm('¿Desconectar WhatsApp? Se eliminará la sesión guardada.')) return;
     setActionLoading(true);
-    await fetch(`${API}/api/whatsapp/disconnect`, { method: 'POST', headers });
+    await fetch(`${API}/api/whatsapp/disconnect`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ store_id: parseInt(selectedStore) })
+    });
     setActionLoading(false);
-    fetchStatus();
+    fetchStatus(selectedStore);
   };
 
   const toggleWorker = (id) => {
@@ -220,6 +238,23 @@ function WhatsApp() {
 
       <div className="admin-main" style={{ maxWidth: 680, margin: '0 auto' }}>
 
+        {/* Store selector — controls which store's WA session is shown */}
+        {stores.length > 1 && (
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Tienda activa</label>
+            <select
+              value={selectedStore}
+              onChange={e => setSelectedStore(e.target.value)}
+              style={{
+                width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb',
+                borderRadius: 8, fontSize: 14, outline: 'none', background: '#fff', cursor: 'pointer'
+              }}
+            >
+              {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        )}
+
         {/* Status card */}
         <div style={card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -241,7 +276,7 @@ function WhatsApp() {
               </div>
             </div>
             <button
-              onClick={fetchStatus}
+              onClick={() => fetchStatus(selectedStore)}
               style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 14 }}
             >
               <FontAwesomeIcon icon={faSync} />
@@ -322,24 +357,26 @@ function WhatsApp() {
           </h3>
 
           <form onSubmit={handleSchedule}>
-            {/* Store selector */}
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>Tienda</label>
-              <select
-                value={selectedStore}
-                onChange={e => setSelectedStore(e.target.value)}
-                required
-                style={{
-                  width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb',
-                  borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box',
-                  background: '#fff', cursor: 'pointer'
-                }}
-              >
-                {stores.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
+            {/* Store selector — only show inline if only 1 store (top selector hidden in that case) */}
+            {stores.length === 1 && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>Tienda</label>
+                <select
+                  value={selectedStore}
+                  onChange={e => setSelectedStore(e.target.value)}
+                  required
+                  style={{
+                    width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb',
+                    borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box',
+                    background: '#fff', cursor: 'pointer'
+                  }}
+                >
+                  {stores.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Recipients */}
             <div style={{ marginBottom: 14 }}>

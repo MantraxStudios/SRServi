@@ -15,13 +15,7 @@ const {
 const { Boom } = require('@hapi/boom');
 const QRCode = require('qrcode');
 
-const AUTH_DIR = path.join(__dirname, 'whatsapp_auth');
-
-let sock = null;
-let currentQR = null;
-let isConnected = false;
-let isConnecting = false;
-let reconnectAttempts = 0;
+const AUTH_BASE = path.join(__dirname, 'whatsapp_auth');
 const MAX_RECONNECT = 5;
 
 const silentLogger = {
@@ -31,19 +25,32 @@ const silentLogger = {
   child: () => silentLogger
 };
 
-export async function initWhatsApp() {
-  if (isConnecting) return;
-  isConnecting = true;
+// Map<storeId, { sock, currentQR, isConnected, isConnecting, reconnectAttempts }>
+const connections = new Map();
 
-  if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
+function getConn(storeId) {
+  const key = String(storeId);
+  if (!connections.has(key)) {
+    connections.set(key, { sock: null, currentQR: null, isConnected: false, isConnecting: false, reconnectAttempts: 0 });
+  }
+  return connections.get(key);
+}
 
-  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+export async function initWhatsApp(storeId) {
+  const conn = getConn(storeId);
+  if (conn.isConnecting) return;
+  conn.isConnecting = true;
+
+  const authDir = path.join(AUTH_BASE, `store_${storeId}`);
+  if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
+
+  const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
 
-  sock = makeWASocket({
+  const sock = makeWASocket({
     version,
     auth: state,
-    printQRInTerminal: true,
+    printQRInTerminal: false,
     browser: ['SRServi', 'Chrome', '1.0.0'],
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
@@ -52,77 +59,87 @@ export async function initWhatsApp() {
     logger: silentLogger
   });
 
+  conn.sock = sock;
   sock.ev.on('creds.update', saveCreds);
 
   sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
     if (qr) {
-      currentQR = await QRCode.toDataURL(qr);
-      isConnected = false;
-      console.log('[WhatsApp] QR code ready — scan with your phone');
+      conn.currentQR = await QRCode.toDataURL(qr);
+      conn.isConnected = false;
+      console.log(`[WhatsApp:${storeId}] QR listo`);
     }
 
     if (connection === 'open') {
-      isConnected = true;
-      isConnecting = false;
-      currentQR = null;
-      reconnectAttempts = 0;
-      console.log('[WhatsApp] Connected successfully');
+      conn.isConnected = true;
+      conn.isConnecting = false;
+      conn.currentQR = null;
+      conn.reconnectAttempts = 0;
+      console.log(`[WhatsApp:${storeId}] Conectado`);
     }
 
     if (connection === 'close') {
-      isConnected = false;
-      isConnecting = false;
+      conn.isConnected = false;
+      conn.isConnecting = false;
       const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
 
       if (reason === DisconnectReason.loggedOut) {
-        console.log('[WhatsApp] Logged out — clearing session');
-        if (fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true, force: true });
-        currentQR = null;
-        reconnectAttempts = 0;
-        setTimeout(initWhatsApp, 2000);
-      } else if (reconnectAttempts < MAX_RECONNECT) {
-        reconnectAttempts++;
-        const delay = Math.min(reconnectAttempts * 5000, 30000);
-        console.log(`[WhatsApp] Disconnected (${reason}), reconnecting in ${delay / 1000}s`);
-        setTimeout(initWhatsApp, delay);
+        console.log(`[WhatsApp:${storeId}] Sesión cerrada — limpiando`);
+        if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
+        conn.currentQR = null;
+        conn.reconnectAttempts = 0;
+        setTimeout(() => initWhatsApp(storeId), 2000);
+      } else if (conn.reconnectAttempts < MAX_RECONNECT) {
+        conn.reconnectAttempts++;
+        const delay = Math.min(conn.reconnectAttempts * 5000, 30000);
+        console.log(`[WhatsApp:${storeId}] Desconectado (${reason}), reintentando en ${delay / 1000}s`);
+        setTimeout(() => initWhatsApp(storeId), delay);
       } else {
-        console.log('[WhatsApp] Max reconnect attempts reached');
+        console.log(`[WhatsApp:${storeId}] Máximo de reintentos alcanzado`);
       }
     }
   });
 }
 
-export function getWhatsAppStatus() {
+export function getWhatsAppStatus(storeId) {
+  const conn = getConn(storeId);
   return {
-    connected: isConnected,
-    connecting: isConnecting && !currentQR,
-    hasQR: !!currentQR,
-    qr: currentQR
+    connected: conn.isConnected,
+    connecting: conn.isConnecting && !conn.currentQR,
+    hasQR: !!conn.currentQR,
+    qr: conn.currentQR
   };
 }
 
-export async function sendWhatsAppMessage(to, message) {
-  if (!isConnected || !sock) {
-    throw new Error('WhatsApp no conectado');
-  }
-
+export async function sendWhatsAppMessage(storeId, to, message) {
+  const conn = getConn(storeId);
+  if (!conn.isConnected || !conn.sock) throw new Error('WhatsApp no conectado');
   const number = to.replace(/[^0-9]/g, '');
   const jid = `${number}@s.whatsapp.net`;
-
-  await sock.sendMessage(jid, { text: message });
-  console.log(`[WhatsApp] Sent to ${number}`);
+  await conn.sock.sendMessage(jid, { text: message });
+  console.log(`[WhatsApp:${storeId}] Enviado a ${number}`);
   return true;
 }
 
-export async function disconnectWhatsApp() {
-  reconnectAttempts = MAX_RECONNECT; // prevent auto-reconnect
-  if (sock) {
-    await sock.logout().catch(() => {});
-    sock = null;
+export async function disconnectWhatsApp(storeId) {
+  const conn = getConn(storeId);
+  conn.reconnectAttempts = MAX_RECONNECT;
+  if (conn.sock) {
+    await conn.sock.logout().catch(() => {});
+    conn.sock = null;
   }
-  isConnected = false;
-  isConnecting = false;
-  currentQR = null;
-  if (fs.existsSync(AUTH_DIR)) fs.rmSync(AUTH_DIR, { recursive: true, force: true });
-  console.log('[WhatsApp] Disconnected and session cleared');
+  conn.isConnected = false;
+  conn.isConnecting = false;
+  conn.currentQR = null;
+  const authDir = path.join(AUTH_BASE, `store_${storeId}`);
+  if (fs.existsSync(authDir)) fs.rmSync(authDir, { recursive: true, force: true });
+  console.log(`[WhatsApp:${storeId}] Desconectado y sesión eliminada`);
+}
+
+// Returns list of store IDs that have saved auth sessions
+export function getAutoStartStoreIds() {
+  if (!fs.existsSync(AUTH_BASE)) return [];
+  return fs.readdirSync(AUTH_BASE)
+    .filter(d => /^store_\d+$/.test(d))
+    .map(d => parseInt(d.replace('store_', '')))
+    .filter(id => !isNaN(id));
 }
