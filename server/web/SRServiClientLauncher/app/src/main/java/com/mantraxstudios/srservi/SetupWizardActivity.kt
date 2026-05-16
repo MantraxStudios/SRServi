@@ -238,8 +238,18 @@ class SetupWizardActivity : AppCompatActivity() {
             actionLabel = "Guardar y continuar",
             icon        = "🏪", // 🏪
             isDone      = { ctx ->
-                ctx.getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
-                    .getString("store_code", "").isNullOrBlank().not()
+                val prefs = ctx.getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
+                val saved = prefs.getString("store_code", "")
+                if (!saved.isNullOrBlank()) {
+                    true
+                } else if (SRServiConfig.PRECONFIGURED_STORE_CODE != "AUTO_STORE_CODE") {
+                    prefs.edit().putString("store_code", SRServiConfig.PRECONFIGURED_STORE_CODE).apply()
+                    ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                        .edit().putString("store_code", SRServiConfig.PRECONFIGURED_STORE_CODE).apply()
+                    true
+                } else {
+                    false
+                }
             },
             execute     = { activity -> if (activity.saveStoreCode()) activity.refresh() }
         )

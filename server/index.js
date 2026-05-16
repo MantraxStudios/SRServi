@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
 import AdmZip from 'adm-zip';
+import { startBuild, getBuildJob, getCachedApk } from './android-build.js';
 import { execFile } from 'child_process';
 import speakeasy from 'speakeasy';
 import bcrypt from 'bcryptjs';
@@ -10474,6 +10475,70 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       } catch (err) {
         console.error('[Apps/Windows] Error:', err.message);
         res.status(500).json({ error: 'Error generando la app' });
+      }
+    });
+
+    // Android app build — starts background compile job and returns jobId
+    app.post('/api/apps/android/build', authenticateToken, async (req, res) => {
+      try {
+        const { appName, storeCode } = req.body;
+        const validApps = ['launcher', 'tvordenes', 'cctv'];
+        if (!validApps.includes(appName)) return res.status(400).json({ error: 'App inválida' });
+
+        // For apps that need store code, verify ownership
+        if (appName !== 'cctv' && storeCode) {
+          const [stores] = await pool.execute(
+            'SELECT id FROM stores WHERE code = ? AND user_id = ?',
+            [storeCode.toUpperCase(), req.user.id]
+          );
+          if (!stores.length) return res.status(403).json({ error: 'Tienda no encontrada' });
+        }
+
+        const code = storeCode ? storeCode.toUpperCase() : null;
+        const result = await startBuild(appName, code);
+
+        if (result.cached) {
+          return res.json({ status: 'done', jobId: null, cached: true, appName, storeCode: code });
+        }
+        res.json({ status: 'building', jobId: result.jobId, cached: false, appName, storeCode: code });
+      } catch (err) {
+        console.error('[Apps/Android/Build]', err.message);
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // Android app build — poll job status
+    app.get('/api/apps/android/status/:jobId', authenticateToken, (req, res) => {
+      const job = getBuildJob(req.params.jobId);
+      if (!job) return res.status(404).json({ error: 'Job no encontrado' });
+      res.json({ status: job.status, progress: job.progress, error: job.error });
+    });
+
+    // Android app download — streams the compiled APK
+    app.get('/api/apps/android/download', authenticateToken, async (req, res) => {
+      try {
+        const { appName, storeCode, jobId } = req.query;
+
+        let apkPath = null;
+
+        if (jobId) {
+          const job = getBuildJob(jobId);
+          if (!job) return res.status(404).json({ error: 'Job no encontrado' });
+          if (job.status !== 'done') return res.status(400).json({ error: 'Build no terminado' });
+          apkPath = job.apkPath;
+        } else {
+          apkPath = getCachedApk(appName, storeCode ? storeCode.toUpperCase() : null);
+        }
+
+        if (!apkPath) return res.status(404).json({ error: 'APK no disponible' });
+
+        const fileName = storeCode ? `${appName}-${storeCode.toUpperCase()}.apk` : `${appName}.apk`;
+        res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        fs.createReadStream(apkPath).pipe(res);
+      } catch (err) {
+        console.error('[Apps/Android/Download]', err.message);
+        res.status(500).json({ error: 'Error al descargar el APK' });
       }
     });
 

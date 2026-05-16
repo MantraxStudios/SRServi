@@ -50,6 +50,59 @@ export const StoreContext = createContext();
 
 export const useStore = () => useContext(StoreContext);
 
+function AppDownloadCard({ icon, title, description, loading, buildState, disabled, onDownload, fileType }) {
+  const isBuilding = buildState?.status === 'building' || loading;
+  const hasError = buildState?.status === 'error';
+  const progress = buildState?.progress;
+
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.04)', borderRadius: '10px',
+      padding: '10px 12px', border: '1px solid rgba(255,255,255,0.07)'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+        <span style={{ fontSize: '16px' }}>{icon}</span>
+        <span style={{ fontWeight: '700', color: '#fff', fontSize: '13px' }}>{title}</span>
+      </div>
+      <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#888', lineHeight: '1.4' }}>{description}</p>
+      {hasError && (
+        <p style={{ margin: '0 0 6px', fontSize: '11px', color: '#f87171', lineHeight: '1.4' }}>
+          Error: {progress}
+        </p>
+      )}
+      {isBuilding && progress && (
+        <p style={{ margin: '0 0 6px', fontSize: '11px', color: '#D4AF37', lineHeight: '1.4' }}>{progress}</p>
+      )}
+      <button
+        onClick={onDownload}
+        disabled={isBuilding || disabled}
+        style={{
+          width: '100%', padding: '7px 10px',
+          background: isBuilding ? 'rgba(212,175,55,0.25)' : hasError ? 'rgba(239,68,68,0.15)' : '#D4AF37',
+          border: hasError ? '1px solid rgba(239,68,68,0.4)' : 'none',
+          borderRadius: '7px', color: isBuilding ? '#D4AF37' : hasError ? '#f87171' : '#000',
+          fontWeight: '700', fontSize: '12px',
+          cursor: isBuilding || disabled ? 'not-allowed' : 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+          transition: 'all 0.15s'
+        }}
+      >
+        {isBuilding ? (
+          <>
+            <div style={{ width: '10px', height: '10px', border: '2px solid rgba(212,175,55,0.3)', borderTopColor: '#D4AF37', borderRadius: '50%', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
+            Compilando...
+          </>
+        ) : (
+          <>
+            <FontAwesomeIcon icon={faDownload} />
+            {hasError ? 'Reintentar' : `Descargar ${fileType}`}
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
 function Layout() {
   const { user, token, logout } = useAuth();
   const [isPremiumUser, setIsPremiumUser] = useState(false);
@@ -71,6 +124,7 @@ function Layout() {
   const [duplicateLoading, setDuplicateLoading] = useState(false);
   const [duplicateError, setDuplicateError] = useState('');
   const [appDownloading, setAppDownloading] = useState(false);
+  const [androidBuilds, setAndroidBuilds] = useState({}); // { launcher: {status,jobId,progress}, ... }
 
   useEffect(() => {
     if (isEditorMode) setMenuOpen(prev => prev === false ? true : prev);
@@ -239,6 +293,81 @@ function Layout() {
 
   const toggleDropdown = (key) => {
     setOpenDropdowns(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleAndroidBuild = async (appName, label) => {
+    if (androidBuilds[appName]?.status === 'building') return;
+    const storeCode = appName !== 'cctv' ? selectedStore?.code : null;
+
+    setAndroidBuilds(prev => ({ ...prev, [appName]: { status: 'building', progress: 'Iniciando...', jobId: null } }));
+
+    try {
+      const res = await fetch(`${API}/api/apps/android/build`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appName, storeCode })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAndroidBuilds(prev => ({ ...prev, [appName]: { status: 'error', progress: data.error } }));
+        return;
+      }
+
+      if (data.cached || data.status === 'done') {
+        // APK already ready, download immediately
+        triggerAndroidDownload(appName, storeCode, null);
+        setAndroidBuilds(prev => ({ ...prev, [appName]: { status: 'idle' } }));
+        return;
+      }
+
+      // Poll until done
+      const jobId = data.jobId;
+      setAndroidBuilds(prev => ({ ...prev, [appName]: { status: 'building', progress: 'Compilando...', jobId } }));
+
+      const poll = async () => {
+        try {
+          const sr = await fetch(`${API}/api/apps/android/status/${jobId}`, {
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          const st = await sr.json();
+          if (st.status === 'done') {
+            triggerAndroidDownload(appName, storeCode, jobId);
+            setAndroidBuilds(prev => ({ ...prev, [appName]: { status: 'idle' } }));
+          } else if (st.status === 'error') {
+            setAndroidBuilds(prev => ({ ...prev, [appName]: { status: 'error', progress: st.error } }));
+          } else {
+            setAndroidBuilds(prev => ({ ...prev, [appName]: { status: 'building', progress: st.progress, jobId } }));
+            setTimeout(poll, 4000);
+          }
+        } catch {
+          setTimeout(poll, 6000);
+        }
+      };
+      setTimeout(poll, 4000);
+    } catch {
+      setAndroidBuilds(prev => ({ ...prev, [appName]: { status: 'error', progress: 'Error de conexión' } }));
+    }
+  };
+
+  const triggerAndroidDownload = (appName, storeCode, jobId) => {
+    const params = new URLSearchParams({ appName });
+    if (storeCode) params.set('storeCode', storeCode);
+    if (jobId) params.set('jobId', jobId);
+    const a = document.createElement('a');
+    a.href = `${API}/api/apps/android/download?${params}`;
+    // Attach token via fetch + blob since this endpoint requires auth
+    fetch(a.href, { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => r.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = storeCode ? `${appName}-${storeCode}.apk` : `${appName}.apk`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      })
+      .catch(() => alert('Error al descargar el APK'));
   };
 
   const handleDownloadWindowsApp = async () => {
@@ -635,40 +764,51 @@ function Layout() {
                       <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['misapps'] ? 180 : 0} />
                     </button>
                     {openDropdowns['misapps'] && (
-                      <div className="subdropdown-content">
-                        <div className="dropdown-item" style={{ cursor: 'default', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                            <FontAwesomeIcon icon={faLaptop} style={{ color: '#D4AF37' }} />
-                            <span style={{ fontWeight: '600', color: '#fff', fontSize: '13px' }}>Tótem Windows</span>
-                          </div>
-                          <p style={{ margin: 0, fontSize: '11px', color: '#888', lineHeight: '1.4' }}>
-                            Descarga el cliente configurado para tu tienda <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong>
-                          </p>
-                          <button
-                            onClick={handleDownloadWindowsApp}
-                            disabled={appDownloading || !selectedStore}
-                            style={{
-                              marginTop: '4px', width: '100%', padding: '8px 12px',
-                              background: appDownloading ? 'rgba(212,175,55,0.3)' : '#D4AF37',
-                              border: 'none', borderRadius: '8px', color: '#000',
-                              fontWeight: '700', fontSize: '12px', cursor: appDownloading ? 'not-allowed' : 'pointer',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                              transition: 'all 0.15s'
-                            }}
-                          >
-                            {appDownloading ? (
-                              <>
-                                <div style={{ width: '11px', height: '11px', border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                                Generando...
-                              </>
-                            ) : (
-                              <>
-                                <FontAwesomeIcon icon={faDownload} />
-                                Descargar .zip
-                              </>
-                            )}
-                          </button>
-                        </div>
+                      <div className="subdropdown-content" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px' }}>
+
+                        {/* Windows Tótem */}
+                        <AppDownloadCard
+                          icon="💻"
+                          title="Tótem Windows"
+                          description={<>App kiosk para PC · Tienda <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
+                          loading={appDownloading}
+                          disabled={!selectedStore}
+                          onDownload={handleDownloadWindowsApp}
+                          fileType=".zip"
+                        />
+
+                        {/* SRServi POS (Android Launcher) */}
+                        <AppDownloadCard
+                          icon="📱"
+                          title="SRServi POS"
+                          description={<>Punto de venta Android · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
+                          buildState={androidBuilds['launcher']}
+                          disabled={!selectedStore}
+                          onDownload={() => handleAndroidBuild('launcher', 'SRServi POS')}
+                          fileType=".apk"
+                        />
+
+                        {/* TV Órdenes */}
+                        <AppDownloadCard
+                          icon="📺"
+                          title="TV Órdenes"
+                          description={<>Pantalla de cocina · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
+                          buildState={androidBuilds['tvordenes']}
+                          disabled={!selectedStore}
+                          onDownload={() => handleAndroidBuild('tvordenes', 'TV Órdenes')}
+                          fileType=".apk"
+                        />
+
+                        {/* CCTV / Cartelería */}
+                        <AppDownloadCard
+                          icon="🎬"
+                          title="Cartelería Digital"
+                          description="Pantalla digital para TV · se configura con código de emparejamiento"
+                          buildState={androidBuilds['cctv']}
+                          onDownload={() => handleAndroidBuild('cctv', 'CCTV')}
+                          fileType=".apk"
+                        />
+
                       </div>
                     )}
                   </div>
