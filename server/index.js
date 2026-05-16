@@ -9403,16 +9403,9 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // ─── TikTok Auto-Post (solo si TIKTOK_ENABLED=true en .env) ─────────────
+    // ─── TikTok Auto-Post ────────────────────────────────────────────────────
 
-    if (process.env.TIKTOK_ENABLED === 'true') {
-      let postToTikTok, startQRLogin, getQRStatus, cancelQRLogin;
-      try {
-        ({ postToTikTok, startQRLogin, getQRStatus, cancelQRLogin } = await import('./tiktok-service.js'));
-        console.log('✅ TikTok service cargado');
-      } catch (e) {
-        console.error('❌ TikTok service no se pudo cargar:', e.message);
-      }
+    const { postToTikTok, startQRLogin, getQRStatus, cancelQRLogin } = await import('./tiktok-service.js');
 
     app.get('/api/tiktok/:storeId', authenticateToken, async (req, res) => {
       try {
@@ -10274,8 +10267,6 @@ async function startServer() {
         }
       } catch (e) { console.error('[TikTok] Cron error:', e.message); }
     });
-
-    } // end if (TIKTOK_ENABLED)
 
     // ─── SRBrain Routes ──────────────────────────────────────────────────────
 
