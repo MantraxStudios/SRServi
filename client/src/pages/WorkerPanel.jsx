@@ -273,38 +273,74 @@ function BigActiveTask({ task, getCountdown, completeTask, completingTask }) {
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center', padding: '24px 20px', gap: 20
+      alignItems: 'center', justifyContent: 'center', padding: '32px 28px', gap: 0,
+      overflowY: 'auto'
     }}>
+      {/* Badge activo */}
+      <div style={{ marginBottom: 18 }}>
+        <span style={{
+          fontSize: 11, fontWeight: 800, padding: '4px 14px', borderRadius: 20,
+          color: '#D4AF37', border: '1px solid rgba(212,175,55,0.4)',
+          background: 'rgba(212,175,55,0.08)', letterSpacing: 1, textTransform: 'uppercase'
+        }}>
+          Tarea activa
+        </span>
+      </div>
+
+      {/* Nombre */}
       <div style={{
-        fontSize: 'clamp(18px, 4vw, 32px)', fontWeight: 900, color: '#fff',
-        textAlign: 'center', lineHeight: 1.2, maxWidth: 420
+        fontSize: 'clamp(22px, 5vw, 40px)', fontWeight: 900, color: '#fff',
+        textAlign: 'center', lineHeight: 1.2, maxWidth: 480, marginBottom: 14
       }}>
         {task.name}
       </div>
-      <div style={{ fontSize: 'clamp(11px, 2vw, 14px)', color: '#888', display: 'flex', alignItems: 'center', gap: 6 }}>
-        <FontAwesomeIcon icon={faClock} />
-        {task.due_time} – {expireStr}
-      </div>
+
+      {/* Descripción */}
+      {task.description && (
+        <div style={{
+          fontSize: 'clamp(13px, 2vw, 16px)', color: '#aaa', lineHeight: 1.6,
+          textAlign: 'center', maxWidth: 420, marginBottom: 22
+        }}>
+          {task.description}
+        </div>
+      )}
+
+      {/* Horario */}
       <div style={{
-        fontSize: 'clamp(52px, 14vw, 100px)', fontWeight: 900,
-        color: '#D4AF37', letterSpacing: 2, lineHeight: 1,
-        fontVariantNumeric: 'tabular-nums'
+        display: 'flex', alignItems: 'center', gap: 8,
+        background: '#141414', borderRadius: 10, padding: '10px 18px',
+        fontSize: 14, color: '#aaa', marginBottom: 28
+      }}>
+        <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37', fontSize: 13 }} />
+        <span>Desde <strong style={{ color: '#fff' }}>{task.due_time}</strong> hasta <strong style={{ color: '#fff' }}>{expireStr}</strong></span>
+      </div>
+
+      {/* Countdown grande */}
+      <div style={{
+        fontSize: 'clamp(60px, 16vw, 110px)', fontWeight: 900,
+        color: '#D4AF37', letterSpacing: 4, lineHeight: 1,
+        fontVariantNumeric: 'tabular-nums', marginBottom: 10
       }}>
         {isCompleting ? '...' : (countdown || '00:00')}
       </div>
+      <div style={{ fontSize: 13, color: '#555', marginBottom: 32 }}>restantes para completar</div>
+
+      {/* Botón */}
       <button
         onClick={() => !isCompleting && completeTask(task.id)}
         disabled={isCompleting}
         style={{
-          padding: '16px 40px', fontSize: 'clamp(14px, 3vw, 18px)', fontWeight: 900,
-          background: isCompleting ? '#333' : 'linear-gradient(135deg,#D4AF37,#b8972e)',
-          color: isCompleting ? '#888' : '#0a0a0a',
+          padding: '18px 48px', fontSize: 'clamp(14px, 3vw, 18px)', fontWeight: 900,
+          background: isCompleting ? '#1a1a1a' : '#D4AF37',
+          color: isCompleting ? '#555' : '#000',
           border: 'none', borderRadius: 14, cursor: isCompleting ? 'default' : 'pointer',
-          boxShadow: isCompleting ? 'none' : '0 4px 20px rgba(212,175,55,0.4)',
-          transition: 'all 0.15s', textTransform: 'uppercase', letterSpacing: 1.5
+          boxShadow: isCompleting ? 'none' : '0 4px 24px rgba(212,175,55,0.35)',
+          transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 10,
+          letterSpacing: 0.5
         }}
       >
-        {isCompleting ? 'Completando...' : 'Marcar como completada'}
+        <FontAwesomeIcon icon={faCheck} />
+        {isCompleting ? 'Registrando...' : 'Marcar como completada'}
       </button>
     </div>
   );
