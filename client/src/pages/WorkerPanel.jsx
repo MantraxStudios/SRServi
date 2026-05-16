@@ -352,10 +352,9 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
         </span>
       </div>
 
-      {/* Lista de tarjetas — siempre 1 columna para ver todo */}
-      <div className="worker-orders-list" style={{
+      <div className="worker-orders-list tasks-list" style={{
         flex: 1, overflowY: 'auto', padding: '12px',
-        gridTemplateColumns: '1fr',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
         alignContent: 'start', scrollbarWidth: 'none'
       }}>
         {todayTasks.length === 0 ? (
