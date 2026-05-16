@@ -386,7 +386,7 @@ function Layout() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `SRServi-Totem-${selectedStore.code}.zip`;
+      a.download = `SRServi-Totem-${selectedStore.code}.exe`;
       document.body.appendChild(a);
       a.click();
       a.remove();
