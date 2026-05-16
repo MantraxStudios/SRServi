@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Totem")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1b6840310955007e172e94a4c564fa18b564504b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+58efa3f50dfcb8ca5e2268befdf6ed69bc7fa586")]
 [assembly: System.Reflection.AssemblyProductAttribute("Totem")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Totem")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
