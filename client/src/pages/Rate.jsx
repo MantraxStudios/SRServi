@@ -111,7 +111,7 @@ const CSS = `
     padding: 0 12px 20px;
   }
   .rv-headline {
-    font-size: clamp(38px, 10vw, 76px);
+    font-size: clamp(52px, 14vw, 120px);
     font-weight: 900;
     text-align: center;
     letter-spacing: -0.5px;
@@ -191,7 +191,7 @@ const CSS = `
     .rv-topbar { padding: 6px 20px; }
     .rv-logo-img, .rv-logo-ph { width: 80px; height: 80px; font-size: 36px; border-radius: 16px; }
     .rv-store-name { font-size: clamp(26px, 6vh, 50px); }
-    .rv-headline   { font-size: clamp(26px, 7vh, 56px); }
+    .rv-headline   { font-size: clamp(36px, 10vh, 80px); }
     .rv-face-svg   { width: auto; height: min(24vh, 180px); aspect-ratio: 1; }
     .rv-face-btn   { align-items: center; }
     .rv-face-label { font-size: clamp(14px, 3vh, 28px); }
