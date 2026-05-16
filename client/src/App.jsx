@@ -53,6 +53,7 @@ import PedidosYaIntegration from './pages/admin/PedidosYaIntegration';
 import UberEatsIntegration from './pages/admin/UberEatsIntegration';
 import Novedades from './pages/admin/Novedades';
 import InstagramAuto from './pages/admin/InstagramAuto';
+import TikTokAuto from './pages/admin/TikTokAuto';
 import CashRegisters from './pages/admin/CashRegisters';
 import CCTV from './pages/admin/CCTV';
 import WhatsApp from './pages/admin/WhatsApp';
@@ -220,6 +221,7 @@ function App() {
             <Route path="ubereats" element={<UberEatsIntegration />} />
             <Route path="novedades" element={<Novedades />} />
             <Route path="instagram" element={<InstagramAuto />} />
+            <Route path="tiktok" element={<TikTokAuto />} />
             <Route path="cash-registers" element={<CashRegisters />} />
             <Route path="cctv" element={<CCTV />} />
             <Route path="whatsapp" element={<WhatsApp />} />

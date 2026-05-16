@@ -498,6 +498,26 @@ async function createTables() {
   }
 
   await pool.execute(`
+    CREATE TABLE IF NOT EXISTS tiktok_configs (
+      id               INT PRIMARY KEY AUTO_INCREMENT,
+      store_id         INT NOT NULL UNIQUE,
+      access_token     TEXT NULL,
+      refresh_token    TEXT NULL,
+      open_id          VARCHAR(255) NULL,
+      tk_connected     TINYINT(1) DEFAULT 0,
+      caption_template TEXT,
+      enabled          BOOLEAN DEFAULT FALSE,
+      post_time        VARCHAR(5) NOT NULL DEFAULT '10:00',
+      post_days        VARCHAR(20) NOT NULL DEFAULT '0',
+      template_counter INT DEFAULT 0,
+      last_posted_at   TIMESTAMP NULL DEFAULT NULL,
+      last_error       TEXT,
+      created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.execute(`
     CREATE TABLE IF NOT EXISTS cash_registers (
       id INT PRIMARY KEY AUTO_INCREMENT,
       store_id INT NOT NULL,
@@ -3996,6 +4016,65 @@ export async function clearInstagramSession(storeId) {
     `UPDATE instagram_configs SET ig_session = NULL, ig_temp_state = NULL, ig_connected = 0 WHERE store_id = ?`,
     [storeId]
   );
+}
+
+// ─── TikTok Auto-Post ─────────────────────────────────────────────────────────
+
+export async function getTikTokConfig(storeId) {
+  const [rows] = await pool.execute('SELECT * FROM tiktok_configs WHERE store_id = ?', [storeId]);
+  return rows[0] || null;
+}
+
+export async function saveTikTokConfig(storeId, { caption_template, enabled, post_time, post_days }) {
+  await pool.execute(`
+    INSERT INTO tiktok_configs (store_id, caption_template, enabled, post_time, post_days)
+    VALUES (?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      caption_template = VALUES(caption_template),
+      enabled          = VALUES(enabled),
+      post_time        = VALUES(post_time),
+      post_days        = VALUES(post_days)
+  `, [storeId, caption_template || '', enabled ? 1 : 0, post_time || '10:00', post_days || '0']);
+}
+
+export async function saveTikTokTokens(storeId, { access_token, refresh_token, open_id }) {
+  await pool.execute(`
+    INSERT INTO tiktok_configs (store_id, access_token, refresh_token, open_id, tk_connected)
+    VALUES (?, ?, ?, ?, 1)
+    ON DUPLICATE KEY UPDATE
+      access_token  = VALUES(access_token),
+      refresh_token = VALUES(refresh_token),
+      open_id       = VALUES(open_id),
+      tk_connected  = 1
+  `, [storeId, access_token, refresh_token, open_id]);
+}
+
+export async function clearTikTokTokens(storeId) {
+  await pool.execute(
+    `UPDATE tiktok_configs SET access_token = NULL, refresh_token = NULL, open_id = NULL, tk_connected = 0 WHERE store_id = ?`,
+    [storeId]
+  );
+}
+
+export async function getActiveTikTokConfigs() {
+  const [rows] = await pool.execute(`
+    SELECT tc.*, s.name AS store_name, s.primary_color, s.accent_color,
+           s.secondary_color, s.logo_url, s.code AS store_code, s.currency_symbol
+    FROM tiktok_configs tc
+    JOIN stores s ON s.id = tc.store_id
+    WHERE tc.enabled = 1 AND tc.tk_connected = 1
+  `);
+  return rows;
+}
+
+export async function updateTikTokPosted(storeId, errorMsg = null) {
+  await pool.execute(`
+    UPDATE tiktok_configs
+    SET last_posted_at = NOW(),
+        template_counter = template_counter + 1,
+        last_error = ?
+    WHERE store_id = ?
+  `, [errorMsg, storeId]);
 }
 
 export async function getChatGptKey(userId) {
