@@ -5592,7 +5592,7 @@ html body .store-container .store-product-card * {
   }
 
   .worker-orders-list.tasks-list {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .worker-order-card {
@@ -9864,7 +9864,7 @@ html body .store-container .store-product-card * {
   .worker-logout-btn,
   .worker-header-icon-btn { width: 34px; height: 34px; }
 
-  .worker-orders-list    { grid-template-columns: 1fr; }
+  .worker-orders-list    { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .worker-order-card     { padding: 12px 14px; }
   .worker-order-number   { font-size: 15px; }
   .worker-order-total    { font-size: 18px; }

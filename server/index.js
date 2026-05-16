@@ -22,7 +22,7 @@ import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
 import { initInstagramService } from './instagram_autostart.js';
 
-import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone } from './database.js';
+import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, saveTikTokTokens, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds } from './whatsapp.js';
 import cron from 'node-cron';
@@ -9405,16 +9405,63 @@ async function startServer() {
 
     // ─── TikTok Auto-Post ────────────────────────────────────────────────────
 
-    const { postToTikTok, startQRLogin, getQRStatus, cancelQRLogin, loginWithCredentials } = await import('./tiktok-service.js');
+    const { postToTikTok, getTikTokAuthUrl, exchangeCodeForToken, refreshTikTokToken } = await import('./tiktok-service.js');
+
+    const TIKTOK_CLIENT_KEY    = process.env.TIKTOK_CLIENT_KEY    || '';
+    const TIKTOK_CLIENT_SECRET = process.env.TIKTOK_CLIENT_SECRET || '';
+    const TIKTOK_REDIRECT_URI  = process.env.TIKTOK_REDIRECT_URI  || `${BASE_URL}/api/tiktok/callback`;
+    const TIKTOK_FRONTEND_URL  = process.env.FRONTEND_URL         || BASE_URL;
+
+    // OAuth callback (must be before /:storeId routes to avoid Express matching 'callback' as storeId)
+    app.get('/api/tiktok/callback', async (req, res) => {
+      const { code, state: storeId, error } = req.query;
+      if (error) return res.redirect(`${TIKTOK_FRONTEND_URL}/admin/tiktok?tiktok_error=${encodeURIComponent(error)}`);
+      if (!code || !storeId) return res.redirect(`${TIKTOK_FRONTEND_URL}/admin/tiktok?tiktok_error=missing_params`);
+      try {
+        const tokens = await exchangeCodeForToken({
+          clientKey:    TIKTOK_CLIENT_KEY,
+          clientSecret: TIKTOK_CLIENT_SECRET,
+          code,
+          redirectUri:  TIKTOK_REDIRECT_URI,
+        });
+        await saveTikTokTokens(storeId, {
+          access_token:  tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          open_id:       tokens.open_id,
+        });
+        res.redirect(`${TIKTOK_FRONTEND_URL}/admin/tiktok?connected=1`);
+      } catch (e) {
+        console.error('[TikTok] OAuth callback error:', e.message);
+        res.redirect(`${TIKTOK_FRONTEND_URL}/admin/tiktok?tiktok_error=${encodeURIComponent(e.message)}`);
+      }
+    });
 
     app.get('/api/tiktok/:storeId', authenticateToken, async (req, res) => {
       try {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getTikTokConfig(req.params.storeId);
-        res.json(cfg
-          ? { caption_template: cfg.caption_template, enabled: !!cfg.enabled, post_time: cfg.post_time, post_days: cfg.post_days, tk_connected: !!cfg.tk_connected, last_posted_at: cfg.last_posted_at, last_error: cfg.last_error, template_counter: cfg.template_counter ?? 0 }
-          : { caption_template: '', enabled: false, post_time: '10:00', post_days: '0', tk_connected: false, last_posted_at: null, last_error: null, template_counter: 0 });
+        res.json({
+          caption_template:  cfg?.caption_template || '',
+          enabled:           !!cfg?.enabled,
+          post_time:         cfg?.post_time || '10:00',
+          post_days:         cfg?.post_days || '0',
+          tk_connected:      !!cfg?.tk_connected,
+          last_posted_at:    cfg?.last_posted_at || null,
+          last_error:        cfg?.last_error || null,
+          template_counter:  cfg?.template_counter ?? 0,
+          oauth_configured:  !!(TIKTOK_CLIENT_KEY && TIKTOK_CLIENT_SECRET),
+        });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.get('/api/tiktok/:storeId/oauth-url', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        if (!TIKTOK_CLIENT_KEY) return res.status(400).json({ error: 'TIKTOK_CLIENT_KEY no configurado en el servidor' });
+        const url = getTikTokAuthUrl({ clientKey: TIKTOK_CLIENT_KEY, redirectUri: TIKTOK_REDIRECT_URI, storeId: req.params.storeId });
+        res.json({ url });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
@@ -9428,47 +9475,14 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Login con email + contraseña
-    app.post('/api/tiktok/:storeId/login', authenticateToken, async (req, res) => {
+    // Iniciar OAuth (redirige al frontend para abrir la URL de TikTok)
+    app.post('/api/tiktok/:storeId/connect', authenticateToken, async (req, res) => {
       try {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
-        const { email, password } = req.body;
-        if (!email?.trim() || !password?.trim()) return res.status(400).json({ error: 'Email y contraseña requeridos' });
-        const sessionId = await loginWithCredentials(email.trim(), password);
-        await saveTikTokSession(req.params.storeId, sessionId);
-        res.json({ ok: true });
-      } catch (e) { res.status(400).json({ error: e.message }); }
-    });
-
-    // Iniciar sesión QR (WhatsApp-style) — abre browser headless y devuelve imagen QR
-    app.post('/api/tiktok/:storeId/qr-start', authenticateToken, async (req, res) => {
-      try {
-        const store = await getStoreById(req.params.storeId);
-        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
-        const qr = await startQRLogin(req.params.storeId);
-        res.json({ qr });
-      } catch (e) { res.status(500).json({ error: e.message }); }
-    });
-
-    // Polling: devuelve estado y QR fresco
-    app.get('/api/tiktok/:storeId/qr-status', authenticateToken, async (req, res) => {
-      try {
-        const store = await getStoreById(req.params.storeId);
-        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
-        const result = await getQRStatus(req.params.storeId);
-        if (result.status === 'connected' && result.sessionId) {
-          await saveTikTokSession(req.params.storeId, result.sessionId);
-        }
-        res.json(result);
-      } catch (e) { res.status(500).json({ error: e.message }); }
-    });
-
-    // Cancelar sesión QR
-    app.delete('/api/tiktok/:storeId/qr-cancel', authenticateToken, async (req, res) => {
-      try {
-        await cancelQRLogin(req.params.storeId);
-        res.json({ ok: true });
+        if (!TIKTOK_CLIENT_KEY) return res.status(400).json({ error: 'TIKTOK_CLIENT_KEY no configurado en el servidor' });
+        const url = getTikTokAuthUrl({ clientKey: TIKTOK_CLIENT_KEY, redirectUri: TIKTOK_REDIRECT_URI, storeId: req.params.storeId });
+        res.json({ url });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
@@ -9500,7 +9514,7 @@ async function startServer() {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getTikTokConfig(req.params.storeId);
-        if (!cfg?.tk_connected || !cfg?.session_cookie) return res.status(400).json({ error: 'Conectá tu cuenta de TikTok primero' });
+        if (!cfg?.tk_connected || !cfg?.access_token) return res.status(400).json({ error: 'Conectá tu cuenta de TikTok primero' });
         const [topProds] = await pool.execute(
           `SELECT p.id,p.name,p.description,p.price,p.image,COUNT(oi.id) AS sales
            FROM products p LEFT JOIN order_items oi ON oi.product_id=p.id
@@ -9513,7 +9527,18 @@ async function startServer() {
         );
         const buf     = await generatePromoImage({ store, topProducts: topProds, coupons, templateCounter: cfg.template_counter || 0, currencySymbol: store.currency_symbol || '$' });
         const caption = cfg.caption_template || `✨ ${store.name} ✨\n\n🔥 Mirá nuestras ofertas y los más pedidos de la semana.\n\n📲 Pedí en: ${BASE_URL}/store/${store.code}\n\n#${store.name.replace(/\s+/g,'')} #SRServi #TikTok`;
-        await postToTikTok({ sessionId: cfg.session_cookie, imageBuffer: buf, caption });
+        let accessToken = cfg.access_token;
+        try {
+          await postToTikTok({ accessToken, imageBuffer: buf, caption });
+        } catch (e) {
+          if (e.message === 'TOKEN_EXPIRED' && cfg.refresh_token && TIKTOK_CLIENT_KEY) {
+            const newT = await refreshTikTokToken({ clientKey: TIKTOK_CLIENT_KEY, clientSecret: TIKTOK_CLIENT_SECRET, refreshToken: cfg.refresh_token });
+            await saveTikTokTokens(req.params.storeId, { access_token: newT.access_token, refresh_token: newT.refresh_token, open_id: newT.open_id || cfg.open_id });
+            await postToTikTok({ accessToken: newT.access_token, imageBuffer: buf, caption });
+          } else {
+            throw e;
+          }
+        }
         await updateTikTokPosted(req.params.storeId, null);
         res.json({ ok: true });
       } catch (e) {
@@ -10270,7 +10295,18 @@ async function startServer() {
             );
             const buf     = await generatePromoImage({ store: cfg, topProducts: topProds, coupons, templateCounter: cfg.template_counter || 0, currencySymbol: cfg.currency_symbol || '$' });
             const caption = cfg.caption_template || `✨ ${cfg.store_name} ✨\n\n🔥 Lo mejor de la semana!\n\n📲 ${BASE_URL}/store/${cfg.store_code}\n\n#${(cfg.store_name||'').replace(/\s+/g,'')} #SRServi #TikTok`;
-            await postToTikTok({ sessionId: cfg.session_cookie, imageBuffer: buf, caption });
+            let accessToken = cfg.access_token;
+            try {
+              await postToTikTok({ accessToken, imageBuffer: buf, caption });
+            } catch (e) {
+              if (e.message === 'TOKEN_EXPIRED' && cfg.refresh_token && TIKTOK_CLIENT_KEY) {
+                const newT = await refreshTikTokToken({ clientKey: TIKTOK_CLIENT_KEY, clientSecret: TIKTOK_CLIENT_SECRET, refreshToken: cfg.refresh_token });
+                await saveTikTokTokens(cfg.store_id, { access_token: newT.access_token, refresh_token: newT.refresh_token, open_id: newT.open_id || cfg.open_id });
+                await postToTikTok({ accessToken: newT.access_token, imageBuffer: buf, caption });
+              } else {
+                throw e;
+              }
+            }
             await updateTikTokPosted(cfg.store_id, null);
             console.log(`[TikTok] ✅ ${cfg.store_name}`);
           } catch (e) {

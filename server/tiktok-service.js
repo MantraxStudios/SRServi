@@ -1,35 +1,12 @@
-import { writeFile, unlink, mkdir } from 'fs/promises';
+import { writeFile, unlink, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
+import fetch from 'node-fetch';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const TMP   = join(__dir, 'tmp-tiktok');
-
-// ─── Browser con stealth (evita detección de bot) ─────────────────────────
-
-function findChromiumPath() {
-  for (const p of ['/usr/bin/chromium-browser', '/usr/bin/chromium', '/usr/bin/google-chrome-stable', '/usr/bin/google-chrome']) {
-    try { if (existsSync(p)) return p; } catch { /* skip */ }
-  }
-  return undefined;
-}
-
-async function launchStealth() {
-  const { chromium } = await import('playwright-extra');
-  const { default: stealth } = await import('puppeteer-extra-plugin-stealth');
-  chromium.use(stealth());
-  return chromium.launch({
-    headless:       true,
-    executablePath: findChromiumPath(),
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-  });
-}
-
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
 
 async function ensureTmp() {
   if (!existsSync(TMP)) await mkdir(TMP, { recursive: true });
@@ -42,185 +19,119 @@ function imageToVideo(imgPath, vidPath) {
   );
 }
 
-function sessionCookies(sessionId) {
-  const base = { domain: '.tiktok.com', path: '/', secure: true, httpOnly: true, sameSite: 'None' };
-  return [
-    { ...base, name: 'sessionid',    value: sessionId },
-    { ...base, name: 'sessionid_ss', value: sessionId },
-  ];
+// ── OAuth helpers ─────────────────────────────────────────────────────────────
+
+export function getTikTokAuthUrl({ clientKey, redirectUri, storeId }) {
+  const params = new URLSearchParams({
+    client_key:    clientKey,
+    scope:         'user.info.basic,video.publish',
+    response_type: 'code',
+    redirect_uri:  redirectUri,
+    state:         String(storeId),
+  });
+  return `https://www.tiktok.com/v2/auth/authorize/?${params}`;
 }
 
-// ─── Login con email + contraseña ─────────────────────────────────────────
-
-export async function loginWithCredentials(email, password) {
-  const browser = await launchStealth();
-  const context = await browser.newContext({ userAgent: UA, viewport: { width: 1280, height: 800 } });
-  const page    = await context.newPage();
-
-  try {
-    await page.goto('https://www.tiktok.com/login/phone-or-email/email', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(2000);
-
-    // Llenar email
-    const emailSel = 'input[name="username"], input[type="email"], input[autocomplete="username"]';
-    await page.waitForSelector(emailSel, { timeout: 15000 });
-    await page.fill(emailSel, email);
-    await page.waitForTimeout(500);
-
-    // Llenar contraseña
-    const passSel = 'input[type="password"]';
-    await page.waitForSelector(passSel, { timeout: 10000 });
-    await page.fill(passSel, password);
-    await page.waitForTimeout(500);
-
-    // Click login
-    const btnSel = 'button[type="submit"], [data-e2e="login-button"]';
-    await page.waitForSelector(btnSel, { timeout: 10000 });
-    await page.click(btnSel);
-
-    // Esperar resultado — redirige o muestra error
-    await page.waitForTimeout(5000);
-
-    const url = page.url();
-
-    // Verificar si hay captcha o verificación
-    if (url.includes('/login')) {
-      const pageText = await page.innerText('body').catch(() => '');
-      if (pageText.toLowerCase().includes('captcha') || pageText.toLowerCase().includes('verify')) {
-        throw new Error('TikTok pide verificación (CAPTCHA). Intentá de nuevo en unos minutos.');
-      }
-      if (pageText.toLowerCase().includes('incorrect') || pageText.toLowerCase().includes('incorrecto') || pageText.toLowerCase().includes('wrong')) {
-        throw new Error('Email o contraseña incorrectos.');
-      }
-      throw new Error('No se pudo iniciar sesión. Verificá tus credenciales.');
-    }
-
-    // Extraer sessionid
-    const cookies = await context.cookies('https://www.tiktok.com');
-    const session = cookies.find(c => c.name === 'sessionid' && c.value?.length > 10);
-    if (!session) throw new Error('Sesión iniciada pero no se pudo obtener el token. Intentá de nuevo.');
-
-    return session.value;
-  } finally {
-    await browser.close().catch(() => {});
-  }
+export async function exchangeCodeForToken({ clientKey, clientSecret, code, redirectUri }) {
+  const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Cache-Control': 'no-cache' },
+    body:    new URLSearchParams({
+      client_key:    clientKey,
+      client_secret: clientSecret,
+      code,
+      grant_type:   'authorization_code',
+      redirect_uri:  redirectUri,
+    }).toString(),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error_description || data.error);
+  return data; // { access_token, refresh_token, open_id, expires_in, scope }
 }
 
-// ─── Post a TikTok via Playwright ─────────────────────────────────────────
+export async function refreshTikTokToken({ clientKey, clientSecret, refreshToken }) {
+  const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Cache-Control': 'no-cache' },
+    body:    new URLSearchParams({
+      client_key:    clientKey,
+      client_secret: clientSecret,
+      grant_type:    'refresh_token',
+      refresh_token: refreshToken,
+    }).toString(),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error_description || data.error);
+  return data;
+}
 
-export async function postToTikTok({ sessionId, imageBuffer, caption }) {
+// ── Publicar video via Content Posting API ────────────────────────────────────
+
+export async function postToTikTok({ accessToken, imageBuffer, caption }) {
   await ensureTmp();
   const base    = `tt_${Date.now()}`;
   const imgPath = join(TMP, `${base}.jpg`);
   const vidPath = join(TMP, `${base}.mp4`);
+
   await writeFile(imgPath, imageBuffer);
 
-  const browser = await launchStealth();
   try {
     imageToVideo(imgPath, vidPath);
-    const context = await browser.newContext({ userAgent: UA, viewport: { width: 1280, height: 900 } });
-    await context.addCookies(sessionCookies(sessionId));
-    const page = await context.newPage();
-    await page.goto('https://www.tiktok.com/tiktokstudio/upload', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    const fileInput = await page.waitForSelector('input[type="file"]', { timeout: 20000 });
-    await fileInput.setInputFiles(vidPath);
-    await page.waitForSelector('[class*="upload-progress"], [class*="uploading"]', { timeout: 10000 }).catch(() => {});
-    await page.waitForFunction(() => !document.querySelector('[class*="uploading"], [class*="upload-progress"]'), { timeout: 120000 });
-    const captionBox = await page.waitForSelector('[data-e2e="caption-input"], [class*="caption"] [contenteditable], .public-DraftEditor-content', { timeout: 15000 });
-    await captionBox.click({ clickCount: 3 });
-    await captionBox.fill('');
-    await captionBox.type(caption.slice(0, 2200), { delay: 20 });
-    const postBtn = await page.waitForSelector('[data-e2e="post-button"], button:has-text("Post"), button:has-text("Publicar")', { timeout: 10000 });
-    await postBtn.click();
-    await page.waitForURL(/manage|profile|studio/, { timeout: 60000 });
-    await context.close();
+    const videoBuffer = await readFile(vidPath);
+    const videoSize   = videoBuffer.length;
+
+    // 1. Iniciar upload
+    const initRes = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
+      method:  'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type':  'application/json; charset=UTF-8',
+      },
+      body: JSON.stringify({
+        post_info: {
+          title:                    caption.slice(0, 2200),
+          privacy_level:            'PUBLIC_TO_EVERYONE',
+          disable_duet:             false,
+          disable_comment:          false,
+          disable_stitch:           false,
+          video_cover_timestamp_ms: 1000,
+        },
+        source_info: {
+          source:             'FILE_UPLOAD',
+          video_size:         videoSize,
+          chunk_size:         videoSize,
+          total_chunk_count:  1,
+        },
+      }),
+    });
+
+    const initData = await initRes.json();
+
+    if (!initRes.ok || initData.error?.code !== 'ok') {
+      const code = initData.error?.code || '';
+      if (code === 'access_token_invalid' || code === 'access_token_expired') {
+        throw new Error('TOKEN_EXPIRED');
+      }
+      throw new Error(`TikTok API: ${initData.error?.message || code || `HTTP ${initRes.status}`}`);
+    }
+
+    const { upload_url } = initData.data;
+
+    // 2. Subir el video
+    const uploadRes = await fetch(upload_url, {
+      method:  'PUT',
+      headers: {
+        'Content-Type':   'video/mp4',
+        'Content-Length': String(videoSize),
+        'Content-Range':  `bytes 0-${videoSize - 1}/${videoSize}`,
+      },
+      body: videoBuffer,
+    });
+
+    if (!uploadRes.ok) throw new Error(`Error subiendo video: ${uploadRes.status}`);
+
   } finally {
-    await browser.close().catch(() => {});
     await unlink(imgPath).catch(() => {});
     await unlink(vidPath).catch(() => {});
   }
-}
-
-// ─── QR Login (WhatsApp-style) ────────────────────────────────────────────
-
-const qrSessions = new Map();
-
-async function cleanupQRSession(storeId) {
-  const s = qrSessions.get(String(storeId));
-  if (!s) return;
-  if (s.pollTimer) clearInterval(s.pollTimer);
-  await s.browser.close().catch(() => {});
-  qrSessions.delete(String(storeId));
-}
-
-async function captureQR(page) {
-  const el = await page.$('canvas')
-    || await page.$('img[src*="qrcode"]')
-    || await page.$('[class*="qrcode"] img')
-    || await page.$('[class*="QrCode"] img')
-    || await page.$('[data-e2e*="qr"] img');
-  if (!el) return null;
-  return (await el.screenshot()).toString('base64');
-}
-
-export async function startQRLogin(storeId) {
-  await cleanupQRSession(storeId);
-
-  const browser = await launchStealth();
-  const context = await browser.newContext({ userAgent: UA, viewport: { width: 1280, height: 800 } });
-  const page    = await context.newPage();
-
-  const session = {
-    browser, context, page,
-    status: 'pending', sessionId: null, qrBase64: null,
-    expiresAt: Date.now() + 5 * 60 * 1000,
-    pollTimer: null,
-  };
-  qrSessions.set(String(storeId), session);
-
-  await page.goto('https://www.tiktok.com/login/qrcode', { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForSelector('canvas, img[src*="qrcode"], [class*="qrcode"] img, [class*="QrCode"] img', { timeout: 20000 });
-  await page.waitForTimeout(1500);
-
-  const qrBase64 = await captureQR(page);
-  if (!qrBase64) throw new Error('No se pudo capturar el QR de TikTok');
-  session.qrBase64 = qrBase64;
-
-  session.pollTimer = setInterval(async () => {
-    const s = qrSessions.get(String(storeId));
-    if (!s || s.status !== 'pending') { clearInterval(s?.pollTimer); return; }
-    if (Date.now() > s.expiresAt) {
-      s.status = 'expired';
-      clearInterval(s.pollTimer);
-      s.browser.close().catch(() => {});
-      qrSessions.delete(String(storeId));
-      return;
-    }
-    try {
-      const cookies = await s.context.cookies('https://www.tiktok.com');
-      const cookie  = cookies.find(c => c.name === 'sessionid' && c.value?.length > 10);
-      if (cookie) {
-        s.status = 'connected'; s.sessionId = cookie.value;
-        clearInterval(s.pollTimer);
-        setTimeout(() => s.browser.close().catch(() => {}), 5000);
-        return;
-      }
-      const fresh = await captureQR(s.page);
-      if (fresh) s.qrBase64 = fresh;
-    } catch { /* ignore mid-navigation errors */ }
-  }, 2500);
-
-  return qrBase64;
-}
-
-export async function getQRStatus(storeId) {
-  const s = qrSessions.get(String(storeId));
-  if (!s) return { status: 'none', qr: null, sessionId: null };
-  const result = { status: s.status, qr: s.status === 'pending' ? s.qrBase64 : null, sessionId: s.status === 'connected' ? s.sessionId : null };
-  if (s.status !== 'pending') qrSessions.delete(String(storeId));
-  return result;
-}
-
-export async function cancelQRLogin(storeId) {
-  await cleanupQRSession(storeId);
 }

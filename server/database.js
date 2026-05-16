@@ -4089,7 +4089,7 @@ export async function saveTikTokTokens(storeId, { access_token, refresh_token, o
 
 export async function clearTikTokTokens(storeId) {
   await pool.execute(
-    `UPDATE tiktok_configs SET session_cookie = NULL, tk_connected = 0 WHERE store_id = ?`,
+    `UPDATE tiktok_configs SET session_cookie = NULL, access_token = NULL, refresh_token = NULL, open_id = NULL, tk_connected = 0 WHERE store_id = ?`,
     [storeId]
   );
 }
