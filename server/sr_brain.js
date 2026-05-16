@@ -58,13 +58,13 @@ async function sendSMS(to, message) {
 
 // ─── León IA — análisis y decisiones ────────────────────────────────────────
 
-async function askLeon(storeId, prompt) {
+async function askLeon(storeId, prompt, timeoutMs = 90000) {
   try {
     const res = await fetch(`${LEON_URL}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question: prompt, store_id: storeId, history: [] }),
-      signal: AbortSignal.timeout(90000)
+      signal: AbortSignal.timeout(timeoutMs)
     });
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
@@ -78,6 +78,13 @@ async function askLeon(storeId, prompt) {
     console.warn(`[SRBrain] Error llamando a León IA:`, e.message);
     return null;
   }
+}
+
+async function generateMoraleMessage(storeId, workerNames) {
+  const names = workerNames.length > 0 ? workerNames.join(', ') : 'el equipo';
+  const prompt = `Escribe un mensaje motivacional corto (2-3 oraciones) para el equipo de trabajo. Sus nombres son: ${names}. El mensaje debe ser cálido y personal, en español latinoamericano, como si fuera el administrador escribiendo por WhatsApp. Solo el mensaje, sin saludos extra ni explicaciones.`;
+  const answer = await askLeon(storeId, prompt, 40000);
+  return answer?.trim() || getRandomMorale();
 }
 
 async function getDecisionsFromLeon(storeId, context) {
@@ -278,23 +285,40 @@ async function runForStore(storeId) {
       promotion_threshold: config.promotion_threshold || 20
     };
 
-    // Pedir decisiones a León IA
-    console.log(`[SRBrain] Consultando a León IA...`);
-    const decisions = await getDecisionsFromLeon(storeId, context);
-
-    if (!decisions) {
-      console.warn(`[SRBrain] ⚠ León IA no respondió o devolvió JSON inválido`);
-      await logAiActivity(storeId, 'brain_run', 'León IA no disponible');
-      await updateAiConfigLastRun(storeId);
-      return;
+    // ── 1. Mensaje de ánimo (siempre, prompt simple y rápido) ──────────────────
+    if (config.morale_messages && workers.length > 0) {
+      console.log(`[SRBrain] Generando mensaje de ánimo con Ollama...`);
+      const msg = await generateMoraleMessage(storeId, workers.map(w => w.name));
+      console.log(`[SRBrain] Mensaje: "${msg.slice(0, 80)}..."`);
+      let sent = 0;
+      for (const worker of workers) {
+        try {
+          const result = await sendMessage(worker.phone, msg);
+          if (result?.success) { sent++; console.log(`[SRBrain] ✉ Enviado a ${worker.name} (${result.channel})`); }
+          else console.warn(`[SRBrain] ⚠ No se pudo enviar a ${worker.name} — WhatsApp no conectado`);
+        } catch (e) { console.warn(`[SRBrain] Error enviando a ${worker.name}:`, e.message); }
+      }
+      await logAiActivity(storeId, sent > 0 ? 'message_sent' : 'message_failed',
+        `Mensaje de ánimo: ${sent}/${workers.length} enviados`, { message: msg });
+    } else if (config.morale_messages && workers.length === 0) {
+      console.warn(`[SRBrain] Ningún trabajador tiene teléfono registrado`);
     }
 
-    console.log(`[SRBrain] León IA respondió — ${decisions.actions?.length || 0} acciones: ${(decisions.actions || []).map(a => a.type).join(', ') || 'ninguna'}`);
-    await logAiActivity(storeId, 'brain_run', decisions.analysis || 'Análisis diario ejecutado', { context_summary: { projected_vs_avg_percent: context.projected_vs_avg_percent, missed_tasks: missedTasks.length } });
-
-    for (const action of (decisions.actions || [])) {
-      console.log(`[SRBrain] Ejecutando acción: ${action.type}`);
-      await executeAction(storeId, action, config, workers);
+    // ── 2. Análisis completo: cupones y recordatorios de tareas ────────────────
+    if (config.auto_promotions || (config.worker_reminders && missedTasks.length > 0)) {
+      console.log(`[SRBrain] Consultando a León IA para análisis de cupones/recordatorios...`);
+      const decisions = await getDecisionsFromLeon(storeId, context);
+      if (!decisions) {
+        console.warn(`[SRBrain] ⚠ León IA no respondió para análisis completo`);
+      } else {
+        console.log(`[SRBrain] León IA — ${decisions.actions?.length || 0} acciones: ${(decisions.actions || []).map(a => a.type).join(', ') || 'ninguna'}`);
+        await logAiActivity(storeId, 'brain_run', decisions.analysis || 'Análisis ejecutado', { projected_vs_avg_percent: context.projected_vs_avg_percent, missed_tasks: missedTasks.length });
+        for (const action of (decisions.actions || [])) {
+          if (action.type === 'send_morale') continue; // ya enviado arriba
+          console.log(`[SRBrain] Ejecutando acción: ${action.type}`);
+          await executeAction(storeId, action, config, workers);
+        }
+      }
     }
 
     await updateAiConfigLastRun(storeId);
