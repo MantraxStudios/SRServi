@@ -118,7 +118,7 @@ const CSS = `
     letter-spacing: -0.5px;
     line-height: 1.05;
     text-transform: uppercase;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    text-shadow: 2px 4px 12px rgba(0,0,0,0.35);
   }
 
   .rv-faces {
@@ -172,7 +172,7 @@ const CSS = `
     text-transform: uppercase;
     line-height: 1.2;
     align-self: center;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    text-shadow: 1px 3px 8px rgba(0,0,0,0.30);
   }
 
   .rv-done {
