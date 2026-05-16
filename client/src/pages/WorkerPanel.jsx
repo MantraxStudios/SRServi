@@ -272,76 +272,83 @@ function BigActiveTask({ task, getCountdown, completeTask, completingTask }) {
 
   return (
     <div style={{
-      flex: 1, display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center', padding: '32px 28px', gap: 0,
-      overflowY: 'auto'
+      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '24px 20px', overflowY: 'auto'
     }}>
-      {/* Badge activo */}
-      <div style={{ marginBottom: 18 }}>
-        <span style={{
-          fontSize: 11, fontWeight: 800, padding: '4px 14px', borderRadius: 20,
-          color: '#D4AF37', border: '1px solid rgba(212,175,55,0.4)',
-          background: 'rgba(212,175,55,0.08)', letterSpacing: 1, textTransform: 'uppercase'
-        }}>
-          Tarea activa
-        </span>
-      </div>
-
-      {/* Nombre */}
+      {/* Tarjeta estilo pedido */}
       <div style={{
-        fontSize: 'clamp(22px, 5vw, 40px)', fontWeight: 900, color: '#fff',
-        textAlign: 'center', lineHeight: 1.2, maxWidth: 480, marginBottom: 14
+        background: '#ffffff', borderRadius: 16,
+        padding: '20px 22px', width: '100%', maxWidth: 420,
+        border: '1px solid rgba(0,0,0,0.08)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        display: 'flex', flexDirection: 'column', gap: 0
       }}>
-        {task.name}
-      </div>
-
-      {/* Descripción */}
-      {task.description && (
-        <div style={{
-          fontSize: 'clamp(13px, 2vw, 16px)', color: '#aaa', lineHeight: 1.6,
-          textAlign: 'center', maxWidth: 420, marginBottom: 22
-        }}>
-          {task.description}
+        {/* Header: nombre + badge activo */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#0a0a0a', lineHeight: 1.2, flex: 1, paddingRight: 10 }}>
+            {task.name}
+          </h3>
+          <span style={{
+            fontSize: 10, fontWeight: 800, padding: '3px 10px', borderRadius: 20, flexShrink: 0,
+            color: '#D4AF37', border: '1px solid rgba(212,175,55,0.4)',
+            background: 'rgba(212,175,55,0.08)', letterSpacing: 0.8, textTransform: 'uppercase'
+          }}>
+            Activa
+          </span>
         </div>
-      )}
 
-      {/* Horario */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        background: '#141414', borderRadius: 10, padding: '10px 18px',
-        fontSize: 14, color: '#aaa', marginBottom: 28
-      }}>
-        <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37', fontSize: 13 }} />
-        <span>Desde <strong style={{ color: '#fff' }}>{task.due_time}</strong> hasta <strong style={{ color: '#fff' }}>{expireStr}</strong></span>
+        {/* Horario */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          marginBottom: 12, fontSize: 13, color: '#888'
+        }}>
+          <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37', fontSize: 11 }} />
+          <span>{task.due_time} – {expireStr}</span>
+        </div>
+
+        {/* Descripción (como items preview) */}
+        {task.description && (
+          <div style={{
+            background: '#f8f8f8', borderRadius: 8,
+            padding: '10px 12px', marginBottom: 16,
+            fontSize: 14, color: '#555', lineHeight: 1.6
+          }}>
+            {task.description}
+          </div>
+        )}
+
+        {/* Countdown */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 16, marginTop: task.description ? 0 : 4
+        }}>
+          <div>
+            <div style={{ fontSize: 11, color: '#aaa', marginBottom: 2 }}>Tiempo restante</div>
+            <div style={{
+              fontSize: 38, fontWeight: 900, color: '#D4AF37',
+              letterSpacing: 2, lineHeight: 1, fontVariantNumeric: 'tabular-nums'
+            }}>
+              {isCompleting ? '...' : (countdown || '00:00')}
+            </div>
+          </div>
+
+          {/* Botón check verde */}
+          <button
+            onClick={() => !isCompleting && completeTask(task.id)}
+            disabled={isCompleting}
+            style={{
+              width: 64, height: 64, borderRadius: '50%', border: 'none',
+              background: isCompleting ? '#e5e7eb' : '#16a34a',
+              color: '#fff', fontSize: 26, cursor: isCompleting ? 'default' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: isCompleting ? 'none' : '0 4px 16px rgba(22,163,74,0.35)',
+              transition: 'all 0.15s', flexShrink: 0
+            }}
+          >
+            <FontAwesomeIcon icon={faCheck} />
+          </button>
+        </div>
       </div>
-
-      {/* Countdown grande */}
-      <div style={{
-        fontSize: 'clamp(60px, 16vw, 110px)', fontWeight: 900,
-        color: '#D4AF37', letterSpacing: 4, lineHeight: 1,
-        fontVariantNumeric: 'tabular-nums', marginBottom: 10
-      }}>
-        {isCompleting ? '...' : (countdown || '00:00')}
-      </div>
-      <div style={{ fontSize: 13, color: '#555', marginBottom: 32 }}>restantes para completar</div>
-
-      {/* Botón */}
-      <button
-        onClick={() => !isCompleting && completeTask(task.id)}
-        disabled={isCompleting}
-        style={{
-          padding: '18px 48px', fontSize: 'clamp(14px, 3vw, 18px)', fontWeight: 900,
-          background: isCompleting ? '#1a1a1a' : '#D4AF37',
-          color: isCompleting ? '#555' : '#000',
-          border: 'none', borderRadius: 14, cursor: isCompleting ? 'default' : 'pointer',
-          boxShadow: isCompleting ? 'none' : '0 4px 24px rgba(212,175,55,0.35)',
-          transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 10,
-          letterSpacing: 0.5
-        }}
-      >
-        <FontAwesomeIcon icon={faCheck} />
-        {isCompleting ? 'Registrando...' : 'Marcar como completada'}
-      </button>
     </div>
   );
 }
