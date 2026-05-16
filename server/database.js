@@ -519,10 +519,11 @@ async function createTables() {
     )
   `);
 
-  // Migration: add client_key/client_secret if table already exists
+  // Migrations: add columns if table already exists
   for (const [col, def] of [
-    ['client_key',    'VARCHAR(255) NULL'],
-    ['client_secret', 'VARCHAR(500) NULL'],
+    ['client_key',     'VARCHAR(255) NULL'],
+    ['client_secret',  'VARCHAR(500) NULL'],
+    ['session_cookie', 'TEXT NULL'],
   ]) {
     try {
       const [has] = await pool.execute(
@@ -4041,18 +4042,26 @@ export async function getTikTokConfig(storeId) {
   return rows[0] || null;
 }
 
-export async function saveTikTokConfig(storeId, { client_key, client_secret, caption_template, enabled, post_time, post_days }) {
+export async function saveTikTokConfig(storeId, { caption_template, enabled, post_time, post_days }) {
   await pool.execute(`
-    INSERT INTO tiktok_configs (store_id, client_key, client_secret, caption_template, enabled, post_time, post_days)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tiktok_configs (store_id, caption_template, enabled, post_time, post_days)
+    VALUES (?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
-      client_key       = VALUES(client_key),
-      client_secret    = VALUES(client_secret),
       caption_template = VALUES(caption_template),
       enabled          = VALUES(enabled),
       post_time        = VALUES(post_time),
       post_days        = VALUES(post_days)
-  `, [storeId, client_key || '', client_secret || '', caption_template || '', enabled ? 1 : 0, post_time || '10:00', post_days || '0']);
+  `, [storeId, caption_template || '', enabled ? 1 : 0, post_time || '10:00', post_days || '0']);
+}
+
+export async function saveTikTokSession(storeId, sessionCookie) {
+  await pool.execute(`
+    INSERT INTO tiktok_configs (store_id, session_cookie, tk_connected)
+    VALUES (?, ?, 1)
+    ON DUPLICATE KEY UPDATE
+      session_cookie = VALUES(session_cookie),
+      tk_connected   = 1
+  `, [storeId, sessionCookie]);
 }
 
 export async function saveTikTokTokens(storeId, { access_token, refresh_token, open_id }) {
@@ -4069,7 +4078,7 @@ export async function saveTikTokTokens(storeId, { access_token, refresh_token, o
 
 export async function clearTikTokTokens(storeId) {
   await pool.execute(
-    `UPDATE tiktok_configs SET access_token = NULL, refresh_token = NULL, open_id = NULL, tk_connected = 0 WHERE store_id = ?`,
+    `UPDATE tiktok_configs SET session_cookie = NULL, tk_connected = 0 WHERE store_id = ?`,
     [storeId]
   );
 }

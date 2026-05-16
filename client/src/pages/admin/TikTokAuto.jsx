@@ -1,13 +1,12 @@
 import { useState, useEffect, useContext } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
-import { useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faSave, faPlay, faEye, faDownload,
   faCheckCircle, faTimesCircle, faSpinner,
   faToggleOn, faToggleOff, faClock, faExclamationTriangle,
-  faLink, faUnlink, faEyeSlash, faKey,
+  faUnlink,
 } from '@fortawesome/free-solid-svg-icons';
 
 const CSS = `
@@ -35,23 +34,22 @@ const TikTokIcon = ({ size = 20, style = {} }) => (
 );
 
 const TEMPLATES = [
-  { id: 0, name: 'Podio',      emoji: '🏆', desc: 'Ranking 01/02/03 con medallas y precios.',          color: '#D4AF37' },
+  { id: 0, name: 'Podio',      emoji: '🏆', desc: 'Ranking 01/02/03 con medallas y precios.',              color: '#D4AF37' },
   { id: 1, name: 'Neon Deals', emoji: '⚡', desc: 'Cupones con borde neón gigante. Grid 2×2 sin cupones.', color: '#a855f7' },
-  { id: 2, name: 'Magazine',   emoji: '📸', desc: 'Foto héroe grande, dos tiles abajo. Estilo editorial.', color: '#3b82f6' },
-  { id: 3, name: 'White Clean',emoji: '🤍', desc: 'Franja de color arriba, producto estrella centrado.', color: '#111111' },
-  { id: 4, name: 'Noir Gold',  emoji: '🖤', desc: 'Producto en círculo con anillo dorado brillante.', color: '#b8972e' },
-  { id: 5, name: 'Bold Split', emoji: '✂️', desc: 'Corte diagonal en color de acento. Estilo póster.', color: '#374151' },
+  { id: 2, name: 'Magazine',   emoji: '📸', desc: 'Foto héroe grande, dos tiles abajo. Estilo editorial.',  color: '#3b82f6' },
+  { id: 3, name: 'White Clean',emoji: '🤍', desc: 'Franja de color arriba, producto estrella centrado.',    color: '#111111' },
+  { id: 4, name: 'Noir Gold',  emoji: '🖤', desc: 'Producto en círculo con anillo dorado brillante.',        color: '#b8972e' },
+  { id: 5, name: 'Bold Split', emoji: '✂️', desc: 'Corte diagonal en color de acento. Estilo póster.',      color: '#374151' },
 ];
 
 const API = 'https://srservi2.srautomatic.com';
 
 export default function TikTokAuto() {
-  const { token }          = useAuth();
-  const { selectedStore }  = useContext(StoreContext);
-  const [searchParams]     = useSearchParams();
+  const { token }         = useAuth();
+  const { selectedStore } = useContext(StoreContext);
 
-  const [cfg, setCfg]             = useState({ client_key: '', client_secret: '', caption_template: '', enabled: false, post_time: '10:00', post_days: '0' });
-  const [showSecret, setShowSecret] = useState(false);
+  const [cfg, setCfg]             = useState({ caption_template: '', enabled: false, post_time: '10:00', post_days: '0' });
+  const [sessionId, setSessionId] = useState('');
   const [connected, setConnected] = useState(false);
   const [loading, setLoading]     = useState(false);
   const [saving, setSaving]       = useState(false);
@@ -63,15 +61,7 @@ export default function TikTokAuto() {
   const [toast, setToast]         = useState(null);
 
   const storeId = selectedStore?.id;
-  const nextTpl = ((lastStatus?.template_counter || 0)) % 6;
-
-  // On mount: check for OAuth result in URL
-  useEffect(() => {
-    const connected_param = searchParams.get('connected');
-    const error_param     = searchParams.get('error');
-    if (connected_param === '1') showToast('¡Cuenta de TikTok conectada!');
-    if (error_param) showToast(decodeURIComponent(error_param), 'error');
-  }, []);
+  const nextTpl = (lastStatus?.template_counter || 0) % 6;
 
   useEffect(() => {
     if (!storeId || !token) return;
@@ -80,7 +70,7 @@ export default function TikTokAuto() {
     fetch(`${API}/api/tiktok/${storeId}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
-        setCfg({ client_key: d.client_key || '', client_secret: d.client_secret || '', caption_template: d.caption_template || '', enabled: !!d.enabled, post_time: d.post_time || '10:00', post_days: d.post_days || '0' });
+        setCfg({ caption_template: d.caption_template || '', enabled: !!d.enabled, post_time: d.post_time || '10:00', post_days: d.post_days || '0' });
         setConnected(!!d.tk_connected);
         setLastStatus({ last_posted_at: d.last_posted_at, last_error: d.last_error, template_counter: d.template_counter ?? 0 });
       })
@@ -108,17 +98,21 @@ export default function TikTokAuto() {
     finally { setSaving(false); }
   };
 
-  const connectTikTok = async () => {
-    if (!storeId) return;
+  const connect = async () => {
+    if (!storeId || !sessionId.trim()) return;
     setConnecting(true);
     try {
-      const res = await fetch(`${API}/api/tiktok/${storeId}/auth-url`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`${API}/api/tiktok/${storeId}/connect`, {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ session_id: sessionId.trim() }),
       });
-      const { url, error } = await res.json();
-      if (error) throw new Error(error);
-      window.location.href = url;
-    } catch (e) { showToast(e.message, 'error'); setConnecting(false); }
+      if (!res.ok) throw new Error((await res.json()).error);
+      setConnected(true);
+      setSessionId('');
+      showToast('¡Cuenta de TikTok conectada!');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { setConnecting(false); }
   };
 
   const disconnect = async () => {
@@ -190,25 +184,15 @@ export default function TikTokAuto() {
     <div className="tt-page">
       <style>{CSS}</style>
 
-      {/* Toast */}
       {toast && (
-        <div style={{
-          position: 'fixed', top: 16, right: 16, left: 16, zIndex: 9999,
-          background: toast.type === 'error' ? '#ef4444' : '#22c55e',
-          color: '#fff', padding: '12px 16px', borderRadius: 12,
-          fontWeight: 700, fontSize: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-          display: 'flex', alignItems: 'center', gap: 8, maxWidth: 400, marginLeft: 'auto',
-        }}>
+        <div style={{ position: 'fixed', top: 16, right: 16, left: 16, zIndex: 9999, background: toast.type === 'error' ? '#ef4444' : '#22c55e', color: '#fff', padding: '12px 16px', borderRadius: 12, fontWeight: 700, fontSize: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', gap: 8, maxWidth: 400, marginLeft: 'auto' }}>
           <FontAwesomeIcon icon={toast.type === 'error' ? faTimesCircle : faCheckCircle} />
           {toast.msg}
         </div>
       )}
 
-      {/* Header */}
       <div className="tt-header">
-        <div style={s.headerIcon}>
-          <TikTokIcon size={26} style={{ color: '#fff' }} />
-        </div>
+        <div style={s.headerIcon}><TikTokIcon size={26} style={{ color: '#fff' }} /></div>
         <div>
           <h1 className="tt-title">TikTok Auto-Post</h1>
           <p className="tt-subtitle">Publicá automáticamente — <strong>{selectedStore.name}</strong></p>
@@ -216,52 +200,15 @@ export default function TikTokAuto() {
       </div>
 
       <div className="tt-grid">
-        {/* ── Left: Config ── */}
+        {/* ── Izquierda ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Connect card */}
+          {/* Conexión */}
           <div style={s.card}>
             <h3 style={s.cardTitle}>Cuenta de TikTok</h3>
 
-            {/* Credenciales de la app */}
-            <div style={s.field}>
-              <label style={s.label}>
-                <FontAwesomeIcon icon={faKey} style={{ marginRight: 6, color: '#6b7280' }} />
-                Client Key
-              </label>
-              <input
-                value={cfg.client_key}
-                onChange={e => setCfg(p => ({ ...p, client_key: e.target.value.trim() }))}
-                placeholder="Ej: awxxxxxxxxxxxxxxxxxx"
-                style={s.input}
-                onFocus={e => e.target.style.borderColor = '#010101'}
-                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-              />
-            </div>
-
-            <div style={{ ...s.field, marginBottom: 16 }}>
-              <label style={s.label}>
-                <FontAwesomeIcon icon={faKey} style={{ marginRight: 6, color: '#6b7280' }} />
-                Client Secret
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={showSecret ? 'text' : 'password'}
-                  value={cfg.client_secret}
-                  onChange={e => setCfg(p => ({ ...p, client_secret: e.target.value }))}
-                  placeholder="Client Secret de tu app TikTok"
-                  style={{ ...s.input, paddingRight: 44 }}
-                  onFocus={e => e.target.style.borderColor = '#010101'}
-                  onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-                />
-                <button onClick={() => setShowSecret(p => !p)} style={s.eyeBtn}>
-                  <FontAwesomeIcon icon={showSecret ? faEyeSlash : faEye} />
-                </button>
-              </div>
-              <p style={s.hint}>Obtenés estas credenciales en <strong>developers.tiktok.com</strong> → tu app → Manage → Credenciales.</p>
-            </div>
-
-            <div style={{ padding: '12px 14px', borderRadius: 10, background: connected ? '#f0fdf4' : '#fef9f0', border: `1px solid ${connected ? '#bbf7d0' : '#fde68a'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+            {/* Estado */}
+            <div style={{ padding: '12px 14px', borderRadius: 10, background: connected ? '#f0fdf4' : '#fef9f0', border: `1px solid ${connected ? '#bbf7d0' : '#fde68a'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <FontAwesomeIcon icon={connected ? faCheckCircle : faTimesCircle} style={{ color: connected ? '#16a34a' : '#d97706', fontSize: 16 }} />
                 <div>
@@ -269,35 +216,54 @@ export default function TikTokAuto() {
                     {connected ? 'Cuenta conectada' : 'Cuenta no conectada'}
                   </p>
                   <p style={{ margin: 0, fontSize: 11, color: connected ? '#166534' : '#78350f' }}>
-                    {connected ? 'Listo para publicar en TikTok' : 'Conectá tu cuenta para publicar'}
+                    {connected ? 'Listo para publicar en TikTok' : 'Pegá tu sessionid para conectar'}
                   </p>
                 </div>
               </div>
-              {connected ? (
+              {connected && (
                 <button onClick={disconnect} style={{ background: 'none', border: '1px solid #fca5a5', color: '#ef4444', fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   <FontAwesomeIcon icon={faUnlink} /> Desconectar
-                </button>
-              ) : (
-                <button onClick={connectTikTok} disabled={connecting} style={s.btnTikTok}>
-                  {connecting ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faLink} />}
-                  {connecting ? ' Redirigiendo...' : ' Conectar con TikTok'}
                 </button>
               )}
             </div>
 
-            {!cfg.client_key && (
-              <div style={{ padding: '10px 14px', background: '#fffbeb', borderRadius: 10, border: '1px solid #fde68a', marginTop: 4 }}>
-                <p style={{ margin: 0, fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
-                  ⚠️ Ingresá el <strong>Client Key</strong> y <strong>Client Secret</strong> de tu app TikTok y guardá antes de conectar.
-                </p>
-              </div>
-            )}
-            {cfg.client_key && !connected && (
-              <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', marginTop: 4 }}>
-                <p style={{ margin: 0, fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
-                  Al hacer clic en "Conectar" serás redirigido a TikTok para autorizar la aplicación. Asegurate de agregar <strong>https://srservi2.srautomatic.com/api/tiktok/callback</strong> como URL de redirección en tu app de TikTok for Developers.
-                </p>
-              </div>
+            {/* Pegar sessionid */}
+            {!connected && (
+              <>
+                <div style={{ marginBottom: 10 }}>
+                  <label style={s.label}>Cookie "sessionid" de TikTok</label>
+                  <input
+                    value={sessionId}
+                    onChange={e => setSessionId(e.target.value)}
+                    placeholder="Pegá el valor de sessionid aquí"
+                    style={s.input}
+                    onFocus={e => e.target.style.borderColor = '#010101'}
+                    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                  />
+                </div>
+
+                <button
+                  onClick={connect}
+                  disabled={connecting || !sessionId.trim()}
+                  style={{ ...s.btnTikTok, width: '100%', justifyContent: 'center', padding: '10px', marginBottom: 14, opacity: (!sessionId.trim() || connecting) ? 0.5 : 1 }}
+                >
+                  {connecting ? <FontAwesomeIcon icon={faSpinner} spin /> : <TikTokIcon size={15} />}
+                  {connecting ? ' Conectando...' : ' Conectar con TikTok'}
+                </button>
+
+                {/* Instrucciones */}
+                <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '12px 14px' }}>
+                  <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: '#374151' }}>¿Cómo obtener el sessionid?</p>
+                  <ol style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: '#6b7280', lineHeight: 2 }}>
+                    <li>Abrí <strong>TikTok.com</strong> en Chrome e iniciá sesión con tu cuenta.</li>
+                    <li>Presioná <strong>F12</strong> para abrir las herramientas de desarrollador.</li>
+                    <li>Ir a la pestaña <strong>Aplicación</strong> (o Application).</li>
+                    <li>En el menú izquierdo: <strong>Cookies → https://www.tiktok.com</strong></li>
+                    <li>Buscá la cookie llamada <strong>sessionid</strong> y copiá su valor.</li>
+                    <li>Pegalo en el campo de arriba y hacé clic en Conectar.</li>
+                  </ol>
+                </div>
+              </>
             )}
           </div>
 
@@ -311,10 +277,10 @@ export default function TikTokAuto() {
               placeholder={`✨ ${selectedStore.name} ✨\n\n🔥 Lo más pedido esta semana...\n\n📲 srservi2.srautomatic.com/store/${selectedStore.code}\n\n#${selectedStore.name?.replace(/\s+/g, '')} #SRServi #TikTok`}
               style={{ ...s.input, resize: 'vertical', height: 'auto' }}
             />
-            <p style={s.hint}>Si lo dejás vacío se genera automáticamente con el nombre de la tienda y los productos.</p>
+            <p style={s.hint}>Si lo dejás vacío se genera automáticamente.</p>
           </div>
 
-          {/* Auto-post schedule */}
+          {/* Programación */}
           <div style={s.card}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
@@ -330,10 +296,7 @@ export default function TikTokAuto() {
                     : 'Activá para programar publicaciones automáticas'}
                 </p>
               </div>
-              <button
-                onClick={() => setCfg(p => ({ ...p, enabled: !p.enabled }))}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 36, color: cfg.enabled ? '#22c55e' : '#d1d5db', flexShrink: 0 }}
-              >
+              <button onClick={() => setCfg(p => ({ ...p, enabled: !p.enabled }))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 36, color: cfg.enabled ? '#22c55e' : '#d1d5db', flexShrink: 0 }}>
                 <FontAwesomeIcon icon={cfg.enabled ? faToggleOn : faToggleOff} />
               </button>
             </div>
@@ -343,83 +306,48 @@ export default function TikTokAuto() {
                 <FontAwesomeIcon icon={faClock} style={{ marginRight: 6 }} />
                 Hora de publicación
               </label>
-              <input
-                type="time"
-                value={cfg.post_time || '10:00'}
-                onChange={e => setCfg(p => ({ ...p, post_time: e.target.value }))}
+              <input type="time" value={cfg.post_time || '10:00'} onChange={e => setCfg(p => ({ ...p, post_time: e.target.value }))}
                 style={{ padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 9, fontSize: 15, fontWeight: 700, outline: 'none', cursor: 'pointer', width: 140 }}
-                onFocus={e => e.target.style.borderColor = '#010101'}
-                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                onFocus={e => e.target.style.borderColor = '#010101'} onBlur={e => e.target.style.borderColor = '#e5e7eb'}
               />
             </div>
 
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Días de publicación
-                </label>
-                <button
-                  onClick={() => {
-                    const all = '0,1,2,3,4,5,6';
-                    setCfg(p => ({ ...p, post_days: (p.post_days || '') === all ? '0' : all }));
-                  }}
-                  style={{ fontSize: 11, fontWeight: 700, color: (cfg.post_days || '') === '0,1,2,3,4,5,6' ? '#010101' : '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                >
-                  {(cfg.post_days || '') === '0,1,2,3,4,5,6' ? '✓ Todos los días' : 'Todos los días'}
+                <label style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Días</label>
+                <button onClick={() => setCfg(p => ({ ...p, post_days: p.post_days === '0,1,2,3,4,5,6' ? '0' : '0,1,2,3,4,5,6' }))}
+                  style={{ fontSize: 11, fontWeight: 700, color: cfg.post_days === '0,1,2,3,4,5,6' ? '#010101' : '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  {cfg.post_days === '0,1,2,3,4,5,6' ? '✓ Todos los días' : 'Todos los días'}
                 </button>
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {[['Dom',0],['Lun',1],['Mar',2],['Mié',3],['Jue',4],['Vie',5],['Sáb',6]].map(([label, num]) => {
-                  const days   = (cfg.post_days || '0').split(',').map(Number);
+                  const days = (cfg.post_days || '0').split(',').map(Number);
                   const active = days.includes(num);
                   return (
-                    <button key={num}
-                      onClick={() => {
-                        const cur  = (cfg.post_days || '0').split(',').map(Number).filter(n => n !== 99);
-                        const next = active ? cur.filter(d => d !== num) : [...cur, num].sort((a,b) => a - b);
-                        setCfg(p => ({ ...p, post_days: (next.length ? next : [0]).join(',') }));
-                      }}
-                      style={{ padding: '7px 12px', borderRadius: 8, border: `2px solid ${active ? '#010101' : '#e5e7eb'}`, background: active ? '#f1f5f9' : '#fff', fontWeight: 700, fontSize: 12, color: active ? '#010101' : '#6b7280', cursor: 'pointer', transition: 'all 0.15s' }}
-                    >
+                    <button key={num} onClick={() => {
+                      const cur  = days.filter(n => n !== 99);
+                      const next = active ? cur.filter(d => d !== num) : [...cur, num].sort((a,b) => a - b);
+                      setCfg(p => ({ ...p, post_days: (next.length ? next : [0]).join(',') }));
+                    }} style={{ padding: '7px 12px', borderRadius: 8, border: `2px solid ${active ? '#010101' : '#e5e7eb'}`, background: active ? '#f1f5f9' : '#fff', fontWeight: 700, fontSize: 12, color: active ? '#010101' : '#6b7280', cursor: 'pointer' }}>
                       {label}
                     </button>
                   );
                 })}
               </div>
             </div>
-
-            {cfg.enabled && (
-              <div style={{ marginTop: 14, padding: '10px 14px', background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0' }}>
-                <p style={{ margin: 0, fontSize: 13, color: '#16a34a', fontWeight: 600 }}>
-                  ✅ Activo — rotando entre las 6 plantillas automáticamente.
-                </p>
-              </div>
-            )}
           </div>
 
-          {/* Status */}
+          {/* Estado */}
           {lastStatus && (
             <div style={s.card}>
               <h3 style={s.cardTitle}>Estado</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {lastStatus.last_posted_at ? (
-                  <div style={s.statusRow}>
-                    <FontAwesomeIcon icon={faClock} style={{ color: '#6b7280' }} />
-                    <span style={{ fontSize: 13, color: '#374151' }}>
-                      Última publicación: <strong>{new Date(lastStatus.last_posted_at).toLocaleString('es-CL')}</strong>
-                    </span>
-                  </div>
-                ) : (
-                  <div style={s.statusRow}>
-                    <FontAwesomeIcon icon={faClock} style={{ color: '#9ca3af' }} />
-                    <span style={{ fontSize: 13, color: '#9ca3af' }}>Nunca publicado</span>
-                  </div>
-                )}
-                <div style={s.statusRow}>
-                  <span style={{ fontSize: 13, color: '#374151' }}>
-                    Próxima plantilla: <strong>{TEMPLATES[nextTpl].emoji} {TEMPLATES[nextTpl].name}</strong>
-                  </span>
-                </div>
+                {lastStatus.last_posted_at
+                  ? <div style={s.statusRow}><FontAwesomeIcon icon={faClock} style={{ color: '#6b7280' }} /><span style={{ fontSize: 13, color: '#374151' }}>Última publicación: <strong>{new Date(lastStatus.last_posted_at).toLocaleString('es-CL')}</strong></span></div>
+                  : <div style={s.statusRow}><FontAwesomeIcon icon={faClock} style={{ color: '#9ca3af' }} /><span style={{ fontSize: 13, color: '#9ca3af' }}>Nunca publicado</span></div>
+                }
+                <div style={s.statusRow}><span style={{ fontSize: 13, color: '#374151' }}>Próxima plantilla: <strong>{TEMPLATES[nextTpl].emoji} {TEMPLATES[nextTpl].name}</strong></span></div>
                 {lastStatus.last_error && (
                   <div style={{ ...s.statusRow, background: '#fef2f2', padding: '8px 12px', borderRadius: 8 }}>
                     <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#ef4444', flexShrink: 0 }} />
@@ -430,7 +358,6 @@ export default function TikTokAuto() {
             </div>
           )}
 
-          {/* Actions */}
           <button onClick={save} disabled={saving || loading} style={s.btnPrimary}>
             {saving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />}
             {saving ? ' Guardando...' : ' Guardar configuración'}
@@ -440,67 +367,42 @@ export default function TikTokAuto() {
             {posting ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPlay} />}
             {posting ? ' Publicando...' : ' Publicar ahora en TikTok'}
           </button>
-          {!connected && (
-            <p style={{ textAlign: 'center', fontSize: 12, color: '#d97706', margin: '-4px 0 0', fontWeight: 600 }}>
-              Conectá tu cuenta TikTok para poder publicar
-            </p>
-          )}
+          {!connected && <p style={{ textAlign: 'center', fontSize: 12, color: '#d97706', margin: '-4px 0 0', fontWeight: 600 }}>Conectá tu cuenta para publicar</p>}
         </div>
 
-        {/* ── Right: Templates preview ── */}
+        {/* ── Derecha: Plantillas ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={s.card}>
             <h3 style={s.cardTitle}>Plantillas disponibles</h3>
             <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 16px' }}>
-              Las mismas 6 plantillas de Instagram, optimizadas para TikTok. Rotan cada publicación.
+              Las imágenes se convierten a video corto (5 seg.) automáticamente para TikTok.
             </p>
 
             {TEMPLATES.map(tpl => (
-              <div key={tpl.id} style={{
-                border: `2px solid ${nextTpl === tpl.id ? tpl.color : '#e5e7eb'}`,
-                borderRadius: 14,
-                marginBottom: 14,
-                overflow: 'hidden',
-                background: nextTpl === tpl.id ? `${tpl.color}08` : '#fff',
-              }}>
+              <div key={tpl.id} style={{ border: `2px solid ${nextTpl === tpl.id ? tpl.color : '#e5e7eb'}`, borderRadius: 14, marginBottom: 14, overflow: 'hidden', background: nextTpl === tpl.id ? `${tpl.color}08` : '#fff' }}>
                 <div className="tt-tpl-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>
-                      {tpl.emoji}
-                    </div>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: tpl.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>{tpl.emoji}</div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         {tpl.name}
-                        {nextTpl === tpl.id && (
-                          <span style={{ fontSize: 10, fontWeight: 700, background: tpl.color, color: '#fff', padding: '2px 7px', borderRadius: 99, whiteSpace: 'nowrap' }}>
-                            PRÓXIMA
-                          </span>
-                        )}
+                        {nextTpl === tpl.id && <span style={{ fontSize: 10, fontWeight: 700, background: tpl.color, color: '#fff', padding: '2px 7px', borderRadius: 99, whiteSpace: 'nowrap' }}>PRÓXIMA</span>}
                       </div>
                       <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, lineHeight: 1.4 }}>{tpl.desc}</div>
                     </div>
                   </div>
                   <div className="tt-tpl-actions">
-                    {previews[tpl.id] && (
-                      <button onClick={() => downloadPreview(tpl.id)} style={s.btnSmall}>
-                        <FontAwesomeIcon icon={faDownload} />
-                      </button>
-                    )}
+                    {previews[tpl.id] && <button onClick={() => downloadPreview(tpl.id)} style={s.btnSmall}><FontAwesomeIcon icon={faDownload} /></button>}
                     <button onClick={() => loadPreview(tpl.id)} disabled={previewing === tpl.id} style={{ ...s.btnSmallPrimary, background: tpl.color }}>
                       {previewing === tpl.id ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faEye} />}
                       {previewing === tpl.id ? ' ...' : ' Ver'}
                     </button>
                   </div>
                 </div>
-
-                {previews[tpl.id] && (
-                  <img src={previews[tpl.id]} alt={`Preview ${tpl.name}`} style={{ width: '100%', display: 'block' }} />
-                )}
-                {!previews[tpl.id] && (
-                  <div style={{ background: '#f8fafc', padding: '20px', textAlign: 'center' }}>
-                    <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Hacé clic en "Ver" para previsualizar</p>
-                  </div>
-                )}
+                {previews[tpl.id]
+                  ? <img src={previews[tpl.id]} alt={tpl.name} style={{ width: '100%', display: 'block' }} />
+                  : <div style={{ background: '#f8fafc', padding: '20px', textAlign: 'center' }}><p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Hacé clic en "Ver" para previsualizar</p></div>
+                }
               </div>
             ))}
           </div>
@@ -509,15 +411,12 @@ export default function TikTokAuto() {
             <h3 style={{ ...s.cardTitle, color: '#374151' }}>¿Cómo funciona?</h3>
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
-                'Imagen 1080×1080 con tus productos y precios, publicada como foto en TikTok.',
-                '6 plantillas rotativas: las mismas que Instagram.',
-                'Requiere una app registrada en TikTok for Developers.',
-                'El token OAuth se guarda de forma segura en el servidor.',
-                'Podés publicar manualmente en cualquier momento.',
-                'La programación automática sigue el mismo horario configurable.',
-              ].map((t, i) => (
-                <li key={i} style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{t}</li>
-              ))}
+                'Solo necesitás tu cuenta personal de TikTok — sin apps de desarrollador.',
+                'La imagen 1080×1080 se convierte automáticamente a un video de 5 segundos.',
+                '6 plantillas rotativas con tus productos y precios.',
+                'El sessionid se renueva cuando iniciás sesión en TikTok; actualizalo si deja de funcionar.',
+                'Publicación automática configurable por hora y días de la semana.',
+              ].map((t, i) => <li key={i} style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{t}</li>)}
             </ul>
           </div>
         </div>
@@ -530,14 +429,12 @@ const s = {
   headerIcon:      { width: 48, height: 48, borderRadius: 14, background: '#010101', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   card:            { background: '#fff', borderRadius: 14, padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: '1px solid #e5e7eb' },
   cardTitle:       { fontSize: 14, fontWeight: 700, color: '#374151', marginTop: 0, marginBottom: 14 },
-  field:           { marginBottom: 14 },
   label:           { display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 },
   input:           { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' },
   hint:            { fontSize: 11, color: '#9ca3af', margin: '5px 0 0' },
-  eyeBtn:          { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 4 },
   statusRow:       { display: 'flex', alignItems: 'flex-start', gap: 8 },
   btnPrimary:      { width: '100%', padding: '12px', borderRadius: 12, border: 'none', background: '#1e293b', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  btnTikTok:       { padding: '8px 14px', borderRadius: 8, border: 'none', background: '#010101', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' },
+  btnTikTok:       { padding: '8px 14px', borderRadius: 8, border: 'none', background: '#010101', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 },
   btnSmall:        { padding: '7px 10px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer' },
   btnSmallPrimary: { padding: '7px 12px', borderRadius: 8, border: 'none', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 },
   empty:           { textAlign: 'center', padding: '60px 24px', color: '#6b7280', fontSize: 15 },
