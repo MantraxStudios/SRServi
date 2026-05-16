@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "postinstall": "npx playwright install chromium --with-deps"
+    "postinstall": "apt-get install -y chromium-browser 2>/dev/null || apt-get install -y chromium 2>/dev/null || true"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.44",

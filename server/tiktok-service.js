@@ -8,6 +8,28 @@ import { chromium } from 'playwright';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const TMP   = join(__dir, 'tmp-tiktok');
 
+// Encuentra el Chromium instalado en el sistema (evita descargar el de Playwright)
+function findChromium() {
+  const candidates = [
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+    '/snap/bin/chromium',
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return undefined; // Playwright usará el suyo si está disponible
+}
+
+const CHROMIUM_PATH = findChromium();
+const LAUNCH_OPTS = {
+  headless:        true,
+  executablePath:  CHROMIUM_PATH,
+  args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+};
+
 async function ensureTmp() {
   if (!existsSync(TMP)) await mkdir(TMP, { recursive: true });
 }
@@ -34,10 +56,7 @@ export async function postToTikTok({ sessionId, imageBuffer, caption }) {
   const vidPath = join(TMP, `${base}.mp4`);
   await writeFile(imgPath, imageBuffer);
 
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-  });
+  const browser = await chromium.launch(LAUNCH_OPTS);
 
   try {
     imageToVideo(imgPath, vidPath);
@@ -111,10 +130,7 @@ async function captureQR(page) {
 export async function startQRLogin(storeId) {
   await cleanupQRSession(storeId);
 
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-  });
+  const browser = await chromium.launch(LAUNCH_OPTS);
 
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
