@@ -285,6 +285,9 @@ const excelUpload = multer({
   }
 });
 
+// Archivos públicos (verificación de dominio, etc.)
+app.use(express.static(path.join(__serverDir, 'public')));
+
 app.use('/uploads', express.static('uploads', {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.apk')) {
