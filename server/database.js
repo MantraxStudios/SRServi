@@ -2956,7 +2956,7 @@ export async function createWorker(storeId, data) {
 
 export async function getWorkers(storeId) {
   const [rows] = await pool.execute(
-    'SELECT id, store_id, username, name, created_at FROM workers WHERE store_id = ? ORDER BY name',
+    'SELECT id, store_id, username, name, phone, created_at FROM workers WHERE store_id = ? ORDER BY name',
     [storeId]
   );
   return rows;
