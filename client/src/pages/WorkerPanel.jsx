@@ -203,7 +203,7 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown, onOpen }) {
       style={{
         width: '100%',
         background: '#111', border: `2px solid ${borderColor}`,
-        borderRadius: 10, padding: '8px 10px',
+        borderRadius: 8, padding: '6px 7px',
         display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
         boxSizing: 'border-box', cursor: 'pointer',
         boxShadow: status === 'active' ? '0 0 10px rgba(212,175,55,0.15)' : 'none',
@@ -213,7 +213,7 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown, onOpen }) {
       {/* Nombre y hora */}
       <div>
         <div style={{
-          fontWeight: 700, fontSize: 12, color: '#fff',
+          fontWeight: 700, fontSize: 11, color: '#fff',
           lineHeight: 1.3, marginBottom: 4,
           overflow: 'hidden', display: '-webkit-box',
           WebkitLineClamp: 2, WebkitBoxOrient: 'vertical'
@@ -313,8 +313,8 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
         )}
       </div>
 
-      {/* Grid de días */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Grid de días — columnas horizontales */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden' }}>
         {WEEK_ORDER.map((dow, idx) => {
           const isToday = todayDow === dow;
           const dayTasks = tasks.filter(t => t.day_of_week === dow);
@@ -325,17 +325,18 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
             <div key={dow} style={{
               flex: 1,
               display: 'flex',
-              borderBottom: isLast ? 'none' : '1px solid #141414',
-              background: isToday ? 'rgba(212,175,55,0.03)' : 'transparent',
-              minHeight: 0
+              flexDirection: 'column',
+              borderRight: isLast ? 'none' : `1px solid ${isToday ? '#D4AF37' : '#141414'}`,
+              background: isToday ? 'rgba(212,175,55,0.04)' : 'transparent',
+              minWidth: 0,
             }}>
-              {/* Columna del día */}
+              {/* Header del día */}
               <div style={{
-                width: 68, flexShrink: 0,
+                flexShrink: 0,
                 display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
-                borderRight: `2px solid ${isToday ? '#D4AF37' : '#141414'}`,
-                padding: '4px 0', gap: 2
+                borderBottom: `2px solid ${isToday ? '#D4AF37' : '#1a1a1a'}`,
+                padding: '8px 4px', gap: 3
               }}>
                 <span style={{
                   fontSize: 11, fontWeight: 800, textTransform: 'uppercase',
@@ -345,28 +346,30 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
                 </span>
                 {isToday && (
                   <span style={{
-                    fontSize: 8, fontWeight: 800, color: '#000',
-                    background: '#D4AF37', borderRadius: 4, padding: '1px 5px',
+                    fontSize: 7, fontWeight: 800, color: '#000',
+                    background: '#D4AF37', borderRadius: 3, padding: '1px 4px',
                     textTransform: 'uppercase', letterSpacing: 0.5
                   }}>HOY</span>
                 )}
                 {dayTasks.length > 0 && (
-                  <span style={{ fontSize: 9, color: doneCnt === dayTasks.length ? '#16a34a' : '#555', marginTop: 1 }}>
+                  <span style={{ fontSize: 9, color: doneCnt === dayTasks.length ? '#16a34a' : '#444' }}>
                     {doneCnt}/{dayTasks.length}
                   </span>
                 )}
               </div>
 
-              {/* Tarjetas verticales */}
+              {/* Tareas del día — scroll vertical */}
               <div style={{
-                display: 'flex', flexDirection: 'column', gap: 7,
-                padding: '5px 8px',
+                flex: 1, overflowY: 'auto', overflowX: 'hidden',
+                display: 'flex', flexDirection: 'column', gap: 5,
+                padding: '5px 4px',
+                scrollbarWidth: 'none', msOverflowStyle: 'none'
               }}>
                 {dayTasks.length === 0 ? (
                   <span style={{
-                    fontSize: 11, color: '#222', alignSelf: 'center',
-                    fontStyle: 'italic', userSelect: 'none'
-                  }}>Libre</span>
+                    fontSize: 10, color: '#2a2a2a', textAlign: 'center',
+                    fontStyle: 'italic', userSelect: 'none', marginTop: 10
+                  }}>—</span>
                 ) : (
                   dayTasks.map(task => (
                     <MiniTaskCard
