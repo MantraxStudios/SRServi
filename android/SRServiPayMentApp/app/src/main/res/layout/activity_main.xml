@@ -104,41 +104,14 @@
                     android:checked="true" />
             </RadioGroup>
 
-            <!-- Propina -->
+            <!-- Propina: siempre tip=0, TUU lo pregunta en el terminal -->
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Propina"
-                android:textColor="@color/gold"
-                android:textSize="13sp"
-                android:layout_marginBottom="6dp" />
-
-            <RadioGroup
-                android:id="@+id/rgTip"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="28dp">
-
-                <RadioButton
-                    android:id="@+id/rbTipNone"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Sin propina"
-                    android:textColor="@color/white"
-                    android:buttonTint="@color/gold"
-                    android:checked="true" />
-
-                <RadioButton
-                    android:id="@+id/rbTipPrompt"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Preguntar"
-                    android:textColor="@color/white"
-                    android:buttonTint="@color/gold" />
-            </RadioGroup>
+                android:text="Propina: TUU la pregunta en el terminal"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:layout_marginBottom="28dp" />
 
             <!-- Botón -->
             <Button
