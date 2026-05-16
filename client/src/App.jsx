@@ -54,6 +54,8 @@ import UberEatsIntegration from './pages/admin/UberEatsIntegration';
 import Novedades from './pages/admin/Novedades';
 import InstagramAuto from './pages/admin/InstagramAuto';
 import TikTokAuto from './pages/admin/TikTokAuto';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsConditions from './pages/TermsConditions';
 import CashRegisters from './pages/admin/CashRegisters';
 import CCTV from './pages/admin/CCTV';
 import WhatsApp from './pages/admin/WhatsApp';
@@ -172,6 +174,8 @@ function App() {
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsConditions />} />
           <Route path="/store/:code" element={<Store />} />
           <Route path="/rate/:code" element={<Rate />} />
           <Route path="/survey/:code" element={<ClientSurvey />} />
