@@ -10,6 +10,7 @@ const FACES = [
 ];
 
 const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@900&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -161,6 +162,7 @@ const CSS = `
   }
   .rv-face-label {
     font-size: clamp(9px, 2vmin, 20px);
+    font-family: 'Nunito', system-ui, sans-serif;
     font-weight: 900;
     color: #000000;
     text-align: center;
