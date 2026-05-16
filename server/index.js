@@ -21,7 +21,7 @@ import PluginManager from './plugins/PluginManager.js';
 import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
 import { initInstagramService } from './instagram_autostart.js';
-import { postToTikTok } from './tiktok-service.js';
+import { postToTikTok, startQRLogin, getQRStatus, cancelQRLogin } from './tiktok-service.js';
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds } from './whatsapp.js';
@@ -9426,14 +9426,33 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Conectar con sessionid de TikTok
-    app.post('/api/tiktok/:storeId/connect', authenticateToken, async (req, res) => {
+    // Iniciar sesión QR (WhatsApp-style) — abre browser headless y devuelve imagen QR
+    app.post('/api/tiktok/:storeId/qr-start', authenticateToken, async (req, res) => {
       try {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
-        const { session_id } = req.body;
-        if (!session_id?.trim()) return res.status(400).json({ error: 'sessionid requerido' });
-        await saveTikTokSession(req.params.storeId, session_id.trim());
+        const qr = await startQRLogin(req.params.storeId);
+        res.json({ qr });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Polling: devuelve estado y QR fresco
+    app.get('/api/tiktok/:storeId/qr-status', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const result = await getQRStatus(req.params.storeId);
+        if (result.status === 'connected' && result.sessionId) {
+          await saveTikTokSession(req.params.storeId, result.sessionId);
+        }
+        res.json(result);
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Cancelar sesión QR
+    app.delete('/api/tiktok/:storeId/qr-cancel', authenticateToken, async (req, res) => {
+      try {
+        await cancelQRLogin(req.params.storeId);
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });

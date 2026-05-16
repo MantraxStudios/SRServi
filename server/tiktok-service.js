@@ -11,7 +11,6 @@ async function ensureTmp() {
   if (!existsSync(TMP)) await mkdir(TMP, { recursive: true });
 }
 
-// Convierte imagen JPEG en video de 5 segundos usando ffmpeg
 function imageToVideo(imgPath, vidPath) {
   execSync(
     `ffmpeg -y -loop 1 -i "${imgPath}" -c:v libx264 -t 5 -pix_fmt yuv420p -vf "scale=1080:1080,setsar=1" "${vidPath}"`,
@@ -19,28 +18,22 @@ function imageToVideo(imgPath, vidPath) {
   );
 }
 
-// Construye el array de cookies que necesita tiktok-uploader a partir del sessionid
 function buildCookies(sessionId) {
   return [
-    { name: 'sessionid',     value: sessionId, domain: '.tiktok.com', path: '/', secure: true, httpOnly: true },
-    { name: 'sessionid_ss',  value: sessionId, domain: '.tiktok.com', path: '/', secure: true, httpOnly: true },
+    { name: 'sessionid',    value: sessionId, domain: '.tiktok.com', path: '/', secure: true, httpOnly: true },
+    { name: 'sessionid_ss', value: sessionId, domain: '.tiktok.com', path: '/', secure: true, httpOnly: true },
   ];
 }
 
 export async function postToTikTok({ sessionId, imageBuffer, caption }) {
   await ensureTmp();
-
   const base    = `tt_${Date.now()}`;
   const imgPath = join(TMP, `${base}.jpg`);
   const vidPath = join(TMP, `${base}.mp4`);
-
   await writeFile(imgPath, imageBuffer);
-
   try {
     imageToVideo(imgPath, vidPath);
-
     const { uploadVideo } = await import('tiktok-uploader');
-
     await uploadVideo({
       cookies:  buildCookies(sessionId),
       video:    vidPath,
@@ -51,4 +44,132 @@ export async function postToTikTok({ sessionId, imageBuffer, caption }) {
     await unlink(imgPath).catch(() => {});
     await unlink(vidPath).catch(() => {});
   }
+}
+
+// ── QR Login (WhatsApp-style) ─────────────────────────────────────
+
+// storeId → { browser, context, page, status, sessionId, expiresAt, pollTimer }
+const qrSessions = new Map();
+
+async function cleanupQRSession(storeId) {
+  const key = String(storeId);
+  const s = qrSessions.get(key);
+  if (!s) return;
+  if (s.pollTimer) clearInterval(s.pollTimer);
+  await s.browser.close().catch(() => {});
+  qrSessions.delete(key);
+}
+
+async function captureQR(page) {
+  // Try canvas first (TikTok renders QR in canvas), then img fallbacks
+  const el = await page.$('canvas')
+    || await page.$('img[src*="qrcode"]')
+    || await page.$('[class*="qrcode"] img')
+    || await page.$('[class*="QrCode"] img')
+    || await page.$('[data-e2e*="qr"] img');
+  if (!el) return null;
+  return (await el.screenshot()).toString('base64');
+}
+
+export async function startQRLogin(storeId) {
+  await cleanupQRSession(storeId);
+
+  const { chromium } = await import('playwright');
+
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+  });
+
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    viewport:  { width: 1280, height: 800 },
+  });
+
+  const page = await context.newPage();
+
+  const session = {
+    browser, context, page,
+    status:    'pending',
+    sessionId: null,
+    qrBase64:  null,
+    expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
+    pollTimer: null,
+  };
+  qrSessions.set(String(storeId), session);
+
+  // Navigate to TikTok QR login page
+  await page.goto('https://www.tiktok.com/login/qrcode', {
+    waitUntil: 'domcontentloaded',
+    timeout:   30000,
+  });
+
+  // Wait for QR element
+  await page.waitForSelector('canvas, img[src*="qrcode"], [class*="qrcode"] img, [class*="QrCode"] img', {
+    timeout: 20000,
+  });
+
+  // Short delay to let it fully render
+  await page.waitForTimeout(1500);
+
+  const qrBase64 = await captureQR(page);
+  if (!qrBase64) throw new Error('No se pudo capturar el QR de TikTok');
+
+  session.qrBase64 = qrBase64;
+
+  // Poll for login completion and refresh QR image
+  session.pollTimer = setInterval(async () => {
+    const s = qrSessions.get(String(storeId));
+    if (!s || s.status !== 'pending') { clearInterval(s?.pollTimer); return; }
+
+    if (Date.now() > s.expiresAt) {
+      s.status = 'expired';
+      clearInterval(s.pollTimer);
+      s.browser.close().catch(() => {});
+      qrSessions.delete(String(storeId));
+      return;
+    }
+
+    try {
+      const url = s.page.url();
+      if (!url.includes('/login')) {
+        // Page navigated away from login — user scanned and accepted
+        const cookies = await s.context.cookies();
+        const cookie  = cookies.find(c => c.name === 'sessionid' && c.value);
+        if (cookie) {
+          s.status    = 'connected';
+          s.sessionId = cookie.value;
+          clearInterval(s.pollTimer);
+          setTimeout(() => s.browser.close().catch(() => {}), 5000);
+        }
+      } else {
+        // Refresh QR image (TikTok may rotate it)
+        const fresh = await captureQR(s.page);
+        if (fresh) s.qrBase64 = fresh;
+      }
+    } catch { /* page may be mid-navigation */ }
+  }, 2500);
+
+  return qrBase64;
+}
+
+export async function getQRStatus(storeId) {
+  const s = qrSessions.get(String(storeId));
+  if (!s) return { status: 'none', qr: null, sessionId: null };
+
+  const result = {
+    status:    s.status,
+    qr:        s.status === 'pending' ? s.qrBase64 : null,
+    sessionId: s.status === 'connected' ? s.sessionId : null,
+  };
+
+  if (s.status !== 'pending') {
+    qrSessions.delete(String(storeId));
+  }
+
+  return result;
+}
+
+export async function cancelQRLogin(storeId) {
+  await cleanupQRSession(storeId);
 }

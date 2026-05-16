@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StoreContext } from '../../components/Layout';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -6,7 +6,7 @@ import {
   faSave, faPlay, faEye, faDownload,
   faCheckCircle, faTimesCircle, faSpinner,
   faToggleOn, faToggleOff, faClock, faExclamationTriangle,
-  faUnlink,
+  faUnlink, faQrcode, faRotate,
 } from '@fortawesome/free-solid-svg-icons';
 
 const CSS = `
@@ -49,16 +49,19 @@ export default function TikTokAuto() {
   const { selectedStore } = useContext(StoreContext);
 
   const [cfg, setCfg]             = useState({ caption_template: '', enabled: false, post_time: '10:00', post_days: '0' });
-  const [sessionId, setSessionId] = useState('');
   const [connected, setConnected] = useState(false);
   const [loading, setLoading]     = useState(false);
   const [saving, setSaving]       = useState(false);
   const [posting, setPosting]     = useState(false);
-  const [connecting, setConnecting] = useState(false);
   const [previewing, setPreviewing] = useState(null);
   const [previews, setPreviews]   = useState({});
   const [lastStatus, setLastStatus] = useState(null);
   const [toast, setToast]         = useState(null);
+
+  // QR state
+  const [qrState, setQrState]   = useState(null); // null | 'loading' | 'scanning' | 'expired' | 'error'
+  const [qrImage, setQrImage]   = useState(null);
+  const qrPollRef               = useRef(null);
 
   const storeId = selectedStore?.id;
   const nextTpl = (lastStatus?.template_counter || 0) % 6;
@@ -83,6 +86,58 @@ export default function TikTokAuto() {
     setTimeout(() => setToast(null), 4000);
   };
 
+  const stopQrPoll = useCallback(() => {
+    if (qrPollRef.current) { clearInterval(qrPollRef.current); qrPollRef.current = null; }
+  }, []);
+
+  useEffect(() => () => stopQrPoll(), [stopQrPoll]);
+
+  const pollQRStatus = useCallback(async (sid) => {
+    try {
+      const res  = await fetch(`${API}/api/tiktok/${sid}/qr-status`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.qr) setQrImage(data.qr);
+      if (data.status === 'connected') {
+        stopQrPoll();
+        setQrState(null);
+        setQrImage(null);
+        setConnected(true);
+        showToast('¡Cuenta de TikTok conectada!');
+      } else if (data.status === 'expired' || data.status === 'none') {
+        stopQrPoll();
+        setQrState('expired');
+      }
+    } catch { /* ignore poll errors */ }
+  }, [token, stopQrPoll]); // eslint-disable-line
+
+  const startQR = async () => {
+    if (!storeId) return;
+    stopQrPoll();
+    setQrState('loading');
+    setQrImage(null);
+    try {
+      const res = await fetch(`${API}/api/tiktok/${storeId}/qr-start`, {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      const { qr } = await res.json();
+      setQrImage(qr);
+      setQrState('scanning');
+      qrPollRef.current = setInterval(() => pollQRStatus(storeId), 3000);
+    } catch (e) {
+      setQrState('error');
+      showToast(e.message || 'No se pudo iniciar el QR', 'error');
+    }
+  };
+
+  const cancelQR = async () => {
+    stopQrPoll();
+    setQrState(null);
+    setQrImage(null);
+    if (storeId) fetch(`${API}/api/tiktok/${storeId}/qr-cancel`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+  };
+
   const save = async () => {
     if (!storeId) return;
     setSaving(true);
@@ -96,23 +151,6 @@ export default function TikTokAuto() {
       showToast('Configuración guardada');
     } catch (e) { showToast(e.message, 'error'); }
     finally { setSaving(false); }
-  };
-
-  const connect = async () => {
-    if (!storeId || !sessionId.trim()) return;
-    setConnecting(true);
-    try {
-      const res = await fetch(`${API}/api/tiktok/${storeId}/connect`, {
-        method:  'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ session_id: sessionId.trim() }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      setConnected(true);
-      setSessionId('');
-      showToast('¡Cuenta de TikTok conectada!');
-    } catch (e) { showToast(e.message, 'error'); }
-    finally { setConnecting(false); }
   };
 
   const disconnect = async () => {
@@ -216,7 +254,7 @@ export default function TikTokAuto() {
                     {connected ? 'Cuenta conectada' : 'Cuenta no conectada'}
                   </p>
                   <p style={{ margin: 0, fontSize: 11, color: connected ? '#166534' : '#78350f' }}>
-                    {connected ? 'Listo para publicar en TikTok' : 'Pegá tu sessionid para conectar'}
+                    {connected ? 'Listo para publicar en TikTok' : 'Escaneá el QR con tu celular para conectar'}
                   </p>
                 </div>
               </div>
@@ -227,43 +265,73 @@ export default function TikTokAuto() {
               )}
             </div>
 
-            {/* Pegar sessionid */}
+            {/* QR Login */}
             {!connected && (
-              <>
-                <div style={{ marginBottom: 10 }}>
-                  <label style={s.label}>Cookie "sessionid" de TikTok</label>
-                  <input
-                    value={sessionId}
-                    onChange={e => setSessionId(e.target.value)}
-                    placeholder="Pegá el valor de sessionid aquí"
-                    style={s.input}
-                    onFocus={e => e.target.style.borderColor = '#010101'}
-                    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-                  />
-                </div>
+              <div>
+                {/* Estado inicial — botón de escanear */}
+                {qrState === null && (
+                  <button onClick={startQR} style={{ ...s.btnTikTok, width: '100%', justifyContent: 'center', padding: '12px 10px' }}>
+                    <FontAwesomeIcon icon={faQrcode} />
+                    {' Conectar con QR'}
+                  </button>
+                )}
 
-                <button
-                  onClick={connect}
-                  disabled={connecting || !sessionId.trim()}
-                  style={{ ...s.btnTikTok, width: '100%', justifyContent: 'center', padding: '10px', marginBottom: 14, opacity: (!sessionId.trim() || connecting) ? 0.5 : 1 }}
-                >
-                  {connecting ? <FontAwesomeIcon icon={faSpinner} spin /> : <TikTokIcon size={15} />}
-                  {connecting ? ' Conectando...' : ' Conectar con TikTok'}
-                </button>
+                {/* Cargando QR */}
+                {qrState === 'loading' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '20px 0' }}>
+                    <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 28, color: '#010101' }} />
+                    <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>Generando código QR…</p>
+                  </div>
+                )}
 
-                {/* Instrucciones */}
-                <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '12px 14px' }}>
-                  <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: '#374151' }}>¿Cómo obtener el sessionid?</p>
-                  <ol style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: '#6b7280', lineHeight: 2 }}>
-                    <li>Abrí <strong>TikTok.com</strong> en Chrome e iniciá sesión con tu cuenta.</li>
-                    <li>Presioná <strong>F12</strong> para abrir las herramientas de desarrollador.</li>
-                    <li>Ir a la pestaña <strong>Aplicación</strong> (o Application).</li>
-                    <li>En el menú izquierdo: <strong>Cookies → https://www.tiktok.com</strong></li>
-                    <li>Buscá la cookie llamada <strong>sessionid</strong> y copiá su valor.</li>
-                    <li>Pegalo en el campo de arriba y hacé clic en Conectar.</li>
-                  </ol>
-                </div>
-              </>
+                {/* QR listo para escanear */}
+                {qrState === 'scanning' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      {qrImage
+                        ? <img src={`data:image/png;base64,${qrImage}`} alt="QR TikTok" style={{ width: 210, height: 210, borderRadius: 14, border: '4px solid #010101', display: 'block' }} />
+                        : <div style={{ width: 210, height: 210, borderRadius: 14, border: '4px solid #e5e7eb', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 24, color: '#9ca3af' }} /></div>
+                      }
+                      <div style={{ position: 'absolute', top: -10, right: -10, background: '#22c55e', borderRadius: 99, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff', animation: 'pulse 1.5s infinite' }} />
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'center' }}>
+                      <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: 14, color: '#1e293b' }}>Escaneá con TikTok</p>
+                      <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Esperando que escanees el QR…</p>
+                    </div>
+
+                    {/* Instrucciones */}
+                    <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '10px 14px', width: '100%', boxSizing: 'border-box' }}>
+                      <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: '#374151' }}>¿Cómo escanear?</p>
+                      <ol style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: '#6b7280', lineHeight: 1.8 }}>
+                        <li>Abrí <strong>TikTok</strong> en tu celular.</li>
+                        <li>Tocá tu <strong>Perfil</strong> → el ícono <strong>≡</strong> arriba a la derecha.</li>
+                        <li>Seleccioná <strong>"Iniciar sesión en otro dispositivo"</strong>.</li>
+                        <li>Apuntá la cámara al QR de arriba.</li>
+                      </ol>
+                    </div>
+
+                    <button onClick={cancelQR} style={{ background: 'none', border: '1px solid #e5e7eb', color: '#6b7280', fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 8, cursor: 'pointer' }}>
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+
+                {/* QR expirado */}
+                {(qrState === 'expired' || qrState === 'error') && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '16px 0' }}>
+                    <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: 28, color: '#ef4444' }} />
+                    <p style={{ margin: 0, fontSize: 13, color: '#6b7280', textAlign: 'center' }}>
+                      {qrState === 'expired' ? 'El QR expiró. Generá uno nuevo.' : 'No se pudo generar el QR.'}
+                    </p>
+                    <button onClick={startQR} style={{ ...s.btnTikTok, justifyContent: 'center', padding: '8px 18px' }}>
+                      <FontAwesomeIcon icon={faRotate} /> Nuevo QR
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -412,10 +480,10 @@ export default function TikTokAuto() {
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
                 'Solo necesitás tu cuenta personal de TikTok — sin apps de desarrollador.',
+                'Escaneá el QR con el celular igual que WhatsApp Web — sin copiar códigos.',
                 'La imagen 1080×1080 se convierte automáticamente a un video de 5 segundos.',
                 '6 plantillas rotativas con tus productos y precios.',
-                'El sessionid se renueva cuando iniciás sesión en TikTok; actualizalo si deja de funcionar.',
-                'Publicación automática configurable por hora y días de la semana.',
+                'Si la sesión expira, volvé a escanear el QR. Publicación automática por hora y días.',
               ].map((t, i) => <li key={i} style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{t}</li>)}
             </ul>
           </div>
