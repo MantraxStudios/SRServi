@@ -354,7 +354,6 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
 
       <div className="worker-orders-list tasks-list" style={{
         flex: 1, overflowY: 'auto', padding: '12px',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
         alignContent: 'start', scrollbarWidth: 'none'
       }}>
         {todayTasks.length === 0 ? (
