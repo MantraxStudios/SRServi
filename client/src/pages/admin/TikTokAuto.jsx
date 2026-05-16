@@ -6,7 +6,7 @@ import {
   faSave, faPlay, faEye, faDownload,
   faCheckCircle, faTimesCircle, faSpinner,
   faToggleOn, faToggleOff, faClock, faExclamationTriangle,
-  faUnlink, faQrcode, faRotate,
+  faUnlink, faQrcode, faRotate, faEnvelope, faLock, faUser,
 } from '@fortawesome/free-solid-svg-icons';
 
 const CSS = `
@@ -57,6 +57,12 @@ export default function TikTokAuto() {
   const [previews, setPreviews]   = useState({});
   const [lastStatus, setLastStatus] = useState(null);
   const [toast, setToast]         = useState(null);
+
+  // Login state
+  const [loginTab, setLoginTab]     = useState('creds'); // 'creds' | 'qr'
+  const [email, setEmail]           = useState('');
+  const [password, setPassword]     = useState('');
+  const [loggingIn, setLoggingIn]   = useState(false);
 
   // QR state
   const [qrState, setQrState]   = useState(null); // null | 'loading' | 'scanning' | 'expired' | 'error'
@@ -136,6 +142,25 @@ export default function TikTokAuto() {
     setQrState(null);
     setQrImage(null);
     if (storeId) fetch(`${API}/api/tiktok/${storeId}/qr-cancel`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+  };
+
+  const loginWithCreds = async () => {
+    if (!storeId || !email.trim() || !password.trim()) return;
+    setLoggingIn(true);
+    try {
+      const res = await fetch(`${API}/api/tiktok/${storeId}/login`, {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: email.trim(), password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setConnected(true);
+      setEmail('');
+      setPassword('');
+      showToast('¡Cuenta de TikTok conectada!');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { setLoggingIn(false); }
   };
 
   const save = async () => {
@@ -265,70 +290,85 @@ export default function TikTokAuto() {
               )}
             </div>
 
-            {/* QR Login */}
+            {/* Login */}
             {!connected && (
               <div>
-                {/* Estado inicial — botón de escanear */}
-                {qrState === null && (
-                  <button onClick={startQR} style={{ ...s.btnTikTok, width: '100%', justifyContent: 'center', padding: '12px 10px' }}>
-                    <FontAwesomeIcon icon={faQrcode} />
-                    {' Conectar con QR'}
-                  </button>
-                )}
+                {/* Pestañas */}
+                <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderRadius: 10, overflow: 'hidden', border: '1.5px solid #e5e7eb' }}>
+                  {[['creds', faUser, 'Email y contraseña'], ['qr', faQrcode, 'Código QR']].map(([tab, icon, label]) => (
+                    <button key={tab} onClick={() => { setLoginTab(tab); cancelQR(); }} style={{ flex: 1, padding: '9px 8px', border: 'none', background: loginTab === tab ? '#010101' : '#fff', color: loginTab === tab ? '#fff' : '#6b7280', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all .15s' }}>
+                      <FontAwesomeIcon icon={icon} />{label}
+                    </button>
+                  ))}
+                </div>
 
-                {/* Cargando QR */}
-                {qrState === 'loading' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '20px 0' }}>
-                    <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 28, color: '#010101' }} />
-                    <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>Generando código QR…</p>
+                {/* ── Tab: Email + contraseña ── */}
+                {loginTab === 'creds' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div>
+                      <label style={s.label}><FontAwesomeIcon icon={faEnvelope} style={{ marginRight: 6 }} />Email o usuario de TikTok</label>
+                      <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="tucuenta@email.com" style={s.input} onFocus={e => e.target.style.borderColor='#010101'} onBlur={e => e.target.style.borderColor='#e5e7eb'} />
+                    </div>
+                    <div>
+                      <label style={s.label}><FontAwesomeIcon icon={faLock} style={{ marginRight: 6 }} />Contraseña</label>
+                      <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="••••••••" style={s.input} onFocus={e => e.target.style.borderColor='#010101'} onBlur={e => e.target.style.borderColor='#e5e7eb'} onKeyDown={e => e.key === 'Enter' && loginWithCreds()} />
+                    </div>
+                    <button onClick={loginWithCreds} disabled={loggingIn || !email.trim() || !password.trim()} style={{ ...s.btnTikTok, width: '100%', justifyContent: 'center', padding: '11px', opacity: (loggingIn || !email.trim() || !password.trim()) ? 0.5 : 1 }}>
+                      {loggingIn ? <><FontAwesomeIcon icon={faSpinner} spin /> Iniciando sesión…</> : <><TikTokIcon size={15} /> Conectar con TikTok</>}
+                    </button>
+                    {loggingIn && <p style={{ margin: 0, fontSize: 11, color: '#6b7280', textAlign: 'center' }}>Esto puede tardar hasta 30 segundos…</p>}
+                    <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>Tu contraseña no se guarda — solo se usa para obtener el token de sesión.</p>
                   </div>
                 )}
 
-                {/* QR listo para escanear */}
-                {qrState === 'scanning' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                    <div style={{ position: 'relative', display: 'inline-block' }}>
-                      {qrImage
-                        ? <img src={`data:image/png;base64,${qrImage}`} alt="QR TikTok" style={{ width: 210, height: 210, borderRadius: 14, border: '4px solid #010101', display: 'block' }} />
-                        : <div style={{ width: 210, height: 210, borderRadius: 14, border: '4px solid #e5e7eb', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 24, color: '#9ca3af' }} /></div>
-                      }
-                      <div style={{ position: 'absolute', top: -10, right: -10, background: '#22c55e', borderRadius: 99, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff', animation: 'pulse 1.5s infinite' }} />
+                {/* ── Tab: QR ── */}
+                {loginTab === 'qr' && (
+                  <div>
+                    {qrState === null && (
+                      <button onClick={startQR} style={{ ...s.btnTikTok, width: '100%', justifyContent: 'center', padding: '12px 10px' }}>
+                        <FontAwesomeIcon icon={faQrcode} /> Generar código QR
+                      </button>
+                    )}
+                    {qrState === 'loading' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '20px 0' }}>
+                        <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 28, color: '#010101' }} />
+                        <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>Generando código QR…</p>
                       </div>
-                    </div>
-
-                    <div style={{ textAlign: 'center' }}>
-                      <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: 14, color: '#1e293b' }}>Escaneá con TikTok</p>
-                      <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>Esperando que escanees el QR…</p>
-                    </div>
-
-                    {/* Instrucciones */}
-                    <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '10px 14px', width: '100%', boxSizing: 'border-box' }}>
-                      <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: '#374151' }}>¿Cómo escanear?</p>
-                      <ol style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: '#6b7280', lineHeight: 1.8 }}>
-                        <li>Abrí <strong>TikTok</strong> en tu celular.</li>
-                        <li>Tocá tu <strong>Perfil</strong> → el ícono <strong>≡</strong> arriba a la derecha.</li>
-                        <li>Seleccioná <strong>"Iniciar sesión en otro dispositivo"</strong>.</li>
-                        <li>Apuntá la cámara al QR de arriba.</li>
-                      </ol>
-                    </div>
-
-                    <button onClick={cancelQR} style={{ background: 'none', border: '1px solid #e5e7eb', color: '#6b7280', fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 8, cursor: 'pointer' }}>
-                      Cancelar
-                    </button>
-                  </div>
-                )}
-
-                {/* QR expirado */}
-                {(qrState === 'expired' || qrState === 'error') && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '16px 0' }}>
-                    <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: 28, color: '#ef4444' }} />
-                    <p style={{ margin: 0, fontSize: 13, color: '#6b7280', textAlign: 'center' }}>
-                      {qrState === 'expired' ? 'El QR expiró. Generá uno nuevo.' : 'No se pudo generar el QR.'}
-                    </p>
-                    <button onClick={startQR} style={{ ...s.btnTikTok, justifyContent: 'center', padding: '8px 18px' }}>
-                      <FontAwesomeIcon icon={faRotate} /> Nuevo QR
-                    </button>
+                    )}
+                    {qrState === 'scanning' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                        <div style={{ position: 'relative', display: 'inline-block' }}>
+                          {qrImage
+                            ? <img src={`data:image/png;base64,${qrImage}`} alt="QR TikTok" style={{ width: 210, height: 210, borderRadius: 14, border: '4px solid #010101', display: 'block' }} />
+                            : <div style={{ width: 210, height: 210, borderRadius: 14, border: '4px solid #e5e7eb', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 24, color: '#9ca3af' }} /></div>
+                          }
+                          <div style={{ position: 'absolute', top: -8, right: -8, background: '#22c55e', borderRadius: 99, width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />
+                          </div>
+                        </div>
+                        <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: '#1e293b', textAlign: 'center' }}>Escaneá con TikTok en tu celular</p>
+                        <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '10px 14px', width: '100%', boxSizing: 'border-box' }}>
+                          <ol style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: '#6b7280', lineHeight: 1.8 }}>
+                            <li>Abrí <strong>TikTok</strong> en tu celular.</li>
+                            <li>Tocá <strong>Perfil</strong> → ícono <strong>≡</strong> arriba a la derecha.</li>
+                            <li>Seleccioná <strong>"Iniciar sesión en otro dispositivo"</strong>.</li>
+                            <li>Apuntá la cámara al QR de arriba.</li>
+                          </ol>
+                        </div>
+                        <button onClick={cancelQR} style={{ background: 'none', border: '1px solid #e5e7eb', color: '#6b7280', fontSize: 12, fontWeight: 600, padding: '6px 14px', borderRadius: 8, cursor: 'pointer' }}>
+                          Cancelar
+                        </button>
+                      </div>
+                    )}
+                    {(qrState === 'expired' || qrState === 'error') && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '12px 0' }}>
+                        <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: 26, color: '#ef4444' }} />
+                        <p style={{ margin: 0, fontSize: 13, color: '#6b7280', textAlign: 'center' }}>{qrState === 'expired' ? 'El QR expiró.' : 'No se pudo generar el QR.'}</p>
+                        <button onClick={startQR} style={{ ...s.btnTikTok, justifyContent: 'center', padding: '8px 18px' }}>
+                          <FontAwesomeIcon icon={faRotate} /> Nuevo QR
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

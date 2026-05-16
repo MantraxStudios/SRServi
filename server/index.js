@@ -9405,7 +9405,7 @@ async function startServer() {
 
     // ─── TikTok Auto-Post ────────────────────────────────────────────────────
 
-    const { postToTikTok, startQRLogin, getQRStatus, cancelQRLogin } = await import('./tiktok-service.js');
+    const { postToTikTok, startQRLogin, getQRStatus, cancelQRLogin, loginWithCredentials } = await import('./tiktok-service.js');
 
     app.get('/api/tiktok/:storeId', authenticateToken, async (req, res) => {
       try {
@@ -9426,6 +9426,19 @@ async function startServer() {
         await saveTikTokConfig(req.params.storeId, { caption_template, enabled, post_time, post_days });
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Login con email + contraseña
+    app.post('/api/tiktok/:storeId/login', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const { email, password } = req.body;
+        if (!email?.trim() || !password?.trim()) return res.status(400).json({ error: 'Email y contraseña requeridos' });
+        const sessionId = await loginWithCredentials(email.trim(), password);
+        await saveTikTokSession(req.params.storeId, sessionId);
+        res.json({ ok: true });
+      } catch (e) { res.status(400).json({ error: e.message }); }
     });
 
     // Iniciar sesión QR (WhatsApp-style) — abre browser headless y devuelve imagen QR

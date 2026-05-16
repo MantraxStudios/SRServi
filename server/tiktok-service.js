@@ -7,30 +7,27 @@ import { execSync } from 'child_process';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const TMP   = join(__dir, 'tmp-tiktok');
 
-// ─── Todo lo de Chrome se calcula SOLO cuando se necesita ─────────────────
+// ─── Browser con stealth (evita detección de bot) ─────────────────────────
 
-function getLaunchOpts() {
-  const candidates = [
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/google-chrome',
-  ];
-  let executablePath;
-  for (const p of candidates) {
-    try { if (existsSync(p)) { executablePath = p; break; } } catch { /* skip */ }
+function findChromiumPath() {
+  for (const p of ['/usr/bin/chromium-browser', '/usr/bin/chromium', '/usr/bin/google-chrome-stable', '/usr/bin/google-chrome']) {
+    try { if (existsSync(p)) return p; } catch { /* skip */ }
   }
-  return {
-    headless: true,
-    executablePath,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-  };
+  return undefined;
 }
 
-async function launchBrowser() {
-  const { chromium } = await import('playwright');
-  return chromium.launch(getLaunchOpts());
+async function launchStealth() {
+  const { chromium } = await import('playwright-extra');
+  const { default: stealth } = await import('playwright-extra-plugin-stealth');
+  chromium.use(stealth());
+  return chromium.launch({
+    headless:       true,
+    executablePath: findChromiumPath(),
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+  });
 }
+
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -53,6 +50,62 @@ function sessionCookies(sessionId) {
   ];
 }
 
+// ─── Login con email + contraseña ─────────────────────────────────────────
+
+export async function loginWithCredentials(email, password) {
+  const browser = await launchStealth();
+  const context = await browser.newContext({ userAgent: UA, viewport: { width: 1280, height: 800 } });
+  const page    = await context.newPage();
+
+  try {
+    await page.goto('https://www.tiktok.com/login/phone-or-email/email', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForTimeout(2000);
+
+    // Llenar email
+    const emailSel = 'input[name="username"], input[type="email"], input[autocomplete="username"]';
+    await page.waitForSelector(emailSel, { timeout: 15000 });
+    await page.fill(emailSel, email);
+    await page.waitForTimeout(500);
+
+    // Llenar contraseña
+    const passSel = 'input[type="password"]';
+    await page.waitForSelector(passSel, { timeout: 10000 });
+    await page.fill(passSel, password);
+    await page.waitForTimeout(500);
+
+    // Click login
+    const btnSel = 'button[type="submit"], [data-e2e="login-button"]';
+    await page.waitForSelector(btnSel, { timeout: 10000 });
+    await page.click(btnSel);
+
+    // Esperar resultado — redirige o muestra error
+    await page.waitForTimeout(5000);
+
+    const url = page.url();
+
+    // Verificar si hay captcha o verificación
+    if (url.includes('/login')) {
+      const pageText = await page.innerText('body').catch(() => '');
+      if (pageText.toLowerCase().includes('captcha') || pageText.toLowerCase().includes('verify')) {
+        throw new Error('TikTok pide verificación (CAPTCHA). Intentá de nuevo en unos minutos.');
+      }
+      if (pageText.toLowerCase().includes('incorrect') || pageText.toLowerCase().includes('incorrecto') || pageText.toLowerCase().includes('wrong')) {
+        throw new Error('Email o contraseña incorrectos.');
+      }
+      throw new Error('No se pudo iniciar sesión. Verificá tus credenciales.');
+    }
+
+    // Extraer sessionid
+    const cookies = await context.cookies('https://www.tiktok.com');
+    const session = cookies.find(c => c.name === 'sessionid' && c.value?.length > 10);
+    if (!session) throw new Error('Sesión iniciada pero no se pudo obtener el token. Intentá de nuevo.');
+
+    return session.value;
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
 // ─── Post a TikTok via Playwright ─────────────────────────────────────────
 
 export async function postToTikTok({ sessionId, imageBuffer, caption }) {
@@ -62,23 +115,17 @@ export async function postToTikTok({ sessionId, imageBuffer, caption }) {
   const vidPath = join(TMP, `${base}.mp4`);
   await writeFile(imgPath, imageBuffer);
 
-  const browser = await launchBrowser();
+  const browser = await launchStealth();
   try {
     imageToVideo(imgPath, vidPath);
-    const context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      viewport:  { width: 1280, height: 900 },
-    });
+    const context = await browser.newContext({ userAgent: UA, viewport: { width: 1280, height: 900 } });
     await context.addCookies(sessionCookies(sessionId));
     const page = await context.newPage();
     await page.goto('https://www.tiktok.com/tiktokstudio/upload', { waitUntil: 'domcontentloaded', timeout: 30000 });
     const fileInput = await page.waitForSelector('input[type="file"]', { timeout: 20000 });
     await fileInput.setInputFiles(vidPath);
     await page.waitForSelector('[class*="upload-progress"], [class*="uploading"]', { timeout: 10000 }).catch(() => {});
-    await page.waitForFunction(
-      () => !document.querySelector('[class*="uploading"], [class*="upload-progress"]'),
-      { timeout: 120000 }
-    );
+    await page.waitForFunction(() => !document.querySelector('[class*="uploading"], [class*="upload-progress"]'), { timeout: 120000 });
     const captionBox = await page.waitForSelector('[data-e2e="caption-input"], [class*="caption"] [contenteditable], .public-DraftEditor-content', { timeout: 15000 });
     await captionBox.click({ clickCount: 3 });
     await captionBox.fill('');
@@ -119,18 +166,13 @@ async function captureQR(page) {
 export async function startQRLogin(storeId) {
   await cleanupQRSession(storeId);
 
-  const browser = await launchBrowser();
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    viewport:  { width: 1280, height: 800 },
-  });
-  const page = await context.newPage();
+  const browser = await launchStealth();
+  const context = await browser.newContext({ userAgent: UA, viewport: { width: 1280, height: 800 } });
+  const page    = await context.newPage();
 
   const session = {
     browser, context, page,
-    status:    'pending',
-    sessionId: null,
-    qrBase64:  null,
+    status: 'pending', sessionId: null, qrBase64: null,
     expiresAt: Date.now() + 5 * 60 * 1000,
     pollTimer: null,
   };
@@ -156,10 +198,9 @@ export async function startQRLogin(storeId) {
     }
     try {
       const cookies = await s.context.cookies('https://www.tiktok.com');
-      const cookie  = cookies.find(c => c.name === 'sessionid' && c.value && c.value.length > 10);
+      const cookie  = cookies.find(c => c.name === 'sessionid' && c.value?.length > 10);
       if (cookie) {
-        s.status    = 'connected';
-        s.sessionId = cookie.value;
+        s.status = 'connected'; s.sessionId = cookie.value;
         clearInterval(s.pollTimer);
         setTimeout(() => s.browser.close().catch(() => {}), 5000);
         return;
@@ -175,11 +216,7 @@ export async function startQRLogin(storeId) {
 export async function getQRStatus(storeId) {
   const s = qrSessions.get(String(storeId));
   if (!s) return { status: 'none', qr: null, sessionId: null };
-  const result = {
-    status:    s.status,
-    qr:        s.status === 'pending' ? s.qrBase64 : null,
-    sessionId: s.status === 'connected' ? s.sessionId : null,
-  };
+  const result = { status: s.status, qr: s.status === 'pending' ? s.qrBase64 : null, sessionId: s.status === 'connected' ? s.sessionId : null };
   if (s.status !== 'pending') qrSessions.delete(String(storeId));
   return result;
 }
