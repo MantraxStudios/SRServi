@@ -112,6 +112,7 @@ const CSS = `
   }
   .rv-headline {
     font-size: clamp(72px, 20vw, 200px);
+    font-family: 'Nunito', system-ui, sans-serif;
     font-weight: 900;
     text-align: center;
     letter-spacing: -0.5px;
