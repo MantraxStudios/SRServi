@@ -180,7 +180,7 @@ function TaskDetailModal({ task, getTaskStatus, getCountdown, completeTask, comp
   );
 }
 
-function MiniTaskCard({ task, getTaskStatus, getCountdown }) {
+function MiniTaskCard({ task, getTaskStatus, getCountdown, completeTask, completingTask }) {
   const status = getTaskStatus(task);
   const [countdown, setCountdown] = useState(status === 'active' ? getCountdown(task) : null);
 
@@ -199,25 +199,28 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown }) {
     ? new Date(task.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
     : null;
 
+  const isCompleting = completingTask === task.id;
+
   const statusCfg = {
     active:    { label: 'Activa',     bg: 'rgba(212,175,55,0.12)',  color: '#D4AF37',  border: 'rgba(212,175,55,0.3)' },
     completed: { label: 'Completada', bg: 'rgba(22,163,74,0.10)',   color: '#16a34a',  border: 'rgba(22,163,74,0.25)' },
     expired:   { label: 'Vencida',    bg: 'rgba(239,68,68,0.10)',   color: '#ef4444',  border: 'rgba(239,68,68,0.25)' },
-    upcoming:  { label: 'Próxima',    bg: 'rgba(255,255,255,0.06)', color: '#888',     border: 'rgba(255,255,255,0.1)' },
+    upcoming:  { label: 'Próxima',    bg: 'rgba(255,255,255,0.06)', color: '#999',     border: 'rgba(255,255,255,0.1)' },
   }[status] || { label: status, bg: '#1a1a1a', color: '#888', border: '#333' };
-
-  const cardBorder = status === 'active' ? 'rgba(212,175,55,0.35)'
-    : status === 'completed' ? 'rgba(22,163,74,0.2)'
-    : 'rgba(0,0,0,0.08)';
 
   return (
     <div
       className="worker-order-card"
-      style={{ border: `1px solid ${cardBorder}`, opacity: status === 'completed' ? 0.75 : 1, cursor: 'default' }}
+      style={{
+        border: status === 'active' ? '2px solid #D4AF37' : '1px solid rgba(0,0,0,0.08)',
+        boxShadow: status === 'active' ? '0 0 0 3px rgba(212,175,55,0.15), 0 2px 8px rgba(0,0,0,0.06)' : '0 2px 8px rgba(0,0,0,0.06)',
+        opacity: status === 'completed' ? 0.7 : 1,
+        cursor: 'default',
+      }}
     >
       {/* Header: nombre + badge estado */}
       <div className="worker-order-header">
-        <h3 className="worker-order-number" style={{ fontSize: 14 }}>{task.name}</h3>
+        <h3 className="worker-order-number">{task.name}</h3>
         <span style={{
           fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, flexShrink: 0,
           background: statusCfg.bg, color: statusCfg.color, border: `1px solid ${statusCfg.border}`,
@@ -227,133 +230,53 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown }) {
         </span>
       </div>
 
-      {/* Horario */}
-      <div className="worker-order-info" style={{ marginBottom: task.description ? 8 : 0 }}>
-        <span style={{ fontSize: 12, color: '#888', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <FontAwesomeIcon icon={faClock} style={{ fontSize: 10, color: '#D4AF37' }} />
-          {task.due_time} – {expireStr}
-        </span>
-        {status === 'completed' && completedTime && (
-          <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
-            <FontAwesomeIcon icon={faCheck} /> {completedTime}
-          </span>
-        )}
-      </div>
-
       {/* Descripción (como items preview) */}
       {task.description && (
-        <div className="worker-order-items-preview" style={{ marginBottom: status === 'active' ? 8 : 0 }}>
-          <span style={{ fontSize: 12, color: '#666', lineHeight: 1.5 }}>{task.description}</span>
+        <div className="worker-order-items-preview">
+          <span style={{ fontSize: 13, color: '#555', lineHeight: 1.5 }}>{task.description}</span>
         </div>
       )}
 
-      {/* Countdown si activa */}
-      {status === 'active' && (
-        <div style={{
-          fontSize: 20, fontWeight: 900, color: '#D4AF37',
-          letterSpacing: 2, fontVariantNumeric: 'tabular-nums'
-        }}>
-          {countdown || '—'}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function BigActiveTask({ task, getCountdown, completeTask, completingTask }) {
-  const [countdown, setCountdown] = useState(getCountdown(task));
-  useEffect(() => {
-    const interval = setInterval(() => setCountdown(getCountdown(task)), 1000);
-    return () => clearInterval(interval);
-  }, [task.id]);
-
-  const [dh, dm] = task.due_time.split(':').map(Number);
-  const expireDate = new Date(); expireDate.setHours(dh, dm + 60, 0, 0);
-  const expireStr = expireDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  const isCompleting = completingTask === task.id;
-
-  return (
-    <div style={{
-      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '24px 20px', overflowY: 'auto'
-    }}>
-      {/* Tarjeta estilo pedido */}
-      <div style={{
-        background: '#ffffff', borderRadius: 16,
-        padding: '20px 22px', width: '100%', maxWidth: 420,
-        border: '1px solid rgba(0,0,0,0.08)',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-        display: 'flex', flexDirection: 'column', gap: 0
-      }}>
-        {/* Header: nombre + badge activo */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#0a0a0a', lineHeight: 1.2, flex: 1, paddingRight: 10 }}>
-            {task.name}
-          </h3>
-          <span style={{
-            fontSize: 10, fontWeight: 800, padding: '3px 10px', borderRadius: 20, flexShrink: 0,
-            color: '#D4AF37', border: '1px solid rgba(212,175,55,0.4)',
-            background: 'rgba(212,175,55,0.08)', letterSpacing: 0.8, textTransform: 'uppercase'
-          }}>
-            Activa
-          </span>
+      {/* Footer: horario + countdown/estado + check */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#888' }}>
+          <FontAwesomeIcon icon={faClock} style={{ fontSize: 11, color: '#D4AF37' }} />
+          {task.due_time} – {expireStr}
         </div>
 
-        {/* Horario */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          marginBottom: 12, fontSize: 13, color: '#888'
-        }}>
-          <FontAwesomeIcon icon={faClock} style={{ color: '#D4AF37', fontSize: 11 }} />
-          <span>{task.due_time} – {expireStr}</span>
-        </div>
-
-        {/* Descripción (como items preview) */}
-        {task.description && (
-          <div style={{
-            background: '#f8f8f8', borderRadius: 8,
-            padding: '10px 12px', marginBottom: 16,
-            fontSize: 14, color: '#555', lineHeight: 1.6
-          }}>
-            {task.description}
-          </div>
-        )}
-
-        {/* Countdown */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 16, marginTop: task.description ? 0 : 4
-        }}>
-          <div>
-            <div style={{ fontSize: 11, color: '#aaa', marginBottom: 2 }}>Tiempo restante</div>
-            <div style={{
-              fontSize: 38, fontWeight: 900, color: '#D4AF37',
-              letterSpacing: 2, lineHeight: 1, fontVariantNumeric: 'tabular-nums'
-            }}>
-              {isCompleting ? '...' : (countdown || '00:00')}
-            </div>
-          </div>
-
-          {/* Botón check verde */}
-          <button
-            onClick={() => !isCompleting && completeTask(task.id)}
-            disabled={isCompleting}
-            style={{
-              width: 64, height: 64, borderRadius: '50%', border: 'none',
-              background: isCompleting ? '#e5e7eb' : '#16a34a',
-              color: '#fff', fontSize: 26, cursor: isCompleting ? 'default' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: isCompleting ? 'none' : '0 4px 16px rgba(22,163,74,0.35)',
-              transition: 'all 0.15s', flexShrink: 0
-            }}
-          >
-            <FontAwesomeIcon icon={faCheck} />
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {status === 'active' && (
+            <span style={{ fontSize: 16, fontWeight: 900, color: '#D4AF37', letterSpacing: 2, fontVariantNumeric: 'tabular-nums' }}>
+              {isCompleting ? '...' : (countdown || '—')}
+            </span>
+          )}
+          {status === 'completed' && completedTime && (
+            <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
+              <FontAwesomeIcon icon={faCheck} /> {completedTime}
+            </span>
+          )}
+          {status === 'active' && (
+            <button
+              onClick={() => !isCompleting && completeTask(task.id)}
+              disabled={isCompleting}
+              style={{
+                width: 36, height: 36, borderRadius: '50%', border: 'none',
+                background: isCompleting ? '#e5e7eb' : '#16a34a',
+                color: '#fff', fontSize: 15, cursor: isCompleting ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: isCompleting ? 'none' : '0 2px 8px rgba(22,163,74,0.35)',
+                transition: 'all 0.15s', flexShrink: 0
+              }}
+            >
+              <FontAwesomeIcon icon={faCheck} />
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
 
 function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError, tasksLoading, getTaskStatus, getCountdown }) {
   const todayDow = new Date().getDay();
@@ -374,7 +297,6 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
 
   const todayTasks = tasks.filter(t => t.day_of_week === todayDow);
   const doneCnt = todayTasks.filter(t => t.completed_at).length;
-  const activeTask = todayTasks.find(t => getTaskStatus(t) === 'active') || null;
 
   return (
     <div style={{
@@ -429,56 +351,25 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
         </span>
       </div>
 
-      {/* Layout dos paneles */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-
-        {/* Columna izquierda — tarjetas de tareas */}
-        <div style={{
-          width: 280, flexShrink: 0,
-          borderRight: '1px solid #1e1e1e',
-          overflowY: 'auto', padding: '12px 10px',
-          display: 'flex', flexDirection: 'column', gap: 10,
-          scrollbarWidth: 'none'
-        }}>
-          {todayTasks.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#555', fontSize: 12, padding: '24px 0', fontStyle: 'italic' }}>
-              Sin tareas hoy
-            </div>
-          ) : (
-            todayTasks.map(task => (
-              <MiniTaskCard
-                key={task.id}
-                task={task}
-                getTaskStatus={getTaskStatus}
-                getCountdown={getCountdown}
-              />
-            ))
-          )}
-        </div>
-
-        {/* Panel central — tarea activa */}
-        {activeTask ? (
-          <BigActiveTask
-            task={activeTask}
-            getCountdown={getCountdown}
-            completeTask={completeTask}
-            completingTask={completingTask}
-          />
+      {/* Lista de tarjetas a ancho completo */}
+      <div className="worker-orders-list" style={{
+        flex: 1, overflowY: 'auto', padding: '12px',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+        alignContent: 'start', scrollbarWidth: 'none'
+      }}>
+        {todayTasks.length === 0 ? (
+          <div className="empty-state"><p>No hay tareas para hoy</p></div>
         ) : (
-          <div style={{
-            flex: 1, display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24
-          }}>
-            <FontAwesomeIcon icon={faCheck} style={{ fontSize: 48, color: '#1e1e1e' }} />
-            <span style={{ fontSize: 16, fontWeight: 700, color: '#333' }}>
-              {todayTasks.length === 0 ? 'No hay tareas para hoy' : 'Ninguna tarea activa ahora'}
-            </span>
-            {todayTasks.some(t => getTaskStatus(t) === 'upcoming') && (
-              <span style={{ fontSize: 13, color: '#555' }}>
-                La próxima tarea comenzará a las {todayTasks.find(t => getTaskStatus(t) === 'upcoming')?.due_time}
-              </span>
-            )}
-          </div>
+          todayTasks.map(task => (
+            <MiniTaskCard
+              key={task.id}
+              task={task}
+              getTaskStatus={getTaskStatus}
+              getCountdown={getCountdown}
+              completeTask={completeTask}
+              completingTask={completingTask}
+            />
+          ))
         )}
       </div>
     </div>
