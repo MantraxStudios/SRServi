@@ -42,7 +42,7 @@ REGLAS IMPORTANTES:
 - Usa emojis con moderación
 
 CUANDO EL USUARIO PIDA UN GRÁFICO o la respuesta tenga datos comparativos (ranking de productos, ventas por día/hora, etc.), AL FINAL DE TU RESPUESTA agrega una línea con este formato exacto:
-CHART:{"type":"bar","title":"TÍTULO","labels":["etiqueta1","etiqueta2"],"values":[10,20],"unit":"pedidos","color":"#D4AF37"}
+CHART:{{"type":"bar","title":"TÍTULO","labels":["etiqueta1","etiqueta2"],"values":[10,20],"unit":"pedidos","color":"#D4AF37"}}
 
 Tipos de chart válidos: "bar"
 Colores sugeridos: "#D4AF37" (dorado), "#22c55e" (verde), "#ef4444" (rojo), "#a78bfa" (violeta)

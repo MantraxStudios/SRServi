@@ -280,7 +280,8 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown, completeTask, complet
 
 function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError, tasksLoading, getTaskStatus, getCountdown }) {
   const todayDow = new Date().getDay();
-  const totalDone = tasks.filter(t => t.completed_at).length;
+  const todayTasks = tasks.filter(t => t.day_of_week === todayDow);
+  const totalDone = todayTasks.filter(t => t.completed_at).length;
 
   if (tasksLoading) {
     return (
@@ -295,9 +296,6 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
     );
   }
 
-  const todayTasks = tasks.filter(t => t.day_of_week === todayDow);
-  const doneCnt = todayTasks.filter(t => t.completed_at).length;
-
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
@@ -305,7 +303,7 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
       overflow: 'hidden',
       background: '#0a0a0a'
     }}>
-      {/* Barra de progreso semanal */}
+      {/* Barra de progreso del día */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '6px 12px', borderBottom: '1px solid #1e1e1e', flexShrink: 0
@@ -323,16 +321,16 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
         )}
         {!taskError && (
           <>
-            <span style={{ fontSize: 11, color: '#666', flexShrink: 0 }}>Semana</span>
+            <span style={{ fontSize: 11, color: '#666', flexShrink: 0 }}>Hoy</span>
             <div style={{ flex: 1, height: 3, background: '#1e1e1e', borderRadius: 4, overflow: 'hidden' }}>
               <div style={{
                 height: '100%', borderRadius: 4, background: '#D4AF37',
-                width: tasks.length > 0 ? ((totalDone / tasks.length) * 100) + '%' : '0%',
+                width: todayTasks.length > 0 ? ((totalDone / todayTasks.length) * 100) + '%' : '0%',
                 transition: 'width 0.3s'
               }} />
             </div>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#D4AF37', flexShrink: 0 }}>
-              {totalDone}/{tasks.length}
+              {totalDone}/{todayTasks.length}
             </span>
           </>
         )}
@@ -346,8 +344,8 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
         <span style={{ fontSize: 13, fontWeight: 800, color: '#D4AF37', textTransform: 'uppercase', letterSpacing: 1 }}>
           {DAY_SHORT[todayDow]} — Hoy
         </span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: doneCnt === todayTasks.length && todayTasks.length > 0 ? '#16a34a' : '#666' }}>
-          {doneCnt}/{todayTasks.length} completadas
+        <span style={{ fontSize: 12, fontWeight: 700, color: totalDone === todayTasks.length && todayTasks.length > 0 ? '#16a34a' : '#666' }}>
+          {totalDone}/{todayTasks.length} completadas
         </span>
       </div>
 
