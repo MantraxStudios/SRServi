@@ -10,6 +10,7 @@ import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
+import AdmZip from 'adm-zip';
 import { execFile } from 'child_process';
 import speakeasy from 'speakeasy';
 import bcrypt from 'bcryptjs';
@@ -10440,6 +10441,40 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
         if (!ok) return res.status(404).json({ error: 'Mensaje no encontrado o ya procesado' });
         res.json({ success: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Windows app download — generates a zip with store-specific config injected
+    app.get('/api/apps/windows', authenticateToken, async (req, res) => {
+      try {
+        const { storeCode } = req.query;
+        if (!storeCode) return res.status(400).json({ error: 'storeCode requerido' });
+
+        const [stores] = await pool.execute(
+          'SELECT * FROM stores WHERE code = ? AND user_id = ?',
+          [storeCode.toUpperCase(), req.user.id]
+        );
+        if (!stores.length) return res.status(403).json({ error: 'Tienda no encontrada' });
+        const store = stores[0];
+
+        const publishDir = path.join(__serverDir, 'web', 'windows', 'bin', 'Release', 'net10.0-windows', 'win-x64', 'publish');
+        if (!fs.existsSync(publishDir)) {
+          return res.status(503).json({ error: 'La app aún no está compilada. Contacta soporte.' });
+        }
+
+        const zip = new AdmZip();
+        zip.addLocalFolder(publishDir, 'SRServi-Totem');
+        const config = JSON.stringify({ url: `https://srservi2.srautomatic.com/store/${store.code}` });
+        zip.addFile('SRServi-Totem/config.json', Buffer.from(config, 'utf8'));
+
+        const zipBuffer = zip.toBuffer();
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="SRServi-Totem-${store.code}.zip"`);
+        res.setHeader('Content-Length', zipBuffer.length);
+        res.send(zipBuffer);
+      } catch (err) {
+        console.error('[Apps/Windows] Error:', err.message);
+        res.status(500).json({ error: 'Error generando la app' });
+      }
     });
 
     // Cron: procesar mensajes programados cada minuto

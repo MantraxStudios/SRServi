@@ -42,6 +42,8 @@ import {
   faMotorcycle,
   faBell,
   faVideo,
+  faDownload,
+  faLaptop,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -68,6 +70,7 @@ function Layout() {
   const [duplicateName, setDuplicateName] = useState('');
   const [duplicateLoading, setDuplicateLoading] = useState(false);
   const [duplicateError, setDuplicateError] = useState('');
+  const [appDownloading, setAppDownloading] = useState(false);
 
   useEffect(() => {
     if (isEditorMode) setMenuOpen(prev => prev === false ? true : prev);
@@ -236,6 +239,34 @@ function Layout() {
 
   const toggleDropdown = (key) => {
     setOpenDropdowns(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleDownloadWindowsApp = async () => {
+    if (!selectedStore || appDownloading) return;
+    setAppDownloading(true);
+    try {
+      const res = await fetch(`${API}/api/apps/windows?storeCode=${selectedStore.code}`, {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Error al descargar la app');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SRServi-Totem-${selectedStore.code}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Error de conexión al descargar la app');
+    } finally {
+      setAppDownloading(false);
+    }
   };
 
   const colors = selectedStore ? {
@@ -592,6 +623,52 @@ function Layout() {
                           <FontAwesomeIcon icon={faTicketAlt} />
                           <span>Soporte</span>
                         </NavLink>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sub-dropdown: Mis Apps */}
+                  <div className="subdropdown-container">
+                    <button className={`subdropdown-header${openDropdowns['misapps'] ? ' open' : ''}`} onClick={() => toggleDropdown('misapps')}>
+                      <FontAwesomeIcon icon={faLaptop} />
+                      <span>Mis Apps</span>
+                      <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['misapps'] ? 180 : 0} />
+                    </button>
+                    {openDropdowns['misapps'] && (
+                      <div className="subdropdown-content">
+                        <div className="dropdown-item" style={{ cursor: 'default', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                            <FontAwesomeIcon icon={faLaptop} style={{ color: '#D4AF37' }} />
+                            <span style={{ fontWeight: '600', color: '#fff', fontSize: '13px' }}>Tótem Windows</span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: '11px', color: '#888', lineHeight: '1.4' }}>
+                            Descarga el cliente configurado para tu tienda <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong>
+                          </p>
+                          <button
+                            onClick={handleDownloadWindowsApp}
+                            disabled={appDownloading || !selectedStore}
+                            style={{
+                              marginTop: '4px', width: '100%', padding: '8px 12px',
+                              background: appDownloading ? 'rgba(212,175,55,0.3)' : '#D4AF37',
+                              border: 'none', borderRadius: '8px', color: '#000',
+                              fontWeight: '700', fontSize: '12px', cursor: appDownloading ? 'not-allowed' : 'pointer',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            {appDownloading ? (
+                              <>
+                                <div style={{ width: '11px', height: '11px', border: '2px solid rgba(0,0,0,0.3)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                                Generando...
+                              </>
+                            ) : (
+                              <>
+                                <FontAwesomeIcon icon={faDownload} />
+                                Descargar .zip
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
