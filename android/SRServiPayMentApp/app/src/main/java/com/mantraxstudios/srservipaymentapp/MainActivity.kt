@@ -18,17 +18,31 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "TUU_TEST"
-        private const val TUU_DEV = "com.haulmer.paymentapp.dev"
+        private const val TUU_PACKAGE_NAME = "com.haulmer.paymentapp.dev"
     }
 
-    // Registrar en la Activity, tal como indica la documentación TUU
+    // ── Exactamente como muestra la documentación TUU ──
     private val paymentLauncher: ActivityResultLauncher<Intent> = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        // NO llamar result.data.toString() — puede crashear si TUU incluye Parcelables desconocidos
-        Log.d(TAG, "=== RESULTADO ===  resultCode=${result.resultCode}  dataIsNull=${result.data == null}")
-        Toast.makeText(this, "TUU respondió — código: ${result.resultCode}", Toast.LENGTH_LONG).show()
-        handlePaymentResult(result.resultCode, result.data)
+        if (result.resultCode == Activity.RESULT_OK) {
+            val data = result.data
+            if (data != null && data.hasExtra("transactionResult")) {
+                val resultJson = try { data.getStringExtra("transactionResult") } catch (e: Exception) { null }
+                Log.d(TAG, "Resultado OK: $resultJson")
+                showSuccess(resultJson)
+            }
+        } else if (result.resultCode == Activity.RESULT_CANCELED) {
+            val data = result.data
+            if (data != null && data.hasExtra("transactionResult")) {
+                val errorJson = try { data.getStringExtra("transactionResult") } catch (e: Exception) { null }
+                Log.e(TAG, "Error: $errorJson")
+                showError(errorJson)
+            } else {
+                Log.w(TAG, "Operación cancelada por el usuario.")
+                showCancelled()
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,12 +50,15 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
-
         binding.btnPay.setOnClickListener { sendPaymentIntent() }
     }
 
+    // ── Exactamente como muestra la documentación TUU ──
     private fun sendPaymentIntent() {
-        if (isFinishing || isDestroyed) return
+        if (isFinishing || isDestroyed) {
+            Log.d(TAG, "La actividad está finalizando. No se puede enviar el intent.")
+            return
+        }
 
         val amountStr = binding.etAmount.text?.toString()?.trim()
         if (amountStr.isNullOrEmpty()) {
@@ -59,123 +76,85 @@ class MainActivity : AppCompatActivity() {
             R.id.rbMethodDebit -> 2
             else -> 0
         }
-        // tip=0 → TUU pregunta propina en el terminal (requerido cuando el terminal tiene tips activos)
-        // tip=-1 solo funciona si TUU tiene tips deshabilitados en back office
-        val tip = 0
 
+        // Payload según ejemplo exacto de la documentación TUU
         val payload = JSONObject().apply {
             put("amount", amount)
-            put("tip", tip)
-            put("cashback", -1)
+            put("tip", 0)
+            put("cashback", 0)
             put("method", method)
             put("installmentsQuantity", 0)
             put("printVoucherOnApp", true)
-            put("dteType", 99)
+            put("dteType", 48)
             put("extraData", JSONObject().apply {
+                put("taxIdnValidation", "")
+                put("exemptAmount", 0)
+                put("netAmount", amount)
                 put("sourceName", "SRServiPayMentApp")
                 put("sourceVersion", "1.0.0")
             })
         }
 
-        Log.d(TAG, "=== INICIANDO PAGO ===")
-        Log.d(TAG, "payload: $payload")
-
-        val pm = packageManager
-        if (pm == null) {
-            Log.e(TAG, "PackageManager no disponible")
+        val packageManager = packageManager
+        if (packageManager == null) {
+            Log.d(TAG, "PackageManager no disponible.")
             return
         }
 
-        val sendIntent = pm.getLaunchIntentForPackage(TUU_DEV)
-        Log.d(TAG, "getLaunchIntentForPackage($TUU_DEV) = $sendIntent")
-
+        val sendIntent = packageManager.getLaunchIntentForPackage(TUU_PACKAGE_NAME)
         if (sendIntent == null) {
-            Log.e(TAG, "TUU DEV no encontrada")
-            Toast.makeText(this, "TUU DEV no instalada ($TUU_DEV)", Toast.LENGTH_LONG).show()
-            binding.tvStatus.text = "TUU DEV no instalada"
+            Log.d(TAG, "App TUU Negocio no encontrada: $TUU_PACKAGE_NAME")
+            binding.tvStatus.text = "TUU no instalada"
             binding.tvStatus.setTextColor(Color.parseColor("#FF9800"))
-            binding.tvResult.text = "Paquete no encontrado: $TUU_DEV"
+            binding.tvResult.text = "Paquete no encontrado:\n$TUU_PACKAGE_NAME"
             return
         }
 
-        Log.d(TAG, "Component TUU: ${sendIntent.component}")
-        Toast.makeText(this, "TUU encontrada — lanzando...", Toast.LENGTH_SHORT).show()
-
-        // Exactamente como muestra la documentación TUU
         sendIntent.action = Intent.ACTION_SEND
         sendIntent.flags = 0
         sendIntent.putExtra(Intent.EXTRA_TEXT, payload.toString())
         sendIntent.type = "text/json"
 
-        Log.d(TAG, "Intent final: $sendIntent")
-
-        try {
-            paymentLauncher.launch(sendIntent)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error al lanzar TUU: ${e.message}", e)
-            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-            binding.tvStatus.text = "Error al lanzar"
-            binding.tvStatus.setTextColor(Color.parseColor("#FF9800"))
-            binding.tvResult.text = e.toString()
-        }
+        Log.d(TAG, "Lanzando TUU con payload: $payload")
+        paymentLauncher.launch(sendIntent)
     }
 
-    private fun handlePaymentResult(resultCode: Int, data: Intent?) {
+    private fun showSuccess(resultJson: String?) {
         if (isFinishing || isDestroyed) return
+        val json = runCatching { JSONObject(resultJson ?: "") }.getOrDefault(JSONObject())
+        val approved = json.optBoolean("transactionStatus", false)
+        val seq = json.optString("sequenceNumber", "")
 
-        // getStringExtra puede crashear si el Bundle de TUU tiene Parcelables desconocidos
-        val rawJson: String? = try {
-            data?.getStringExtra("transactionResult")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error leyendo transactionResult: ${e.javaClass.simpleName}: ${e.message}")
-            null
+        if (approved) {
+            binding.tvStatus.text = if (seq.isNotEmpty()) "APROBADO  #$seq" else "APROBADO"
+            binding.tvStatus.setTextColor(Color.parseColor("#4CAF50"))
+        } else {
+            binding.tvStatus.text = "RECHAZADO"
+            binding.tvStatus.setTextColor(Color.parseColor("#F44336"))
         }
-        Log.d(TAG, "rawJson=$rawJson")
+        binding.tvResult.text = runCatching { JSONObject(resultJson ?: "").toString(2) }.getOrDefault(resultJson ?: "")
+        binding.tvResult.setTextColor(Color.parseColor("#DDDDDD"))
+    }
 
-        // NO usar data.toString() ni data.extras — pueden deserializar el Bundle y crashear
-        val dataDesc = if (data == null) "null" else "Intent presente"
-        val formatted = when {
-            rawJson.isNullOrBlank() -> "TUU no devolvió 'transactionResult'\n$dataDesc"
-            else -> try { JSONObject(rawJson).toString(2) } catch (e: Exception) { rawJson }
-        }
+    private fun showError(errorJson: String?) {
+        if (isFinishing || isDestroyed) return
+        val json = runCatching { JSONObject(errorJson ?: "") }.getOrDefault(JSONObject())
+        val code = json.optInt("errorCode", -1)
+        val msg = json.optString("errorMessage", "")
 
-        when (resultCode) {
-            Activity.RESULT_OK -> {
-                val json = if (!rawJson.isNullOrBlank()) {
-                    try { JSONObject(rawJson) } catch (e: Exception) { JSONObject() }
-                } else JSONObject()
+        binding.tvStatus.text = "ERROR  código $code"
+        binding.tvStatus.setTextColor(Color.parseColor("#F44336"))
+        binding.tvResult.text = "errorCode: $code\nerrorMessage: $msg\n\n${runCatching { JSONObject(errorJson ?: "").toString(2) }.getOrDefault(errorJson ?: "")}"
+        binding.tvResult.setTextColor(Color.parseColor("#DDDDDD"))
 
-                val approved = json.optBoolean("transactionStatus", false)
-                val seq = json.optString("sequenceNumber", "")
-                if (approved) {
-                    binding.tvStatus.text = if (seq.isNotEmpty()) "APROBADO  #$seq" else "APROBADO"
-                    binding.tvStatus.setTextColor(Color.parseColor("#4CAF50"))
-                } else {
-                    binding.tvStatus.text = "RECHAZADO"
-                    binding.tvStatus.setTextColor(Color.parseColor("#F44336"))
-                }
-            }
-            Activity.RESULT_CANCELED -> {
-                val json = if (!rawJson.isNullOrBlank()) {
-                    try { JSONObject(rawJson) } catch (e: Exception) { JSONObject() }
-                } else JSONObject()
+        Log.e(TAG, "errorCode=$code  errorMessage=$msg")
+    }
 
-                val code = json.optInt("errorCode", -1)
-                val msg = json.optString("errorMessage", "sin mensaje")
-
-                binding.tvStatus.text = "CANCELADO  errorCode=$code"
-                binding.tvStatus.setTextColor(Color.parseColor("#F44336"))
-
-                Log.d(TAG, "CANCELADO — errorCode=$code  errorMessage=$msg")
-                Toast.makeText(this, "Cancelado — errorCode=$code: $msg", Toast.LENGTH_LONG).show()
-            }
-            else -> {
-                binding.tvStatus.text = "Código inesperado: $resultCode"
-                binding.tvStatus.setTextColor(Color.parseColor("#FF9800"))
-            }
-        }
-
-        binding.tvResult.text = formatted
+    private fun showCancelled() {
+        if (isFinishing || isDestroyed) return
+        binding.tvStatus.text = "CANCELADO por usuario"
+        binding.tvStatus.setTextColor(Color.parseColor("#FF9800"))
+        binding.tvResult.text = "El usuario canceló la operación en el terminal TUU."
         binding.tvResult.setTextColor(Color.parseColor("#DDDDDD"))
     }
 }

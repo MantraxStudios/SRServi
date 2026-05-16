@@ -5,7 +5,8 @@ import {
   faPaperPlane, faUnlink, faLink, faSync,
   faCalendarPlus, faClock, faTrash, faUsers, faUser, faRepeat, faUserGroup,
   faRobot, faToggleOn, faToggleOff, faPlay, faHistory,
-  faTag, faBell, faSmile, faSave, faChartLine, faExclamationTriangle, faInfoCircle
+  faTag, faBell, faSmile, faSave, faChartLine, faExclamationTriangle, faInfoCircle,
+  faChevronDown, faChevronUp
 } from '@fortawesome/free-solid-svg-icons';
 
 function WaIcon({ size = 24, color = '#25D366' }) {
@@ -76,6 +77,7 @@ function WhatsApp() {
   // Scheduled messages list
   const [scheduled, setScheduled] = useState([]);
   const [schedListLoading, setSchedListLoading] = useState(false);
+  const [schedOpen, setSchedOpen] = useState(false);
 
   // León IA Autónomo
   const [brainConfig, setBrainConfig] = useState({
@@ -728,20 +730,37 @@ function WhatsApp() {
 
         {/* Scheduled messages list */}
         <div style={card}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <button
+            onClick={() => { setSchedOpen(o => !o); if (!schedOpen) fetchScheduled(); }}
+            style={{
+              width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 0
+            }}
+          >
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
               <FontAwesomeIcon icon={faClock} style={{ color: '#6b7280' }} />
               Mensajes programados
+              {scheduled.length > 0 && (
+                <span style={{
+                  background: '#6366f1', color: '#fff', fontSize: 11, fontWeight: 700,
+                  borderRadius: 99, padding: '1px 8px'
+                }}>{scheduled.length}</span>
+              )}
             </h3>
-            <button
-              onClick={fetchScheduled}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 14 }}
-            >
-              <FontAwesomeIcon icon={faSync} />
-            </button>
-          </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {schedOpen && (
+                <span
+                  onClick={e => { e.stopPropagation(); fetchScheduled(); }}
+                  style={{ color: '#888', fontSize: 14, padding: 4 }}
+                >
+                  <FontAwesomeIcon icon={faSync} />
+                </span>
+              )}
+              <FontAwesomeIcon icon={schedOpen ? faChevronUp : faChevronDown} style={{ color: '#aaa', fontSize: 13 }} />
+            </div>
+          </button>
 
-          {schedListLoading ? (
+          {schedOpen && <div style={{ marginTop: 16 }}>{schedListLoading ? (
             <div style={{ textAlign: 'center', padding: '20px 0', color: '#aaa' }}>
               <FontAwesomeIcon icon={faSpinner} spin /> Cargando...
             </div>
@@ -818,7 +837,7 @@ function WhatsApp() {
                 );
               })}
             </div>
-          )}
+          )}</div>}
         </div>
 
         {/* León IA Autónomo */}
