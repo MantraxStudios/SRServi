@@ -155,7 +155,7 @@ const CSS = `
   .rv-face-svg {
     width: 100%;
     height: auto;
-    filter: drop-shadow(0 8px 20px rgba(0,0,0,0.35)) drop-shadow(0 2px 5px rgba(0,0,0,0.20));
+    filter: none;
     display: block;
     overflow: visible;
   }
