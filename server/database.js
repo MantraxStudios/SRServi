@@ -1269,6 +1269,17 @@ async function migrateTables() {
       console.error('❌ Error creando tabla tasks:', err.message);
     }
 
+    // Migración: agregar description a tasks si no existe
+    try {
+      const [taskCols] = await pool.execute('SHOW COLUMNS FROM tasks');
+      if (!taskCols.map(c => c.Field).includes('description')) {
+        await pool.execute('ALTER TABLE tasks ADD COLUMN description TEXT DEFAULT NULL AFTER name');
+        console.log('✅ Columna description agregada a tasks');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando tasks.description:', err.message);
+    }
+
     try {
       await pool.execute(`
         CREATE TABLE IF NOT EXISTS task_completions (

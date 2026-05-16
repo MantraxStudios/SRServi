@@ -3,7 +3,12 @@ import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
-import { chromium } from 'playwright';
+
+// Import lazy para no crashear el servidor si playwright no está instalado aún
+async function getChromium() {
+  const { chromium } = await import('playwright');
+  return chromium;
+}
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const TMP   = join(__dir, 'tmp-tiktok');
@@ -56,7 +61,7 @@ export async function postToTikTok({ sessionId, imageBuffer, caption }) {
   const vidPath = join(TMP, `${base}.mp4`);
   await writeFile(imgPath, imageBuffer);
 
-  const browser = await chromium.launch(LAUNCH_OPTS);
+  const browser = await (await getChromium()).launch(LAUNCH_OPTS);
 
   try {
     imageToVideo(imgPath, vidPath);
@@ -130,7 +135,7 @@ async function captureQR(page) {
 export async function startQRLogin(storeId) {
   await cleanupQRSession(storeId);
 
-  const browser = await chromium.launch(LAUNCH_OPTS);
+  const browser = await (await getChromium()).launch(LAUNCH_OPTS);
 
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
