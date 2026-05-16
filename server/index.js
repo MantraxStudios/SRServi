@@ -21,7 +21,7 @@ import PluginManager from './plugins/PluginManager.js';
 import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
 import { initInstagramService } from './instagram_autostart.js';
-import { postToTikTok, startQRLogin, getQRStatus, cancelQRLogin } from './tiktok-service.js';
+
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds } from './whatsapp.js';
@@ -9403,7 +9403,16 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // ─── TikTok Auto-Post ────────────────────────────────────────────────────
+    // ─── TikTok Auto-Post (solo si TIKTOK_ENABLED=true en .env) ─────────────
+
+    if (process.env.TIKTOK_ENABLED === 'true') {
+      let postToTikTok, startQRLogin, getQRStatus, cancelQRLogin;
+      try {
+        ({ postToTikTok, startQRLogin, getQRStatus, cancelQRLogin } = await import('./tiktok-service.js'));
+        console.log('✅ TikTok service cargado');
+      } catch (e) {
+        console.error('❌ TikTok service no se pudo cargar:', e.message);
+      }
 
     app.get('/api/tiktok/:storeId', authenticateToken, async (req, res) => {
       try {
@@ -10265,6 +10274,8 @@ async function startServer() {
         }
       } catch (e) { console.error('[TikTok] Cron error:', e.message); }
     });
+
+    } // end if (TIKTOK_ENABLED)
 
     // ─── SRBrain Routes ──────────────────────────────────────────────────────
 
