@@ -18,7 +18,7 @@ function findChromiumPath() {
 
 async function launchStealth() {
   const { chromium } = await import('playwright-extra');
-  const { default: stealth } = await import('playwright-extra-plugin-stealth');
+  const { default: stealth } = await import('puppeteer-extra-plugin-stealth');
   chromium.use(stealth());
   return chromium.launch({
     headless:       true,
