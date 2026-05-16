@@ -230,49 +230,52 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown, completeTask, complet
         </span>
       </div>
 
-      {/* Descripción (como items preview) */}
+      {/* Descripción — inline para que nunca quede oculta por el CSS móvil */}
       {task.description && (
-        <div className="worker-order-items-preview">
-          <span style={{ fontSize: 13, color: '#555', lineHeight: 1.5 }}>{task.description}</span>
+        <div style={{ background: '#f8f8f8', borderRadius: 6, padding: '8px 10px', marginBottom: 10, display: 'block' }}>
+          <span style={{ fontSize: 14, color: '#444', lineHeight: 1.5 }}>{task.description}</span>
         </div>
       )}
 
-      {/* Footer: horario + countdown/estado + check */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#888' }}>
-          <FontAwesomeIcon icon={faClock} style={{ fontSize: 11, color: '#D4AF37' }} />
-          {task.due_time} – {expireStr}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {status === 'active' && (
-            <span style={{ fontSize: 16, fontWeight: 900, color: '#D4AF37', letterSpacing: 2, fontVariantNumeric: 'tabular-nums' }}>
-              {isCompleting ? '...' : (countdown || '—')}
-            </span>
-          )}
-          {status === 'completed' && completedTime && (
-            <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
-              <FontAwesomeIcon icon={faCheck} /> {completedTime}
-            </span>
-          )}
-          {status === 'active' && (
-            <button
-              onClick={() => !isCompleting && completeTask(task.id)}
-              disabled={isCompleting}
-              style={{
-                width: 36, height: 36, borderRadius: '50%', border: 'none',
-                background: isCompleting ? '#e5e7eb' : '#16a34a',
-                color: '#fff', fontSize: 15, cursor: isCompleting ? 'default' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: isCompleting ? 'none' : '0 2px 8px rgba(22,163,74,0.35)',
-                transition: 'all 0.15s', flexShrink: 0
-              }}
-            >
-              <FontAwesomeIcon icon={faCheck} />
-            </button>
-          )}
-        </div>
+      {/* Horario */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#888', marginBottom: 12 }}>
+        <FontAwesomeIcon icon={faClock} style={{ fontSize: 11, color: '#D4AF37' }} />
+        {task.due_time} – {expireStr}
       </div>
+
+      {/* Botón completar — ancho completo, bien grande en móvil */}
+      {status === 'active' && (
+        <button
+          onClick={() => !isCompleting && completeTask(task.id)}
+          disabled={isCompleting}
+          style={{
+            width: '100%', padding: '13px', borderRadius: 10, border: 'none',
+            background: isCompleting ? '#d1fae5' : '#16a34a',
+            color: isCompleting ? '#6b7280' : '#fff',
+            fontSize: 15, fontWeight: 800, cursor: isCompleting ? 'default' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: isCompleting ? 'none' : '0 2px 10px rgba(22,163,74,0.35)',
+            transition: 'all 0.15s',
+          }}
+        >
+          <FontAwesomeIcon icon={faCheck} />
+          {isCompleting ? 'Registrando…' : 'Marcar como completada'}
+        </button>
+      )}
+
+      {/* Completed badge */}
+      {status === 'completed' && completedTime && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px', background: '#f0fdf4', borderRadius: 10, color: '#16a34a', fontWeight: 700, fontSize: 14 }}>
+          <FontAwesomeIcon icon={faCheck} /> Completada a las {completedTime}
+        </div>
+      )}
+
+      {/* Countdown para activa */}
+      {status === 'active' && countdown && (
+        <p style={{ margin: '8px 0 0', textAlign: 'center', fontSize: 12, color: '#D4AF37', fontWeight: 700 }}>
+          Tiempo restante: {countdown}
+        </p>
+      )}
     </div>
   );
 }
@@ -349,10 +352,10 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
         </span>
       </div>
 
-      {/* Lista de tarjetas a ancho completo */}
+      {/* Lista de tarjetas — siempre 1 columna para ver todo */}
       <div className="worker-orders-list" style={{
         flex: 1, overflowY: 'auto', padding: '12px',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+        gridTemplateColumns: '1fr',
         alignContent: 'start', scrollbarWidth: 'none'
       }}>
         {todayTasks.length === 0 ? (
