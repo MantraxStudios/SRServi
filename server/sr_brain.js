@@ -11,7 +11,7 @@ import {
   logAiActivity,
   getMonthlySalesHistory,
   getYesterdayTaskStatus,
-  getWorkers,
+  getWorkersWithPhone,
   createCoupon,
   pool
 } from './database.js';
@@ -166,9 +166,46 @@ async function executeAction(storeId, action, config, workers) {
     }
   }
 
-  if (type === 'send_worker_reminder' || type === 'send_morale') {
-    // Mensajes automáticos deshabilitados — el admin programa los mensajes manualmente
-    await logAiActivity(storeId, 'message_skipped', `Acción "${type}" omitida: mensajes automáticos deshabilitados`);
+  if (type === 'send_worker_reminder' && config.worker_reminders) {
+    const phone = data.worker_phone;
+    const message = data.message;
+    if (!phone || !message) {
+      await logAiActivity(storeId, 'message_skipped', `Recordatorio sin teléfono o mensaje para ${data.worker_name}`);
+      return;
+    }
+    try {
+      const result = await sendMessage(phone, message);
+      if (result?.success) {
+        await logAiActivity(storeId, 'message_sent', `Recordatorio enviado a ${data.worker_name} (${result.channel})`, { reason, worker: data.worker_name });
+      } else {
+        await logAiActivity(storeId, 'message_failed', `No se pudo enviar recordatorio a ${data.worker_name} — WhatsApp no conectado`);
+      }
+    } catch (e) {
+      await logAiActivity(storeId, 'message_failed', `Error enviando recordatorio a ${data.worker_name}: ${e.message}`);
+    }
+  }
+
+  if (type === 'send_morale' && config.morale_messages) {
+    const message = data.message || getRandomMorale();
+    const targets = workers.filter(w => w.phone);
+    if (!targets.length) {
+      await logAiActivity(storeId, 'message_skipped', 'Ningún trabajador tiene teléfono registrado');
+      return;
+    }
+    let sent = 0;
+    for (const worker of targets) {
+      const personalizedMsg = message.replace(/\[nombre\]/gi, worker.name);
+      try {
+        const result = await sendMessage(worker.phone, personalizedMsg);
+        if (result?.success) sent++;
+      } catch (e) {
+        console.warn(`[SRBrain] Error enviando ánimo a ${worker.name}:`, e.message);
+      }
+    }
+    await logAiActivity(storeId, sent > 0 ? 'message_sent' : 'message_failed',
+      sent > 0 ? `Mensaje de ánimo enviado a ${sent}/${targets.length} trabajadores` : 'No se pudo enviar mensaje de ánimo — WhatsApp no conectado',
+      { message }
+    );
   }
 }
 
@@ -184,7 +221,7 @@ async function runForStore(storeId) {
     const [salesHistory, yesterdayTasks, workers] = await Promise.all([
       getMonthlySalesHistory(storeId, 6),
       getYesterdayTaskStatus(storeId),
-      getWorkers(storeId)
+      getWorkersWithPhone(storeId)
     ]);
 
     // Calcular proyección del mes
