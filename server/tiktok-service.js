@@ -3,6 +3,7 @@ import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
+import { chromium } from 'playwright';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const TMP   = join(__dir, 'tmp-tiktok');
@@ -73,8 +74,6 @@ async function captureQR(page) {
 
 export async function startQRLogin(storeId) {
   await cleanupQRSession(storeId);
-
-  const { chromium } = await import('playwright');
 
   const browser = await chromium.launch({
     headless: true,
