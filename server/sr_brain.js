@@ -21,14 +21,14 @@ const LEON_URL = 'http://localhost:7777';
 
 // ─── Mensajería: WhatsApp (preferido) o SMS via Twilio (fallback) ────────────
 
-async function sendMessage(to, message) {
+async function sendMessage(storeId, to, message) {
   if (!to) return false;
 
   // Intentar WhatsApp primero
-  const wa = getWhatsAppStatus();
+  const wa = getWhatsAppStatus(storeId);
   if (wa.connected) {
     try {
-      await sendWhatsAppMessage(to, message);
+      await sendWhatsAppMessage(storeId, to, message);
       return { channel: 'whatsapp', success: true };
     } catch (e) {
       console.warn('[SRBrain] WhatsApp send failed, falling back to SMS:', e.message);
@@ -189,7 +189,7 @@ async function executeAction(storeId, action, config, workers) {
       return;
     }
     try {
-      const result = await sendMessage(phone, message);
+      const result = await sendMessage(storeId, phone, message);
       if (result?.success) {
         await logAiActivity(storeId, 'message_sent', `Recordatorio enviado a ${data.worker_name} (${result.channel})`, { reason, worker: data.worker_name });
       } else {
@@ -211,7 +211,7 @@ async function executeAction(storeId, action, config, workers) {
     for (const worker of targets) {
       const personalizedMsg = message.replace(/\[nombre\]/gi, worker.name);
       try {
-        const result = await sendMessage(worker.phone, personalizedMsg);
+        const result = await sendMessage(storeId, worker.phone, personalizedMsg);
         if (result?.success) sent++;
       } catch (e) {
         console.warn(`[SRBrain] Error enviando ánimo a ${worker.name}:`, e.message);
@@ -293,7 +293,7 @@ async function runForStore(storeId) {
       let sent = 0;
       for (const worker of workers) {
         try {
-          const result = await sendMessage(worker.phone, msg);
+          const result = await sendMessage(storeId, worker.phone, msg);
           if (result?.success) { sent++; console.log(`[SRBrain] ✉ Enviado a ${worker.name} (${result.channel})`); }
           else console.warn(`[SRBrain] ⚠ No se pudo enviar a ${worker.name} — WhatsApp no conectado`);
         } catch (e) { console.warn(`[SRBrain] Error enviando a ${worker.name}:`, e.message); }
