@@ -66,10 +66,18 @@ async function askLeon(storeId, prompt) {
       body: JSON.stringify({ question: prompt, store_id: storeId, history: [] }),
       signal: AbortSignal.timeout(90000)
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      console.warn(`[SRBrain] León IA HTTP ${res.status}: ${errText.slice(0, 200)}`);
+      return null;
+    }
     const data = await res.json();
+    if (!data.answer) console.warn(`[SRBrain] León IA respondió sin campo "answer":`, JSON.stringify(data).slice(0, 200));
     return data.answer || null;
-  } catch { return null; }
+  } catch (e) {
+    console.warn(`[SRBrain] Error llamando a León IA:`, e.message);
+    return null;
+  }
 }
 
 async function getDecisionsFromLeon(storeId, context) {
@@ -213,16 +221,21 @@ async function executeAction(storeId, action, config, workers) {
 
 async function runForStore(storeId) {
   const config = await getAiConfig(storeId);
-  if (!config?.enabled) return;
+  if (!config?.enabled) {
+    console.log(`[SRBrain] Tienda ${storeId} deshabilitada — omitiendo`);
+    return;
+  }
 
   console.log(`[SRBrain] Ejecutando para tienda ${storeId}...`);
 
   try {
+    console.log(`[SRBrain] Obteniendo datos de la tienda ${storeId}...`);
     const [salesHistory, yesterdayTasks, workers] = await Promise.all([
       getMonthlySalesHistory(storeId, 6),
       getYesterdayTaskStatus(storeId),
       getWorkersWithPhone(storeId)
     ]);
+    console.log(`[SRBrain] Datos: ${salesHistory.length} meses historial, ${yesterdayTasks.length} tareas ayer, ${workers.length} trabajadores con teléfono`);
 
     // Calcular proyección del mes
     const now = new Date();
@@ -242,6 +255,7 @@ async function runForStore(storeId) {
 
     // Tareas perdidas ayer
     const missedTasks = yesterdayTasks.filter(t => !t.completed_at);
+    console.log(`[SRBrain] Proyección: $${Math.round(projectedRevenue)} vs promedio $${Math.round(avgRevenue)} (${Math.round(pctDiff)}%) | Tareas fallidas ayer: ${missedTasks.length}`);
 
     const context = {
       store_id: storeId,
@@ -265,22 +279,26 @@ async function runForStore(storeId) {
     };
 
     // Pedir decisiones a León IA
+    console.log(`[SRBrain] Consultando a León IA...`);
     const decisions = await getDecisionsFromLeon(storeId, context);
 
     if (!decisions) {
+      console.warn(`[SRBrain] ⚠ León IA no respondió o devolvió JSON inválido`);
       await logAiActivity(storeId, 'brain_run', 'León IA no disponible');
       await updateAiConfigLastRun(storeId);
       return;
     }
 
+    console.log(`[SRBrain] León IA respondió — ${decisions.actions?.length || 0} acciones: ${(decisions.actions || []).map(a => a.type).join(', ') || 'ninguna'}`);
     await logAiActivity(storeId, 'brain_run', decisions.analysis || 'Análisis diario ejecutado', { context_summary: { projected_vs_avg_percent: context.projected_vs_avg_percent, missed_tasks: missedTasks.length } });
 
     for (const action of (decisions.actions || [])) {
+      console.log(`[SRBrain] Ejecutando acción: ${action.type}`);
       await executeAction(storeId, action, config, workers);
     }
 
     await updateAiConfigLastRun(storeId);
-    console.log(`[SRBrain] ✅ Tienda ${storeId} — ${decisions.actions?.length || 0} acciones ejecutadas`);
+    console.log(`[SRBrain] ✅ Tienda ${storeId} completada`);
   } catch (e) {
     console.error(`[SRBrain] ❌ Error en tienda ${storeId}:`, e.message);
     await logAiActivity(storeId, 'brain_error', `Error: ${e.message}`);
