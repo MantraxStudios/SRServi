@@ -1,0 +1,10 @@
+C:\Users\tupap\OneDrive\Escritorio\SRServi\server\web\windows\bin\Release\net10.0-windows\win-x64\publish\Totem.exe
+C:\Users\tupap\OneDrive\Escritorio\SRServi\server\web\windows\bin\Release\net10.0-windows\win-x64\publish\runtimes\win-x64\native\WebView2Loader.dll
+C:\Users\tupap\OneDrive\Escritorio\SRServi\server\web\windows\bin\Release\net10.0-windows\win-x64\publish\Totem.dll
+C:\Users\tupap\OneDrive\Escritorio\SRServi\server\web\windows\bin\Release\net10.0-windows\win-x64\publish\Totem.deps.json
+C:\Users\tupap\OneDrive\Escritorio\SRServi\server\web\windows\bin\Release\net10.0-windows\win-x64\publish\Totem.runtimeconfig.json
+C:\Users\tupap\OneDrive\Escritorio\SRServi\server\web\windows\bin\Release\net10.0-windows\win-x64\publish\Totem.pdb
+C:\Users\tupap\OneDrive\Escritorio\SRServi\server\web\windows\bin\Release\net10.0-windows\win-x64\publish\Microsoft.Web.WebView2.Core.dll
+C:\Users\tupap\OneDrive\Escritorio\SRServi\server\web\windows\bin\Release\net10.0-windows\win-x64\publish\Microsoft.Web.WebView2.WinForms.dll
+C:\Users\tupap\OneDrive\Escritorio\SRServi\server\web\windows\bin\Release\net10.0-windows\win-x64\publish\Microsoft.Web.WebView2.Wpf.dll
+C:\Users\tupap\OneDrive\Escritorio\SRServi\server\web\windows\bin\Release\net10.0-windows\win-x64\publish\WebView2Loader.dll

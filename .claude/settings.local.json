@@ -87,7 +87,8 @@
       "Bash(findstr -i worker)",
       "Bash(git log *)",
       "WebFetch(domain:srservi2.srautomatic.com)",
-      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\web\\\\windows\" -Recurse -Force | Select-Object FullName, @{Name='Type';Expression={if\\($_.PSIsContainer\\){'DIR'}else{'FILE'}}}, @{Name='Size';Expression={if\\(-not $_.PSIsContainer\\){$_.Length}else{'-'}}} | Format-Table -AutoSize)"
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\web\\\\windows\" -Recurse -Force | Select-Object FullName, @{Name='Type';Expression={if\\($_.PSIsContainer\\){'DIR'}else{'FILE'}}}, @{Name='Size';Expression={if\\(-not $_.PSIsContainer\\){$_.Length}else{'-'}}} | Format-Table -AutoSize)",
+      "Bash(dotnet publish *)"
     ]
   }
 }
