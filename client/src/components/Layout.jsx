@@ -770,6 +770,17 @@ function Layout() {
                     {openDropdowns['misapps'] && (
                       <div className="subdropdown-content" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px' }}>
 
+                        {/* Tótem Android (Launcher) */}
+                        <AppDownloadCard
+                          icon="📱"
+                          title="Totem Android"
+                          description={<>Punto de venta Android · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
+                          buildState={androidBuilds['launcher']}
+                          disabled={!selectedStore}
+                          onDownload={() => handleAndroidBuild('launcher', 'Totem Android')}
+                          fileType=".apk"
+                        />
+
                         {/* Windows Tótem */}
                         <AppDownloadCard
                           icon="💻"
@@ -779,17 +790,6 @@ function Layout() {
                           disabled={!selectedStore}
                           onDownload={handleDownloadWindowsApp}
                           fileType=".exe"
-                        />
-
-                        {/* SRServi POS (Android Launcher) */}
-                        <AppDownloadCard
-                          icon="📱"
-                          title="SRServi POS"
-                          description={<>Punto de venta Android · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                          buildState={androidBuilds['launcher']}
-                          disabled={!selectedStore}
-                          onDownload={() => handleAndroidBuild('launcher', 'SRServi POS')}
-                          fileType=".apk"
                         />
 
                         {/* TV Órdenes */}
