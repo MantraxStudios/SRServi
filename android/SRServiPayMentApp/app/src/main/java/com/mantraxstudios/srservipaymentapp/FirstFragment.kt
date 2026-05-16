@@ -73,19 +73,29 @@ class FirstFragment : Fragment() {
             })
         }
 
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            setPackage("com.haulmer.paymentapp.dev")
-            type = "text/json"
-            flags = 0
-            putExtra(Intent.EXTRA_TEXT, payload.toString())
-        }
+        // Paso 1: obtener el intent de lanzamiento real de TUU (resuelve el Activity correcto)
+        val tuurPackage = "com.haulmer.paymentapp.dev"
+        val sendIntent = requireContext().packageManager.getLaunchIntentForPackage(tuurPackage)
 
-        try {
-            paymentLauncher.launch(intent)
-        } catch (e: Exception) {
+        if (sendIntent == null) {
             binding.tvStatus.text = "TUU DEV no instalada"
             binding.tvStatus.setTextColor(Color.parseColor("#FF9800"))
-            binding.tvResult.text = "Instala la app 'TUU Negocio DEV' (com.haulmer.paymentapp.dev) en el dispositivo.\n\n${e.message}"
+            binding.tvResult.text = "La app TUU Negocio DEV ($tuurPackage) no está instalada en este dispositivo."
+            return
+        }
+
+        // Paso 2: sobreescribir acción, flags, tipo y payload — tal como indica la documentación
+        sendIntent.action = Intent.ACTION_SEND
+        sendIntent.flags = 0
+        sendIntent.putExtra(Intent.EXTRA_TEXT, payload.toString())
+        sendIntent.type = "text/json"
+
+        try {
+            paymentLauncher.launch(sendIntent)
+        } catch (e: Exception) {
+            binding.tvStatus.text = "Error al lanzar TUU"
+            binding.tvStatus.setTextColor(Color.parseColor("#FF9800"))
+            binding.tvResult.text = e.message ?: "Error desconocido"
         }
     }
 
