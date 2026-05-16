@@ -19,10 +19,11 @@ function imageToVideo(imgPath, vidPath) {
   );
 }
 
-function buildCookies(sessionId) {
+function sessionCookies(sessionId) {
+  const base = { domain: '.tiktok.com', path: '/', secure: true, httpOnly: true, sameSite: 'None' };
   return [
-    { name: 'sessionid',    value: sessionId, domain: '.tiktok.com', path: '/', secure: true, httpOnly: true },
-    { name: 'sessionid_ss', value: sessionId, domain: '.tiktok.com', path: '/', secure: true, httpOnly: true },
+    { ...base, name: 'sessionid',    value: sessionId },
+    { ...base, name: 'sessionid_ss', value: sessionId },
   ];
 }
 
@@ -32,16 +33,51 @@ export async function postToTikTok({ sessionId, imageBuffer, caption }) {
   const imgPath = join(TMP, `${base}.jpg`);
   const vidPath = join(TMP, `${base}.mp4`);
   await writeFile(imgPath, imageBuffer);
+
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+  });
+
   try {
     imageToVideo(imgPath, vidPath);
-    const { uploadVideo } = await import('tiktok-uploader');
-    await uploadVideo({
-      cookies:  buildCookies(sessionId),
-      video:    vidPath,
-      title:    caption,
-      headless: true,
+
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      viewport:  { width: 1280, height: 900 },
     });
+    await context.addCookies(sessionCookies(sessionId));
+
+    const page = await context.newPage();
+    await page.goto('https://www.tiktok.com/tiktokstudio/upload', { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+    // Upload video file
+    const fileInput = await page.waitForSelector('input[type="file"]', { timeout: 20000 });
+    await fileInput.setInputFiles(vidPath);
+
+    // Wait for upload progress to finish
+    await page.waitForSelector('[class*="upload-progress"], [class*="uploading"]', { timeout: 10000 }).catch(() => {});
+    await page.waitForFunction(
+      () => !document.querySelector('[class*="uploading"], [class*="upload-progress"]'),
+      { timeout: 120000 }
+    );
+
+    // Fill caption
+    const captionBox = await page.waitForSelector('[data-e2e="caption-input"], [class*="caption"] [contenteditable], .public-DraftEditor-content', { timeout: 15000 });
+    await captionBox.click({ clickCount: 3 });
+    await captionBox.fill('');
+    await captionBox.type(caption.slice(0, 2200), { delay: 20 });
+
+    // Click Post button
+    const postBtn = await page.waitForSelector('[data-e2e="post-button"], button:has-text("Post"), button:has-text("Publicar")', { timeout: 10000 });
+    await postBtn.click();
+
+    // Wait for success redirect
+    await page.waitForURL(/manage|profile|studio/, { timeout: 60000 });
+
+    await context.close();
   } finally {
+    await browser.close().catch(() => {});
     await unlink(imgPath).catch(() => {});
     await unlink(vidPath).catch(() => {});
   }
