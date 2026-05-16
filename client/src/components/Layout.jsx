@@ -774,7 +774,7 @@ function Layout() {
                           loading={appDownloading}
                           disabled={!selectedStore}
                           onDownload={handleDownloadWindowsApp}
-                          fileType=".zip"
+                          fileType=".exe"
                         />
 
                         {/* SRServi POS (Android Launcher) */}

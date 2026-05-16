@@ -12,7 +12,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import AdmZip from 'adm-zip';
 import { startBuild, getBuildJob, getCachedApk } from './android-build.js';
-import { execFile } from 'child_process';
+import { execFile, execSync } from 'child_process';
 import speakeasy from 'speakeasy';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
@@ -10444,7 +10444,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Windows app download — generates a zip with store-specific config injected
+    // Windows app download — generates a self-extracting .exe via NSIS (Linux) or zip fallback (dev)
     app.get('/api/apps/windows', authenticateToken, async (req, res) => {
       try {
         const { storeCode } = req.query;
@@ -10462,11 +10462,59 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
           return res.status(503).json({ error: 'La app aún no está compilada. Contacta soporte.' });
         }
 
+        const storeUrl = `https://srservi2.srautomatic.com/store/${store.code}`;
+
+        if (process.platform === 'linux') {
+          // Auto-install NSIS if missing
+          try { execSync('which makensis', { stdio: 'pipe' }); }
+          catch { execSync('apt-get install -y nsis', { stdio: 'inherit' }); }
+
+          const tmpDir = `/tmp/srservi-win-${crypto.randomUUID()}`;
+          const exeName = `SRServi-Totem-${store.code}.exe`;
+          const exePath = `${tmpDir}/${exeName}`;
+
+          try {
+            fs.mkdirSync(tmpDir, { recursive: true });
+
+            // NSIS script: silent install to %LOCALAPPDATA%\SRServi\Totem, injects config, launches Totem.exe
+            const nsiScript = [
+              'Unicode true',
+              'RequestExecutionLevel user',
+              'SilentInstall silent',
+              `Name "SRServi Totem ${store.code}"`,
+              `OutFile "${exePath}"`,
+              'InstallDir "$LOCALAPPDATA\\SRServi\\Totem"',
+              '',
+              'Section',
+              '  SetOutPath "$INSTDIR"',
+              `  File /r "${publishDir}/*"`,
+              '',
+              '  FileOpen $0 "$INSTDIR\\config.json" w',
+              `  FileWrite $0 '{"url":"${storeUrl}"}'`,
+              '  FileClose $0',
+              '',
+              '  Exec "$INSTDIR\\Totem.exe"',
+              'SectionEnd',
+            ].join('\n');
+
+            const scriptPath = `${tmpDir}/installer.nsi`;
+            fs.writeFileSync(scriptPath, nsiScript, 'utf8');
+            execSync(`makensis "${scriptPath}"`, { stdio: 'pipe' });
+
+            const exeBuffer = fs.readFileSync(exePath);
+            res.setHeader('Content-Type', 'application/octet-stream');
+            res.setHeader('Content-Disposition', `attachment; filename="${exeName}"`);
+            res.setHeader('Content-Length', exeBuffer.length);
+            return res.send(exeBuffer);
+          } finally {
+            try { execSync(`rm -rf "${tmpDir}"`); } catch {}
+          }
+        }
+
+        // Dev fallback (Windows): zip
         const zip = new AdmZip();
         zip.addLocalFolder(publishDir, 'SRServi-Totem');
-        const config = JSON.stringify({ url: `https://srservi2.srautomatic.com/store/${store.code}` });
-        zip.addFile('SRServi-Totem/config.json', Buffer.from(config, 'utf8'));
-
+        zip.addFile('SRServi-Totem/config.json', Buffer.from(JSON.stringify({ url: storeUrl }), 'utf8'));
         const zipBuffer = zip.toBuffer();
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="SRServi-Totem-${store.code}.zip"`);
@@ -10474,7 +10522,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
         res.send(zipBuffer);
       } catch (err) {
         console.error('[Apps/Windows] Error:', err.message);
-        res.status(500).json({ error: 'Error generando la app' });
+        res.status(500).json({ error: 'Error generando la app: ' + err.message });
       }
     });
 
