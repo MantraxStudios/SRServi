@@ -9405,7 +9405,7 @@ async function startServer() {
 
     // ─── TikTok Auto-Post ────────────────────────────────────────────────────
 
-    const { postToTikTok } = await import('./tiktok-service.js');
+    const { postToTikTok, startQrLogin, checkQrStatus, loginWithEmail } = await import('./tiktok-service.js');
 
     app.get('/api/tiktok/:storeId', authenticateToken, async (req, res) => {
       try {
@@ -9444,6 +9444,46 @@ async function startServer() {
         if (!cookie_string?.trim()) return res.status(400).json({ error: 'Cookies requeridas' });
         await saveTikTokSession(req.params.storeId, cookie_string.trim());
         res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Generar QR para login
+    app.post('/api/tiktok/:storeId/qr', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const result = await startQrLogin(req.params.storeId);
+        res.json({ qr: result.qrBase64 });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Verificar estado del QR
+    app.get('/api/tiktok/:storeId/qr-status', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const result = await checkQrStatus(req.params.storeId);
+        if (result.status === 'success') {
+          await saveTikTokSession(req.params.storeId, result.cookieString);
+        }
+        res.json({ status: result.status });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Login con email y contraseña
+    app.post('/api/tiktok/:storeId/login', authenticateToken, async (req, res) => {
+      try {
+        const store = await getStoreById(req.params.storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+        const { email, password } = req.body;
+        if (!email?.trim() || !password?.trim()) return res.status(400).json({ error: 'Email y contraseña requeridos' });
+        const result = await loginWithEmail({ email: email.trim(), password: password.trim() });
+        if (result.success) {
+          await saveTikTokSession(req.params.storeId, result.cookieString);
+          res.json({ ok: true });
+        } else {
+          res.status(400).json({ error: result.error });
+        }
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 

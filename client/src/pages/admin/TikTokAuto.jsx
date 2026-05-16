@@ -6,7 +6,7 @@ import {
   faSave, faPlay, faEye, faDownload,
   faCheckCircle, faTimesCircle, faSpinner,
   faToggleOn, faToggleOff, faClock, faExclamationTriangle,
-  faUnlink, faKey,
+  faUnlink, faKey, faQrcode, faEnvelope,
 } from '@fortawesome/free-solid-svg-icons';
 
 const CSS = `
@@ -53,12 +53,24 @@ export default function TikTokAuto() {
   const [loading, setLoading]       = useState(false);
   const [saving, setSaving]         = useState(false);
   const [posting, setPosting]       = useState(false);
-  const [connecting, setConnecting] = useState(false);
-  const [cookieStr, setCookieStr]   = useState('');
   const [previewing, setPreviewing] = useState(null);
   const [previews, setPreviews]     = useState({});
   const [lastStatus, setLastStatus] = useState(null);
   const [toast, setToast]           = useState(null);
+
+  // Conexión — tres métodos
+  const [loginMethod, setLoginMethod] = useState('qr'); // 'qr' | 'email' | 'cookies'
+  // QR
+  const [qrImg, setQrImg]         = useState(null);
+  const [qrStatus, setQrStatus]   = useState('idle'); // idle | loading | pending | success
+  const [qrError, setQrError]     = useState('');
+  // Email
+  const [ttEmail, setTtEmail]     = useState('');
+  const [ttPass, setTtPass]       = useState('');
+  const [loggingIn, setLoggingIn] = useState(false);
+  // Cookies
+  const [cookieStr, setCookieStr] = useState('');
+  const [savingCookies, setSavingCookies] = useState(false);
 
   const storeId = selectedStore?.id;
   const nextTpl = (lastStatus?.template_counter || 0) % 6;
@@ -78,14 +90,75 @@ export default function TikTokAuto() {
       .finally(() => setLoading(false));
   }, [storeId, token]);
 
+  // Polling QR status
+  useEffect(() => {
+    if (qrStatus !== 'pending' || !storeId) return;
+    const iv = setInterval(async () => {
+      try {
+        const r = await fetch(`${API}/api/tiktok/${storeId}/qr-status`, { headers: { Authorization: `Bearer ${token}` } });
+        const d = await r.json();
+        if (d.status === 'success') {
+          setConnected(true);
+          setQrStatus('idle');
+          setQrImg(null);
+          showToast('¡Sesión de TikTok conectada por QR!');
+        } else if (d.status === 'expired' || d.status === 'error') {
+          setQrStatus('idle');
+          setQrImg(null);
+          setQrError('QR expirado. Generá uno nuevo.');
+        }
+      } catch {}
+    }, 3000);
+    return () => clearInterval(iv);
+  }, [qrStatus, storeId]);
+
+  const generateQr = async () => {
+    if (!storeId) return;
+    setQrStatus('loading');
+    setQrImg(null);
+    setQrError('');
+    try {
+      const r = await fetch(`${API}/api/tiktok/${storeId}/qr`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setQrImg(d.qr);
+      setQrStatus('pending');
+    } catch (e) {
+      setQrStatus('idle');
+      setQrError(e.message);
+    }
+  };
+
+  const loginEmail = async () => {
+    if (!storeId || !ttEmail.trim() || !ttPass.trim()) return;
+    setLoggingIn(true);
+    try {
+      const r = await fetch(`${API}/api/tiktok/${storeId}/login`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: ttEmail.trim(), password: ttPass.trim() }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      setConnected(true);
+      setTtEmail('');
+      setTtPass('');
+      showToast('¡Sesión de TikTok conectada!');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { setLoggingIn(false); }
+  };
+
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
   };
 
-  const connect = async () => {
+  const saveCookies = async () => {
     if (!storeId || !cookieStr.trim()) return;
-    setConnecting(true);
+    setSavingCookies(true);
     try {
       const res = await fetch(`${API}/api/tiktok/${storeId}/connect`, {
         method:  'POST',
@@ -97,7 +170,7 @@ export default function TikTokAuto() {
       setCookieStr('');
       showToast('¡Cookies guardadas! Probá publicar ahora.');
     } catch (e) { showToast(e.message, 'error'); }
-    finally { setConnecting(false); }
+    finally { setSavingCookies(false); }
   };
 
   const save = async () => {
@@ -227,49 +300,108 @@ export default function TikTokAuto() {
               )}
             </div>
 
-            {/* Conectar con cookies */}
+            {/* Tres métodos de conexión */}
             {!connected && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '14px' }}>
-                  <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 800, color: '#1e293b' }}>Cómo copiar las cookies de tu sesión</p>
+
+                {/* Tabs */}
+                <div style={{ display: 'flex', gap: 6, background: '#f1f5f9', borderRadius: 10, padding: 4 }}>
                   {[
-                    ['1', 'Abrí TikTok.com en tu PC con tu cuenta abierta.'],
-                    ['2', 'Presioná F12 y andá a la pestaña "Red" (Network).'],
-                    ['3', 'Recargá la página (F5). Hacé clic en cualquier pedido a www.tiktok.com.'],
-                    ['4', 'En "Encabezados de solicitud" buscá la línea "cookie:".'],
-                    ['5', 'Copiá TODO el valor (es largo) y pegalo abajo.'],
-                  ].map(([n, text]) => (
-                    <div key={n} style={{ display: 'flex', gap: 10, marginBottom: 8, alignItems: 'flex-start' }}>
-                      <span style={{ background: '#010101', color: '#D4AF37', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, flexShrink: 0, marginTop: 1 }}>{n}</span>
-                      <span style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.5 }}>{text}</span>
-                    </div>
+                    { key: 'qr',      icon: faQrcode,  label: 'QR' },
+                    { key: 'email',   icon: faEnvelope, label: 'Email' },
+                    { key: 'cookies', icon: faKey,      label: 'Cookies' },
+                  ].map(({ key, icon, label }) => (
+                    <button key={key} onClick={() => setLoginMethod(key)}
+                      style={{ flex: 1, padding: '8px 4px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        background: loginMethod === key ? '#010101' : 'transparent',
+                        color:      loginMethod === key ? '#D4AF37' : '#6b7280',
+                        transition: 'all .15s',
+                      }}>
+                      <FontAwesomeIcon icon={icon} />{label}
+                    </button>
                   ))}
                 </div>
 
-                <div>
-                  <label style={s.label}><FontAwesomeIcon icon={faKey} style={{ marginRight: 6 }} />Cookies de TikTok</label>
-                  <textarea
-                    value={cookieStr}
-                    onChange={e => setCookieStr(e.target.value)}
-                    placeholder="sessionid=abc123; tt_csrf_token=xyz; ttwid=def456; ..."
-                    rows={4}
-                    style={{ ...s.input, fontFamily: 'monospace', fontSize: 11, resize: 'vertical', height: 'auto' }}
-                    onFocus={e => e.target.style.borderColor = '#010101'}
-                    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-                  />
-                </div>
+                {/* ── QR ── */}
+                {loginMethod === 'qr' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <p style={{ margin: 0, fontSize: 12, color: '#4b5563', lineHeight: 1.6 }}>
+                      El servidor abre TikTok, genera el QR y vos lo escaneás con la app del celular — igual que WhatsApp Web.
+                    </p>
+                    {qrError && <p style={{ margin: 0, fontSize: 12, color: '#ef4444', fontWeight: 600 }}>{qrError}</p>}
+                    {qrImg && (
+                      <div style={{ textAlign: 'center' }}>
+                        <img src={`data:image/png;base64,${qrImg}`} alt="QR TikTok" style={{ maxWidth: '100%', borderRadius: 12, border: '2px solid #e2e8f0' }} />
+                        {qrStatus === 'pending' && (
+                          <p style={{ margin: '8px 0 0', fontSize: 12, color: '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                            <FontAwesomeIcon icon={faSpinner} spin /> Esperando que escanees el QR…
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      onClick={generateQr}
+                      disabled={qrStatus === 'loading' || qrStatus === 'pending'}
+                      style={{ ...s.btnTikTok, width: '100%', justifyContent: 'center', padding: '11px', opacity: (qrStatus === 'loading' || qrStatus === 'pending') ? 0.6 : 1 }}
+                    >
+                      {qrStatus === 'loading' ? <><FontAwesomeIcon icon={faSpinner} spin /> Generando…</>
+                       : qrImg ? <><FontAwesomeIcon icon={faQrcode} /> Generar nuevo QR</>
+                       : <><FontAwesomeIcon icon={faQrcode} /> Generar QR</>}
+                    </button>
+                  </div>
+                )}
 
-                <button
-                  onClick={connect}
-                  disabled={connecting || !cookieStr.trim()}
-                  style={{ ...s.btnTikTok, width: '100%', justifyContent: 'center', padding: '11px', opacity: (!cookieStr.trim() || connecting) ? 0.5 : 1 }}
-                >
-                  {connecting ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando…</> : <><TikTokIcon size={15} /> Guardar cookies</>}
-                </button>
+                {/* ── Email / contraseña ── */}
+                {loginMethod === 'email' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <p style={{ margin: 0, fontSize: 12, color: '#4b5563', lineHeight: 1.6 }}>
+                      El servidor inicia sesión con tus credenciales de TikTok. Si TikTok pide captcha, usá el método QR o Cookies.
+                    </p>
+                    <div>
+                      <label style={s.label}>Email de TikTok</label>
+                      <input value={ttEmail} onChange={e => setTtEmail(e.target.value)} type="email" placeholder="tucorreo@email.com"
+                        style={s.input} onFocus={e => e.target.style.borderColor='#010101'} onBlur={e => e.target.style.borderColor='#e5e7eb'} />
+                    </div>
+                    <div>
+                      <label style={s.label}>Contraseña</label>
+                      <input value={ttPass} onChange={e => setTtPass(e.target.value)} type="password" placeholder="••••••••"
+                        style={s.input} onFocus={e => e.target.style.borderColor='#010101'} onBlur={e => e.target.style.borderColor='#e5e7eb'}
+                        onKeyDown={e => e.key === 'Enter' && loginEmail()} />
+                    </div>
+                    <button onClick={loginEmail} disabled={loggingIn || !ttEmail.trim() || !ttPass.trim()}
+                      style={{ ...s.btnTikTok, width: '100%', justifyContent: 'center', padding: '11px', opacity: (loggingIn || !ttEmail.trim() || !ttPass.trim()) ? 0.5 : 1 }}>
+                      {loggingIn ? <><FontAwesomeIcon icon={faSpinner} spin /> Iniciando sesión…</> : <><TikTokIcon size={15} /> Iniciar sesión</>}
+                    </button>
+                  </div>
+                )}
 
-                <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>
-                  Las cookies expiran cuando cerrás sesión en TikTok. Si falla, repetí el proceso.
-                </p>
+                {/* ── Cookies ── */}
+                {loginMethod === 'cookies' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', padding: '12px' }}>
+                      {[
+                        ['1', 'Abrí TikTok.com en tu PC con sesión abierta.'],
+                        ['2', 'F12 → pestaña "Red" (Network) → recargá (F5).'],
+                        ['3', 'Clic en cualquier pedido a www.tiktok.com.'],
+                        ['4', 'En "Encabezados de solicitud" copiá TODO el valor de "cookie:".'],
+                      ].map(([n, text]) => (
+                        <div key={n} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'flex-start' }}>
+                          <span style={{ background: '#010101', color: '#D4AF37', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, flexShrink: 0, marginTop: 1 }}>{n}</span>
+                          <span style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.5 }}>{text}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <textarea value={cookieStr} onChange={e => setCookieStr(e.target.value)}
+                      placeholder="sessionid=abc123; tt_csrf_token=xyz; ttwid=def456; ..."
+                      rows={3} style={{ ...s.input, fontFamily: 'monospace', fontSize: 11, resize: 'vertical', height: 'auto' }}
+                      onFocus={e => e.target.style.borderColor='#010101'} onBlur={e => e.target.style.borderColor='#e5e7eb'} />
+                    <button onClick={saveCookies} disabled={savingCookies || !cookieStr.trim()}
+                      style={{ ...s.btnTikTok, width: '100%', justifyContent: 'center', padding: '11px', opacity: (!cookieStr.trim() || savingCookies) ? 0.5 : 1 }}>
+                      {savingCookies ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando…</> : <><TikTokIcon size={15} /> Guardar cookies</>}
+                    </button>
+                  </div>
+                )}
+
               </div>
             )}
           </div>
@@ -418,11 +550,11 @@ export default function TikTokAuto() {
             <h3 style={{ ...s.cardTitle, color: '#374151' }}>¿Cómo funciona?</h3>
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
-                'Copiás las cookies de tu sesión de TikTok desde tu propio navegador.',
-                'No hace falta ninguna app de desarrollador — solo tu cuenta personal.',
-                'La imagen 1080×1080 se convierte automáticamente a un video de 5 segundos.',
+                'QR: el servidor abre TikTok, vos escaneás con el celular — como WhatsApp Web.',
+                'Email: el servidor inicia sesión directamente con tus credenciales.',
+                'Cookies: copiás las cookies del navegador para máxima compatibilidad.',
+                'La imagen 1080×1080 se convierte a video de 5 segundos automáticamente.',
                 '6 plantillas rotativas con tus productos y precios actualizados.',
-                'Si las cookies expiran, volvé a copiarlas desde el navegador.',
               ].map((t, i) => <li key={i} style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{t}</li>)}
             </ul>
           </div>
