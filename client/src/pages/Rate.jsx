@@ -161,7 +161,7 @@ const CSS = `
   .rv-face-label {
     font-size: clamp(20px, 4.2vmin, 44px);
     font-weight: 900;
-    color: #7c3aed;
+    color: #000000;
     text-align: center;
     letter-spacing: 0.5px;
     text-transform: uppercase;
