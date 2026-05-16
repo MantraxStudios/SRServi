@@ -204,7 +204,9 @@ export default function LeonIA() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ question: q, store_id: selectedStore.id, history: historyForCtx }),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data;
+      try { data = JSON.parse(raw); } catch { throw new Error('León IA no respondió correctamente. Intenta de nuevo.'); }
       if (!res.ok || data.error) throw new Error(data.error || `Error ${res.status}`);
       setMessages(prev => [...prev, {
         role: 'leon', text: data.answer, chart: data.chart || null,

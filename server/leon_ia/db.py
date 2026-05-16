@@ -136,7 +136,19 @@ def get_store_data(store_id: int) -> dict:
             GROUP BY c.id, c.name ORDER BY ingresos DESC LIMIT 8
         """, (store_id,))
 
+        # Catálogo de categorías con conteo de productos
+        data["catalogo_categorias"] = fetch_all(cur, """
+            SELECT c.name AS categoria, COUNT(p.id) AS total_productos,
+                   ROUND(AVG(p.price), 2) AS precio_promedio,
+                   MIN(p.price) AS precio_min, MAX(p.price) AS precio_max
+            FROM categories c
+            LEFT JOIN products p ON p.category_id = c.id AND p.store_id = %s
+            WHERE c.store_id = %s
+            GROUP BY c.id, c.name ORDER BY total_productos DESC
+        """, (store_id, store_id))
+
         # Extras más pedidos
+        import json as _json
         rows = fetch_all(cur, """
             SELECT selected_extras FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
@@ -144,7 +156,6 @@ def get_store_data(store_id: int) -> dict:
               AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
               AND oi.selected_extras IS NOT NULL AND oi.selected_extras != '[]'
         """, (store_id,))
-        import json as _json
         counts = {}
         for r in rows:
             try:
@@ -157,6 +168,37 @@ def get_store_data(store_id: int) -> dict:
         data["extras_populares"] = sorted(
             [{"extra": k, "veces": v} for k, v in counts.items()],
             key=lambda x: -x["veces"])[:8]
+
+        # Ingredientes / complementos más pedidos
+        rows2 = fetch_all(cur, """
+            SELECT selected_ingredients FROM order_items oi
+            JOIN orders o ON oi.order_id = o.id
+            WHERE o.store_id = %s AND o.status IN ('paid','processed','completed','approved')
+              AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+              AND oi.selected_ingredients IS NOT NULL AND oi.selected_ingredients != '[]'
+        """, (store_id,))
+        counts2 = {}
+        for r in rows2:
+            try:
+                for entry in _json.loads(r["selected_ingredients"] or "[]"):
+                    name = entry if isinstance(entry, str) else entry.get("name", "")
+                    if name:
+                        counts2[name] = counts2.get(name, 0) + 1
+            except Exception:
+                pass
+        data["ingredientes_populares"] = sorted(
+            [{"ingrediente": k, "veces": v} for k, v in counts2.items()],
+            key=lambda x: -x["veces"])[:8]
+
+        # Catálogo de extras disponibles
+        data["catalogo_extras"] = fetch_all(cur, """
+            SELECT name, price FROM extras WHERE store_id = %s ORDER BY name LIMIT 30
+        """, (store_id,))
+
+        # Catálogo de ingredientes disponibles
+        data["catalogo_ingredientes"] = fetch_all(cur, """
+            SELECT name FROM ingredients WHERE store_id = %s ORDER BY name LIMIT 30
+        """, (store_id,))
 
     finally:
         cur.close()
