@@ -122,16 +122,21 @@ const CSS = `
   .rv-faces {
     display: flex;
     align-items: flex-start;
-    gap: clamp(6px, 2vw, 18px);
-    width: 100%;
+    justify-content: center;
+    gap: clamp(8px, 2vmin, 24px);
     padding: 0 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    flex-shrink: 0;
   }
+  .rv-faces::-webkit-scrollbar { display: none; }
   .rv-face-btn {
-    flex: 1;
-    min-width: 0;
+    flex-shrink: 0;
+    width: 25vmin;
     display: flex;
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
     gap: 10px;
     background: none;
     border: none;
@@ -154,7 +159,7 @@ const CSS = `
     overflow: visible;
   }
   .rv-face-label {
-    font-size: clamp(20px, 4.2vw, 44px);
+    font-size: clamp(20px, 4.2vmin, 44px);
     font-weight: 900;
     color: #7c3aed;
     text-align: center;
@@ -192,10 +197,6 @@ const CSS = `
     .rv-logo-img, .rv-logo-ph { width: 80px; height: 80px; font-size: 36px; border-radius: 16px; }
     .rv-store-name { font-size: clamp(26px, 6vh, 50px); }
     .rv-headline   { font-size: clamp(50px, 14vh, 130px); }
-    .rv-face-svg   { width: auto; height: min(24vh, 180px); aspect-ratio: 1; }
-    .rv-face-btn   { align-items: center; }
-    .rv-face-label { font-size: clamp(14px, 3vh, 28px); }
-    .rv-faces      { gap: clamp(6px, 2vw, 20px); justify-content: center; }
     .rv-body       { gap: clamp(10px, 2.5vh, 30px); }
     .rv-done-svg   { width: min(28vh, 150px); height: min(28vh, 150px); }
     .rv-done-title { font-size: clamp(28px, 7vh, 52px); }
@@ -203,8 +204,6 @@ const CSS = `
   @media (min-width: 600px) and (orientation: portrait) {
     .rv-logo-img, .rv-logo-ph { width: 160px; height: 160px; font-size: 72px; border-radius: 28px; }
     .rv-store-name { font-size: clamp(38px, 7vw, 72px); }
-    .rv-face-label { font-size: clamp(22px, 4vw, 48px); }
-    .rv-faces      { gap: clamp(10px, 2.5vw, 24px); }
     .rv-done-svg   { width: min(34vw, 220px); height: min(34vw, 220px); }
   }
 `;
