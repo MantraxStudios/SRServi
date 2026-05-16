@@ -3,7 +3,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCheckCircle, faTimesCircle, faSpinner,
   faPaperPlane, faUnlink, faLink, faSync,
-  faCalendarPlus, faClock, faTrash, faUsers, faUser, faRepeat, faUserGroup
+  faCalendarPlus, faClock, faTrash, faUsers, faUser, faRepeat, faUserGroup,
+  faRobot, faToggleOn, faToggleOff, faPlay, faHistory,
+  faTag, faBell, faSmile, faSave, faChartLine, faExclamationTriangle, faInfoCircle
 } from '@fortawesome/free-solid-svg-icons';
 
 function WaIcon({ size = 24, color = '#25D366' }) {
@@ -15,6 +17,19 @@ function WaIcon({ size = 24, color = '#25D366' }) {
 }
 
 const API = 'https://srservi2.srautomatic.com';
+const GOLD = '#D4AF37';
+
+const BRAIN_ACTION_ICONS = {
+  brain_run: faChartLine, coupon_created: faTag, coupon_skipped: faTag,
+  coupon_error: faExclamationTriangle, worker_reminder_sent: faBell,
+  worker_reminder_skipped: faBell, morale_sent: faSmile,
+  brain_error: faExclamationTriangle, default: faInfoCircle
+};
+const BRAIN_ACTION_COLORS = {
+  coupon_created: '#22c55e', coupon_error: '#ef4444',
+  worker_reminder_sent: '#3b82f6', morale_sent: GOLD,
+  brain_error: '#ef4444', brain_run: '#a78bfa', default: '#9ca3af'
+};
 
 const STATUS_LABEL = {
   pending: { label: 'Pendiente', color: '#f59e0b', bg: '#fffbeb', border: '#fde68a' },
@@ -61,6 +76,17 @@ function WhatsApp() {
   // Scheduled messages list
   const [scheduled, setScheduled] = useState([]);
   const [schedListLoading, setSchedListLoading] = useState(false);
+
+  // León IA Autónomo
+  const [brainConfig, setBrainConfig] = useState({
+    enabled: false, auto_promotions: true, worker_reminders: true,
+    morale_messages: true, promotion_threshold: 20, sender_name: 'El Administrador'
+  });
+  const [brainLog, setBrainLog] = useState([]);
+  const [brainConfigLoading, setBrainConfigLoading] = useState(false);
+  const [brainSaving, setBrainSaving] = useState(false);
+  const [brainRunning, setBrainRunning] = useState(false);
+  const [brainSaveMsg, setBrainSaveMsg] = useState('');
 
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
@@ -151,6 +177,18 @@ function WhatsApp() {
     clearInterval(pollRef.current);
     pollRef.current = setInterval(() => fetchStatus(selectedStore), 4000);
     return () => clearInterval(pollRef.current);
+  }, [selectedStore]);
+
+  useEffect(() => {
+    if (!selectedStore) return;
+    setBrainConfigLoading(true);
+    Promise.all([
+      fetch(`${API}/api/brain/config?store_id=${selectedStore}`, { headers }).then(r => r.json()),
+      fetch(`${API}/api/brain/log?store_id=${selectedStore}`, { headers }).then(r => r.json()),
+    ]).then(([cfg, lg]) => {
+      if (cfg && !cfg.error) setBrainConfig(cfg);
+      if (Array.isArray(lg)) setBrainLog(lg);
+    }).finally(() => setBrainConfigLoading(false));
   }, [selectedStore]);
 
   const handleConnect = async () => {
@@ -255,6 +293,42 @@ function WhatsApp() {
     } finally {
       setSchedLoading(false);
     }
+  };
+
+  const saveBrainConfig = async () => {
+    setBrainSaving(true); setBrainSaveMsg('');
+    try {
+      const res = await fetch(`${API}/api/brain/config`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ ...brainConfig, store_id: parseInt(selectedStore) })
+      });
+      const data = await res.json();
+      if (res.ok) { setBrainConfig(data); setBrainSaveMsg('✔ Guardado'); }
+      else setBrainSaveMsg('Error: ' + (data.error || 'intenta de nuevo'));
+    } catch { setBrainSaveMsg('Error de conexión'); }
+    finally { setBrainSaving(false); setTimeout(() => setBrainSaveMsg(''), 3000); }
+  };
+
+  const runBrainNow = async () => {
+    setBrainRunning(true);
+    try {
+      await fetch(`${API}/api/brain/run`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ store_id: parseInt(selectedStore) })
+      });
+      setTimeout(() => {
+        fetch(`${API}/api/brain/log?store_id=${selectedStore}`, { headers })
+          .then(r => r.json()).then(lg => { if (Array.isArray(lg)) setBrainLog(lg); });
+        setBrainRunning(false);
+      }, 8000);
+    } catch { setBrainRunning(false); }
+  };
+
+  const brainToggle = (key) => setBrainConfig(prev => ({ ...prev, [key]: !prev[key] }));
+
+  const formatBrainDate = (iso) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
   const handleCancel = async (id) => {
@@ -744,6 +818,199 @@ function WhatsApp() {
                 );
               })}
             </div>
+          )}
+        </div>
+
+        {/* León IA Autónomo */}
+        <div style={{ ...card, marginBottom: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 12, background: '#0a0a0a',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0
+            }}>
+              <FontAwesomeIcon icon={faRobot} style={{ color: GOLD, fontSize: 20 }} />
+              <span style={{
+                position: 'absolute', top: -5, right: -5, background: GOLD, color: '#000',
+                fontSize: 7, fontWeight: 900, borderRadius: 4, padding: '1px 4px', letterSpacing: '0.5px'
+              }}>AUTO</span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>León IA Autónomo</div>
+              <div style={{ fontSize: 13, color: '#6b7280' }}>Analiza tu negocio y actúa automáticamente cada mañana</div>
+            </div>
+            <button
+              onClick={runBrainNow}
+              disabled={brainRunning || !selectedStore}
+              style={{
+                padding: '8px 16px', borderRadius: 8, border: 'none', background: GOLD,
+                color: '#000', fontWeight: 700, fontSize: 13,
+                cursor: brainRunning ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', gap: 7, opacity: brainRunning ? 0.7 : 1
+              }}
+            >
+              <FontAwesomeIcon icon={brainRunning ? faSpinner : faPlay} spin={brainRunning} />
+              {brainRunning ? 'Ejecutando...' : 'Ejecutar ahora'}
+            </button>
+          </div>
+
+          {brainConfigLoading ? (
+            <div style={{ textAlign: 'center', padding: '20px 0', color: '#aaa' }}>
+              <FontAwesomeIcon icon={faSpinner} spin /> Cargando León IA...
+            </div>
+          ) : (
+            <>
+              {/* Master toggle */}
+              <div style={{
+                background: brainConfig.enabled ? '#0a0a0a' : '#f9fafb',
+                border: `1.5px solid ${brainConfig.enabled ? GOLD : '#e5e7eb'}`,
+                borderRadius: 10, padding: '14px 16px', marginBottom: 16
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: brainConfig.enabled ? '#fff' : '#111' }}>
+                      León IA Autónomo
+                    </div>
+                    <div style={{ fontSize: 12, color: brainConfig.enabled ? 'rgba(255,255,255,0.55)' : '#6b7280', marginTop: 3 }}>
+                      {brainConfig.enabled
+                        ? '✅ Analizando y actuando automáticamente cada día a las 8:00 AM'
+                        : 'Desactivado. Actívalo para que León IA opere solo cada mañana.'}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => brainToggle('enabled')}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 28, color: brainConfig.enabled ? GOLD : '#ccc', flexShrink: 0 }}
+                  >
+                    <FontAwesomeIcon icon={brainConfig.enabled ? faToggleOn : faToggleOff} />
+                  </button>
+                </div>
+                {brainConfig.last_run_at && (
+                  <div style={{ fontSize: 11, color: brainConfig.enabled ? 'rgba(255,255,255,0.35)' : '#aaa', marginTop: 8 }}>
+                    Última ejecución: {formatBrainDate(brainConfig.last_run_at)}
+                  </div>
+                )}
+              </div>
+
+              {/* Modules */}
+              <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: '4px 16px', marginBottom: 16 }}>
+                {[
+                  { key: 'auto_promotions', icon: faTag, label: 'Promociones automáticas', desc: 'Crea cupones cuando las ventas están por debajo del promedio' },
+                  { key: 'worker_reminders', icon: faBell, label: 'Recordatorios a trabajadores', desc: 'Envía WhatsApp a trabajadores que no completaron sus tareas' },
+                  { key: 'morale_messages', icon: faSmile, label: 'Mensajes de ánimo diarios', desc: 'Envía mensajes motivadores cada mañana por WhatsApp' },
+                ].map((mod, i) => (
+                  <div key={mod.key} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '12px 0', borderBottom: i < 2 ? '1px solid #e5e7eb' : 'none'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: 8, background: '#fff',
+                        border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        <FontAwesomeIcon icon={mod.icon} style={{ color: '#6b7280', fontSize: 13 }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{mod.label}</div>
+                        <div style={{ fontSize: 11, color: '#9ca3af' }}>{mod.desc}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => brainToggle(mod.key)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: brainConfig[mod.key] ? GOLD : '#ccc' }}
+                    >
+                      <FontAwesomeIcon icon={brainConfig[mod.key] ? faToggleOn : faToggleOff} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Config fields */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
+                    Nombre del remitente
+                  </label>
+                  <input
+                    value={brainConfig.sender_name || ''}
+                    onChange={e => setBrainConfig(p => ({ ...p, sender_name: e.target.value }))}
+                    placeholder="El Administrador"
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, boxSizing: 'border-box', outline: 'none' }}
+                  />
+                  <div style={{ fontSize: 11, color: '#aaa', marginTop: 3 }}>Los mensajes llegarán firmados con este nombre</div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
+                    Umbral de promoción (%)
+                  </label>
+                  <input
+                    type="number" min="5" max="50"
+                    value={brainConfig.promotion_threshold || 20}
+                    onChange={e => setBrainConfig(p => ({ ...p, promotion_threshold: parseInt(e.target.value) || 20 }))}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, boxSizing: 'border-box', outline: 'none' }}
+                  />
+                  <div style={{ fontSize: 11, color: '#aaa', marginTop: 3 }}>Crear cupón si las ventas están X% por debajo del promedio</div>
+                </div>
+              </div>
+
+              {/* Save */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                <button
+                  onClick={saveBrainConfig}
+                  disabled={brainSaving}
+                  style={{
+                    padding: '10px 20px', borderRadius: 8, border: 'none', background: '#111',
+                    color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 8
+                  }}
+                >
+                  <FontAwesomeIcon icon={brainSaving ? faSpinner : faSave} spin={brainSaving} />
+                  {brainSaving ? 'Guardando...' : 'Guardar configuración'}
+                </button>
+                {brainSaveMsg && (
+                  <span style={{ fontSize: 13, fontWeight: 600, color: brainSaveMsg.startsWith('✔') ? '#22c55e' : '#ef4444' }}>
+                    {brainSaveMsg}
+                  </span>
+                )}
+              </div>
+
+              {/* Activity log */}
+              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                  <FontAwesomeIcon icon={faHistory} style={{ color: '#6b7280' }} />
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>Historial de actividad</div>
+                </div>
+                {brainLog.length === 0 ? (
+                  <div style={{
+                    textAlign: 'center', color: '#bbb', padding: '24px 0', fontSize: 14,
+                    background: '#f9fafb', borderRadius: 10, border: '1px dashed #e5e7eb'
+                  }}>
+                    No hay actividad registrada aún.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {brainLog.map(entry => {
+                      const icon = BRAIN_ACTION_ICONS[entry.action_type] || BRAIN_ACTION_ICONS.default;
+                      const color = BRAIN_ACTION_COLORS[entry.action_type] || BRAIN_ACTION_COLORS.default;
+                      return (
+                        <div key={entry.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 0', borderBottom: '1px solid #f5f5f5' }}>
+                          <div style={{
+                            width: 28, height: 28, borderRadius: 7, background: color + '18',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                          }}>
+                            <FontAwesomeIcon icon={icon} style={{ color, fontSize: 11 }} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, color: '#333', lineHeight: 1.4 }}>{entry.description}</div>
+                            <div style={{ fontSize: 11, color: '#bbb', marginTop: 2 }}>
+                              {formatBrainDate(entry.created_at)} · {entry.action_type}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
 

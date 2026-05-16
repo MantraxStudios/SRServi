@@ -73,25 +73,26 @@ const CSS = `
   .rv-topbar {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 14px 24px;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 10px 20px;
     flex-shrink: 0;
   }
   .rv-logo-img {
-    width: 110px; height: 110px;
-    border-radius: 20px;
+    width: 64px; height: 64px;
+    border-radius: 14px;
     object-fit: contain;
     flex-shrink: 0;
   }
   .rv-logo-ph {
-    width: 110px; height: 110px;
-    border-radius: 20px;
+    width: 64px; height: 64px;
+    border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 50px; font-weight: 900;
+    font-size: 28px; font-weight: 900;
     flex-shrink: 0;
   }
   .rv-store-name {
-    font-size: clamp(30px, 7vw, 58px);
+    font-size: clamp(18px, 4vw, 36px);
     font-weight: 900;
     color: #1e293b;
     line-height: 1.1;
@@ -187,9 +188,9 @@ const CSS = `
   }
 
   @media (orientation: landscape) {
-    .rv-topbar { padding: 6px 24px; }
-    .rv-logo-img, .rv-logo-ph { width: 72px; height: 72px; font-size: 32px; border-radius: 14px; }
-    .rv-store-name { font-size: clamp(22px, 5vh, 40px); }
+    .rv-topbar { padding: 5px 18px; }
+    .rv-logo-img, .rv-logo-ph { width: 46px; height: 46px; font-size: 20px; border-radius: 10px; }
+    .rv-store-name { font-size: clamp(16px, 4vh, 28px); }
     .rv-headline   { font-size: clamp(26px, 7vh, 56px); }
     .rv-face-svg   { width: auto; height: min(24vh, 180px); aspect-ratio: 1; }
     .rv-face-btn   { align-items: center; }
@@ -200,8 +201,8 @@ const CSS = `
     .rv-done-title { font-size: clamp(28px, 7vh, 52px); }
   }
   @media (min-width: 600px) and (orientation: portrait) {
-    .rv-logo-img, .rv-logo-ph { width: 140px; height: 140px; font-size: 62px; border-radius: 24px; }
-    .rv-store-name { font-size: clamp(34px, 6vw, 62px); }
+    .rv-logo-img, .rv-logo-ph { width: 80px; height: 80px; font-size: 36px; border-radius: 16px; }
+    .rv-store-name { font-size: clamp(22px, 4vw, 40px); }
     .rv-face-label { font-size: clamp(14px, 2.5vw, 24px); }
     .rv-faces      { gap: clamp(10px, 2.5vw, 24px); }
     .rv-done-svg   { width: min(34vw, 220px); height: min(34vw, 220px); }
