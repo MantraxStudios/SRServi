@@ -159,7 +159,7 @@ const CSS = `
     overflow: visible;
   }
   .rv-face-label {
-    font-size: clamp(20px, 4.2vmin, 44px);
+    font-size: clamp(9px, 2vmin, 20px);
     font-weight: 900;
     color: #000000;
     text-align: center;
