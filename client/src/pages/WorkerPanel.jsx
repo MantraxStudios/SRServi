@@ -283,7 +283,11 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown, completeTask, complet
 
 function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError, tasksLoading, getTaskStatus, getCountdown }) {
   const todayDow = new Date().getDay();
-  const todayTasks = tasks.filter(t => t.day_of_week === todayDow);
+  const raw = tasks.filter(t => t.day_of_week === todayDow);
+  const statusOrder = { active: 0, pending: 1, expired: 2, completed: 3 };
+  const todayTasks = [...raw].sort((a, b) =>
+    (statusOrder[getTaskStatus(a)] ?? 9) - (statusOrder[getTaskStatus(b)] ?? 9)
+  );
   const totalDone = todayTasks.filter(t => t.completed_at).length;
 
   if (tasksLoading) {
