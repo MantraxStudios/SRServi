@@ -180,7 +180,7 @@ function TaskDetailModal({ task, getTaskStatus, getCountdown, completeTask, comp
   );
 }
 
-function MiniTaskCard({ task, getTaskStatus, getCountdown, completeTask, completingTask }) {
+function MiniTaskCard({ task, getTaskStatus, getCountdown }) {
   const status = getTaskStatus(task);
   const [countdown, setCountdown] = useState(status === 'active' ? getCountdown(task) : null);
 
@@ -195,65 +195,67 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown, completeTask, complet
   expireDate.setHours(dh, dm + 60, 0, 0);
   const expireStr = expireDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
-  const borderColor = status === 'completed' ? '#16a34a'
-    : status === 'active' ? '#D4AF37'
-    : status === 'expired' ? '#ef4444'
-    : '#222';
-
   const completedTime = task.completed_at
     ? new Date(task.completed_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
     : null;
 
-  const isCompleting = completingTask === task.id;
+  const statusCfg = {
+    active:    { label: 'Activa',     bg: 'rgba(212,175,55,0.12)',  color: '#D4AF37',  border: 'rgba(212,175,55,0.3)' },
+    completed: { label: 'Completada', bg: 'rgba(22,163,74,0.10)',   color: '#16a34a',  border: 'rgba(22,163,74,0.25)' },
+    expired:   { label: 'Vencida',    bg: 'rgba(239,68,68,0.10)',   color: '#ef4444',  border: 'rgba(239,68,68,0.25)' },
+    upcoming:  { label: 'Próxima',    bg: 'rgba(255,255,255,0.06)', color: '#888',     border: 'rgba(255,255,255,0.1)' },
+  }[status] || { label: status, bg: '#1a1a1a', color: '#888', border: '#333' };
+
+  const cardBorder = status === 'active' ? 'rgba(212,175,55,0.35)'
+    : status === 'completed' ? 'rgba(22,163,74,0.2)'
+    : 'rgba(0,0,0,0.08)';
 
   return (
     <div
-      onClick={() => status === 'active' && !isCompleting && completeTask(task.id)}
-      style={{
-        width: '100%',
-        background: '#fff', border: `2px solid ${borderColor}`,
-        borderRadius: 10, padding: '10px 12px',
-        display: 'flex', flexDirection: 'column', gap: 5,
-        boxSizing: 'border-box',
-        cursor: status === 'active' && !isCompleting ? 'pointer' : 'default',
-        boxShadow: status === 'active' ? '0 0 12px rgba(212,175,55,0.25)' : '0 1px 4px rgba(0,0,0,0.06)',
-        transition: 'border-color 0.2s, opacity 0.15s',
-        opacity: isCompleting ? 0.6 : 1,
-      }}
+      className="worker-order-card"
+      style={{ border: `1px solid ${cardBorder}`, opacity: status === 'completed' ? 0.75 : 1, cursor: 'default' }}
     >
-      {/* Nombre */}
-      <div style={{
-        fontWeight: 700, fontSize: 13, color: '#111',
-        lineHeight: 1.3,
-        overflow: 'hidden', display: '-webkit-box',
-        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical'
-      }}>
-        {task.name}
+      {/* Header: nombre + badge estado */}
+      <div className="worker-order-header">
+        <h3 className="worker-order-number" style={{ fontSize: 14 }}>{task.name}</h3>
+        <span style={{
+          fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, flexShrink: 0,
+          background: statusCfg.bg, color: statusCfg.color, border: `1px solid ${statusCfg.border}`,
+          letterSpacing: 0.5
+        }}>
+          {statusCfg.label}
+        </span>
       </div>
 
-      {/* Horario + countdown en la misma fila */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-        <div style={{ fontSize: 11, color: '#888', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <FontAwesomeIcon icon={faClock} style={{ fontSize: 10, color: '#aaa' }} />
+      {/* Horario */}
+      <div className="worker-order-info" style={{ marginBottom: task.description ? 8 : 0 }}>
+        <span style={{ fontSize: 12, color: '#888', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <FontAwesomeIcon icon={faClock} style={{ fontSize: 10, color: '#D4AF37' }} />
           {task.due_time} – {expireStr}
-        </div>
-        {status === 'active' && (
-          <span style={{ fontSize: 13, fontWeight: 900, color: '#D4AF37', letterSpacing: 1, flexShrink: 0 }}>
-            {isCompleting ? '...' : (countdown || '—')}
-          </span>
-        )}
-        {status === 'completed' && (
+        </span>
+        {status === 'completed' && completedTime && (
           <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3 }}>
             <FontAwesomeIcon icon={faCheck} /> {completedTime}
           </span>
         )}
-        {status === 'expired' && (
-          <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 700 }}>Vencida</span>
-        )}
-        {status === 'upcoming' && (
-          <span style={{ fontSize: 11, color: '#aaa' }}>Próxima</span>
-        )}
       </div>
+
+      {/* Descripción (como items preview) */}
+      {task.description && (
+        <div className="worker-order-items-preview" style={{ marginBottom: status === 'active' ? 8 : 0 }}>
+          <span style={{ fontSize: 12, color: '#666', lineHeight: 1.5 }}>{task.description}</span>
+        </div>
+      )}
+
+      {/* Countdown si activa */}
+      {status === 'active' && (
+        <div style={{
+          fontSize: 20, fontWeight: 900, color: '#D4AF37',
+          letterSpacing: 2, fontVariantNumeric: 'tabular-nums'
+        }}>
+          {countdown || '—'}
+        </div>
+      )}
     </div>
   );
 }
@@ -430,12 +432,12 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
       {/* Layout dos paneles */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-        {/* Columna izquierda — lista de tareas */}
+        {/* Columna izquierda — tarjetas de tareas */}
         <div style={{
-          width: 200, flexShrink: 0,
+          width: 280, flexShrink: 0,
           borderRight: '1px solid #1e1e1e',
-          overflowY: 'auto', padding: '10px 8px',
-          display: 'flex', flexDirection: 'column', gap: 8,
+          overflowY: 'auto', padding: '12px 10px',
+          display: 'flex', flexDirection: 'column', gap: 10,
           scrollbarWidth: 'none'
         }}>
           {todayTasks.length === 0 ? (
@@ -449,8 +451,6 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
                 task={task}
                 getTaskStatus={getTaskStatus}
                 getCountdown={getCountdown}
-                completeTask={completeTask}
-                completingTask={completingTask}
               />
             ))
           )}
