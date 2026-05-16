@@ -19,55 +19,14 @@ function imageToVideo(imgPath, vidPath) {
   );
 }
 
-// ── OAuth helpers ─────────────────────────────────────────────────────────────
-
-export function getTikTokAuthUrl({ clientKey, redirectUri, storeId }) {
-  const params = new URLSearchParams({
-    client_key:    clientKey,
-    scope:         'user.info.basic,video.publish',
-    response_type: 'code',
-    redirect_uri:  redirectUri,
-    state:         String(storeId),
-  });
-  return `https://www.tiktok.com/v2/auth/authorize/?${params}`;
+function extractCsrfToken(cookieStr) {
+  const m = cookieStr.match(/tt_csrf_token=([^;,\s]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
 }
 
-export async function exchangeCodeForToken({ clientKey, clientSecret, code, redirectUri }) {
-  const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Cache-Control': 'no-cache' },
-    body:    new URLSearchParams({
-      client_key:    clientKey,
-      client_secret: clientSecret,
-      code,
-      grant_type:   'authorization_code',
-      redirect_uri:  redirectUri,
-    }).toString(),
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error_description || data.error);
-  return data; // { access_token, refresh_token, open_id, expires_in, scope }
-}
+// ── Publicar video usando las cookies del navegador ───────────────────────────
 
-export async function refreshTikTokToken({ clientKey, clientSecret, refreshToken }) {
-  const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Cache-Control': 'no-cache' },
-    body:    new URLSearchParams({
-      client_key:    clientKey,
-      client_secret: clientSecret,
-      grant_type:    'refresh_token',
-      refresh_token: refreshToken,
-    }).toString(),
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error_description || data.error);
-  return data;
-}
-
-// ── Publicar video via Content Posting API ────────────────────────────────────
-
-export async function postToTikTok({ accessToken, imageBuffer, caption }) {
+export async function postToTikTok({ cookieString, imageBuffer, caption }) {
   await ensureTmp();
   const base    = `tt_${Date.now()}`;
   const imgPath = join(TMP, `${base}.jpg`);
@@ -80,47 +39,46 @@ export async function postToTikTok({ accessToken, imageBuffer, caption }) {
     const videoBuffer = await readFile(vidPath);
     const videoSize   = videoBuffer.length;
 
+    const csrfToken = extractCsrfToken(cookieString);
+
+    const baseHdrs = {
+      'Cookie':          cookieString,
+      'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Referer':         'https://www.tiktok.com/',
+      'Origin':          'https://www.tiktok.com',
+      'Accept-Language': 'es-ES,es;q=0.9',
+      ...(csrfToken ? { 'X-Secsdk-Csrf-Token': csrfToken } : {}),
+    };
+
     // 1. Iniciar upload
-    const initRes = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
+    const initRes = await fetch('https://www.tiktok.com/api/media/upload/init/', {
       method:  'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type':  'application/json; charset=UTF-8',
-      },
-      body: JSON.stringify({
-        post_info: {
-          title:                    caption.slice(0, 2200),
-          privacy_level:            'PUBLIC_TO_EVERYONE',
-          disable_duet:             false,
-          disable_comment:          false,
-          disable_stitch:           false,
-          video_cover_timestamp_ms: 1000,
-        },
-        source_info: {
-          source:             'FILE_UPLOAD',
-          video_size:         videoSize,
-          chunk_size:         videoSize,
-          total_chunk_count:  1,
-        },
+      headers: { ...baseHdrs, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        source_type:       'FILE_UPLOAD',
+        video_size:        videoSize,
+        chunk_size:        videoSize,
+        total_chunk_count: 1,
       }),
     });
 
+    if (!initRes.ok) throw new Error(`TikTok upload init: HTTP ${initRes.status}`);
     const initData = await initRes.json();
 
-    if (!initRes.ok || initData.error?.code !== 'ok') {
-      const code = initData.error?.code || '';
-      if (code === 'access_token_invalid' || code === 'access_token_expired') {
-        throw new Error('TOKEN_EXPIRED');
+    if (initData.statusCode !== 0) {
+      if (initData.statusCode === 8 || initData.statusCode === 10101) {
+        throw new Error('Sesión expirada — pegá las cookies actualizadas de TikTok.');
       }
-      throw new Error(`TikTok API: ${initData.error?.message || code || `HTTP ${initRes.status}`}`);
+      throw new Error(`TikTok error ${initData.statusCode}: ${initData.statusMsg || 'desconocido'}`);
     }
 
-    const { upload_url } = initData.data;
+    const { upload_url, video_id } = initData.data;
 
-    // 2. Subir el video
+    // 2. Subir video
     const uploadRes = await fetch(upload_url, {
       method:  'PUT',
       headers: {
+        ...baseHdrs,
         'Content-Type':   'video/mp4',
         'Content-Length': String(videoSize),
         'Content-Range':  `bytes 0-${videoSize - 1}/${videoSize}`,
@@ -128,7 +86,27 @@ export async function postToTikTok({ accessToken, imageBuffer, caption }) {
       body: videoBuffer,
     });
 
-    if (!uploadRes.ok) throw new Error(`Error subiendo video: ${uploadRes.status}`);
+    if (!uploadRes.ok) throw new Error(`TikTok video upload: HTTP ${uploadRes.status}`);
+
+    // 3. Publicar
+    const postRes = await fetch('https://www.tiktok.com/api/media/publish/', {
+      method:  'POST',
+      headers: { ...baseHdrs, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        video_id,
+        text:                     caption.slice(0, 2200),
+        privacy_level:            'PUBLIC_TO_EVERYONE',
+        disable_duet:             false,
+        disable_stitch:           false,
+        disable_comment:          false,
+        video_cover_timestamp_ms: 1000,
+      }),
+    });
+
+    const postData = await postRes.json();
+    if (postData.statusCode !== 0) {
+      throw new Error(`TikTok publish error ${postData.statusCode}: ${postData.statusMsg || 'desconocido'}`);
+    }
 
   } finally {
     await unlink(imgPath).catch(() => {});

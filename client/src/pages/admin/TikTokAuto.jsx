@@ -6,7 +6,7 @@ import {
   faSave, faPlay, faEye, faDownload,
   faCheckCircle, faTimesCircle, faSpinner,
   faToggleOn, faToggleOff, faClock, faExclamationTriangle,
-  faUnlink, faExternalLinkAlt,
+  faUnlink, faKey,
 } from '@fortawesome/free-solid-svg-icons';
 
 const CSS = `
@@ -50,11 +50,11 @@ export default function TikTokAuto() {
 
   const [cfg, setCfg]               = useState({ caption_template: '', enabled: false, post_time: '10:00', post_days: '0' });
   const [connected, setConnected]   = useState(false);
-  const [oauthConfigured, setOauthConfigured] = useState(false);
   const [loading, setLoading]       = useState(false);
   const [saving, setSaving]         = useState(false);
   const [posting, setPosting]       = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [cookieStr, setCookieStr]   = useState('');
   const [previewing, setPreviewing] = useState(null);
   const [previews, setPreviews]     = useState({});
   const [lastStatus, setLastStatus] = useState(null);
@@ -72,18 +72,7 @@ export default function TikTokAuto() {
       .then(d => {
         setCfg({ caption_template: d.caption_template || '', enabled: !!d.enabled, post_time: d.post_time || '10:00', post_days: d.post_days || '0' });
         setConnected(!!d.tk_connected);
-        setOauthConfigured(!!d.oauth_configured);
         setLastStatus({ last_posted_at: d.last_posted_at, last_error: d.last_error, template_counter: d.template_counter ?? 0 });
-        // Detectar retorno del OAuth
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('connected') === '1') {
-          window.history.replaceState({}, '', window.location.pathname);
-          showToast('¡Cuenta de TikTok conectada!');
-        }
-        if (params.get('tiktok_error')) {
-          window.history.replaceState({}, '', window.location.pathname);
-          showToast(decodeURIComponent(params.get('tiktok_error')), 'error');
-        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -95,19 +84,20 @@ export default function TikTokAuto() {
   };
 
   const connect = async () => {
-    if (!storeId) return;
+    if (!storeId || !cookieStr.trim()) return;
     setConnecting(true);
     try {
-      const res = await fetch(`${API}/api/tiktok/${storeId}/oauth-url`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`${API}/api/tiktok/${storeId}/connect`, {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ cookie_string: cookieStr.trim() }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      window.location.href = data.url;
-    } catch (e) {
-      showToast(e.message, 'error');
-      setConnecting(false);
-    }
+      if (!res.ok) throw new Error((await res.json()).error);
+      setConnected(true);
+      setCookieStr('');
+      showToast('¡Cookies guardadas! Probá publicar ahora.');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { setConnecting(false); }
   };
 
   const save = async () => {
@@ -237,51 +227,49 @@ export default function TikTokAuto() {
               )}
             </div>
 
-            {/* Conectar via OAuth */}
+            {/* Conectar con cookies */}
             {!connected && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {oauthConfigured ? (
-                  <>
-                    <div style={{ background: '#f0f9ff', borderRadius: 12, border: '1px solid #bae6fd', padding: '14px' }}>
-                      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 800, color: '#0369a1' }}>Conectar con tu cuenta de TikTok</p>
-                      <p style={{ margin: 0, fontSize: 12, color: '#0c4a6e', lineHeight: 1.6 }}>
-                        Hacé clic en el botón y autorizá la app en TikTok. No necesitás copiar ningún código — el proceso es automático igual que "Iniciar sesión con Google".
-                      </p>
+                <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '14px' }}>
+                  <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 800, color: '#1e293b' }}>Cómo copiar las cookies de tu sesión</p>
+                  {[
+                    ['1', 'Abrí TikTok.com en tu PC con tu cuenta abierta.'],
+                    ['2', 'Presioná F12 y andá a la pestaña "Red" (Network).'],
+                    ['3', 'Recargá la página (F5). Hacé clic en cualquier pedido a www.tiktok.com.'],
+                    ['4', 'En "Encabezados de solicitud" buscá la línea "cookie:".'],
+                    ['5', 'Copiá TODO el valor (es largo) y pegalo abajo.'],
+                  ].map(([n, text]) => (
+                    <div key={n} style={{ display: 'flex', gap: 10, marginBottom: 8, alignItems: 'flex-start' }}>
+                      <span style={{ background: '#010101', color: '#D4AF37', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, flexShrink: 0, marginTop: 1 }}>{n}</span>
+                      <span style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.5 }}>{text}</span>
                     </div>
-                    <button
-                      onClick={connect}
-                      disabled={connecting}
-                      style={{ ...s.btnTikTok, width: '100%', justifyContent: 'center', padding: '13px', opacity: connecting ? 0.6 : 1 }}
-                    >
-                      {connecting
-                        ? <><FontAwesomeIcon icon={faSpinner} spin /> Redirigiendo…</>
-                        : <><TikTokIcon size={16} /> Conectar con TikTok</>}
-                    </button>
-                  </>
-                ) : (
-                  <div style={{ background: '#fffbeb', borderRadius: 12, border: '1px solid #fde68a', padding: '14px' }}>
-                    <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 800, color: '#92400e' }}>Configuración requerida</p>
-                    <p style={{ margin: '0 0 10px', fontSize: 12, color: '#78350f', lineHeight: 1.6 }}>
-                      Para conectar TikTok, necesitás agregar las credenciales de tu app en el servidor:
-                    </p>
-                    {[
-                      ['1', 'Entrá a developers.tiktok.com y creá una cuenta.'],
-                      ['2', 'Creá una nueva app y habilitá el scope "video.publish".'],
-                      ['3', 'Copiá el Client Key y el Client Secret.'],
-                      ['4', 'Agregá en el .env del servidor: TIKTOK_CLIENT_KEY y TIKTOK_CLIENT_SECRET.'],
-                      ['5', 'Registrá la Redirect URI: ' + API + '/api/tiktok/callback'],
-                    ].map(([n, text]) => (
-                      <div key={n} style={{ display: 'flex', gap: 10, marginBottom: 8, alignItems: 'flex-start' }}>
-                        <span style={{ background: '#92400e', color: '#fef3c7', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, flexShrink: 0, marginTop: 1 }}>{n}</span>
-                        <span style={{ fontSize: 12, color: '#78350f', lineHeight: 1.5 }}>{text}</span>
-                      </div>
-                    ))}
-                    <a href="https://developers.tiktok.com" target="_blank" rel="noopener noreferrer"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 12, fontWeight: 700, color: '#010101', textDecoration: 'none' }}>
-                      <FontAwesomeIcon icon={faExternalLinkAlt} /> Ir a TikTok Developer Portal
-                    </a>
-                  </div>
-                )}
+                  ))}
+                </div>
+
+                <div>
+                  <label style={s.label}><FontAwesomeIcon icon={faKey} style={{ marginRight: 6 }} />Cookies de TikTok</label>
+                  <textarea
+                    value={cookieStr}
+                    onChange={e => setCookieStr(e.target.value)}
+                    placeholder="sessionid=abc123; tt_csrf_token=xyz; ttwid=def456; ..."
+                    rows={4}
+                    style={{ ...s.input, fontFamily: 'monospace', fontSize: 11, resize: 'vertical', height: 'auto' }}
+                    onFocus={e => e.target.style.borderColor = '#010101'}
+                    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                  />
+                </div>
+
+                <button
+                  onClick={connect}
+                  disabled={connecting || !cookieStr.trim()}
+                  style={{ ...s.btnTikTok, width: '100%', justifyContent: 'center', padding: '11px', opacity: (!cookieStr.trim() || connecting) ? 0.5 : 1 }}
+                >
+                  {connecting ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando…</> : <><TikTokIcon size={15} /> Guardar cookies</>}
+                </button>
+
+                <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>
+                  Las cookies expiran cuando cerrás sesión en TikTok. Si falla, repetí el proceso.
+                </p>
               </div>
             )}
           </div>
@@ -430,11 +418,11 @@ export default function TikTokAuto() {
             <h3 style={{ ...s.cardTitle, color: '#374151' }}>¿Cómo funciona?</h3>
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
-                'Conectás tu cuenta de TikTok con OAuth — igual que "Iniciar sesión con Google".',
-                'El access token se renueva automáticamente, no necesitás volver a conectar.',
+                'Copiás las cookies de tu sesión de TikTok desde tu propio navegador.',
+                'No hace falta ninguna app de desarrollador — solo tu cuenta personal.',
                 'La imagen 1080×1080 se convierte automáticamente a un video de 5 segundos.',
                 '6 plantillas rotativas con tus productos y precios actualizados.',
-                'Publicación automática según el horario y días que configures.',
+                'Si las cookies expiran, volvé a copiarlas desde el navegador.',
               ].map((t, i) => <li key={i} style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{t}</li>)}
             </ul>
           </div>
