@@ -111,7 +111,7 @@ const CSS = `
     padding: 0 12px 20px;
   }
   .rv-headline {
-    font-size: clamp(72px, 20vw, 200px);
+    font-size: clamp(48px, 13vw, 130px);
     font-family: 'Nunito', system-ui, sans-serif;
     font-weight: 900;
     text-align: center;

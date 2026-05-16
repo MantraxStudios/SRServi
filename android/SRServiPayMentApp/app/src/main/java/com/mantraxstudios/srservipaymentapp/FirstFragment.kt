@@ -1,9 +1,11 @@
 package com.mantraxstudios.srservipaymentapp
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -18,17 +20,26 @@ class FirstFragment : Fragment() {
     private var _binding: FragmentFirstBinding? = null
     private val binding get() = _binding!!
 
-    // Registrar el launcher ANTES de que el fragmento entre en STARTED
+    companion object {
+        private const val TAG = "TUU_TEST"
+        private const val TUU_DEV = "com.haulmer.paymentapp.dev"
+    }
+
     private val paymentLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        Log.d(TAG, "=== RESULTADO RECIBIDO ===")
+        Log.d(TAG, "resultCode: ${result.resultCode}")
+        Log.d(TAG, "data: ${result.data}")
+        Log.d(TAG, "extras: ${result.data?.extras}")
+        val raw = result.data?.getStringExtra("transactionResult")
+        Log.d(TAG, "transactionResult: $raw")
+
+        Toast.makeText(requireContext(), "TUU respondió — código: ${result.resultCode}", Toast.LENGTH_LONG).show()
         handlePaymentResult(result.resultCode, result.data)
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentFirstBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -55,8 +66,6 @@ class FirstFragment : Fragment() {
             R.id.rbMethodDebit -> 2
             else -> 0
         }
-
-        // tip: -1 = sin propina, 0 = preguntar en app
         val tip = if (binding.rgTip.checkedRadioButtonId == R.id.rbTipPrompt) 0 else -1
 
         val payload = JSONObject().apply {
@@ -73,38 +82,51 @@ class FirstFragment : Fragment() {
             })
         }
 
-        // Paso 1: obtener el intent de lanzamiento real de TUU (resuelve el Activity correcto)
-        val tuurPackage = "com.haulmer.paymentapp.dev"
-        val sendIntent = requireContext().packageManager.getLaunchIntentForPackage(tuurPackage)
+        Log.d(TAG, "=== INICIANDO PAGO ===")
+        Log.d(TAG, "payload: $payload")
 
-        if (sendIntent == null) {
-            binding.tvStatus.text = "TUU DEV no instalada"
+        // Paso 1: buscar la app TUU DEV instalada
+        val launchIntent = requireContext().packageManager.getLaunchIntentForPackage(TUU_DEV)
+        Log.d(TAG, "getLaunchIntentForPackage($TUU_DEV) = $launchIntent")
+
+        if (launchIntent == null) {
+            Log.e(TAG, "TUU DEV NO encontrada en el dispositivo")
+            Toast.makeText(requireContext(), "TUU DEV no está instalada ($TUU_DEV)", Toast.LENGTH_LONG).show()
+            binding.tvStatus.text = "No instalada"
             binding.tvStatus.setTextColor(Color.parseColor("#FF9800"))
-            binding.tvResult.text = "La app TUU Negocio DEV ($tuurPackage) no está instalada en este dispositivo."
+            binding.tvResult.text = "No se encontró: $TUU_DEV\n\nVerifica que la app TUU Negocio DEV esté instalada."
             return
         }
 
-        // Paso 2: sobreescribir acción, flags, tipo y payload — tal como indica la documentación
-        sendIntent.action = Intent.ACTION_SEND
-        sendIntent.flags = 0
-        sendIntent.putExtra(Intent.EXTRA_TEXT, payload.toString())
-        sendIntent.type = "text/json"
+        Log.d(TAG, "TUU encontrada. Component: ${launchIntent.component}")
+        Toast.makeText(requireContext(), "TUU DEV encontrada. Lanzando...", Toast.LENGTH_SHORT).show()
+
+        // Paso 2: sobreescribir según documentación TUU
+        launchIntent.action = Intent.ACTION_SEND
+        launchIntent.flags = 0
+        launchIntent.putExtra(Intent.EXTRA_TEXT, payload.toString())
+        launchIntent.type = "text/json"
+
+        Log.d(TAG, "Intent final: $launchIntent")
 
         try {
-            paymentLauncher.launch(sendIntent)
+            paymentLauncher.launch(launchIntent)
+            Log.d(TAG, "paymentLauncher.launch() llamado OK")
         } catch (e: Exception) {
-            binding.tvStatus.text = "Error al lanzar TUU"
+            Log.e(TAG, "Error al lanzar: ${e.message}", e)
+            Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            binding.tvStatus.text = "Error al lanzar"
             binding.tvStatus.setTextColor(Color.parseColor("#FF9800"))
-            binding.tvResult.text = e.message ?: "Error desconocido"
+            binding.tvResult.text = e.toString()
         }
     }
 
-    private fun handlePaymentResult(resultCode: Int, data: android.content.Intent?) {
-        val rawJson = data?.getStringExtra("transactionResult") ?: "{}"
-        val formatted = try {
-            JSONObject(rawJson).toString(2)
-        } catch (e: Exception) {
-            rawJson
+    private fun handlePaymentResult(resultCode: Int, data: Intent?) {
+        val rawJson = data?.getStringExtra("transactionResult") ?: ""
+        val formatted = if (rawJson.isNotEmpty()) {
+            runCatching { JSONObject(rawJson).toString(2) }.getOrDefault(rawJson)
+        } else {
+            "(sin datos — data=${data})"
         }
 
         when (resultCode) {
@@ -123,17 +145,24 @@ class FirstFragment : Fragment() {
             Activity.RESULT_CANCELED -> {
                 val json = runCatching { JSONObject(rawJson) }.getOrDefault(JSONObject())
                 val code = json.optInt("errorCode", -1)
-                val msg = json.optString("errorMessage", "Cancelado")
-                binding.tvStatus.text = "ERROR $code: $msg"
+                val msg = json.optString("errorMessage", "sin mensaje")
+                binding.tvStatus.text = "CANCELADO  errorCode=$code"
                 binding.tvStatus.setTextColor(Color.parseColor("#F44336"))
+
+                // Dialog para que sea imposible no verlo
+                AlertDialog.Builder(requireContext())
+                    .setTitle("TUU RESULT_CANCELED")
+                    .setMessage("errorCode: $code\nerrorMessage: $msg\n\nJSON completo:\n$formatted")
+                    .setPositiveButton("OK", null)
+                    .show()
             }
             else -> {
-                binding.tvStatus.text = "Resultado desconocido ($resultCode)"
+                binding.tvStatus.text = "Código desconocido: $resultCode"
                 binding.tvStatus.setTextColor(Color.parseColor("#FF9800"))
             }
         }
 
-        binding.tvResult.text = formatted
+        binding.tvResult.text = formatted.ifEmpty { "(respuesta vacía)" }
         binding.tvResult.setTextColor(Color.parseColor("#DDDDDD"))
     }
 
