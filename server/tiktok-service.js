@@ -182,23 +182,21 @@ export async function startQRLogin(storeId) {
     }
 
     try {
-      const url = s.page.url();
-      if (!url.includes('/login')) {
-        // Page navigated away from login — user scanned and accepted
-        const cookies = await s.context.cookies();
-        const cookie  = cookies.find(c => c.name === 'sessionid' && c.value);
-        if (cookie) {
-          s.status    = 'connected';
-          s.sessionId = cookie.value;
-          clearInterval(s.pollTimer);
-          setTimeout(() => s.browser.close().catch(() => {}), 5000);
-        }
-      } else {
-        // Refresh QR image (TikTok may rotate it)
-        const fresh = await captureQR(s.page);
-        if (fresh) s.qrBase64 = fresh;
+      // Check cookies regardless of URL — sessionid may appear before redirect
+      const cookies = await s.context.cookies('https://www.tiktok.com');
+      const cookie  = cookies.find(c => c.name === 'sessionid' && c.value && c.value.length > 10);
+      if (cookie) {
+        s.status    = 'connected';
+        s.sessionId = cookie.value;
+        clearInterval(s.pollTimer);
+        setTimeout(() => s.browser.close().catch(() => {}), 5000);
+        return;
       }
-    } catch { /* page may be mid-navigation */ }
+
+      // Refresh QR image so it stays up to date
+      const fresh = await captureQR(s.page);
+      if (fresh) s.qrBase64 = fresh;
+    } catch { /* ignore mid-navigation errors */ }
   }, 2500);
 
   return qrBase64;
