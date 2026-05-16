@@ -536,6 +536,20 @@ async function migrateSrBrain() {
     }
   } catch (e) { console.warn('migrateSrBrain workers.phone:', e.message); }
 
+  // Schedule columns for ai_config
+  try {
+    const [cols] = await pool.execute(`SHOW COLUMNS FROM ai_config`);
+    const fields = cols.map(c => c.Field);
+    if (!fields.includes('send_hour')) {
+      await pool.execute(`ALTER TABLE ai_config ADD COLUMN send_hour TINYINT DEFAULT 8`);
+      console.log('✅ Columna send_hour agregada a ai_config');
+    }
+    if (!fields.includes('send_days')) {
+      await pool.execute(`ALTER TABLE ai_config ADD COLUMN send_days VARCHAR(20) DEFAULT '1,2,3,4,5,6,7'`);
+      console.log('✅ Columna send_days agregada a ai_config');
+    }
+  } catch (e) { console.warn('migrateSrBrain ai_config schedule:', e.message); }
+
   // AI config per store
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS ai_config (
@@ -4086,10 +4100,10 @@ export async function getAiConfig(storeId) {
 }
 
 export async function saveAiConfig(storeId, data) {
-  const { enabled, auto_promotions, worker_reminders, morale_messages, promotion_threshold, sender_name } = data;
+  const { enabled, auto_promotions, worker_reminders, morale_messages, promotion_threshold, sender_name, send_hour, send_days } = data;
   await pool.execute(`
-    INSERT INTO ai_config (store_id, enabled, auto_promotions, worker_reminders, morale_messages, promotion_threshold, sender_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO ai_config (store_id, enabled, auto_promotions, worker_reminders, morale_messages, promotion_threshold, sender_name, send_hour, send_days)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       enabled = VALUES(enabled),
       auto_promotions = VALUES(auto_promotions),
@@ -4097,8 +4111,10 @@ export async function saveAiConfig(storeId, data) {
       morale_messages = VALUES(morale_messages),
       promotion_threshold = VALUES(promotion_threshold),
       sender_name = VALUES(sender_name),
+      send_hour = VALUES(send_hour),
+      send_days = VALUES(send_days),
       updated_at = CURRENT_TIMESTAMP
-  `, [storeId, enabled ?? false, auto_promotions ?? true, worker_reminders ?? true, morale_messages ?? true, promotion_threshold ?? 20, sender_name || 'El Administrador']);
+  `, [storeId, enabled ?? false, auto_promotions ?? true, worker_reminders ?? true, morale_messages ?? true, promotion_threshold ?? 20, sender_name || 'El Administrador', send_hour ?? 8, send_days || '1,2,3,4,5,6,7']);
   return getAiConfig(storeId);
 }
 

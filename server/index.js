@@ -10303,9 +10303,21 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
-    // Cron SRBrain — todos los días a las 8:00 AM
-    cron.schedule('0 8 * * *', async () => {
-      runSrBrain().catch(e => console.error('[SRBrain] Cron error:', e.message));
+    // Cron SRBrain — cada hora evalúa qué tiendas deben ejecutarse según su schedule
+    cron.schedule('0 * * * *', async () => {
+      try {
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentDay = now.getDay() === 0 ? 7 : now.getDay(); // 1=Lun...7=Dom
+        const configs = await getAllEnabledAiConfigs();
+        for (const cfg of configs) {
+          const hour = cfg.send_hour ?? 8;
+          const days = (cfg.send_days || '1,2,3,4,5,6,7').split(',').map(Number);
+          if (hour === currentHour && days.includes(currentDay)) {
+            runSrBrainForStore(cfg.store_id).catch(e => console.error(`[SRBrain] Error tienda ${cfg.store_id}:`, e.message));
+          }
+        }
+      } catch (e) { console.error('[SRBrain] Cron error:', e.message); }
     });
 
     // WhatsApp routes — todas requieren store_id que pertenece al usuario autenticado

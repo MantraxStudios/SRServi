@@ -82,7 +82,8 @@ function WhatsApp() {
   // León IA Autónomo
   const [brainConfig, setBrainConfig] = useState({
     enabled: false, auto_promotions: true, worker_reminders: true,
-    morale_messages: true, promotion_threshold: 20, sender_name: 'El Administrador'
+    morale_messages: true, promotion_threshold: 20, sender_name: 'El Administrador',
+    send_hour: 8, send_days: '1,2,3,4,5,6,7'
   });
   const [brainLog, setBrainLog] = useState([]);
   const [brainConfigLoading, setBrainConfigLoading] = useState(false);
@@ -978,6 +979,50 @@ function WhatsApp() {
                   />
                   <div style={{ fontSize: 11, color: '#aaa', marginTop: 3 }}>Crear cupón si las ventas están X% por debajo del promedio</div>
                 </div>
+              </div>
+
+              {/* Horario de envío */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                  Horario de envío automático
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <FontAwesomeIcon icon={faClock} style={{ color: GOLD, fontSize: 14 }} />
+                  <select
+                    value={brainConfig.send_hour ?? 8}
+                    onChange={e => setBrainConfig(p => ({ ...p, send_hour: parseInt(e.target.value) }))}
+                    style={{ padding: '8px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff' }}
+                  >
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <option key={i} value={i}>
+                        {String(i).padStart(2, '0')}:00 {i < 12 ? 'AM' : 'PM'}
+                      </option>
+                    ))}
+                  </select>
+                  <span style={{ fontSize: 12, color: '#888' }}>Hora local del servidor</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {[['L',1],['M',2],['X',3],['J',4],['V',5],['S',6],['D',7]].map(([label, day]) => {
+                    const days = (brainConfig.send_days || '1,2,3,4,5,6,7').split(',').map(Number);
+                    const active = days.includes(day);
+                    const toggle = () => {
+                      const next = active ? days.filter(d => d !== day) : [...days, day].sort((a,b)=>a-b);
+                      setBrainConfig(p => ({ ...p, send_days: next.join(',') }));
+                    };
+                    return (
+                      <button key={day} onClick={toggle} style={{
+                        width: 36, height: 36, borderRadius: '50%', border: 'none',
+                        background: active ? GOLD : '#f3f4f6',
+                        color: active ? '#000' : '#9ca3af',
+                        fontWeight: 800, fontSize: 13, cursor: 'pointer',
+                        transition: 'all 0.15s'
+                      }}>{label}</button>
+                    );
+                  })}
+                </div>
+                {(brainConfig.send_days || '').length === 0 && (
+                  <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>Sin días seleccionados — el brain no se ejecutará automáticamente</div>
+                )}
               </div>
 
               {/* Save */}
