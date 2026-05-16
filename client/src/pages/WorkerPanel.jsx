@@ -1202,9 +1202,7 @@ function WorkerPanel() {
               onClick={() => { setActiveTab('tasks'); setTaskError(''); }}
             >
               <FontAwesomeIcon icon={faClipboardList} />
-              Tareas{tasks.filter(t => !t.completed_at).length > 0 && (
-                <span className="worker-tab-count">{tasks.filter(t => !t.completed_at).length}</span>
-              )}
+              Tareas{(() => { const n = tasks.filter(t => t.day_of_week === new Date().getDay() && !t.completed_at).length; return n > 0 ? <span className="worker-tab-count">{n}</span> : null; })()}
             </button>
             <button
               className={`worker-tab ${activeTab === 'procedures' ? 'active' : ''}`}
