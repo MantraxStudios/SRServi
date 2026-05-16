@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
 const FACES = [
-  { label: 'MUY INSATISFECHO', value: 2,  color: '#cc1f1f', dark: '#7a0000', type: 'verysad',   delay: 0.8 },
-  { label: 'INSATISFECHO',     value: 4,  color: '#e07020', dark: '#7a3000', type: 'sad',       delay: 0.6 },
-  { label: 'INDIFERENTE',      value: 6,  color: '#f5c200', dark: '#7a6000', type: 'neutral',   delay: 0.4 },
-  { label: 'SATISFECHO',       value: 8,  color: '#7ac52e', dark: '#3d6e14', type: 'happy',     delay: 0.2 },
   { label: 'MUY SATISFECHO',   value: 10, color: '#1e8a1e', dark: '#0d4d0d', type: 'veryhappy', delay: 0   },
+  { label: 'SATISFECHO',       value: 8,  color: '#7ac52e', dark: '#3d6e14', type: 'happy',     delay: 0.2 },
+  { label: 'INDIFERENTE',      value: 6,  color: '#f5c200', dark: '#7a6000', type: 'neutral',   delay: 0.4 },
+  { label: 'INSATISFECHO',     value: 4,  color: '#e07020', dark: '#7a3000', type: 'sad',       delay: 0.6 },
+  { label: 'MUY INSATISFECHO', value: 2,  color: '#cc1f1f', dark: '#7a0000', type: 'verysad',   delay: 0.8 },
 ];
 
 const CSS = `
@@ -66,7 +66,6 @@ const CSS = `
     flex-direction: column;
     font-family: system-ui, -apple-system, sans-serif;
     background: #ffffff;
-    overflow: hidden;
   }
   .rv-gold-line { height: 5px; width: 100%; flex-shrink: 0; }
 
@@ -122,18 +121,19 @@ const CSS = `
   .rv-faces {
     display: flex;
     align-items: flex-start;
-    justify-content: center;
     gap: clamp(8px, 2vmin, 24px);
-    padding: 0 12px;
+    padding: 0 16px;
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
   .rv-faces::-webkit-scrollbar { display: none; }
   .rv-face-btn {
-    flex-shrink: 0;
-    width: 25vmin;
+    flex: 1;
+    min-width: 20vmin;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -145,6 +145,7 @@ const CSS = `
     border-radius: 16px;
     transition: transform 0.13s ease;
     outline: none;
+    overflow: visible;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
