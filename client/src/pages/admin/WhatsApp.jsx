@@ -345,7 +345,7 @@ function WhatsApp() {
 
   const card = {
     background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0',
-    padding: '24px 28px', marginBottom: 24, boxShadow: '0 1px 4px rgba(0,0,0,.05)'
+    padding: '24px 28px', boxShadow: '0 1px 4px rgba(0,0,0,.05)'
   };
 
   return (
@@ -360,7 +360,7 @@ function WhatsApp() {
         </div>
       </header>
 
-      <div className="admin-main" style={{ maxWidth: 680, margin: '0 auto' }}>
+      <div className="admin-main" style={{ maxWidth: 1300, margin: '0 auto' }}>
 
         {/* Store selector — controls which store's WA session is shown */}
         {stores.length > 1 && (
@@ -378,6 +378,11 @@ function WhatsApp() {
             </select>
           </div>
         )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
+
+        {/* ── Columna izquierda: Estado + Mensajes programados ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
         {/* Status card */}
         <div style={card}>
@@ -840,6 +845,11 @@ function WhatsApp() {
           )}</div>}
         </div>
 
+        </div>{/* fin columna izquierda */}
+
+        {/* Columna derecha */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
         {/* León IA Autónomo */}
         <div style={{ ...card, marginBottom: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -1033,6 +1043,8 @@ function WhatsApp() {
           )}
         </div>
 
+        </div>{/* fin columna derecha */}
+        </div>{/* fin grid */}
       </div>
     </>
   );

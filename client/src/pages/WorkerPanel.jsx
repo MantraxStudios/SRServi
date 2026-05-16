@@ -201,7 +201,7 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown, onOpen }) {
     <div
       onClick={onOpen}
       style={{
-        flexShrink: 0, width: 148, height: '100%',
+        width: '100%',
         background: '#111', border: `2px solid ${borderColor}`,
         borderRadius: 10, padding: '8px 10px',
         display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
@@ -357,14 +357,10 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
                 )}
               </div>
 
-              {/* Tarjetas horizontales */}
+              {/* Tarjetas verticales */}
               <div style={{
-                flex: 1, display: 'flex', gap: 7,
-                overflowX: 'auto', overflowY: 'hidden',
+                display: 'flex', flexDirection: 'column', gap: 7,
                 padding: '5px 8px',
-                alignItems: 'stretch',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
               }}>
                 {dayTasks.length === 0 ? (
                   <span style={{
