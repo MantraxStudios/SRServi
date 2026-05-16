@@ -7,7 +7,7 @@ import {
   faSave, faPlay, faEye, faDownload,
   faCheckCircle, faTimesCircle, faSpinner,
   faToggleOn, faToggleOff, faClock, faExclamationTriangle,
-  faLink, faUnlink,
+  faLink, faUnlink, faEyeSlash, faKey,
 } from '@fortawesome/free-solid-svg-icons';
 
 const CSS = `
@@ -50,7 +50,8 @@ export default function TikTokAuto() {
   const { selectedStore }  = useContext(StoreContext);
   const [searchParams]     = useSearchParams();
 
-  const [cfg, setCfg]             = useState({ caption_template: '', enabled: false, post_time: '10:00', post_days: '0' });
+  const [cfg, setCfg]             = useState({ client_key: '', client_secret: '', caption_template: '', enabled: false, post_time: '10:00', post_days: '0' });
+  const [showSecret, setShowSecret] = useState(false);
   const [connected, setConnected] = useState(false);
   const [loading, setLoading]     = useState(false);
   const [saving, setSaving]       = useState(false);
@@ -79,7 +80,7 @@ export default function TikTokAuto() {
     fetch(`${API}/api/tiktok/${storeId}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => {
-        setCfg({ caption_template: d.caption_template || '', enabled: !!d.enabled, post_time: d.post_time || '10:00', post_days: d.post_days || '0' });
+        setCfg({ client_key: d.client_key || '', client_secret: d.client_secret || '', caption_template: d.caption_template || '', enabled: !!d.enabled, post_time: d.post_time || '10:00', post_days: d.post_days || '0' });
         setConnected(!!d.tk_connected);
         setLastStatus({ last_posted_at: d.last_posted_at, last_error: d.last_error, template_counter: d.template_counter ?? 0 });
       })
@@ -222,6 +223,44 @@ export default function TikTokAuto() {
           <div style={s.card}>
             <h3 style={s.cardTitle}>Cuenta de TikTok</h3>
 
+            {/* Credenciales de la app */}
+            <div style={s.field}>
+              <label style={s.label}>
+                <FontAwesomeIcon icon={faKey} style={{ marginRight: 6, color: '#6b7280' }} />
+                Client Key
+              </label>
+              <input
+                value={cfg.client_key}
+                onChange={e => setCfg(p => ({ ...p, client_key: e.target.value.trim() }))}
+                placeholder="Ej: awxxxxxxxxxxxxxxxxxx"
+                style={s.input}
+                onFocus={e => e.target.style.borderColor = '#010101'}
+                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+              />
+            </div>
+
+            <div style={{ ...s.field, marginBottom: 16 }}>
+              <label style={s.label}>
+                <FontAwesomeIcon icon={faKey} style={{ marginRight: 6, color: '#6b7280' }} />
+                Client Secret
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showSecret ? 'text' : 'password'}
+                  value={cfg.client_secret}
+                  onChange={e => setCfg(p => ({ ...p, client_secret: e.target.value }))}
+                  placeholder="Client Secret de tu app TikTok"
+                  style={{ ...s.input, paddingRight: 44 }}
+                  onFocus={e => e.target.style.borderColor = '#010101'}
+                  onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                />
+                <button onClick={() => setShowSecret(p => !p)} style={s.eyeBtn}>
+                  <FontAwesomeIcon icon={showSecret ? faEyeSlash : faEye} />
+                </button>
+              </div>
+              <p style={s.hint}>Obtenés estas credenciales en <strong>developers.tiktok.com</strong> → tu app → Manage → Credenciales.</p>
+            </div>
+
             <div style={{ padding: '12px 14px', borderRadius: 10, background: connected ? '#f0fdf4' : '#fef9f0', border: `1px solid ${connected ? '#bbf7d0' : '#fde68a'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <FontAwesomeIcon icon={connected ? faCheckCircle : faTimesCircle} style={{ color: connected ? '#16a34a' : '#d97706', fontSize: 16 }} />
@@ -246,11 +285,20 @@ export default function TikTokAuto() {
               )}
             </div>
 
-            <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
-              <p style={{ margin: 0, fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
-                Al hacer clic en "Conectar" serás redirigido a TikTok para autorizar la aplicación. Necesitás una cuenta de desarrollador con las credenciales <strong>TIKTOK_CLIENT_KEY</strong> y <strong>TIKTOK_CLIENT_SECRET</strong> configuradas en el servidor.
-              </p>
-            </div>
+            {!cfg.client_key && (
+              <div style={{ padding: '10px 14px', background: '#fffbeb', borderRadius: 10, border: '1px solid #fde68a', marginTop: 4 }}>
+                <p style={{ margin: 0, fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
+                  ⚠️ Ingresá el <strong>Client Key</strong> y <strong>Client Secret</strong> de tu app TikTok y guardá antes de conectar.
+                </p>
+              </div>
+            )}
+            {cfg.client_key && !connected && (
+              <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', marginTop: 4 }}>
+                <p style={{ margin: 0, fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
+                  Al hacer clic en "Conectar" serás redirigido a TikTok para autorizar la aplicación. Asegurate de agregar <strong>https://srservi2.srautomatic.com/api/tiktok/callback</strong> como URL de redirección en tu app de TikTok for Developers.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Caption */}
@@ -482,8 +530,11 @@ const s = {
   headerIcon:      { width: 48, height: 48, borderRadius: 14, background: '#010101', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   card:            { background: '#fff', borderRadius: 14, padding: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: '1px solid #e5e7eb' },
   cardTitle:       { fontSize: 14, fontWeight: 700, color: '#374151', marginTop: 0, marginBottom: 14 },
+  field:           { marginBottom: 14 },
+  label:           { display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 },
   input:           { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #e5e7eb', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' },
   hint:            { fontSize: 11, color: '#9ca3af', margin: '5px 0 0' },
+  eyeBtn:          { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 4 },
   statusRow:       { display: 'flex', alignItems: 'flex-start', gap: 8 },
   btnPrimary:      { width: '100%', padding: '12px', borderRadius: 12, border: 'none', background: '#1e293b', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
   btnTikTok:       { padding: '8px 14px', borderRadius: 8, border: 'none', background: '#010101', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' },

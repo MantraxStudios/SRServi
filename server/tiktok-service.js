@@ -7,16 +7,15 @@ const __dir   = dirname(fileURLToPath(import.meta.url));
 const UPLOADS = join(__dir, 'uploads');
 if (!existsSync(UPLOADS)) mkdirSync(UPLOADS, { recursive: true });
 
-const CLIENT_KEY    = process.env.TIKTOK_CLIENT_KEY    || '';
-const CLIENT_SECRET = process.env.TIKTOK_CLIENT_SECRET || '';
-const CALLBACK_URL  = 'https://srservi2.srautomatic.com/api/tiktok/callback';
-const SCOPES        = 'user.info.basic,video.publish';
+const CALLBACK_URL = 'https://srservi2.srautomatic.com/api/tiktok/callback';
+const SCOPES       = 'user.info.basic,video.publish';
 
 // ─── OAuth ───────────────────────────────────────────────────────────────────
 
-export function getTikTokAuthUrl(state) {
+export function getTikTokAuthUrl(state, clientKey) {
+  if (!clientKey) throw new Error('Client Key no configurado. Guardá las credenciales primero.');
   const p = new URLSearchParams({
-    client_key:    CLIENT_KEY,
+    client_key:    clientKey,
     response_type: 'code',
     scope:         SCOPES,
     redirect_uri:  CALLBACK_URL,
@@ -25,22 +24,22 @@ export function getTikTokAuthUrl(state) {
   return `https://www.tiktok.com/v2/auth/authorize/?${p}`;
 }
 
-export async function exchangeTikTokCode(code) {
+export async function exchangeTikTokCode(code, clientKey, clientSecret) {
   const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
     method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Cache-Control': 'no-cache' },
-    body:    new URLSearchParams({ client_key: CLIENT_KEY, client_secret: CLIENT_SECRET, code, grant_type: 'authorization_code', redirect_uri: CALLBACK_URL }),
+    body:    new URLSearchParams({ client_key: clientKey, client_secret: clientSecret, code, grant_type: 'authorization_code', redirect_uri: CALLBACK_URL }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error_description || data.error);
   return data; // { access_token, refresh_token, open_id, expires_in }
 }
 
-export async function refreshTikTokToken(refreshToken) {
+export async function refreshTikTokToken(refreshToken, clientKey, clientSecret) {
   const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
     method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Cache-Control': 'no-cache' },
-    body:    new URLSearchParams({ client_key: CLIENT_KEY, client_secret: CLIENT_SECRET, grant_type: 'refresh_token', refresh_token: refreshToken }),
+    body:    new URLSearchParams({ client_key: clientKey, client_secret: clientSecret, grant_type: 'refresh_token', refresh_token: refreshToken }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error_description || data.error);

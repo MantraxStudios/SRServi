@@ -501,6 +501,8 @@ async function createTables() {
     CREATE TABLE IF NOT EXISTS tiktok_configs (
       id               INT PRIMARY KEY AUTO_INCREMENT,
       store_id         INT NOT NULL UNIQUE,
+      client_key       VARCHAR(255) NULL,
+      client_secret    VARCHAR(500) NULL,
       access_token     TEXT NULL,
       refresh_token    TEXT NULL,
       open_id          VARCHAR(255) NULL,
@@ -516,6 +518,20 @@ async function createTables() {
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )
   `);
+
+  // Migration: add client_key/client_secret if table already exists
+  for (const [col, def] of [
+    ['client_key',    'VARCHAR(255) NULL'],
+    ['client_secret', 'VARCHAR(500) NULL'],
+  ]) {
+    try {
+      const [has] = await pool.execute(
+        `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tiktok_configs' AND COLUMN_NAME = ?`,
+        [col]
+      );
+      if (has.length === 0) await pool.execute(`ALTER TABLE tiktok_configs ADD COLUMN ${col} ${def}`);
+    } catch (e) { console.warn(`Migration tiktok_configs.${col}:`, e.message); }
+  }
 
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS cash_registers (
@@ -4025,16 +4041,18 @@ export async function getTikTokConfig(storeId) {
   return rows[0] || null;
 }
 
-export async function saveTikTokConfig(storeId, { caption_template, enabled, post_time, post_days }) {
+export async function saveTikTokConfig(storeId, { client_key, client_secret, caption_template, enabled, post_time, post_days }) {
   await pool.execute(`
-    INSERT INTO tiktok_configs (store_id, caption_template, enabled, post_time, post_days)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO tiktok_configs (store_id, client_key, client_secret, caption_template, enabled, post_time, post_days)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
+      client_key       = VALUES(client_key),
+      client_secret    = VALUES(client_secret),
       caption_template = VALUES(caption_template),
       enabled          = VALUES(enabled),
       post_time        = VALUES(post_time),
       post_days        = VALUES(post_days)
-  `, [storeId, caption_template || '', enabled ? 1 : 0, post_time || '10:00', post_days || '0']);
+  `, [storeId, client_key || '', client_secret || '', caption_template || '', enabled ? 1 : 0, post_time || '10:00', post_days || '0']);
 }
 
 export async function saveTikTokTokens(storeId, { access_token, refresh_token, open_id }) {

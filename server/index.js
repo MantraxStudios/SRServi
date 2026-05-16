@@ -9407,7 +9407,9 @@ async function startServer() {
       const { code, state: storeId, error, error_description } = req.query;
       if (error) return res.redirect(`/admin/tiktok?error=${encodeURIComponent(error_description || error)}`);
       try {
-        const tokens = await exchangeTikTokCode(code);
+        const cfg = await getTikTokConfig(storeId);
+        if (!cfg?.client_key || !cfg?.client_secret) throw new Error('Credenciales TikTok no configuradas');
+        const tokens = await exchangeTikTokCode(code, cfg.client_key, cfg.client_secret);
         await saveTikTokTokens(storeId, { access_token: tokens.access_token, refresh_token: tokens.refresh_token, open_id: tokens.open_id });
         res.redirect('/admin/tiktok?connected=1');
       } catch (e) {
@@ -9421,8 +9423,8 @@ async function startServer() {
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
         const cfg = await getTikTokConfig(req.params.storeId);
         res.json(cfg
-          ? { caption_template: cfg.caption_template, enabled: !!cfg.enabled, post_time: cfg.post_time, post_days: cfg.post_days, tk_connected: !!cfg.tk_connected, last_posted_at: cfg.last_posted_at, last_error: cfg.last_error, template_counter: cfg.template_counter ?? 0 }
-          : { caption_template: '', enabled: false, post_time: '10:00', post_days: '0', tk_connected: false, last_posted_at: null, last_error: null, template_counter: 0 });
+          ? { client_key: cfg.client_key || '', client_secret: cfg.client_secret ? '••••••' : '', caption_template: cfg.caption_template, enabled: !!cfg.enabled, post_time: cfg.post_time, post_days: cfg.post_days, tk_connected: !!cfg.tk_connected, last_posted_at: cfg.last_posted_at, last_error: cfg.last_error, template_counter: cfg.template_counter ?? 0 }
+          : { client_key: '', client_secret: '', caption_template: '', enabled: false, post_time: '10:00', post_days: '0', tk_connected: false, last_posted_at: null, last_error: null, template_counter: 0 });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
@@ -9430,8 +9432,10 @@ async function startServer() {
       try {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
-        const { caption_template, enabled, post_time, post_days } = req.body;
-        await saveTikTokConfig(req.params.storeId, { caption_template, enabled, post_time, post_days });
+        const { client_key, client_secret, caption_template, enabled, post_time, post_days } = req.body;
+        const existing = await getTikTokConfig(req.params.storeId);
+        const finalSecret = client_secret === '••••••' ? (existing?.client_secret || '') : client_secret;
+        await saveTikTokConfig(req.params.storeId, { client_key, client_secret: finalSecret, caption_template, enabled, post_time, post_days });
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -9440,7 +9444,9 @@ async function startServer() {
       try {
         const store = await getStoreById(req.params.storeId);
         if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
-        res.json({ url: getTikTokAuthUrl(req.params.storeId) });
+        const cfg = await getTikTokConfig(req.params.storeId);
+        if (!cfg?.client_key) return res.status(400).json({ error: 'Guardá el Client Key primero' });
+        res.json({ url: getTikTokAuthUrl(req.params.storeId, cfg.client_key) });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
