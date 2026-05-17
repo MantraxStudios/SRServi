@@ -263,6 +263,10 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         KioskService.instance?.scheduleRelaunch(15_000)
+        if (appScreen == "player") {
+            val token = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_TOKEN, null)
+            if (!token.isNullOrEmpty()) Thread { reportPowerEvent(token, "off") }.start()
+        }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -1376,6 +1380,12 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
         }
     }
 
+    // Reportar encendido al servidor
+    LaunchedEffect(Unit) {
+        val token = prefs.getString(KEY_TOKEN, null)
+        if (!token.isNullOrEmpty()) withContext(Dispatchers.IO) { reportPowerEvent(token, "on") }
+    }
+
     // Cargar video y música guardados al iniciar
     LaunchedEffect(Unit) {
         val savedPath = prefs.getString(KEY_VIDEO_PATH, null)
@@ -1924,6 +1934,24 @@ private fun openSecureConnection(urlStr: String): HttpURLConnection {
         Log.e(TAG, "SSL setup failed: ${e.message}")
     }
     return conn
+}
+
+private fun reportPowerEvent(deviceToken: String, event: String) {
+    try {
+        val conn = openSecureConnection("$BASE_URL/api/cctv/power-event")
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.doOutput = true
+        conn.connectTimeout = 10_000
+        conn.readTimeout = 10_000
+        val body = """{"device_token":"$deviceToken","event":"$event"}"""
+        conn.outputStream.use { it.write(body.toByteArray()) }
+        conn.responseCode
+        conn.disconnect()
+        Log.d(TAG, "Power event: $event")
+    } catch (e: Exception) {
+        Log.e(TAG, "reportPowerEvent error: ${e.message}")
+    }
 }
 
 private suspend fun pairDevice(code: String): String = withContext(Dispatchers.IO) {

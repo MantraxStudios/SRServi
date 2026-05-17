@@ -79,6 +79,11 @@ function WhatsApp() {
   const [schedListLoading, setSchedListLoading] = useState(false);
   const [schedOpen, setSchedOpen] = useState(false);
 
+  // Chatbot de pedidos
+  const [botConfig, setBotConfig] = useState({ enabled: false, phone: null, link: null });
+  const [botLoading, setBotLoading] = useState(false);
+  const [botSaving, setBotSaving] = useState(false);
+
   // León IA Autónomo
   const [brainConfig, setBrainConfig] = useState({
     enabled: false, auto_promotions: true, worker_reminders: true,
@@ -153,6 +158,32 @@ function WhatsApp() {
     }
   };
 
+  const fetchBotConfig = async (storeId) => {
+    if (!storeId) return;
+    setBotLoading(true);
+    try {
+      const res = await fetch(`${API}/api/whatsapp/bot?store_id=${storeId}`, { headers });
+      if (res.ok) setBotConfig(await res.json());
+    } catch {}
+    finally { setBotLoading(false); }
+  };
+
+  const toggleBot = async () => {
+    if (!selectedStore) return;
+    setBotSaving(true);
+    try {
+      const res = await fetch(`${API}/api/whatsapp/bot`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ store_id: parseInt(selectedStore), enabled: !botConfig.enabled })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBotConfig(prev => ({ ...prev, enabled: data.enabled }));
+      }
+    } catch {}
+    finally { setBotSaving(false); }
+  };
+
   const fetchScheduled = async () => {
     setSchedListLoading(true);
     try {
@@ -177,6 +208,7 @@ function WhatsApp() {
     setStatus(null);
     fetchStatus(selectedStore);
     fetchWorkers(selectedStore);
+    fetchBotConfig(selectedStore);
     clearInterval(pollRef.current);
     pollRef.current = setInterval(() => fetchStatus(selectedStore), 4000);
     return () => clearInterval(pollRef.current);
@@ -850,6 +882,94 @@ function WhatsApp() {
 
         {/* Columna derecha */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+        {/* Chatbot de pedidos */}
+        <div style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 12, background: '#f0fdf4',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}>
+              <WaIcon size={22} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Chatbot de pedidos</div>
+              <div style={{ fontSize: 13, color: '#6b7280' }}>Los clientes piden por WhatsApp con comandos simples</div>
+            </div>
+            <button
+              onClick={toggleBot}
+              disabled={botSaving || botLoading}
+              style={{ background: 'none', border: 'none', cursor: botSaving ? 'not-allowed' : 'pointer', fontSize: 28, color: botConfig.enabled ? '#25D366' : '#ccc', flexShrink: 0 }}
+            >
+              <FontAwesomeIcon icon={botConfig.enabled ? faToggleOn : faToggleOff} />
+            </button>
+          </div>
+
+          <div style={{
+            background: botConfig.enabled ? '#f0fdf4' : '#f9fafb',
+            border: `1px solid ${botConfig.enabled ? '#bbf7d0' : '#e5e7eb'}`,
+            borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 13,
+            color: botConfig.enabled ? '#166534' : '#6b7280'
+          }}>
+            {botConfig.enabled
+              ? '✅ Chatbot activo — los clientes pueden pedir por WhatsApp'
+              : 'Desactivado. Actívalo para recibir pedidos por WhatsApp.'}
+          </div>
+
+          {botConfig.enabled && !status?.connected && (
+            <div style={{
+              background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8,
+              padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#92400e'
+            }}>
+              ⚠️ WhatsApp no está conectado. El chatbot no funcionará hasta que conectes WhatsApp.
+            </div>
+          )}
+
+          {botConfig.link && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Enlace para clientes</div>
+              <div style={{
+                background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8,
+                padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10
+              }}>
+                <span style={{ flex: 1, fontSize: 12, color: '#374151', wordBreak: 'break-all' }}>
+                  {botConfig.link}
+                </span>
+                <button
+                  onClick={() => navigator.clipboard.writeText(botConfig.link)}
+                  style={{
+                    padding: '6px 12px', borderRadius: 6, border: 'none', background: '#25D366',
+                    color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer', flexShrink: 0
+                  }}
+                >
+                  Copiar
+                </button>
+              </div>
+              <p style={{ margin: '6px 0 0', fontSize: 11, color: '#9ca3af' }}>
+                Comparte este enlace con tus clientes para que empiecen a pedir.
+              </p>
+            </div>
+          )}
+
+          <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+              Cómo funciona
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#374151' }}>
+              {[
+                ['👋', 'El cliente escribe *hola* para empezar'],
+                ['📋', 'El bot muestra el menú con categorías'],
+                ['🛒', 'El cliente elige productos y los agrega al carrito'],
+                ['✅', 'Confirma el pedido — se crea automáticamente en el panel'],
+              ].map(([icon, text]) => (
+                <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <span>{icon}</span>
+                  <span>{text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
         {/* León IA Autónomo */}
         <div style={{ ...card, marginBottom: 0 }}>

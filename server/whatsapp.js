@@ -2,6 +2,7 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
+import { handleBotMessage } from './whatsapp-bot.js';
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -17,6 +18,32 @@ const QRCode = require('qrcode');
 
 const AUTH_BASE = path.join(__dirname, 'whatsapp_auth');
 const MAX_RECONNECT = 5;
+const BOT_CONFIG_FILE = path.join(__dirname, 'whatsapp_auth', 'bot_config.json');
+
+function loadBotConfig() {
+  try {
+    if (fs.existsSync(BOT_CONFIG_FILE)) return JSON.parse(fs.readFileSync(BOT_CONFIG_FILE, 'utf8'));
+  } catch {}
+  return {};
+}
+function saveBotConfig(cfg) {
+  fs.mkdirSync(AUTH_BASE, { recursive: true });
+  fs.writeFileSync(BOT_CONFIG_FILE, JSON.stringify(cfg), 'utf8');
+}
+let botConfig = loadBotConfig();
+
+export function setBotEnabled(storeId, enabled) {
+  botConfig[String(storeId)] = !!enabled;
+  saveBotConfig(botConfig);
+}
+export function getBotEnabled(storeId) {
+  return !!botConfig[String(storeId)];
+}
+export function getBotPhone(storeId) {
+  const conn = getConn(storeId);
+  if (!conn.isConnected || !conn.sock?.user?.id) return null;
+  return conn.sock.user.id.split(':')[0].split('@')[0];
+}
 
 const silentLogger = {
   level: 'silent',
@@ -68,6 +95,23 @@ export async function initWhatsApp(storeId) {
 
   conn.sock = sock;
   sock.ev.on('creds.update', saveCreds);
+
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    if (type !== 'notify' || !getBotEnabled(storeId)) return;
+    for (const msg of messages) {
+      if (msg.key.fromMe) continue;
+      if (msg.key.remoteJid?.endsWith('@g.us')) continue; // skip group messages
+      const text = msg.message?.conversation
+        || msg.message?.extendedTextMessage?.text
+        || '';
+      if (!text) continue;
+      try {
+        await handleBotMessage(storeId, msg.key.remoteJid, text, sock);
+      } catch (err) {
+        console.error(`[Bot:${storeId}] Error:`, err.message);
+      }
+    }
+  });
 
   sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
     if (qr) {

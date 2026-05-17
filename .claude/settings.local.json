@@ -90,7 +90,8 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\web\\\\windows\" -Recurse -Force | Select-Object FullName, @{Name='Type';Expression={if\\($_.PSIsContainer\\){'DIR'}else{'FILE'}}}, @{Name='Size';Expression={if\\(-not $_.PSIsContainer\\){$_.Length}else{'-'}}} | Format-Table -AutoSize)",
       "Bash(dotnet publish *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\web\" -Directory -ErrorAction SilentlyContinue)",
-      "Bash(Select-Object -ExpandProperty Name)"
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(Get-ChildItem *)"
     ]
   }
 }

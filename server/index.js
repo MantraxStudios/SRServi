@@ -24,7 +24,7 @@ import { initInstagramService } from './instagram_autostart.js';
 
 import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
-import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds } from './whatsapp.js';
+import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
 
 const __serverDir = path.dirname(fileURLToPath(import.meta.url));
@@ -10726,6 +10726,26 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
         if (!ok) return res.status(404).json({ error: 'Mensaje no encontrado o ya procesado' });
         res.json({ success: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Chatbot de pedidos por WhatsApp
+    app.get('/api/whatsapp/bot', authenticateToken, async (req, res) => {
+      const storeId = await verifyStoreOwner(req, res);
+      if (!storeId) return;
+      const enabled = getBotEnabled(storeId);
+      const phone = getBotPhone(storeId);
+      const link = phone
+        ? `https://wa.me/${phone}?text=Hola%2C%20quiero%20hacer%20un%20pedido`
+        : null;
+      res.json({ enabled, phone, link });
+    });
+
+    app.post('/api/whatsapp/bot', authenticateToken, async (req, res) => {
+      const storeId = await verifyStoreOwner(req, res);
+      if (!storeId) return;
+      const { enabled } = req.body;
+      setBotEnabled(storeId, !!enabled);
+      res.json({ enabled: !!enabled });
     });
 
     // Windows app download — generates a self-extracting .exe via NSIS (Linux) or zip fallback (dev)
