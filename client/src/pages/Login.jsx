@@ -17,27 +17,104 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
-  const [dlModal, setDlModal] = useState(null); // { label, icon, endpoint }
+  const [dlModal, setDlModal] = useState(null); // { label, icon, appName, isWindows, buildState }
   const [dlCode, setDlCode] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const openDlModal = (label, icon, endpoint) => {
+  const openDlModal = (label, icon, appName, isWindows = false) => {
     setDlCode('');
-    setDlModal({ label, icon, endpoint });
+    setDlModal({ label, icon, appName, isWindows, buildState: null });
   };
 
-  const handleDlConfirm = () => {
+  const triggerAndroidDl = (appName, storeCode, jobId) => {
+    const params = new URLSearchParams({ appName });
+    if (storeCode) params.set('storeCode', storeCode);
+    if (jobId) params.set('jobId', jobId);
+    fetch(`${API}/api/apps/android/download?${params}`)
+      .then(r => r.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = storeCode ? `${appName}-${storeCode}.apk` : `${appName}.apk`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setDlModal(null);
+      })
+      .catch(() => setDlModal(prev => prev ? { ...prev, buildState: { status: 'error', progress: 'Error al descargar' } } : null));
+  };
+
+  const handleDlConfirm = async () => {
     const code = dlCode.trim().toUpperCase();
     if (!code) return;
-    const a = document.createElement('a');
-    a.href = `${API}${dlModal.endpoint}?storeCode=${code}`;
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setDlModal(null);
-    setDlCode('');
+
+    if (dlModal.isWindows) {
+      setDlModal(prev => ({ ...prev, buildState: { status: 'building', progress: 'Preparando instalador...' } }));
+      try {
+        const res = await fetch(`${API}/api/apps/windows?storeCode=${code}`);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          setDlModal(prev => prev ? { ...prev, buildState: { status: 'error', progress: err.error || 'Error' } } : null);
+          return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `SRServi-Totem-${code}.exe`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setDlModal(null);
+      } catch {
+        setDlModal(prev => prev ? { ...prev, buildState: { status: 'error', progress: 'Error de conexión' } } : null);
+      }
+      return;
+    }
+
+    const appName = dlModal.appName;
+    setDlModal(prev => ({ ...prev, buildState: { status: 'building', progress: 'Iniciando...' } }));
+    try {
+      const res = await fetch(`${API}/api/apps/android/build`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appName, storeCode: code })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDlModal(prev => prev ? { ...prev, buildState: { status: 'error', progress: data.error } } : null);
+        return;
+      }
+      if (data.cached || data.status === 'done') {
+        triggerAndroidDl(appName, code, null);
+        return;
+      }
+      const jobId = data.jobId;
+      setDlModal(prev => prev ? { ...prev, buildState: { status: 'building', progress: 'Compilando...', jobId } } : null);
+      const poll = async () => {
+        try {
+          const sr = await fetch(`${API}/api/apps/android/status/${jobId}`);
+          const st = await sr.json();
+          if (st.status === 'done') {
+            triggerAndroidDl(appName, code, jobId);
+          } else if (st.status === 'error') {
+            setDlModal(prev => prev ? { ...prev, buildState: { status: 'error', progress: st.error } } : null);
+          } else {
+            setDlModal(prev => prev ? { ...prev, buildState: { status: 'building', progress: st.progress, jobId } } : null);
+            setTimeout(poll, 4000);
+          }
+        } catch {
+          setTimeout(poll, 6000);
+        }
+      };
+      setTimeout(poll, 4000);
+    } catch {
+      setDlModal(prev => prev ? { ...prev, buildState: { status: 'error', progress: 'Error de conexión' } } : null);
+    }
   };
 
   const handleChange = (e) => {
@@ -389,7 +466,7 @@ function Login() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
           <button
-            onClick={() => openDlModal('App Android', '📱', '/api/download/launcher')}
+            onClick={() => openDlModal('App Android', '📱', 'launcher')}
             className="btn btn-primary btn-lg btn-full"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
           >
@@ -397,7 +474,7 @@ function Login() {
             Descargar App Android
           </button>
           <button
-            onClick={() => openDlModal('TV Órdenes', '📺', '/api/download/tv')}
+            onClick={() => openDlModal('TV Órdenes', '📺', 'tvordenes')}
             className="btn btn-lg btn-full"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#1a1a1a', color: '#D4AF37', border: '1px solid #D4AF37' }}
           >
@@ -405,7 +482,7 @@ function Login() {
             Descargar App TV Órdenes
           </button>
           <button
-            onClick={() => openDlModal('App Windows', '💻', '/api/download/windows')}
+            onClick={() => openDlModal('App Windows', '💻', null, true)}
             className="btn btn-lg btn-full"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#1a1a1a', color: '#fff', border: '2px solid #D4AF37' }}
           >
@@ -427,7 +504,7 @@ function Login() {
 
     {dlModal && (
       <div
-        onClick={() => { setDlModal(null); setDlCode(''); }}
+        onClick={() => dlModal.buildState?.status !== 'building' && setDlModal(null)}
         style={{
           position: 'fixed', inset: 0, zIndex: 99000,
           background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
@@ -457,55 +534,95 @@ function Login() {
               <h3 style={{ margin: 0, color: '#fff', fontSize: '16px', fontWeight: '700' }}>
                 Descargar {dlModal.label}
               </h3>
-              <p style={{ margin: 0, color: '#888', fontSize: '12px' }}>Ingresá el código de tu tienda</p>
+              <p style={{ margin: 0, color: '#888', fontSize: '12px' }}>
+                {dlModal.buildState ? `Tienda: ${dlCode}` : 'Ingresá el código de tu tienda'}
+              </p>
             </div>
-            <button
-              onClick={() => { setDlModal(null); setDlCode(''); }}
-              style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '18px', padding: '4px 8px', borderRadius: '6px', lineHeight: 1 }}
-            >×</button>
+            {dlModal.buildState?.status !== 'building' && (
+              <button
+                onClick={() => { setDlModal(null); setDlCode(''); }}
+                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '18px', padding: '4px 8px', borderRadius: '6px', lineHeight: 1 }}
+              >×</button>
+            )}
           </div>
-          <div style={{ padding: '20px 24px' }}>
-            <label style={{ display: 'block', color: '#ccc', fontSize: '12px', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Código de tienda
-            </label>
-            <input
-              type="text"
-              value={dlCode}
-              onChange={e => setDlCode(e.target.value.toUpperCase())}
-              placeholder="Ej: TIENDA01"
-              autoFocus
-              onKeyDown={e => e.key === 'Enter' && dlCode.trim() && handleDlConfirm()}
-              style={{
-                width: '100%', padding: '10px 14px',
-                background: '#1a1a1a', border: '1px solid rgba(212,175,55,0.25)',
-                borderRadius: '8px', color: '#fff', fontSize: '14px',
-                outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s'
-              }}
-              onFocus={e => e.target.style.borderColor = '#D4AF37'}
-              onBlur={e => e.target.style.borderColor = 'rgba(212,175,55,0.25)'}
-            />
-          </div>
-          <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-            <button
-              onClick={() => { setDlModal(null); setDlCode(''); }}
-              style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: '#aaa' }}
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleDlConfirm}
-              disabled={!dlCode.trim()}
-              style={{
-                padding: '9px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
-                cursor: !dlCode.trim() ? 'not-allowed' : 'pointer', border: 'none',
-                background: !dlCode.trim() ? 'rgba(212,175,55,0.3)' : '#D4AF37',
-                color: '#000', display: 'flex', alignItems: 'center', gap: '8px'
-              }}
-            >
-              <FontAwesomeIcon icon={faDownload} />
-              Descargar
-            </button>
-          </div>
+          {!dlModal.buildState ? (
+            <>
+              <div style={{ padding: '20px 24px' }}>
+                <label style={{ display: 'block', color: '#ccc', fontSize: '12px', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Código de tienda
+                </label>
+                <input
+                  type="text"
+                  value={dlCode}
+                  onChange={e => setDlCode(e.target.value.toUpperCase())}
+                  placeholder="Ej: TIENDA01"
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && dlCode.trim() && handleDlConfirm()}
+                  style={{
+                    width: '100%', padding: '10px 14px',
+                    background: '#1a1a1a', border: '1px solid rgba(212,175,55,0.25)',
+                    borderRadius: '8px', color: '#fff', fontSize: '14px',
+                    outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s'
+                  }}
+                  onFocus={e => e.target.style.borderColor = '#D4AF37'}
+                  onBlur={e => e.target.style.borderColor = 'rgba(212,175,55,0.25)'}
+                />
+              </div>
+              <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => { setDlModal(null); setDlCode(''); }}
+                  style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: '#aaa' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDlConfirm}
+                  disabled={!dlCode.trim()}
+                  style={{
+                    padding: '9px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
+                    cursor: !dlCode.trim() ? 'not-allowed' : 'pointer', border: 'none',
+                    background: !dlCode.trim() ? 'rgba(212,175,55,0.3)' : '#D4AF37',
+                    color: '#000', display: 'flex', alignItems: 'center', gap: '8px'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faDownload} />
+                  Descargar
+                </button>
+              </div>
+            </>
+          ) : (
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+              {dlModal.buildState.status === 'building' ? (
+                <>
+                  <div style={{ width: '36px', height: '36px', border: '3px solid rgba(212,175,55,0.2)', borderTopColor: '#D4AF37', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                  <p style={{ margin: 0, color: '#D4AF37', fontSize: '14px', fontWeight: '600', textAlign: 'center' }}>
+                    {dlModal.buildState.progress || 'Compilando...'}
+                  </p>
+                  <p style={{ margin: 0, color: '#666', fontSize: '12px' }}>Esto puede tardar unos minutos</p>
+                </>
+              ) : (
+                <>
+                  <p style={{ margin: 0, color: '#f87171', fontSize: '13px', textAlign: 'center' }}>
+                    Error: {dlModal.buildState.progress}
+                  </p>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={() => { setDlModal(null); setDlCode(''); }}
+                      style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: '#aaa' }}
+                    >
+                      Cerrar
+                    </button>
+                    <button
+                      onClick={() => { setDlModal(prev => ({ ...prev, buildState: null })); }}
+                      style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', border: 'none', background: '#D4AF37', color: '#000' }}
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     )}

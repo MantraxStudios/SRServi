@@ -1,4 +1,0 @@
-<resources>
-
-    <style name="Theme.CCTV" parent="Theme.AppCompat.DayNight.NoActionBar" />
-</resources>
