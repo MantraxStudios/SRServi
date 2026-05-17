@@ -77,6 +77,7 @@ private val DarkBg = Color(0xFF0A0A0A)
 private val CardBg = Color(0xFF141414)
 
 private const val BASE_URL = "https://srservi2.srautomatic.com"
+private const val STORE_CODE = "AUTO_STORE_CODE"
 private const val PREFS_NAME = "cctv_signage"
 private const val KEY_TOKEN = "device_token"
 private const val KEY_VIDEO_PATH = "current_video_path"
@@ -182,8 +183,20 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                     "splash" -> SplashScreen(onFinish = {
-                        appScreen = if (prefs.getString(KEY_TOKEN, null) != null) "player" else "pair"
+                        appScreen = when {
+                            prefs.getString(KEY_TOKEN, null) != null -> "player"
+                            STORE_CODE.isNotEmpty() && STORE_CODE != "AUTO_STORE_CODE" -> "auto_pair"
+                            else -> "pair"
+                        }
                     })
+                    "auto_pair" -> AutoPairScreen(
+                        storeCode = STORE_CODE,
+                        onPaired = { token ->
+                            prefs.edit().putString(KEY_TOKEN, token).apply()
+                            appScreen = "player"
+                        },
+                        onError = { appScreen = "pair" }
+                    )
                     "pair" -> PairingScreen(onPaired = { token ->
                         prefs.edit().putString(KEY_TOKEN, token).apply()
                         appScreen = "player"
@@ -997,6 +1010,41 @@ fun SplashScreen(onFinish: () -> Unit) {
                     fontSize = 13.sp,
                     fontStyle = FontStyle.Italic
                 )
+            }
+        }
+    }
+}
+
+// ─── Auto Pair (pre-configured store code) ───────────────────────────────────
+
+@Composable
+fun AutoPairScreen(storeCode: String, onPaired: (String) -> Unit, onError: () -> Unit) {
+    var errorMsg by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(storeCode) {
+        scope.launch {
+            try {
+                val token = pairDevice(storeCode)
+                onPaired(token)
+            } catch (e: Exception) {
+                errorMsg = e.message ?: "Error al conectar"
+                Log.e(TAG, "AutoPair error: ${e.message}")
+            }
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(DarkBg), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            if (errorMsg.isEmpty()) {
+                CircularProgressIndicator(color = Gold, strokeWidth = 3.dp, modifier = Modifier.size(48.dp))
+                Text("Conectando tienda $storeCode...", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            } else {
+                Text("⚠ $errorMsg", color = Color(0xFFf87171), fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(horizontal = 32.dp))
+                Spacer(modifier = Modifier.height(4.dp))
+                Button(onClick = onError, colors = ButtonDefaults.buttonColors(containerColor = Gold)) {
+                    Text("Ingresar código manualmente", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

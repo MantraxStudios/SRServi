@@ -9778,7 +9778,7 @@ async function startServer() {
           name VARCHAR(255) DEFAULT '',
           start_time CHAR(5) NOT NULL,
           end_time CHAR(5) DEFAULT NULL,
-          days JSON NOT NULL DEFAULT '[]',
+          days JSON NOT NULL,
           active TINYINT(1) NOT NULL DEFAULT 1,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           INDEX idx_cctv_sched_screen (screen_id),

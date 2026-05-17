@@ -37,7 +37,10 @@ const APPS = {
     srcDir:     join(__dir, 'web', 'CCTV'),
     outputName: 'SRServi-CCTV',
     apkRelPath: 'app/build/outputs/apk/debug/app-debug.apk',
-    injectFiles: []
+    injectFiles: [{
+      rel: 'app/src/main/java/com/mantraxstudios/cctv/MainActivity.kt',
+      placeholder: 'AUTO_STORE_CODE'
+    }]
   }
 };
 

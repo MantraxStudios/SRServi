@@ -297,7 +297,7 @@ function Layout() {
 
   const handleAndroidBuild = async (appName, label, explicitStoreCode) => {
     if (androidBuilds[appName]?.status === 'building') return;
-    const storeCode = explicitStoreCode !== undefined ? explicitStoreCode : (appName !== 'cctv' ? selectedStore?.code : null);
+    const storeCode = explicitStoreCode !== undefined ? explicitStoreCode : selectedStore?.code;
 
     setAndroidBuilds(prev => ({ ...prev, [appName]: { status: 'building', progress: 'Iniciando...', jobId: null } }));
 
@@ -809,8 +809,9 @@ function Layout() {
                         <AppDownloadCard
                           icon="🎬"
                           title="Cartelería Digital"
-                          description="Pantalla digital para TV · se configura con código de emparejamiento"
+                          description={<>Pantalla digital para TV · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
                           buildState={androidBuilds['cctv']}
+                          disabled={!selectedStore}
                           onDownload={() => handleAndroidBuild('cctv', 'CCTV')}
                           fileType=".apk"
                         />

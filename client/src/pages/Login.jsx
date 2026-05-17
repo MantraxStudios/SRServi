@@ -489,14 +489,14 @@ function Login() {
             <FontAwesomeIcon icon={faDesktop} style={{ color: '#D4AF37' }} />
             Descargar App Windows
           </button>
-          <a
-            href={`${API}/api/download/cctv`}
+          <button
+            onClick={() => openDlModal('Cartelería TV', '🎬', 'cctv')}
             className="btn btn-lg btn-full"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', background: '#1a1a1a', color: '#D4AF37', border: '1px solid #D4AF37' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#1a1a1a', color: '#D4AF37', border: '1px solid #D4AF37' }}
           >
             <FontAwesomeIcon icon={faVideo} />
             Descargar Carteleria TV
-          </a>
+          </button>
         </div>
       </div>
     </div>
