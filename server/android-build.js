@@ -40,7 +40,12 @@ const APPS = {
     injectFiles: [{
       rel: 'app/src/main/java/com/mantraxstudios/cctv/MainActivity.kt',
       placeholder: 'AUTO_STORE_CODE'
-    }]
+    }],
+    injectFn: (content, storeCode) =>
+      content.replace(
+        /private const val STORE_CODE = "AUTO_STORE_CODE".*$/m,
+        `private const val STORE_CODE = "${storeCode}"`
+      )
   }
 };
 
@@ -88,11 +93,21 @@ async function buildInBackground(jobId, app, appName, storeCode, cacheFile) {
     // Inject store code
     if (storeCode && app.injectFiles.length) {
       updateJob(jobId, { progress: `Configurando tienda ${storeCode}...` });
-      for (const { rel, placeholder } of app.injectFiles) {
+      if (app.injectFn) {
+        // Custom injection function (avoids replacing placeholder in multiple places)
+        const { rel } = app.injectFiles[0];
         const filePath = join(tmpDir, rel);
         if (existsSync(filePath)) {
-          const content = readFileSync(filePath, 'utf8').replaceAll(placeholder, storeCode);
+          const content = app.injectFn(readFileSync(filePath, 'utf8'), storeCode);
           writeFileSync(filePath, content, 'utf8');
+        }
+      } else {
+        for (const { rel, placeholder } of app.injectFiles) {
+          const filePath = join(tmpDir, rel);
+          if (existsSync(filePath)) {
+            const content = readFileSync(filePath, 'utf8').replaceAll(placeholder, storeCode);
+            writeFileSync(filePath, content, 'utf8');
+          }
         }
       }
     }

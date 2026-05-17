@@ -77,7 +77,7 @@ private val DarkBg = Color(0xFF0A0A0A)
 private val CardBg = Color(0xFF141414)
 
 private const val BASE_URL = "https://srservi2.srautomatic.com"
-private const val STORE_CODE = "AUTO_STORE_CODE"
+private const val STORE_CODE = "AUTO_STORE_CODE" // build system replaces this; empty = manual pair
 private const val PREFS_NAME = "cctv_signage"
 private const val KEY_TOKEN = "device_token"
 private const val KEY_VIDEO_PATH = "current_video_path"
@@ -185,7 +185,7 @@ class MainActivity : ComponentActivity() {
                     "splash" -> SplashScreen(onFinish = {
                         appScreen = when {
                             prefs.getString(KEY_TOKEN, null) != null -> "player"
-                            STORE_CODE.isNotEmpty() && STORE_CODE != "AUTO_STORE_CODE" -> "auto_pair"
+                            STORE_CODE.isNotEmpty() -> "auto_pair"
                             else -> "pair"
                         }
                     })
