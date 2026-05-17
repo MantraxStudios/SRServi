@@ -295,9 +295,9 @@ function Layout() {
     setOpenDropdowns(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleAndroidBuild = async (appName, label) => {
+  const handleAndroidBuild = async (appName, label, explicitStoreCode) => {
     if (androidBuilds[appName]?.status === 'building') return;
-    const storeCode = appName !== 'cctv' ? selectedStore?.code : null;
+    const storeCode = explicitStoreCode !== undefined ? explicitStoreCode : (appName !== 'cctv' ? selectedStore?.code : null);
 
     setAndroidBuilds(prev => ({ ...prev, [appName]: { status: 'building', progress: 'Iniciando...', jobId: null } }));
 
@@ -370,11 +370,12 @@ function Layout() {
       .catch(() => alert('Error al descargar el APK'));
   };
 
-  const handleDownloadWindowsApp = async () => {
-    if (!selectedStore || appDownloading) return;
+  const handleDownloadWindowsApp = async (explicitStoreCode) => {
+    const code = explicitStoreCode || selectedStore?.code;
+    if (!code || appDownloading) return;
     setAppDownloading(true);
     try {
-      const res = await fetch(`${API}/api/apps/windows?storeCode=${selectedStore.code}`, {
+      const res = await fetch(`${API}/api/apps/windows?storeCode=${code}`, {
         headers: { Authorization: 'Bearer ' + token }
       });
       if (!res.ok) {
@@ -386,7 +387,7 @@ function Layout() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `SRServi-Totem-${selectedStore.code}.exe`;
+      a.download = `SRServi-Totem-${code}.exe`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -397,6 +398,7 @@ function Layout() {
       setAppDownloading(false);
     }
   };
+
 
   const colors = selectedStore ? {
     primary: selectedStore.primary_color || '#000000',
@@ -788,7 +790,7 @@ function Layout() {
                           description={<>App kiosk para PC · Tienda <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
                           loading={appDownloading}
                           disabled={!selectedStore}
-                          onDownload={handleDownloadWindowsApp}
+                          onDownload={() => handleDownloadWindowsApp()}
                           fileType=".exe"
                         />
 

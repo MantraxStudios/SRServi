@@ -17,8 +17,28 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
+  const [dlModal, setDlModal] = useState(null); // { label, icon, endpoint }
+  const [dlCode, setDlCode] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const openDlModal = (label, icon, endpoint) => {
+    setDlCode('');
+    setDlModal({ label, icon, endpoint });
+  };
+
+  const handleDlConfirm = () => {
+    const code = dlCode.trim().toUpperCase();
+    if (!code) return;
+    const a = document.createElement('a');
+    a.href = `${API}${dlModal.endpoint}?storeCode=${code}`;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setDlModal(null);
+    setDlCode('');
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -368,32 +388,32 @@ function Login() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
-          <a
-            href="/api/download/launcher"
+          <button
+            onClick={() => openDlModal('App Android', '📱', '/api/download/launcher')}
             className="btn btn-primary btn-lg btn-full"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
           >
             <FontAwesomeIcon icon={faDownload} />
             Descargar App Android
-          </a>
-          <a
-            href="/api/download/tv"
+          </button>
+          <button
+            onClick={() => openDlModal('TV Órdenes', '📺', '/api/download/tv')}
             className="btn btn-lg btn-full"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', background: '#1a1a1a', color: '#D4AF37', border: '1px solid #D4AF37' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#1a1a1a', color: '#D4AF37', border: '1px solid #D4AF37' }}
           >
             <FontAwesomeIcon icon={faDownload} />
             Descargar App TV Órdenes
-          </a>
-          <a
-            href="/api/download/windows"
+          </button>
+          <button
+            onClick={() => openDlModal('App Windows', '💻', '/api/download/windows')}
             className="btn btn-lg btn-full"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', background: '#1a1a1a', color: '#fff', border: '2px solid #D4AF37' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#1a1a1a', color: '#fff', border: '2px solid #D4AF37' }}
           >
             <FontAwesomeIcon icon={faDesktop} style={{ color: '#D4AF37' }} />
             Descargar App Windows
-          </a>
+          </button>
           <a
-            href="/api/download/cctv"
+            href={`${API}/api/download/cctv`}
             className="btn btn-lg btn-full"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', background: '#1a1a1a', color: '#D4AF37', border: '1px solid #D4AF37' }}
           >
@@ -404,6 +424,91 @@ function Login() {
       </div>
     </div>
     {verifyModal}
+
+    {dlModal && (
+      <div
+        onClick={() => { setDlModal(null); setDlCode(''); }}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 99000,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+        }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            background: '#111', border: '1px solid rgba(212,175,55,0.3)',
+            borderRadius: '16px', width: '100%', maxWidth: '380px',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.8)', overflow: 'hidden'
+          }}
+        >
+          <div style={{
+            padding: '20px 24px 16px', borderBottom: '1px solid rgba(212,175,55,0.15)',
+            display: 'flex', alignItems: 'center', gap: '10px'
+          }}>
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '10px',
+              background: 'rgba(212,175,55,0.12)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0
+            }}>
+              {dlModal.icon}
+            </div>
+            <div>
+              <h3 style={{ margin: 0, color: '#fff', fontSize: '16px', fontWeight: '700' }}>
+                Descargar {dlModal.label}
+              </h3>
+              <p style={{ margin: 0, color: '#888', fontSize: '12px' }}>Ingresá el código de tu tienda</p>
+            </div>
+            <button
+              onClick={() => { setDlModal(null); setDlCode(''); }}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '18px', padding: '4px 8px', borderRadius: '6px', lineHeight: 1 }}
+            >×</button>
+          </div>
+          <div style={{ padding: '20px 24px' }}>
+            <label style={{ display: 'block', color: '#ccc', fontSize: '12px', fontWeight: '600', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Código de tienda
+            </label>
+            <input
+              type="text"
+              value={dlCode}
+              onChange={e => setDlCode(e.target.value.toUpperCase())}
+              placeholder="Ej: TIENDA01"
+              autoFocus
+              onKeyDown={e => e.key === 'Enter' && dlCode.trim() && handleDlConfirm()}
+              style={{
+                width: '100%', padding: '10px 14px',
+                background: '#1a1a1a', border: '1px solid rgba(212,175,55,0.25)',
+                borderRadius: '8px', color: '#fff', fontSize: '14px',
+                outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s'
+              }}
+              onFocus={e => e.target.style.borderColor = '#D4AF37'}
+              onBlur={e => e.target.style.borderColor = 'rgba(212,175,55,0.25)'}
+            />
+          </div>
+          <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => { setDlModal(null); setDlCode(''); }}
+              style={{ padding: '9px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: '#aaa' }}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleDlConfirm}
+              disabled={!dlCode.trim()}
+              style={{
+                padding: '9px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: '700',
+                cursor: !dlCode.trim() ? 'not-allowed' : 'pointer', border: 'none',
+                background: !dlCode.trim() ? 'rgba(212,175,55,0.3)' : '#D4AF37',
+                color: '#000', display: 'flex', alignItems: 'center', gap: '8px'
+              }}
+            >
+              <FontAwesomeIcon icon={faDownload} />
+              Descargar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }
