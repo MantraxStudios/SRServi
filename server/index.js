@@ -9769,6 +9769,22 @@ async function startServer() {
           INDEX idx_cctv_images_user (user_id)
         )
       `);
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS cctv_schedules (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          screen_id INT NOT NULL,
+          user_id INT NOT NULL,
+          video_id INT NOT NULL,
+          name VARCHAR(255) DEFAULT '',
+          start_time CHAR(5) NOT NULL,
+          end_time CHAR(5) DEFAULT NULL,
+          days JSON NOT NULL DEFAULT '[]',
+          active TINYINT(1) NOT NULL DEFAULT 1,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_cctv_sched_screen (screen_id),
+          INDEX idx_cctv_sched_user (user_id)
+        )
+      `);
       for (const sql of [
         'ALTER TABLE cctv_screens ADD COLUMN video_muted TINYINT(1) DEFAULT 0',
         'ALTER TABLE cctv_screens ADD COLUMN current_music_id INT DEFAULT NULL',
@@ -9963,7 +9979,9 @@ async function startServer() {
         await pool.execute('UPDATE cctv_screens SET last_seen = NOW() WHERE device_token = ?', [device_token]);
         const config = { ...rows[0] };
         const userId = config.user_id;
+        const screenId = config.id;
         delete config.user_id;
+        config.video_muted = !!config.video_muted;
         if (config.display_mode === 'images') {
           const albumId = rows[0].current_album_id;
           let imgSql = 'SELECT url, duration_seconds FROM cctv_images WHERE user_id = ?';
@@ -9973,6 +9991,18 @@ async function startServer() {
           const [imgs] = await pool.execute(imgSql, imgParams);
           config.images = imgs;
         }
+        const [schedRows] = await pool.execute(`
+          SELECT cs.id, cs.video_id, cs.name, cs.start_time, cs.end_time, cs.days,
+            v.url AS video_url, v.original_name AS video_name
+          FROM cctv_schedules cs
+          JOIN cctv_videos v ON v.id = cs.video_id
+          WHERE cs.screen_id = ? AND cs.active = 1
+          ORDER BY cs.start_time ASC
+        `, [screenId]);
+        config.schedules = schedRows.map(s => ({
+          ...s,
+          days: typeof s.days === 'string' ? JSON.parse(s.days) : (s.days || [])
+        }));
         res.json(config);
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -10059,6 +10089,72 @@ async function startServer() {
         await ensureCctvTables();
         const vol = Math.max(0, Math.min(100, parseInt(req.body.volume_level) || 100));
         await pool.execute('UPDATE cctv_screens SET volume_level = ? WHERE id = ? AND user_id = ?', [vol, req.params.id, req.user.id]);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: list schedules for a screen
+    app.get('/api/cctv/screens/:id/schedules', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [screen] = await pool.execute('SELECT id FROM cctv_screens WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        if (!screen.length) return res.status(404).json({ error: 'Pantalla no encontrada' });
+        const [rows] = await pool.execute(`
+          SELECT cs.*, v.original_name AS video_name
+          FROM cctv_schedules cs
+          JOIN cctv_videos v ON v.id = cs.video_id
+          WHERE cs.screen_id = ? AND cs.user_id = ?
+          ORDER BY cs.start_time ASC
+        `, [req.params.id, req.user.id]);
+        res.json(rows.map(r => ({ ...r, active: !!r.active, days: typeof r.days === 'string' ? JSON.parse(r.days) : (r.days || []) })));
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: create schedule for a screen
+    app.post('/api/cctv/screens/:id/schedules', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const [screen] = await pool.execute('SELECT id FROM cctv_screens WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        if (!screen.length) return res.status(404).json({ error: 'Pantalla no encontrada' });
+        const { video_id, name, start_time, end_time, days } = req.body;
+        if (!video_id || !start_time) return res.status(400).json({ error: 'video_id y start_time requeridos' });
+        if (!/^\d{2}:\d{2}$/.test(start_time)) return res.status(400).json({ error: 'Formato de hora inválido (HH:MM)' });
+        if (end_time && !/^\d{2}:\d{2}$/.test(end_time)) return res.status(400).json({ error: 'Formato de hora_fin inválido (HH:MM)' });
+        const [vCheck] = await pool.execute('SELECT id FROM cctv_videos WHERE id = ? AND user_id = ?', [video_id, req.user.id]);
+        if (!vCheck.length) return res.status(404).json({ error: 'Video no encontrado' });
+        const daysJson = JSON.stringify(Array.isArray(days) ? days : []);
+        const [result] = await pool.execute(
+          'INSERT INTO cctv_schedules (screen_id, user_id, video_id, name, start_time, end_time, days) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [req.params.id, req.user.id, video_id, name || '', start_time, end_time || null, daysJson]
+        );
+        res.json({ id: result.insertId, ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: toggle active / update schedule
+    app.put('/api/cctv/schedules/:id', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        const { active, name, start_time, end_time, days, video_id } = req.body;
+        const fields = []; const vals = [];
+        if (active !== undefined) { fields.push('active = ?'); vals.push(active ? 1 : 0); }
+        if (name !== undefined) { fields.push('name = ?'); vals.push(name); }
+        if (start_time !== undefined) { fields.push('start_time = ?'); vals.push(start_time); }
+        if (end_time !== undefined) { fields.push('end_time = ?'); vals.push(end_time || null); }
+        if (days !== undefined) { fields.push('days = ?'); vals.push(JSON.stringify(Array.isArray(days) ? days : [])); }
+        if (video_id !== undefined) { fields.push('video_id = ?'); vals.push(video_id); }
+        if (!fields.length) return res.status(400).json({ error: 'Nada que actualizar' });
+        vals.push(req.params.id, req.user.id);
+        await pool.execute(`UPDATE cctv_schedules SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`, vals);
+        res.json({ ok: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    // Admin: delete schedule
+    app.delete('/api/cctv/schedules/:id', authenticateToken, async (req, res) => {
+      try {
+        await ensureCctvTables();
+        await pool.execute('DELETE FROM cctv_schedules WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
         res.json({ ok: true });
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
@@ -10633,16 +10729,16 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     });
 
     // Windows app download — generates a self-extracting .exe via NSIS (Linux) or zip fallback (dev)
-    app.get('/api/apps/windows', authenticateToken, async (req, res) => {
+    app.get('/api/apps/windows', async (req, res) => {
       try {
         const { storeCode } = req.query;
         if (!storeCode) return res.status(400).json({ error: 'storeCode requerido' });
 
         const [stores] = await pool.execute(
-          'SELECT * FROM stores WHERE code = ? AND user_id = ?',
-          [storeCode.toUpperCase(), req.user.id]
+          'SELECT * FROM stores WHERE code = ?',
+          [storeCode.toUpperCase()]
         );
-        if (!stores.length) return res.status(403).json({ error: 'Tienda no encontrada' });
+        if (!stores.length) return res.status(404).json({ error: 'Tienda no encontrada' });
         const store = stores[0];
 
         const publishDir = path.join(__serverDir, 'web', 'windows', 'bin', 'Release', 'net10.0-windows', 'win-x64', 'publish');
@@ -10715,19 +10811,18 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     });
 
     // Android app build — starts background compile job and returns jobId
-    app.post('/api/apps/android/build', authenticateToken, async (req, res) => {
+    app.post('/api/apps/android/build', async (req, res) => {
       try {
         const { appName, storeCode } = req.body;
         const validApps = ['launcher', 'tvordenes', 'cctv'];
         if (!validApps.includes(appName)) return res.status(400).json({ error: 'App inválida' });
 
-        // For apps that need store code, verify ownership
         if (appName !== 'cctv' && storeCode) {
           const [stores] = await pool.execute(
-            'SELECT id FROM stores WHERE code = ? AND user_id = ?',
-            [storeCode.toUpperCase(), req.user.id]
+            'SELECT id FROM stores WHERE code = ?',
+            [storeCode.toUpperCase()]
           );
-          if (!stores.length) return res.status(403).json({ error: 'Tienda no encontrada' });
+          if (!stores.length) return res.status(404).json({ error: 'Tienda no encontrada' });
         }
 
         const code = storeCode ? storeCode.toUpperCase() : null;
@@ -10744,14 +10839,14 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     });
 
     // Android app build — poll job status
-    app.get('/api/apps/android/status/:jobId', authenticateToken, (req, res) => {
+    app.get('/api/apps/android/status/:jobId', (req, res) => {
       const job = getBuildJob(req.params.jobId);
       if (!job) return res.status(404).json({ error: 'Job no encontrado' });
       res.json({ status: job.status, progress: job.progress, error: job.error });
     });
 
     // Android app download — streams the compiled APK
-    app.get('/api/apps/android/download', authenticateToken, async (req, res) => {
+    app.get('/api/apps/android/download', async (req, res) => {
       try {
         const { appName, storeCode, jobId } = req.query;
 

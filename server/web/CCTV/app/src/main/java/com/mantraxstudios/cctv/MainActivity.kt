@@ -1357,8 +1357,10 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
             try {
                 val config = fetchDeviceConfig(deviceToken)
 
-                // ── Video ──────────────────────────────────────────────────────
-                val videoUrl = config.optString("video_url").takeIf { it.isNotEmpty() }
+                // ── Video (con evaluación de programación) ─────────────────────
+                val activeSchedule = getActiveSchedule(config.optJSONArray("schedules"))
+                val videoUrl = (activeSchedule?.optString("video_url")?.takeIf { it.isNotEmpty() }
+                    ?: config.optString("video_url").takeIf { it.isNotEmpty() })
                 val savedUrl = prefs.getString(KEY_VIDEO_URL, null)
 
                 if (videoUrl != null && videoUrl != savedUrl) {
@@ -1444,7 +1446,7 @@ fun PlayerScreen(prefs: SharedPreferences, offlineMode: Boolean, isConnected: Bo
                 val savedMusicUrl = prefs.getString(KEY_MUSIC_URL, null)
 
                 // ── Volumen (afecta video Y música) ────────────────────────
-                val videoMuted = config.optBoolean("video_muted", false)
+                val videoMuted = config.optInt("video_muted", 0) != 0
                 val volumeLevel = config.optInt("volume_level", 100).coerceIn(0, 100) / 100f
                 val effectiveVolume = if (videoMuted) 0f else volumeLevel
                 exoPlayer.volume = effectiveVolume
@@ -1901,6 +1903,38 @@ private suspend fun pairDevice(code: String): String = withContext(Dispatchers.I
     runCatching { JSONObject(response).getString("device_token") }.getOrElse {
         throw Exception("Respuesta inválida del servidor")
     }
+}
+
+private fun getActiveSchedule(schedules: org.json.JSONArray?): org.json.JSONObject? {
+    if (schedules == null || schedules.length() == 0) return null
+    val cal = java.util.Calendar.getInstance()
+    val currentMinutes = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
+    val dayKey = when (cal.get(java.util.Calendar.DAY_OF_WEEK)) {
+        java.util.Calendar.MONDAY -> "mon"
+        java.util.Calendar.TUESDAY -> "tue"
+        java.util.Calendar.WEDNESDAY -> "wed"
+        java.util.Calendar.THURSDAY -> "thu"
+        java.util.Calendar.FRIDAY -> "fri"
+        java.util.Calendar.SATURDAY -> "sat"
+        else -> "sun"
+    }
+    for (i in 0 until schedules.length()) {
+        val s = schedules.getJSONObject(i)
+        val days = s.optJSONArray("days")
+        val dayMatch = days == null || days.length() == 0 || (0 until days.length()).any { days.getString(it) == dayKey }
+        if (!dayMatch) continue
+        val startParts = s.optString("start_time", "00:00").split(":")
+        val startMin = (startParts.getOrNull(0)?.toIntOrNull() ?: 0) * 60 + (startParts.getOrNull(1)?.toIntOrNull() ?: 0)
+        if (currentMinutes < startMin) continue
+        val endTime = s.optString("end_time", "")
+        if (endTime.isNotEmpty()) {
+            val endParts = endTime.split(":")
+            val endMin = (endParts.getOrNull(0)?.toIntOrNull() ?: 0) * 60 + (endParts.getOrNull(1)?.toIntOrNull() ?: 0)
+            if (currentMinutes >= endMin) continue
+        }
+        return s
+    }
+    return null
 }
 
 private suspend fun fetchDeviceConfig(deviceToken: String): JSONObject = withContext(Dispatchers.IO) {

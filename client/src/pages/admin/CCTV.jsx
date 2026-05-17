@@ -6,6 +6,7 @@ import {
   faVideo, faUpload, faTrash, faDesktop, faKey, faCopy, faCheck,
   faPlay, faPen, faTimes, faExclamationTriangle, faHistory, faPowerOff,
   faMusic, faVolumeMute, faVolumeUp, faImage, faArrowUp, faArrowDown, faFolder,
+  faClock, faPlus, faToggleOn, faToggleOff,
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -69,6 +70,10 @@ export default function CCTV() {
   const [assignModal, setAssignModal] = useState(null);
   const [assignMusicModal, setAssignMusicModal] = useState(null);
   const [renameModal, setRenameModal] = useState(null);
+  const [screenSchedules, setScreenSchedules] = useState({}); // { [screenId]: { data, loading } }
+  const [expandedSchedules, setExpandedSchedules] = useState({});
+  const [scheduleModal, setScheduleModal] = useState(null); // screen object
+  const [newSched, setNewSched] = useState({ video_id: '', name: '', start_time: '', end_time: '', days: [] });
   const [renameName, setRenameName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [powerLogModal, setPowerLogModal] = useState(null);
@@ -115,6 +120,70 @@ export default function CCTV() {
   const fetchAlbums = async () => {
     try { const r = await fetch(`${API}/api/cctv/albums`, { headers }); if (r.ok) setAlbums(await r.json()); }
     catch { }
+  };
+
+  const fetchScreenSchedules = async (screenId) => {
+    setScreenSchedules(prev => ({ ...prev, [screenId]: { ...(prev[screenId] || {}), loading: true } }));
+    try {
+      const r = await fetch(`${API}/api/cctv/screens/${screenId}/schedules`, { headers });
+      if (r.ok) setScreenSchedules(prev => ({ ...prev, [screenId]: { data: await r.json(), loading: false } }));
+      else setScreenSchedules(prev => ({ ...prev, [screenId]: { data: [], loading: false } }));
+    } catch { setScreenSchedules(prev => ({ ...prev, [screenId]: { data: [], loading: false } })); }
+  };
+
+  const toggleScheduleExpand = (screenId) => {
+    const next = !expandedSchedules[screenId];
+    setExpandedSchedules(prev => ({ ...prev, [screenId]: next }));
+    if (next && !screenSchedules[screenId]) fetchScreenSchedules(screenId);
+  };
+
+  const createSchedule = async () => {
+    if (!scheduleModal || !newSched.video_id || !newSched.start_time) return;
+    try {
+      const r = await fetch(`${API}/api/cctv/screens/${scheduleModal.id}/schedules`, {
+        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSched)
+      });
+      if (!r.ok) throw new Error((await r.json()).error);
+      setScheduleModal(null);
+      setNewSched({ video_id: '', name: '', start_time: '', end_time: '', days: [] });
+      await fetchScreenSchedules(scheduleModal.id);
+      showSuccess('Horario creado');
+    } catch (e) { showError(e.message); }
+  };
+
+  const toggleScheduleActive = async (sched, screenId) => {
+    try {
+      await fetch(`${API}/api/cctv/schedules/${sched.id}`, {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !sched.active })
+      });
+      setScreenSchedules(prev => ({
+        ...prev,
+        [screenId]: { ...prev[screenId], data: prev[screenId].data.map(x => x.id === sched.id ? { ...x, active: !x.active } : x) }
+      }));
+    } catch (e) { showError(e.message); }
+  };
+
+  const deleteSchedule = async (schedId, screenId) => {
+    try {
+      await fetch(`${API}/api/cctv/schedules/${schedId}`, { method: 'DELETE', headers });
+      setScreenSchedules(prev => ({
+        ...prev,
+        [screenId]: { ...prev[screenId], data: prev[screenId].data.filter(x => x.id !== schedId) }
+      }));
+      showSuccess('Horario eliminado');
+    } catch (e) { showError(e.message); }
+  };
+
+  const DAYS_LABELS = { mon: 'L', tue: 'M', wed: 'X', thu: 'J', fri: 'V', sat: 'S', sun: 'D' };
+  const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+  const toggleSchedDay = (day) => {
+    setNewSched(prev => ({
+      ...prev,
+      days: prev.days.includes(day) ? prev.days.filter(d => d !== day) : [...prev.days, day]
+    }));
   };
 
   useEffect(() => { fetchVideos(); fetchScreens(); fetchMusic(); fetchImages(); fetchAlbums(); }, []);
@@ -827,12 +896,136 @@ export default function CCTV() {
                           />
                           <span style={{ fontSize: 12, fontWeight: 700, color: '#71717a', minWidth: 32, textAlign: 'right' }}>{localVolumes[s.id] ?? 100}%</span>
                         </div>
+
+                        {/* Schedules section */}
+                        <div style={{ width: '100%', marginTop: 8, paddingTop: 8, borderTop: '1px solid #f4f4f5' }}>
+                          <button
+                            onClick={() => toggleScheduleExpand(s.id)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#71717a', fontSize: 12, fontWeight: 600, padding: 0 }}
+                          >
+                            <FontAwesomeIcon icon={faClock} style={{ fontSize: 11, color: GOLD }} />
+                            Programación
+                            {screenSchedules[s.id]?.data?.length > 0 && (
+                              <span style={{ background: GOLD, color: '#000', borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 6px' }}>
+                                {screenSchedules[s.id].data.length}
+                              </span>
+                            )}
+                            <span style={{ marginLeft: 'auto', fontSize: 10 }}>{expandedSchedules[s.id] ? '▲' : '▼'}</span>
+                          </button>
+
+                          {expandedSchedules[s.id] && (
+                            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {screenSchedules[s.id]?.loading ? (
+                                <p style={{ fontSize: 12, color: '#a1a1aa', margin: 0 }}>Cargando...</p>
+                              ) : screenSchedules[s.id]?.data?.length === 0 ? (
+                                <p style={{ fontSize: 12, color: '#a1a1aa', margin: 0, fontStyle: 'italic' }}>Sin horarios programados</p>
+                              ) : (
+                                screenSchedules[s.id].data.map(sched => (
+                                  <div key={sched.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: sched.active ? '#f8f8f0' : '#f4f4f5', border: `1px solid ${sched.active ? '#fde68a' : '#e4e4e7'}`, borderRadius: 8, padding: '7px 10px' }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      {sched.name && <div style={{ fontSize: 12, fontWeight: 700, color: '#09090b', marginBottom: 2 }}>{sched.name}</div>}
+                                      <div style={{ fontSize: 11, color: '#71717a' }}>
+                                        <FontAwesomeIcon icon={faClock} style={{ marginRight: 4, fontSize: 10 }} />
+                                        {sched.start_time}{sched.end_time ? ` → ${sched.end_time}` : ''}
+                                        <span style={{ marginLeft: 8, color: '#92400e', fontWeight: 600 }}>▶ {sched.video_name}</span>
+                                      </div>
+                                      <div style={{ fontSize: 11, color: '#a1a1aa', marginTop: 2 }}>
+                                        {sched.days.length === 0 ? 'Todos los días' : sched.days.map(d => DAYS_LABELS[d] || d).join(' ')}
+                                      </div>
+                                    </div>
+                                    <button onClick={() => toggleScheduleActive(sched, s.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: sched.active ? '#16a34a' : '#a1a1aa', fontSize: 16, padding: '0 2px' }} title={sched.active ? 'Desactivar' : 'Activar'}>
+                                      <FontAwesomeIcon icon={sched.active ? faToggleOn : faToggleOff} />
+                                    </button>
+                                    <button onClick={() => deleteSchedule(sched.id, s.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 13, padding: '0 2px' }} title="Eliminar">
+                                      <FontAwesomeIcon icon={faTrash} />
+                                    </button>
+                                  </div>
+                                ))
+                              )}
+                              <button
+                                onClick={() => { setScheduleModal(s); setNewSched({ video_id: '', name: '', start_time: '', end_time: '', days: [] }); }}
+                                style={{ background: 'transparent', border: `1px dashed ${GOLD}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: '#92400e', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}
+                              >
+                                <FontAwesomeIcon icon={faPlus} style={{ fontSize: 11 }} />
+                                Agregar horario
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
+        </div>
+      )}
+
+      {/* Schedule create modal */}
+      {scheduleModal && (
+        <div onClick={() => setScheduleModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: '24px 24px', width: '100%', maxWidth: 460, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Nuevo horario programado</h3>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: '#71717a' }}>{scheduleModal.device_name}</p>
+              </div>
+              <button onClick={() => setScheduleModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#a1a1aa' }}><FontAwesomeIcon icon={faTimes} /></button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Video a reproducir *</label>
+                <select value={newSched.video_id} onChange={e => setNewSched(p => ({ ...p, video_id: e.target.value }))}
+                  style={{ width: '100%', padding: '9px 12px', border: '1px solid #e4e4e7', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff' }}>
+                  <option value="">Seleccionar video...</option>
+                  {videos.map(v => <option key={v.id} value={v.id}>{v.original_name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Nombre del horario (opcional)</label>
+                <input type="text" value={newSched.name} onChange={e => setNewSched(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Ej: Promo mediodía"
+                  style={{ width: '100%', padding: '9px 12px', border: '1px solid #e4e4e7', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Hora inicio *</label>
+                  <input type="time" value={newSched.start_time} onChange={e => setNewSched(p => ({ ...p, start_time: e.target.value }))}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #e4e4e7', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Hora fin (opcional)</label>
+                  <input type="time" value={newSched.end_time} onChange={e => setNewSched(p => ({ ...p, end_time: e.target.value }))}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #e4e4e7', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Días</label>
+                <p style={{ margin: '0 0 8px', fontSize: 11, color: '#a1a1aa' }}>Sin selección = todos los días</p>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {ALL_DAYS.map(day => (
+                    <button key={day} onClick={() => toggleSchedDay(day)}
+                      style={{ padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `1px solid ${newSched.days.includes(day) ? GOLD : '#e4e4e7'}`, background: newSched.days.includes(day) ? '#fff8e1' : '#f4f4f5', color: newSched.days.includes(day) ? '#92400e' : '#71717a' }}>
+                      {DAYS_LABELS[day]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 22 }}>
+              <button onClick={() => setScheduleModal(null)} style={{ padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: '1px solid #e4e4e7', background: 'transparent', color: '#71717a' }}>Cancelar</button>
+              <button onClick={createSchedule} disabled={!newSched.video_id || !newSched.start_time}
+                style={{ padding: '9px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: !newSched.video_id || !newSched.start_time ? 'not-allowed' : 'pointer', border: 'none', background: !newSched.video_id || !newSched.start_time ? '#e4e4e7' : GOLD, color: !newSched.video_id || !newSched.start_time ? '#a1a1aa' : '#000', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FontAwesomeIcon icon={faClock} />
+                Crear horario
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
