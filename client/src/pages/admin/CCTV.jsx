@@ -126,8 +126,8 @@ export default function CCTV() {
     setScreenSchedules(prev => ({ ...prev, [screenId]: { ...(prev[screenId] || {}), loading: true } }));
     try {
       const r = await fetch(`${API}/api/cctv/screens/${screenId}/schedules`, { headers });
-      if (r.ok) setScreenSchedules(prev => ({ ...prev, [screenId]: { data: await r.json(), loading: false } }));
-      else setScreenSchedules(prev => ({ ...prev, [screenId]: { data: [], loading: false } }));
+      const data = r.ok ? await r.json() : [];
+      setScreenSchedules(prev => ({ ...prev, [screenId]: { data, loading: false } }));
     } catch { setScreenSchedules(prev => ({ ...prev, [screenId]: { data: [], loading: false } })); }
   };
 
