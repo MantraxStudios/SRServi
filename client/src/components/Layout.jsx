@@ -544,7 +544,128 @@ function Layout() {
           </div>
 
           <ul className="sidebar-nav" onClick={(e) => { if (!e.target.closest('.dropdown-item') && !e.target.closest('.dropdown-header') && !e.target.closest('.dropdown-container')) setMenuOpen(false); }}>
-            <li className="sidebar-section-label">Principal</li>
+
+            {/* ── León IA ── */}
+            <li>
+              <NavLink to="/admin/leon-ia" className="leon-ia-nav-link" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faRobot} />
+                <span>León IA</span>
+                <span className="leon-ia-nav-badge">IA</span>
+              </NavLink>
+            </li>
+
+            {/* ── OPERACIONES ── */}
+            <li className="sidebar-section-label">Operaciones</li>
+            <li>
+              <NavLink to="/admin/orders" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faShoppingBag} />
+                <span>Pedidos</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/products" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faBox} />
+                <span>Productos</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/analytics" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faChartLine} />
+                <span>Análisis</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/cash-registers" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faCashRegister} />
+                <span>Historial de Caja</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/ratings" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faStar} />
+                <span>Calificaciones</span>
+              </NavLink>
+            </li>
+
+            {/* ── GESTIÓN ── */}
+            <li className="sidebar-section-label">Gestión</li>
+            <li>
+              <NavLink to="/admin/workers" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faUsers} />
+                <span>Vendedores</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/tasks" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faClipboardList} />
+                <span>Tareas</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/inventory" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faWarehouse} />
+                <span>Inventario</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/procedures" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faList} />
+                <span>Procedimientos</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/coupons" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faPercent} />
+                <span>Cupones</span>
+              </NavLink>
+            </li>
+
+            {/* ── CANALES ── */}
+            <li className="sidebar-section-label">Canales</li>
+            <li>
+              <NavLink to="/admin/whatsapp" onClick={() => setMenuOpen(false)}>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="#25D366" style={{ flexShrink: 0 }}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                <span>WhatsApp</span>
+              </NavLink>
+            </li>
+            <li className="dropdown-container">
+              <button className={`dropdown-header${openDropdowns['delivery'] ? ' open' : ''}`} onClick={() => toggleDropdown('delivery')}>
+                <FontAwesomeIcon icon={faMotorcycle} />
+                <span>Delivery</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['delivery'] ? 180 : 0} />
+              </button>
+              {openDropdowns['delivery'] && (
+                <div className="dropdown-content">
+                  <NavLink to="/admin/rappi" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faMotorcycle} />
+                    <span>Rappi</span>
+                  </NavLink>
+                  <NavLink to="/admin/pedidosya" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faMotorcycle} />
+                    <span>PedidosYa</span>
+                  </NavLink>
+                  <NavLink to="/admin/ubereats" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faMotorcycle} />
+                    <span>Uber Eats</span>
+                  </NavLink>
+                </div>
+              )}
+            </li>
+            <li>
+              <NavLink to="/admin/instagram" onClick={() => setMenuOpen(false)}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                <span>Autopublicación IG</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/tiktok" onClick={() => setMenuOpen(false)}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V9.05a8.16 8.16 0 0 0 4.77 1.53V7.15a4.85 4.85 0 0 1-1-.46z"/></svg>
+                <span>Autopublicación TikTok</span>
+              </NavLink>
+            </li>
+
+            {/* ── MI TIENDA ── */}
+            <li className="sidebar-section-label">Mi Tienda</li>
             {selectedStore && (
               <li>
                 <NavLink
@@ -559,303 +680,156 @@ function Layout() {
                     }
                   }}
                 >
-                  <FontAwesomeIcon icon={faBox} />
-                  <span>Editor Totem</span>
+                  <FontAwesomeIcon icon={faTabletAlt} />
+                  <span>Editor Tótem</span>
                 </NavLink>
               </li>
             )}
             <li>
               <NavLink to="/admin/mercado-pago-points" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faCashRegister} />
-                <span>Vincular POS</span>
+                <FontAwesomeIcon icon={faCreditCard} />
+                <span>Terminales POS</span>
               </NavLink>
             </li>
             <li>
-              <NavLink to="/admin/workers" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faUsers} />
-                <span>Vendedores</span>
+              <NavLink to="/admin/market" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faBarcode} />
+                <span>Market</span>
               </NavLink>
-            </li>
-            <li style={{ listStyle: 'none', padding: '6px 16px' }}>
-              <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)' }} />
             </li>
             <li>
-              <NavLink to="/admin/leon-ia" className="leon-ia-nav-link" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faRobot} />
-                <span>León IA</span>
-                <span className="leon-ia-nav-badge">IA</span>
+              <NavLink to="/admin/workshop" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faGlobe} />
+                <span>Workshop</span>
               </NavLink>
             </li>
+
+            {/* ── AJUSTES ── */}
+            <li className="sidebar-section-label">Ajustes</li>
             <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['admin'] ? ' open' : ''}`} onClick={() => toggleDropdown('admin')}>
+              <button className={`dropdown-header${openDropdowns['config'] ? ' open' : ''}`} onClick={() => toggleDropdown('config')}>
                 <FontAwesomeIcon icon={faCog} />
-                <span>Administración</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['admin'] ? 180 : 0} />
+                <span>Configuración</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['config'] ? 180 : 0} />
               </button>
-              {openDropdowns['admin'] && (
+              {openDropdowns['config'] && (
                 <div className="dropdown-content">
-
-                  {/* Sub-dropdown: Operaciones */}
-                  <div className="subdropdown-container">
-                    <button className={`subdropdown-header${openDropdowns['operaciones'] ? ' open' : ''}`} onClick={() => toggleDropdown('operaciones')}>
-                      <FontAwesomeIcon icon={faShoppingBag} />
-                      <span>Operaciones</span>
-                      <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['operaciones'] ? 180 : 0} />
-                    </button>
-                    {openDropdowns['operaciones'] && (
-                      <div className="subdropdown-content">
-                        <NavLink to="/admin/products" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faBox} />
-                          <span>Productos</span>
-                        </NavLink>
-                        <NavLink to="/admin/orders" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faShoppingBag} />
-                          <span>Pedidos</span>
-                        </NavLink>
-                        <NavLink to="/admin/analytics" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faChartLine} />
-                          <span>Análisis</span>
-                        </NavLink>
-                        <NavLink to="/admin/coupons" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faPercent} />
-                          <span>Cupones</span>
-                        </NavLink>
-                        <NavLink to="/admin/tasks" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faClipboardList} />
-                          <span>Tareas</span>
-                        </NavLink>
-                        <NavLink to="/admin/inventory" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faWarehouse} />
-                          <span>Inventario</span>
-                        </NavLink>
-                        <NavLink to="/admin/procedures" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faClipboardList} />
-                          <span>Procedimientos</span>
-                        </NavLink>
-                        <NavLink to="/admin/whatsapp" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="#25D366" style={{ flexShrink: 0 }}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                          <span>WhatsApp</span>
-                        </NavLink>
-                        <NavLink to="/admin/ratings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faStar} />
-                          <span>Calificaciones</span>
-                        </NavLink>
-                        <NavLink to="/admin/cash-registers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faCashRegister} />
-                          <span>Historial de Caja</span>
-                        </NavLink>
-                        <div className="subdropdown-container">
-                          <button className={`subdropdown-header${openDropdowns['delivery'] ? ' open' : ''}`} onClick={() => toggleDropdown('delivery')}>
-                            <FontAwesomeIcon icon={faMotorcycle} />
-                            <span>Delivery</span>
-                            <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['delivery'] ? 180 : 0} />
-                          </button>
-                          {openDropdowns['delivery'] && (
-                            <div className="subdropdown-content">
-                              <NavLink to="/admin/rappi" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                                <FontAwesomeIcon icon={faMotorcycle} />
-                                <span>Rappi</span>
-                              </NavLink>
-                              <NavLink to="/admin/pedidosya" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                                <FontAwesomeIcon icon={faMotorcycle} />
-                                <span>PedidosYa</span>
-                              </NavLink>
-                              <NavLink to="/admin/ubereats" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                                <FontAwesomeIcon icon={faMotorcycle} />
-                                <span>Uber Eats</span>
-                              </NavLink>
-                            </div>
-                          )}
-                        </div>
-                        <NavLink to="/admin/instagram" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                          <span>Autopublicación IG</span>
-                        </NavLink>
-                        <NavLink to="/admin/tiktok" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V9.05a8.16 8.16 0 0 0 4.77 1.53V7.15a4.85 4.85 0 0 1-1-.46z"/></svg>
-                          <span>Autopublicación TikTok</span>
-                        </NavLink>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Sub-dropdown: Catálogo */}
-                  <div className="subdropdown-container">
-                    <button className={`subdropdown-header${openDropdowns['catalogo'] ? ' open' : ''}`} onClick={() => toggleDropdown('catalogo')}>
-                      <FontAwesomeIcon icon={faBarcode} />
-                      <span>Catálogo</span>
-                      <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['catalogo'] ? 180 : 0} />
-                    </button>
-                    {openDropdowns['catalogo'] && (
-                      <div className="subdropdown-content">
-                        <NavLink to="/admin/market" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faBarcode} />
-                          <span>Market</span>
-                        </NavLink>
-                        <NavLink to="/admin/workshop" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faGlobe} />
-                          <span>Workshop</span>
-                        </NavLink>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Sub-dropdown: Configuración */}
-                  <div className="subdropdown-container">
-                    <button className={`subdropdown-header${openDropdowns['config'] ? ' open' : ''}`} onClick={() => toggleDropdown('config')}>
-                      <FontAwesomeIcon icon={faPalette} />
-                      <span>Configuración</span>
-                      <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['config'] ? 180 : 0} />
-                    </button>
-                    {openDropdowns['config'] && (
-                      <div className="subdropdown-content">
-                        <NavLink to="/admin/settings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faPalette} />
-                          <span>Colores y QR</span>
-                        </NavLink>
-                        <NavLink to="/admin/configurations" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faTabletAlt} />
-                          <span>Tótems y Pagos</span>
-                        </NavLink>
-                        <NavLink to="/admin/worker-config" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faCreditCard} />
-                          <span>Pago manual</span>
-                        </NavLink>
-                        <NavLink to="/admin/store-pin" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faLock} />
-                          <span>PIN Tienda</span>
-                        </NavLink>
-                        <NavLink to="/admin/screensaver" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faTv} />
-                          <span>Salva Pantallas</span>
-                        </NavLink>
-                        <NavLink to="/admin/cctv" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faVideo} />
-                          <span>Cartelería Digital</span>
-                        </NavLink>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Sub-dropdown: Cuenta */}
-                  <div className="subdropdown-container">
-                    <button className={`subdropdown-header${openDropdowns['cuenta'] ? ' open' : ''}`} onClick={() => toggleDropdown('cuenta')}>
-                      <FontAwesomeIcon icon={faCrown} />
-                      <span>Cuenta</span>
-                      <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['cuenta'] ? 180 : 0} />
-                    </button>
-                    {openDropdowns['cuenta'] && (
-                      <div className="subdropdown-content">
-                        <NavLink to="/admin/plans" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faCrown} />
-                          <span>Planes</span>
-                        </NavLink>
-                        <NavLink to="/admin/plugins" end className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faPuzzlePiece} />
-                          <span>Plugins</span>
-                        </NavLink>
-                        <NavLink to="/admin/tickets" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                          <FontAwesomeIcon icon={faTicketAlt} />
-                          <span>Soporte</span>
-                        </NavLink>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Sub-dropdown: Mis Apps */}
-                  <div className="subdropdown-container">
-                    <button className={`subdropdown-header${openDropdowns['misapps'] ? ' open' : ''}`} onClick={() => toggleDropdown('misapps')}>
-                      <FontAwesomeIcon icon={faLaptop} />
-                      <span>Mis Apps</span>
-                      <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['misapps'] ? 180 : 0} />
-                    </button>
-                    {openDropdowns['misapps'] && (
-                      <div className="subdropdown-content" style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px' }}>
-
-                        {/* Tótem Android (Launcher) */}
-                        <AppDownloadCard
-                          icon="📱"
-                          title="Totem Android"
-                          description={<>Punto de venta Android · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                          buildState={androidBuilds['launcher']}
-                          disabled={!selectedStore}
-                          onDownload={() => handleAndroidBuild('launcher', 'Totem Android')}
-                          fileType=".apk"
-                        />
-
-                        {/* Windows Tótem */}
-                        <AppDownloadCard
-                          icon="💻"
-                          title="Tótem Windows"
-                          description={<>App kiosk para PC · Tienda <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                          loading={appDownloading}
-                          disabled={!selectedStore}
-                          onDownload={() => handleDownloadWindowsApp()}
-                          fileType=".exe"
-                        />
-
-                        {/* TV Órdenes */}
-                        <AppDownloadCard
-                          icon="📺"
-                          title="TV Órdenes"
-                          description={<>Pantalla de cocina · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                          buildState={androidBuilds['tvordenes']}
-                          disabled={!selectedStore}
-                          onDownload={() => handleAndroidBuild('tvordenes', 'TV Órdenes')}
-                          fileType=".apk"
-                        />
-
-                        {/* CCTV / Cartelería */}
-                        <AppDownloadCard
-                          icon="🎬"
-                          title="Cartelería Digital"
-                          description={<>Pantalla digital para TV · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                          buildState={androidBuilds['cctv']}
-                          disabled={!selectedStore}
-                          onDownload={() => handleAndroidBuild('cctv', 'CCTV')}
-                          fileType=".apk"
-                        />
-
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Novedades */}
-                  <NavLink to="/admin/novedades" className="dropdown-item" onClick={() => setMenuOpen(false)}
-                    style={({ isActive }) => ({
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '9px 14px', borderRadius: 10, textDecoration: 'none',
-                      background: isActive ? 'rgba(212,175,55,0.12)' : 'transparent',
-                      color: isActive ? '#D4AF37' : '#9ca3af',
-                      fontWeight: 600, fontSize: 14, transition: 'all 0.15s',
-                      position: 'relative',
-                    })}
-                  >
-                    <FontAwesomeIcon icon={faBell} />
-                    <span>Novedades</span>
-                    {unreadUpdates > 0 && (
-                      <span style={{
-                        marginLeft: 'auto',
-                        minWidth: 20, height: 20, borderRadius: 10,
-                        background: '#ef4444', color: '#fff',
-                        fontSize: 11, fontWeight: 800,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        padding: '0 5px',
-                      }}>
-                        {unreadUpdates}
-                      </span>
-                    )}
+                  <NavLink to="/admin/settings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faPalette} />
+                    <span>Colores y QR</span>
                   </NavLink>
-
-                  {/* Tutoriales */}
-                  <NavLink to="/admin/tutoriales" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faBookOpen} />
-                    <span>Tutoriales</span>
+                  <NavLink to="/admin/configurations" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faTabletAlt} />
+                    <span>Tótems y Pagos</span>
                   </NavLink>
-
+                  <NavLink to="/admin/worker-config" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faCreditCard} />
+                    <span>Pago Manual</span>
+                  </NavLink>
+                  <NavLink to="/admin/store-pin" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faLock} />
+                    <span>PIN Tienda</span>
+                  </NavLink>
+                  <NavLink to="/admin/screensaver" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faTv} />
+                    <span>Salva Pantallas</span>
+                  </NavLink>
+                  <NavLink to="/admin/cctv" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faVideo} />
+                    <span>Cartelería Digital</span>
+                  </NavLink>
                 </div>
               )}
             </li>
+            <li className="dropdown-container">
+              <button className={`dropdown-header${openDropdowns['misapps'] ? ' open' : ''}`} onClick={() => toggleDropdown('misapps')}>
+                <FontAwesomeIcon icon={faLaptop} />
+                <span>Mis Apps</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['misapps'] ? 180 : 0} />
+              </button>
+              {openDropdowns['misapps'] && (
+                <div className="dropdown-content" style={{ padding: '8px' }}>
+                  <AppDownloadCard
+                    icon="📱"
+                    title="Totem Android"
+                    description={<>Punto de venta Android · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
+                    buildState={androidBuilds['launcher']}
+                    disabled={!selectedStore}
+                    onDownload={() => handleAndroidBuild('launcher', 'Totem Android')}
+                    fileType=".apk"
+                  />
+                  <div style={{ height: '8px' }} />
+                  <AppDownloadCard
+                    icon="💻"
+                    title="Tótem Windows"
+                    description={<>App kiosk para PC · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
+                    loading={appDownloading}
+                    disabled={!selectedStore}
+                    onDownload={() => handleDownloadWindowsApp()}
+                    fileType=".exe"
+                  />
+                  <div style={{ height: '8px' }} />
+                  <AppDownloadCard
+                    icon="📺"
+                    title="TV Órdenes"
+                    description={<>Pantalla de cocina · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
+                    buildState={androidBuilds['tvordenes']}
+                    disabled={!selectedStore}
+                    onDownload={() => handleAndroidBuild('tvordenes', 'TV Órdenes')}
+                    fileType=".apk"
+                  />
+                  <div style={{ height: '8px' }} />
+                  <AppDownloadCard
+                    icon="🎬"
+                    title="Cartelería Digital"
+                    description={<>Pantalla digital para TV · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
+                    buildState={androidBuilds['cctv']}
+                    disabled={!selectedStore}
+                    onDownload={() => handleAndroidBuild('cctv', 'CCTV')}
+                    fileType=".apk"
+                  />
+                </div>
+              )}
+            </li>
+
+            {/* ── CUENTA ── */}
+            <li className="sidebar-section-label">Cuenta</li>
+            <li>
+              <NavLink to="/admin/plans" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faCrown} />
+                <span>Planes</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/plugins" end onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faPuzzlePiece} />
+                <span>Plugins</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/tickets" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faTicketAlt} />
+                <span>Soporte</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/novedades" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faBell} />
+                <span>Novedades</span>
+                {unreadUpdates > 0 && (
+                  <span style={{ marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 9, background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', flexShrink: 0 }}>
+                    {unreadUpdates}
+                  </span>
+                )}
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/admin/tutoriales" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faBookOpen} />
+                <span>Tutoriales</span>
+              </NavLink>
+            </li>
+
           </ul>
 
         </nav>

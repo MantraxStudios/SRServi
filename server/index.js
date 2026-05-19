@@ -91,6 +91,8 @@ import {
   updateOrderStatus,
   approveCashPayment,
   processMercadoPagoPayment,
+  processSumUpPayment,
+  getSumUpCheckoutStatus,
   confirmCardPayment,
   getMercadoPagoOrderStatus,
   cancelMercadoPagoOrder,
@@ -4955,27 +4957,45 @@ app.post('/api/orders/process-payment', async (req, res) => {
     if (payment_method === 'card') {
       console.log('Procesando pago con tarjeta:', { store_id, order_type, selected_terminal_id });
 
-      const mpResult = await processMercadoPagoPayment(parseInt(store_id), {
-        items,
-        order_type,
-        selected_terminal_id: selected_terminal_id ? parseInt(selected_terminal_id) : null,
-        coupon_code
-      });
+      // Detectar proveedor desde el terminal seleccionado
+      let provider = 'mercadopago';
+      if (selected_terminal_id) {
+        const terminalInfo = await getPosTerminalForStore(parseInt(store_id), parseInt(selected_terminal_id));
+        if (terminalInfo?.provider) provider = terminalInfo.provider;
+      }
+      console.log('Proveedor detectado:', provider);
 
-      console.log('Pago Mercado Pago procesado:', JSON.stringify(mpResult));
+      let paymentResult;
+      if (provider === 'sumup') {
+        paymentResult = await processSumUpPayment(parseInt(store_id), {
+          items,
+          order_type,
+          selected_terminal_id: parseInt(selected_terminal_id),
+          coupon_code
+        });
+        console.log('Checkout SumUp creado:', JSON.stringify(paymentResult));
+      } else {
+        paymentResult = await processMercadoPagoPayment(parseInt(store_id), {
+          items,
+          order_type,
+          selected_terminal_id: selected_terminal_id ? parseInt(selected_terminal_id) : null,
+          coupon_code
+        });
+        console.log('Pago Mercado Pago procesado:', JSON.stringify(paymentResult));
+      }
 
       const order = await createOrder(parseInt(store_id), {
         order_type,
         payment_method: 'card',
         items,
-        mp_order_id: mpResult.mp_order_id,
-        external_reference: mpResult.external_reference,
+        mp_order_id: paymentResult.mp_order_id,
+        external_reference: paymentResult.external_reference,
         coupon_code,
         terminal_id: selected_terminal_id ? parseInt(selected_terminal_id) : null,
         table_number,
         custom_total
       });
-      
+
       const socketId = userSockets.get(parseInt(store_id));
       if (socketId) {
         io.to(socketId).emit('new_order', order);
@@ -4993,7 +5013,7 @@ app.post('/api/orders/process-payment', async (req, res) => {
       res.json({
         success: true,
         order,
-        mp_status: mpResult.status
+        mp_status: paymentResult.status
       });
     } else {
       return res.status(400).json({ error: 'Metodo de pago no soportado para este endpoint' });
@@ -5002,7 +5022,9 @@ app.post('/api/orders/process-payment', async (req, res) => {
     console.error('❌ Error procesando pago:', error);
     const isValidationError = [
       'Configuracion de Mercado Pago',
+      'Configuración de SumUp',
       'La máquina seleccionada',
+      'La máquina SumUp',
       'Cupón'
     ].some(text => String(error.message || '').includes(text));
     res.status(isValidationError ? 400 : 500).json({ error: error.message });
@@ -5083,6 +5105,36 @@ app.get('/api/orders/:orderId/payment-status', async (req, res) => {
     if (order.payment_method !== 'card') {
       const status = order.status === 'completed' ? 'approved' : 'pending';
       return res.json({ mp_status: status, payment_status: status, order_status: order.status, order, mp_full: null });
+    }
+
+    // ── SumUp: rama separada antes de cualquier lógica de MP ──
+    if (order.terminal_id) {
+      const terminal = await getPosTerminalForStore(parseInt(storeId), order.terminal_id);
+      if (terminal?.provider === 'sumup') {
+        if (!order.mp_order_id) {
+          return res.json({ mp_status: 'pending', payment_status: 'pending', order_status: order.status, order, mp_full: null });
+        }
+        try {
+          const sumupData = await getSumUpCheckoutStatus(order.mp_order_id, terminal.api_key);
+          console.log('SumUp checkout status:', sumupData.id, sumupData.status);
+
+          // SumUp statuses: PENDING → PAID / FAILED / EXPIRED
+          const rawStatus = (sumupData.status || '').toUpperCase();
+
+          if (rawStatus === 'FAILED' || rawStatus === 'EXPIRED') {
+            await updateOrderStatus(parseInt(orderId), parseInt(storeId), 'canceled');
+            const [canceledRows] = await pool.execute('SELECT * FROM orders WHERE id = ? AND store_id = ?', [parseInt(orderId), parseInt(storeId)]);
+            return res.json({ mp_status: rawStatus.toLowerCase(), payment_status: 'canceled', paid_amount: '0', order_status: 'canceled', order: canceledRows[0], mp_full: sumupData });
+          }
+
+          const paymentStatus = rawStatus === 'PAID' ? 'approved' : 'pending';
+          const paidAmount = rawStatus === 'PAID' ? String(sumupData.amount || order.total || '0') : '0';
+          return res.json({ mp_status: rawStatus.toLowerCase(), payment_status: paymentStatus, paid_amount: paidAmount, order_status: order.status, order, mp_full: sumupData });
+        } catch (err) {
+          console.error('Error consultando SumUp:', err.message);
+          return res.json({ mp_status: 'pending', payment_status: 'pending', order_status: order.status, order, mp_full: null });
+        }
+      }
     }
 
     let mercadopagoAccessToken = store?.mercadopago_access_token;

@@ -3350,6 +3350,81 @@ export async function getMercadoPagoOrderStatus(mpOrderId, mercadopagoAccessToke
   return result;
 }
 
+// ============================================================
+// SUMUP
+// ============================================================
+
+export async function processSumUpPayment(storeId, orderData) {
+  const { items, order_type, selected_terminal_id, coupon_code, total: frontendTotal } = orderData;
+
+  const terminal = await getPosTerminalForStore(storeId, selected_terminal_id);
+  if (!terminal) throw new Error('La máquina SumUp seleccionada no está disponible para esta tienda');
+
+  const apiKey = terminal.api_key;
+  const merchantCode = terminal.device_id;
+
+  if (!apiKey || !merchantCode) throw new Error('Configuración de SumUp incompleta: falta API Key o Merchant Code');
+
+  let subtotal = 0;
+  items.forEach(item => { subtotal += item.unit_price * item.quantity; });
+  const couponData = await resolveCouponForOrder(storeId, coupon_code, subtotal);
+  const total = frontendTotal ? parseFloat(frontendTotal) : couponData.total;
+
+  const storeInfo = await getStoreById(storeId);
+  const checkoutRef = `SRSERVI-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+  const payload = {
+    checkout_reference: checkoutRef,
+    amount: parseFloat(total.toFixed(2)),
+    currency: storeInfo?.currency_code || 'USD',
+    merchant_code: merchantCode,
+    description: `Pedido ${order_type === 'takeout' ? 'para llevar' : 'para consumir aqui'}`
+  };
+
+  console.log('Enviando checkout a SumUp:', payload);
+
+  const response = await fetch('https://api.sumup.com/v0.1/checkouts', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Error de SumUp:', errorText);
+    throw new Error(`Error al crear checkout SumUp: ${errorText}`);
+  }
+
+  const sumupResponse = await response.json();
+  console.log('Respuesta de SumUp:', sumupResponse);
+
+  return {
+    mp_order_id: sumupResponse.id,
+    status: sumupResponse.status,
+    external_reference: checkoutRef,
+    amount: total,
+    subtotal: couponData.subtotal,
+    discount_total: couponData.discount_total,
+    coupon_code: couponData.coupon_code
+  };
+}
+
+export async function getSumUpCheckoutStatus(checkoutId, apiKey) {
+  const response = await fetch(`https://api.sumup.com/v0.1/checkouts/${checkoutId}`, {
+    headers: { 'Authorization': `Bearer ${apiKey}` }
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Error al consultar estado SumUp: ${errorText}`);
+  }
+
+  return response.json();
+}
+
 export async function cancelMercadoPagoOrder(mpOrderId, mercadopagoAccessToken) {
   const idempotencyKey = `CANCEL-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const response = await fetch(`https://api.mercadopago.com/v1/orders/${mpOrderId}/cancel`, {

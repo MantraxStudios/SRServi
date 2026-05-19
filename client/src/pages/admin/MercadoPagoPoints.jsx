@@ -120,6 +120,13 @@ function MercadoPagoPoints() {
   const [savingTuu, setSavingTuu] = useState(false);
   const [tuuSaveMsg2, setTuuSaveMsg2] = useState('');
 
+  // ==== SumUp POS ====
+  const [sumupNewName, setSumupNewName] = useState('');
+  const [sumupNewApiKey, setSumupNewApiKey] = useState('');
+  const [sumupNewMerchantCode, setSumupNewMerchantCode] = useState('');
+  const [savingSumup, setSavingSumup] = useState(false);
+  const [sumupSaveMsg, setSumupSaveMsg] = useState('');
+
   // === MercadoPago QR (credencial directa de la tienda) ===
   const [mpQrToken, setMpQrToken] = useState('');
   const [mpQrConfigured, setMpQrConfigured] = useState(false);
@@ -233,6 +240,26 @@ function MercadoPagoPoints() {
       } else { setTuuSaveMsg2('Error: ' + (data.error || 'revisalo')); }
     } catch { setTuuSaveMsg2('Error de conexion'); }
     finally { setSavingTuu(false); }
+  };
+
+  const saveSumupPos = async () => {
+    if (!sumupNewName.trim() || !sumupNewApiKey.trim() || !sumupNewMerchantCode.trim()) { setSumupSaveMsg('Completa todos los campos'); return; }
+    setSavingSumup(true); setSumupSaveMsg('');
+    try {
+      const res = await fetch(API + '/api/pos-terminals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ store_id: selectedStore.id, provider: 'sumup', name: sumupNewName.trim(), api_key: sumupNewApiKey.trim(), device_id: sumupNewMerchantCode.trim() })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSumupSaveMsg('✔ Terminal SumUp guardada');
+        setSumupNewName(''); setSumupNewApiKey(''); setSumupNewMerchantCode('');
+        refreshAll();
+        setTimeout(() => setShowPosModal(false), 1200);
+      } else { setSumupSaveMsg('Error: ' + (data.error || 'revisalo')); }
+    } catch { setSumupSaveMsg('Error de conexion'); }
+    finally { setSavingSumup(false); }
   };
 
   const deletePos = async (pos) => {
@@ -965,7 +992,7 @@ function MercadoPagoPoints() {
     mercadopago: { color: '#009EE3', bg: '#e8f6fd', emoji: '💳', name: 'Mercado Pago Point' },
     tuu:         { color: '#7c3aed', bg: '#f5f0ff', emoji: '📱', name: 'Tuu POS' },
     square:      { color: '#3b82f6', bg: '#eff6ff', emoji: '📟', name: 'Square Terminal' },
-    sumup:       { color: '#f59e0b', bg: '#fef3c7', emoji: '💰', name: 'Sumup' },
+    sumup:       { color: '#f59e0b', bg: '#fef3c7', emoji: '💰', name: 'SumUp' },
   }[p] || { color: '#888', bg: '#f5f5f5', emoji: '💳', name: p });
 
   return (
@@ -1040,7 +1067,7 @@ function MercadoPagoPoints() {
                       {meta.name}
                     </span>
                     <div style={{ fontSize: '11px', color: '#aaa', fontFamily: 'monospace' }}>
-                      {pos.provider === 'tuu' ? `Serial: ${pos.serial || '—'}` : pos.provider === 'mercadopago' ? `ID: ${pos.terminal_id ? pos.terminal_id.slice(0,12) + '…' : '—'}` : pos.terminal_id ? pos.terminal_id.slice(0,14) + '…' : '—'}
+                      {pos.provider === 'tuu' ? `Serial: ${pos.device_id || '—'}` : pos.provider === 'mercadopago' ? `ID: ${pos.terminal_id ? pos.terminal_id.slice(0,12) + '…' : '—'}` : pos.provider === 'sumup' ? `Merchant: ${pos.device_id || '—'}` : pos.terminal_id ? pos.terminal_id.slice(0,14) + '…' : '—'}
                     </div>
                     {pos.pos_pin && (
                       <div style={{ marginTop: '10px', background: '#f9f6ee', border: '1px solid #e8d99a', borderRadius: '8px', padding: '8px 10px' }}>
@@ -1505,10 +1532,79 @@ function MercadoPagoPoints() {
                 )}
 
                 {posTab === 3 && (
-                  <div style={{ textAlign: 'center', padding: '28px 0' }}>
-                    <div style={{ width: '56px', height: '56px', background: '#fef3c7', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px', margin: '0 auto 14px' }}>💰</div>
-                    <p style={{ color: '#333', fontSize: '14px', fontWeight: '700', margin: '0 0 6px' }}>Sumup — Próximamente</p>
-                    <p style={{ color: '#bbb', fontSize: '12px', margin: 0 }}>Estamos trabajando en la integración con Sumup</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {/* Info */}
+                    <div style={{ padding: '12px 14px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '10px', fontSize: '12px', color: '#92400e', lineHeight: '1.6' }}>
+                      <strong>¿Cómo configurar?</strong><br />
+                      1. Ve a <a href="https://me.sumup.com/developers" target="_blank" rel="noreferrer" style={{ color: '#b45309', fontWeight: '700' }}>me.sumup.com/developers</a> → <strong>API Keys</strong> y crea una clave con alcance <code style={{ background: '#fde68a', padding: '1px 4px', borderRadius: '3px' }}>payments</code>.<br />
+                      2. Tu <strong>Merchant Code</strong> lo encuentras en <strong>Perfil → Cuenta</strong>.<br />
+                      3. El cobro aparecerá en la app SumUp de tu teléfono para ser aprobado.
+                    </div>
+
+                    {/* Nombre */}
+                    <div>
+                      <label style={labelStyle}>Nombre del terminal *</label>
+                      <input
+                        value={sumupNewName}
+                        onChange={e => setSumupNewName(e.target.value)}
+                        placeholder="Ej: Mostrador SumUp"
+                        style={inputStyle}
+                        onFocus={e => e.target.style.borderColor = '#f59e0b'}
+                        onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                      />
+                    </div>
+
+                    {/* API Key */}
+                    <div>
+                      <label style={labelStyle}>API Key *</label>
+                      <input
+                        value={sumupNewApiKey}
+                        onChange={e => setSumupNewApiKey(e.target.value)}
+                        placeholder="sup_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                        style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
+                        onFocus={e => e.target.style.borderColor = '#f59e0b'}
+                        onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                      />
+                      <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#aaa' }}>
+                        En <a href="https://me.sumup.com/developers" target="_blank" rel="noreferrer" style={{ color: '#f59e0b', fontWeight: '600', textDecoration: 'none' }}>me.sumup.com/developers</a> → API Keys → Nueva clave
+                      </p>
+                    </div>
+
+                    {/* Merchant Code */}
+                    <div>
+                      <label style={labelStyle}>Merchant Code *</label>
+                      <input
+                        value={sumupNewMerchantCode}
+                        onChange={e => setSumupNewMerchantCode(e.target.value.toUpperCase())}
+                        placeholder="Ej: MH4H92C7"
+                        style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '13px', letterSpacing: '1px' }}
+                        onFocus={e => e.target.style.borderColor = '#f59e0b'}
+                        onBlur={e => e.target.style.borderColor = '#e2e2e2'}
+                      />
+                      <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#aaa' }}>
+                        En la app SumUp: <strong>Perfil → Cuenta → Merchant Code</strong>
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={saveSumupPos}
+                      disabled={savingSumup || !sumupNewName.trim() || !sumupNewApiKey.trim() || !sumupNewMerchantCode.trim()}
+                      style={{
+                        width: '100%', padding: '11px',
+                        background: savingSumup || !sumupNewName.trim() || !sumupNewApiKey.trim() || !sumupNewMerchantCode.trim() ? '#f0f0f0' : '#f59e0b',
+                        color: savingSumup || !sumupNewName.trim() || !sumupNewApiKey.trim() || !sumupNewMerchantCode.trim() ? '#bbb' : '#000',
+                        border: 'none', borderRadius: '10px', fontWeight: '700', fontSize: '14px',
+                        cursor: savingSumup ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                      }}
+                    >
+                      {savingSumup ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando…</> : '💰 Guardar SumUp'}
+                    </button>
+                    {sumupSaveMsg && (
+                      <p style={{ margin: 0, fontSize: '12px', color: sumupSaveMsg.includes('Error') ? '#dc3545' : '#155724', background: sumupSaveMsg.includes('Error') ? '#fff5f5' : '#f0fff4', padding: '8px 12px', borderRadius: '8px', border: `1px solid ${sumupSaveMsg.includes('Error') ? '#fecaca' : '#bbf7d0'}` }}>
+                        {sumupSaveMsg}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
