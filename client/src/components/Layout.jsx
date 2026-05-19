@@ -545,7 +545,7 @@ function Layout() {
 
           <ul className="sidebar-nav" onClick={(e) => { if (!e.target.closest('.dropdown-item') && !e.target.closest('.dropdown-header') && !e.target.closest('.dropdown-container')) setMenuOpen(false); }}>
 
-            {/* ── León IA ── */}
+            {/* ── León IA ── acceso directo destacado */}
             <li>
               <NavLink to="/admin/leon-ia" className="leon-ia-nav-link" onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faRobot} />
@@ -555,87 +555,84 @@ function Layout() {
             </li>
 
             {/* ── OPERACIONES ── */}
-            <li className="sidebar-section-label">Operaciones</li>
-            <li>
-              <NavLink to="/admin/orders" onClick={() => setMenuOpen(false)}>
+            <li className="dropdown-container">
+              <button className={`dropdown-header${openDropdowns['operaciones'] ? ' open' : ''}`} onClick={() => toggleDropdown('operaciones')}>
                 <FontAwesomeIcon icon={faShoppingBag} />
-                <span>Pedidos</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/products" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faBox} />
-                <span>Productos</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/analytics" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faChartLine} />
-                <span>Análisis</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/cash-registers" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faCashRegister} />
-                <span>Historial de Caja</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/ratings" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faStar} />
-                <span>Calificaciones</span>
-              </NavLink>
+                <span>Operaciones</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['operaciones'] ? 180 : 0} />
+              </button>
+              {openDropdowns['operaciones'] && (
+                <div className="dropdown-content">
+                  <NavLink to="/admin/orders" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faShoppingBag} />
+                    <span>Pedidos</span>
+                  </NavLink>
+                  <NavLink to="/admin/products" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faBox} />
+                    <span>Productos</span>
+                  </NavLink>
+                  <NavLink to="/admin/analytics" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faChartLine} />
+                    <span>Análisis</span>
+                  </NavLink>
+                  <NavLink to="/admin/cash-registers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faCashRegister} />
+                    <span>Historial de Caja</span>
+                  </NavLink>
+                  <NavLink to="/admin/ratings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faStar} />
+                    <span>Calificaciones</span>
+                  </NavLink>
+                </div>
+              )}
             </li>
 
             {/* ── GESTIÓN ── */}
-            <li className="sidebar-section-label">Gestión</li>
-            <li>
-              <NavLink to="/admin/workers" onClick={() => setMenuOpen(false)}>
+            <li className="dropdown-container">
+              <button className={`dropdown-header${openDropdowns['gestion'] ? ' open' : ''}`} onClick={() => toggleDropdown('gestion')}>
                 <FontAwesomeIcon icon={faUsers} />
-                <span>Vendedores</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/tasks" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faClipboardList} />
-                <span>Tareas</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/inventory" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faWarehouse} />
-                <span>Inventario</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/procedures" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faList} />
-                <span>Procedimientos</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/coupons" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faPercent} />
-                <span>Cupones</span>
-              </NavLink>
+                <span>Gestión</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['gestion'] ? 180 : 0} />
+              </button>
+              {openDropdowns['gestion'] && (
+                <div className="dropdown-content">
+                  <NavLink to="/admin/workers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faUsers} />
+                    <span>Vendedores</span>
+                  </NavLink>
+                  <NavLink to="/admin/tasks" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faClipboardList} />
+                    <span>Tareas</span>
+                  </NavLink>
+                  <NavLink to="/admin/inventory" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faWarehouse} />
+                    <span>Inventario</span>
+                  </NavLink>
+                  <NavLink to="/admin/procedures" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faList} />
+                    <span>Procedimientos</span>
+                  </NavLink>
+                  <NavLink to="/admin/coupons" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faPercent} />
+                    <span>Cupones</span>
+                  </NavLink>
+                </div>
+              )}
             </li>
 
             {/* ── CANALES ── */}
-            <li className="sidebar-section-label">Canales</li>
-            <li>
-              <NavLink to="/admin/whatsapp" onClick={() => setMenuOpen(false)}>
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="#25D366" style={{ flexShrink: 0 }}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                <span>WhatsApp</span>
-              </NavLink>
-            </li>
             <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['delivery'] ? ' open' : ''}`} onClick={() => toggleDropdown('delivery')}>
-                <FontAwesomeIcon icon={faMotorcycle} />
-                <span>Delivery</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['delivery'] ? 180 : 0} />
+              <button className={`dropdown-header${openDropdowns['canales'] ? ' open' : ''}`} onClick={() => toggleDropdown('canales')}>
+                <FontAwesomeIcon icon={faGlobe} />
+                <span>Canales</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['canales'] ? 180 : 0} />
               </button>
-              {openDropdowns['delivery'] && (
+              {openDropdowns['canales'] && (
                 <div className="dropdown-content">
+                  <NavLink to="/admin/whatsapp" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="#25D366" style={{ flexShrink: 0 }}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    <span>WhatsApp</span>
+                  </NavLink>
                   <NavLink to="/admin/rappi" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faMotorcycle} />
                     <span>Rappi</span>
@@ -648,64 +645,62 @@ function Layout() {
                     <FontAwesomeIcon icon={faMotorcycle} />
                     <span>Uber Eats</span>
                   </NavLink>
+                  <NavLink to="/admin/instagram" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                    <span>Instagram</span>
+                  </NavLink>
+                  <NavLink to="/admin/tiktok" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V9.05a8.16 8.16 0 0 0 4.77 1.53V7.15a4.85 4.85 0 0 1-1-.46z"/></svg>
+                    <span>TikTok</span>
+                  </NavLink>
                 </div>
               )}
             </li>
-            <li>
-              <NavLink to="/admin/instagram" onClick={() => setMenuOpen(false)}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                <span>Autopublicación IG</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/tiktok" onClick={() => setMenuOpen(false)}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V9.05a8.16 8.16 0 0 0 4.77 1.53V7.15a4.85 4.85 0 0 1-1-.46z"/></svg>
-                <span>Autopublicación TikTok</span>
-              </NavLink>
-            </li>
 
             {/* ── MI TIENDA ── */}
-            <li className="sidebar-section-label">Mi Tienda</li>
-            {selectedStore && (
-              <li>
-                <NavLink
-                  to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`}
-                  onClick={(e) => {
-                    if (isEditorMode) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      window.location.href = `/admin/editor/${selectedStore.code}?admin_edit=${token}`;
-                    } else {
-                      setMenuOpen(false);
-                    }
-                  }}
-                >
-                  <FontAwesomeIcon icon={faTabletAlt} />
-                  <span>Editor Tótem</span>
-                </NavLink>
-              </li>
-            )}
-            <li>
-              <NavLink to="/admin/mercado-pago-points" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faCreditCard} />
-                <span>Terminales POS</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/market" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faBarcode} />
-                <span>Market</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/workshop" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faGlobe} />
-                <span>Workshop</span>
-              </NavLink>
+            <li className="dropdown-container">
+              <button className={`dropdown-header${openDropdowns['tienda'] ? ' open' : ''}`} onClick={() => toggleDropdown('tienda')}>
+                <FontAwesomeIcon icon={faStore} />
+                <span>Mi Tienda</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['tienda'] ? 180 : 0} />
+              </button>
+              {openDropdowns['tienda'] && (
+                <div className="dropdown-content">
+                  {selectedStore && (
+                    <NavLink
+                      to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`}
+                      className="dropdown-item"
+                      onClick={(e) => {
+                        if (isEditorMode) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          window.location.href = `/admin/editor/${selectedStore.code}?admin_edit=${token}`;
+                        } else {
+                          setMenuOpen(false);
+                        }
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faTabletAlt} />
+                      <span>Editor Tótem</span>
+                    </NavLink>
+                  )}
+                  <NavLink to="/admin/mercado-pago-points" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faCreditCard} />
+                    <span>Terminales POS</span>
+                  </NavLink>
+                  <NavLink to="/admin/market" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faBarcode} />
+                    <span>Market</span>
+                  </NavLink>
+                  <NavLink to="/admin/workshop" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faFlask} />
+                    <span>Workshop</span>
+                  </NavLink>
+                </div>
+              )}
             </li>
 
-            {/* ── AJUSTES ── */}
-            <li className="sidebar-section-label">Ajustes</li>
+            {/* ── CONFIGURACIÓN ── */}
             <li className="dropdown-container">
               <button className={`dropdown-header${openDropdowns['config'] ? ' open' : ''}`} onClick={() => toggleDropdown('config')}>
                 <FontAwesomeIcon icon={faCog} />
@@ -741,6 +736,8 @@ function Layout() {
                 </div>
               )}
             </li>
+
+            {/* ── MIS APPS ── */}
             <li className="dropdown-container">
               <button className={`dropdown-header${openDropdowns['misapps'] ? ' open' : ''}`} onClick={() => toggleDropdown('misapps')}>
                 <FontAwesomeIcon icon={faLaptop} />
@@ -748,7 +745,7 @@ function Layout() {
                 <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['misapps'] ? 180 : 0} />
               </button>
               {openDropdowns['misapps'] && (
-                <div className="dropdown-content" style={{ padding: '8px' }}>
+                <div className="dropdown-content" style={{ padding: '8px 4px' }}>
                   <AppDownloadCard
                     icon="📱"
                     title="Totem Android"
@@ -793,41 +790,41 @@ function Layout() {
             </li>
 
             {/* ── CUENTA ── */}
-            <li className="sidebar-section-label">Cuenta</li>
-            <li>
-              <NavLink to="/admin/plans" onClick={() => setMenuOpen(false)}>
+            <li className="dropdown-container">
+              <button className={`dropdown-header${openDropdowns['cuenta'] ? ' open' : ''}`} onClick={() => toggleDropdown('cuenta')}>
                 <FontAwesomeIcon icon={faCrown} />
-                <span>Planes</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/plugins" end onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faPuzzlePiece} />
-                <span>Plugins</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/tickets" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faTicketAlt} />
-                <span>Soporte</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/novedades" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faBell} />
-                <span>Novedades</span>
-                {unreadUpdates > 0 && (
-                  <span style={{ marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 9, background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', flexShrink: 0 }}>
-                    {unreadUpdates}
-                  </span>
-                )}
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to="/admin/tutoriales" onClick={() => setMenuOpen(false)}>
-                <FontAwesomeIcon icon={faBookOpen} />
-                <span>Tutoriales</span>
-              </NavLink>
+                <span>Cuenta</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['cuenta'] ? 180 : 0} />
+              </button>
+              {openDropdowns['cuenta'] && (
+                <div className="dropdown-content">
+                  <NavLink to="/admin/plans" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faCrown} />
+                    <span>Planes</span>
+                  </NavLink>
+                  <NavLink to="/admin/plugins" end className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faPuzzlePiece} />
+                    <span>Plugins</span>
+                  </NavLink>
+                  <NavLink to="/admin/tickets" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faTicketAlt} />
+                    <span>Soporte</span>
+                  </NavLink>
+                  <NavLink to="/admin/novedades" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faBell} />
+                    <span>Novedades</span>
+                    {unreadUpdates > 0 && (
+                      <span style={{ marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 9, background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', flexShrink: 0 }}>
+                        {unreadUpdates}
+                      </span>
+                    )}
+                  </NavLink>
+                  <NavLink to="/admin/tutoriales" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faBookOpen} />
+                    <span>Tutoriales</span>
+                  </NavLink>
+                </div>
+              )}
             </li>
 
           </ul>
