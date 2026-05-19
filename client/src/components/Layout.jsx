@@ -545,12 +545,43 @@ function Layout() {
 
           <ul className="sidebar-nav" onClick={(e) => { if (!e.target.closest('.dropdown-item') && !e.target.closest('.dropdown-header') && !e.target.closest('.dropdown-container')) setMenuOpen(false); }}>
 
-            {/* ── León IA ── acceso directo destacado */}
+            {/* ── Accesos directos destacados ── */}
             <li>
               <NavLink to="/admin/leon-ia" className="leon-ia-nav-link" onClick={() => setMenuOpen(false)}>
                 <FontAwesomeIcon icon={faRobot} />
                 <span>León IA</span>
                 <span className="leon-ia-nav-badge">IA</span>
+              </NavLink>
+            </li>
+            <li>
+              {selectedStore ? (
+                <NavLink
+                  to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`}
+                  className="quick-nav-link"
+                  onClick={(e) => {
+                    if (isEditorMode) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      window.location.href = `/admin/editor/${selectedStore.code}?admin_edit=${token}`;
+                    } else {
+                      setMenuOpen(false);
+                    }
+                  }}
+                >
+                  <FontAwesomeIcon icon={faTabletAlt} />
+                  <span>Editor Tótem</span>
+                </NavLink>
+              ) : (
+                <span className="quick-nav-link quick-nav-link--disabled">
+                  <FontAwesomeIcon icon={faTabletAlt} />
+                  <span>Editor Tótem</span>
+                </span>
+              )}
+            </li>
+            <li>
+              <NavLink to="/admin/mercado-pago-points" className="quick-nav-link" onClick={() => setMenuOpen(false)}>
+                <FontAwesomeIcon icon={faCreditCard} />
+                <span>Vincular POS</span>
               </NavLink>
             </li>
 
@@ -666,28 +697,6 @@ function Layout() {
               </button>
               {openDropdowns['tienda'] && (
                 <div className="dropdown-content">
-                  {selectedStore && (
-                    <NavLink
-                      to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`}
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        if (isEditorMode) {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          window.location.href = `/admin/editor/${selectedStore.code}?admin_edit=${token}`;
-                        } else {
-                          setMenuOpen(false);
-                        }
-                      }}
-                    >
-                      <FontAwesomeIcon icon={faTabletAlt} />
-                      <span>Editor Tótem</span>
-                    </NavLink>
-                  )}
-                  <NavLink to="/admin/mercado-pago-points" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faCreditCard} />
-                    <span>Terminales POS</span>
-                  </NavLink>
                   <NavLink to="/admin/market" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faBarcode} />
                     <span>Market</span>

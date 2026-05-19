@@ -9453,6 +9453,54 @@ html body .store-container .store-product-card * {
 }
 
 
+/* ========== ACCESOS DIRECTOS DESTACADOS ========== */
+
+.quick-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  color: #ccc;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--transition), color var(--transition);
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+}
+
+.quick-nav-link svg {
+  width: 15px;
+  font-size: 14px;
+  color: #888;
+  transition: color var(--transition);
+  flex-shrink: 0;
+}
+
+.quick-nav-link:hover,
+.quick-nav-link.active {
+  background: rgba(212, 175, 55, 0.1);
+  color: #fff;
+}
+
+.quick-nav-link:hover svg,
+.quick-nav-link.active svg {
+  color: #D4AF37;
+}
+
+.quick-nav-link.active {
+  background: linear-gradient(90deg, rgba(212,175,55,0.05) 0%, rgba(212,175,55,0.18) 100%);
+}
+
+.quick-nav-link--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* ========== LEÓN IA ========== */
 
 /* Sidebar badge */
