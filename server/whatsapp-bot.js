@@ -268,7 +268,8 @@ export async function handleBotMessage(storeId, jid, text, sock) {
           product_id: i.product_id, quantity: i.qty, unit_price: i.price,
           selected_ingredients: [], selected_extras: []
         }));
-        const order = await createOrder(storeId, { items, order_type: sess.orderType, payment_method: payMethod });
+        const phone = jid.split('@')[0];
+        const order = await createOrder(storeId, { items, order_type: sess.orderType, payment_method: payMethod, source: 'whatsapp', customer_phone: phone });
         const payLabel = payMethod === 'cash' ? 'Efectivo 💵' : 'Tarjeta 💳';
         const typeLabel = sess.orderType === 'serve' ? 'Para aquí / llevar 🏪' : 'Delivery 🚀';
         await send(`✅ *¡Pedido #${order.order_number} creado!*\n\n${cartText(sess.cart)}\n\n📦 ${typeLabel}\n💳 ${payLabel}\n\n¡Gracias por tu pedido! Pronto te contactaremos. 🙏\n\nEscribe *hola* para hacer otro pedido.`);

@@ -1413,6 +1413,10 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE orders ADD COLUMN rappi_order_id VARCHAR(100) DEFAULT NULL');
         console.log('✅ Columna rappi_order_id agregada a orders');
       }
+      if (!ordColNames.includes('source')) {
+        await pool.execute("ALTER TABLE orders ADD COLUMN source VARCHAR(20) DEFAULT NULL");
+        console.log('✅ Columna source agregada a orders');
+      }
     } catch (err) {
       console.error('❌ Error migrando columnas de orders para Rappi:', err.message);
     }
@@ -2749,8 +2753,8 @@ export async function createOrder(storeId, orderData) {
   }
 
   const [result] = await pool.execute(
-    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, paymentProcess, initialStatus, table_number || null]
+    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number, source, customer_phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, paymentProcess, initialStatus, table_number || null, orderData.source || null, orderData.customer_phone || null]
   );
   const orderId = result.insertId;
 
@@ -2912,6 +2916,27 @@ export async function getOrders(storeId, todayOnly = false) {
       items,
     };
     orders.push(ord);
+  }
+  return orders;
+}
+
+export async function getWhatsAppOrders(storeId) {
+  const [rows] = await pool.execute(
+    `SELECT o.*, w.name as completed_by_name
+     FROM orders o
+     LEFT JOIN workers w ON o.completed_by = w.id
+     WHERE o.store_id = ? AND o.source = 'whatsapp' AND DATE(o.created_at) = CURDATE()
+     ORDER BY o.created_at DESC`,
+    [storeId]
+  );
+  const orders = [];
+  for (const order of rows) {
+    const items = await getOrderItems(order.id);
+    orders.push({
+      ...order,
+      total: parseFloat(order.total) || 0,
+      items,
+    });
   }
   return orders;
 }

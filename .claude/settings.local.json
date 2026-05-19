@@ -91,7 +91,9 @@
       "Bash(dotnet publish *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\web\" -Directory -ErrorAction SilentlyContinue)",
       "Bash(Select-Object -ExpandProperty Name)",
-      "Bash(Get-ChildItem *)"
+      "Bash(Get-ChildItem *)",
+      "Bash(Select-Object Name)",
+      "Bash(grep -E \"\\\\.js$\")"
     ]
   }
 }

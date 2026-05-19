@@ -81,6 +81,7 @@ import {
   updateExtrasOrder,
   createOrder,
   getOrders,
+  getWhatsAppOrders,
   updateUserSettings,
   createWorker,
   getWorkers,
@@ -5414,6 +5415,16 @@ app.get('/api/orders/store/:storeId', async (req, res) => {
     res.json(orders);
   } catch (error) {
     console.error('Error fetching orders:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/orders/store/:storeId/whatsapp', async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const orders = await getWhatsAppOrders(parseInt(storeId));
+    res.json(orders);
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });

@@ -386,6 +386,7 @@ function WorkerPanel() {
   const [orders, setOrders] = useState([]);
   const [completedOrders, setCompletedOrders] = useState([]);
   const [pendingCashOrders, setPendingCashOrders] = useState([]);
+  const [whatsappOrders, setWhatsappOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [filter, setFilter] = useState('all');
@@ -438,6 +439,7 @@ function WorkerPanel() {
 
     fetchStoreColors(parsedWorker.store_id);
     fetchOrders(parsedWorker.store_id);
+    fetchWhatsAppOrders(parsedWorker.store_id);
     fetchWorkers(parsedWorker.store_id);
     fetchCashRegister();
     fetchTasks();
@@ -480,10 +482,17 @@ function WorkerPanel() {
       console.log('Socket conectado - recargando pedidos');
       socket.emit('register_store', parsedWorker.store_id);
       fetchOrders(parsedWorker.store_id);
+      fetchWhatsAppOrders(parsedWorker.store_id);
       fetchCashRegister();
     });
 
     socket.on('new_order', (order) => {
+      if (order.source === 'whatsapp') {
+        setWhatsappOrders(prev => {
+          if (prev.find(o => o.id === order.id)) return prev;
+          return [order, ...prev];
+        });
+      }
       if (order.payment_process === 0 && order.payment_method !== 'mercadopago') {
         setPendingCashOrders(prev => [order, ...prev]);
       } else if (order.payment_process === 1) {
@@ -766,6 +775,21 @@ function WorkerPanel() {
       console.error('Error fetching orders:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWhatsAppOrders = async (storeId) => {
+    try {
+      const token = localStorage.getItem('workerToken');
+      const response = await fetch(`/api/orders/store/${storeId}/whatsapp`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setWhatsappOrders(data);
+      }
+    } catch (error) {
+      console.error('Error fetching whatsapp orders:', error);
     }
   };
 
@@ -1216,8 +1240,14 @@ function WorkerPanel() {
               <FontAwesomeIcon icon={faClipboardList} />
               Guías
             </button>
+            <button
+              className={`worker-tab ${activeTab === 'whatsapp' ? 'active' : ''}`}
+              onClick={() => setActiveTab('whatsapp')}
+            >
+              💬 WhatsApp{whatsappOrders.length > 0 && <span className="worker-tab-count">{whatsappOrders.length}</span>}
+            </button>
           </div>
-          {activeTab !== 'tasks' && activeTab !== 'procedures' && (
+          {activeTab !== 'tasks' && activeTab !== 'procedures' && activeTab !== 'whatsapp' && (
           <div className="worker-filters">
             {['all', 'pending', 'preparing', 'ready'].map(f => (
               <button
@@ -1478,6 +1508,91 @@ function WorkerPanel() {
             </div>
           )
         ) : null}
+        {activeTab === 'whatsapp' && (
+          whatsappOrders.length === 0 ? (
+            <div className="empty-state">
+              <p>No hay pedidos de WhatsApp hoy</p>
+            </div>
+          ) : (
+            <div className="worker-orders-list">
+              {whatsappOrders.map(order => {
+                const phone = order.customer_phone || '';
+                const waLink = phone ? `https://wa.me/${phone}` : null;
+                const isPaid = order.payment_process === 1 || order.cash_approved;
+                const payLabel = order.payment_method === 'cash' ? 'Efectivo' : 'Tarjeta';
+                const typeLabel = order.order_type === 'delivery' ? '🚀 Delivery' : '🏪 Para aquí / llevar';
+                const statusColors = {
+                  pending:   { bg: '#FEF3C7', color: '#92400E', label: 'Pendiente' },
+                  preparing: { bg: '#DBEAFE', color: '#1E40AF', label: 'Preparando' },
+                  ready:     { bg: '#D1FAE5', color: '#065F46', label: 'Listo' },
+                  completed: { bg: '#F3F4F6', color: '#374151', label: 'Completado' },
+                };
+                const sc = statusColors[order.status] || statusColors.pending;
+                return (
+                  <div key={order.id} className="worker-order-card" style={{ cursor: 'default' }}>
+                    <div className="worker-order-header">
+                      <h3 className="worker-order-number">{order.order_number || `#${order.id}`}</h3>
+                      <span style={{
+                        background: '#25D36622', color: '#128C7E', border: '1px solid #25D366',
+                        borderRadius: '8px', padding: '3px 10px', fontSize: '12px', fontWeight: 700
+                      }}>
+                        💬 WhatsApp
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                      <span style={{
+                        background: sc.bg, color: sc.color,
+                        borderRadius: '6px', padding: '2px 8px', fontSize: '12px', fontWeight: 600
+                      }}>{sc.label}</span>
+                      <span style={{ fontSize: '12px', color: '#666' }}>{typeLabel}</span>
+                      <span style={{ fontSize: '12px', color: '#666' }}>💳 {payLabel}</span>
+                      {!isPaid && (
+                        <span style={{ background: '#FEE2E2', color: '#991B1B', borderRadius: '6px', padding: '2px 8px', fontSize: '12px', fontWeight: 600 }}>
+                          Sin pagar
+                        </span>
+                      )}
+                    </div>
+                    {order.items && order.items.length > 0 && (
+                      <div className="worker-order-items-preview">
+                        {order.items.map((item, idx) => (
+                          <div key={idx} className="worker-order-item-line">
+                            <span className="worker-order-item-qty">{item.quantity}x</span>
+                            <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
+                      <div className="worker-order-total" style={{ margin: 0 }}>
+                        ${isNaN(order.total) ? '0' : Number(order.total).toLocaleString('es-CL')}
+                      </div>
+                      {waLink && (
+                        <a
+                          href={waLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                            background: '#25D366', color: '#fff', border: 'none',
+                            borderRadius: '8px', padding: '7px 14px', fontSize: '13px',
+                            fontWeight: 700, textDecoration: 'none', cursor: 'pointer'
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faExternalLinkAlt} />
+                          Ir al chat
+                        </a>
+                      )}
+                    </div>
+                    <p style={{ fontSize: '11px', color: '#aaa', margin: '6px 0 0' }}>
+                      {new Date(order.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                      {phone && ` · +${phone}`}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        )}
         {activeTab === 'tasks' && (
           <div style={{ margin: 0, padding: 0 }}>
             <TasksTab
