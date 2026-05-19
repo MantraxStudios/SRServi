@@ -862,7 +862,7 @@ function Layout() {
 
         <main className={isEditorMode ? 'admin-content admin-content--editor-desktop' : 'admin-content admin-content--no-sidebar'}>
           {isEditorMode && !menuOpen && (
-            <div style={{ position: 'fixed', top: '12px', left: '12px', zIndex: 99999 }}>
+            <div style={{ position: 'fixed', top: '12px', right: '12px', zIndex: 99999 }}>
               <button
                 onClick={() => setMenuOpen(true)}
                 title="Abrir menú"
@@ -884,9 +884,6 @@ function Layout() {
             </div>
           )}
           <div className="mobile-header" style={(isEditorMode || isLeonIA) ? { display: 'none' } : {}}>
-            <button className="mobile-header-btn" onClick={() => setMenuOpen(true)}>
-              <FontAwesomeIcon icon={faBars} />
-            </button>
             {isMobile && <h1>SRServi</h1>}
             {user?.support_pin && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0f0f0', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', color: '#666' }}>
@@ -894,6 +891,9 @@ function Layout() {
                 <span>PIN: <strong style={{ letterSpacing: '2px', color: '#333' }}>{user.support_pin}</strong></span>
               </div>
             )}
+            <button className="mobile-header-btn" onClick={() => setMenuOpen(true)} style={{ marginLeft: 'auto' }}>
+              <FontAwesomeIcon icon={faBars} />
+            </button>
           </div>
           <Outlet />
         </main>

@@ -909,6 +909,7 @@ h1, h2, h3, h4, h5, h6 {
    ============================================ */
 .layout-wrapper {
   display: flex;
+  flex-direction: row-reverse;
   min-height: 100vh;
   min-height: 100dvh;
   width: 100vw;
@@ -928,7 +929,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Sidebar */
 .admin-sidebar {
   width: 270px;
-  background: linear-gradient(180deg, #0a0a0a 0%, #131313 50%, #0a0a0a 100%);
+  background: linear-gradient(180deg, #0d0d0d 0%, #141414 50%, #0d0d0d 100%);
   color: #e8e8e8;
   height: 100vh;
   height: 100dvh;
@@ -937,34 +938,35 @@ h1, h2, h3, h4, h5, h6 {
   overflow: hidden;
   padding: 0;
   position: relative;
-  left: 0;
+  right: 0;
   top: 0;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  transition: left var(--transition-slow);
+  transition: right var(--transition-slow);
   z-index: 1001;
-  box-shadow: 2px 0 24px rgba(0, 0, 0, 0.25);
-  border-right: 1px solid rgba(212, 175, 55, 0.12);
+  box-shadow: -2px 0 24px rgba(0, 0, 0, 0.3);
+  border-left: 1px solid rgba(212, 175, 55, 0.15);
 }
 
 .sidebar-header {
-  padding: 22px 20px 18px;
-  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: relative;
+  background: rgba(212, 175, 55, 0.03);
 }
 
 .sidebar-header::after {
   content: '';
   position: absolute;
   bottom: -1px;
-  left: 20px;
-  right: 20px;
+  left: 18px;
+  right: 18px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.4), transparent);
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.5), transparent);
 }
 
 .sidebar-brand {
@@ -1312,7 +1314,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .sidebar-nav a.active {
-  background: linear-gradient(90deg, rgba(212, 175, 55, 0.18) 0%, rgba(212, 175, 55, 0.05) 100%);
+  background: linear-gradient(90deg, rgba(212, 175, 55, 0.05) 0%, rgba(212, 175, 55, 0.18) 100%);
   color: #fff;
   font-weight: 600;
   box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.2);
@@ -1321,13 +1323,14 @@ h1, h2, h3, h4, h5, h6 {
 .sidebar-nav a.active::before {
   content: '';
   position: absolute;
-  left: -10px;
+  right: -10px;
+  left: auto;
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
   height: 22px;
   background: #D4AF37;
-  border-radius: 0 3px 3px 0;
+  border-radius: 3px 0 0 3px;
   box-shadow: 0 0 8px rgba(212, 175, 55, 0.5);
 }
 
@@ -1391,9 +1394,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .dropdown-content {
-  margin: 4px 0 6px 14px;
-  padding-left: 12px;
-  border-left: 1px solid rgba(212, 175, 55, 0.15);
+  margin: 4px 14px 6px 0;
+  padding-right: 12px;
+  border-right: 1px solid rgba(212, 175, 55, 0.15);
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -1492,9 +1495,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .subdropdown-content {
-  margin: 2px 0 4px 10px;
-  padding-left: 10px;
-  border-left: 1px solid rgba(255,255,255,0.08);
+  margin: 2px 10px 4px 0;
+  padding-right: 10px;
+  border-right: 1px solid rgba(255,255,255,0.08);
 }
 
 .dropdown-item:hover svg {
@@ -5446,7 +5449,8 @@ html body .store-container .store-product-card * {
   .admin-sidebar {
     width: min(280px, 85vw);
     position: fixed;
-    left: -290px;
+    right: -290px;
+    left: auto;
     top: 0;
     /* height adapts to real visible viewport (hides behind iOS url/bottom bars) */
     height: 100vh;
@@ -5456,7 +5460,7 @@ html body .store-container .store-product-card * {
     max-height: unset;
     max-width: 85vw;
     z-index: 1001;
-    transition: left var(--transition-slow);
+    transition: right var(--transition-slow);
     box-shadow: none;
     overflow-y: auto;
     overflow-x: hidden;
@@ -5465,12 +5469,12 @@ html body .store-container .store-product-card * {
   }
 
   .admin-sidebar.mobile-open {
-    left: 0;
-    box-shadow: 4px 0 32px rgba(0, 0, 0, 0.6);
+    right: 0;
+    box-shadow: -4px 0 32px rgba(0, 0, 0, 0.6);
   }
 
   .admin-sidebar.mobile-closed {
-    left: -290px;
+    right: -290px;
   }
 
   /* iOS: push logout button above Safari/Chrome bottom bar (~49px) */
@@ -5479,7 +5483,7 @@ html body .store-container .store-product-card * {
   }
 
   .admin-content {
-    margin-left: 0 !important;
+    margin-right: 0 !important;
     width: 100%;
   }
 
@@ -6025,7 +6029,7 @@ html body .store-container .store-product-card * {
   transition: width var(--transition-slow);
   position: fixed;
   top: 0;
-  left: 0;
+  right: 0;
   height: 100vh;
   z-index: 1000;
 }
@@ -6126,7 +6130,7 @@ html body .store-container .store-product-card * {
 }
 
 .admin-layout .admin-main {
-  margin-left: 240px;
+  margin-right: 240px;
   flex: 1;
   min-height: 100vh;
   background: #fafafa;
@@ -9394,11 +9398,12 @@ html body .store-container .store-product-card * {
 /* Sidebar aparece como overlay encima del editor sin desplazar contenido */
 .admin-sidebar.editor-sidebar-open {
   position: fixed !important;
-  left: 0 !important;
+  right: 0 !important;
+  left: auto !important;
   top: 0 !important;
   height: 100vh !important;
   z-index: 99998 !important;
-  box-shadow: 4px 0 32px rgba(0,0,0,0.5) !important;
+  box-shadow: -4px 0 32px rgba(0,0,0,0.5) !important;
   display: flex !important;
 }
 
@@ -9418,9 +9423,9 @@ html body .store-container .store-product-card * {
 /* Editor desktop: pantalla completa, se adapta al sidebar */
 .admin-content--editor-desktop {
   position: fixed !important;
-  left: var(--sidebar-w, 0px) !important;
+  left: 0 !important;
   top: 0 !important;
-  right: 0 !important;
+  right: var(--sidebar-w, 0px) !important;
   bottom: 0 !important;
   width: auto !important;
   height: 100vh !important;
@@ -9430,7 +9435,7 @@ html body .store-container .store-product-card * {
   z-index: 9000 !important;
   overflow: auto !important;
   background: #fff !important;
-  transition: left 0.28s cubic-bezier(.4,0,.2,1) !important;
+  transition: right 0.28s cubic-bezier(.4,0,.2,1) !important;
 }
 
 /* Hace que el layout-wrapper no corte el editor */
@@ -9821,12 +9826,13 @@ html body .store-container .store-product-card * {
 /* Sidebar desktop como overlay al abrirse */
 .admin-sidebar.desktop-sidebar-open {
   position: fixed !important;
-  left: 0 !important;
+  right: 0 !important;
+  left: auto !important;
   top: 0 !important;
   bottom: 0 !important;
   height: 100vh !important;
   z-index: 1001 !important;
-  box-shadow: 4px 0 32px rgba(0,0,0,0.5) !important;
+  box-shadow: -4px 0 32px rgba(0,0,0,0.5) !important;
 }
 
 /* ============================================
