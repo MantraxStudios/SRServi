@@ -32,9 +32,28 @@ async function fetchMenu(storeId) {
   return cats.filter(c => c.products.length > 0);
 }
 
-async function getStoreName(storeId) {
-  const [rows] = await pool.execute('SELECT name FROM stores WHERE id = ?', [storeId]);
-  return rows[0]?.name || 'la tienda';
+async function fetchProductAddons(productId) {
+  const [extras] = await pool.execute(
+    `SELECT e.name, e.price FROM extras e
+     JOIN product_extras pe ON pe.extra_id = e.id
+     WHERE pe.product_id = ? ORDER BY e.name`,
+    [productId]
+  );
+  const [ingredients] = await pool.execute(
+    `SELECT i.name, i.price FROM ingredients i
+     JOIN product_ingredients pi ON pi.ingredient_id = i.id
+     WHERE pi.product_id = ? ORDER BY i.name`,
+    [productId]
+  );
+  return { extras, ingredients };
+}
+
+async function getStoreInfo(storeId) {
+  const [rows] = await pool.execute(
+    'SELECT name, address, opening_hours FROM stores WHERE id = ?',
+    [storeId]
+  );
+  return rows[0] || {};
 }
 
 function fmt(p) {
@@ -78,6 +97,43 @@ async function showCart(sess, send) {
   await send(`🛒 *Tu carrito*\n\n${cartText(sess.cart)}\n\n*confirmar* ✅ — Hacer pedido\n*limpiar* 🗑️ — Vaciar carrito\n*menu* 📋 — Seguir comprando`);
 }
 
+// Returns true if message was handled as an FAQ
+async function tryFAQ(t, storeId, send) {
+  const isAddress = /direcci[oó]n|donde|ubicaci[oó]n|d[oó]nde est[aá]n|c[oó]mo llego/.test(t);
+  const isHours = /horario|a qu[eé] hora|cu[aá]ndo abren|cu[aá]ndo cierran|atienden|abren|cierran|horas de atenci[oó]n/.test(t);
+  const isPrices = /precio|precios|cu[aá]nto cuesta|cu[aá]nto sale|cuanto vale|tarifas/.test(t);
+  const isExtras = /extras|complementos|acompa[nñ]ar|qu[eé] tiene|qu[eé] incluye|qu[eé] viene/.test(t);
+
+  if (!isAddress && !isHours && !isPrices && !isExtras) return false;
+
+  const info = await getStoreInfo(storeId);
+
+  if (isAddress) {
+    if (info.address) {
+      await send(`📍 *Dirección*\n\n${info.address}\n\nEscribe *menu* para ver nuestros productos o *hola* para empezar un pedido.`);
+    } else {
+      await send('Aún no tenemos la dirección configurada. Contáctanos directamente para más info. 📍\n\nEscribe *menu* para ver nuestros productos.');
+    }
+    return true;
+  }
+
+  if (isHours) {
+    if (info.opening_hours) {
+      await send(`🕐 *Horario de atención*\n\n${info.opening_hours}\n\nEscribe *menu* para ver nuestros productos o *hola* para hacer un pedido.`);
+    } else {
+      await send('Aún no tenemos el horario configurado. Contáctanos directamente para más info. 🕐\n\nEscribe *menu* para ver nuestros productos.');
+    }
+    return true;
+  }
+
+  if (isPrices || isExtras) {
+    await send('📋 Puedes ver todos nuestros productos y precios en el menú.\n\nEscribe *menu* para verlos. 👇');
+    return true;
+  }
+
+  return false;
+}
+
 export async function handleBotMessage(storeId, jid, text, sock) {
   const sess = getSession(storeId, jid);
   const t = (text || '').trim().toLowerCase();
@@ -91,10 +147,17 @@ export async function handleBotMessage(storeId, jid, text, sock) {
   }
 
   if (['hola', 'inicio', 'start', '/start'].includes(t) || sess.state === 'idle') {
-    const name = await getStoreName(storeId);
+    const info = await getStoreInfo(storeId);
+    const name = info.name || 'la tienda';
     sess.categories = null;
     sess.cart = [];
-    await send(`¡Hola! 👋 Bienvenido a *${name}*.\n\nPuedes hacer tu pedido por aquí. 🍽️\n\nEscribe *cancelar* en cualquier momento para salir.`);
+
+    const extras = [];
+    if (info.address) extras.push(`📍 ${info.address}`);
+    if (info.opening_hours) extras.push(`🕐 ${info.opening_hours}`);
+    const infoLine = extras.length > 0 ? `\n\n${extras.join('\n')}` : '';
+
+    await send(`¡Hola! 👋 Bienvenido a *${name}*.${infoLine}\n\nPuedes hacer tu pedido por aquí. 🍽️\n\nEscribe *cancelar* en cualquier momento para salir.`);
     await showMenu(sess, storeId, send);
     return;
   }
@@ -116,6 +179,12 @@ export async function handleBotMessage(storeId, jid, text, sock) {
     }
     await showCart(sess, send);
     return;
+  }
+
+  // FAQ detection — works in any state except mid-checkout
+  if (!['order_type', 'payment'].includes(sess.state)) {
+    const handled = await tryFAQ(t, storeId, send);
+    if (handled) return;
   }
 
   switch (sess.state) {
@@ -143,7 +212,22 @@ export async function handleBotMessage(storeId, jid, text, sock) {
         if (existing) existing.qty++;
         else sess.cart.push({ product_id: prod.id, name: prod.name, price: parseFloat(prod.price), qty: 1 });
         const total = sess.cart.reduce((s, i) => s + i.price * i.qty, 0);
-        await send(`✅ *${prod.name}* agregado.\n\n🛒 ${sess.cart.length} producto${sess.cart.length > 1 ? 's' : ''} — *${fmt(total)}*\n\nAgrega más, escribe *0* para el menú, *carrito* para ver el pedido, o *confirmar* para pedir.`);
+
+        // Build addons info
+        let addonsText = '';
+        try {
+          const { extras, ingredients } = await fetchProductAddons(prod.id);
+          const parts = [];
+          if (extras.length > 0) {
+            parts.push(`➕ *Extras disponibles:* ${extras.map(e => `${e.name}${e.price > 0 ? ` (+${fmt(e.price)})` : ''}`).join(', ')}`);
+          }
+          if (ingredients.length > 0) {
+            parts.push(`🥗 *Complementos:* ${ingredients.map(i => `${i.name}${i.price > 0 ? ` (+${fmt(i.price)})` : ''}`).join(', ')}`);
+          }
+          if (parts.length > 0) addonsText = `\n\n${parts.join('\n')}\n_(Los extras y complementos se agregan en el local)_`;
+        } catch {}
+
+        await send(`✅ *${prod.name}* agregado.${addonsText}\n\n🛒 ${sess.cart.length} producto${sess.cart.length > 1 ? 's' : ''} — *${fmt(total)}*\n\nAgrega más, escribe *0* para el menú, *carrito* para ver el pedido, o *confirmar* para pedir.`);
       } else {
         await send(`Escribe el número del producto (1–${sess.currentCat?.products.length || '?'}), *0* para volver al menú.`);
       }

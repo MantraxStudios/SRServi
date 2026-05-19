@@ -10748,6 +10748,23 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       res.json({ enabled: !!enabled });
     });
 
+    // Bot business info (address, opening hours)
+    app.get('/api/whatsapp/bot-info', authenticateToken, async (req, res) => {
+      const storeId = await verifyStoreOwner(req, res);
+      if (!storeId) return;
+      const [rows] = await pool.execute('SELECT address, opening_hours FROM stores WHERE id = ?', [storeId]);
+      const row = rows[0] || {};
+      res.json({ address: row.address || '', opening_hours: row.opening_hours || '' });
+    });
+
+    app.post('/api/whatsapp/bot-info', authenticateToken, async (req, res) => {
+      const storeId = await verifyStoreOwner(req, res);
+      if (!storeId) return;
+      const { address, opening_hours } = req.body;
+      await pool.execute('UPDATE stores SET address = ?, opening_hours = ? WHERE id = ?', [address || null, opening_hours || null, storeId]);
+      res.json({ ok: true });
+    });
+
     // Windows app download — generates a self-extracting .exe via NSIS (Linux) or zip fallback (dev)
     app.get('/api/apps/windows', async (req, res) => {
       try {

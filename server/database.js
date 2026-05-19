@@ -1096,6 +1096,15 @@ async function migrateTables() {
         console.log('ℹ️ Tabla stores ya tiene columna store_edit_pin');
       }
 
+      if (!storeColNames.includes('address')) {
+        await pool.execute('ALTER TABLE stores ADD COLUMN address VARCHAR(500) DEFAULT NULL');
+        console.log('✅ Columna address agregada a stores');
+      }
+      if (!storeColNames.includes('opening_hours')) {
+        await pool.execute('ALTER TABLE stores ADD COLUMN opening_hours VARCHAR(500) DEFAULT NULL');
+        console.log('✅ Columna opening_hours agregada a stores');
+      }
+
       // Worker payment methods table
       await pool.execute(`
         CREATE TABLE IF NOT EXISTS worker_payment_methods (

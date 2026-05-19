@@ -6,7 +6,7 @@ import {
   faCalendarPlus, faClock, faTrash, faUsers, faUser, faRepeat, faUserGroup,
   faRobot, faToggleOn, faToggleOff, faPlay, faHistory,
   faTag, faBell, faSmile, faSave, faChartLine, faExclamationTriangle, faInfoCircle,
-  faChevronDown, faChevronUp
+  faChevronDown, faChevronUp, faMapMarkerAlt, faStore
 } from '@fortawesome/free-solid-svg-icons';
 
 function WaIcon({ size = 24, color = '#25D366' }) {
@@ -83,6 +83,11 @@ function WhatsApp() {
   const [botConfig, setBotConfig] = useState({ enabled: false, phone: null, link: null });
   const [botLoading, setBotLoading] = useState(false);
   const [botSaving, setBotSaving] = useState(false);
+
+  // Bot business info
+  const [botInfo, setBotInfo] = useState({ address: '', opening_hours: '' });
+  const [botInfoSaving, setBotInfoSaving] = useState(false);
+  const [botInfoMsg, setBotInfoMsg] = useState(null);
 
   // León IA Autónomo
   const [brainConfig, setBrainConfig] = useState({
@@ -168,6 +173,33 @@ function WhatsApp() {
     finally { setBotLoading(false); }
   };
 
+  const fetchBotInfo = async (storeId) => {
+    if (!storeId) return;
+    try {
+      const res = await fetch(`${API}/api/whatsapp/bot-info?store_id=${storeId}`, { headers });
+      if (res.ok) setBotInfo(await res.json());
+    } catch {}
+  };
+
+  const saveBotInfo = async () => {
+    if (!selectedStore) return;
+    setBotInfoSaving(true);
+    setBotInfoMsg(null);
+    try {
+      const res = await fetch(`${API}/api/whatsapp/bot-info`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ store_id: parseInt(selectedStore), ...botInfo })
+      });
+      if (res.ok) setBotInfoMsg({ ok: true, text: 'Información guardada' });
+      else setBotInfoMsg({ ok: false, text: 'Error al guardar' });
+    } catch {
+      setBotInfoMsg({ ok: false, text: 'Error de conexión' });
+    } finally {
+      setBotInfoSaving(false);
+      setTimeout(() => setBotInfoMsg(null), 3000);
+    }
+  };
+
   const toggleBot = async () => {
     if (!selectedStore) return;
     setBotSaving(true);
@@ -209,6 +241,7 @@ function WhatsApp() {
     fetchStatus(selectedStore);
     fetchWorkers(selectedStore);
     fetchBotConfig(selectedStore);
+    fetchBotInfo(selectedStore);
     clearInterval(pollRef.current);
     pollRef.current = setInterval(() => fetchStatus(selectedStore), 4000);
     return () => clearInterval(pollRef.current);
@@ -882,6 +915,93 @@ function WhatsApp() {
 
         {/* Columna derecha */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+        {/* Información del negocio para el bot */}
+        <div style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 12, background: '#fffbeb',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}>
+              <FontAwesomeIcon icon={faStore} style={{ color: GOLD, fontSize: 20 }} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Información del Negocio</div>
+              <div style={{ fontSize: 13, color: '#6b7280' }}>El bot responderá preguntas sobre dirección y horario</div>
+            </div>
+          </div>
+
+          {botInfoMsg && (
+            <div style={{
+              padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 13,
+              background: botInfoMsg.ok ? '#f0fdf4' : '#fef2f2',
+              color: botInfoMsg.ok ? '#166534' : '#dc2626',
+              border: `1px solid ${botInfoMsg.ok ? '#bbf7d0' : '#fecaca'}`
+            }}>
+              <FontAwesomeIcon icon={botInfoMsg.ok ? faCheckCircle : faTimesCircle} style={{ marginRight: 7 }} />
+              {botInfoMsg.text}
+            </div>
+          )}
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+              <FontAwesomeIcon icon={faMapMarkerAlt} style={{ color: '#ef4444' }} />
+              Dirección
+            </label>
+            <input
+              type="text"
+              value={botInfo.address}
+              onChange={e => setBotInfo(p => ({ ...p, address: e.target.value }))}
+              placeholder="Ej: Av. Siempre Viva 742, Santiago"
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+            />
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>
+              Cuando alguien pregunte "¿dónde están?" el bot mostrará esto
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+              <FontAwesomeIcon icon={faClock} style={{ color: '#3b82f6' }} />
+              Horario de atención
+            </label>
+            <textarea
+              value={botInfo.opening_hours}
+              onChange={e => setBotInfo(p => ({ ...p, opening_hours: e.target.value }))}
+              rows={3}
+              placeholder={'Ej: Lunes a Viernes: 9:00 - 20:00\nSábados: 10:00 - 18:00\nDomingos: Cerrado'}
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>
+              Cuando alguien pregunte "¿a qué hora abren?" el bot mostrará esto
+            </div>
+          </div>
+
+          <div style={{
+            background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
+            padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#6b7280'
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>El bot detecta automáticamente preguntas como:</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px' }}>
+              {['"¿dónde están?"', '"¿cuál es la dirección?"', '"¿a qué hora abren?"', '"¿cuándo cierran?"', '"horario"', '"ubicación"'].map(q => (
+                <span key={q} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, padding: '2px 8px' }}>{q}</span>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={saveBotInfo}
+            disabled={botInfoSaving || !selectedStore}
+            style={{
+              padding: '10px 20px', borderRadius: 8, border: 'none', background: GOLD,
+              color: '#000', fontWeight: 700, fontSize: 13, cursor: botInfoSaving ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 8
+            }}
+          >
+            <FontAwesomeIcon icon={botInfoSaving ? faSpinner : faSave} spin={botInfoSaving} />
+            {botInfoSaving ? 'Guardando...' : 'Guardar información'}
+          </button>
+        </div>
 
         {/* Chatbot de pedidos */}
         <div style={card}>
