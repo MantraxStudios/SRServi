@@ -1616,12 +1616,19 @@ h1, h2, h3, h4, h5, h6 {
 .mobile-header {
   display: flex;
   background-color: var(--store-primary);
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   position: sticky;
   top: 0;
   z-index: 100;
+}
+
+.mobile-header h1 {
+  color: var(--store-secondary);
+  font-size: 18px;
+  font-weight: 700;
+  flex: 1;
 }
 
 .mobile-header-btn {
@@ -1634,12 +1641,8 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.mobile-header h1 {
-  color: var(--store-secondary);
-  font-size: 18px;
-  font-weight: 600;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* ============================================
