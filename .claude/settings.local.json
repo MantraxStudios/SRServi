@@ -93,7 +93,12 @@
       "Bash(Select-Object -ExpandProperty Name)",
       "Bash(Get-ChildItem *)",
       "Bash(Select-Object Name)",
-      "Bash(grep -E \"\\\\.js$\")"
+      "Bash(grep -E \"\\\\.js$\")",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\androidSRServi\\\\SRServiPayMentApp\\\\app\\\\src\\\\main\" -Recurse -Force | Where-Object { $_.Extension -match '\\\\.\\(java|kt\\)$' } | Select-Object -ExpandProperty FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\androidSRServi\\\\SRserviTuuOrders\\\\app\\\\src\\\\main\" -Recurse -Force | Where-Object { $_.Extension -match '\\\\.\\(java|kt\\)$' } | Select-Object -ExpandProperty FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\androidSRServi\\\\SRServiPayMentApp\\\\app\\\\src\\\\main\\\\res\" -Recurse -Force | Where-Object { $_.Extension -match '\\\\.\\(xml|json\\)$' } | Select-Object -ExpandProperty FullName | Select-Object -First 30)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\androidSRServi\\\\SRserviTuuOrders\\\\app\\\\src\\\\main\" -Recurse -Force | Where-Object { $_.Extension -match '\\\\.\\(xml|json\\)$' } | Select-Object -ExpandProperty FullName | Select-Object -First 30)",
+      "Bash(Select-Object Name, FullName)"
     ]
   }
 }

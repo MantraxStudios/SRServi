@@ -265,6 +265,7 @@ function Store() {
   const adminEditToken = searchParams.get('admin_edit');
   const { setMenuOpen } = useStore() || {};
   const deliveryMode = searchParams.get('delivery') === 'true';
+  const tuuModePayFromUrl = searchParams.get('tuumodepay') === 'true';
   const qrReturnResult = searchParams.get('x_result');
   const qrReturnRef = searchParams.get('x_reference');
   const [qrPaymentResult, setQrPaymentResult] = useState(null);
@@ -327,6 +328,7 @@ function Store() {
   const [qrPaymentUrl, setQrPaymentUrl] = useState(null);
   const [tuuPaymentKey, setTuuPaymentKey] = useState(null);
   const [squarePaymentKey, setSquarePaymentKey] = useState(null);
+  const [androidBridgeAvailable, setAndroidBridgeAvailable] = useState(false);
   const [haulmerNative, setHaulmerNative] = useState(false);
   const [haulmerReference, setHaulmerReference] = useState(null);
   const [deviceUid] = useState(() => {
@@ -2025,6 +2027,71 @@ function Store() {
       alert(err.message);
     } finally {
       setProcessingPayment(false);
+    }
+  };
+
+  // Detectar puente nativo Android (WebViewActivity)
+  useEffect(() => {
+    const check = () => {
+      if (window.AndroidBridgeAvailable && window.AndroidBridge) {
+        setAndroidBridgeAvailable(true);
+      }
+    };
+    check();
+    const t2 = setTimeout(check, 800);
+    return () => clearTimeout(t2);
+  }, []);
+
+  // Pago con terminal TUU local (app Android → Intent → TUU)
+  // method: 1 = crédito, 2 = débito
+  const handleAndroidTuuPayment = async (method) => {
+    if (!window.AndroidBridge || cart.length === 0) return;
+    setProcessingPayment(true);
+    setPaymentError(null);
+    const finalTotal = getFinalTotal();
+    const storeId = store.store.id;
+    const cartItems = cart.map(item => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      selected_ingredients: item.selected_ingredients,
+      selected_extras: item.selected_extras
+    }));
+    try {
+      const orderRes = await fetch(API + '/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          store_id: storeId, order_type: orderType, payment_method: 'card',
+          items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
+          total: Number(finalTotal).toFixed(2), delivery: false, table_number: null, terminal_id: null
+        })
+      });
+      if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
+      const order = await orderRes.json();
+      const amount = Math.round(Number(finalTotal));
+      const orderRef = String(order.order_number || order.id);
+      setProcessingPayment(false);
+
+      window.onTuuPaymentResult = (result) => {
+        const data = typeof result === 'string' ? JSON.parse(result) : result;
+        if (data.approved) {
+          setPaymentConfirmed(true);
+          setLastOrderNumber(order.order_number);
+          setCart([]);
+          setCartOpen(false);
+          setPaymentModalOpen(false);
+        } else {
+          setPaymentCancelled(true);
+          setPaymentModalOpen(false);
+        }
+      };
+
+      window.AndroidBridge.processTuuPayment(amount, method, orderRef);
+    } catch (err) {
+      setPaymentError(err.message);
+      setProcessingPayment(false);
+      alert(err.message);
     }
   };
 
@@ -4686,6 +4753,28 @@ function Store() {
                   </div>
                 )}
                 <div className="flex flex-col" style={{ gap: '15px' }}>
+                  {tuuModePayFromUrl && androidBridgeAvailable && (
+                    <>
+                      <button
+                        onClick={() => handleAndroidTuuPayment(2)}
+                        disabled={processingPayment}
+                        className="btn btn-lg btn-full store-glow-pulse"
+                        style={{ backgroundColor: '#1a1a1a', color: '#D4AF37', border: '3px solid #D4AF37', borderRadius: '15px' }}
+                      >
+                        <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '26px' }} />
+                        <span className="font-bold" style={{ fontSize: '18px' }}>DÉBITO TUU</span>
+                      </button>
+                      <button
+                        onClick={() => handleAndroidTuuPayment(1)}
+                        disabled={processingPayment}
+                        className="btn btn-lg btn-full store-glow-pulse"
+                        style={{ backgroundColor: '#1a1a1a', color: '#D4AF37', border: '3px solid #D4AF37', borderRadius: '15px' }}
+                      >
+                        <FontAwesomeIcon icon={faCreditCard} style={{ fontSize: '26px' }} />
+                        <span className="font-bold" style={{ fontSize: '18px' }}>CRÉDITO TUU</span>
+                      </button>
+                    </>
+                  )}
                   {(() => {
                     const delivMethods = (selectedConfiguration?.delivery_payment_methods || 'tuu,mercadopago').split(',').map(m => m.trim());
                     const delivAllowsTuu = delivMethods.includes('tuu');

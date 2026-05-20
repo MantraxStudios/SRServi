@@ -43,6 +43,7 @@ function Market() {
   const [paymentWaiting, setPaymentWaiting] = useState(false);
   const [pendingOrderData, setPendingOrderData] = useState(null);
   const [paymentTimeLeft, setPaymentTimeLeft] = useState(600);
+  const [androidBridgeAvailable, setAndroidBridgeAvailable] = useState(false);
   const barcodeInputRef = useRef(null);
   const pointDropdownRef = useRef(null);
 
@@ -50,6 +51,18 @@ function Market() {
     if (barcodeInputRef.current) {
       barcodeInputRef.current.focus();
     }
+  }, []);
+
+  // Detectar puente nativo Android (WebViewActivity)
+  useEffect(() => {
+    const check = () => {
+      if (window.AndroidBridgeAvailable && window.AndroidBridge) {
+        setAndroidBridgeAvailable(true);
+      }
+    };
+    check();
+    const t = setTimeout(check, 800);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -304,6 +317,36 @@ function Market() {
     } finally {
       setProcessingPayment(false);
     }
+  };
+
+  // Cobro con terminal TUU local (via puente Android)
+  // method: 1 = crédito, 2 = débito
+  const handleTuuLocalPayment = (method) => {
+    if (!window.AndroidBridge || cart.length === 0) return;
+    const total = Math.round(getTotal());
+    const orderRef = `Market-${Date.now()}`;
+    setProcessingPayment(true);
+
+    window.onTuuPaymentResult = (result) => {
+      setProcessingPayment(false);
+      const data = typeof result === 'string' ? JSON.parse(result) : result;
+      if (data.approved) {
+        setPaymentSuccess({
+          amount: total,
+          status: 'approved',
+          method: method === 1 ? 'Crédito' : 'Débito',
+          sequence: data.sequenceNumber || ''
+        });
+      } else if (data.errorMessage) {
+        setError(data.errorMessage);
+        setTimeout(() => setError(null), 4000);
+      } else {
+        setError('Pago cancelado');
+        setTimeout(() => setError(null), 3000);
+      }
+    };
+
+    window.AndroidBridge.processTuuPayment(total, method, orderRef);
   };
 
   const handleKeyDown = (e) => {
@@ -692,6 +735,11 @@ function Market() {
             <p className="market-success-amount">
               Total: ${paymentSuccess.amount?.toFixed(2) || getTotal().toFixed(2)}
             </p>
+            {paymentSuccess.sequence && (
+              <p style={{ color: '#555', fontSize: '13px', margin: '4px 0 0' }}>
+                Secuencia: {paymentSuccess.sequence}
+              </p>
+            )}
             <button
               onClick={() => { setPaymentSuccess(null); clearCart(); }}
               className="market-success-btn"
@@ -971,6 +1019,42 @@ function Market() {
                 <FontAwesomeIcon icon={processingPayment ? faSpinner : faCreditCard} spin={processingPayment} />
                 {processingPayment ? 'Procesando...' : 'COBRAR'}
               </button>
+
+              {androidBridgeAvailable && (
+                <div style={{ marginTop: '10px' }}>
+                  <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', marginBottom: '6px', letterSpacing: '0.5px' }}>
+                    COBRAR CON TUU LOCAL
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handleTuuLocalPayment(2)}
+                      disabled={cart.length === 0 || processingPayment || paymentWaiting}
+                      style={{
+                        flex: 1, padding: '12px 8px', borderRadius: '10px',
+                        background: cart.length === 0 || processingPayment || paymentWaiting ? '#ddd' : '#1a1a1a',
+                        color: cart.length === 0 || processingPayment || paymentWaiting ? '#999' : '#D4AF37',
+                        border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer'
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: '6px' }} />
+                      DÉBITO
+                    </button>
+                    <button
+                      onClick={() => handleTuuLocalPayment(1)}
+                      disabled={cart.length === 0 || processingPayment || paymentWaiting}
+                      style={{
+                        flex: 1, padding: '12px 8px', borderRadius: '10px',
+                        background: cart.length === 0 || processingPayment || paymentWaiting ? '#ddd' : '#1a1a1a',
+                        color: cart.length === 0 || processingPayment || paymentWaiting ? '#999' : '#D4AF37',
+                        border: 'none', fontWeight: '700', fontSize: '13px', cursor: 'pointer'
+                      }}
+                    >
+                      <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: '6px' }} />
+                      CRÉDITO
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
