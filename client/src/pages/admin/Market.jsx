@@ -56,13 +56,13 @@ function Market() {
   // Detectar puente nativo Android (WebViewActivity)
   useEffect(() => {
     const check = () => {
-      if (window.AndroidBridgeAvailable && window.AndroidBridge) {
-        setAndroidBridgeAvailable(true);
-      }
+      if (window.AndroidBridge) { setAndroidBridgeAvailable(true); return true; }
+      return false;
     };
-    check();
-    const t = setTimeout(check, 800);
-    return () => clearTimeout(t);
+    if (check()) return;
+    const interval = setInterval(() => { if (check()) clearInterval(interval); }, 300);
+    const timeout = setTimeout(() => clearInterval(interval), 10000);
+    return () => { clearInterval(interval); clearTimeout(timeout); };
   }, []);
 
   useEffect(() => {

@@ -2035,15 +2035,19 @@ function Store() {
 
   // Detectar puente nativo Android (WebViewActivity)
   useEffect(() => {
+    if (!tuuModePayFromUrl) return;
     const check = () => {
-      if (window.AndroidBridgeAvailable && window.AndroidBridge) {
+      if (window.AndroidBridge) {
         setAndroidBridgeAvailable(true);
+        return true;
       }
+      return false;
     };
-    check();
-    const t2 = setTimeout(check, 800);
-    return () => clearTimeout(t2);
-  }, []);
+    if (check()) return;
+    const interval = setInterval(() => { if (check()) clearInterval(interval); }, 300);
+    const timeout = setTimeout(() => clearInterval(interval), 10000);
+    return () => { clearInterval(interval); clearTimeout(timeout); };
+  }, [tuuModePayFromUrl]);
 
   // Pago con terminal TUU local (app Android → Intent → TUU)
   // method: 1 = crédito, 2 = débito
