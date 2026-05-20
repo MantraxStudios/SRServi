@@ -904,7 +904,7 @@ export default function Procedures() {
       <div style={{
         position: 'sticky', top: 0, zIndex: 100,
         background: '#fff', borderBottom: '1px solid #e5e7eb',
-        padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 14
+        padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap'
       }}>
         <button onClick={backToList}
           style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontWeight: 600, fontSize: 13, padding: 0 }}>

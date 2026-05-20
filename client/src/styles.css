@@ -1577,11 +1577,13 @@ h1, h2, h3, h4, h5, h6 {
 
 .admin-header {
   background-color: var(--card);
-  padding: 20px var(--space-8);
+  padding: 16px var(--space-6);
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   width: 100%;
 }
 
@@ -5273,6 +5275,7 @@ html body .store-container .store-product-card * {
 .analytics-bar { width: 100%; min-height: 4px; background-color: var(--gold); border-radius: 4px 4px 0 0; transition: height 0.3s ease; }
 .analytics-bar-label { font-size: 10px; color: var(--muted-foreground); }
 .analytics-grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; }
+@media (max-width: 768px) { .analytics-grid-2-1 { grid-template-columns: 1fr; } }
 .analytics-recent-orders { max-height: 280px; overflow-y: auto; }
 .analytics-order-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .analytics-order-id { font-weight: 600; color: var(--foreground); font-size: 14px; }
@@ -9524,7 +9527,7 @@ html body .store-container .store-product-card * {
 .leon-page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   background: #fff;
   color: #111;
   overflow: hidden;
@@ -9831,7 +9834,7 @@ html body .store-container .store-product-card * {
   .leon-chat { padding: 14px 12px; gap: 10px; }
   .leon-bubble { max-width: 88%; font-size: 13px; padding: 10px 13px; }
   .leon-suggestions { padding: 8px 12px 6px; }
-  .leon-input-bar { padding: 10px 12px; gap: 7px; }
+  .leon-input-bar { padding: 10px 12px 10px; padding-bottom: max(10px, env(safe-area-inset-bottom)); gap: 7px; }
   .leon-input { padding: 10px 13px; font-size: 13px; }
   .leon-clear-btn span { display: none; }
 }

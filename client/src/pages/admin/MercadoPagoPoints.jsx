@@ -1152,7 +1152,7 @@ function MercadoPagoPoints() {
                 </div>
               </div>
               <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))', gap: '8px' }}>
                   <div>
                     <label style={labelStyle}>Account ID *</label>
                     <input type="text" value={haulmerAccountId} onChange={e => setHaulmerAccountId(e.target.value)}
@@ -1242,7 +1242,7 @@ function MercadoPagoPoints() {
               {/* Provider selector */}
               <div style={{ padding: '16px 22px', borderBottom: '1px solid #f0f0f0' }}>
                 <p style={{ ...sectionTitle, margin: '0 0 10px' }}>Proveedor</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
                   {[
                     { label: 'Mercado Pago', emoji: '💳', color: '#009EE3', bg: '#e8f6fd' },
                     { label: 'Tuu POS',      emoji: '📱', color: '#7c3aed', bg: '#f5f0ff' },

@@ -204,7 +204,8 @@ function Analytics() {
                   <FontAwesomeIcon icon={faTrophy} style={{ marginRight: 8, color: '#D4AF37' }} />
                   Días de Mayor Venta
                 </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8 }}>
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginLeft: -4, marginRight: -4, paddingLeft: 4, paddingRight: 4 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(46px, 1fr))', gap: 6, minWidth: 340 }}>
                   {salesByDow.map((day, i) => {
                     const isBest = i === bestIdx;
                     const orderPct = (day.orders / maxOrders) * 100;
@@ -266,6 +267,7 @@ function Analytics() {
                     );
                   })}
                 </div>
+                </div>{/* end scroll wrapper */}
               </div>
             );
           })()}

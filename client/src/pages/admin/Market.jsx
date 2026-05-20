@@ -580,6 +580,31 @@ function Market() {
           object-fit: cover;
         }
 
+        @media (max-width: 768px) {
+          .market-container {
+            grid-template-columns: 1fr;
+            height: auto;
+            padding: 12px;
+            gap: 12px;
+          }
+          .product-grid {
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+          }
+          .cart-panel {
+            height: auto;
+            max-height: 55vh;
+          }
+          .barcode-section {
+            padding: 14px;
+          }
+          .quick-add-card {
+            width: calc(100vw - 40px);
+            max-width: 350px;
+            padding: 20px;
+          }
+        }
+
         .quick-add-qty {
           display: flex;
           align-items: center;
