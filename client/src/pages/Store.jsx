@@ -4697,7 +4697,7 @@ function Store() {
               </div>
             ) : (
               <>
-                {selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout && (
+                {!tuuModePayFromUrl && selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout && (
                   <div style={{ marginBottom: '20px', padding: '14px 16px', borderRadius: '14px', background: 'var(--store-secondary)', border: '2px solid var(--store-primary)', textAlign: 'left' }}>
                     <label style={{ fontWeight: '700', fontSize: '14px', color: 'var(--store-primary)', display: 'block', marginBottom: '10px' }}>{t('orderType', lang)}</label>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -4778,7 +4778,7 @@ function Store() {
                       </button>
                     </>
                   )}
-                  {(() => {
+                  {!tuuModePayFromUrl && (() => {
                     const delivMethods = (selectedConfiguration?.delivery_payment_methods || 'tuu,mercadopago').split(',').map(m => m.trim());
                     const delivAllowsTuu = delivMethods.includes('tuu');
                     const delivAllowsMP = delivMethods.includes('mercadopago');
@@ -4842,6 +4842,7 @@ function Store() {
                     );
                   })()}
                 </div>
+
 
                 <button
                   onClick={() => setPaymentModalOpen(false)}

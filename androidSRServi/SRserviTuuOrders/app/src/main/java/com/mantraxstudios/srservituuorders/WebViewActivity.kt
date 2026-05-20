@@ -49,11 +49,10 @@ class WebViewActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        WebView.setWebContentsDebuggingEnabled(true)
         webView = WebView(this).also { wv ->
             wv.settings.javaScriptEnabled = true
             wv.settings.domStorageEnabled = true
-            wv.settings.mixedContentMode  = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            wv.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             wv.webChromeClient = object : WebChromeClient() {
                 override fun onConsoleMessage(msg: ConsoleMessage): Boolean {
                     val text = "[${msg.sourceId()}:${msg.lineNumber()}] ${msg.message()}"
@@ -118,18 +117,34 @@ class WebViewActivity : ComponentActivity() {
                     })
                 })
             }
-            val pkg = listOf("com.haulmer.paymentapp","com.haulmer.paymentapp.dev")
+            val pkg = listOf("com.haulmer.paymentapp.dev")
                 .firstOrNull { packageManager.getLaunchIntentForPackage(it) != null }
                 ?: run {
                     val err = JSONObject().apply { put("approved",false); put("errorMessage","TUU no instalada") }
                     webView.post { webView.evaluateJavascript("window.onTuuPaymentResult&&window.onTuuPaymentResult($err)", null) }
                     return
                 }
-            paymentLauncher.launch(packageManager.getLaunchIntentForPackage(pkg)!!.apply {
-                action = Intent.ACTION_SEND; flags = 0; type = "text/json"
-                putExtra(Intent.EXTRA_TEXT, payload.toString())
-                putExtra("paymentData", payload.toString())
-            })
+            val launchIntent = packageManager.getLaunchIntentForPackage(pkg) ?: run {
+                val err = JSONObject().apply { put("approved",false); put("errorMessage","TUU no instalada") }
+                webView.post { webView.evaluateJavascript("window.onTuuPaymentResult&&window.onTuuPaymentResult($err)", null) }
+                return
+            }
+            launchIntent.action = Intent.ACTION_SEND
+            launchIntent.flags = 0
+            launchIntent.type = "text/json"
+            launchIntent.putExtra(Intent.EXTRA_TEXT, payload.toString())
+            launchIntent.putExtra("paymentData", payload.toString())
+
+            // JavascriptInterface runs on a background thread — launch must be on the UI thread
+            runOnUiThread {
+                try {
+                    paymentLauncher.launch(launchIntent)
+                } catch (e: Exception) {
+                    Log.e("WebView", "Error lanzando TUU: ${e.message}")
+                    val err = JSONObject().apply { put("approved",false); put("errorMessage","Error al abrir TUU: ${e.message}") }
+                    webView.post { webView.evaluateJavascript("window.onTuuPaymentResult&&window.onTuuPaymentResult($err)", null) }
+                }
+            }
         }
     }
 }
