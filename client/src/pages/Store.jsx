@@ -334,7 +334,10 @@ function Store() {
   const [deviceUid] = useState(() => {
     let uid = localStorage.getItem('srservi_device_uid');
     if (!uid) {
-      uid = 'dev_' + crypto.randomUUID();
+      const rand = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : Date.now().toString(36) + Math.random().toString(36).slice(2);
+      uid = 'dev_' + rand;
       localStorage.setItem('srservi_device_uid', uid);
     }
     return uid;
@@ -3124,7 +3127,7 @@ function Store() {
     );
   }
 
-  if (!editMode && !cashRegisterOpen && store) {
+  if (!editMode && !cashRegisterOpen && store && !tuuModePayFromUrl) {
     const accent = store.store?.accent_color || '#D4AF37';
     const bg = store.store?.primary_color || '#000000';
     return (

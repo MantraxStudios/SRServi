@@ -374,7 +374,11 @@ fun MainScreen(context: Context) {
             // Comenzar a Vender
             Button(
                 onClick = {
-                    context.startActivity(Intent(context, WebViewActivity::class.java))
+                    context.startActivity(
+                        Intent(context, WebViewActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                        }
+                    )
                 },
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
