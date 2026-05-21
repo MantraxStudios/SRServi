@@ -4555,4 +4555,124 @@ export async function getWorkersWithPhone(storeId) {
   return rows;
 }
 
+// ─── Attendance system ───────────────────────────────────────────────────────
+
+let _attendanceReady = false;
+async function ensureAttendanceTables() {
+  if (_attendanceReady) return;
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS attendance_persons (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      rut VARCHAR(20) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      surname VARCHAR(255) NOT NULL,
+      face_descriptor JSON NOT NULL,
+      face_photo MEDIUMTEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_rut_per_store (store_id, rut),
+      INDEX idx_ap_store (store_id),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS attendance_records (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      person_id INT NOT NULL,
+      type ENUM('ENTRADA','SALIDA','INICIO_ALMUERZO','FIN_ALMUERZO','INICIO_PAUSA','FIN_PAUSA') NOT NULL,
+      recorded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_ar_store (store_id),
+      INDEX idx_ar_person (person_id),
+      INDEX idx_ar_date (recorded_at),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
+      FOREIGN KEY (person_id) REFERENCES attendance_persons(id) ON DELETE CASCADE
+    )
+  `);
+  _attendanceReady = true;
+}
+
+export async function getAttendancePersons(storeId) {
+  await ensureAttendanceTables();
+  const [rows] = await pool.execute(
+    'SELECT id, rut, name, surname, face_descriptor, face_photo FROM attendance_persons WHERE store_id = ? ORDER BY name ASC',
+    [storeId]
+  );
+  return rows.map(r => ({
+    ...r,
+    face_descriptor: typeof r.face_descriptor === 'string' ? JSON.parse(r.face_descriptor) : r.face_descriptor
+  }));
+}
+
+export async function getAttendancePersonByRut(storeId, rut) {
+  await ensureAttendanceTables();
+  const [rows] = await pool.execute(
+    'SELECT id, rut, name, surname FROM attendance_persons WHERE store_id = ? AND rut = ?',
+    [storeId, rut]
+  );
+  return rows[0] || null;
+}
+
+export async function createAttendancePerson(storeId, rut, name, surname, faceDescriptor, facePhoto) {
+  await ensureAttendanceTables();
+  const [result] = await pool.execute(
+    'INSERT INTO attendance_persons (store_id, rut, name, surname, face_descriptor, face_photo) VALUES (?, ?, ?, ?, ?, ?)',
+    [storeId, rut, name, surname, JSON.stringify(faceDescriptor), facePhoto || null]
+  );
+  return result.insertId;
+}
+
+export async function deleteAttendancePerson(id, storeId) {
+  await ensureAttendanceTables();
+  await pool.execute('DELETE FROM attendance_persons WHERE id = ? AND store_id = ?', [id, storeId]);
+}
+
+export async function createAttendanceRecord(storeId, personId, type) {
+  await ensureAttendanceTables();
+  const [result] = await pool.execute(
+    'INSERT INTO attendance_records (store_id, person_id, type) VALUES (?, ?, ?)',
+    [storeId, personId, type]
+  );
+  return result.insertId;
+}
+
+export async function getAttendanceRecords(storeId, date) {
+  await ensureAttendanceTables();
+  const [rows] = await pool.execute(
+    `SELECT ar.id, ar.type, ar.recorded_at,
+            ap.rut, ap.name, ap.surname
+     FROM attendance_records ar
+     JOIN attendance_persons ap ON ar.person_id = ap.id
+     WHERE ar.store_id = ? AND DATE(ar.recorded_at) = ?
+     ORDER BY ar.recorded_at DESC`,
+    [storeId, date]
+  );
+  return rows;
+}
+
+export async function getAttendanceRecordsRange(storeId, startDate, endDate) {
+  await ensureAttendanceTables();
+  const [rows] = await pool.execute(
+    `SELECT ar.id, ar.type, ar.recorded_at,
+            ap.id as person_id, ap.rut, ap.name, ap.surname
+     FROM attendance_records ar
+     JOIN attendance_persons ap ON ar.person_id = ap.id
+     WHERE ar.store_id = ? AND DATE(ar.recorded_at) BETWEEN ? AND ?
+     ORDER BY ar.recorded_at DESC`,
+    [storeId, startDate, endDate]
+  );
+  return rows;
+}
+
+export async function getLastAttendanceRecord(storeId, personId) {
+  await ensureAttendanceTables();
+  const [rows] = await pool.execute(
+    `SELECT type, recorded_at FROM attendance_records
+     WHERE store_id = ? AND person_id = ?
+     ORDER BY recorded_at DESC LIMIT 1`,
+    [storeId, personId]
+  );
+  return rows[0] || null;
+}
+
 export { pool };

@@ -171,7 +171,15 @@ import {
   updatePrepTable,
   deletePrepTable,
   updateWorkerPhone,
-  pool
+  pool,
+  getAttendancePersons,
+  getAttendancePersonByRut,
+  createAttendancePerson,
+  deleteAttendancePerson,
+  createAttendanceRecord,
+  getAttendanceRecords,
+  getAttendanceRecordsRange,
+  getLastAttendanceRecord
 } from './database.js';
 
 const app = express();
@@ -206,7 +214,7 @@ const mpClient = new MercadoPagoConfig({
 console.log('MercadoPago Token configured:', !!process.env.MP_ACCESS_TOKEN);
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 const userSockets = new Map();
 
@@ -11082,5 +11090,89 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     process.exit(1);
   }
 }
+
+// ─── Attendance API ──────────────────────────────────────────────────────────
+
+app.get('/api/attendance/:storeCode/persons', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const persons = await getAttendancePersons(store.id);
+    res.json(persons);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/attendance/:storeCode/persons', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const { rut, name, surname, face_descriptor, face_photo } = req.body;
+    if (!rut || !name || !surname || !face_descriptor)
+      return res.status(400).json({ error: 'Faltan campos requeridos' });
+    const existing = await getAttendancePersonByRut(store.id, rut);
+    if (existing) return res.status(409).json({ error: 'Este RUT ya está registrado con otro rostro' });
+    const id = await createAttendancePerson(store.id, rut, name, surname, face_descriptor, face_photo);
+    res.json({ id, rut, name, surname });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/attendance/:storeCode/check-rut/:rut', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const person = await getAttendancePersonByRut(store.id, req.params.rut);
+    res.json({ exists: !!person, person: person ? { id: person.id, name: person.name, surname: person.surname } : null });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/attendance/:storeCode/record', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const { person_id, type } = req.body;
+    const valid = ['ENTRADA','SALIDA','INICIO_ALMUERZO','FIN_ALMUERZO','INICIO_PAUSA','FIN_PAUSA'];
+    if (!valid.includes(type)) return res.status(400).json({ error: 'Tipo de registro inválido' });
+    const id = await createAttendanceRecord(store.id, person_id, type);
+    const last = await getLastAttendanceRecord(store.id, person_id);
+    res.json({ id, type, recorded_at: last?.recorded_at });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/attendance/:storeCode/records', authenticateToken, async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
+    const { date, startDate, endDate } = req.query;
+    let records;
+    if (startDate && endDate) {
+      records = await getAttendanceRecordsRange(store.id, startDate, endDate);
+    } else {
+      const d = date || new Date().toISOString().split('T')[0];
+      records = await getAttendanceRecords(store.id, d);
+    }
+    res.json(records);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/attendance/:storeCode/persons/admin', authenticateToken, async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
+    const persons = await getAttendancePersons(store.id);
+    res.json(persons.map(p => ({ id: p.id, rut: p.rut, name: p.name, surname: p.surname, face_photo: p.face_photo, created_at: p.created_at })));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/attendance/:storeCode/persons/:personId', authenticateToken, async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
+    await deleteAttendancePerson(req.params.personId, store.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 startServer();

@@ -44,6 +44,7 @@ import {
   faVideo,
   faDownload,
   faLaptop,
+  faUserClock,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -635,6 +636,10 @@ function Layout() {
                   <NavLink to="/admin/procedures" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faList} />
                     <span>Procedimientos</span>
+                  </NavLink>
+                  <NavLink to="/admin/attendance" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faUserClock} />
+                    <span>Asistencia</span>
                   </NavLink>
                   <NavLink to="/admin/coupons" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faPercent} />

@@ -59,6 +59,8 @@ import TermsConditions from './pages/TermsConditions';
 import CashRegisters from './pages/admin/CashRegisters';
 import CCTV from './pages/admin/CCTV';
 import WhatsApp from './pages/admin/WhatsApp';
+import AttendanceAdmin from './pages/admin/AttendanceAdmin';
+import Attendance from './pages/Attendance';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 
@@ -229,8 +231,10 @@ function App() {
             <Route path="cash-registers" element={<CashRegisters />} />
             <Route path="cctv" element={<CCTV />} />
             <Route path="whatsapp" element={<WhatsApp />} />
+            <Route path="attendance" element={<AttendanceAdmin />} />
             <Route path="editor/:code" element={<Store />} />
           </Route>
+          <Route path="/attendance/:storeCode" element={<Attendance />} />
           <Route path="/worker-login" element={<WorkerLogin />} />
           <Route path="/worker-panel" element={<WorkerPanel />} />
           <Route path="/superadmin/login" element={<SuperadminLogin />} />
