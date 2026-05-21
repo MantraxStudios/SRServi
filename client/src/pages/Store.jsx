@@ -2089,8 +2089,14 @@ function Store() {
           setCartOpen(false);
           setPaymentModalOpen(false);
         } else {
-          setPaymentCancelled(true);
-          setPaymentModalOpen(false);
+          // Cancelar el pedido en el servidor para que el usuario pueda reintentar
+          fetch(`${API}/api/orders/${order.id}/cancel-payment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ store_id: storeId })
+          }).catch(() => {});
+          setProcessingPayment(false);
+          setPaymentError(data.errorMessage || 'Pago cancelado');
         }
       };
 
@@ -2668,7 +2674,7 @@ function Store() {
         setPinModalOpen(false);
         setPinInput('');
         setPinError('');
-        setPinOptionsModalOpen(true);
+        if (!tuuModePayFromUrl) setPinOptionsModalOpen(true);
       } else {
         setPinError('PIN incorrecto');
         setPinInput('');
