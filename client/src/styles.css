@@ -10719,12 +10719,124 @@ html body .store-container .store-product-card * {
   .product-modal-body {
     padding: 12px;
   }
-  
+
   .product-form-section {
     margin-bottom: 14px;
   }
-  
+
   .form-section-title {
     font-size: 11px;
   }
+}
+
+/* ─── TipTap Rich Editor ─── */
+.rich-editor-wrapper {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 9px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.rich-editor-wrapper:focus-within {
+  border-color: #D4AF37;
+}
+.rich-editor-content .tiptap {
+  padding: 10px 12px;
+  min-height: 90px;
+  outline: none;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #374151;
+}
+.rich-editor-content .tiptap p { margin: 0 0 5px; }
+.rich-editor-content .tiptap p:last-child { margin-bottom: 0; }
+.rich-editor-content .tiptap ul,
+.rich-editor-content .tiptap ol { padding-left: 22px; margin: 4px 0 8px; }
+.rich-editor-content .tiptap li { margin-bottom: 2px; }
+.rich-editor-content .tiptap mark { background: #fde68a; border-radius: 2px; padding: 0 2px; }
+.rich-editor-content .tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  table-layout: auto;
+}
+.rich-editor-content .tiptap table th,
+.rich-editor-content .tiptap table td {
+  border: 1.5px solid #d1d5db;
+  padding: 7px 10px;
+  font-size: 13px;
+  vertical-align: top;
+  min-width: 60px;
+  position: relative;
+}
+.rich-editor-content .tiptap table th {
+  background: #f3f4f6;
+  font-weight: 700;
+  color: #111;
+  text-align: left;
+}
+.rich-editor-content .tiptap table td { background: #fff; }
+.rich-editor-content .tiptap table .selectedCell::after {
+  background: rgba(212, 175, 55, 0.18);
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ─── Rich content display – light theme (admin preview) ─── */
+.rich-content p { margin: 0 0 5px; }
+.rich-content p:last-child { margin-bottom: 0; }
+.rich-content ul, .rich-content ol { padding-left: 22px; margin: 4px 0 8px; }
+.rich-content mark { background: #fde68a; border-radius: 2px; padding: 0 2px; }
+.rich-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+}
+.rich-content table th,
+.rich-content table td {
+  border: 1.5px solid #e5e7eb;
+  padding: 7px 10px;
+  font-size: 13px;
+  vertical-align: top;
+}
+.rich-content table th {
+  background: #f9fafb;
+  font-weight: 700;
+  color: #374151;
+  text-align: left;
+}
+
+/* ─── Rich content display – dark theme (worker panel) ─── */
+.rich-content-dark p { margin: 0 0 5px; }
+.rich-content-dark p:last-child { margin-bottom: 0; }
+.rich-content-dark ul, .rich-content-dark ol { padding-left: 22px; margin: 4px 0 8px; color: #ddd; }
+.rich-content-dark mark { background: rgba(212,175,55,0.3); border-radius: 2px; padding: 0 2px; color: #fff; }
+.rich-content-dark table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 10px 0;
+  font-size: 13px;
+}
+.rich-content-dark table th,
+.rich-content-dark table td {
+  border: 1px solid #2a2a2a;
+  padding: 8px 12px;
+  vertical-align: top;
+  text-align: left;
+}
+.rich-content-dark table th {
+  background: #1a1a1a;
+  color: #D4AF37;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.rich-content-dark table td {
+  background: #111;
+  color: #ddd;
+}
+.rich-content-dark table tr:nth-child(even) td {
+  background: #141414;
 }

@@ -1671,7 +1671,7 @@ function WorkerPanel() {
                         <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', marginBottom: 5, lineHeight: 1.2 }}>{proc.title}</div>
                         {firstStep?.instruction && (
                           <div style={{ fontSize: 12, color: '#888', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                            {firstStep.instruction}
+                            {(firstStep.instruction || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()}
                           </div>
                         )}
                         <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1771,9 +1771,10 @@ function WorkerPanel() {
 
                     {/* Instruction */}
                     {step?.instruction && (
-                      <div style={{ fontSize: 14, color: '#ddd', lineHeight: 1.7, marginBottom: 14 }}>
-                        {step.instruction}
-                      </div>
+                      <div className="rich-content-dark"
+                        style={{ fontSize: 14, color: '#ddd', lineHeight: 1.7, marginBottom: 14 }}
+                        dangerouslySetInnerHTML={{ __html: step.instruction }}
+                      />
                     )}
 
                     {/* Tip */}

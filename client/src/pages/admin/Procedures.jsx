@@ -8,11 +8,104 @@ import {
   faSpinner, faArrowLeft, faLightbulb, faGripLines,
   faEye, faEyeSlash, faCheck, faTable, faPrint, faSearch
 } from '@fortawesome/free-solid-svg-icons';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { Table as TiptapTable, TableRow, TableHeader, TableCell } from '@tiptap/extension-table';
+import { TextAlign } from '@tiptap/extension-text-align';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
+import { Highlight } from '@tiptap/extension-highlight';
 
 const API = 'https://srservi2.srautomatic.com';
 const GOLD = '#D4AF37';
 
 const emptyStep = () => ({ title: '', instruction: '', tip: '', image_url: '' });
+
+const stripHtml = (html) => (html || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+
+/* ── Editor de texto enriquecido (TipTap) ── */
+function RichEditor({ value, onChange }) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: false }),
+      TiptapTable.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      TextAlign.configure({ types: ['paragraph'] }),
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: false }),
+    ],
+    content: value || '<p></p>',
+    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+  });
+
+  /* Sync cuando cambia externamente (ej: generación de IA) */
+  useEffect(() => {
+    if (!editor) return;
+    const normalized = (value && !value.startsWith('<')) ? `<p>${value}</p>` : (value || '');
+    if (normalized !== editor.getHTML()) {
+      editor.commands.setContent(normalized, false);
+    }
+  }, [editor, value]);
+
+  if (!editor) return null;
+
+  const inTable = editor.isActive('table');
+
+  const Btn = ({ onClick, active, children, title }) => (
+    <button type="button" onClick={onClick} title={title}
+      style={{
+        padding: '2px 7px', borderRadius: 5, border: '1px solid',
+        borderColor: active ? GOLD : '#d1d5db',
+        background: active ? '#fffdf0' : '#fff',
+        color: active ? '#92400e' : '#374151',
+        fontWeight: 700, fontSize: 12, cursor: 'pointer',
+        lineHeight: '20px', whiteSpace: 'nowrap'
+      }}>
+      {children}
+    </button>
+  );
+
+  const Sep = () => <div style={{ width: 1, height: 20, background: '#e5e7eb', margin: '0 2px', flexShrink: 0 }} />;
+
+  return (
+    <div className="rich-editor-wrapper">
+      {/* Barra de herramientas */}
+      <div style={{
+        background: '#f9fafb', borderBottom: '1px solid #e5e7eb',
+        padding: '6px 10px', display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center'
+      }}>
+        <Btn active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} title="Negrita"><b>N</b></Btn>
+        <Btn active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} title="Cursiva"><i>C</i></Btn>
+        <Btn active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()} title="Tachado"><s>T</s></Btn>
+        <Sep />
+        <Btn active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Lista con viñetas">• Lista</Btn>
+        <Btn active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Lista numerada">1. Lista</Btn>
+        <Sep />
+        <Btn active={false}
+          onClick={() => editor.chain().focus().insertTable({ rows: 4, cols: 3, withHeaderRow: true }).run()}
+          title="Insertar tabla (3 columnas, 4 filas)">
+          ⊞ Tabla
+        </Btn>
+        {inTable && (
+          <>
+            <Sep />
+            <Btn active={false} onClick={() => editor.chain().focus().addColumnAfter().run()} title="Añadir columna">+Col</Btn>
+            <Btn active={false} onClick={() => editor.chain().focus().deleteColumn().run()} title="Eliminar columna">−Col</Btn>
+            <Btn active={false} onClick={() => editor.chain().focus().addRowAfter().run()} title="Añadir fila">+Fila</Btn>
+            <Btn active={false} onClick={() => editor.chain().focus().deleteRow().run()} title="Eliminar fila">−Fila</Btn>
+            <Btn active={false} onClick={() => editor.chain().focus().deleteTable().run()} title="Eliminar tabla" style={{ color: '#ef4444' }}>✕ Tabla</Btn>
+          </>
+        )}
+        <Sep />
+        <Btn active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()} title="Resaltar texto">◨ Resaltar</Btn>
+      </div>
+      <EditorContent editor={editor} className="rich-editor-content" />
+    </div>
+  );
+}
 
 function imgSrc(url) {
   if (!url) return '';
@@ -300,7 +393,17 @@ function StepCard({ step, index, total, onChange, onMove, onRemove, onUpload, on
       {/* Contenido del paso */}
       <div style={{ padding: '18px 18px 14px' }}>
         {field('Título del paso', 'title', false, 'Ej: Preparar los ingredientes')}
-        {field('Instrucción', 'instruction', true, 'Describe exactamente qué debe hacer el trabajador en este paso...')}
+
+        {/* Editor rico de instrucción */}
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
+            Instrucción
+          </label>
+          <RichEditor
+            value={step.instruction}
+            onChange={(html) => onChange(index, 'instruction', html)}
+          />
+        </div>
 
         {/* Imagen */}
         <ImageZone
@@ -914,7 +1017,7 @@ export default function Procedures() {
                           fontSize: 11, padding: '2px 9px', borderRadius: 20,
                           background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb'
                         }}>
-                          {i + 1}. {s.title || s.instruction?.slice(0, 22) || 'Paso'}
+                          {i + 1}. {s.title || stripHtml(s.instruction)?.slice(0, 22) || 'Paso'}
                         </span>
                       ))}
                       {proc.steps?.length > 3 && (
@@ -1037,7 +1140,12 @@ export default function Procedures() {
                       }}>{i + 1}</div>
                       {step.title && <div style={{ fontWeight: 700, fontSize: 15, color: '#111', lineHeight: 1.2 }}>{step.title}</div>}
                     </div>
-                    {step.instruction && <div style={{ fontSize: 14, color: '#444', lineHeight: 1.6, marginBottom: 8 }}>{step.instruction}</div>}
+                    {step.instruction && (
+                      <div className="rich-content"
+                        style={{ fontSize: 14, color: '#444', lineHeight: 1.6, marginBottom: 8 }}
+                        dangerouslySetInnerHTML={{ __html: step.instruction }}
+                      />
+                    )}
                     {step.tip && (
                       <div style={{ fontSize: 13, color: '#92400e', background: '#fffdf0', borderLeft: `3px solid ${GOLD}`, padding: '6px 12px', borderRadius: '0 8px 8px 0' }}>
                         💡 {step.tip}
