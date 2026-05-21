@@ -91,21 +91,26 @@ async function drawLogo(ctx, store, cx, cy, size, ringColor, bgColor) {
   ctx.stroke();
 }
 
-// Cover-fit an image inside a rounded rect
-async function coverImg(ctx, product, x, y, w, h, radius = 18) {
+// Fit an image inside a rounded rect. mode='contain' shows full image; mode='cover' fills and crops.
+async function coverImg(ctx, product, x, y, w, h, radius = 18, mode = 'contain') {
   const img = await tryLoadImg(product?.image);
   ctx.save();
   rr(ctx, x, y, w, h, radius);
   ctx.clip();
+  ctx.fillStyle = 'rgba(0,0,0,0.05)';
+  ctx.fillRect(x, y, w, h);
   if (img) {
     const aspect = img.width / img.height;
-    let dw = w, dh = h;
-    if (aspect > w / h) { dh = h; dw = dh * aspect; }
-    else { dw = w; dh = dw / aspect; }
+    let dw, dh;
+    if (mode === 'cover') {
+      if (aspect > w / h) { dh = h; dw = dh * aspect; }
+      else { dw = w; dh = dw / aspect; }
+    } else {
+      if (aspect > w / h) { dw = w; dh = w / aspect; }
+      else { dh = h; dw = h * aspect; }
+    }
     ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
   } else {
-    ctx.fillStyle = 'rgba(0,0,0,0.06)';
-    ctx.fillRect(x, y, w, h);
     ctx.font = `${Math.floor(Math.min(w, h) * 0.32)}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -316,7 +321,7 @@ async function tpl1_deals(ctx, store, products, coupons, sym, accent, primary) {
       ctx.strokeStyle = rgba(accent, 0.4); ctx.lineWidth = 2;
       rr(ctx, tx, ty, tileW, tileH, 20); ctx.stroke();
 
-      await coverImg(ctx, p, tx, ty, tileW, tileH, 20);
+      await coverImg(ctx, p, tx, ty, tileW, tileH, 20, 'cover');
       ctx.save(); rr(ctx, tx, ty, tileW, tileH, 20); ctx.clip();
       const ov = ctx.createLinearGradient(0, ty + tileH * 0.5, 0, ty + tileH);
       ov.addColorStop(0, 'rgba(0,0,0,0)'); ov.addColorStop(1, 'rgba(0,0,0,0.85)');
@@ -361,7 +366,7 @@ async function tpl2_magazine(ctx, store, products, coupons, sym, accent, primary
 
   const heroH = 468, heroY = headerH + 14;
   if (prods[0]) {
-    await coverImg(ctx, prods[0], 14, heroY, S - 28, heroH, 24);
+    await coverImg(ctx, prods[0], 14, heroY, S - 28, heroH, 24, 'cover');
     ctx.save(); rr(ctx, 14, heroY, S - 28, heroH, 24); ctx.clip();
     const ov = ctx.createLinearGradient(0, heroY + heroH * 0.38, 0, heroY + heroH);
     ov.addColorStop(0, 'rgba(0,0,0,0)'); ov.addColorStop(1, 'rgba(0,0,0,0.88)');
@@ -391,7 +396,7 @@ async function tpl2_magazine(ctx, store, products, coupons, sym, accent, primary
   for (let i = 1; i <= 2; i++) {
     const p = prods[i]; if (!p) continue;
     const tx = 14 + (i - 1) * (tileW2 + 14), ty = tileY;
-    await coverImg(ctx, p, tx, ty, tileW2, tileH2, 20);
+    await coverImg(ctx, p, tx, ty, tileW2, tileH2, 20, 'cover');
     ctx.save(); rr(ctx, tx, ty, tileW2, tileH2, 20); ctx.clip();
     const ov2 = ctx.createLinearGradient(0, ty + tileH2 * 0.44, 0, ty + tileH2);
     ov2.addColorStop(0, 'rgba(0,0,0,0)'); ov2.addColorStop(1, 'rgba(0,0,0,0.9)');
@@ -451,7 +456,7 @@ async function tpl3_white(ctx, store, products, coupons, sym, accent, primary) {
     ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.13)'; ctx.shadowBlur = 44; ctx.shadowOffsetY = 14;
     ctx.fillStyle = '#f4f4f4'; rr(ctx, heroX, heroY, heroSz, heroSz, 28); ctx.fill(); ctx.restore();
 
-    await coverImg(ctx, prods[0], heroX, heroY, heroSz, heroSz, 28);
+    await coverImg(ctx, prods[0], heroX, heroY, heroSz, heroSz, 28, 'cover');
 
     // "DESTACADO" badge
     ctx.fillStyle = accent;
