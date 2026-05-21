@@ -183,8 +183,35 @@ function ImageZone({ stepIdx, imageUrl, uploading, onUpload, onClear, onSelectUr
   );
 }
 
+/* ── Modal de confirmación de borrado ── */
+function DeleteConfirmModal({ title, onConfirm, onCancel }) {
+  return (
+    <div onClick={onCancel}
+      style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ background: '#fff', borderRadius: 16, padding: '24px 24px 20px', width: '100%', maxWidth: 380, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+        <div style={{ fontWeight: 800, fontSize: 16, color: '#111', marginBottom: 10 }}>¿Eliminar procedimiento?</div>
+        <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 20, lineHeight: 1.5 }}>
+          <strong>"{title}"</strong> se eliminará permanentemente. Esta acción no se puede deshacer.
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onCancel}
+            style={{ flex: 1, padding: '11px', borderRadius: 9, border: '1.5px solid #e5e7eb', background: '#fff', color: '#374151', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            Cancelar
+          </button>
+          <button onClick={onConfirm}
+            style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Card de un paso en el editor ── */
-function StepCard({ step, index, total, onChange, onMove, onRemove, onUpload, onSelectUrl, uploadingStep }) {
+function StepCard({ step, index, total, onChange, onMove, onRemove, onUpload, onSelectUrl, uploadingStep,
+  isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd }) {
   const [showTip, setShowTip] = useState(!!step.tip);
 
   const field = (label, key, multiline = false, placeholder = '') => (
@@ -226,18 +253,29 @@ function StepCard({ step, index, total, onChange, onMove, onRemove, onUpload, on
   );
 
   return (
-    <div style={{
-      background: '#fff', borderRadius: 16,
-      border: '1.5px solid #e5e7eb',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-      overflow: 'hidden'
-    }}>
+    <div
+      draggable
+      onDragStart={e => { e.stopPropagation(); onDragStart(index); }}
+      onDragOver={e => { e.preventDefault(); e.stopPropagation(); onDragOver(index); }}
+      onDrop={e => { e.preventDefault(); e.stopPropagation(); onDrop(index); }}
+      onDragEnd={onDragEnd}
+      style={{
+        background: '#fff', borderRadius: 16,
+        border: `1.5px solid ${isDragOver ? GOLD : '#e5e7eb'}`,
+        boxShadow: isDragging ? 'none' : isDragOver ? `0 0 0 3px ${GOLD}40` : '0 2px 8px rgba(0,0,0,0.05)',
+        opacity: isDragging ? 0.45 : 1,
+        transform: isDragOver ? 'scale(1.01)' : 'scale(1)',
+        transition: 'border-color 0.15s, box-shadow 0.15s, transform 0.12s, opacity 0.15s',
+        overflow: 'hidden'
+      }}>
       {/* Cabecera del paso */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
+        display: 'flex', alignItems: 'center', gap: 10,
         padding: '14px 18px', background: '#f9fafb',
         borderBottom: '1px solid #f0f0f0'
       }}>
+        <FontAwesomeIcon icon={faGripLines}
+          style={{ color: '#c4c9d4', fontSize: 15, cursor: 'grab', flexShrink: 0, marginRight: 2 }} />
         <div style={{
           width: 36, height: 36, borderRadius: '50%',
           background: GOLD, color: '#000', fontWeight: 900,
@@ -250,14 +288,6 @@ function StepCard({ step, index, total, onChange, onMove, onRemove, onUpload, on
           Paso {index + 1}
         </span>
         <div style={{ display: 'flex', gap: 4 }}>
-          <button onClick={() => onMove(index, -1)} disabled={index === 0}
-            style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? '#d1d5db' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
-            <FontAwesomeIcon icon={faChevronUp} />
-          </button>
-          <button onClick={() => onMove(index, 1)} disabled={index === total - 1}
-            style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid #e5e7eb', background: '#fff', cursor: index === total - 1 ? 'default' : 'pointer', color: index === total - 1 ? '#d1d5db' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
-            <FontAwesomeIcon icon={faChevronDown} />
-          </button>
           {total > 1 && (
             <button onClick={() => onRemove(index)}
               style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid #fecaca', background: '#fef2f2', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
@@ -675,6 +705,9 @@ export default function Procedures() {
   const [lightboxImg, setLightboxImg] = useState(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [saveOk, setSaveOk] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
   const storeId = selectedStore?.id;
 
   const load = async () => {
@@ -728,11 +761,23 @@ export default function Procedures() {
   };
 
   const deleteProcedure = async (id) => {
-    if (!confirm('¿Eliminar este procedimiento?')) return;
     await fetch(`${API}/api/procedures/${id}?store_id=${storeId}`, {
       method: 'DELETE', headers: { Authorization: 'Bearer ' + token }
     });
+    setConfirmDeleteId(null);
+    if (view === 'editor') backToList();
     load();
+  };
+
+  const handleDropStep = (toIdx) => {
+    if (dragIdx === null || dragIdx === toIdx) { setDragIdx(null); setDragOverIdx(null); return; }
+    setForm(prev => {
+      const steps = [...prev.steps];
+      const [removed] = steps.splice(dragIdx, 1);
+      steps.splice(toIdx, 0, removed);
+      return { ...prev, steps };
+    });
+    setDragIdx(null); setDragOverIdx(null);
   };
 
   const generateWithAI = async () => {
@@ -882,7 +927,7 @@ export default function Procedures() {
                       style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: '#374151' }}>
                       <FontAwesomeIcon icon={faEdit} /> Editar
                     </button>
-                    <button onClick={() => deleteProcedure(proc.id)}
+                    <button onClick={() => setConfirmDeleteId(proc.id)}
                       style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', fontSize: 12, cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
                       <FontAwesomeIcon icon={faTrash} />
                     </button>
@@ -892,6 +937,14 @@ export default function Procedures() {
             </div>
           )}
         </div>
+
+      {confirmDeleteId && (
+        <DeleteConfirmModal
+          title={procedures.find(p => p.id === confirmDeleteId)?.title || ''}
+          onConfirm={() => deleteProcedure(confirmDeleteId)}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
+      )}
       </>
     );
   }
@@ -914,6 +967,13 @@ export default function Procedures() {
         <span style={{ fontWeight: 700, fontSize: 15, color: '#111', flex: 1 }}>
           {editing ? 'Editar guía' : 'Nueva guía'}
         </span>
+        {editing && (
+          <button onClick={() => setConfirmDeleteId(editing.id)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1.5px solid #fecaca', background: '#fef2f2', color: '#ef4444', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+            <FontAwesomeIcon icon={faTrash} />
+            Eliminar
+          </button>
+        )}
         <button
           onClick={() => setPreviewMode(v => !v)}
           style={{
@@ -958,24 +1018,30 @@ export default function Procedures() {
             </div>
             <div style={{ padding: '24px' }}>
               {form.steps.map((step, i) => (
-                <div key={i} style={{ display: 'flex', gap: 16, marginBottom: 28 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: '50%', background: GOLD,
-                    color: '#000', fontWeight: 900, fontSize: 16, flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                  }}>{i + 1}</div>
+                <div key={i} style={{ display: 'flex', gap: 14, marginBottom: 28, alignItems: 'flex-start' }}>
+                  {/* Imagen a la izquierda */}
+                  {step.image_url && (
+                    <div onClick={() => setLightboxImg(imgSrc(step.image_url))}
+                      style={{ width: 120, flexShrink: 0, borderRadius: 10, overflow: 'hidden', cursor: 'zoom-in' }}>
+                      <img src={imgSrc(step.image_url)} alt=""
+                        style={{ width: '100%', objectFit: 'cover', display: 'block', borderRadius: 10 }} />
+                    </div>
+                  )}
+                  {/* Texto a la derecha */}
                   <div style={{ flex: 1 }}>
-                    {step.title && <div style={{ fontWeight: 700, fontSize: 15, color: '#111', marginBottom: 5 }}>{step.title}</div>}
-                    {step.instruction && <div style={{ fontSize: 14, color: '#444', lineHeight: 1.6 }}>{step.instruction}</div>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%', background: GOLD,
+                        color: '#000', fontWeight: 900, fontSize: 16, flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>{i + 1}</div>
+                      {step.title && <div style={{ fontWeight: 700, fontSize: 15, color: '#111', lineHeight: 1.2 }}>{step.title}</div>}
+                    </div>
+                    {step.instruction && <div style={{ fontSize: 14, color: '#444', lineHeight: 1.6, marginBottom: 8 }}>{step.instruction}</div>}
                     {step.tip && (
-                      <div style={{ marginTop: 8, fontSize: 13, color: '#92400e', background: '#fffdf0', borderLeft: `3px solid ${GOLD}`, padding: '6px 12px', borderRadius: '0 8px 8px 0' }}>
+                      <div style={{ fontSize: 13, color: '#92400e', background: '#fffdf0', borderLeft: `3px solid ${GOLD}`, padding: '6px 12px', borderRadius: '0 8px 8px 0' }}>
                         💡 {step.tip}
                       </div>
-                    )}
-                    {step.image_url && (
-                      <img src={imgSrc(step.image_url)} alt=""
-                        onClick={() => setLightboxImg(imgSrc(step.image_url))}
-                        style={{ marginTop: 12, width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 10, cursor: 'zoom-in' }} />
                     )}
                   </div>
                 </div>
@@ -1062,6 +1128,12 @@ export default function Procedures() {
                   onUpload={uploadImage}
                   onSelectUrl={(stepIdx, url) => updateStep(stepIdx, 'image_url', url)}
                   uploadingStep={uploadingStep}
+                  isDragging={dragIdx === i}
+                  isDragOver={dragOverIdx === i && dragIdx !== i}
+                  onDragStart={setDragIdx}
+                  onDragOver={setDragOverIdx}
+                  onDrop={handleDropStep}
+                  onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
                 />
               ))}
             </div>
@@ -1084,6 +1156,15 @@ export default function Procedures() {
           </>
         )}
       </div>
+
+      {/* Modal eliminar */}
+      {confirmDeleteId && (
+        <DeleteConfirmModal
+          title={procedures.find(p => p.id === confirmDeleteId)?.title || editing?.title || ''}
+          onConfirm={() => deleteProcedure(confirmDeleteId)}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
+      )}
 
       {/* Lightbox */}
       {lightboxImg && (

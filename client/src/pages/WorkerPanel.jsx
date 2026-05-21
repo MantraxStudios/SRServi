@@ -1739,56 +1739,56 @@ function WorkerPanel() {
 
               {/* Step content */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px' }}>
-                {/* Step number badge */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: '50%',
-                    background: '#D4AF37', color: '#000',
-                    fontWeight: 900, fontSize: 16,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    {procStep + 1}
-                  </div>
-                  {step?.title && (
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
-                      {step.title}
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  {/* Image on the left */}
+                  {imgUrl && (
+                    <div onClick={() => setLightboxImg(imgUrl)}
+                      style={{ width: 130, flexShrink: 0, borderRadius: 12, overflow: 'hidden', cursor: 'zoom-in' }}>
+                      <img src={imgUrl} alt=""
+                        style={{ width: '100%', objectFit: 'cover', display: 'block', borderRadius: 12 }} />
                     </div>
                   )}
+
+                  {/* Text on the right (or full width when no image) */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Step number + title */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                      <div style={{
+                        width: 34, height: 34, borderRadius: '50%',
+                        background: '#D4AF37', color: '#000',
+                        fontWeight: 900, fontSize: 15,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0
+                      }}>
+                        {procStep + 1}
+                      </div>
+                      {step?.title && (
+                        <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
+                          {step.title}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Instruction */}
+                    {step?.instruction && (
+                      <div style={{ fontSize: 14, color: '#ddd', lineHeight: 1.7, marginBottom: 14 }}>
+                        {step.instruction}
+                      </div>
+                    )}
+
+                    {/* Tip */}
+                    {step?.tip && (
+                      <div style={{
+                        background: 'rgba(212,175,55,0.08)',
+                        border: '1px solid rgba(212,175,55,0.25)',
+                        borderRadius: 10, padding: '10px 14px',
+                        fontSize: 13, color: '#c9a227', lineHeight: 1.5
+                      }}>
+                        💡 {step.tip}
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                {/* Image */}
-                {imgUrl && (
-                  <div
-                    onClick={() => setLightboxImg(imgUrl)}
-                    style={{ cursor: 'zoom-in', borderRadius: 12, overflow: 'hidden', marginBottom: 18 }}
-                  >
-                    <img
-                      src={imgUrl}
-                      alt=""
-                      style={{ width: '100%', maxHeight: 240, objectFit: 'cover', display: 'block' }}
-                    />
-                  </div>
-                )}
-
-                {/* Instruction */}
-                {step?.instruction && (
-                  <div style={{ fontSize: 15, color: '#ddd', lineHeight: 1.7, marginBottom: 16 }}>
-                    {step.instruction}
-                  </div>
-                )}
-
-                {/* Tip */}
-                {step?.tip && (
-                  <div style={{
-                    background: 'rgba(212,175,55,0.08)',
-                    border: '1px solid rgba(212,175,55,0.25)',
-                    borderRadius: 10, padding: '10px 14px',
-                    fontSize: 13, color: '#c9a227', lineHeight: 1.5
-                  }}>
-                    💡 {step.tip}
-                  </div>
-                )}
               </div>
 
               {/* Navigation */}
