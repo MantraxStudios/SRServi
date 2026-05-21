@@ -91,6 +91,13 @@ export default function Attendance() {
   useEffect(() => {
     async function loadModels() {
       try {
+        setLoadingMsg('Inicializando motor IA...');
+        try {
+          await faceapi.tf.setBackend('webgl');
+        } catch {
+          await faceapi.tf.setBackend('cpu');
+        }
+        await faceapi.tf.ready();
         setLoadingMsg('Cargando detector facial...');
         await faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL);
         setLoadingMsg('Cargando detector de puntos...');
