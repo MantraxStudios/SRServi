@@ -98,7 +98,11 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\androidSRServi\\\\SRserviTuuOrders\\\\app\\\\src\\\\main\" -Recurse -Force | Where-Object { $_.Extension -match '\\\\.\\(java|kt\\)$' } | Select-Object -ExpandProperty FullName)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\androidSRServi\\\\SRServiPayMentApp\\\\app\\\\src\\\\main\\\\res\" -Recurse -Force | Where-Object { $_.Extension -match '\\\\.\\(xml|json\\)$' } | Select-Object -ExpandProperty FullName | Select-Object -First 30)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\androidSRServi\\\\SRserviTuuOrders\\\\app\\\\src\\\\main\" -Recurse -Force | Where-Object { $_.Extension -match '\\\\.\\(xml|json\\)$' } | Select-Object -ExpandProperty FullName | Select-Object -First 30)",
-      "Bash(Select-Object Name, FullName)"
+      "Bash(Select-Object Name, FullName)",
+      "Bash(Select-Object -First 20 FullName)",
+      "Read(//mnt/c/Users/tupap/OneDrive/Escritorio/SRServi/.github/**)",
+      "Read(//mnt/c/Users/tupap/OneDrive/Escritorio/SRServi/**)",
+      "Read(//mnt/c/Users/tupap/OneDrive/Escritorio/**)"
     ]
   }
 }
