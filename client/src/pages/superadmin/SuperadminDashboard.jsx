@@ -109,6 +109,7 @@ function SuperadminDashboard() {
   const saMsgEndRef = useRef(null);
   const saMsgContainerRef = useRef(null);
   const [saMobileChat, setSaMobileChat] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   // ── Notificaciones de pedidos nuevos ─────────────────────────────────────
   const [orderNotifs, setOrderNotifs] = useState([]); // [{id, order_number, store_name, total, payment_method}]
@@ -175,6 +176,12 @@ function SuperadminDashboard() {
       saMsgContainerRef.current.scrollTop = saMsgContainerRef.current.scrollHeight;
     }
   };
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => { selectedTicketRef.current = selectedTicketId; }, [selectedTicketId]);
 
@@ -828,100 +835,105 @@ function SuperadminDashboard() {
               </div>
             ) : activeTab === 'users' ? (
               <div className="admin-table-wrapper">
-                <table className="table admin-table">
-                  <thead>
-                    <tr>
-                      <th>Usuario</th>
-                      <th>Email</th>
-                      <th className="hide-mobile">Empresa</th>
-                      <th className="text-center">Tiendas</th>
-                      <th className="text-center hide-mobile">Última Actividad</th>
-                      <th className="text-center hide-mobile">País</th>
-                      <th className="text-center">En línea</th>
-                      <th className="text-center">Estado</th>
-                      <th className="text-center">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                {isMobile ? (
+                  <div className="sa-cards-list">
                     {filteredUsers.map(user => {
                       const actStatus = getActivityStatus(user.last_active);
                       const isOnline = actStatus === 'online';
                       return (
-                      <tr key={user.id}>
-                        <td>
-                          <div className="font-bold">{user.username}</div>
-                          <div className="text-sm text-muted">Code: {user.code}</div>
-                        </td>
-                        <td>{user.email}</td>
-                        <td className="hide-mobile">{user.business_name || '-'}</td>
-                        <td className="text-center">
-                          <span className="badge badge-gold">
-                            {user.store_count}
-                          </span>
-                        </td>
-                        <td className="text-center hide-mobile">
-                          <span className={`badge badge-activity-${actStatus}`}>
-                            {formatLastActive(user.last_active)}
-                          </span>
-                        </td>
-                        <td className="text-center hide-mobile" style={{ fontSize: '13px' }}>
-                          {user.country || '—'}
-                        </td>
-                        <td className="text-center">
-                          <span style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '5px',
-                            padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600',
-                            background: isOnline ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.15)',
-                            color: isOnline ? '#22c55e' : '#9ca3af'
-                          }}>
-                            <span style={{
-                              width: '7px', height: '7px', borderRadius: '50%',
-                              background: isOnline ? '#22c55e' : '#9ca3af',
-                              boxShadow: isOnline ? '0 0 6px #22c55e' : 'none'
-                            }} />
-                            {isOnline ? 'Online' : 'Offline'}
-                          </span>
-                        </td>
-                        <td className="text-center">
-                          {user.is_banned ? (
-                            <span className="badge badge-danger">Baneado</span>
-                          ) : (
-                            <span className="badge badge-success">Activo</span>
-                          )}
-                        </td>
-                        <td className="text-center">
-                          <button
-                            className="btn btn-sm btn-icon"
-                            onClick={() => handleEditUser(user)}
-                            title="Editar"
-                          >
-                            <FontAwesomeIcon icon={faEdit} />
-                          </button>
-                          <button
-                            className={`btn btn-sm btn-icon ${user.is_banned ? 'btn-unban' : 'btn-ban'}`}
-                            onClick={() => handleToggleBanUser(user)}
-                            title={user.is_banned ? 'Desbanear' : 'Banear'}
-                          >
-                            <FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} />
-                          </button>
-                          <button
-                            className="btn btn-sm btn-icon btn-delete"
-                            onClick={() => setShowDeleteConfirm({ type: 'user', id: user.id, name: user.username })}
-                            title="Eliminar"
-                          >
-                            <FontAwesomeIcon icon={faTrash} />
-                          </button>
-                        </td>
-                      </tr>
+                        <div key={user.id} className="sa-item-card">
+                          <div className="sa-item-card-top">
+                            <div className="sa-item-card-info">
+                              <div className="sa-item-card-title">{user.username}</div>
+                              <div className="sa-item-card-sub">{user.email}</div>
+                              {user.business_name && <div className="sa-item-card-sub">{user.business_name}</div>}
+                              <div className="sa-item-card-sub" style={{ opacity: 0.5 }}>Code: {user.code}</div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px', flexShrink: 0 }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: isOnline ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.12)', color: isOnline ? '#22c55e' : '#9ca3af' }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: isOnline ? '#22c55e' : '#9ca3af', boxShadow: isOnline ? '0 0 5px #22c55e' : 'none' }} />
+                                {isOnline ? 'Online' : 'Offline'}
+                              </span>
+                              {user.is_banned ? <span className="badge badge-danger">Baneado</span> : <span className="badge badge-success">Activo</span>}
+                            </div>
+                          </div>
+                          <div className="sa-item-card-stats">
+                            <span><FontAwesomeIcon icon={faStore} style={{ marginRight: 4, opacity: 0.5 }} />{user.store_count} tienda{user.store_count !== 1 ? 's' : ''}</span>
+                            {user.country && <span>🌍 {user.country}</span>}
+                            <span style={{ color: '#aaa', marginLeft: 'auto' }}>{formatLastActive(user.last_active)}</span>
+                          </div>
+                          <div className="sa-item-card-actions">
+                            <button className="btn btn-sm btn-icon" onClick={() => handleEditUser(user)} title="Editar"><FontAwesomeIcon icon={faEdit} /></button>
+                            <button className={`btn btn-sm btn-icon ${user.is_banned ? 'btn-unban' : 'btn-ban'}`} onClick={() => handleToggleBanUser(user)} title={user.is_banned ? 'Desbanear' : 'Banear'}><FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} /></button>
+                            <button className="btn btn-sm btn-icon btn-delete" onClick={() => setShowDeleteConfirm({ type: 'user', id: user.id, name: user.username })} title="Eliminar"><FontAwesomeIcon icon={faTrash} /></button>
+                          </div>
+                        </div>
                       );
                     })}
-                  </tbody>
-                </table>
-                {filteredUsers.length === 0 && (
-                  <div className="empty-state">
-                    <FontAwesomeIcon icon={faUsers} className="empty-state-icon" />
-                    <div>No se encontraron usuarios</div>
+                    {filteredUsers.length === 0 && (
+                      <div className="empty-state">
+                        <FontAwesomeIcon icon={faUsers} className="empty-state-icon" />
+                        <div>No se encontraron usuarios</div>
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  <>
+                    <table className="table admin-table">
+                      <thead>
+                        <tr>
+                          <th>Usuario</th>
+                          <th>Email</th>
+                          <th>Empresa</th>
+                          <th className="text-center">Tiendas</th>
+                          <th className="text-center">Última Actividad</th>
+                          <th className="text-center">País</th>
+                          <th className="text-center">En línea</th>
+                          <th className="text-center">Estado</th>
+                          <th className="text-center">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredUsers.map(user => {
+                          const actStatus = getActivityStatus(user.last_active);
+                          const isOnline = actStatus === 'online';
+                          return (
+                            <tr key={user.id}>
+                              <td>
+                                <div className="font-bold">{user.username}</div>
+                                <div className="text-sm text-muted">Code: {user.code}</div>
+                              </td>
+                              <td>{user.email}</td>
+                              <td>{user.business_name || '-'}</td>
+                              <td className="text-center"><span className="badge badge-gold">{user.store_count}</span></td>
+                              <td className="text-center"><span className={`badge badge-activity-${actStatus}`}>{formatLastActive(user.last_active)}</span></td>
+                              <td className="text-center" style={{ fontSize: '13px' }}>{user.country || '—'}</td>
+                              <td className="text-center">
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600', background: isOnline ? 'rgba(34,197,94,0.15)' : 'rgba(156,163,175,0.15)', color: isOnline ? '#22c55e' : '#9ca3af' }}>
+                                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: isOnline ? '#22c55e' : '#9ca3af', boxShadow: isOnline ? '0 0 6px #22c55e' : 'none' }} />
+                                  {isOnline ? 'Online' : 'Offline'}
+                                </span>
+                              </td>
+                              <td className="text-center">
+                                {user.is_banned ? <span className="badge badge-danger">Baneado</span> : <span className="badge badge-success">Activo</span>}
+                              </td>
+                              <td className="text-center">
+                                <button className="btn btn-sm btn-icon" onClick={() => handleEditUser(user)} title="Editar"><FontAwesomeIcon icon={faEdit} /></button>
+                                <button className={`btn btn-sm btn-icon ${user.is_banned ? 'btn-unban' : 'btn-ban'}`} onClick={() => handleToggleBanUser(user)} title={user.is_banned ? 'Desbanear' : 'Banear'}><FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} /></button>
+                                <button className="btn btn-sm btn-icon btn-delete" onClick={() => setShowDeleteConfirm({ type: 'user', id: user.id, name: user.username })} title="Eliminar"><FontAwesomeIcon icon={faTrash} /></button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {filteredUsers.length === 0 && (
+                      <div className="empty-state">
+                        <FontAwesomeIcon icon={faUsers} className="empty-state-icon" />
+                        <div>No se encontraron usuarios</div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ) : activeTab === 'stores' ? (
@@ -954,155 +966,201 @@ function SuperadminDashboard() {
                 </div>
 
                 <div className="admin-table-wrapper">
-                  <table className="table admin-table">
-                    <thead>
-                      <tr>
-                        <th className="hide-mobile">Tienda</th>
-                        <th>Propietario</th>
-                        <th className="text-center hide-mobile">Prods.</th>
-                        <th className="text-center hide-mobile">Pedidos</th>
-                        <th className="text-center hide-mobile">Últ. pedido</th>
-                        <th className="text-center">Estado</th>
-                        <th className="text-center">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  {isMobile ? (
+                    <div className="sa-cards-list">
                       {filteredStores.map(store => {
                         const lastOrder = store.last_order_at ? new Date(store.last_order_at) : null;
                         const diffDays = lastOrder ? Math.floor((now - lastOrder.getTime()) / DAY_MS) : null;
                         const actColor = diffDays === null ? '#6b7280' : diffDays < 7 ? '#22c55e' : diffDays < 30 ? '#3b82f6' : '#f59e0b';
                         const actLabel = diffDays === null ? 'Sin pedidos' : diffDays === 0 ? 'Hoy' : diffDays === 1 ? 'Ayer' : `Hace ${diffDays}d`;
                         return (
-                          <tr key={store.id}>
-                            <td className="hide-mobile">
-                              <div className="font-bold">{store.name}</div>
-                              <div className="text-sm text-muted">Code: {store.code}</div>
-                            </td>
-                            <td>
-                              <div className="text-muted">{store.user_email}</div>
-                              <div className="text-sm text-muted hide-mobile">{store.user_business || '-'}</div>
-                            </td>
-                            <td className="text-center hide-mobile">
-                              <span className="badge badge-gold">{store.product_count}</span>
-                            </td>
-                            <td className="text-center hide-mobile">
-                              <div><span className="badge badge-dark">{store.order_count}</span></div>
-                              {store.orders_30d > 0 && (
-                                <div style={{ fontSize: '10px', color: '#3b82f6', marginTop: '3px' }}>+{store.orders_30d} (30d)</div>
-                              )}
-                            </td>
-                            <td className="text-center hide-mobile">
-                              <span style={{ fontSize: '12px', fontWeight: '700', color: actColor }}>{actLabel}</span>
-                            </td>
-                            <td className="text-center">
-                              {store.is_banned ? (
-                                <span className="badge badge-danger">Baneada</span>
-                              ) : (
-                                <span className="badge badge-success">Activa</span>
-                              )}
-                            </td>
-                            <td className="text-center">
-                              <button
-                                className={`btn btn-sm btn-icon ${store.is_banned ? 'btn-unban' : 'btn-ban'}`}
-                                onClick={() => handleToggleBanStore(store)}
-                                title={store.is_banned ? 'Desbanear' : 'Banear'}
-                              >
-                                <FontAwesomeIcon icon={store.is_banned ? faCheck : faBan} />
-                              </button>
-                              <button
-                                className="btn btn-sm btn-icon btn-delete"
-                                onClick={() => setShowDeleteConfirm({ type: 'store', id: store.id, name: store.name })}
-                                title="Eliminar"
-                              >
-                                <FontAwesomeIcon icon={faTrash} />
-                              </button>
-                            </td>
-                          </tr>
+                          <div key={store.id} className="sa-item-card">
+                            <div className="sa-item-card-top">
+                              <div className="sa-item-card-info">
+                                <div className="sa-item-card-title">{store.name}</div>
+                                <div className="sa-item-card-sub">{store.user_email}</div>
+                                {store.user_business && <div className="sa-item-card-sub">{store.user_business}</div>}
+                                <div className="sa-item-card-sub" style={{ opacity: 0.5 }}>Code: {store.code}</div>
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px', flexShrink: 0 }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: actColor }}>{actLabel}</span>
+                                {store.is_banned ? <span className="badge badge-danger">Baneada</span> : <span className="badge badge-success">Activa</span>}
+                              </div>
+                            </div>
+                            <div className="sa-item-card-stats">
+                              <span><FontAwesomeIcon icon={faStore} style={{ marginRight: 4, opacity: 0.5 }} />{store.product_count} prods</span>
+                              <span>{store.order_count} pedidos{store.orders_30d > 0 ? ` (+${store.orders_30d} 30d)` : ''}</span>
+                            </div>
+                            <div className="sa-item-card-actions">
+                              <button className={`btn btn-sm btn-icon ${store.is_banned ? 'btn-unban' : 'btn-ban'}`} onClick={() => handleToggleBanStore(store)} title={store.is_banned ? 'Desbanear' : 'Banear'}><FontAwesomeIcon icon={store.is_banned ? faCheck : faBan} /></button>
+                              <button className="btn btn-sm btn-icon btn-delete" onClick={() => setShowDeleteConfirm({ type: 'store', id: store.id, name: store.name })} title="Eliminar"><FontAwesomeIcon icon={faTrash} /></button>
+                            </div>
+                          </div>
                         );
                       })}
-                    </tbody>
-                  </table>
-                  {filteredStores.length === 0 && (
-                    <div className="empty-state">
-                      <FontAwesomeIcon icon={faStore} className="empty-state-icon" />
-                      <div>No se encontraron tiendas</div>
+                      {filteredStores.length === 0 && (
+                        <div className="empty-state">
+                          <FontAwesomeIcon icon={faStore} className="empty-state-icon" />
+                          <div>No se encontraron tiendas</div>
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <>
+                      <table className="table admin-table">
+                        <thead>
+                          <tr>
+                            <th>Tienda</th>
+                            <th>Propietario</th>
+                            <th className="text-center">Prods.</th>
+                            <th className="text-center">Pedidos</th>
+                            <th className="text-center">Últ. pedido</th>
+                            <th className="text-center">Estado</th>
+                            <th className="text-center">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredStores.map(store => {
+                            const lastOrder = store.last_order_at ? new Date(store.last_order_at) : null;
+                            const diffDays = lastOrder ? Math.floor((now - lastOrder.getTime()) / DAY_MS) : null;
+                            const actColor = diffDays === null ? '#6b7280' : diffDays < 7 ? '#22c55e' : diffDays < 30 ? '#3b82f6' : '#f59e0b';
+                            const actLabel = diffDays === null ? 'Sin pedidos' : diffDays === 0 ? 'Hoy' : diffDays === 1 ? 'Ayer' : `Hace ${diffDays}d`;
+                            return (
+                              <tr key={store.id}>
+                                <td>
+                                  <div className="font-bold">{store.name}</div>
+                                  <div className="text-sm text-muted">Code: {store.code}</div>
+                                </td>
+                                <td>
+                                  <div className="text-muted">{store.user_email}</div>
+                                  <div className="text-sm text-muted">{store.user_business || '-'}</div>
+                                </td>
+                                <td className="text-center"><span className="badge badge-gold">{store.product_count}</span></td>
+                                <td className="text-center">
+                                  <div><span className="badge badge-dark">{store.order_count}</span></div>
+                                  {store.orders_30d > 0 && <div style={{ fontSize: '10px', color: '#3b82f6', marginTop: '3px' }}>+{store.orders_30d} (30d)</div>}
+                                </td>
+                                <td className="text-center"><span style={{ fontSize: '12px', fontWeight: '700', color: actColor }}>{actLabel}</span></td>
+                                <td className="text-center">
+                                  {store.is_banned ? <span className="badge badge-danger">Baneada</span> : <span className="badge badge-success">Activa</span>}
+                                </td>
+                                <td className="text-center">
+                                  <button className={`btn btn-sm btn-icon ${store.is_banned ? 'btn-unban' : 'btn-ban'}`} onClick={() => handleToggleBanStore(store)} title={store.is_banned ? 'Desbanear' : 'Banear'}><FontAwesomeIcon icon={store.is_banned ? faCheck : faBan} /></button>
+                                  <button className="btn btn-sm btn-icon btn-delete" onClick={() => setShowDeleteConfirm({ type: 'store', id: store.id, name: store.name })} title="Eliminar"><FontAwesomeIcon icon={faTrash} /></button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {filteredStores.length === 0 && (
+                        <div className="empty-state">
+                          <FontAwesomeIcon icon={faStore} className="empty-state-icon" />
+                          <div>No se encontraron tiendas</div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
             ) : activeTab === 'subscriptions' ? (
               <div className="admin-table-wrapper">
-                <table className="table admin-table">
-                  <thead>
-                    <tr>
-                      <th>Usuario</th>
-                      <th className="hide-mobile">Email</th>
-                      <th className="hide-mobile">Plan Actual</th>
-                      <th className="text-center hide-mobile">Precio</th>
-                      <th className="text-center hide-mobile">Vencimiento</th>
-                      <th className="text-center">Estado</th>
-                      <th className="text-center">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {subscriptions.map(sub => (
-                      <tr key={sub.email} className="clickable-row"
-                          onClick={() => { setSelectedSubscription(sub); setShowSubscriptionModal(true); }}>
-                        <td>
-                          <div className="font-bold">{sub.username}</div>
-                          <div className="text-sm text-muted hide-mobile">{sub.business_name || '-'}</div>
-                        </td>
-                        <td className="hide-mobile">{sub.email}</td>
-                        <td className="hide-mobile">
-                          <span className={`badge ${sub.current_plan === 'Gratis' || !sub.current_plan ? 'badge-gray' : 'badge-gold'}`}>
-                            {sub.current_plan || 'Gratis'}
-                          </span>
-                        </td>
-                        <td className="text-center hide-mobile">
-                          <div className="font-bold">
-                            {!sub.current_plan || sub.current_plan === 'Gratis' ? 'Gratis' :
-                              sub.current_billing_cycle === 'monthly'
-                                ? `$${sub.current_price_monthly}/mes`
-                                : `$${sub.current_price_yearly}/ano`}
+                {isMobile ? (
+                  <div className="sa-cards-list">
+                    {subscriptions.map(sub => {
+                      const isActive = sub.current_is_active && sub.current_ends_at && new Date(sub.current_ends_at) > new Date();
+                      const isCancelled = sub.current_is_active === false;
+                      const isPaid = sub.current_plan && sub.current_plan !== 'Gratis';
+                      return (
+                        <div key={sub.email} className="sa-item-card" onClick={() => { setSelectedSubscription(sub); setShowSubscriptionModal(true); }} style={{ cursor: 'pointer' }}>
+                          <div className="sa-item-card-top">
+                            <div className="sa-item-card-info">
+                              <div className="sa-item-card-title">{sub.username}</div>
+                              <div className="sa-item-card-sub">{sub.email}</div>
+                              {sub.business_name && <div className="sa-item-card-sub">{sub.business_name}</div>}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
+                              <span className={`badge ${isPaid ? 'badge-gold' : 'badge-gray'}`}>{sub.current_plan || 'Gratis'}</span>
+                              {isActive ? <span className="badge badge-success">Activo</span> : isCancelled ? <span className="badge badge-danger">Cancelado</span> : <span className="badge badge-gray">Gratis</span>}
+                            </div>
                           </div>
-                        </td>
-                        <td className="text-center hide-mobile text-muted">
-                          {sub.current_ends_at ? new Date(sub.current_ends_at).toLocaleDateString('es-ES') : '-'}
-                        </td>
-                        <td className="text-center">
-                          {sub.current_is_active && sub.current_ends_at && new Date(sub.current_ends_at) > new Date() ? (
-                            <span className="badge badge-success">Activo</span>
-                          ) : sub.current_is_active === false ? (
-                            <span className="badge badge-danger">Cancelado</span>
-                          ) : (
-                            <span className="badge badge-gray">Gratis</span>
-                          )}
-                        </td>
-                        <td className="text-center">
-                          <button
-                            className="btn btn-sm btn-primary"
-                            onClick={(e) => { e.stopPropagation(); setSelectedSubscription(sub); setShowSubscriptionModal(true); }}
-                            style={{ marginRight: '4px' }}
-                          >
-                            Ver
-                          </button>
-                          <button
-                            className="btn btn-sm"
-                            style={{ background: '#D4AF37', color: '#fff', border: 'none' }}
-                            onClick={(e) => { e.stopPropagation(); openPremiumModal(sub); }}
-                          >
-                            Dar Premium
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {subscriptions.length === 0 && (
-                  <div className="empty-state">
-                    <FontAwesomeIcon icon={faCreditCard} className="empty-state-icon" />
-                    <div>No hay suscripciones</div>
+                          <div className="sa-item-card-stats">
+                            {isPaid && (
+                              <span style={{ fontWeight: 700 }}>
+                                {sub.current_billing_cycle === 'monthly' ? `$${sub.current_price_monthly}/mes` : `$${sub.current_price_yearly}/año`}
+                              </span>
+                            )}
+                            {sub.current_ends_at && <span style={{ color: '#aaa' }}>Vence: {new Date(sub.current_ends_at).toLocaleDateString('es-ES')}</span>}
+                          </div>
+                          <div className="sa-item-card-actions">
+                            <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); setSelectedSubscription(sub); setShowSubscriptionModal(true); }}>Ver</button>
+                            <button className="btn btn-sm" style={{ background: '#D4AF37', color: '#fff', border: 'none' }} onClick={(e) => { e.stopPropagation(); openPremiumModal(sub); }}>Premium</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {subscriptions.length === 0 && (
+                      <div className="empty-state">
+                        <FontAwesomeIcon icon={faCreditCard} className="empty-state-icon" />
+                        <div>No hay suscripciones</div>
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  <>
+                    <table className="table admin-table">
+                      <thead>
+                        <tr>
+                          <th>Usuario</th>
+                          <th>Email</th>
+                          <th>Plan Actual</th>
+                          <th className="text-center">Precio</th>
+                          <th className="text-center">Vencimiento</th>
+                          <th className="text-center">Estado</th>
+                          <th className="text-center">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {subscriptions.map(sub => (
+                          <tr key={sub.email} className="clickable-row" onClick={() => { setSelectedSubscription(sub); setShowSubscriptionModal(true); }}>
+                            <td>
+                              <div className="font-bold">{sub.username}</div>
+                              <div className="text-sm text-muted">{sub.business_name || '-'}</div>
+                            </td>
+                            <td>{sub.email}</td>
+                            <td>
+                              <span className={`badge ${sub.current_plan === 'Gratis' || !sub.current_plan ? 'badge-gray' : 'badge-gold'}`}>{sub.current_plan || 'Gratis'}</span>
+                            </td>
+                            <td className="text-center">
+                              <div className="font-bold">
+                                {!sub.current_plan || sub.current_plan === 'Gratis' ? 'Gratis' : sub.current_billing_cycle === 'monthly' ? `$${sub.current_price_monthly}/mes` : `$${sub.current_price_yearly}/ano`}
+                              </div>
+                            </td>
+                            <td className="text-center text-muted">{sub.current_ends_at ? new Date(sub.current_ends_at).toLocaleDateString('es-ES') : '-'}</td>
+                            <td className="text-center">
+                              {sub.current_is_active && sub.current_ends_at && new Date(sub.current_ends_at) > new Date() ? (
+                                <span className="badge badge-success">Activo</span>
+                              ) : sub.current_is_active === false ? (
+                                <span className="badge badge-danger">Cancelado</span>
+                              ) : (
+                                <span className="badge badge-gray">Gratis</span>
+                              )}
+                            </td>
+                            <td className="text-center">
+                              <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); setSelectedSubscription(sub); setShowSubscriptionModal(true); }} style={{ marginRight: '4px' }}>Ver</button>
+                              <button className="btn btn-sm" style={{ background: '#D4AF37', color: '#fff', border: 'none' }} onClick={(e) => { e.stopPropagation(); openPremiumModal(sub); }}>Dar Premium</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {subscriptions.length === 0 && (
+                      <div className="empty-state">
+                        <FontAwesomeIcon icon={faCreditCard} className="empty-state-icon" />
+                        <div>No hay suscripciones</div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ) : activeTab === 'workshop' ? (
@@ -1628,69 +1686,85 @@ function SuperadminDashboard() {
                   {saOrdersLoading ? 'Cargando...' : `${saOrders.length} pedidos mostrados de ${saOrdersTotal} total`}
                 </div>
 
-                {/* Tabla */}
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: '#f5f5f5', borderBottom: '2px solid #e0e0e0' }}>
-                        {['#', 'Tienda', 'Total', 'Pago', 'Estado', 'Tipo', 'Hora', 'Acciones'].map(h => (
-                          <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {saOrdersLoading ? (
-                        <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: '#888' }}>Cargando pedidos...</td></tr>
-                      ) : saOrders.length === 0 ? (
-                        <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: '#888' }}>No hay pedidos</td></tr>
-                      ) : saOrders.map(o => (
-                        <tr key={o.id} style={{ borderBottom: '1px solid #eee', background: saOrderDetail?.id === o.id ? '#fffbe6' : 'white' }}>
-                          <td style={{ padding: '9px 12px', fontWeight: 700 }}>{o.order_number || o.id}</td>
-                          <td style={{ padding: '9px 12px', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.store_name || `#${o.store_id}`}{o.store_code ? ` [${o.store_code}]` : ''}</td>
-                          <td style={{ padding: '9px 12px', fontWeight: 700, color: '#22c55e' }}>${parseFloat(o.total).toLocaleString()}</td>
-                          <td style={{ padding: '9px 12px' }}>
-                            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                              background: o.payment_method === 'cash' ? '#fef3c7' : o.payment_method === 'card' ? '#dbeafe' : '#f3e8ff',
-                              color: o.payment_method === 'cash' ? '#92400e' : o.payment_method === 'card' ? '#1e40af' : '#7e22ce' }}>
-                              {o.payment_method === 'cash' ? 'Efectivo' : o.payment_method === 'card' ? 'Tarjeta' : o.payment_method || '—'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '9px 12px' }}>
-                            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                              background: o.status === 'completed' ? '#dcfce7' : o.status === 'cancelled' ? '#fee2e2' : '#fef9c3',
-                              color: o.status === 'completed' ? '#166534' : o.status === 'cancelled' ? '#991b1b' : '#854d0e' }}>
+                {/* Tabla / Tarjetas */}
+                {saOrdersLoading ? (
+                  <div className="empty-state"><div>Cargando pedidos...</div></div>
+                ) : saOrders.length === 0 ? (
+                  <div className="empty-state"><div>No hay pedidos</div></div>
+                ) : isMobile ? (
+                  <div className="sa-cards-list">
+                    {saOrders.map(o => (
+                      <div key={o.id} className="sa-item-card">
+                        <div className="sa-item-card-top">
+                          <div className="sa-item-card-info">
+                            <div className="sa-item-card-title">#{o.order_number || o.id} — {o.store_name || `#${o.store_id}`}{o.store_code ? ` [${o.store_code}]` : ''}</div>
+                            <div className="sa-item-card-sub">{new Date(o.created_at).toLocaleString('es', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · {o.table_number != null ? `Mesa ${o.table_number}` : o.order_type === 'delivery' ? 'Delivery' : 'Para llevar'}</div>
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{ fontSize: 16, fontWeight: 800, color: '#22c55e' }}>${parseFloat(o.total).toLocaleString()}</div>
+                            <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600, background: o.status === 'completed' ? '#dcfce7' : o.status === 'cancelled' ? '#fee2e2' : '#fef9c3', color: o.status === 'completed' ? '#166534' : o.status === 'cancelled' ? '#991b1b' : '#854d0e' }}>
                               {o.status === 'completed' ? 'Completado' : o.status === 'cancelled' ? 'Cancelado' : 'Pendiente'}
                             </span>
-                          </td>
-                          <td style={{ padding: '9px 12px', fontSize: 12, color: '#555' }}>
-                            {o.table_number != null ? `Mesa ${o.table_number}` : o.order_type === 'delivery' ? 'Delivery' : 'Llevar'}
-                          </td>
-                          <td style={{ padding: '9px 12px', fontSize: 12, color: '#555', whiteSpace: 'nowrap' }}>
-                            {new Date(o.created_at).toLocaleString('es', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td style={{ padding: '9px 12px' }}>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <button title="Ver detalle" onClick={() => openSaOrderDetail(o)}
-                                style={{ background: '#3b82f6', border: 'none', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>
-                                <FontAwesomeIcon icon={faInfoCircle} />
-                              </button>
-                              {o.status !== 'completed' && (
-                                <button title="Marcar pagado" onClick={() => saMarkPaid(o.id)}
-                                  style={{ background: '#22c55e', border: 'none', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>
-                                  <FontAwesomeIcon icon={faMoneyBillWave} />
-                                </button>
-                              )}
-                              <button title="Eliminar" onClick={() => setSaDeleteConfirm(o)}
-                                style={{ background: '#ef4444', border: 'none', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#fff', fontSize: 12 }}>
-                                <FontAwesomeIcon icon={faTrash} />
-                              </button>
-                            </div>
-                          </td>
+                          </div>
+                        </div>
+                        <div className="sa-item-card-stats">
+                          <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: o.payment_method === 'cash' ? '#fef3c7' : o.payment_method === 'card' ? '#dbeafe' : '#f3e8ff', color: o.payment_method === 'cash' ? '#92400e' : o.payment_method === 'card' ? '#1e40af' : '#7e22ce' }}>
+                            {o.payment_method === 'cash' ? 'Efectivo' : o.payment_method === 'card' ? 'Tarjeta' : o.payment_method || '—'}
+                          </span>
+                        </div>
+                        <div className="sa-item-card-actions">
+                          <button onClick={() => openSaOrderDetail(o)} style={{ flex: 1, background: '#3b82f6', border: 'none', borderRadius: 8, padding: '9px', cursor: 'pointer', color: '#fff', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><FontAwesomeIcon icon={faInfoCircle} /> Ver</button>
+                          {o.status !== 'completed' && (
+                            <button onClick={() => saMarkPaid(o.id)} style={{ flex: 1, background: '#22c55e', border: 'none', borderRadius: 8, padding: '9px', cursor: 'pointer', color: '#fff', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><FontAwesomeIcon icon={faMoneyBillWave} /> Pagar</button>
+                          )}
+                          <button onClick={() => setSaDeleteConfirm(o)} style={{ background: '#ef4444', border: 'none', borderRadius: 8, padding: '9px 14px', cursor: 'pointer', color: '#fff', fontSize: 13 }}><FontAwesomeIcon icon={faTrash} /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#f5f5f5', borderBottom: '2px solid #e0e0e0' }}>
+                          {['#', 'Tienda', 'Total', 'Pago', 'Estado', 'Tipo', 'Hora', 'Acciones'].map(h => (
+                            <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {saOrders.map(o => (
+                          <tr key={o.id} style={{ borderBottom: '1px solid #eee', background: saOrderDetail?.id === o.id ? '#fffbe6' : 'white' }}>
+                            <td style={{ padding: '9px 12px', fontWeight: 700 }}>{o.order_number || o.id}</td>
+                            <td style={{ padding: '9px 12px', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.store_name || `#${o.store_id}`}{o.store_code ? ` [${o.store_code}]` : ''}</td>
+                            <td style={{ padding: '9px 12px', fontWeight: 700, color: '#22c55e' }}>${parseFloat(o.total).toLocaleString()}</td>
+                            <td style={{ padding: '9px 12px' }}>
+                              <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: o.payment_method === 'cash' ? '#fef3c7' : o.payment_method === 'card' ? '#dbeafe' : '#f3e8ff', color: o.payment_method === 'cash' ? '#92400e' : o.payment_method === 'card' ? '#1e40af' : '#7e22ce' }}>
+                                {o.payment_method === 'cash' ? 'Efectivo' : o.payment_method === 'card' ? 'Tarjeta' : o.payment_method || '—'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '9px 12px' }}>
+                              <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: o.status === 'completed' ? '#dcfce7' : o.status === 'cancelled' ? '#fee2e2' : '#fef9c3', color: o.status === 'completed' ? '#166534' : o.status === 'cancelled' ? '#991b1b' : '#854d0e' }}>
+                                {o.status === 'completed' ? 'Completado' : o.status === 'cancelled' ? 'Cancelado' : 'Pendiente'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '9px 12px', fontSize: 12, color: '#555' }}>{o.table_number != null ? `Mesa ${o.table_number}` : o.order_type === 'delivery' ? 'Delivery' : 'Llevar'}</td>
+                            <td style={{ padding: '9px 12px', fontSize: 12, color: '#555', whiteSpace: 'nowrap' }}>{new Date(o.created_at).toLocaleString('es', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                            <td style={{ padding: '9px 12px' }}>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button title="Ver detalle" onClick={() => openSaOrderDetail(o)} style={{ background: '#3b82f6', border: 'none', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#fff', fontSize: 12 }}><FontAwesomeIcon icon={faInfoCircle} /></button>
+                                {o.status !== 'completed' && (
+                                  <button title="Marcar pagado" onClick={() => saMarkPaid(o.id)} style={{ background: '#22c55e', border: 'none', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#fff', fontSize: 12 }}><FontAwesomeIcon icon={faMoneyBillWave} /></button>
+                                )}
+                                <button title="Eliminar" onClick={() => setSaDeleteConfirm(o)} style={{ background: '#ef4444', border: 'none', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#fff', fontSize: 12 }}><FontAwesomeIcon icon={faTrash} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             ) : null}
           </div>

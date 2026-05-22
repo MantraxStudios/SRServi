@@ -6783,6 +6783,107 @@ html body .store-container .store-product-card * {
   }
 }
 
+/* ============================================
+   Superadmin Item Cards (mobile list view)
+   ============================================ */
+.sa-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.sa-item-card {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  transition: box-shadow 0.15s;
+}
+
+.sa-item-card:hover {
+  box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+}
+
+.sa-item-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.sa-item-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sa-item-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.sa-item-card-sub {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.sa-item-card-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #666;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.sa-item-card-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.sa-item-card-actions .btn-sm {
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+  min-width: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
+   Superadmin Content General Improvements
+   ============================================ */
+.admin-layout .admin-content .card {
+  border-radius: 14px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+  border: 1px solid #ebebeb;
+}
+
+.admin-layout .card-toolbar {
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 0;
+}
+
 /* Superadmin tablet breakpoint */
 @media (max-width: 1100px) and (min-width: 769px) {
   .admin-layout .admin-sidebar {

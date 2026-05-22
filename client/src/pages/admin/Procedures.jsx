@@ -20,6 +20,18 @@ const API = 'https://srservi2.srautomatic.com';
 const GOLD = '#D4AF37';
 
 const emptyStep = () => ({ title: '', instruction: '', tip: '', image_url: '' });
+const emptyDesign = () => ({ theme: 'dark', bgColor: '#111111', accentColor: '#D4AF37', coverImage: '' });
+
+const THEMES = [
+  { id: 'dark',    name: 'Dark Pro',      bg: '#111111', accent: '#D4AF37', text: '#fff' },
+  { id: 'white',   name: 'Clásico',       bg: '#ffffff', accent: '#111111', text: '#111' },
+  { id: 'gold',    name: 'Gold Rush',     bg: '#7a5c00', accent: '#FFD700', text: '#fff' },
+  { id: 'red',     name: 'Bistro Rojo',   bg: '#991b1b', accent: '#fca5a5', text: '#fff' },
+  { id: 'green',   name: 'Cocina Verde',  bg: '#14532d', accent: '#86efac', text: '#fff' },
+  { id: 'blue',    name: 'Azul Marino',   bg: '#1e3a8a', accent: '#93c5fd', text: '#fff' },
+  { id: 'purple',  name: 'Morado Chef',   bg: '#4c1d95', accent: '#c4b5fd', text: '#fff' },
+  { id: 'slate',   name: 'Pizarra',       bg: '#1e293b', accent: '#94a3b8', text: '#fff' },
+];
 
 const stripHtml = (html) => (html || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
 
