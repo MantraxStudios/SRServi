@@ -6043,9 +6043,11 @@ html body .store-container .store-product-card * {
   transition: width var(--transition-slow);
   position: fixed;
   top: 0;
-  right: 0;
+  left: 0;
   height: 100vh;
   z-index: 1000;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .admin-layout .admin-sidebar.collapsed {
@@ -6144,15 +6146,18 @@ html body .store-container .store-product-card * {
 }
 
 .admin-layout .admin-main {
-  margin-right: 240px;
+  margin-left: 240px;
   flex: 1;
   min-height: 100vh;
   background: #fafafa;
   transition: margin-left var(--transition-slow);
+  width: calc(100% - 240px);
+  min-width: 0;
 }
 
 .admin-layout .admin-main.sidebar-collapsed {
   margin-left: 64px;
+  width: calc(100% - 64px);
 }
 
 .admin-header-title {
@@ -6169,9 +6174,22 @@ html body .store-container .store-product-card * {
   background: none;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   color: var(--foreground);
+  flex-shrink: 0;
+}
+
+.admin-layout .admin-main .admin-content {
+  padding: 20px 24px;
+  min-height: calc(100vh - 80px);
+}
+
+.admin-layout .admin-main .admin-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--card);
 }
 
 .stats-badges {
@@ -6679,20 +6697,27 @@ html body .store-container .store-product-card * {
 /* Superadmin responsive */
 @media (max-width: 768px) {
   .admin-layout .admin-sidebar {
-    left: -260px;
-    width: 260px;
+    left: -280px;
+    width: 280px;
+    transition: left 0.25s ease, width 0.25s ease;
+    box-shadow: none;
   }
 
   .admin-layout .admin-sidebar.mobile-open {
     left: 0;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
   }
 
   .admin-layout .admin-main {
-    margin-left: 0;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
   }
 
-  .admin-layout .admin-main.sidebar-open {
-    margin-left: 0;
+  .admin-layout .admin-main.sidebar-open,
+  .admin-layout .admin-main.sidebar-collapsed {
+    margin-left: 0 !important;
+    width: 100% !important;
   }
 
   .mobile-menu-btn {
@@ -6700,7 +6725,7 @@ html body .store-container .store-product-card * {
   }
 
   .hide-mobile {
-    display: none;
+    display: none !important;
   }
 
   .stats-badges {
@@ -6709,10 +6734,77 @@ html body .store-container .store-product-card * {
 
   .card-toolbar {
     flex-direction: column;
+    gap: 8px;
   }
 
   .search-wrapper {
     width: 100%;
+    min-width: unset;
+  }
+
+  .admin-header {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+
+  .admin-header-title {
+    font-size: 17px;
+  }
+
+  .admin-header-subtitle {
+    display: none;
+  }
+
+  .admin-layout .admin-main .admin-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .admin-content {
+    padding: 12px;
+  }
+
+  .card {
+    padding: 12px;
+  }
+
+  .badge-group {
+    gap: 6px;
+  }
+
+  .admin-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar-toggle-btn {
+    display: none;
+  }
+}
+
+/* Superadmin tablet breakpoint */
+@media (max-width: 1100px) and (min-width: 769px) {
+  .admin-layout .admin-sidebar {
+    width: 200px;
+  }
+  .admin-layout .admin-main {
+    margin-left: 200px;
+    width: calc(100% - 200px);
+  }
+  .admin-layout .admin-main.sidebar-collapsed {
+    margin-left: 64px;
+    width: calc(100% - 64px);
+  }
+  .admin-header-title {
+    font-size: 18px;
+  }
+  .stats-badges {
+    gap: 6px;
+  }
+  .stat-badge {
+    padding: 4px 10px;
+    font-size: 12px;
   }
 }
 
