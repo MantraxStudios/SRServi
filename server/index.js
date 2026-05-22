@@ -10654,6 +10654,82 @@ async function startServer() {
       } catch (e) { res.status(500).json({ error: e.message }); }
     });
 
+    // Custom Creations (canvas 1920×1080)
+    const ensureCustomCreations = async () => {
+      await pool.execute(`CREATE TABLE IF NOT EXISTS custom_creations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        store_id INT NOT NULL,
+        title VARCHAR(255) NOT NULL DEFAULT 'Sin título',
+        background_image TEXT,
+        elements JSON,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )`);
+    };
+
+    app.get('/api/custom-creations', authenticateToken, async (req, res) => {
+      try {
+        await ensureCustomCreations();
+        const storeId = parseInt(req.query.store_id);
+        if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+        const store = await getStoreById(storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        const [rows] = await pool.execute('SELECT * FROM custom_creations WHERE store_id = ? ORDER BY created_at DESC', [storeId]);
+        res.json(rows.map(r => ({ ...r, elements: r.elements ? (typeof r.elements === 'string' ? JSON.parse(r.elements) : r.elements) : [] })));
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.post('/api/custom-creations', authenticateToken, async (req, res) => {
+      try {
+        await ensureCustomCreations();
+        const { store_id, title, background_image, elements } = req.body;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const store = await getStoreById(parseInt(store_id));
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        const [result] = await pool.execute(
+          'INSERT INTO custom_creations (store_id, title, background_image, elements) VALUES (?, ?, ?, ?)',
+          [parseInt(store_id), title || 'Sin título', background_image || '', JSON.stringify(elements || [])]
+        );
+        res.json({ id: result.insertId });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.put('/api/custom-creations/:id', authenticateToken, async (req, res) => {
+      try {
+        await ensureCustomCreations();
+        const { store_id, title, background_image, elements } = req.body;
+        if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+        const store = await getStoreById(parseInt(store_id));
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        await pool.execute(
+          'UPDATE custom_creations SET title = ?, background_image = ?, elements = ?, updated_at = NOW() WHERE id = ? AND store_id = ?',
+          [title || 'Sin título', background_image || '', JSON.stringify(elements || []), parseInt(req.params.id), parseInt(store_id)]
+        );
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.delete('/api/custom-creations/:id', authenticateToken, async (req, res) => {
+      try {
+        await ensureCustomCreations();
+        const storeId = parseInt(req.query.store_id);
+        const store = await getStoreById(storeId);
+        if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+        await pool.execute('DELETE FROM custom_creations WHERE id = ? AND store_id = ?', [parseInt(req.params.id), storeId]);
+        res.json({ success: true });
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
+    app.get('/api/public/custom-creations/:storeCode', async (req, res) => {
+      try {
+        await ensureCustomCreations();
+        const store = await getStoreByCode(req.params.storeCode.toUpperCase());
+        if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+        const [rows] = await pool.execute('SELECT * FROM custom_creations WHERE store_id = ? ORDER BY created_at DESC', [store.id]);
+        res.json(rows.map(r => ({ ...r, elements: r.elements ? (typeof r.elements === 'string' ? JSON.parse(r.elements) : r.elements) : [] })));
+      } catch (e) { res.status(500).json({ error: e.message }); }
+    });
+
     // León IA procedure generation
     app.post('/api/brain/generate-procedure', authenticateToken, async (req, res) => {
       try {

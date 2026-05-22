@@ -400,6 +400,8 @@ function WorkerPanel() {
   const [procStep, setProcStep] = useState(0);
   const [prepTables, setPrepTables] = useState([]);
   const [activePrepTable, setActivePrepTable] = useState(null);
+  const [customCreations, setCustomCreations] = useState([]);
+  const [activeCustomCreation, setActiveCustomCreation] = useState(null);
   const [lightboxImg, setLightboxImg] = useState(null);
   const [addonImages, setAddonImages] = useState({}); // { 'nombre en minúscula': 'url imagen' }
   const [showNewOrder, setShowNewOrder] = useState(false);
@@ -452,6 +454,9 @@ function WorkerPanel() {
 
       fetch(`${BASE}/api/public/prep-tables/${code}`)
         .then(r => r.ok ? r.json() : []).then(data => { if (Array.isArray(data)) setPrepTables(data); }).catch(() => {});
+
+      fetch(`${BASE}/api/public/custom-creations/${code}`)
+        .then(r => r.ok ? r.json() : []).then(data => { if (Array.isArray(data)) setCustomCreations(data); }).catch(() => {});
 
       // Cargar imágenes de extras e ingredientes para mostrar en órdenes
       Promise.all([
@@ -1637,7 +1642,34 @@ function WorkerPanel() {
                 ))}
               </div>
             )}
-            {procedures.length === 0 && prepTables.length === 0 ? (
+            {/* Creaciones personalizadas */}
+            {customCreations.length > 0 && (
+              <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {customCreations.map(c => (
+                  <button key={c.id} onClick={() => setActiveCustomCreation(c)}
+                    style={{ width: '100%', padding: 0, background: '#111', border: '1px solid #2a2a2a', borderRadius: 12, cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'stretch' }}>
+                    <div style={{ width: 100, flexShrink: 0, background: '#1a1a1a', position: 'relative', minHeight: 58 }}>
+                      {c.background_image ? (
+                        <img src={c.background_image.startsWith('http') ? c.background_image : 'https://srservi2.srautomatic.com' + c.background_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 58 }}>
+                          <span style={{ fontSize: 22 }}>🎨</span>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, padding: '12px 14px', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>{c.title}</div>
+                        <div style={{ fontSize: 11, color: '#555', marginTop: 2 }}>Creación personalizada · 1920×1080</div>
+                      </div>
+                      <span style={{ color: '#D4AF37', fontSize: 18 }}>›</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {procedures.length === 0 && prepTables.length === 0 && customCreations.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 24px', color: '#555' }}>
                 <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 40, marginBottom: 14, display: 'block', margin: '0 auto 14px', color: '#333' }} />
                 <div style={{ fontSize: 15, color: '#666' }}>No hay guías todavía.</div>
@@ -2234,6 +2266,52 @@ function WorkerPanel() {
           onOrderCreated={() => fetchOrders(worker.store_id)}
         />
       )}
+
+      {/* Creación personalizada full-screen */}
+      {activeCustomCreation && (() => {
+        const c = activeCustomCreation;
+        const CW = 1920, CH = 1080;
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid #111', flexShrink: 0, background: '#0a0a0a' }}>
+              <button onClick={() => setActiveCustomCreation(null)}
+                style={{ background: '#1e1e1e', border: 'none', borderRadius: 9, color: '#aaa', padding: '8px 12px', cursor: 'pointer', fontSize: 13 }}>
+                ← Volver
+              </button>
+              <div style={{ flex: 1, fontWeight: 800, fontSize: 15, color: '#fff', textAlign: 'center' }}>{c.title}</div>
+            </div>
+            {/* Canvas viewer — escala para llenar pantalla */}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: 8 }}>
+              <div style={{ position: 'relative', width: '100%', maxWidth: '100%', aspectRatio: `${CW}/${CH}` }}>
+                <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', borderRadius: 8 }}>
+                  {/* Fondo */}
+                  {c.background_image ? (
+                    <img src={c.background_image.startsWith('http') ? c.background_image : 'https://srservi2.srautomatic.com' + c.background_image}
+                      alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  ) : (
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)' }} />
+                  )}
+                  {/* Elementos de texto — posicionados porcentualmente */}
+                  {(c.elements || []).map(el => (
+                    <div key={el.id} style={{
+                      position: 'absolute',
+                      left: `${(el.x / CW) * 100}%`,
+                      top: `${(el.y / CH) * 100}%`,
+                      fontSize: `${(el.fontSize / CW) * 100}vw`,
+                      color: el.color, fontWeight: el.fontWeight,
+                      fontFamily: el.fontFamily, textShadow: el.textShadow,
+                      opacity: el.opacity, lineHeight: 1.15,
+                      whiteSpace: 'pre-wrap', pointerEvents: 'none',
+                    }}>
+                      {el.text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Tabla de preparación full-screen */}
       {activePrepTable && (

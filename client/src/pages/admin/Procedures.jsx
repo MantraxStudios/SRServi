@@ -935,6 +935,343 @@ function PrepTableEditor({ storeId, token }) {
 }
 
 
+/* ── Editor de creación personalizada (canvas 1920×1080) ── */
+const CW = 1920, CH = 1080;
+const FONTS = ['Arial', 'Impact', 'Georgia', 'Verdana', 'Trebuchet MS', 'Courier New', 'Times New Roman'];
+
+function CustomCreationEditor({ storeId, token }) {
+  const [creations, setCreations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [scale, setScale] = useState(0.5);
+  const [saveOk, setSaveOk] = useState(false);
+  const canvasWrapRef = useRef();
+  const bgRef = useRef();
+  const dragRef = useRef(null);
+
+  const load = async () => {
+    if (!storeId || !token) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/api/custom-creations?store_id=${storeId}`, { headers: { Authorization: 'Bearer ' + token } });
+      if (res.ok) setCreations(await res.json());
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, [storeId, token]);
+
+  useEffect(() => {
+    if (!editing) return;
+    const update = () => { if (canvasWrapRef.current) setScale(canvasWrapRef.current.offsetWidth / CW); };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [editing]);
+
+  const newCreation = () => {
+    setEditing({ id: null, title: 'Nueva creación', background_image: '', elements: [] });
+    setSelected(null);
+  };
+
+  const openEdit = (c) => { setEditing({ ...c, elements: c.elements || [] }); setSelected(null); };
+
+  const save = async () => {
+    if (!editing) return;
+    setSaving(true);
+    try {
+      const isNew = !editing.id;
+      const url = isNew ? `${API}/api/custom-creations` : `${API}/api/custom-creations/${editing.id}`;
+      const res = await fetch(url, {
+        method: isNew ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ store_id: storeId, title: editing.title, background_image: editing.background_image, elements: editing.elements })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (isNew && data.id) setEditing(p => ({ ...p, id: data.id }));
+        setSaveOk(true); setTimeout(() => setSaveOk(false), 1800);
+        await load();
+      }
+    } finally { setSaving(false); }
+  };
+
+  const del = async (id) => {
+    if (!confirm('¿Eliminar esta creación?')) return;
+    await fetch(`${API}/api/custom-creations/${id}?store_id=${storeId}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+    load();
+  };
+
+  const uploadBg = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData(); fd.append('image', file); fd.append('store_id', storeId);
+      const res = await fetch(`${API}/api/upload`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+      if (res.ok) { const d = await res.json(); setEditing(p => ({ ...p, background_image: d.url || d.path || d.file || '' })); }
+    } finally { setUploading(false); }
+  };
+
+  const addText = () => {
+    const el = { id: 'el_' + Date.now(), x: CW / 2 - 180, y: CH / 2 - 50, text: 'Texto nuevo', fontSize: 90, color: '#ffffff', fontWeight: '700', fontFamily: 'Arial', textShadow: '3px 3px 10px rgba(0,0,0,0.85)', opacity: 1 };
+    setEditing(p => ({ ...p, elements: [...p.elements, el] }));
+    setSelected(el.id);
+  };
+
+  const updateElem = (id, key, val) => setEditing(p => ({ ...p, elements: p.elements.map(el => el.id === id ? { ...el, [key]: val } : el) }));
+  const deleteElem = (id) => { setEditing(p => ({ ...p, elements: p.elements.filter(el => el.id !== id) })); setSelected(null); };
+
+  const startDrag = (e, id) => {
+    e.preventDefault(); e.stopPropagation();
+    const el = editing.elements.find(el => el.id === id);
+    if (!el) return;
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    dragRef.current = { id, startX: cx, startY: cy, origX: el.x, origY: el.y };
+    setSelected(id);
+  };
+
+  const onMove = (e) => {
+    if (!dragRef.current) return;
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    const { id, startX, startY, origX, origY } = dragRef.current;
+    const dx = (cx - startX) / scale;
+    const dy = (cy - startY) / scale;
+    setEditing(p => ({ ...p, elements: p.elements.map(el => el.id === id ? { ...el, x: origX + dx, y: origY + dy } : el) }));
+  };
+
+  const endDrag = () => { dragRef.current = null; };
+
+  const selectedEl = editing?.elements.find(el => el.id === selected);
+  const lbStyle = { display: 'block', fontSize: 10, fontWeight: 700, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.4px' };
+  const inputStyle = { width: '100%', padding: '7px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' };
+
+  if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#aaa' }}>Cargando...</div>;
+
+  /* ── Lista de creaciones ── */
+  if (!editing) return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button onClick={newCreation} style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: '#111', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7 }}>
+          <FontAwesomeIcon icon={faPlus} /> Nueva creación
+        </button>
+      </div>
+      {creations.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 24px', border: '2px dashed #e5e7eb', borderRadius: 14, color: '#9ca3af' }}>
+          <FontAwesomeIcon icon={faPalette} style={{ fontSize: 36, marginBottom: 12, display: 'block', margin: '0 auto 12px' }} />
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6, color: '#374151' }}>Sin creaciones todavía</div>
+          <div style={{ fontSize: 13, marginBottom: 18 }}>Diseñá imágenes 1920×1080 con textos y foto de fondo para mostrar en el panel de trabajadores</div>
+          <button onClick={newCreation} style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: GOLD, color: '#000', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+            <FontAwesomeIcon icon={faPlus} style={{ marginRight: 7 }} />Crear primera creación
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {creations.map(c => (
+            <div key={c.id} style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', display: 'flex', alignItems: 'stretch' }}>
+              <div style={{ width: 130, flexShrink: 0, background: '#111', position: 'relative', overflow: 'hidden', minHeight: 70 }}>
+                {c.background_image ? (
+                  <img src={imgSrc(c.background_image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 70 }}>
+                    <FontAwesomeIcon icon={faPalette} style={{ color: '#555', fontSize: 22 }} />
+                  </div>
+                )}
+              </div>
+              <button onClick={() => openEdit(c)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>{c.title}</div>
+                  <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>
+                    {(c.elements || []).length} elemento{(c.elements || []).length !== 1 ? 's' : ''} · 1920×1080
+                  </div>
+                </div>
+                <FontAwesomeIcon icon={faChevronDown} style={{ transform: 'rotate(-90deg)', color: '#bbb', fontSize: 11 }} />
+              </button>
+              <button onClick={() => del(c.id)} style={{ padding: '14px 16px', background: 'none', border: 'none', borderLeft: '1px solid #f3f4f6', cursor: 'pointer', color: '#ef4444', flexShrink: 0 }}>
+                <FontAwesomeIcon icon={faTrash} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  /* ── Editor canvas ── */
+  return (
+    <div onMouseMove={onMove} onMouseUp={endDrag} onTouchMove={e => { e.preventDefault(); onMove(e); }} onTouchEnd={endDrag}
+      style={{ userSelect: 'none', touchAction: 'none' }}>
+
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <button onClick={() => { setEditing(null); setSelected(null); }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontWeight: 600, fontSize: 13, padding: 0 }}>
+          <FontAwesomeIcon icon={faArrowLeft} /> Creaciones
+        </button>
+        <div style={{ width: 1, height: 20, background: '#e5e7eb' }} />
+        <input value={editing.title} onChange={e => setEditing(p => ({ ...p, title: e.target.value }))}
+          style={{ flex: 1, minWidth: 100, padding: '7px 12px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 14, fontWeight: 700, outline: 'none' }}
+          onFocus={e => e.target.style.borderColor = GOLD} onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+        />
+        <div style={{ width: 1, height: 20, background: '#e5e7eb' }} />
+        <input ref={bgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => uploadBg(e.target.files[0])} />
+        <button onClick={() => bgRef.current?.click()}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', color: '#374151', fontWeight: 600, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          <FontAwesomeIcon icon={uploading ? faSpinner : faImage} spin={uploading} style={{ color: GOLD }} />
+          {uploading ? 'Subiendo...' : 'Fondo'}
+        </button>
+        {editing.background_image && (
+          <button onClick={() => setEditing(p => ({ ...p, background_image: '' }))}
+            style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 13 }}>
+            <FontAwesomeIcon icon={faTimes} />
+          </button>
+        )}
+        <button onClick={addText}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', background: '#f3f4f6', color: '#374151', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          <FontAwesomeIcon icon={faPlus} /> Agregar texto
+        </button>
+        <button onClick={save} disabled={saving}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 8, border: 'none', background: saveOk ? '#16a34a' : '#111', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 0.2s' }}>
+          <FontAwesomeIcon icon={saveOk ? faCheck : saving ? faSpinner : faSave} spin={saving} />
+          {saveOk ? 'Guardado' : saving ? 'Guardando...' : 'Guardar'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        {/* Canvas */}
+        <div ref={canvasWrapRef} style={{ flex: '1 1 380px', minWidth: 0 }}>
+          <div style={{ width: '100%', position: 'relative', paddingTop: `${(CH / CW) * 100}%`, borderRadius: 10, overflow: 'hidden', border: '2px solid #333', background: '#111', cursor: 'default' }}>
+            <div style={{ position: 'absolute', inset: 0 }} onClick={() => setSelected(null)}>
+              {/* Inner canvas at full 1920×1080, scaled down */}
+              <div style={{ position: 'absolute', top: 0, left: 0, width: CW, height: CH, transformOrigin: 'top left', transform: `scale(${scale})` }}>
+                {editing.background_image ? (
+                  <img src={imgSrc(editing.background_image)} alt="fondo"
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }} />
+                ) : (
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)' }} />
+                )}
+                {editing.elements.map(el => (
+                  <div key={el.id}
+                    onMouseDown={e => startDrag(e, el.id)}
+                    onTouchStart={e => startDrag(e, el.id)}
+                    onClick={e => { e.stopPropagation(); setSelected(el.id); }}
+                    style={{
+                      position: 'absolute', left: el.x, top: el.y,
+                      fontSize: el.fontSize, color: el.color, fontWeight: el.fontWeight,
+                      fontFamily: el.fontFamily, textShadow: el.textShadow,
+                      opacity: el.opacity, lineHeight: 1.15, whiteSpace: 'pre-wrap',
+                      cursor: 'move', padding: 8, boxSizing: 'border-box',
+                      outline: selected === el.id ? `3px solid ${GOLD}` : 'none',
+                      outlineOffset: 6, borderRadius: 4,
+                    }}>
+                    {el.text}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', marginTop: 6 }}>
+            Canvas 1920×1080 · Arrastrá los textos para posicionarlos · Clic en vacío para deseleccionar
+          </div>
+        </div>
+
+        {/* Panel de propiedades */}
+        {selectedEl ? (
+          <div style={{ flex: '0 0 260px', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 14, padding: 16, minWidth: 220 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <span style={{ fontWeight: 800, fontSize: 13 }}>Propiedades</span>
+              <button onClick={() => deleteElem(selectedEl.id)} style={{ padding: '5px 9px', borderRadius: 7, border: '1px solid #fecaca', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>
+                <FontAwesomeIcon icon={faTrash} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={lbStyle}>Texto</label>
+              <textarea value={selectedEl.text} onChange={e => updateElem(selectedEl.id, 'text', e.target.value)} rows={3}
+                style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+                onFocus={e => e.target.style.borderColor = GOLD} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={lbStyle}>Tamaño: {selectedEl.fontSize}px</label>
+              <input type="range" min={12} max={500} value={selectedEl.fontSize} onChange={e => updateElem(selectedEl.id, 'fontSize', parseInt(e.target.value))}
+                style={{ width: '100%', accentColor: GOLD }} />
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={lbStyle}>Color</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input type="color" value={selectedEl.color} onChange={e => updateElem(selectedEl.id, 'color', e.target.value)}
+                  style={{ width: 38, height: 34, border: '1.5px solid #e5e7eb', borderRadius: 7, cursor: 'pointer', padding: 2 }} />
+                <input type="text" value={selectedEl.color} onChange={e => updateElem(selectedEl.id, 'color', e.target.value)} maxLength={7}
+                  style={{ ...inputStyle, fontFamily: 'monospace', flex: 1 }}
+                  onFocus={e => e.target.style.borderColor = GOLD} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={lbStyle}>Peso</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[['400', 'Normal'], ['700', 'Bold'], ['900', 'Black']].map(([val, lbl]) => (
+                  <button key={val} onClick={() => updateElem(selectedEl.id, 'fontWeight', val)}
+                    style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: `1.5px solid ${selectedEl.fontWeight === val ? GOLD : '#e5e7eb'}`, background: selectedEl.fontWeight === val ? '#fffdf0' : '#fff', cursor: 'pointer', fontWeight: val, fontSize: 11 }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={lbStyle}>Fuente</label>
+              <select value={selectedEl.fontFamily} onChange={e => updateElem(selectedEl.id, 'fontFamily', e.target.value)}
+                style={{ ...inputStyle }}>
+                {FONTS.map(f => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={lbStyle}>Sombra</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[['', 'No'], ['2px 2px 5px rgba(0,0,0,0.7)', 'Leve'], ['3px 3px 14px rgba(0,0,0,0.95)', 'Fuerte']].map(([val, lbl]) => (
+                  <button key={lbl} onClick={() => updateElem(selectedEl.id, 'textShadow', val)}
+                    style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: `1.5px solid ${selectedEl.textShadow === val ? GOLD : '#e5e7eb'}`, background: selectedEl.textShadow === val ? '#fffdf0' : '#fff', cursor: 'pointer', fontSize: 11 }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={lbStyle}>Opacidad: {Math.round(selectedEl.opacity * 100)}%</label>
+              <input type="range" min={10} max={100} value={Math.round(selectedEl.opacity * 100)} onChange={e => updateElem(selectedEl.id, 'opacity', parseInt(e.target.value) / 100)}
+                style={{ width: '100%', accentColor: GOLD }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <label style={lbStyle}>X</label>
+                <input type="number" value={Math.round(selectedEl.x)} onChange={e => updateElem(selectedEl.id, 'x', parseInt(e.target.value) || 0)} style={{ ...inputStyle, fontSize: 12 }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={lbStyle}>Y</label>
+                <input type="number" value={Math.round(selectedEl.y)} onChange={e => updateElem(selectedEl.id, 'y', parseInt(e.target.value) || 0)} style={{ ...inputStyle, fontSize: 12 }} />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ flex: '0 0 260px', background: '#f9fafb', border: '2px dashed #e5e7eb', borderRadius: 14, padding: 24, minWidth: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', textAlign: 'center', gap: 8 }}>
+            <FontAwesomeIcon icon={faPalette} style={{ fontSize: 28 }} />
+            <div style={{ fontSize: 13 }}>Hacé clic en un texto del canvas para editarlo</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Componente principal ── */
 export default function Procedures() {
   const { selectedStore } = useStore() || {};
@@ -1113,7 +1450,8 @@ export default function Procedures() {
         <div style={{ padding: '0 24px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 0, background: '#fff' }}>
           {[
             { key: 'guides', icon: faClipboardList, label: 'Guías paso a paso' },
-            { key: 'table', icon: faTable, label: 'Tabla de preparación' }
+            { key: 'table', icon: faTable, label: 'Tabla de preparación' },
+            { key: 'custom', icon: faPalette, label: 'Creación personalizada' }
           ].map(tab => (
             <button key={tab.key} onClick={() => setAdminTab(tab.key)} style={{
               padding: '12px 18px', border: 'none', background: 'none', cursor: 'pointer',
@@ -1131,6 +1469,8 @@ export default function Procedures() {
         <div className="admin-main">
           {adminTab === 'table' ? (
             <PrepTableEditor storeId={storeId} token={token} />
+          ) : adminTab === 'custom' ? (
+            <CustomCreationEditor storeId={storeId} token={token} />
           ) : procedures.length === 0 ? (
             <div style={{
               textAlign: 'center', padding: '60px 24px',
