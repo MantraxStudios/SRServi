@@ -7316,6 +7316,39 @@ app.get('/api/superadmin/orders/:id/items', authenticateSuperadminToken, async (
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Revenue por tienda (superadmin)
+app.get('/api/superadmin/revenue', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { date_from, date_to, status = 'completed' } = req.query;
+    let onExtra = '';
+    const params = [];
+    if (status && status !== 'all') { onExtra += ' AND o.status = ?'; params.push(status); }
+    if (date_from) { onExtra += ' AND DATE(o.created_at) >= ?'; params.push(date_from); }
+    if (date_to) { onExtra += ' AND DATE(o.created_at) <= ?'; params.push(date_to); }
+    const [rows] = await pool.execute(
+      `SELECT s.id, s.name, s.code, s.is_banned,
+        COUNT(o.id) AS total_orders,
+        COALESCE(SUM(o.total), 0) AS total_revenue,
+        COALESCE(AVG(o.total), 0) AS avg_order,
+        MAX(o.created_at) AS last_order
+       FROM stores s
+       LEFT JOIN orders o ON s.id = o.store_id${onExtra}
+       GROUP BY s.id, s.name, s.code, s.is_banned
+       ORDER BY total_revenue DESC`,
+      params
+    );
+    const result = rows.map(r => ({
+      ...r,
+      total_revenue: parseFloat(r.total_revenue) || 0,
+      avg_order: parseFloat(r.avg_order) || 0,
+      total_orders: parseInt(r.total_orders) || 0,
+    }));
+    const total_platform = result.reduce((s, r) => s + r.total_revenue, 0);
+    const total_orders_all = result.reduce((s, r) => s + r.total_orders, 0);
+    res.json({ stores: result, summary: { total_platform, total_orders: total_orders_all } });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Endpoint público para obtener la última versión
 app.get('/api/apk/latest', async (req, res) => {
   try {

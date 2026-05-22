@@ -6,7 +6,7 @@ import {
   faClipboardList, faPlus, faEdit, faTrash, faBrain,
   faImage, faSave, faTimes, faChevronUp, faChevronDown,
   faSpinner, faArrowLeft, faLightbulb, faGripLines,
-  faEye, faEyeSlash, faCheck, faTable, faPrint, faSearch
+  faEye, faEyeSlash, faCheck, faTable, faPrint, faSearch, faPalette
 } from '@fortawesome/free-solid-svg-icons';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -284,6 +284,138 @@ function ImageZone({ stepIdx, imageUrl, uploading, onUpload, onClear, onSelectUr
         <FontAwesomeIcon icon={faSearch} style={{ color: GOLD }} />
         Buscar imagen en internet
       </button>
+    </div>
+  );
+}
+
+/* ── Panel de diseño Photoshop-like ── */
+function DesignPanel({ design, onChange, storeId, token }) {
+  const d = design || emptyDesign();
+  const [uploading, setUploading] = useState(false);
+  const coverRef = useRef();
+
+  const set = (key, val) => onChange({ ...d, [key]: val });
+  const applyTheme = (theme) => onChange({ ...d, theme: theme.id, bgColor: theme.bg, accentColor: theme.accent });
+
+  const uploadCover = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData(); fd.append('image', file); fd.append('store_id', storeId);
+      const res = await fetch(`${API}/api/upload`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+      if (res.ok) { const data = await res.json(); set('coverImage', data.url || data.path || data.file || ''); }
+    } finally { setUploading(false); }
+  };
+
+  const textColor = THEMES.find(t => t.id === d.theme)?.text || '#fff';
+
+  return (
+    <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, padding: '20px', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+        <FontAwesomeIcon icon={faPalette} style={{ color: GOLD, fontSize: 15 }} />
+        <span style={{ fontWeight: 800, fontSize: 14, color: '#111' }}>Diseño de la guía</span>
+      </div>
+
+      {/* Temas preset */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Temas preset</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {THEMES.map(theme => (
+            <button key={theme.id} onClick={() => applyTheme(theme)} title={theme.name}
+              style={{
+                position: 'relative', width: 56, height: 40, borderRadius: 10, cursor: 'pointer', overflow: 'hidden', flexShrink: 0,
+                border: `2.5px solid ${d.theme === theme.id ? GOLD : '#e5e7eb'}`,
+                background: theme.bg,
+                boxShadow: d.theme === theme.id ? `0 0 0 3px ${GOLD}40` : 'none',
+                transition: 'border-color 0.15s, box-shadow 0.15s'
+              }}>
+              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 10, background: theme.accent, opacity: 0.9 }} />
+              {d.theme === theme.id && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FontAwesomeIcon icon={faCheck} style={{ color: theme.text, fontSize: 13, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} />
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6 }}>
+          {THEMES.find(t => t.id === d.theme)?.name || 'Personalizado'}
+        </div>
+      </div>
+
+      {/* Colores personalizados */}
+      <div style={{ display: 'flex', gap: 14, marginBottom: 18, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 140 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Fondo del encabezado</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input type="color" value={d.bgColor} onChange={e => set('bgColor', e.target.value)}
+              style={{ width: 40, height: 36, border: '1.5px solid #e5e7eb', borderRadius: 8, cursor: 'pointer', padding: 2 }} />
+            <input type="text" value={d.bgColor} onChange={e => set('bgColor', e.target.value)}
+              placeholder="#111111" maxLength={7}
+              style={{ flex: 1, padding: '8px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
+              onFocus={e => e.target.style.borderColor = GOLD}
+              onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+            />
+          </div>
+        </div>
+        <div style={{ flex: 1, minWidth: 140 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Color de acento</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input type="color" value={d.accentColor} onChange={e => set('accentColor', e.target.value)}
+              style={{ width: 40, height: 36, border: '1.5px solid #e5e7eb', borderRadius: 8, cursor: 'pointer', padding: 2 }} />
+            <input type="text" value={d.accentColor} onChange={e => set('accentColor', e.target.value)}
+              placeholder="#D4AF37" maxLength={7}
+              style={{ flex: 1, padding: '8px 10px', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 13, fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
+              onFocus={e => e.target.style.borderColor = GOLD}
+              onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Imagen de portada */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Imagen de portada</div>
+        <input ref={coverRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => uploadCover(e.target.files[0])} />
+        {d.coverImage ? (
+          <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', height: 110 }}>
+            <img src={imgSrc(d.coverImage)} alt="portada" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <button onClick={() => set('coverImage', '')}
+              style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: 8, color: '#fff', width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => coverRef.current?.click()}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '14px 16px', border: '2px dashed #d1d5db', borderRadius: 12, background: '#f9fafb', cursor: 'pointer', color: '#6b7280', fontSize: 13, fontWeight: 600, justifyContent: 'center', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = GOLD}
+            onMouseLeave={e => e.currentTarget.style.borderColor = '#d1d5db'}
+          >
+            <FontAwesomeIcon icon={uploading ? faSpinner : faImage} spin={uploading} />
+            {uploading ? 'Subiendo...' : 'Subir imagen de portada'}
+          </button>
+        )}
+      </div>
+
+      {/* Previsualización mini */}
+      <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+        <div style={{ background: d.bgColor, padding: '14px 16px', position: 'relative' }}>
+          {d.coverImage && (
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${imgSrc(d.coverImage)})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.28 }} />
+          )}
+          <div style={{ position: 'relative' }}>
+            <div style={{ color: d.accentColor, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 3 }}>Guía de preparación</div>
+            <div style={{ color: textColor, fontSize: 14, fontWeight: 800 }}>Vista previa del encabezado</div>
+          </div>
+        </div>
+        <div style={{ background: '#f9fafb', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 26, height: 26, borderRadius: '50%', background: d.accentColor, flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#111' }}>Paso 1 — Descripción</div>
+            <div style={{ fontSize: 11, color: '#888' }}>Instrucción del paso...</div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -607,7 +739,7 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
               <tr>
                 <th style={{ padding: '10px 14px', background: '#111', color: '#fff', fontSize: 12, fontWeight: 700, borderRight: '1px solid #333', width: 36, textAlign: 'center' }}>#</th>
                 {table.columns.map(col => (
-                  <th key={col.id} style={{ padding: '10px 16px', background: '#111', color: GOLD, fontSize: 12, fontWeight: 700, borderRight: '1px solid #333', textAlign: 'center', whiteSpace: 'nowrap', minWidth: 110 }}>{col.name}</th>
+                  <th key={col.id} style={{ padding: '10px 16px', background: '#111', color: GOLD, fontSize: 12, fontWeight: 700, borderRight: '1px solid #333', textAlign: 'left', whiteSpace: 'nowrap', minWidth: 180 }}>{col.name}</th>
                 ))}
               </tr>
             </thead>
@@ -618,18 +750,20 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
                   {table.columns.map(col => {
                     const colRows = col.rows || table.rows || 8;
                     if (rowIdx >= colRows) {
-                      return <td key={col.id} style={{ padding: '8px 10px', borderRight: '1px solid #f0f0f0', background: '#f3f4f6', minWidth: 110 }} />;
+                      return <td key={col.id} style={{ padding: '8px 10px', borderRight: '1px solid #f0f0f0', background: '#f3f4f6', minWidth: 180 }} />;
                     }
                     const cell = getCell(col.id, rowIdx);
                     const active = editingCell?.colId === col.id && editingCell?.rowIdx === rowIdx;
                     return (
                       <td key={col.id} onClick={() => openCell(col.id, rowIdx)}
-                        style={{ padding: '8px 10px', cursor: 'pointer', borderRight: '1px solid #f0f0f0', background: active ? '#fffdf0' : '#fff', transition: 'background 0.1s', verticalAlign: 'middle', textAlign: 'center', minWidth: 110 }}>
+                        style={{ padding: '8px 12px', cursor: 'pointer', borderRight: '1px solid #f0f0f0', background: active ? '#fffdf0' : '#fff', transition: 'background 0.1s', verticalAlign: 'middle', textAlign: 'left', minWidth: 180 }}>
                         {(cell.name || cell.image_url) ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                            {cell.image_url && <img src={cell.image_url.startsWith('http') ? cell.image_url : API + cell.image_url} alt="" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 8 }} />}
-                            {cell.name && <div style={{ fontSize: 11, fontWeight: 700, color: '#111', lineHeight: 1.2 }}>{cell.name}</div>}
-                            {cell.note && <div style={{ fontSize: 10, color: '#888' }}>{cell.note}</div>}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            {cell.image_url && <img src={cell.image_url.startsWith('http') ? cell.image_url : API + cell.image_url} alt="" style={{ width: 82, height: 82, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }} />}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              {cell.name && <div style={{ fontSize: 13, fontWeight: 700, color: '#111', lineHeight: 1.3 }}>{cell.name}</div>}
+                              {cell.note && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{cell.note}</div>}
+                            </div>
                           </div>
                         ) : <span style={{ color: '#d1d5db', fontSize: 18 }}>+</span>}
                       </td>
@@ -811,7 +945,7 @@ export default function Procedures() {
   const [adminTab, setAdminTab] = useState('guides'); // 'guides' | 'table'
   const [view, setView] = useState('list'); // 'list' | 'editor'
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ title: '', steps: [emptyStep()] });
+  const [form, setForm] = useState({ title: '', steps: [emptyStep()], design: emptyDesign() });
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genProduct, setGenProduct] = useState('');
@@ -840,7 +974,7 @@ export default function Procedures() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({ title: '', steps: [emptyStep()] });
+    setForm({ title: '', steps: [emptyStep()], design: emptyDesign() });
     setGenProduct(''); setGenContext('');
     setPreviewMode(false); setSaveOk(false);
     setView('editor');
@@ -848,7 +982,7 @@ export default function Procedures() {
 
   const openEdit = (proc) => {
     setEditing(proc);
-    setForm({ title: proc.title, steps: proc.steps.length ? proc.steps : [emptyStep()] });
+    setForm({ title: proc.title, steps: proc.steps.length ? proc.steps : [emptyStep()], design: proc.design || emptyDesign() });
     setGenProduct(''); setGenContext('');
     setPreviewMode(false); setSaveOk(false);
     setView('editor');
@@ -1012,43 +1146,63 @@ export default function Procedures() {
               </button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-              {procedures.map(proc => (
-                <div key={proc.id} style={{
-                  background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden',
-                  display: 'flex', flexDirection: 'column'
-                }}>
-                  <div style={{ padding: '18px 18px 14px', flex: 1 }}>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: '#111', marginBottom: 6, lineHeight: 1.3 }}>
-                      {proc.title}
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {(proc.steps || []).slice(0, 3).map((s, i) => (
-                        <span key={i} style={{
-                          fontSize: 11, padding: '2px 9px', borderRadius: 20,
-                          background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb'
-                        }}>
-                          {i + 1}. {s.title || stripHtml(s.instruction)?.slice(0, 22) || 'Paso'}
-                        </span>
-                      ))}
-                      {proc.steps?.length > 3 && (
-                        <span style={{ fontSize: 11, color: '#9ca3af' }}>+{proc.steps.length - 3} más</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
+              {procedures.map(proc => {
+                const d = proc.design || emptyDesign();
+                const accent = d.accentColor || GOLD;
+                const coverImg = d.coverImage || proc.steps?.find(s => s.image_url)?.image_url || '';
+                return (
+                  <div key={proc.id} style={{
+                    background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.05)', overflow: 'hidden',
+                    display: 'flex', flexDirection: 'column'
+                  }}>
+                    {/* Barra de color del tema */}
+                    <div style={{ height: 4, background: accent }} />
+                    {/* Contenido: info izquierda, imagen derecha */}
+                    <div style={{ display: 'flex', alignItems: 'stretch', flex: 1 }}>
+                      <div style={{ flex: 1, padding: '16px 16px 12px', minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: 15, color: '#111', marginBottom: 8, lineHeight: 1.3 }}>
+                          {proc.title}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
+                          {(proc.steps || []).slice(0, 3).map((s, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div style={{ width: 18, height: 18, borderRadius: '50%', background: accent, color: d.theme === 'white' ? '#111' : '#000', fontWeight: 900, fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
+                              <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {s.title || stripHtml(s.instruction)?.slice(0, 30) || 'Paso'}
+                              </span>
+                            </div>
+                          ))}
+                          {proc.steps?.length > 3 && (
+                            <span style={{ fontSize: 11, color: '#9ca3af', paddingLeft: 24 }}>+{proc.steps.length - 3} pasos más</span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Imagen derecha */}
+                      {coverImg ? (
+                        <div style={{ width: 100, flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                          <img src={imgSrc(coverImg)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        </div>
+                      ) : (
+                        <div style={{ width: 100, flexShrink: 0, background: d.bgColor || '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FontAwesomeIcon icon={faClipboardList} style={{ fontSize: 28, color: accent, opacity: 0.6 }} />
+                        </div>
                       )}
                     </div>
+                    <div style={{ padding: '10px 14px', borderTop: '1px solid #f5f5f5', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      <button onClick={() => openEdit(proc)}
+                        style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: '#374151' }}>
+                        <FontAwesomeIcon icon={faEdit} /> Editar
+                      </button>
+                      <button onClick={() => setConfirmDeleteId(proc.id)}
+                        style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', fontSize: 12, cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
+                        <FontAwesomeIcon icon={faTrash} />
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ padding: '10px 18px', borderTop: '1px solid #f5f5f5', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                    <button onClick={() => openEdit(proc)}
-                      style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: '#374151' }}>
-                      <FontAwesomeIcon icon={faEdit} /> Editar
-                    </button>
-                    <button onClick={() => setConfirmDeleteId(proc.id)}
-                      style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', fontSize: 12, cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
-                      <FontAwesomeIcon icon={faTrash} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1120,15 +1274,20 @@ export default function Procedures() {
         {previewMode ? (
           /* ── VISTA PREVIA ── */
           <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-            <div style={{ background: '#111', padding: '20px 24px' }}>
-              <div style={{ color: GOLD, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-                Guía de preparación
-              </div>
-              <div style={{ color: '#fff', fontSize: 20, fontWeight: 800 }}>
-                {form.title || 'Sin título'}
-              </div>
-              <div style={{ color: '#888', fontSize: 12, marginTop: 4 }}>
-                {form.steps.length} paso{form.steps.length !== 1 ? 's' : ''}
+            <div style={{ background: form.design?.bgColor || '#111', padding: '20px 24px', position: 'relative' }}>
+              {form.design?.coverImage && (
+                <div style={{ position: 'absolute', inset: 0, backgroundImage: `url(${imgSrc(form.design.coverImage)})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.28 }} />
+              )}
+              <div style={{ position: 'relative' }}>
+                <div style={{ color: form.design?.accentColor || GOLD, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                  Guía de preparación
+                </div>
+                <div style={{ color: THEMES.find(t => t.id === (form.design?.theme || 'dark'))?.text || '#fff', fontSize: 20, fontWeight: 800 }}>
+                  {form.title || 'Sin título'}
+                </div>
+                <div style={{ color: (form.design?.accentColor || GOLD) + 'aa', fontSize: 12, marginTop: 4 }}>
+                  {form.steps.length} paso{form.steps.length !== 1 ? 's' : ''}
+                </div>
               </div>
             </div>
             <div style={{ padding: '24px' }}>
@@ -1214,6 +1373,14 @@ export default function Procedures() {
                 </div>
               </div>
             )}
+
+            {/* Panel de diseño */}
+            <DesignPanel
+              design={form.design}
+              onChange={d => setForm(p => ({ ...p, design: d }))}
+              storeId={storeId}
+              token={token}
+            />
 
             {/* Título */}
             <div style={{ marginBottom: 24 }}>

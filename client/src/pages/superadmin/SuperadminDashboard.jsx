@@ -121,6 +121,10 @@ function SuperadminDashboard() {
   const [saOrdersTotal, setSaOrdersTotal] = useState(0);
   const [saOrdersLoading, setSaOrdersLoading] = useState(false);
   const [saOrderFilter, setSaOrderFilter] = useState({ store_id: '', date_from: '', date_to: '', status: '' });
+  const [saRevenue, setSaRevenue] = useState([]);
+  const [saRevenueSummary, setSaRevenueSummary] = useState({ total_platform: 0, total_orders: 0 });
+  const [saRevenueLoading, setSaRevenueLoading] = useState(false);
+  const [saRevenueFilter, setSaRevenueFilter] = useState({ date_from: '', date_to: '', status: 'completed' });
   const [saOrderDetail, setSaOrderDetail] = useState(null);
   const [saOrderItems, setSaOrderItems] = useState([]);
   const [saDeleteConfirm, setSaDeleteConfirm] = useState(null);
@@ -146,6 +150,17 @@ function SuperadminDashboard() {
       setSaOrders([]);
       setSaOrdersTotal(0);
     } finally { setSaOrdersLoading(false); }
+  };
+
+  const fetchSaRevenue = async (filterOverride) => {
+    setSaRevenueLoading(true);
+    try {
+      const token = localStorage.getItem('superadminToken');
+      const f = filterOverride !== undefined ? filterOverride : saRevenueFilter;
+      const q = new URLSearchParams(Object.fromEntries(Object.entries(f).filter(([, v]) => v)));
+      const r = await fetch(`${API}/api/superadmin/revenue?${q}`, { headers: { Authorization: 'Bearer ' + token } });
+      if (r.ok) { const d = await r.json(); setSaRevenue(d.stores || []); setSaRevenueSummary(d.summary || { total_platform: 0, total_orders: 0 }); }
+    } catch {} finally { setSaRevenueLoading(false); }
   };
 
   const openSaOrderDetail = async (order) => {
@@ -313,6 +328,9 @@ function SuperadminDashboard() {
         setApkReleases(Array.isArray(data) ? data : []);
       } else if (activeTab === 'orders') {
         await fetchSaOrders();
+        return;
+      } else if (activeTab === 'revenue') {
+        await fetchSaRevenue();
         return;
       }
     } catch (error) {
@@ -717,6 +735,14 @@ function SuperadminDashboard() {
             <FontAwesomeIcon icon={faShoppingCart} />
             {sidebarOpen && <span>Pedidos</span>}
           </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'revenue' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('revenue'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faMoneyBillWave} />
+            {sidebarOpen && <span>Ingresos</span>}
+          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -780,7 +806,7 @@ function SuperadminDashboard() {
             </button>
             <div>
               <h1 className="admin-header-title">
-                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : activeTab === 'orders' ? 'Pedidos' : 'Suscripciones'}
+                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : activeTab === 'orders' ? 'Pedidos' : activeTab === 'revenue' ? 'Ingresos por Tienda' : 'Suscripciones'}
               </h1>
               <p className="admin-header-subtitle text-muted text-sm">
                 {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : activeTab === 'workshop' ? 'Revisa y aprueba plugins del workshop' : 'Ver todas las suscripciones'}
@@ -1758,6 +1784,132 @@ function SuperadminDashboard() {
                                 )}
                                 <button title="Eliminar" onClick={() => setSaDeleteConfirm(o)} style={{ background: '#ef4444', border: 'none', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#fff', fontSize: 12 }}><FontAwesomeIcon icon={faTrash} /></button>
                               </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : activeTab === 'revenue' ? (
+              <div>
+                {/* Filtros rápidos + fechas */}
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                    {[
+                      { label: 'Este mes', fn: () => { const n = new Date(); const f = { date_from: `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-01`, date_to: new Date().toISOString().slice(0,10), status: 'completed' }; setSaRevenueFilter(f); fetchSaRevenue(f); } },
+                      { label: 'Mes pasado', fn: () => { const n = new Date(); const y = n.getMonth() === 0 ? n.getFullYear()-1 : n.getFullYear(); const m = n.getMonth() === 0 ? 12 : n.getMonth(); const last = new Date(y, m, 0).getDate(); const f = { date_from: `${y}-${String(m).padStart(2,'0')}-01`, date_to: `${y}-${String(m).padStart(2,'0')}-${last}`, status: 'completed' }; setSaRevenueFilter(f); fetchSaRevenue(f); } },
+                      { label: 'Últimos 30 días', fn: () => { const n = new Date(); const from = new Date(n - 30*86400000); const f = { date_from: from.toISOString().slice(0,10), date_to: n.toISOString().slice(0,10), status: 'completed' }; setSaRevenueFilter(f); fetchSaRevenue(f); } },
+                      { label: 'Todo el tiempo', fn: () => { const f = { date_from: '', date_to: '', status: 'completed' }; setSaRevenueFilter(f); fetchSaRevenue(f); } },
+                    ].map(btn => (
+                      <button key={btn.label} onClick={btn.fn}
+                        style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#374151', transition: 'all 0.15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#111'; e.currentTarget.style.color = '#fff'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#374151'; }}
+                      >{btn.label}</button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
+                    <div style={{ flex: '1 1 130px', minWidth: 120 }}>
+                      <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>Desde</label>
+                      <input type="date" value={saRevenueFilter.date_from} onChange={e => setSaRevenueFilter(p => ({ ...p, date_from: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13 }} />
+                    </div>
+                    <div style={{ flex: '1 1 130px', minWidth: 120 }}>
+                      <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>Hasta</label>
+                      <input type="date" value={saRevenueFilter.date_to} onChange={e => setSaRevenueFilter(p => ({ ...p, date_to: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13 }} />
+                    </div>
+                    <div style={{ flex: '1 1 130px', minWidth: 120 }}>
+                      <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>Incluir pedidos</label>
+                      <select value={saRevenueFilter.status} onChange={e => setSaRevenueFilter(p => ({ ...p, status: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13 }}>
+                        <option value="completed">Solo completados</option>
+                        <option value="all">Todos los estados</option>
+                        <option value="pending">Solo pendientes</option>
+                      </select>
+                    </div>
+                    <button onClick={() => fetchSaRevenue()} className="btn btn-primary" style={{ height: 36, padding: '0 18px', fontSize: 13 }}>
+                      <FontAwesomeIcon icon={faFilter} /> Filtrar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Summary cards */}
+                {!saRevenueLoading && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
+                    {[
+                      { label: 'Total plataforma', value: `$${saRevenueSummary.total_platform.toLocaleString('es', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`, color: '#22c55e', bg: '#f0fdf4' },
+                      { label: 'Total pedidos', value: saRevenueSummary.total_orders.toLocaleString(), color: '#3b82f6', bg: '#eff6ff' },
+                      { label: 'Tiendas activas', value: saRevenue.filter(s => s.total_orders > 0).length, color: '#f59e0b', bg: '#fffbeb' },
+                      { label: 'Ticket promedio', value: saRevenueSummary.total_orders > 0 ? `$${(saRevenueSummary.total_platform / saRevenueSummary.total_orders).toLocaleString('es', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '$0', color: '#8b5cf6', bg: '#f5f3ff' },
+                    ].map(c => (
+                      <div key={c.label} style={{ background: c.bg, borderRadius: 12, padding: '14px 16px', border: `1px solid ${c.color}22` }}>
+                        <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginBottom: 4 }}>{c.label}</div>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: c.color }}>{c.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {saRevenueLoading ? (
+                  <div className="empty-state"><div>Cargando ingresos...</div></div>
+                ) : saRevenue.length === 0 ? (
+                  <div className="empty-state"><div>No hay datos</div></div>
+                ) : isMobile ? (
+                  /* Mobile cards */
+                  <div className="sa-cards-list">
+                    {saRevenue.map((s, idx) => (
+                      <div key={s.id} className="sa-item-card">
+                        <div className="sa-item-card-top">
+                          <div className="sa-item-card-info">
+                            <div className="sa-item-card-title">
+                              <span style={{ color: '#D4AF37', fontWeight: 900, marginRight: 8 }}>#{idx + 1}</span>
+                              {s.name}
+                            </div>
+                            <div className="sa-item-card-sub">{s.code ? `[${s.code}]` : ''} {s.is_banned ? '🚫 Baneada' : ''}</div>
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{ fontSize: 20, fontWeight: 900, color: '#22c55e' }}>${s.total_revenue.toLocaleString('es', { minimumFractionDigits: 0 })}</div>
+                            <div style={{ fontSize: 11, color: '#888' }}>{s.total_orders} pedido{s.total_orders !== 1 ? 's' : ''}</div>
+                          </div>
+                        </div>
+                        <div className="sa-item-card-stats">
+                          <span>Ticket prom: <strong>${s.avg_order.toLocaleString('es', { minimumFractionDigits: 0 })}</strong></span>
+                          {s.last_order && <span>Último: <strong>{new Date(s.last_order).toLocaleDateString('es', { day: '2-digit', month: '2-digit', year: '2-digit' })}</strong></span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* Desktop table */
+                  <div className="admin-table-wrapper">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Tienda</th>
+                          <th>Código</th>
+                          <th>Pedidos</th>
+                          <th>Ingresos</th>
+                          <th>Ticket prom.</th>
+                          <th>Último pedido</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {saRevenue.map((s, idx) => (
+                          <tr key={s.id}>
+                            <td style={{ fontWeight: 900, color: idx < 3 ? '#D4AF37' : '#aaa', fontSize: 15 }}>{idx + 1}</td>
+                            <td>
+                              <div style={{ fontWeight: 700 }}>{s.name}{s.is_banned ? <span style={{ marginLeft: 6, fontSize: 11, color: '#ef4444', background: '#fef2f2', padding: '2px 6px', borderRadius: 4 }}>Baneada</span> : null}</div>
+                            </td>
+                            <td><span style={{ fontFamily: 'monospace', fontSize: 12, color: '#6b7280' }}>{s.code || '—'}</span></td>
+                            <td style={{ fontWeight: 700 }}>{s.total_orders.toLocaleString()}</td>
+                            <td style={{ fontWeight: 900, fontSize: 16, color: '#22c55e' }}>${s.total_revenue.toLocaleString('es', { minimumFractionDigits: 0 })}</td>
+                            <td style={{ color: '#6b7280' }}>${s.avg_order.toLocaleString('es', { minimumFractionDigits: 0 })}</td>
+                            <td style={{ fontSize: 12, color: s.last_order ? '#374151' : '#d1d5db' }}>
+                              {s.last_order ? new Date(s.last_order).toLocaleDateString('es', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}
                             </td>
                           </tr>
                         ))}
