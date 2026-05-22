@@ -950,7 +950,9 @@ function CustomCreationEditor({ storeId, token }) {
   const [saveOk, setSaveOk] = useState(false);
   const canvasWrapRef = useRef();
   const bgRef = useRef();
+  const imgElemRef = useRef();
   const dragRef = useRef(null);
+  const [uploadingImg, setUploadingImg] = useState(false);
 
   const load = async () => {
     if (!storeId || !token) return;
@@ -1015,9 +1017,25 @@ function CustomCreationEditor({ storeId, token }) {
   };
 
   const addText = () => {
-    const el = { id: 'el_' + Date.now(), x: CW / 2 - 180, y: CH / 2 - 50, text: 'Texto nuevo', fontSize: 90, color: '#ffffff', fontWeight: '700', fontFamily: 'Arial', textShadow: '3px 3px 10px rgba(0,0,0,0.85)', opacity: 1 };
+    const el = { id: 'el_' + Date.now(), type: 'text', x: CW / 2 - 180, y: CH / 2 - 50, text: 'Texto nuevo', fontSize: 90, color: '#ffffff', fontWeight: '700', fontFamily: 'Arial', textShadow: '3px 3px 10px rgba(0,0,0,0.85)', opacity: 1 };
     setEditing(p => ({ ...p, elements: [...p.elements, el] }));
     setSelected(el.id);
+  };
+
+  const addImage = async (file) => {
+    if (!file) return;
+    setUploadingImg(true);
+    try {
+      const fd = new FormData(); fd.append('image', file); fd.append('store_id', storeId);
+      const res = await fetch(`${API}/api/upload`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+      if (res.ok) {
+        const d = await res.json();
+        const url = d.url || d.path || d.file || '';
+        const el = { id: 'el_' + Date.now(), type: 'image', x: CW / 2 - 200, y: CH / 2 - 150, imgUrl: url, width: 400, height: 300, opacity: 1 };
+        setEditing(p => ({ ...p, elements: [...p.elements, el] }));
+        setSelected(el.id);
+      }
+    } finally { setUploadingImg(false); }
   };
 
   const updateElem = (id, key, val) => setEditing(p => ({ ...p, elements: p.elements.map(el => el.id === id ? { ...el, [key]: val } : el) }));
@@ -1131,7 +1149,13 @@ function CustomCreationEditor({ storeId, token }) {
         )}
         <button onClick={addText}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', background: '#f3f4f6', color: '#374151', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          <FontAwesomeIcon icon={faPlus} /> Agregar texto
+          <FontAwesomeIcon icon={faPlus} /> Texto
+        </button>
+        <input ref={imgElemRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { addImage(e.target.files[0]); e.target.value = ''; }} />
+        <button onClick={() => imgElemRef.current?.click()} disabled={uploadingImg}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: 'none', background: '#f3f4f6', color: '#374151', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap', opacity: uploadingImg ? 0.6 : 1 }}>
+          <FontAwesomeIcon icon={uploadingImg ? faSpinner : faImage} spin={uploadingImg} style={{ color: '#6366f1' }} />
+          {uploadingImg ? 'Subiendo...' : 'Imagen'}
         </button>
         <button onClick={save} disabled={saving}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 8, border: 'none', background: saveOk ? '#16a34a' : '#111', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 0.2s' }}>
@@ -1153,7 +1177,21 @@ function CustomCreationEditor({ storeId, token }) {
                 ) : (
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)' }} />
                 )}
-                {editing.elements.map(el => (
+                {editing.elements.map(el => el.type === 'image' ? (
+                  <div key={el.id}
+                    onMouseDown={e => startDrag(e, el.id)}
+                    onTouchStart={e => startDrag(e, el.id)}
+                    onClick={e => { e.stopPropagation(); setSelected(el.id); }}
+                    style={{
+                      position: 'absolute', left: el.x, top: el.y,
+                      width: el.width, height: el.height,
+                      opacity: el.opacity, cursor: 'move',
+                      outline: selected === el.id ? `3px solid ${GOLD}` : 'none',
+                      outlineOffset: 4, borderRadius: 4, overflow: 'hidden',
+                    }}>
+                    <img src={imgSrc(el.imgUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', pointerEvents: 'none' }} />
+                  </div>
+                ) : (
                   <div key={el.id}
                     onMouseDown={e => startDrag(e, el.id)}
                     onTouchStart={e => startDrag(e, el.id)}
@@ -1180,75 +1218,95 @@ function CustomCreationEditor({ storeId, token }) {
 
         {/* Panel de propiedades */}
         {selectedEl ? (
-          <div style={{ flex: '0 0 260px', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 14, padding: 16, minWidth: 220 }}>
+          <div style={{ flex: '0 0 260px', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 14, padding: 16, minWidth: 220, maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <span style={{ fontWeight: 800, fontSize: 13 }}>Propiedades</span>
+              <span style={{ fontWeight: 800, fontSize: 13 }}>{selectedEl.type === 'image' ? '🖼 Imagen' : '✏️ Texto'}</span>
               <button onClick={() => deleteElem(selectedEl.id)} style={{ padding: '5px 9px', borderRadius: 7, border: '1px solid #fecaca', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>
                 <FontAwesomeIcon icon={faTrash} />
               </button>
             </div>
 
-            <div style={{ marginBottom: 12 }}>
-              <label style={lbStyle}>Texto</label>
-              <textarea value={selectedEl.text} onChange={e => updateElem(selectedEl.id, 'text', e.target.value)} rows={3}
-                style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
-                onFocus={e => e.target.style.borderColor = GOLD} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={lbStyle}>Tamaño: {selectedEl.fontSize}px</label>
-              <input type="range" min={12} max={500} value={selectedEl.fontSize} onChange={e => updateElem(selectedEl.id, 'fontSize', parseInt(e.target.value))}
-                style={{ width: '100%', accentColor: GOLD }} />
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={lbStyle}>Color</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input type="color" value={selectedEl.color} onChange={e => updateElem(selectedEl.id, 'color', e.target.value)}
-                  style={{ width: 38, height: 34, border: '1.5px solid #e5e7eb', borderRadius: 7, cursor: 'pointer', padding: 2 }} />
-                <input type="text" value={selectedEl.color} onChange={e => updateElem(selectedEl.id, 'color', e.target.value)} maxLength={7}
-                  style={{ ...inputStyle, fontFamily: 'monospace', flex: 1 }}
-                  onFocus={e => e.target.style.borderColor = GOLD} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={lbStyle}>Peso</label>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {[['400', 'Normal'], ['700', 'Bold'], ['900', 'Black']].map(([val, lbl]) => (
-                  <button key={val} onClick={() => updateElem(selectedEl.id, 'fontWeight', val)}
-                    style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: `1.5px solid ${selectedEl.fontWeight === val ? GOLD : '#e5e7eb'}`, background: selectedEl.fontWeight === val ? '#fffdf0' : '#fff', cursor: 'pointer', fontWeight: val, fontSize: 11 }}>
-                    {lbl}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={lbStyle}>Fuente</label>
-              <select value={selectedEl.fontFamily} onChange={e => updateElem(selectedEl.id, 'fontFamily', e.target.value)}
-                style={{ ...inputStyle }}>
-                {FONTS.map(f => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
-              </select>
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={lbStyle}>Sombra</label>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {[['', 'No'], ['2px 2px 5px rgba(0,0,0,0.7)', 'Leve'], ['3px 3px 14px rgba(0,0,0,0.95)', 'Fuerte']].map(([val, lbl]) => (
-                  <button key={lbl} onClick={() => updateElem(selectedEl.id, 'textShadow', val)}
-                    style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: `1.5px solid ${selectedEl.textShadow === val ? GOLD : '#e5e7eb'}`, background: selectedEl.textShadow === val ? '#fffdf0' : '#fff', cursor: 'pointer', fontSize: 11 }}>
-                    {lbl}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={lbStyle}>Opacidad: {Math.round(selectedEl.opacity * 100)}%</label>
-              <input type="range" min={10} max={100} value={Math.round(selectedEl.opacity * 100)} onChange={e => updateElem(selectedEl.id, 'opacity', parseInt(e.target.value) / 100)}
-                style={{ width: '100%', accentColor: GOLD }} />
-            </div>
+            {selectedEl.type === 'image' ? (
+              /* ── Propiedades de imagen ── */
+              <>
+                <div style={{ marginBottom: 12 }}>
+                  <img src={imgSrc(selectedEl.imgUrl)} alt="" style={{ width: '100%', borderRadius: 8, objectFit: 'contain', maxHeight: 100, background: '#f3f4f6' }} />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={lbStyle}>Ancho: {Math.round(selectedEl.width)}px</label>
+                  <input type="range" min={50} max={CW} value={selectedEl.width} onChange={e => updateElem(selectedEl.id, 'width', parseInt(e.target.value))}
+                    style={{ width: '100%', accentColor: GOLD }} />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={lbStyle}>Alto: {Math.round(selectedEl.height)}px</label>
+                  <input type="range" min={50} max={CH} value={selectedEl.height} onChange={e => updateElem(selectedEl.id, 'height', parseInt(e.target.value))}
+                    style={{ width: '100%', accentColor: GOLD }} />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={lbStyle}>Opacidad: {Math.round(selectedEl.opacity * 100)}%</label>
+                  <input type="range" min={10} max={100} value={Math.round(selectedEl.opacity * 100)} onChange={e => updateElem(selectedEl.id, 'opacity', parseInt(e.target.value) / 100)}
+                    style={{ width: '100%', accentColor: GOLD }} />
+                </div>
+              </>
+            ) : (
+              /* ── Propiedades de texto ── */
+              <>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={lbStyle}>Texto</label>
+                  <textarea value={selectedEl.text} onChange={e => updateElem(selectedEl.id, 'text', e.target.value)} rows={3}
+                    style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+                    onFocus={e => e.target.style.borderColor = GOLD} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={lbStyle}>Tamaño: {selectedEl.fontSize}px</label>
+                  <input type="range" min={12} max={500} value={selectedEl.fontSize} onChange={e => updateElem(selectedEl.id, 'fontSize', parseInt(e.target.value))}
+                    style={{ width: '100%', accentColor: GOLD }} />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={lbStyle}>Color</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input type="color" value={selectedEl.color} onChange={e => updateElem(selectedEl.id, 'color', e.target.value)}
+                      style={{ width: 38, height: 34, border: '1.5px solid #e5e7eb', borderRadius: 7, cursor: 'pointer', padding: 2 }} />
+                    <input type="text" value={selectedEl.color} onChange={e => updateElem(selectedEl.id, 'color', e.target.value)} maxLength={7}
+                      style={{ ...inputStyle, fontFamily: 'monospace', flex: 1 }}
+                      onFocus={e => e.target.style.borderColor = GOLD} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={lbStyle}>Peso</label>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {[['400', 'Normal'], ['700', 'Bold'], ['900', 'Black']].map(([val, lbl]) => (
+                      <button key={val} onClick={() => updateElem(selectedEl.id, 'fontWeight', val)}
+                        style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: `1.5px solid ${selectedEl.fontWeight === val ? GOLD : '#e5e7eb'}`, background: selectedEl.fontWeight === val ? '#fffdf0' : '#fff', cursor: 'pointer', fontWeight: val, fontSize: 11 }}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={lbStyle}>Fuente</label>
+                  <select value={selectedEl.fontFamily} onChange={e => updateElem(selectedEl.id, 'fontFamily', e.target.value)} style={{ ...inputStyle }}>
+                    {FONTS.map(f => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
+                  </select>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={lbStyle}>Sombra</label>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {[['', 'No'], ['2px 2px 5px rgba(0,0,0,0.7)', 'Leve'], ['3px 3px 14px rgba(0,0,0,0.95)', 'Fuerte']].map(([val, lbl]) => (
+                      <button key={lbl} onClick={() => updateElem(selectedEl.id, 'textShadow', val)}
+                        style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: `1.5px solid ${selectedEl.textShadow === val ? GOLD : '#e5e7eb'}`, background: selectedEl.textShadow === val ? '#fffdf0' : '#fff', cursor: 'pointer', fontSize: 11 }}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={lbStyle}>Opacidad: {Math.round(selectedEl.opacity * 100)}%</label>
+                  <input type="range" min={10} max={100} value={Math.round(selectedEl.opacity * 100)} onChange={e => updateElem(selectedEl.id, 'opacity', parseInt(e.target.value) / 100)}
+                    style={{ width: '100%', accentColor: GOLD }} />
+                </div>
+              </>
+            )}
 
             <div style={{ display: 'flex', gap: 8 }}>
               <div style={{ flex: 1 }}>

@@ -2291,8 +2291,20 @@ function WorkerPanel() {
                   ) : (
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)' }} />
                   )}
-                  {/* Elementos de texto — posicionados porcentualmente */}
-                  {(c.elements || []).map(el => (
+                  {/* Elementos — posicionados porcentualmente */}
+                  {(c.elements || []).map(el => el.type === 'image' ? (
+                    <div key={el.id} style={{
+                      position: 'absolute',
+                      left: `${(el.x / CW) * 100}%`,
+                      top: `${(el.y / CH) * 100}%`,
+                      width: `${(el.width / CW) * 100}%`,
+                      height: `${(el.height / CH) * 100}%`,
+                      opacity: el.opacity, pointerEvents: 'none', overflow: 'hidden',
+                    }}>
+                      <img src={el.imgUrl.startsWith('http') ? el.imgUrl : 'https://srservi2.srautomatic.com' + el.imgUrl} alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+                    </div>
+                  ) : (
                     <div key={el.id} style={{
                       position: 'absolute',
                       left: `${(el.x / CW) * 100}%`,
