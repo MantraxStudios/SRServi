@@ -105,6 +105,8 @@ function SuperadminDashboard() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileName, setProfileName] = useState('');
   const [profileAvatar, setProfileAvatar] = useState(null);
+  const [notifyingPremiums, setNotifyingPremiums] = useState(false);
+  const [notifyPremiumsMsg, setNotifyPremiumsMsg] = useState('');
   const navigate = useNavigate();
   const selectedTicketRef = useRef(null);
   const saMsgEndRef = useRef(null);
@@ -484,6 +486,29 @@ function SuperadminDashboard() {
       }
     } catch {}
     setShowPremiumModal(true);
+  };
+
+  const notifyExistingPremiums = async () => {
+    setNotifyingPremiums(true);
+    setNotifyPremiumsMsg('');
+    try {
+      const token = localStorage.getItem('superadminToken');
+      const res = await fetch(API + '/api/superadmin/notify-existing-premiums', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setNotifyPremiumsMsg(`✔ Email enviado a ${data.sent} superadmin(s) con ${data.total_premiums} usuarios premium`);
+      } else {
+        setNotifyPremiumsMsg('Error: ' + (data.error || 'intenta de nuevo'));
+      }
+    } catch {
+      setNotifyPremiumsMsg('Error de conexión');
+    } finally {
+      setNotifyingPremiums(false);
+      setTimeout(() => setNotifyPremiumsMsg(''), 5000);
+    }
   };
 
   const handleAssignPremium = async () => {
@@ -1110,6 +1135,20 @@ function SuperadminDashboard() {
               </div>
             ) : activeTab === 'subscriptions' ? (
               <div className="admin-table-wrapper">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 0 14px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={notifyExistingPremiums}
+                    disabled={notifyingPremiums}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: notifyingPremiums ? '#f0f0f0' : '#111', color: notifyingPremiums ? '#aaa' : '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', fontSize: '13px', cursor: notifyingPremiums ? 'not-allowed' : 'pointer' }}
+                  >
+                    📧 {notifyingPremiums ? 'Enviando...' : 'Enviar reporte de premiums por email'}
+                  </button>
+                  {notifyPremiumsMsg && (
+                    <span style={{ fontSize: '13px', fontWeight: '600', color: notifyPremiumsMsg.startsWith('✔') ? '#16a34a' : '#dc2626' }}>
+                      {notifyPremiumsMsg}
+                    </span>
+                  )}
+                </div>
                 {isMobile ? (
                   <div className="sa-cards-list">
                     {subscriptions.map(sub => {

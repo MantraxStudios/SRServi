@@ -2110,9 +2110,55 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
           const userId = parseInt(parts[1]);
           const planId = parseInt(parts[2]);
           const billingCycle = parts[3];
-          
+
           await assignPlanToUser(userId, planId, billingCycle);
           console.log(`Suscripción activada para usuario ${userId} - Plan ${planId}`);
+
+          // Notificar a todos los superadmins por email
+          try {
+            const [user, stores, superadmins, planInfo] = await Promise.all([
+              getUserById(userId),
+              getStores(userId),
+              pool.execute('SELECT email FROM superadmin').then(([r]) => r),
+              pool.execute('SELECT name FROM plans WHERE id = ?', [planId]).then(([r]) => r[0])
+            ]);
+
+            const storeName = stores.length > 0
+              ? stores.map(s => s.name).join(', ')
+              : '(sin tienda registrada)';
+
+            const subject = `🎉 Nueva suscripción Premium — ${user?.username || `Usuario #${userId}`}`;
+            const html = `
+              <div style="font-family:sans-serif;max-width:520px;margin:auto;border:1px solid #e5e5e5;border-radius:10px;overflow:hidden">
+                <div style="background:#111;padding:20px 28px">
+                  <span style="color:#D4AF37;font-size:22px;font-weight:700">SRServi</span>
+                </div>
+                <div style="padding:28px">
+                  <h2 style="margin:0 0 16px">Nueva compra de plan Premium</h2>
+                  <table style="width:100%;border-collapse:collapse;font-size:14px">
+                    <tr><td style="padding:8px 0;color:#888;width:140px">Usuario</td><td style="padding:8px 0;font-weight:600">${user?.username || `#${userId}`}</td></tr>
+                    <tr><td style="padding:8px 0;color:#888">Email</td><td style="padding:8px 0;font-weight:600">${user?.email || '—'}</td></tr>
+                    <tr><td style="padding:8px 0;color:#888">Tienda(s)</td><td style="padding:8px 0;font-weight:600">${storeName}</td></tr>
+                    <tr><td style="padding:8px 0;color:#888">Plan</td><td style="padding:8px 0;font-weight:600">${planInfo?.name || `#${planId}`}</td></tr>
+                    <tr><td style="padding:8px 0;color:#888">Ciclo</td><td style="padding:8px 0;font-weight:600">${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}</td></tr>
+                    <tr><td style="padding:8px 0;color:#888">Monto cobrado</td><td style="padding:8px 0;font-weight:600">$${payment.transaction_amount} ${payment.currency_id || ''}</td></tr>
+                    <tr><td style="padding:8px 0;color:#888">Payment ID</td><td style="padding:8px 0;font-family:monospace;font-size:12px">${payment.id}</td></tr>
+                  </table>
+                </div>
+                <div style="background:#f9f9f9;padding:14px 28px;font-size:12px;color:#aaa">
+                  ${new Date().toLocaleString('es-AR')}
+                </div>
+              </div>`;
+
+            const emails = superadmins.map(s => s.email).filter(Boolean);
+            await Promise.all(emails.map(to =>
+              mailer.sendMail({ from: `"SRServi" <${process.env.EMAIL_USER}>`, to, subject, html })
+                .catch(e => console.error(`[Subscription] Error enviando email a ${to}:`, e.message))
+            ));
+            console.log(`[Subscription] Notificación enviada a superadmins:`, emails);
+          } catch (notifyErr) {
+            console.error('[Subscription] Error al notificar superadmins:', notifyErr.message);
+          }
         }
       }
     }
@@ -3603,6 +3649,101 @@ app.delete('/api/superadmin/users/:id', authenticateSuperadminToken, async (req,
     await deleteUserBySuperadmin(id);
     res.json({ success: true });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/superadmin/notify-existing-premiums', authenticateSuperadminToken, async (req, res) => {
+  try {
+    // Traer todos los usuarios con plan activo y que no sea "Gratis"
+    const [premiumRows] = await pool.execute(`
+      SELECT u.id as user_id, u.username, u.email, p.name as plan_name,
+             up.billing_cycle, up.starts_at, up.ends_at, up.created_at as subscribed_at
+      FROM user_plans up
+      JOIN users u ON u.id = up.user_id
+      JOIN plans p ON p.id = up.plan_id
+      WHERE up.is_active = TRUE AND up.ends_at > NOW() AND p.name != 'Gratis'
+      ORDER BY up.created_at DESC
+    `);
+
+    if (premiumRows.length === 0) {
+      return res.json({ success: true, sent: 0, message: 'No hay usuarios premium activos' });
+    }
+
+    // Obtener tiendas de todos los usuarios de una sola vez
+    const userIds = [...new Set(premiumRows.map(r => r.user_id))];
+    const placeholders = userIds.map(() => '?').join(',');
+    const [storeRows] = await pool.execute(
+      `SELECT user_id, name FROM stores WHERE user_id IN (${placeholders})`,
+      userIds
+    );
+    const storesByUser = {};
+    storeRows.forEach(s => {
+      if (!storesByUser[s.user_id]) storesByUser[s.user_id] = [];
+      storesByUser[s.user_id].push(s.name);
+    });
+
+    // Armar filas del email
+    const rows = premiumRows.map(u => {
+      const tiendas = (storesByUser[u.user_id] || []).join(', ') || '—';
+      const ciclo = u.billing_cycle === 'yearly' ? 'Anual' : u.billing_cycle === 'forever' ? 'Para siempre' : 'Mensual';
+      const hasta = u.ends_at ? new Date(u.ends_at).toLocaleDateString('es-AR') : '—';
+      const desde = u.subscribed_at ? new Date(u.subscribed_at).toLocaleDateString('es-AR') : '—';
+      return `
+        <tr style="border-bottom:1px solid #f0f0f0">
+          <td style="padding:8px 10px">${u.username}</td>
+          <td style="padding:8px 10px">${u.email}</td>
+          <td style="padding:8px 10px">${tiendas}</td>
+          <td style="padding:8px 10px">${u.plan_name}</td>
+          <td style="padding:8px 10px">${ciclo}</td>
+          <td style="padding:8px 10px">${desde}</td>
+          <td style="padding:8px 10px">${hasta}</td>
+        </tr>`;
+    }).join('');
+
+    const html = `
+      <div style="font-family:sans-serif;max-width:860px;margin:auto;border:1px solid #e5e5e5;border-radius:10px;overflow:hidden">
+        <div style="background:#111;padding:20px 28px">
+          <span style="color:#D4AF37;font-size:22px;font-weight:700">SRServi</span>
+        </div>
+        <div style="padding:28px">
+          <h2 style="margin:0 0 6px">Usuarios Premium activos</h2>
+          <p style="margin:0 0 20px;color:#888;font-size:13px">Total: <strong>${premiumRows.length}</strong> suscripciones activas al ${new Date().toLocaleDateString('es-AR')}</p>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="background:#f5f5f5;text-align:left">
+                <th style="padding:8px 10px;font-weight:700">Usuario</th>
+                <th style="padding:8px 10px;font-weight:700">Email</th>
+                <th style="padding:8px 10px;font-weight:700">Tienda(s)</th>
+                <th style="padding:8px 10px;font-weight:700">Plan</th>
+                <th style="padding:8px 10px;font-weight:700">Ciclo</th>
+                <th style="padding:8px 10px;font-weight:700">Desde</th>
+                <th style="padding:8px 10px;font-weight:700">Hasta</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="background:#f9f9f9;padding:14px 28px;font-size:12px;color:#aaa">
+          Generado el ${new Date().toLocaleString('es-AR')}
+        </div>
+      </div>`;
+
+    const [superadmins] = await pool.execute('SELECT email FROM superadmin');
+    const emails = superadmins.map(s => s.email).filter(Boolean);
+
+    await Promise.all(emails.map(to =>
+      mailer.sendMail({
+        from: `"SRServi" <${process.env.EMAIL_USER}>`,
+        to,
+        subject: `📋 Usuarios Premium activos — ${premiumRows.length} suscripciones`,
+        html
+      })
+    ));
+
+    res.json({ success: true, sent: emails.length, total_premiums: premiumRows.length });
+  } catch (error) {
+    console.error('Error notificando premiums existentes:', error);
     res.status(500).json({ error: error.message });
   }
 });
