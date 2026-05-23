@@ -2128,27 +2128,79 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
               : '(sin tienda registrada)';
 
             const subject = `🎉 Nueva suscripción Premium — ${user?.username || `Usuario #${userId}`}`;
-            const html = `
-              <div style="font-family:sans-serif;max-width:520px;margin:auto;border:1px solid #e5e5e5;border-radius:10px;overflow:hidden">
-                <div style="background:#111;padding:20px 28px">
-                  <span style="color:#D4AF37;font-size:22px;font-weight:700">SRServi</span>
-                </div>
-                <div style="padding:28px">
-                  <h2 style="margin:0 0 16px">Nueva compra de plan Premium</h2>
-                  <table style="width:100%;border-collapse:collapse;font-size:14px">
-                    <tr><td style="padding:8px 0;color:#888;width:140px">Usuario</td><td style="padding:8px 0;font-weight:600">${user?.username || `#${userId}`}</td></tr>
-                    <tr><td style="padding:8px 0;color:#888">Email</td><td style="padding:8px 0;font-weight:600">${user?.email || '—'}</td></tr>
-                    <tr><td style="padding:8px 0;color:#888">Tienda(s)</td><td style="padding:8px 0;font-weight:600">${storeName}</td></tr>
-                    <tr><td style="padding:8px 0;color:#888">Plan</td><td style="padding:8px 0;font-weight:600">${planInfo?.name || `#${planId}`}</td></tr>
-                    <tr><td style="padding:8px 0;color:#888">Ciclo</td><td style="padding:8px 0;font-weight:600">${billingCycle === 'yearly' ? 'Anual' : 'Mensual'}</td></tr>
-                    <tr><td style="padding:8px 0;color:#888">Monto cobrado</td><td style="padding:8px 0;font-weight:600">$${payment.transaction_amount} ${payment.currency_id || ''}</td></tr>
-                    <tr><td style="padding:8px 0;color:#888">Payment ID</td><td style="padding:8px 0;font-family:monospace;font-size:12px">${payment.id}</td></tr>
-                  </table>
-                </div>
-                <div style="background:#f9f9f9;padding:14px 28px;font-size:12px;color:#aaa">
-                  ${new Date().toLocaleString('es-AR')}
-                </div>
-              </div>`;
+            const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 16px">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
+
+        <tr>
+          <td style="background:#111;padding:28px 32px">
+            <table width="100%" cellpadding="0" cellspacing="0"><tr>
+              <td><span style="color:#D4AF37;font-size:24px;font-weight:800">SR</span><span style="color:#fff;font-size:24px;font-weight:800">Servi</span></td>
+              <td align="right"><span style="background:#D4AF37;color:#000;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px">NUEVO PREMIUM</span></td>
+            </tr></table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:32px 32px 24px">
+            <div style="font-size:32px;margin-bottom:8px">🎉</div>
+            <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#111">Nueva suscripción activada</h1>
+            <p style="margin:0;font-size:14px;color:#888">${new Date().toLocaleString('es-AR')}</p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:0 32px 32px">
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:12px;overflow:hidden;border:1px solid #f0f0f0">
+              <tr style="background:#fafafa">
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;width:110px">Usuario</td>
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:14px;font-weight:700;color:#111">${user?.username || `#${userId}`}</td>
+              </tr>
+              <tr>
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Email</td>
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:14px;color:#444">${user?.email || '—'}</td>
+              </tr>
+              <tr style="background:#fafafa">
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Tienda(s)</td>
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:14px;color:#444">${storeName}</td>
+              </tr>
+              <tr>
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Plan</td>
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0">
+                  <span style="background:#D4AF37;color:#000;font-weight:700;font-size:12px;padding:3px 12px;border-radius:20px">${planInfo?.name || `#${planId}`}</span>
+                </td>
+              </tr>
+              <tr style="background:#fafafa">
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Ciclo</td>
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:14px;color:#444">${billingCycle === 'yearly' ? '🔄 Anual' : '🔄 Mensual'}</td>
+              </tr>
+              <tr>
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Monto</td>
+                <td style="padding:14px 18px;border-bottom:1px solid #f0f0f0;font-size:18px;font-weight:800;color:#111">$${payment.transaction_amount} <span style="font-size:13px;font-weight:500;color:#888">${payment.currency_id || ''}</span></td>
+              </tr>
+              <tr style="background:#fafafa">
+                <td style="padding:14px 18px;font-size:12px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Payment ID</td>
+                <td style="padding:14px 18px;font-size:12px;color:#888;font-family:monospace">${payment.id}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:12px;color:#bbb">SRServi · Panel de administración</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 
             const emails = superadmins.map(s => s.email).filter(Boolean);
             await Promise.all(emails.map(to =>
@@ -3683,51 +3735,116 @@ app.post('/api/superadmin/notify-existing-premiums', authenticateSuperadminToken
       storesByUser[s.user_id].push(s.name);
     });
 
-    // Armar filas del email
-    const rows = premiumRows.map(u => {
+    // Armar cards del email (una por usuario, más legible que tabla en email)
+    const cards = premiumRows.map((u, i) => {
       const tiendas = (storesByUser[u.user_id] || []).join(', ') || '—';
-      const ciclo = u.billing_cycle === 'yearly' ? 'Anual' : u.billing_cycle === 'forever' ? 'Para siempre' : 'Mensual';
+      const ciclo = u.billing_cycle === 'yearly' ? '🔄 Anual' : u.billing_cycle === 'forever' ? '♾️ Para siempre' : '🔄 Mensual';
       const hasta = u.ends_at ? new Date(u.ends_at).toLocaleDateString('es-AR') : '—';
       const desde = u.subscribed_at ? new Date(u.subscribed_at).toLocaleDateString('es-AR') : '—';
+      const isEven = i % 2 === 0;
       return `
-        <tr style="border-bottom:1px solid #f0f0f0">
-          <td style="padding:8px 10px">${u.username}</td>
-          <td style="padding:8px 10px">${u.email}</td>
-          <td style="padding:8px 10px">${tiendas}</td>
-          <td style="padding:8px 10px">${u.plan_name}</td>
-          <td style="padding:8px 10px">${ciclo}</td>
-          <td style="padding:8px 10px">${desde}</td>
-          <td style="padding:8px 10px">${hasta}</td>
+        <tr style="background:${isEven ? '#ffffff' : '#fafafa'}">
+          <td style="padding:14px 16px;border-bottom:1px solid #f0f0f0;vertical-align:top">
+            <div style="font-weight:700;font-size:14px;color:#111;margin-bottom:2px">${u.username}</div>
+            <div style="font-size:12px;color:#888">${u.email}</div>
+          </td>
+          <td style="padding:14px 16px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:13px;color:#444">${tiendas}</td>
+          <td style="padding:14px 16px;border-bottom:1px solid #f0f0f0;vertical-align:top;text-align:center">
+            <span style="display:inline-block;background:#D4AF37;color:#000;font-weight:700;font-size:11px;padding:3px 10px;border-radius:20px">${u.plan_name}</span>
+          </td>
+          <td style="padding:14px 16px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:12px;color:#666;white-space:nowrap">${ciclo}</td>
+          <td style="padding:14px 16px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:12px;color:#888;white-space:nowrap">${desde}</td>
+          <td style="padding:14px 16px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:12px;color:#888;white-space:nowrap">${hasta}</td>
         </tr>`;
     }).join('');
 
-    const html = `
-      <div style="font-family:sans-serif;max-width:860px;margin:auto;border:1px solid #e5e5e5;border-radius:10px;overflow:hidden">
-        <div style="background:#111;padding:20px 28px">
-          <span style="color:#D4AF37;font-size:22px;font-weight:700">SRServi</span>
-        </div>
-        <div style="padding:28px">
-          <h2 style="margin:0 0 6px">Usuarios Premium activos</h2>
-          <p style="margin:0 0 20px;color:#888;font-size:13px">Total: <strong>${premiumRows.length}</strong> suscripciones activas al ${new Date().toLocaleDateString('es-AR')}</p>
-          <table style="width:100%;border-collapse:collapse;font-size:13px">
-            <thead>
-              <tr style="background:#f5f5f5;text-align:left">
-                <th style="padding:8px 10px;font-weight:700">Usuario</th>
-                <th style="padding:8px 10px;font-weight:700">Email</th>
-                <th style="padding:8px 10px;font-weight:700">Tienda(s)</th>
-                <th style="padding:8px 10px;font-weight:700">Plan</th>
-                <th style="padding:8px 10px;font-weight:700">Ciclo</th>
-                <th style="padding:8px 10px;font-weight:700">Desde</th>
-                <th style="padding:8px 10px;font-weight:700">Hasta</th>
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 16px">
+    <tr><td align="center">
+      <table width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:#111;padding:28px 32px">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td>
+                  <span style="color:#D4AF37;font-size:24px;font-weight:800;letter-spacing:-0.5px">SR</span><span style="color:#fff;font-size:24px;font-weight:800;letter-spacing:-0.5px">Servi</span>
+                </td>
+                <td align="right">
+                  <span style="background:#D4AF37;color:#000;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:0.5px">REPORTE</span>
+                </td>
               </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-        <div style="background:#f9f9f9;padding:14px 28px;font-size:12px;color:#aaa">
-          Generado el ${new Date().toLocaleString('es-AR')}
-        </div>
-      </div>`;
+            </table>
+          </td>
+        </tr>
+
+        <!-- Title -->
+        <tr>
+          <td style="padding:28px 32px 0">
+            <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111">Usuarios Premium activos</h1>
+            <p style="margin:0;font-size:14px;color:#888">Generado el <strong style="color:#555">${new Date().toLocaleDateString('es-AR', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}</strong></p>
+          </td>
+        </tr>
+
+        <!-- Stats bar -->
+        <tr>
+          <td style="padding:20px 32px">
+            <table cellpadding="0" cellspacing="0" style="background:#f8f8f8;border-radius:12px;padding:16px 20px;width:100%">
+              <tr>
+                <td style="text-align:center;padding:0 16px">
+                  <div style="font-size:32px;font-weight:800;color:#111">${premiumRows.length}</div>
+                  <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Suscripciones</div>
+                </td>
+                <td style="width:1px;background:#e5e5e5"></td>
+                <td style="text-align:center;padding:0 16px">
+                  <div style="font-size:32px;font-weight:800;color:#D4AF37">${premiumRows.filter(u => u.billing_cycle === 'yearly').length}</div>
+                  <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Anuales</div>
+                </td>
+                <td style="width:1px;background:#e5e5e5"></td>
+                <td style="text-align:center;padding:0 16px">
+                  <div style="font-size:32px;font-weight:800;color:#555">${premiumRows.filter(u => u.billing_cycle !== 'yearly' && u.billing_cycle !== 'forever').length}</div>
+                  <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Mensuales</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Table -->
+        <tr>
+          <td style="padding:0 32px 32px">
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:12px;overflow:hidden;border:1px solid #f0f0f0">
+              <thead>
+                <tr style="background:#f5f5f5">
+                  <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px">Usuario</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px">Tienda(s)</th>
+                  <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px">Plan</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px">Ciclo</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px">Desde</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px">Hasta</th>
+                </tr>
+              </thead>
+              <tbody>${cards}</tbody>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:12px;color:#bbb">SRServi · Panel de administración · ${new Date().toLocaleString('es-AR')}</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 
     const [superadmins] = await pool.execute('SELECT email FROM superadmin');
     const emails = superadmins.map(s => s.email).filter(Boolean);
