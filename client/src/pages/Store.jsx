@@ -766,7 +766,7 @@ function Store() {
     (navigator.maxTouchPoints && navigator.maxTouchPoints > 0)
   );
 
-  // Auto-advance to rating step after 3 seconds, then auto-close after 20 more seconds
+  // Auto-advance to rating step after 10 seconds, then auto-close after 20 more seconds
   useEffect(() => {
     if (!paymentConfirmed) return;
     if (deliveryMode && lastOrderNumber) {
@@ -777,7 +777,7 @@ function Store() {
       setOrderRating(null);
       setOrderComment('');
       setShowRatingStep(true);
-    }, 3000);
+    }, 10000);
     return () => clearTimeout(toRatingTimer);
   }, [paymentConfirmed]);
 
