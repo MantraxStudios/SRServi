@@ -392,6 +392,7 @@ function WorkerPanel() {
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [storeColors, setStoreColors] = useState(null);
+  const [hideDecimals, setHideDecimals] = useState(false);
   const [showWorkerSwitch, setShowWorkerSwitch] = useState(false);
   const [switchingWorker, setSwitchingWorker] = useState(null);
   const [activeTab, setActiveTab] = useState('active');
@@ -427,6 +428,16 @@ function WorkerPanel() {
     primary: '#0a0a0a',
     secondary: '#ffffff',
     accent: '#D4AF37'
+  };
+
+  const formatPrice = (price) => {
+    const num = Number(price);
+    if (isNaN(num)) return hideDecimals ? '0' : '0.00';
+    if (hideDecimals) {
+      const fixed = num.toFixed(2);
+      return fixed.endsWith('.00') ? String(Math.round(num)) : fixed;
+    }
+    return num.toFixed(2);
   };
 
   useEffect(() => {
@@ -643,6 +654,14 @@ function WorkerPanel() {
     } catch (error) {
       console.error('Error fetching store colors:', error);
     }
+    try {
+      const cfgRes = await fetch(`/api/public/store-configurations/${storeId}`);
+      if (cfgRes.ok) {
+        const cfgs = await cfgRes.json();
+        const defaultCfg = Array.isArray(cfgs) ? (cfgs.find(c => c.is_default) || cfgs[0]) : null;
+        if (defaultCfg) setHideDecimals(!!defaultCfg.hide_decimals);
+      }
+    } catch {}
   };
 
   const downloadPrepTablePDF = (table) => {
@@ -693,7 +712,7 @@ function WorkerPanel() {
     const avg = pts.length ? Math.round(pts.reduce((a,b)=>a+b,0)/pts.length) : null;
     const byW = {};
     done.forEach(o => { const w=o.completed_by_name||'Sin asignar'; if(!byW[w])byW[w]={count:0,total:0}; byW[w].count++; byW[w].total+=Number(o.total||0); });
-    const wRows = Object.entries(byW).map(([n,d]) => '<tr><td>'+n+'</td><td style="text-align:center">'+d.count+'</td><td style="text-align:right;font-weight:700">$'+d.total.toFixed(2)+'</td></tr>').join('');
+    const wRows = Object.entries(byW).map(([n,d]) => '<tr><td>'+n+'</td><td style="text-align:center">'+d.count+'</td><td style="text-align:right;font-weight:700">$'+formatPrice(d.total)+'</td></tr>').join('');
     const oRows = todayOrders.map(o => {
       const items = (o.items||[]).map(i => {
         const ings = Array.isArray(i.selected_ingredients) ? i.selected_ingredients.map(x=>x.name||x).join(', ') : '';
@@ -705,10 +724,10 @@ function WorkerPanel() {
       const priceModified = Math.abs(finalTotal - originalTotal) > 0.01;
       const totalCell = priceModified
         ? '<span style="color:#16a34a;font-weight:800;font-size:13px">✓</span> '
-          + '<span style="text-decoration:line-through;color:#999;font-size:11px;margin-right:4px">$'+originalTotal.toFixed(2)+'</span>'
-          + '<span style="font-weight:800;color:#15803d">$'+finalTotal.toFixed(2)+'</span>'
+          + '<span style="text-decoration:line-through;color:#999;font-size:11px;margin-right:4px">$'+formatPrice(originalTotal)+'</span>'
+          + '<span style="font-weight:800;color:#15803d">$'+formatPrice(finalTotal)+'</span>'
         : '<span style="color:#dc2626;font-size:12px;margin-right:3px">✗</span>'
-          + '<span style="font-weight:800">$'+finalTotal.toFixed(2)+'</span>';
+          + '<span style="font-weight:800">$'+formatPrice(finalTotal)+'</span>';
       const bg = o.status==='completed'?'#f0fff4':o.status==='preparing'?'#fffbeb':'#fff';
       return '<tr style="background:'+bg+'"><td style="font-weight:800;font-size:15px">'+getOrderDisplayNumber(o)+'</td><td>'+tl(o.order_type)+(o.table_number!=null?'<br><small>Mesa '+o.table_number+'</small>':'')+'</td><td>'+fmt(o.created_at)+'</td><td>'+(o.completed_at?fmt(o.completed_at):'—')+'</td><td style="font-weight:700">'+fmtPrep(o.created_at,o.completed_at)+'</td><td>'+sl(o.status)+'</td><td style="font-weight:600">'+(o.completed_by_name||'—')+'</td><td style="font-size:12px">'+(items||'—')+'</td><td style="text-align:right;white-space:nowrap">'+totalCell+'</td></tr>';
     }).join('');
@@ -728,7 +747,7 @@ function WorkerPanel() {
       '@media print{body{padding:8px}@page{margin:12mm;size:A4 landscape}}';
     const html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Informe '+sn+'</title><style>'+css+'</style></head><body>'+
       '<div class="top"><div><h1>'+sn+'</h1><p>Informe de pedidos del día</p><p>'+ds+'</p></div><div class="top-right"><p>Generado por: <strong>'+wn+'</strong></p><p>Hora: '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})+'</p></div></div>'+
-      '<div class="stats"><div class="stat"><div class="stat-label">Total pedidos</div><div class="stat-value">'+todayOrders.length+'</div></div><div class="stat"><div class="stat-label">Completados</div><div class="stat-value">'+done.length+'</div></div><div class="stat"><div class="stat-label">Ingresos totales</div><div class="stat-value">$'+total.toFixed(2)+'</div></div><div class="stat"><div class="stat-label">Tiempo prom. prep.</div><div class="stat-value">'+(avg!=null?avg+' min':'—')+'</div></div></div>'+
+      '<div class="stats"><div class="stat"><div class="stat-label">Total pedidos</div><div class="stat-value">'+todayOrders.length+'</div></div><div class="stat"><div class="stat-label">Completados</div><div class="stat-value">'+done.length+'</div></div><div class="stat"><div class="stat-label">Ingresos totales</div><div class="stat-value">$'+formatPrice(total)+'</div></div><div class="stat"><div class="stat-label">Tiempo prom. prep.</div><div class="stat-value">'+(avg!=null?avg+' min':'—')+'</div></div></div>'+
       (wRows?'<h2>Rendimiento por Trabajador</h2><table><thead><tr><th>Trabajador</th><th>Pedidos</th><th>Total gestionado</th></tr></thead><tbody>'+wRows+'</tbody></table>':'')+
       '<h2>Detalle de Pedidos</h2><table><thead><tr><th>#</th><th>Tipo</th><th>Entrada</th><th>Salida</th><th>Tiempo prep.</th><th>Estado</th><th>Atendido por</th><th>Productos</th><th>Total</th></tr></thead><tbody>'+oRows+'</tbody></table>'+
       '<div class="footer">SRServi — '+sn+' — '+new Date().toLocaleString('es-ES')+'</div></body></html>';
@@ -1117,7 +1136,7 @@ function WorkerPanel() {
   const stats = {
     pending: orders.filter(o => o.status === 'pending').length + pendingCashOrders.length,
     ready: completedOrders.length,
-    total: [...orders, ...completedOrders, ...pendingCashOrders].reduce((s, o) => s + Number(o.total || 0), 0).toFixed(1)
+    total: formatPrice([...orders, ...completedOrders, ...pendingCashOrders].reduce((s, o) => s + Number(o.total || 0), 0))
   };
 
   return (
@@ -1360,7 +1379,7 @@ function WorkerPanel() {
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
                     <div className="worker-order-total" style={{ margin: 0 }}>
-                      ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
+                      ${ formatPrice(order.total) }
                     </div>
                     <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                       <button
@@ -1487,7 +1506,7 @@ function WorkerPanel() {
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
                     <div className="worker-order-total" style={{ margin: 0 }}>
-                      ${isNaN(order.total) ? '0.00' : Number(order.total).toFixed(2)}
+                      ${ formatPrice(order.total) }
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); reprintOrder(order.id); }}
@@ -1905,7 +1924,7 @@ function WorkerPanel() {
             </div>
             <div className="worker-detail-row">
               <span className="worker-detail-label">Total:</span>
-              <span className="worker-detail-value">${isNaN(selectedOrder.total) ? '0.00' : Number(selectedOrder.total).toFixed(2)}</span>
+              <span className="worker-detail-value">${ formatPrice(selectedOrder.total) }</span>
             </div>
 
             {selectedOrder.items && selectedOrder.items.length > 0 && (
@@ -1915,7 +1934,7 @@ function WorkerPanel() {
                       <div key={idx} className="worker-item-row flex-col">
                         <div className="flex justify-between w-full worker-item-main">
                           <span className="worker-detail-value">{item.quantity}x {item.product_name || item.name || 'Producto'}</span>
-                          <span className="worker-detail-value">${(Number(item.unit_price) * Number(item.quantity)).toFixed(2)}</span>
+                          <span className="worker-detail-value">${ formatPrice(Number(item.unit_price) * Number(item.quantity)) }</span>
                         </div>
                         {item.selected_ingredients && item.selected_ingredients.length > 0 && (
                           <div className="worker-item-extras">
@@ -2209,7 +2228,7 @@ function WorkerPanel() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                     <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>Total:</span>
                     <span style={{ color: '#22c55e', fontWeight: '800', fontSize: '1.2rem' }}>
-                      ${isNaN(payResult.total) ? '0.00' : Number(payResult.total).toFixed(2)}
+                      ${ formatPrice(payResult.total) }
                     </span>
                   </div>
                   {payResult.items && payResult.items.length > 0 && (
