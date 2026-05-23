@@ -3607,6 +3607,17 @@ app.delete('/api/superadmin/users/:id', authenticateSuperadminToken, async (req,
   }
 });
 
+app.post('/api/superadmin/impersonate/:userId', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const user = await getUserById(req.params.userId);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const token = jwt.sign({ id: user.id, email: user.email, type: 'user' }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: { id: user.id, email: user.email, username: user.username } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/superadmin/stores', authenticateSuperadminToken, async (req, res) => {
   try {
     const stores = await getAllStores();

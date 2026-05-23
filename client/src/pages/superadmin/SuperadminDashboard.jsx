@@ -55,6 +55,7 @@ import {
   faFilter,
   faSync,
   faInfoCircle,
+  faUserSecret,
 } from '@fortawesome/free-solid-svg-icons';
 
 function SuperadminDashboard() {
@@ -410,6 +411,22 @@ function SuperadminDashboard() {
       }
     } catch (error) {
       console.error('Error deleting user:', error);
+    }
+  };
+
+  const handleImpersonate = async (user) => {
+    const token = localStorage.getItem('superadminToken');
+    try {
+      const res = await fetch(API + `/api/superadmin/impersonate/${user.id}`, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) { alert('Error al obtener sesión'); return; }
+      const data = await res.json();
+      localStorage.setItem('token', data.token);
+      window.open('/admin', '_blank');
+    } catch (error) {
+      console.error('Error impersonating:', error);
     }
   };
 
@@ -892,6 +909,7 @@ function SuperadminDashboard() {
                             <button className="btn btn-sm btn-icon" onClick={() => handleEditUser(user)} title="Editar"><FontAwesomeIcon icon={faEdit} /></button>
                             <button className={`btn btn-sm btn-icon ${user.is_banned ? 'btn-unban' : 'btn-ban'}`} onClick={() => handleToggleBanUser(user)} title={user.is_banned ? 'Desbanear' : 'Banear'}><FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} /></button>
                             <button className="btn btn-sm btn-icon btn-delete" onClick={() => setShowDeleteConfirm({ type: 'user', id: user.id, name: user.username })} title="Eliminar"><FontAwesomeIcon icon={faTrash} /></button>
+                            <button className="btn btn-sm btn-icon" onClick={() => handleImpersonate(user)} title="Ingresar como este usuario" style={{ background: '#7c3aed', color: '#fff', border: 'none' }}><FontAwesomeIcon icon={faUserSecret} /></button>
                           </div>
                         </div>
                       );
@@ -947,6 +965,7 @@ function SuperadminDashboard() {
                                 <button className="btn btn-sm btn-icon" onClick={() => handleEditUser(user)} title="Editar"><FontAwesomeIcon icon={faEdit} /></button>
                                 <button className={`btn btn-sm btn-icon ${user.is_banned ? 'btn-unban' : 'btn-ban'}`} onClick={() => handleToggleBanUser(user)} title={user.is_banned ? 'Desbanear' : 'Banear'}><FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} /></button>
                                 <button className="btn btn-sm btn-icon btn-delete" onClick={() => setShowDeleteConfirm({ type: 'user', id: user.id, name: user.username })} title="Eliminar"><FontAwesomeIcon icon={faTrash} /></button>
+                                <button className="btn btn-sm btn-icon" onClick={() => handleImpersonate(user)} title="Ingresar como este usuario" style={{ background: '#7c3aed', color: '#fff', border: 'none' }}><FontAwesomeIcon icon={faUserSecret} /></button>
                               </td>
                             </tr>
                           );
