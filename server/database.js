@@ -2128,7 +2128,12 @@ export async function getStoreConfigurations(storeId) {
     accept_card: Boolean(row.accept_card),
     is_active: Boolean(row.is_active),
     is_default: Boolean(row.is_default),
-    is_minimarket: Boolean(row.is_minimarket)
+    is_minimarket: Boolean(row.is_minimarket),
+    allow_serve: Boolean(row.allow_serve),
+    allow_takeout: Boolean(row.allow_takeout),
+    hide_decimals: Boolean(row.hide_decimals),
+    allow_table_service: Boolean(row.allow_table_service),
+    delivery_enabled: Boolean(row.delivery_enabled)
   }));
 }
 
@@ -2154,7 +2159,7 @@ export async function createStoreConfiguration(storeId, data) {
 
   const [result] = await pool.execute(
     'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, hide_decimals === true, allow_table_service === true, tipPct, delivery_enabled === true, delivMethods]
+    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, !!is_default, !!is_minimarket, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, !!hide_decimals, !!allow_table_service, tipPct, !!delivery_enabled, delivMethods]
   );
   return {
     id: result.insertId,
@@ -2164,15 +2169,15 @@ export async function createStoreConfiguration(storeId, data) {
     accept_cash: accept_cash !== false,
     accept_card: accept_card !== false,
     is_active: is_active !== false,
-    is_default: is_default === true,
-    is_minimarket: is_minimarket === true,
+    is_default: !!is_default,
+    is_minimarket: !!is_minimarket,
     default_minimarket_terminal: default_minimarket_terminal || null,
     allow_serve: allow_serve !== false,
     allow_takeout: allow_takeout !== false,
-    hide_decimals: hide_decimals === true,
-    allow_table_service: allow_table_service === true,
+    hide_decimals: !!hide_decimals,
+    allow_table_service: !!allow_table_service,
     tip_percentage: tipPct,
-    delivery_enabled: delivery_enabled === true,
+    delivery_enabled: !!delivery_enabled,
     delivery_payment_methods: delivMethods
   };
 }
@@ -2191,7 +2196,7 @@ export async function updateStoreConfiguration(configId, storeId, data) {
 
   await pool.execute(
     'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ?, allow_serve = ?, allow_takeout = ?, hide_decimals = ?, allow_table_service = ?, tip_percentage = ?, delivery_enabled = ?, delivery_payment_methods = ? WHERE id = ? AND store_id = ?',
-    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, is_default === true, is_minimarket === true, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, hide_decimals === true, allow_table_service === true, tipPct, delivery_enabled === true, delivMethods, configId, storeId]
+    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, !!is_default, !!is_minimarket, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, !!hide_decimals, !!allow_table_service, tipPct, !!delivery_enabled, delivMethods, configId, storeId]
   );
   return {
     id: configId,
@@ -2201,15 +2206,15 @@ export async function updateStoreConfiguration(configId, storeId, data) {
     accept_cash: accept_cash !== false,
     accept_card: accept_card !== false,
     is_active: is_active !== false,
-    is_default: is_default === true,
-    is_minimarket: is_minimarket === true,
+    is_default: !!is_default,
+    is_minimarket: !!is_minimarket,
     default_minimarket_terminal: default_minimarket_terminal || null,
     allow_serve: allow_serve !== false,
     allow_takeout: allow_takeout !== false,
-    hide_decimals: hide_decimals === true,
-    allow_table_service: allow_table_service === true,
+    hide_decimals: !!hide_decimals,
+    allow_table_service: !!allow_table_service,
     tip_percentage: tipPct,
-    delivery_enabled: delivery_enabled === true,
+    delivery_enabled: !!delivery_enabled,
     delivery_payment_methods: delivMethods
   };
 }

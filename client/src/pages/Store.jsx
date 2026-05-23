@@ -353,6 +353,14 @@ function Store() {
   const [restartingSending, setRestartingSending] = useState(false);
   const [pinOptionsModalOpen, setPinOptionsModalOpen] = useState(false);
   const [totemZoom, setTotemZoom] = useState(() => parseFloat(localStorage.getItem('srservi_totem_zoom') || '1'));
+  const [localAcceptCash, setLocalAcceptCash] = useState(() => {
+    const v = localStorage.getItem('srservi_accept_cash');
+    return v === null ? null : v === 'true';
+  });
+  const [localAcceptCard, setLocalAcceptCard] = useState(() => {
+    const v = localStorage.getItem('srservi_accept_card');
+    return v === null ? null : v === 'true';
+  });
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [posSelectModalOpen, setPosSelectModalOpen] = useState(false);
   const [posSelectList, setPosSelectList] = useState([]);
@@ -595,6 +603,16 @@ function Store() {
   };
 
   // minimarket redirect removed — handled within the store view directly
+
+  useEffect(() => {
+    if (!selectedConfiguration) return;
+    if (localStorage.getItem('srservi_accept_cash') === null) {
+      setLocalAcceptCash(selectedConfiguration.accept_cash ?? false);
+    }
+    if (localStorage.getItem('srservi_accept_card') === null) {
+      setLocalAcceptCard(selectedConfiguration.accept_card ?? false);
+    }
+  }, [selectedConfiguration]);
 
   // If only one order type is allowed, auto-select it (don't ask the user)
   useEffect(() => {
@@ -4825,7 +4843,7 @@ function Store() {
 
                     return (
                       <>
-                        {selectedConfiguration?.accept_card && (
+                        {localAcceptCard && (
                           <button
                             onClick={() => handlePaymentMethodSelect('card')}
                             className="btn btn-lg btn-full store-glow-pulse"
@@ -4835,7 +4853,7 @@ function Store() {
                             <span className="font-bold" style={{ fontSize: '18px' }}>{t('card', lang)}</span>
                           </button>
                         )}
-                        {selectedConfiguration?.accept_cash && (
+                        {localAcceptCash && (
                           <button
                             onClick={() => handlePaymentMethodSelect('cash')}
                             className="btn btn-lg btn-full store-glow-pulse"
@@ -4845,7 +4863,7 @@ function Store() {
                             <span className="font-bold" style={{ fontSize: '18px' }}>{t('cash', lang)}</span>
                           </button>
                         )}
-                        {!selectedConfiguration?.accept_cash && !selectedConfiguration?.accept_card && !qrProvider && !haulmerNative && (
+                        {!localAcceptCash && !localAcceptCard && !qrProvider && !haulmerNative && (
                           <p className="text-muted">{t('noPaymentMethods', lang)}</p>
                         )}
                       </>
@@ -5370,7 +5388,7 @@ function Store() {
               {t('paymentNotCompletedDesc', lang)}
             </p>
             <div className="flex flex-col" style={{ gap: '15px' }}>
-              {selectedConfiguration?.accept_card && (
+              {localAcceptCard && (
                 <button
                   onClick={() => {
                     setPaymentCancelled(false);
@@ -5389,7 +5407,7 @@ function Store() {
                   <span className="font-bold" style={{ fontSize: '18px' }}>{t('retryCard', lang)}</span>
                 </button>
               )}
-              {selectedConfiguration?.accept_cash && (
+              {localAcceptCash && (
                 <button
                   onClick={() => {
                     setPaymentCancelled(false);
@@ -6555,6 +6573,53 @@ function Store() {
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#aaa', marginTop: '2px' }}>
                   <span>20%</span><span>100%</span><span>200%</span>
+                </div>
+              </div>
+              <div style={{ padding: '14px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#fafafa' }}>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--store-primary)', marginBottom: '10px' }}>Métodos de pago</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: '#555' }}>Tarjeta</span>
+                    <button
+                      onClick={() => {
+                        const next = !localAcceptCard;
+                        setLocalAcceptCard(next);
+                        localStorage.setItem('srservi_accept_card', String(next));
+                      }}
+                      style={{
+                        width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer',
+                        background: localAcceptCard ? 'var(--store-primary)' : '#ccc',
+                        position: 'relative', transition: 'background 0.2s'
+                      }}
+                    >
+                      <span style={{
+                        display: 'block', width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
+                        position: 'absolute', top: '3px', transition: 'left 0.2s',
+                        left: localAcceptCard ? '25px' : '3px'
+                      }} />
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: '#555' }}>Efectivo</span>
+                    <button
+                      onClick={() => {
+                        const next = !localAcceptCash;
+                        setLocalAcceptCash(next);
+                        localStorage.setItem('srservi_accept_cash', String(next));
+                      }}
+                      style={{
+                        width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer',
+                        background: localAcceptCash ? 'var(--store-primary)' : '#ccc',
+                        position: 'relative', transition: 'background 0.2s'
+                      }}
+                    >
+                      <span style={{
+                        display: 'block', width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
+                        position: 'absolute', top: '3px', transition: 'left 0.2s',
+                        left: localAcceptCash ? '25px' : '3px'
+                      }} />
+                    </button>
+                  </div>
                 </div>
               </div>
               <button
