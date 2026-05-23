@@ -41,6 +41,9 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState([]);
   const [orderType, setOrderType] = useState('serve');
+  const [hideDecimals, setHideDecimals] = useState(false);
+  const [allowServe, setAllowServe] = useState(true);
+  const [allowTakeout, setAllowTakeout] = useState(true);
 
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productConfig, setProductConfig] = useState({
@@ -91,11 +94,12 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       if (!storeCode) throw new Error('No se encontro el codigo de tienda');
 
       // Use public API that returns everything together (products with ingredients/extras)
-      const [storeRes, terminalsRes, payMethodsRes, tuuRes] = await Promise.all([
+      const [storeRes, terminalsRes, payMethodsRes, tuuRes, cfgRes] = await Promise.all([
         fetch(API + `/api/public/${storeCode}`),
         fetch(API + `/api/public/${storeCode}/mercado-pago-terminals`),
         fetch(API + `/api/public/worker-payment-methods/${storeId}`),
-        fetch(API + `/api/tuu/available?store_id=${storeId}&device_uid=${localStorage.getItem('deviceUid') || ''}`)
+        fetch(API + `/api/tuu/available?store_id=${storeId}&device_uid=${localStorage.getItem('deviceUid') || ''}`),
+        fetch(API + `/api/public/store-configurations/${storeId}`)
       ]);
 
       if (!storeRes.ok) throw new Error('Error al cargar la tienda');
@@ -104,6 +108,17 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       const terminalsData = terminalsRes.ok ? await terminalsRes.json() : [];
       const payMethodsData = payMethodsRes.ok ? await payMethodsRes.json() : [];
       const tuuData = tuuRes.ok ? await tuuRes.json() : { available: false };
+      const cfgData = cfgRes.ok ? await cfgRes.json() : [];
+      const cfg = Array.isArray(cfgData) ? (cfgData.find(c => c.is_default) || cfgData[0]) : null;
+      if (cfg) {
+        setHideDecimals(!!cfg.hide_decimals);
+        const serve = cfg.allow_serve !== false;
+        const takeout = cfg.allow_takeout !== false;
+        setAllowServe(serve);
+        setAllowTakeout(takeout);
+        if (!serve && takeout) setOrderType('takeout');
+        else if (serve && !takeout) setOrderType('serve');
+      }
       if (tuuData.available) {
         setTuuAvailable(true);
         setTuuDeviceName(tuuData.deviceName || '');
@@ -479,6 +494,16 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
     setPendingOrderData(null);
   };
 
+  const formatPrice = (price) => {
+    const num = Number(price);
+    if (isNaN(num)) return hideDecimals ? '0' : '0.00';
+    if (hideDecimals) {
+      const fixed = num.toFixed(2);
+      return fixed.endsWith('.00') ? String(Math.round(num)) : fixed;
+    }
+    return num.toFixed(2);
+  };
+
   // Render loading
   if (loading) {
     return (
@@ -709,7 +734,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                     </div>
                     <div className="worker-pos-product-info">
                       <div className="worker-pos-product-name">{product.name}</div>
-                      <div className="worker-pos-product-price">{currencySymbol}{Number(product.price).toFixed(2)}</div>
+                      <div className="worker-pos-product-price">{currencySymbol}{formatPrice(product.price)}</div>
                     </div>
                   </div>
                 );
@@ -721,7 +746,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
               <button className="worker-pos-float-cart" onClick={() => setMobileTab('cart')}>
                 <span className="worker-pos-float-cart-count">{getCartCount()}</span>
                 <span>Ver carrito</span>
-                <span className="worker-pos-float-cart-total">{currencySymbol}{getCartTotal().toFixed(2)}</span>
+                <span className="worker-pos-float-cart-total">{currencySymbol}{formatPrice(getCartTotal())}</span>
               </button>
             )}
           </div>
@@ -749,7 +774,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                       </div>
                     )}
                     <div style={{ color: '#D4AF37', fontSize: '0.85rem', fontWeight: 600, marginTop: '4px' }}>
-                      {currencySymbol}{(item.unit_price * item.quantity).toFixed(2)}
+                      {currencySymbol}{formatPrice(item.unit_price * item.quantity)}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
@@ -784,7 +809,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                       min="0"
                       step="0.01"
                       autoFocus
-                      value={customTotal !== null ? customTotal : getCartTotal().toFixed(2)}
+                      value={customTotal !== null ? customTotal : formatPrice(getCartTotal())}
                       onChange={e => setCustomTotal(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                       onBlur={() => setEditingTotal(false)}
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingTotal(false); }}
@@ -796,17 +821,17 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                     />
                   ) : (
                     <span style={{ color: customTotal !== null ? '#D4AF37' : undefined }}>
-                      {currencySymbol}{getEffectiveTotal().toFixed(2)}
+                      {currencySymbol}{formatPrice(getEffectiveTotal())}
                       {customTotal !== null && (
                         <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', marginLeft: '4px' }}>
-                          (orig. {currencySymbol}{getCartTotal().toFixed(2)})
+                          (orig. {currencySymbol}{formatPrice(getCartTotal())})
                         </span>
                       )}
                     </span>
                   )}
                   {!editingTotal && (
                     <button
-                      onClick={() => { setEditingTotal(true); if (customTotal === null) setCustomTotal(parseFloat(getCartTotal().toFixed(2))); }}
+                      onClick={() => { setEditingTotal(true); if (customTotal === null) setCustomTotal(getCartTotal()); }}
                       title="Editar total"
                       style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '2px 4px', fontSize: '0.75rem' }}
                     >
@@ -817,22 +842,24 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
               </div>
 
               {/* Order type */}
-              <div className="worker-pos-order-type-center">
-                <button
-                  onClick={() => setOrderType('serve')}
-                  className={`worker-pos-type-btn${orderType === 'serve' ? ' active' : ''}`}
-                >
-                  <FontAwesomeIcon icon={faUtensils} />
-                  <span>Servir aquí</span>
-                </button>
-                <button
-                  onClick={() => setOrderType('takeout')}
-                  className={`worker-pos-type-btn${orderType === 'takeout' ? ' active' : ''}`}
-                >
-                  <FontAwesomeIcon icon={faShoppingBag} />
-                  <span>Para llevar</span>
-                </button>
-              </div>
+              {(allowServe || allowTakeout) && (allowServe && allowTakeout) && (
+                <div className="worker-pos-order-type-center">
+                  <button
+                    onClick={() => setOrderType('serve')}
+                    className={`worker-pos-type-btn${orderType === 'serve' ? ' active' : ''}`}
+                  >
+                    <FontAwesomeIcon icon={faUtensils} />
+                    <span>Servir aquí</span>
+                  </button>
+                  <button
+                    onClick={() => setOrderType('takeout')}
+                    className={`worker-pos-type-btn${orderType === 'takeout' ? ' active' : ''}`}
+                  >
+                    <FontAwesomeIcon icon={faShoppingBag} />
+                    <span>Para llevar</span>
+                  </button>
+                </div>
+              )}
 
               <button
                 disabled={cart.length === 0}
@@ -840,7 +867,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 onClick={() => setShowPayModal(true)}
               >
                 <FontAwesomeIcon icon={faShoppingCart} />
-                Cobrar — {currencySymbol}{getEffectiveTotal().toFixed(2)}
+                Cobrar — {currencySymbol}{formatPrice(getEffectiveTotal())}
               </button>
             </div>
           </div>
@@ -856,7 +883,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 <div>
                   <h3 style={{ margin: 0, color: '#fff', fontSize: '1.05rem' }}>{selectedProduct.name}</h3>
                   <span style={{ color: '#D4AF37', fontSize: '0.9rem', fontWeight: 600 }}>
-                    {currencySymbol}{calculateProductPrice().toFixed(2)}
+                    {currencySymbol}{formatPrice(calculateProductPrice())}
                   </span>
                 </div>
                 <button
@@ -905,7 +932,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                           </div>
                           {ing.price > 0 && (
                             <span style={{ color: '#D4AF37', fontSize: '0.8rem', fontWeight: 600 }}>
-                              +{currencySymbol}{Number(ing.price).toFixed(2)}
+                              +{currencySymbol}{formatPrice(ing.price)}
                             </span>
                           )}
                         </div>
@@ -947,7 +974,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                           </div>
                           {ext.price > 0 && (
                             <span style={{ color: '#D4AF37', fontSize: '0.8rem', fontWeight: 600 }}>
-                              +{currencySymbol}{Number(ext.price).toFixed(2)}
+                              +{currencySymbol}{formatPrice(ext.price)}
                             </span>
                           )}
                         </div>
@@ -1006,7 +1033,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                   ) : (
                     <>
                       <FontAwesomeIcon icon={faPlus} />
-                      Agregar {currencySymbol}{(calculateProductPrice() * productConfig.quantity).toFixed(2)}
+                      Agregar {currencySymbol}{formatPrice(calculateProductPrice() * productConfig.quantity)}
                     </>
                   )}
                 </button>
@@ -1051,10 +1078,10 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 ) : (
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
                     <span className="worker-pos-pay-modal-amount">
-                      {currencySymbol}{getEffectiveTotal().toFixed(2)}
+                      {currencySymbol}{formatPrice(getEffectiveTotal())}
                     </span>
                     <button
-                      onClick={e => { e.stopPropagation(); if (customTotal === null) setCustomTotal(parseFloat(getCartTotal().toFixed(2))); setEditingPayTotal(true); }}
+                      onClick={e => { e.stopPropagation(); if (customTotal === null) setCustomTotal(getCartTotal()); setEditingPayTotal(true); }}
                       style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px', color: 'rgba(255,255,255,0.5)', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', flexShrink: 0 }}
                     >
                       <FontAwesomeIcon icon={faPen} />
