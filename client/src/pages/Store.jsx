@@ -2211,14 +2211,14 @@ function Store() {
           const payStatus = data.payment_status || data.status;
           const paidAmount = data.paid_amount || '0';
 
+          const MP_APPROVED_STATUSES = ['approved', 'paid', 'processed', 'action_required'];
           const isApproved =
-            (payStatus === 'approved' || payStatus === 'paid' || payStatus === 'processed' ||
-             mpStatus === 'processed') &&
-            (parseFloat(paidAmount) > 0 || payStatus === 'processed' || mpStatus === 'processed');
-          const isCancelled = mpStatus === 'canceled' || mpStatus === 'refunded' ||
+            (MP_APPROVED_STATUSES.includes(payStatus) || MP_APPROVED_STATUSES.includes(mpStatus)) &&
+            (parseFloat(paidAmount) > 0 || payStatus === 'processed' || mpStatus === 'processed' || mpStatus === 'action_required');
+          const isCancelled = mpStatus === 'canceled' ||
             mpStatus === 'expired' || mpStatus === 'failed' ||
-            payStatus === 'canceled' || payStatus === 'refunded' ||
-            data.order_status === 'canceled' || data.order_status === 'refunded';
+            payStatus === 'canceled' ||
+            data.order_status === 'canceled';
 
           if (isApproved) {
             clearInterval(pollInterval);

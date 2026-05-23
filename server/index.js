@@ -5158,8 +5158,11 @@ app.get('/api/orders/:orderId/payment-status', async (req, res) => {
 
     let mercadopagoAccessToken = store?.mercadopago_access_token;
     if (order.terminal_id) {
-      const [termRows] = await pool.execute("SELECT mercadopago_access_token FROM mercado_pago_terminals WHERE id = ?", [order.terminal_id]);
-      if (termRows[0]?.mercadopago_access_token) mercadopagoAccessToken = termRows[0].mercadopago_access_token;
+      const [posRows] = await pool.execute(
+        "SELECT api_key FROM pos_terminals WHERE id = ? AND provider = 'mercadopago'",
+        [order.terminal_id]
+      );
+      if (posRows[0]?.api_key) mercadopagoAccessToken = posRows[0].api_key;
     }
     if (!mercadopagoAccessToken) {
       return res.json({ mp_status: 'pending', payment_status: 'pending', order_status: order.status, order, mp_full: null });
@@ -5217,14 +5220,15 @@ app.get('/api/orders/:orderId/payment-status', async (req, res) => {
       return res.json({ mp_status: 'pending', payment_status: 'pending', order_status: order.status, order, mp_full: null });
     }
 
-    // La nueva API de MP Point usa "processed" para pagos exitosos (no "approved")
-    // El campo de monto es "amount", no "paid_amount"
+    // La nueva API de MP Point usa "processed" para pagos exitosos (no "approved").
+    // "action_required" = pago procesado en terminal pero requiere confirmación manual → tratar como aprobado.
+    const MP_APPROVED = ['processed', 'action_required'];
     const rawStatus = mpStatus.transactions?.payments?.[0]?.status || mpStatus.status;
-    const paymentStatus = (rawStatus === 'processed' || mpStatus.status === 'processed') ? 'approved' : rawStatus;
+    const paymentStatus = (MP_APPROVED.includes(rawStatus) || MP_APPROVED.includes(mpStatus.status)) ? 'approved' : rawStatus;
     const paidAmount =
       mpStatus.transactions?.payments?.[0]?.paid_amount ||
       mpStatus.transactions?.payments?.[0]?.amount ||
-      (mpStatus.status === 'processed' ? '1' : '0');
+      (MP_APPROVED.includes(mpStatus.status) ? '1' : '0');
 
     if (mpStatus.status === 'canceled' || mpStatus.status === 'expired' || mpStatus.status === 'failed') {
       await updateOrderStatus(parseInt(orderId), parseInt(storeId), 'canceled');
@@ -5322,8 +5326,11 @@ app.post('/api/orders/:orderId/cancel-payment', async (req, res) => {
     const store = await getStoreById(parseInt(storeId));
     let mercadopagoAccessToken = store?.mercadopago_access_token;
     if (order.terminal_id) {
-      const [termRows] = await pool.execute("SELECT mercadopago_access_token FROM mercado_pago_terminals WHERE id = ?", [order.terminal_id]);
-      if (termRows[0]?.mercadopago_access_token) mercadopagoAccessToken = termRows[0].mercadopago_access_token;
+      const [posRows] = await pool.execute(
+        "SELECT api_key FROM pos_terminals WHERE id = ? AND provider = 'mercadopago'",
+        [order.terminal_id]
+      );
+      if (posRows[0]?.api_key) mercadopagoAccessToken = posRows[0].api_key;
     }
 
     if (mercadopagoAccessToken) {
