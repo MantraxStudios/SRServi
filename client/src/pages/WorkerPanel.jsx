@@ -357,7 +357,7 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
       </div>
 
       <div className="worker-orders-list tasks-list" style={{
-        flex: 1, overflowY: 'auto', padding: '12px',
+        flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '12px',
         alignContent: 'start', scrollbarWidth: 'none'
       }}>
         {todayTasks.length === 0 ? (
