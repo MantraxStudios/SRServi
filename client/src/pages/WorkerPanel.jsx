@@ -423,6 +423,7 @@ function WorkerPanel() {
   const [taskError, setTaskError] = useState('');
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
   const [, setTick] = useState(0);
+  const [showSessionExpired, setShowSessionExpired] = useState(false);
 
   const colors = storeColors || {
     primary: '#0a0a0a',
@@ -767,9 +768,8 @@ function WorkerPanel() {
 
       console.log('Orders response status:', response.status);
 
-      if (response.status === 403) {
-        console.log('403 Forbidden - redirecting to login');
-        navigate('/worker-login');
+      if (response.status === 401 || response.status === 403) {
+        setShowSessionExpired(true);
         return;
       }
 
@@ -841,6 +841,10 @@ function WorkerPanel() {
       const res = await fetch('/api/worker-tasks', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (res.status === 401 || res.status === 403) {
+        setShowSessionExpired(true);
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setTasks(Array.isArray(data) ? data : []);
@@ -2421,6 +2425,48 @@ function WorkerPanel() {
                 })()}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {showSessionExpired && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100000,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 24
+        }}>
+          <div style={{
+            background: '#111', borderRadius: 20,
+            border: '2px solid #D4AF37',
+            padding: '32px 28px',
+            maxWidth: 360, width: '100%',
+            textAlign: 'center',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.9)'
+          }}>
+            <div style={{ fontSize: 44, marginBottom: 16 }}>🔒</div>
+            <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 800, margin: '0 0 10px' }}>
+              Sesión expirada
+            </h2>
+            <p style={{ color: '#aaa', fontSize: 14, lineHeight: 1.6, margin: '0 0 24px' }}>
+              Tu sesión ha expirado. Por favor, vuelve a iniciar sesión para continuar.
+            </p>
+            <button
+              onClick={() => {
+                localStorage.removeItem('workerToken');
+                localStorage.removeItem('worker');
+                navigate('/worker-login');
+              }}
+              style={{
+                width: '100%', padding: '14px',
+                background: '#D4AF37', color: '#000',
+                border: 'none', borderRadius: 12,
+                fontWeight: 900, fontSize: 16,
+                cursor: 'pointer'
+              }}
+            >
+              Iniciar sesión
+            </button>
           </div>
         </div>
       )}
