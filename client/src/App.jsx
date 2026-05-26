@@ -60,6 +60,7 @@ import CashRegisters from './pages/admin/CashRegisters';
 import CCTV from './pages/admin/CCTV';
 import WhatsApp from './pages/admin/WhatsApp';
 import AttendanceAdmin from './pages/admin/AttendanceAdmin';
+import VentasDelMes from './pages/admin/VentasDelMes';
 import Attendance from './pages/Attendance';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
@@ -232,6 +233,7 @@ function App() {
             <Route path="cctv" element={<CCTV />} />
             <Route path="whatsapp" element={<WhatsApp />} />
             <Route path="attendance" element={<AttendanceAdmin />} />
+            <Route path="ventas-mes" element={<VentasDelMes />} />
             <Route path="editor/:code" element={<Store />} />
           </Route>
           <Route path="/attendance/:storeCode" element={<Attendance />} />

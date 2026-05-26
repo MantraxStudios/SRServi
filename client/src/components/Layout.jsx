@@ -45,6 +45,7 @@ import {
   faDownload,
   faLaptop,
   faUserClock,
+  faMoneyBill,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -595,6 +596,10 @@ function Layout() {
                   <NavLink to="/admin/products" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faBox} />
                     <span>Productos</span>
+                  </NavLink>
+                  <NavLink to="/admin/ventas-mes" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faMoneyBill} />
+                    <span>Ventas del Mes</span>
                   </NavLink>
                   <NavLink to="/admin/analytics" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faChartLine} />
