@@ -4793,4 +4793,28 @@ export async function deleteSaleRecord(storeId, date, shift) {
   );
 }
 
+export async function getSalesFromOrders(storeId, year, month, amStart, amEnd, pmStart, pmEnd) {
+  const [rows] = await pool.execute(
+    `SELECT
+       DATE(created_at) as date,
+       CASE
+         WHEN TIME(created_at) >= ? AND TIME(created_at) < ? THEN 'AM'
+         WHEN TIME(created_at) >= ? AND TIME(created_at) < ? THEN 'PM'
+         ELSE 'PART_TIME'
+       END as shift,
+       SUM(CASE WHEN subtotal > 0 THEN subtotal ELSE total END) as gross_sales,
+       SUM(total) as net_sales,
+       COUNT(*) as transactions
+     FROM orders
+     WHERE store_id = ?
+       AND YEAR(created_at) = ?
+       AND MONTH(created_at) = ?
+       AND status NOT IN ('cancelled','rejected','pending')
+     GROUP BY DATE(created_at), shift
+     ORDER BY date ASC, shift ASC`,
+    [amStart, amEnd, pmStart, pmEnd, storeId, year, month]
+  );
+  return rows;
+}
+
 export { pool };

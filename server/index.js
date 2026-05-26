@@ -184,7 +184,8 @@ import {
   upsertSalesConfig,
   getSalesForMonth,
   upsertSaleRecord,
-  deleteSaleRecord
+  deleteSaleRecord,
+  getSalesFromOrders
 } from './database.js';
 
 const app = express();
@@ -11603,9 +11604,16 @@ app.get('/api/attendance/:storeCode/sales', authenticateToken, async (req, res) 
     if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
     const year = parseInt(req.query.year) || new Date().getFullYear();
     const month = parseInt(req.query.month) || (new Date().getMonth() + 1);
-    const sales = await getSalesForMonth(store.id, year, month);
-    const config = await getSalesConfig(store.id);
-    res.json({ sales, config });
+    const [sales, config] = await Promise.all([
+      getSalesForMonth(store.id, year, month),
+      getSalesConfig(store.id)
+    ]);
+    const autoSales = await getSalesFromOrders(
+      store.id, year, month,
+      config.am_start || '08:00:00', config.am_end || '14:00:00',
+      config.pm_start || '14:00:00', config.pm_end || '22:00:00'
+    );
+    res.json({ sales, autoSales, config });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

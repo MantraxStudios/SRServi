@@ -258,10 +258,11 @@ function SalesPanel({ storeCode, token }) {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [sales, setSales] = useState([]);
+  const [autoSales, setAutoSales] = useState([]);
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
-  const [editingCell, setEditingCell] = useState(null); // {date, shift}
+  const [editingCell, setEditingCell] = useState(null);
   const [editValues, setEditValues] = useState({ gross_sales: '', net_sales: '', transactions: '', notes: '' });
   const [saving, setSaving] = useState(false);
 
@@ -274,6 +275,7 @@ function SalesPanel({ storeCode, token }) {
       if (res.ok) {
         const data = await res.json();
         setSales(data.sales || []);
+        setAutoSales(data.autoSales || []);
         setConfig(data.config);
       }
     } finally { setLoading(false); }
@@ -283,33 +285,44 @@ function SalesPanel({ storeCode, token }) {
 
   const todayStr = today();
 
-  // Build calendar days for the month
   const daysInMonth = new Date(year, month, 0).getDate();
   const allDays = Array.from({ length: daysInMonth }, (_, i) => {
     const d = i + 1;
     return `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   });
 
-  // Index sales by date+shift
-  const salesMap = {};
-  sales.forEach(s => {
-    salesMap[`${s.date.split('T')[0]}_${s.shift}`] = s;
-  });
+  // Manual entries indexed
+  const manualMap = {};
+  sales.forEach(s => { manualMap[`${s.date.split('T')[0]}_${s.shift}`] = s; });
 
-  function getSale(date, shift) {
-    return salesMap[`${date}_${shift}`] || null;
+  // Auto entries indexed
+  const autoMap = {};
+  autoSales.forEach(s => { autoMap[`${s.date.split('T')[0]}_${s.shift}`] = s; });
+
+  // Returns {data, isAuto} — manual takes precedence over auto
+  function getEffectiveSale(date, shift) {
+    const key = `${date}_${shift}`;
+    if (manualMap[key]) return { data: manualMap[key], isAuto: false };
+    if (autoMap[key]) return { data: autoMap[key], isAuto: true };
+    return null;
   }
 
-  // Days that have at least one sale record (working days)
-  const workingDays = [...new Set(sales.map(s => s.date.split('T')[0]))];
+  // Compute all effective data for stats (merge manual+auto)
+  const allEffective = [];
+  allDays.forEach(date => {
+    ['AM', 'PM', 'PART_TIME'].forEach(shift => {
+      const e = getEffectiveSale(date, shift);
+      if (e) allEffective.push({ ...e.data, date, shift });
+    });
+  });
+
+  const workingDays = [...new Set(allEffective.map(s => s.date.split('T')[0]))];
   const workingDaysPast = workingDays.filter(d => d <= todayStr).length;
 
-  // Totals
-  const totalNetSales = sales.reduce((s, r) => s + parseFloat(r.net_sales || 0), 0);
-  const totalGrossSales = sales.reduce((s, r) => s + parseFloat(r.gross_sales || 0), 0);
+  const totalNetSales = allEffective.reduce((a, r) => a + parseFloat(r.net_sales || 0), 0);
+  const totalGrossSales = allEffective.reduce((a, r) => a + parseFloat(r.gross_sales || 0), 0);
   const avgDailyNet = workingDaysPast > 0 ? totalNetSales / workingDaysPast : 0;
 
-  // Projection: remaining working days estimated as same ratio
   const daysPast = parseInt(todayStr.split('-')[2]);
   const remainingDays = daysInMonth - daysPast;
   const projectedNet = totalNetSales + avgDailyNet * remainingDays;
@@ -323,19 +336,19 @@ function SalesPanel({ storeCode, token }) {
   const projectedCommission = commissionBase * (commissionRate / 100);
   const dailyBonusTotal = workingDaysPast * dailyBonus;
 
-  // By shift totals
-  const amNet = sales.filter(s => s.shift === 'AM').reduce((a, r) => a + parseFloat(r.net_sales || 0), 0);
-  const pmNet = sales.filter(s => s.shift === 'PM').reduce((a, r) => a + parseFloat(r.net_sales || 0), 0);
-  const ptNet = sales.filter(s => s.shift === 'PART_TIME').reduce((a, r) => a + parseFloat(r.net_sales || 0), 0);
+  const amNet = allEffective.filter(s => s.shift === 'AM').reduce((a, r) => a + parseFloat(r.net_sales || 0), 0);
+  const pmNet = allEffective.filter(s => s.shift === 'PM').reduce((a, r) => a + parseFloat(r.net_sales || 0), 0);
+  const ptNet = allEffective.filter(s => s.shift === 'PART_TIME').reduce((a, r) => a + parseFloat(r.net_sales || 0), 0);
 
   function startEdit(date, shift) {
-    const s = getSale(date, shift);
+    const e = getEffectiveSale(date, shift);
+    const s = e ? e.data : null;
     setEditingCell({ date, shift });
     setEditValues({
       gross_sales: s ? s.gross_sales : '',
       net_sales: s ? s.net_sales : '',
       transactions: s ? s.transactions : '',
-      notes: s ? (s.notes || '') : '',
+      notes: s && !e?.isAuto ? (s.notes || '') : '',
     });
   }
 
@@ -417,7 +430,7 @@ function SalesPanel({ storeCode, token }) {
         <SalesTable
           allDays={allDays}
           todayStr={todayStr}
-          getSale={getSale}
+          getEffectiveSale={getEffectiveSale}
           editingCell={editingCell}
           editValues={editValues}
           setEditValues={setEditValues}
@@ -447,7 +460,7 @@ function StatCard({ label, value, icon, color, sub }) {
   );
 }
 
-function SalesTable({ allDays, todayStr, getSale, editingCell, editValues, setEditValues, startEdit, saveCell, deleteCell, saving, cancelEdit }) {
+function SalesTable({ allDays, todayStr, getEffectiveSale, editingCell, editValues, setEditValues, startEdit, saveCell, deleteCell, saving, cancelEdit }) {
   const SHIFTS = ['AM', 'PM', 'PART_TIME'];
 
   const isEditing = (date, shift) => editingCell?.date === date && editingCell?.shift === shift;
@@ -459,6 +472,16 @@ function SalesTable({ allDays, todayStr, getSale, editingCell, editValues, setEd
 
   return (
     <div style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ padding: '8px 14px', borderBottom: '1px solid #f4f4f5', display: 'flex', gap: 12, alignItems: 'center' }}>
+        <span style={{ fontSize: 11, color: '#a1a1aa', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#16a34a' }}></span>
+          Auto (desde pedidos POS)
+        </span>
+        <span style={{ fontSize: 11, color: '#a1a1aa', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#D4AF37' }}></span>
+          Manual (editado por admin)
+        </span>
+      </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
           <thead>
@@ -485,7 +508,10 @@ function SalesTable({ allDays, todayStr, getSale, editingCell, editValues, setEd
             {allDays.map((date, idx) => {
               const isToday = date === todayStr;
               const isFuture = date > todayStr;
-              const dayTotalNet = SHIFTS.reduce((a, s) => a + parseFloat(getSale(date, s)?.net_sales || 0), 0);
+              const dayTotalNet = SHIFTS.reduce((a, s) => {
+                const e = getEffectiveSale(date, s);
+                return a + parseFloat(e?.data?.net_sales || 0);
+              }, 0);
 
               return (
                 <tr
@@ -505,7 +531,9 @@ function SalesTable({ allDays, todayStr, getSale, editingCell, editValues, setEd
                   </td>
 
                   {SHIFTS.map((shift, si) => {
-                    const sale = getSale(date, shift);
+                    const effective = getEffectiveSale(date, shift);
+                    const sale = effective?.data;
+                    const isAuto = effective?.isAuto;
                     const editing = isEditing(date, shift);
 
                     if (editing) {
@@ -538,22 +566,35 @@ function SalesTable({ allDays, todayStr, getSale, editingCell, editValues, setEd
                     }
 
                     return (
-                      <td key={shift} colSpan={3} style={{ borderLeft: si === 0 ? '1px solid #e4e4e7' : 'none' }}>
+                      <td key={shift} colSpan={3} style={{ borderLeft: si === 0 ? '1px solid #e4e4e7' : 'none', borderLeft: si === 0 ? '1px solid #e4e4e7' : 'none' }}>
                         {sale ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-                            <div style={{ flex: 1, padding: '8px 12px', display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8 }}>
-                              <span style={{ fontSize: 12, color: '#52525b' }}>{fmtCLP(sale.gross_sales)}</span>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: '#09090b' }}>{fmtCLP(sale.net_sales)}</span>
-                              <span style={{ fontSize: 11, color: '#a1a1aa' }}>{sale.transactions || 0}</span>
+                            <div style={{ flex: 1, padding: '6px 10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                                <span style={{
+                                  fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                                  background: isAuto ? '#dcfce7' : '#fef9c3',
+                                  color: isAuto ? '#16a34a' : '#a16207',
+                                }}>
+                                  {isAuto ? 'AUTO' : 'MANUAL'}
+                                </span>
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6 }}>
+                                <span style={{ fontSize: 12, color: '#52525b' }}>{fmtCLP(sale.gross_sales)}</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: '#09090b' }}>{fmtCLP(sale.net_sales)}</span>
+                                <span style={{ fontSize: 11, color: '#a1a1aa' }}>{sale.transactions || 0}</span>
+                              </div>
                             </div>
                             {!isFuture && (
-                              <div style={{ display: 'flex', gap: 2, padding: '0 6px' }}>
-                                <button onClick={() => startEdit(date, shift)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a1a1aa', padding: 3, fontSize: 11 }}>
+                              <div style={{ display: 'flex', gap: 2, padding: '0 4px' }}>
+                                <button onClick={() => startEdit(date, shift)} title="Editar / corregir" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a1a1aa', padding: 3, fontSize: 11 }}>
                                   <FontAwesomeIcon icon={faEdit} />
                                 </button>
-                                <button onClick={() => deleteCell(date, shift)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', padding: 3, fontSize: 11 }}>
-                                  <FontAwesomeIcon icon={faTrash} />
-                                </button>
+                                {!isAuto && (
+                                  <button onClick={() => deleteCell(date, shift)} title="Eliminar manual (vuelve a auto)" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', padding: 3, fontSize: 11 }}>
+                                    <FontAwesomeIcon icon={faTrash} />
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>
