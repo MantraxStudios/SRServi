@@ -4725,27 +4725,6 @@ function Store() {
               </div>
             ) : (
               <>
-                {!tuuModePayFromUrl && selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout && (
-                  <div style={{ marginBottom: '20px', padding: '14px 16px', borderRadius: '14px', background: 'var(--store-secondary)', border: '2px solid var(--store-primary)', textAlign: 'left' }}>
-                    <label style={{ fontWeight: '700', fontSize: '14px', color: 'var(--store-primary)', display: 'block', marginBottom: '10px' }}>{t('orderType', lang)}</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      <button
-                        onClick={() => setOrderType('serve')}
-                        className={`store-cart-type-btn${orderType === 'serve' ? ' active store-glow-pulse' : ''}`}
-                      >
-                        <FontAwesomeIcon icon={faBox} />
-                        <span>{t('serveHere', lang)}</span>
-                      </button>
-                      <button
-                        onClick={() => setOrderType('takeout')}
-                        className={`store-cart-type-btn${orderType === 'takeout' ? ' active store-glow-pulse' : ''}`}
-                      >
-                        <FontAwesomeIcon icon={faShoppingCart} />
-                        <span>{t('takeoutShort', lang)}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
                 {(parseFloat(selectedConfiguration?.tip_percentage) > 0) && (
                   <div style={{ marginBottom: '20px', padding: '16px', borderRadius: '14px', background: 'var(--store-secondary)', border: '2px solid var(--store-primary)', textAlign: 'left' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
