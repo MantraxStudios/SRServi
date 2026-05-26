@@ -121,7 +121,7 @@ export default function AttendanceAdmin() {
   const TABS = [
     ['records', 'Registros del día'],
     ['persons', 'Empleados'],
-    ['sales', 'Ventas & Comisiones'],
+    ['sales', 'Ventas del mes'],
   ];
 
   return (
