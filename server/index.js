@@ -179,7 +179,12 @@ import {
   createAttendanceRecord,
   getAttendanceRecords,
   getAttendanceRecordsRange,
-  getLastAttendanceRecord
+  getLastAttendanceRecord,
+  getSalesConfig,
+  upsertSalesConfig,
+  getSalesForMonth,
+  upsertSaleRecord,
+  deleteSaleRecord
 } from './database.js';
 
 const app = express();
@@ -11556,6 +11561,76 @@ app.delete('/api/attendance/:storeCode/persons/:personId', authenticateToken, as
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
     if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
     await deleteAttendancePerson(req.params.personId, store.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Sales & Commissions API ──────────────────────────────────────────────────
+
+app.get('/api/attendance/:storeCode/sales/config', authenticateToken, async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
+    res.json(await getSalesConfig(store.id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/attendance/:storeCode/sales/config', authenticateToken, async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
+    const { commission_rate, daily_bonus, success_bonus, commission_threshold, am_start, am_end, pm_start, pm_end } = req.body;
+    await upsertSalesConfig(store.id, {
+      commission_rate: parseFloat(commission_rate) || 1,
+      daily_bonus: parseFloat(daily_bonus) || 10,
+      success_bonus: parseFloat(success_bonus) || 10,
+      commission_threshold: parseFloat(commission_threshold) || 0,
+      am_start: am_start || '08:00:00',
+      am_end: am_end || '14:00:00',
+      pm_start: pm_start || '14:00:00',
+      pm_end: pm_end || '22:00:00',
+    });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/attendance/:storeCode/sales', authenticateToken, async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
+    const year = parseInt(req.query.year) || new Date().getFullYear();
+    const month = parseInt(req.query.month) || (new Date().getMonth() + 1);
+    const sales = await getSalesForMonth(store.id, year, month);
+    const config = await getSalesConfig(store.id);
+    res.json({ sales, config });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/attendance/:storeCode/sales', authenticateToken, async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
+    const { date, shift, gross_sales, net_sales, transactions, notes } = req.body;
+    if (!date || !['AM','PM','PART_TIME'].includes(shift))
+      return res.status(400).json({ error: 'Datos inválidos' });
+    await upsertSaleRecord(store.id, date, shift, parseFloat(gross_sales)||0, parseFloat(net_sales)||0, parseInt(transactions)||0, notes);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/attendance/:storeCode/sales', authenticateToken, async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    if (!await verifyStoreOwnership(store.id, req.user.id)) return res.status(403).json({ error: 'Sin permiso' });
+    const { date, shift } = req.query;
+    if (!date || !['AM','PM','PART_TIME'].includes(shift))
+      return res.status(400).json({ error: 'Datos inválidos' });
+    await deleteSaleRecord(store.id, date, shift);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

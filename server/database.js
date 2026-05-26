@@ -4680,4 +4680,117 @@ export async function getLastAttendanceRecord(storeId, personId) {
   return rows[0] || null;
 }
 
+// ─── Attendance Sales & Commissions ─────────────────────────────────────────
+
+let _salesReady = false;
+async function ensureSalesTables() {
+  if (_salesReady) return;
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS attendance_sales (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      date DATE NOT NULL,
+      shift ENUM('AM','PM','PART_TIME') NOT NULL,
+      gross_sales DECIMAL(12,2) NOT NULL DEFAULT 0,
+      net_sales DECIMAL(12,2) NOT NULL DEFAULT 0,
+      transactions INT NOT NULL DEFAULT 0,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_store_date_shift (store_id, date, shift),
+      INDEX idx_as_store (store_id),
+      INDEX idx_as_date (date),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS attendance_sales_config (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL UNIQUE,
+      commission_rate DECIMAL(5,2) NOT NULL DEFAULT 1.00,
+      daily_bonus DECIMAL(10,2) NOT NULL DEFAULT 10.00,
+      success_bonus DECIMAL(10,2) NOT NULL DEFAULT 10.00,
+      commission_threshold DECIMAL(12,2) NOT NULL DEFAULT 0,
+      am_start TIME NOT NULL DEFAULT '08:00:00',
+      am_end TIME NOT NULL DEFAULT '14:00:00',
+      pm_start TIME NOT NULL DEFAULT '14:00:00',
+      pm_end TIME NOT NULL DEFAULT '22:00:00',
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+  _salesReady = true;
+}
+
+export async function getSalesConfig(storeId) {
+  await ensureSalesTables();
+  const [rows] = await pool.execute(
+    'SELECT * FROM attendance_sales_config WHERE store_id = ?', [storeId]
+  );
+  if (rows[0]) return rows[0];
+  return {
+    commission_rate: 1.00,
+    daily_bonus: 10.00,
+    success_bonus: 10.00,
+    commission_threshold: 0,
+    am_start: '08:00:00',
+    am_end: '14:00:00',
+    pm_start: '14:00:00',
+    pm_end: '22:00:00',
+  };
+}
+
+export async function upsertSalesConfig(storeId, config) {
+  await ensureSalesTables();
+  const { commission_rate, daily_bonus, success_bonus, commission_threshold, am_start, am_end, pm_start, pm_end } = config;
+  await pool.execute(`
+    INSERT INTO attendance_sales_config
+      (store_id, commission_rate, daily_bonus, success_bonus, commission_threshold, am_start, am_end, pm_start, pm_end)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      commission_rate = VALUES(commission_rate),
+      daily_bonus = VALUES(daily_bonus),
+      success_bonus = VALUES(success_bonus),
+      commission_threshold = VALUES(commission_threshold),
+      am_start = VALUES(am_start),
+      am_end = VALUES(am_end),
+      pm_start = VALUES(pm_start),
+      pm_end = VALUES(pm_end),
+      updated_at = CURRENT_TIMESTAMP
+  `, [storeId, commission_rate, daily_bonus, success_bonus, commission_threshold, am_start, am_end, pm_start, pm_end]);
+}
+
+export async function getSalesForMonth(storeId, year, month) {
+  await ensureSalesTables();
+  const [rows] = await pool.execute(
+    `SELECT * FROM attendance_sales
+     WHERE store_id = ? AND YEAR(date) = ? AND MONTH(date) = ?
+     ORDER BY date ASC, shift ASC`,
+    [storeId, year, month]
+  );
+  return rows;
+}
+
+export async function upsertSaleRecord(storeId, date, shift, grossSales, netSales, transactions, notes) {
+  await ensureSalesTables();
+  await pool.execute(`
+    INSERT INTO attendance_sales (store_id, date, shift, gross_sales, net_sales, transactions, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      gross_sales = VALUES(gross_sales),
+      net_sales = VALUES(net_sales),
+      transactions = VALUES(transactions),
+      notes = VALUES(notes),
+      updated_at = CURRENT_TIMESTAMP
+  `, [storeId, date, shift, grossSales, netSales, transactions, notes || null]);
+}
+
+export async function deleteSaleRecord(storeId, date, shift) {
+  await ensureSalesTables();
+  await pool.execute(
+    'DELETE FROM attendance_sales WHERE store_id = ? AND date = ? AND shift = ?',
+    [storeId, date, shift]
+  );
+}
+
 export { pool };

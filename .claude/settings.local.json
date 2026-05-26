@@ -103,7 +103,8 @@
       "Read(//mnt/c/Users/tupap/OneDrive/Escritorio/SRServi/.github/**)",
       "Read(//mnt/c/Users/tupap/OneDrive/Escritorio/SRServi/**)",
       "Read(//mnt/c/Users/tupap/OneDrive/Escritorio/**)",
-      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\" | Select-Object Name, @{Name=\"Type\"; Expression={if\\($_.PSIsContainer\\){\"DIR\"}else{\"FILE\"}}} | Format-Table -AutoSize)"
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\" | Select-Object Name, @{Name=\"Type\"; Expression={if\\($_.PSIsContainer\\){\"DIR\"}else{\"FILE\"}}} | Format-Table -AutoSize)",
+      "Bash(npx --yes acorn --ecma2020 --module src/pages/admin/AttendanceAdmin.jsx)"
     ]
   }
 }
