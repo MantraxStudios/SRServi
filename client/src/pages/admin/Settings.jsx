@@ -32,7 +32,8 @@ function Settings() {
     currency_name: 'Dólar Estadounidense',
     smart_mode: true,
     inactivity_timeout: 120,
-    show_top_selling: true
+    show_top_selling: true,
+    paid_order_status: 'pending'
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -67,7 +68,8 @@ function Settings() {
         currency_name: selectedStore.currency_name || 'Dólar Estadounidense',
         smart_mode: selectedStore.smart_mode ?? true,
         inactivity_timeout: selectedStore.inactivity_timeout ?? 120,
-        show_top_selling: selectedStore.show_top_selling ?? true
+        show_top_selling: selectedStore.show_top_selling ?? true,
+        paid_order_status: selectedStore.paid_order_status ?? 'pending'
       });
     }
   }, [selectedStore]);
@@ -450,6 +452,42 @@ function Settings() {
                   <span style={{ fontSize: '13px', color: '#888' }}>
                     {Math.floor((formData.inactivity_timeout || 120) / 60)}m {(formData.inactivity_timeout || 120) % 60}s — después de este tiempo sin uso aparece el modal "¿Sigues ahí?"
                   </span>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label style={{ fontWeight: 600, fontSize: '15px', marginBottom: '8px', display: 'block' }}>
+                  Estado inicial del pedido al pagar
+                </label>
+                <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>
+                  Cuando un pedido se paga con éxito, ¿en qué estado debe quedar?
+                </div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {[
+                    { value: 'pending', label: 'Pendiente', desc: 'El pedido queda en cola para preparar' },
+                    { value: 'completed', label: 'Completado', desc: 'El pedido se marca directo como listo' }
+                  ].map(opt => (
+                    <label key={opt.value} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer',
+                      flex: '1 1 180px', padding: '12px 14px', borderRadius: '10px',
+                      border: `2px solid ${formData.paid_order_status === opt.value ? '#D4AF37' : '#e5e7eb'}`,
+                      background: formData.paid_order_status === opt.value ? '#fffbeb' : '#f9fafb',
+                      transition: 'border-color 0.2s, background 0.2s'
+                    }}>
+                      <input
+                        type="radio"
+                        name="paid_order_status"
+                        value={opt.value}
+                        checked={formData.paid_order_status === opt.value}
+                        onChange={() => setFormData(prev => ({ ...prev, paid_order_status: opt.value }))}
+                        style={{ marginTop: '2px', accentColor: '#D4AF37' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '14px' }}>{opt.label}</div>
+                        <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>{opt.desc}</div>
+                      </div>
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>

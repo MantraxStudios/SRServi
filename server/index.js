@@ -1252,7 +1252,7 @@ app.post('/api/stores', authenticateToken, upload.single('logo'), async (req, re
 
 app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
-    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling } = req.body;
+    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
@@ -1277,7 +1277,8 @@ app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req,
       smart_mode,
       inactivity_timeout,
       hide_decimals,
-      show_top_selling
+      show_top_selling,
+      paid_order_status
     });
     res.json(store);
   } catch (error) {
@@ -5883,9 +5884,11 @@ app.put('/api/orders/:id/mark-paid', authenticateToken, async (req, res) => {
       : await verifyStoreOwnership(parseInt(store_id), req.user.id);
     if (!hasAccess) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
 
+    const storeData = await getStoreById(parseInt(store_id));
+    const paidStatus = ['pending', 'completed'].includes(storeData?.paid_order_status) ? storeData.paid_order_status : 'pending';
     await pool.execute(
-      "UPDATE orders SET payment_process = 1, cash_approved = 1, status = 'preparing' WHERE id = ? AND store_id = ?",
-      [parseInt(id), parseInt(store_id)]
+      `UPDATE orders SET payment_process = 1, cash_approved = 1, status = ? WHERE id = ? AND store_id = ?`,
+      [paidStatus, parseInt(id), parseInt(store_id)]
     );
     const [rows] = await pool.execute('SELECT * FROM orders WHERE id = ?', [parseInt(id)]);
     const order = rows[0] ? { ...rows[0], total: parseFloat(rows[0].total) || 0 } : { id: parseInt(id) };

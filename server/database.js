@@ -1711,7 +1711,7 @@ export async function createStore(userId, data) {
 }
 
 export async function updateStore(storeId, userId, data) {
-  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling } = data;
+  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status } = data;
 
   // Ensure columns exist
   try {
@@ -1721,6 +1721,7 @@ export async function updateStore(storeId, userId, data) {
     if (!names.includes('inactivity_timeout')) await pool.execute('ALTER TABLE stores ADD COLUMN inactivity_timeout INT DEFAULT 120');
     if (!names.includes('hide_decimals')) await pool.execute('ALTER TABLE stores ADD COLUMN hide_decimals BOOLEAN DEFAULT FALSE');
     if (!names.includes('show_top_selling')) await pool.execute('ALTER TABLE stores ADD COLUMN show_top_selling BOOLEAN DEFAULT TRUE');
+    if (!names.includes('paid_order_status')) await pool.execute("ALTER TABLE stores ADD COLUMN paid_order_status VARCHAR(20) DEFAULT 'pending'");
   } catch { /* ignore */ }
 
   let query = `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ?`;
@@ -1759,6 +1760,11 @@ export async function updateStore(storeId, userId, data) {
   if (show_top_selling !== undefined) {
     query += `, show_top_selling = ?`;
     params.push(show_top_selling ? 1 : 0);
+  }
+
+  if (paid_order_status !== undefined) {
+    query += `, paid_order_status = ?`;
+    params.push(['pending', 'completed'].includes(paid_order_status) ? paid_order_status : 'pending');
   }
 
   query += ` WHERE id = ? AND user_id = ?`;
@@ -2748,7 +2754,8 @@ export async function createOrder(storeId, orderData) {
   const paymentProcess = fromWorker ? 1 : 0;
 
   const store = await getStoreById(storeId);
-  const initialStatus = paymentProcess === 1 ? 'preparing' : 'pending';
+  const paidStatus = ['pending', 'completed'].includes(store?.paid_order_status) ? store.paid_order_status : 'pending';
+  const initialStatus = paymentProcess === 1 ? paidStatus : 'pending';
 
   // Resolve pos_pin from terminal_id if not provided directly
   let posPin = orderData.pos_pin || null;
