@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faShoppingBag, faUtensils, faFileExcel, faCashRegister, faLockOpen, faLock, faCheck, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faShoppingBag, faUtensils, faFileExcel, faCashRegister, faLockOpen, faLock, faCheck, faSpinner, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 
@@ -15,6 +15,10 @@ function Orders() {
   const [showCloseCashModal, setShowCloseCashModal] = useState(false);
   const [cashOpeningAmount, setCashOpeningAmount] = useState('');
   const [completingOrder, setCompletingOrder] = useState(null);
+  const [selectedOrders, setSelectedOrders] = useState(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+  const [deletingOrders, setDeletingOrders] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // CSV export — opens natively in Excel. Uses UTF-8 BOM and semicolon
   // separator so Excel in Spanish locales parses it correctly.
@@ -176,6 +180,47 @@ function Orders() {
     }
   };
 
+  const toggleSelect = (id) => {
+    setSelectedOrders(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedOrders.size === orders.length) {
+      setSelectedOrders(new Set());
+    } else {
+      setSelectedOrders(new Set(orders.map(o => o.id)));
+    }
+  };
+
+  const deleteSelected = async () => {
+    setDeletingOrders(true);
+    setShowDeleteConfirm(false);
+    try {
+      const ids = [...selectedOrders];
+      const res = await fetch(`/api/orders/bulk?store_id=${selectedStore.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids })
+      });
+      if (res.ok) {
+        setOrders(prev => prev.filter(o => !selectedOrders.has(o.id)));
+        setSelectedOrders(new Set());
+        setSelectMode(false);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Error al eliminar pedidos');
+      }
+    } catch {
+      alert('Error de conexión');
+    } finally {
+      setDeletingOrders(false);
+    }
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString('es-ES', {
@@ -195,14 +240,25 @@ function Orders() {
     <>
       <header className="admin-header">
         <h1>Pedidos</h1>
-        <button
-          className="btn btn-primary"
-          onClick={downloadExcel}
-          disabled={!orders.length}
-          title="Descargar ventas en formato Excel (CSV)"
-        >
-          <FontAwesomeIcon icon={faFileExcel} /> Descargar Excel
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {orders.length > 0 && (
+            <button
+              className={`btn ${selectMode ? 'btn-secondary' : 'btn-secondary'}`}
+              onClick={() => { setSelectMode(v => !v); setSelectedOrders(new Set()); }}
+              style={selectMode ? { borderColor: '#ef4444', color: '#ef4444' } : {}}
+            >
+              <FontAwesomeIcon icon={faTrash} /> {selectMode ? 'Cancelar' : 'Seleccionar'}
+            </button>
+          )}
+          <button
+            className="btn btn-primary"
+            onClick={downloadExcel}
+            disabled={!orders.length}
+            title="Descargar ventas en formato Excel (CSV)"
+          >
+            <FontAwesomeIcon icon={faFileExcel} /> Excel
+          </button>
+        </div>
       </header>
       <div className="admin-main">
         {/* Cash register control */}
@@ -240,6 +296,31 @@ function Orders() {
           </div>
         )}
 
+        {selectMode && orders.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, padding: '12px 16px', background: selectedOrders.size > 0 ? '#fef2f2' : '#f9fafb', borderRadius: 12, border: `1.5px solid ${selectedOrders.size > 0 ? '#fecaca' : '#e5e7eb'}`, flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
+              <input
+                type="checkbox"
+                checked={selectedOrders.size === orders.length && orders.length > 0}
+                onChange={toggleSelectAll}
+                style={{ width: 18, height: 18, accentColor: '#ef4444' }}
+              />
+              {selectedOrders.size === 0 ? 'Seleccionar todos' : `${selectedOrders.size} seleccionado${selectedOrders.size !== 1 ? 's' : ''}`}
+            </label>
+            {selectedOrders.size > 0 && (
+              <button
+                className="btn btn-danger"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={deletingOrders}
+                style={{ marginLeft: 'auto' }}
+              >
+                <FontAwesomeIcon icon={deletingOrders ? faSpinner : faTrash} spin={deletingOrders} />
+                {deletingOrders ? ' Eliminando...' : ` Eliminar ${selectedOrders.size}`}
+              </button>
+            )}
+          </div>
+        )}
+
         {orders.length === 0 ? (
           <div className="card empty-state">
             <FontAwesomeIcon icon={faShoppingBag} className="empty-state-icon" />
@@ -251,7 +332,20 @@ function Orders() {
         ) : (
           <div className="grid-list">
             {orders.map(order => (
-              <div key={order.id} className="card">
+              <div key={order.id} className="card" style={selectMode && selectedOrders.has(order.id) ? { border: '2px solid #ef4444', background: '#fff5f5' } : {}}>
+                {selectMode && (
+                  <div style={{ padding: '10px 16px 0', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedOrders.has(order.id)}
+                      onChange={() => toggleSelect(order.id)}
+                      style={{ width: 20, height: 20, accentColor: '#ef4444', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>
+                      {selectedOrders.has(order.id) ? 'Seleccionado' : 'Seleccionar'}
+                    </span>
+                  </div>
+                )}
                 <div className="card-header">
                   <div>
                     <h3>Pedido #{order.id}</h3>
@@ -312,6 +406,32 @@ function Orders() {
           </div>
         )}
       </div>
+
+      {showDeleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={() => setShowDeleteConfirm(false)}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '28px 24px', width: '100%', maxWidth: 380, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <FontAwesomeIcon icon={faTrash} style={{ fontSize: 20, color: '#ef4444' }} />
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1e293b' }}>Eliminar pedidos</h3>
+            </div>
+            <p style={{ color: '#374151', fontSize: 14, margin: '0 0 6px' }}>
+              ¿Seguro que deseas eliminar <strong>{selectedOrders.size} pedido{selectedOrders.size !== 1 ? 's' : ''}</strong>?
+            </p>
+            <p style={{ color: '#9ca3af', fontSize: 13, margin: '0 0 24px' }}>
+              Esta acción no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-danger" style={{ flex: 1 }} onClick={deleteSelected} disabled={deletingOrders}>
+                <FontAwesomeIcon icon={faTrash} />
+                {' Sí, eliminar'}
+              </button>
+              <button className="btn" onClick={() => setShowDeleteConfirm(false)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCloseCashModal && (
         <div style={{

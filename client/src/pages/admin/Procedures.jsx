@@ -931,10 +931,54 @@ function PrepTableEditor({ storeId, token }) {
       if (res.ok) {
         const data = await res.json();
         if (data.length === 0) {
+          const c1 = 'c_ingr', c2 = 'c_cant', c3 = 'c_paso', c4 = 'c_tip';
+          const defaultTableData = {
+            store_id: storeId,
+            title: 'Receta de Pan Casero',
+            columns: [
+              { id: c1, name: 'Ingrediente', rows: 8 },
+              { id: c2, name: 'Cantidad', rows: 8 },
+              { id: c3, name: 'Paso', rows: 8 },
+              { id: c4, name: 'Consejo', rows: 6 },
+            ],
+            rows: 8,
+            cells: {
+              [`${c1}_0`]: { name: 'Harina de trigo', note: 'Tipo 000 o 0000' },
+              [`${c1}_1`]: { name: 'Agua', note: 'Tibia, ~37 °C' },
+              [`${c1}_2`]: { name: 'Levadura seca', note: 'O 21 g fresca' },
+              [`${c1}_3`]: { name: 'Azúcar', note: 'Activa la levadura' },
+              [`${c1}_4`]: { name: 'Sal', note: 'No mezclar con la levadura' },
+              [`${c1}_5`]: { name: 'Aceite de oliva', note: 'O manteca derretida' },
+              [`${c1}_6`]: { name: 'Huevo', note: 'Para barnizar la superficie' },
+              [`${c1}_7`]: { name: 'Semillas', note: 'Sésamo, lino (opcional)' },
+              [`${c2}_0`]: { name: '500 g', note: '' },
+              [`${c2}_1`]: { name: '300 ml', note: '' },
+              [`${c2}_2`]: { name: '7 g (1 sobre)', note: '' },
+              [`${c2}_3`]: { name: '1 cucharada', note: '' },
+              [`${c2}_4`]: { name: '1 cucharadita', note: '' },
+              [`${c2}_5`]: { name: '2 cucharadas', note: '' },
+              [`${c2}_6`]: { name: '1 unidad', note: '' },
+              [`${c2}_7`]: { name: 'A gusto', note: '' },
+              [`${c3}_0`]: { name: 'Activar levadura', note: 'Mezclar levadura + azúcar + agua tibia. Esperar 10 min hasta que espume.' },
+              [`${c3}_1`]: { name: 'Mezclar secos', note: 'Harina + sal en un bowl grande. Hacer un hueco en el centro.' },
+              [`${c3}_2`]: { name: 'Integrar', note: 'Verter la levadura activada y el aceite en el hueco. Mezclar hasta unir.' },
+              [`${c3}_3`]: { name: 'Amasar', note: '10–15 min sobre mesa enharinada hasta masa lisa y elástica.' },
+              [`${c3}_4`]: { name: '1er reposo', note: 'Cubrir con film o repasador húmedo. Dejar 1 hora en lugar tibio.' },
+              [`${c3}_5`]: { name: 'Formado', note: 'Desgasificar la masa y darle forma. Colocar en bandeja aceitada.' },
+              [`${c3}_6`]: { name: '2do reposo', note: 'Dejar 30 min más tapados hasta que dupliquen volumen.' },
+              [`${c3}_7`]: { name: 'Hornear', note: '200 °C por 25–30 min. Barnizar con huevo batido antes de entrar al horno.' },
+              [`${c4}_0`]: { name: 'Temperatura del agua', note: 'Si está muy caliente mata la levadura. Probar con el dedo: debe sentirse tibia.' },
+              [`${c4}_1`]: { name: 'Test de la ventana', note: 'Estirar masa: si se transparenta sin romperse, el amasado es correcto.' },
+              [`${c4}_2`]: { name: 'Lugar para levar', note: 'El horno apagado con la luz encendida mantiene ~28 °C, ideal para levar.' },
+              [`${c4}_3`]: { name: 'Vapor en el horno', note: 'Poner un vaso de agua en el fondo del horno para corteza crujiente.' },
+              [`${c4}_4`]: { name: 'Comprobar cocción', note: 'Golpear la base del pan: si suena hueco, está listo.' },
+              [`${c4}_5`]: { name: 'Conservación', note: 'Guardar en bolsa de tela hasta 3 días a temperatura ambiente, o congelar hasta 1 mes.' },
+            }
+          };
           const createRes = await fetch(`${API}/api/prep-tables`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body: JSON.stringify({ store_id: storeId, title: 'Tabla de preparación', columns: [], rows: 8, cells: {} })
+            body: JSON.stringify(defaultTableData)
           });
           if (createRes.ok) {
             const refreshRes = await fetch(`${API}/api/prep-tables?store_id=${storeId}`, { headers: { Authorization: 'Bearer ' + token } });

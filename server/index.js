@@ -5838,6 +5838,38 @@ app.put('/api/orders/:id/status', authenticateToken, async (req, res) => {
   }
 });
 
+app.delete('/api/orders/bulk', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    const { ids } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'ids es requerido' });
+    if (req.user.type === 'worker') return res.status(403).json({ error: 'Solo el administrador puede eliminar pedidos' });
+    const hasAccess = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!hasAccess) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const safeIds = ids.map(Number).filter(n => n > 0);
+    if (!safeIds.length) return res.status(400).json({ error: 'ids inválidos' });
+    const placeholders = safeIds.map(() => '?').join(',');
+    await pool.execute(`DELETE FROM order_items WHERE order_id IN (${placeholders})`, safeIds);
+    await pool.execute(`DELETE FROM orders WHERE id IN (${placeholders}) AND store_id = ?`, [...safeIds, parseInt(store_id)]);
+    res.json({ success: true, deleted: safeIds.length });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    if (req.user.type === 'worker') return res.status(403).json({ error: 'Solo el administrador puede eliminar pedidos' });
+    const hasAccess = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!hasAccess) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const id = parseInt(req.params.id);
+    await pool.execute('DELETE FROM order_items WHERE order_id = ?', [id]);
+    await pool.execute('DELETE FROM orders WHERE id = ? AND store_id = ?', [id, parseInt(store_id)]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.put('/api/orders/:id/approve-cash', authenticateToken, async (req, res) => {
   try {
     const { worker_id, worker_name } = req.body;
