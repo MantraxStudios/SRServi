@@ -653,7 +653,7 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
     const cols = table.columns || [];
     const defaultRows = table.rows || 8;
     const maxRows = cols.length > 0 ? Math.max(1, ...cols.map(c => c.rows || defaultRows)) : defaultRows;
-    const isLandscape = cols.length > 4;
+    const isLandscape = true;
     const storeName = selectedStore?.name || 'SRServi';
     const headerCells = cols.map(col => `<th>${col.name}</th>`).join('');
     const bodyRows = Array.from({ length: maxRows }, (_, rowIdx) => {
