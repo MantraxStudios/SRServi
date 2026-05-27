@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faShoppingBag, faUtensils, faFileExcel, faCashRegister, faLockOpen, faLock } from '@fortawesome/free-solid-svg-icons';
+import { faShoppingBag, faUtensils, faFileExcel, faCashRegister, faLockOpen, faLock, faCheck, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 
@@ -14,6 +14,7 @@ function Orders() {
   const [showOpenCashModal, setShowOpenCashModal] = useState(false);
   const [showCloseCashModal, setShowCloseCashModal] = useState(false);
   const [cashOpeningAmount, setCashOpeningAmount] = useState('');
+  const [completingOrder, setCompletingOrder] = useState(null);
 
   // CSV export — opens natively in Excel. Uses UTF-8 BOM and semicolon
   // separator so Excel in Spanish locales parses it correctly.
@@ -154,6 +155,27 @@ function Orders() {
     }
   };
 
+  const markAsCompleted = async (orderId) => {
+    setCompletingOrder(orderId);
+    try {
+      const res = await fetch(`/api/orders/${orderId}/status?store_id=${selectedStore.id}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' })
+      });
+      if (res.ok) {
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'completed' } : o));
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Error al completar el pedido');
+      }
+    } catch {
+      alert('Error de conexión');
+    } finally {
+      setCompletingOrder(null);
+    }
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString('es-ES', {
@@ -274,6 +296,17 @@ function Orders() {
                     </div>
                   ))}
                 </div>
+                {order.status !== 'completed' && order.status !== 'cancelled' && (
+                  <button
+                    className="btn btn-success"
+                    style={{ marginTop: 12, width: '100%' }}
+                    onClick={() => markAsCompleted(order.id)}
+                    disabled={completingOrder === order.id}
+                  >
+                    <FontAwesomeIcon icon={completingOrder === order.id ? faSpinner : faCheck} spin={completingOrder === order.id} />
+                    {completingOrder === order.id ? ' Completando...' : ' Marcar como completado'}
+                  </button>
+                )}
               </div>
             ))}
           </div>
