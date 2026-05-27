@@ -426,6 +426,7 @@ function SuperadminDashboard() {
       if (!res.ok) { alert('Error al obtener sesión'); return; }
       const data = await res.json();
       localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
       window.open('/admin', '_blank');
     } catch (error) {
       console.error('Error impersonating:', error);
