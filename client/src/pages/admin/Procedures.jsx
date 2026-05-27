@@ -662,15 +662,21 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
         if (rowIdx >= colRows) return `<td class="empty"></td>`;
         const cell = (table.cells || {})[`${col.id}_${rowIdx}`] || {};
         const imgUrl = cell.image_url ? (cell.image_url.startsWith('http') ? cell.image_url : API + cell.image_url) : null;
-        let content = '';
-        if (imgUrl) content += `<img src="${imgUrl}" class="cell-img">`;
-        if (cell.name) content += `<div class="cell-name">${cell.name}</div>`;
-        if (cell.note) content += `<div class="cell-note">${cell.note}</div>`;
-        return `<td>${content || '<span class="empty-cell">—</span>'}</td>`;
+        if (!imgUrl && !cell.name && !cell.note) return `<td><span class="empty-cell">—</span></td>`;
+        let textPart = '';
+        if (cell.name) textPart += `<div class="cell-name">${cell.name}</div>`;
+        if (cell.note) textPart += `<div class="cell-note">${cell.note}</div>`;
+        if (imgUrl && textPart) {
+          return `<td><div class="cell-row"><img src="${imgUrl}" class="cell-img"><div class="cell-text">${textPart}</div></div></td>`;
+        } else if (imgUrl) {
+          return `<td><img src="${imgUrl}" class="cell-img-only"></td>`;
+        } else {
+          return `<td>${textPart}</td>`;
+        }
       }).join('');
       return `<tr><td class="row-num">${rowIdx + 1}</td>${tds}</tr>`;
     }).join('');
-    const css = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;color:#111;padding:10px}.hdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid #000}.hdr h1{font-size:18px;font-weight:800}.hdr p{font-size:11px;color:#666;margin-top:3px}.hdr-r{text-align:right;font-size:11px;color:#666}table{width:100%;border-collapse:collapse}th{background:#111;color:#D4AF37;padding:8px 10px;font-size:11px;font-weight:800;text-align:center;border:1px solid #333}td{padding:6px 8px;border:1px solid #ddd;vertical-align:middle;text-align:center}.row-num{font-weight:800;font-size:13px;color:#D4AF37;background:#111;width:32px}.empty{background:#f5f5f5}.cell-img{width:60px;height:60px;object-fit:cover;border-radius:6px;display:block;margin:0 auto 4px}.cell-name{font-weight:700;font-size:12px;line-height:1.2}.cell-note{font-size:10px;color:#666;margin-top:2px}.empty-cell{color:#ccc}.footer{margin-top:14px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#888;text-align:center}@media print{body{padding:0}@page{size:A4 ${isLandscape ? 'landscape' : 'portrait'};margin:12mm}}`;
+    const css = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;color:#111;padding:10px}.hdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;padding-bottom:10px;border-bottom:3px solid #000}.hdr h1{font-size:18px;font-weight:800}.hdr p{font-size:11px;color:#666;margin-top:3px}.hdr-r{text-align:right;font-size:11px;color:#666}table{width:100%;border-collapse:collapse}th{background:#111;color:#D4AF37;padding:8px 10px;font-size:11px;font-weight:800;text-align:center;border:1px solid #333}td{padding:6px 10px;border:1px solid #ddd;vertical-align:middle;text-align:left}.row-num{font-weight:800;font-size:13px;color:#D4AF37;background:#111;width:32px;text-align:center}.empty{background:#f5f5f5}.cell-row{display:flex;align-items:center;gap:10px}.cell-img{width:70px;height:70px;object-fit:cover;border-radius:8px;flex-shrink:0}.cell-img-only{width:70px;height:70px;object-fit:cover;border-radius:8px;display:block}.cell-text{flex:1;min-width:0}.cell-name{font-weight:700;font-size:12px;line-height:1.3;color:#111}.cell-note{font-size:10px;color:#666;margin-top:3px}.empty-cell{color:#ccc}.footer{margin-top:14px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#888;text-align:center}@media print{body{padding:0}@page{size:A4 landscape;margin:12mm}}`;
     const date = new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${table.title || 'Tabla de preparación'}</title><style>${css}</style></head><body><div class="hdr"><div><h1>${table.title || 'Tabla de preparación'}</h1><p>${storeName}</p></div><div class="hdr-r"><p>${date}</p></div></div><table><thead><tr><th>#</th>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table><div class="footer">SRServi — ${storeName} — ${new Date().toLocaleString('es-ES')}</div></body></html>`;
     const win = window.open('', '_blank', 'width=900,height=700');
