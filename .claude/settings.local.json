@@ -106,7 +106,8 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\" | Select-Object Name, @{Name=\"Type\"; Expression={if\\($_.PSIsContainer\\){\"DIR\"}else{\"FILE\"}}} | Format-Table -AutoSize)",
       "Bash(npx --yes acorn --ecma2020 --module src/pages/admin/AttendanceAdmin.jsx)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\" -Force | Select-Object -Property Name, @{Name=\"Type\";Expression={if\\($_.PSIsContainer\\){\"Dir\"}else{\"File\"}}} | Format-Table -AutoSize)",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(dir /s /b \"*.jsx\" \"*.tsx\")"
     ]
   }
 }

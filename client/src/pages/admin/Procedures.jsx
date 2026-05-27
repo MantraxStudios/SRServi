@@ -1337,7 +1337,7 @@ export default function Procedures() {
 
   const [procedures, setProcedures] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [adminTab, setAdminTab] = useState('guides'); // 'guides' | 'table'
+  const [adminTab, setAdminTab] = useState('table'); // 'guides' | 'table'
   const [view, setView] = useState('list'); // 'list' | 'editor'
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ title: '', steps: [emptyStep()], design: emptyDesign() });
@@ -1507,16 +1507,16 @@ export default function Procedures() {
         {/* Tabs */}
         <div style={{ padding: '0 24px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 0, background: '#fff' }}>
           {[
-            { key: 'guides', icon: faClipboardList, label: 'Guías paso a paso' },
-            { key: 'table', icon: faTable, label: 'Tabla de preparación' },
-            { key: 'custom', icon: faPalette, label: 'Creación personalizada' }
+            { key: 'guides', icon: faClipboardList, label: 'Guías paso a paso', hidden: true },
+            { key: 'table', icon: faTable, label: 'Tabla de preparación', hidden: false },
+            { key: 'custom', icon: faPalette, label: 'Creación personalizada', hidden: true }
           ].map(tab => (
             <button key={tab.key} onClick={() => setAdminTab(tab.key)} style={{
               padding: '12px 18px', border: 'none', background: 'none', cursor: 'pointer',
               fontSize: 13, fontWeight: adminTab === tab.key ? 700 : 500,
               color: adminTab === tab.key ? '#111' : '#9ca3af',
               borderBottom: adminTab === tab.key ? '2px solid #111' : '2px solid transparent',
-              display: 'flex', alignItems: 'center', gap: 7, marginBottom: -1
+              display: tab.hidden ? 'none' : 'flex', alignItems: 'center', gap: 7, marginBottom: -1
             }}>
               <FontAwesomeIcon icon={tab.icon} />
               {tab.label}

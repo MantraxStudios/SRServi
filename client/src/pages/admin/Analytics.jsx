@@ -107,7 +107,7 @@ function Analytics() {
 
   return (
     <div className="analytics-container">
-      <div className="flex justify-between items-center" style={{ marginBottom: '24px' }}>
+      <div className="analytics-header-row" style={{ marginBottom: '24px' }}>
         <div>
           <h1 className="text-lg font-bold" style={{ marginBottom: '8px' }}>
             <FontAwesomeIcon icon={faChartBar} style={{ marginRight: '12px' }} />

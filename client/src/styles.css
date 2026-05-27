@@ -5286,6 +5286,16 @@ html body .store-container .store-product-card * {
 .analytics-rank { width: 40px; height: 40px; border-radius: var(--radius-md); background-color: rgba(212,175,55,0.15); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--gold-dark); font-size: 16px; }
 .analytics-product-name { font-weight: 600; color: var(--foreground); font-size: 14px; margin-bottom: 4px; }
 .analytics-product-stats { display: flex; gap: 16px; font-size: 12px; color: var(--muted-foreground); }
+.analytics-header-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+@media (max-width: 640px) {
+  .analytics-container { padding: 14px; }
+  .analytics-header-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .analytics-date-filters { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+  .analytics-date-btn { flex: 1 1 auto; text-align: center; padding: 8px 10px; font-size: 12px; min-width: 60px; }
+  .analytics-stat-value { font-size: 18px; }
+  .analytics-section { padding: 16px; }
+  .analytics-section-title { font-size: 15px; }
+}
 .market-error-banner { margin: 0 20px 20px; padding: 12px 20px; background-color: var(--danger-bg); border-radius: var(--radius-sm); display: flex; align-items: center; gap: 10px; color: #991b1b; }
 .market-success-overlay { background-color: var(--success); color: #fff; padding: 60px; border-radius: var(--radius-xl); text-align: center; }
 .market-success-icon { font-size: 80px; margin-bottom: 20px; }
