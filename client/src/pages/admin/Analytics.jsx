@@ -72,7 +72,7 @@ function Analytics() {
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
       currency: selectedStore?.currency_code || 'USD'
-    }).format(value);
+    }).format(Number(value) || 0);
   };
 
   const formatDate = (dateStr) => {

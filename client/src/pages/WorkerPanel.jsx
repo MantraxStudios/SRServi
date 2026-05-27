@@ -708,7 +708,7 @@ function WorkerPanel() {
     const fmt = d => d ? new Date(d).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : '—';
     const fmtPrep = (c, x) => { if (!c || !x) return '—'; const m = Math.round((new Date(x)-new Date(c))/60000); return m < 1 ? '< 1 min' : m + ' min'; };
     const done = todayOrders.filter(o => o.status === 'completed');
-    const total = todayOrders.reduce((s, o) => s + Number(o.total||0), 0);
+    const total = done.reduce((s, o) => s + Number(o.total||0), 0);
     const pts = done.filter(o=>o.created_at&&o.completed_at).map(o=>(new Date(o.completed_at)-new Date(o.created_at))/60000);
     const avg = pts.length ? Math.round(pts.reduce((a,b)=>a+b,0)/pts.length) : null;
     const byW = {};

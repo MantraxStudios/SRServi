@@ -4312,6 +4312,7 @@ export async function getCashRegisterHistory(storeId, dateFrom, dateTo) {
       COUNT(o.id) AS total_pedidos
     FROM cash_registers cr
     LEFT JOIN orders o ON o.store_id = cr.store_id
+      AND o.status = 'completed'
       AND o.created_at >= cr.opened_at
       AND (cr.closed_at IS NULL OR o.created_at <= cr.closed_at)
     WHERE cr.store_id = ?
