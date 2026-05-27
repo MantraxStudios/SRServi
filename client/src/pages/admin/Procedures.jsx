@@ -604,12 +604,28 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
   const [searchingCellImg, setSearchingCellImg] = useState(false);
   const [newColName, setNewColName] = useState('');
   const [addingCol, setAddingCol] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  const [mobileActiveCol, setMobileActiveCol] = useState(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  useEffect(() => {
+    const cols = table.columns || [];
+    if (isMobile && cols.length > 0 && (!mobileActiveCol || !cols.find(c => c.id === mobileActiveCol))) {
+      setMobileActiveCol(cols[0].id);
+    }
+  }, [isMobile, table.columns]);
 
   const addColumn = () => {
     if (!newColName.trim()) return;
     const id = 'c' + Date.now();
     setTable(t => ({ ...t, columns: [...(t.columns || []), { id, name: newColName.trim(), rows: t.rows || 8 }] }));
     setNewColName(''); setAddingCol(false);
+    if (isMobile) setMobileActiveCol(id);
   };
   const removeColumn = (id) => setTable(t => {
     const cells = { ...t.cells };
@@ -698,30 +714,30 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
       {/* Columnas (filas por columna) */}
       <div style={{ marginBottom: 20 }}>
         <label style={labelStyle}>Columnas — nombre y filas de cada una</label>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: isMobile ? 8 : 6, alignItems: 'center' }}>
           {(table.columns || []).map(col => (
-            <div key={col.id} style={{ display: 'flex', alignItems: 'center', background: '#f3f4f6', border: '1.5px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+            <div key={col.id} style={{ display: 'flex', alignItems: 'center', background: '#f3f4f6', border: '1.5px solid #e5e7eb', borderRadius: isMobile ? 12 : 8, overflow: 'hidden' }}>
               <input value={col.name} onChange={e => renameColumn(col.id, e.target.value)}
-                style={{ padding: '5px 8px', border: 'none', background: 'transparent', fontSize: 13, fontWeight: 600, outline: 'none', width: Math.max(60, col.name.length * 8 + 16) }} />
-              <div style={{ width: 1, height: 18, background: '#d1d5db', margin: '0 2px' }} />
+                style={{ padding: isMobile ? '10px 12px' : '5px 8px', border: 'none', background: 'transparent', fontSize: isMobile ? 14 : 13, fontWeight: 600, outline: 'none', width: Math.max(isMobile ? 80 : 60, col.name.length * 8 + 16) }} />
+              <div style={{ width: 1, height: 22, background: '#d1d5db', margin: '0 2px' }} />
               <input type="number" min="1" max="30" value={col.rows || table.rows || 8}
                 onChange={e => setColumnRows(col.id, Math.max(1, Math.min(30, parseInt(e.target.value) || 1)))}
-                style={{ width: 34, padding: '5px 3px', border: 'none', background: 'transparent', fontSize: 12, fontWeight: 700, outline: 'none', textAlign: 'center', color: '#6b7280' }} />
+                style={{ width: isMobile ? 44 : 34, padding: isMobile ? '10px 4px' : '5px 3px', border: 'none', background: 'transparent', fontSize: isMobile ? 14 : 12, fontWeight: 700, outline: 'none', textAlign: 'center', color: '#6b7280' }} />
               <span style={{ fontSize: 10, color: '#aaa', paddingRight: 4 }}>fil</span>
-              <button onClick={() => removeColumn(col.id)} style={{ padding: '5px 7px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#ef4444', fontSize: 13 }}>×</button>
+              <button onClick={() => removeColumn(col.id)} style={{ padding: isMobile ? '10px 12px' : '5px 7px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#ef4444', fontSize: isMobile ? 16 : 13 }}>×</button>
             </div>
           ))}
           {addingCol ? (
-            <div style={{ display: 'flex', gap: 4 }}>
+            <div style={{ display: 'flex', gap: 6, width: isMobile ? '100%' : 'auto' }}>
               <input autoFocus value={newColName} onChange={e => setNewColName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') addColumn(); if (e.key === 'Escape') { setAddingCol(false); setNewColName(''); } }}
-                placeholder="Nombre..." style={{ padding: '5px 9px', border: `1.5px solid ${GOLD}`, borderRadius: 8, fontSize: 13, outline: 'none', width: 120 }} />
-              <button onClick={addColumn} style={{ padding: '5px 10px', borderRadius: 8, border: 'none', background: GOLD, color: '#000', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>OK</button>
-              <button onClick={() => { setAddingCol(false); setNewColName(''); }} style={{ padding: '5px 9px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', color: '#888' }}>✕</button>
+                placeholder="Nombre de la columna..." style={{ padding: isMobile ? '12px 14px' : '5px 9px', border: `1.5px solid ${GOLD}`, borderRadius: isMobile ? 12 : 8, fontSize: isMobile ? 15 : 13, outline: 'none', flex: isMobile ? 1 : 'none', width: isMobile ? 'auto' : 120 }} />
+              <button onClick={addColumn} style={{ padding: isMobile ? '12px 18px' : '5px 10px', borderRadius: isMobile ? 12 : 8, border: 'none', background: GOLD, color: '#000', fontWeight: 700, fontSize: isMobile ? 14 : 12, cursor: 'pointer' }}>OK</button>
+              <button onClick={() => { setAddingCol(false); setNewColName(''); }} style={{ padding: isMobile ? '12px 14px' : '5px 9px', borderRadius: isMobile ? 12 : 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', color: '#888', fontSize: isMobile ? 16 : 13 }}>✕</button>
             </div>
           ) : (
-            <button onClick={() => setAddingCol(true)} style={{ padding: '5px 10px', border: '1.5px dashed #d1d5db', borderRadius: 8, background: 'transparent', color: '#9ca3af', fontSize: 12, cursor: 'pointer' }}>
-              <FontAwesomeIcon icon={faPlus} style={{ marginRight: 4 }} />Columna
+            <button onClick={() => setAddingCol(true)} style={{ padding: isMobile ? '10px 16px' : '5px 10px', border: '1.5px dashed #d1d5db', borderRadius: isMobile ? 12 : 8, background: 'transparent', color: '#9ca3af', fontSize: isMobile ? 14 : 12, cursor: 'pointer' }}>
+              <FontAwesomeIcon icon={faPlus} style={{ marginRight: 6 }} />Columna
             </button>
           )}
         </div>
@@ -732,7 +748,70 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
         <div style={{ textAlign: 'center', padding: '40px 24px', border: '2px dashed #e5e7eb', borderRadius: 14, color: '#9ca3af', fontSize: 14 }}>
           Agrega columnas para armar la tabla
         </div>
+      ) : isMobile ? (
+        /* ── Vista móvil: tabs de columna + filas como cards ── */
+        <div>
+          {/* Tabs de columnas scrolleables */}
+          <div style={{ display: 'flex', overflowX: 'auto', gap: 8, marginBottom: 16, WebkitOverflowScrolling: 'touch', paddingBottom: 4, scrollbarWidth: 'none' }}>
+            {table.columns.map(col => (
+              <button key={col.id} onClick={() => setMobileActiveCol(col.id)} style={{
+                padding: '10px 20px', borderRadius: 24, border: 'none', cursor: 'pointer',
+                whiteSpace: 'nowrap', flexShrink: 0,
+                background: mobileActiveCol === col.id ? '#111' : '#f3f4f6',
+                color: mobileActiveCol === col.id ? '#fff' : '#374151',
+                fontWeight: 700, fontSize: 14,
+                boxShadow: mobileActiveCol === col.id ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
+                transition: 'all 0.15s'
+              }}>
+                {col.name}
+              </button>
+            ))}
+          </div>
+          {/* Filas de la columna activa */}
+          {mobileActiveCol && (() => {
+            const col = table.columns.find(c => c.id === mobileActiveCol);
+            if (!col) return null;
+            const colRows = col.rows || table.rows || 8;
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {Array.from({ length: colRows }, (_, rowIdx) => {
+                  const cell = getCell(col.id, rowIdx);
+                  const hasContent = cell.name || cell.image_url;
+                  return (
+                    <div key={rowIdx} onClick={() => openCell(col.id, rowIdx)} style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 14px', borderRadius: 14,
+                      border: hasContent ? '1.5px solid #e5e7eb' : '1.5px dashed #d1d5db',
+                      background: '#fff', cursor: 'pointer', minHeight: 68,
+                      boxShadow: hasContent ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
+                      transition: 'border-color 0.15s'
+                    }}>
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#111', color: GOLD, fontWeight: 900, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {rowIdx + 1}
+                      </div>
+                      {cell.image_url && (
+                        <img src={cell.image_url.startsWith('http') ? cell.image_url : API + cell.image_url} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }} />
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {hasContent ? (
+                          <>
+                            {cell.name && <div style={{ fontWeight: 700, fontSize: 14, color: '#111', lineHeight: 1.3 }}>{cell.name}</div>}
+                            {cell.note && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{cell.note}</div>}
+                          </>
+                        ) : (
+                          <div style={{ color: '#bbb', fontSize: 13 }}>Tocar para agregar...</div>
+                        )}
+                      </div>
+                      <span style={{ color: '#ccc', fontSize: 22, flexShrink: 0 }}>›</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
       ) : (
+        /* ── Vista desktop: tabla con scroll horizontal ── */
         <div style={{ overflowX: 'auto', borderRadius: 12, border: '1.5px solid #e5e7eb' }}>
           <table style={{ borderCollapse: 'collapse', minWidth: '100%', background: '#fff' }}>
             <thead>
@@ -779,36 +858,36 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
       {/* Modal celda */}
       {editingCell && (
         <div onClick={e => { if (e.target === e.currentTarget) setEditingCell(null); }}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: '20px 20px 18px', width: '100%', maxWidth: 360, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center', padding: isMobile ? 0 : 20 }}>
+          <div style={{ background: '#fff', borderRadius: isMobile ? '20px 20px 0 0' : 16, padding: isMobile ? '20px 20px 32px' : '20px 20px 18px', width: '100%', maxWidth: isMobile ? '100%' : 360, boxShadow: '0 -4px 40px rgba(0,0,0,0.18)' }} onClick={e => e.stopPropagation()}>
+            {/* Handle bar en mobile */}
+            {isMobile && <div style={{ width: 40, height: 4, borderRadius: 4, background: '#d1d5db', margin: '0 auto 20px' }} />}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: '#111' }}>{table.columns.find(c => c.id === editingCell.colId)?.name} — Fila {editingCell.rowIdx + 1}</div>
-              <button onClick={() => setEditingCell(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: 20, lineHeight: 1 }}>×</button>
+              <div style={{ fontWeight: 800, fontSize: isMobile ? 16 : 14, color: '#111' }}>{table.columns.find(c => c.id === editingCell.colId)?.name} — Fila {editingCell.rowIdx + 1}</div>
+              <button onClick={() => setEditingCell(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: 24, lineHeight: 1, padding: '4px 8px' }}>×</button>
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={labelStyle}>Imagen</label>
               {cellForm.image_url ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <img src={cellForm.image_url.startsWith('http') ? cellForm.image_url : API + cellForm.image_url} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10 }} />
-                  <button onClick={() => setCellForm(f => ({ ...f, image_url: '' }))} style={{ padding: '5px 10px', border: '1px solid #fecaca', borderRadius: 7, background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>Quitar</button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <img src={cellForm.image_url.startsWith('http') ? cellForm.image_url : API + cellForm.image_url} alt="" style={{ width: isMobile ? 90 : 72, height: isMobile ? 90 : 72, objectFit: 'cover', borderRadius: 12 }} />
+                  <button onClick={() => setCellForm(f => ({ ...f, image_url: '' }))} style={{ padding: isMobile ? '10px 18px' : '5px 10px', border: '1px solid #fecaca', borderRadius: 10, background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: isMobile ? 14 : 12, fontWeight: 600 }}>Quitar</button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {searchingCellImg && (
                     <ImageSearchModal
                       onSelect={(url) => { setCellForm(f => ({ ...f, image_url: url })); setSearchingCellImg(false); }}
                       onClose={() => setSearchingCellImg(false)}
                     />
                   )}
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: '1.5px dashed #d1d5db', borderRadius: 10, cursor: 'pointer', color: '#9ca3af', fontSize: 13 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: isMobile ? '14px 16px' : '9px 12px', border: '1.5px dashed #d1d5db', borderRadius: 12, cursor: 'pointer', color: '#9ca3af', fontSize: isMobile ? 15 : 13 }}>
                     <FontAwesomeIcon icon={uploadingCell ? faSpinner : faImage} spin={uploadingCell} />
                     {uploadingCell ? 'Subiendo...' : 'Subir desde mi dispositivo'}
                     <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => uploadCellImage(e.target.files[0])} />
                   </label>
                   <button onClick={() => setSearchingCellImg(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 10, cursor: 'pointer', color: '#6b7280', fontSize: 13, background: '#fff', fontWeight: 600, transition: 'border-color 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = GOLD}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: isMobile ? '14px 16px' : '9px 12px', border: '1.5px solid #e5e7eb', borderRadius: 12, cursor: 'pointer', color: '#6b7280', fontSize: isMobile ? 15 : 13, background: '#fff', fontWeight: 600 }}
                   >
                     <FontAwesomeIcon icon={faSearch} style={{ color: GOLD }} />
                     Buscar imagen en internet
@@ -818,15 +897,17 @@ function SingleTableEditor({ table: initialTable, storeId, token, onSave, onBack
             </div>
             <div style={{ marginBottom: 12 }}>
               <label style={labelStyle}>Nombre</label>
-              <input value={cellForm.name} onChange={e => setCellForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Mayonesa" style={inputStyle} />
+              <input value={cellForm.name} onChange={e => setCellForm(f => ({ ...f, name: e.target.value }))} placeholder="Ej: Mayonesa"
+                style={{ ...inputStyle, padding: isMobile ? '13px 14px' : inputStyle.padding, fontSize: isMobile ? 15 : 14 }} />
             </div>
-            <div style={{ marginBottom: 18 }}>
+            <div style={{ marginBottom: 20 }}>
               <label style={labelStyle}>Cantidad / nota</label>
-              <input value={cellForm.note} onChange={e => setCellForm(f => ({ ...f, note: e.target.value }))} placeholder="Ej: 2 cdas" style={inputStyle} />
+              <input value={cellForm.note} onChange={e => setCellForm(f => ({ ...f, note: e.target.value }))} placeholder="Ej: 2 cdas"
+                style={{ ...inputStyle, padding: isMobile ? '13px 14px' : inputStyle.padding, fontSize: isMobile ? 15 : 14 }} />
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={saveCell} style={{ flex: 1, padding: '11px', borderRadius: 9, border: 'none', background: '#111', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Guardar</button>
-              <button onClick={clearCell} style={{ padding: '11px 14px', borderRadius: 9, border: '1px solid #fecaca', background: '#fef2f2', color: '#ef4444', cursor: 'pointer' }}><FontAwesomeIcon icon={faTrash} /></button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={saveCell} style={{ flex: 1, padding: isMobile ? '15px' : '11px', borderRadius: 12, border: 'none', background: '#111', color: '#fff', fontWeight: 700, fontSize: isMobile ? 16 : 14, cursor: 'pointer' }}>Guardar</button>
+              <button onClick={clearCell} style={{ padding: isMobile ? '15px 20px' : '11px 14px', borderRadius: 12, border: '1px solid #fecaca', background: '#fef2f2', color: '#ef4444', cursor: 'pointer', fontSize: isMobile ? 18 : 16 }}><FontAwesomeIcon icon={faTrash} /></button>
             </div>
           </div>
         </div>
@@ -847,7 +928,22 @@ function PrepTableEditor({ storeId, token }) {
     setLoading(true);
     try {
       const res = await fetch(`${API}/api/prep-tables?store_id=${storeId}`, { headers: { Authorization: 'Bearer ' + token } });
-      if (res.ok) setTables(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length === 0) {
+          const createRes = await fetch(`${API}/api/prep-tables`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({ store_id: storeId, title: 'Tabla de preparación', columns: [], rows: 8, cells: {} })
+          });
+          if (createRes.ok) {
+            const refreshRes = await fetch(`${API}/api/prep-tables?store_id=${storeId}`, { headers: { Authorization: 'Bearer ' + token } });
+            if (refreshRes.ok) setTables(await refreshRes.json());
+          }
+        } else {
+          setTables(data);
+        }
+      }
     } finally { setLoading(false); }
   };
 
