@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock, faBook } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
 import WorkerNewOrder from '../components/WorkerNewOrder';
 
@@ -1258,75 +1258,85 @@ function WorkerPanel() {
         </div>
       </header>
 
-      <div className="worker-controls">
-        <div className="worker-search">
-          <FontAwesomeIcon icon={faSearch} className="worker-search-icon" />
-          <input
-            type="text"
-            placeholder="Buscar pedido..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+      <div className="worker-body">
+        {/* ── Sidebar vertical ── */}
+        <nav className="worker-sidebar">
+          <button
+            className={`worker-sidebar-item ${activeTab === 'active' ? 'active' : ''}`}
+            onClick={() => setActiveTab('active')}
+          >
+            <FontAwesomeIcon icon={faClock} />
+            <span>Pedidos</span>
+            {orders.length > 0 && <span className="worker-sidebar-badge">{orders.length}</span>}
+          </button>
+          <button
+            className={`worker-sidebar-item ${activeTab === 'completed' ? 'active' : ''}`}
+            onClick={() => setActiveTab('completed')}
+          >
+            <FontAwesomeIcon icon={faCheck} />
+            <span>Completados</span>
+            {completedOrders.length > 0 && <span className="worker-sidebar-badge">{completedOrders.length}</span>}
+          </button>
+          <button
+            className={`worker-sidebar-item ${activeTab === 'delivery' ? 'active' : ''}`}
+            onClick={() => { const w = JSON.parse(localStorage.getItem('worker') || '{}'); fetchDeliveryOrders(w.store_id); setActiveTab('delivery'); }}
+          >
+            <span style={{ fontSize: 16 }}>🛵</span>
+            <span>Delivery</span>
+            {deliveryOrders.length > 0 && <span className="worker-sidebar-badge">{deliveryOrders.length}</span>}
+          </button>
+          <button
+            className={`worker-sidebar-item ${activeTab === 'whatsapp' ? 'active' : ''}`}
+            onClick={() => setActiveTab('whatsapp')}
+          >
+            <span style={{ fontSize: 16 }}>💬</span>
+            <span>WhatsApp</span>
+            {whatsappOrders.length > 0 && <span className="worker-sidebar-badge">{whatsappOrders.length}</span>}
+          </button>
+          <div className="worker-sidebar-divider" />
+          <button
+            className={`worker-sidebar-item ${activeTab === 'tasks' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('tasks'); setTaskError(''); }}
+          >
+            <FontAwesomeIcon icon={faClipboardList} />
+            <span>Tareas</span>
+            {(() => { const n = tasks.filter(t => t.day_of_week === new Date().getDay() && !t.completed_at).length; return n > 0 ? <span className="worker-sidebar-badge">{n}</span> : null; })()}
+          </button>
+          <button
+            className={`worker-sidebar-item ${activeTab === 'procedures' ? 'active' : ''}`}
+            onClick={() => setActiveTab('procedures')}
+          >
+            <FontAwesomeIcon icon={faBook} />
+            <span>Guías</span>
+          </button>
+        </nav>
 
-        <div className="worker-tabs-filters">
-          <div className="worker-tabs">
-            <button
-              className={`worker-tab ${activeTab === 'active' ? 'active' : ''}`}
-              onClick={() => setActiveTab('active')}
-            >
-              <FontAwesomeIcon icon={faClock} />
-              Pendientes <span className="worker-tab-count">{orders.length}</span>
-            </button>
-            <button
-              className={`worker-tab ${activeTab === 'completed' ? 'active' : ''}`}
-              onClick={() => setActiveTab('completed')}
-            >
-              <FontAwesomeIcon icon={faCheck} />
-              Completados <span className="worker-tab-count">{completedOrders.length}</span>
-            </button>
-            <button
-              className={`worker-tab ${activeTab === 'tasks' ? 'active' : ''}`}
-              onClick={() => { setActiveTab('tasks'); setTaskError(''); }}
-            >
-              <FontAwesomeIcon icon={faClipboardList} />
-              Tareas{(() => { const n = tasks.filter(t => t.day_of_week === new Date().getDay() && !t.completed_at).length; return n > 0 ? <span className="worker-tab-count">{n}</span> : null; })()}
-            </button>
-            <button
-              className={`worker-tab ${activeTab === 'procedures' ? 'active' : ''}`}
-              onClick={() => setActiveTab('procedures')}
-            >
-              <FontAwesomeIcon icon={faClipboardList} />
-              Guías
-            </button>
-            <button
-              className={`worker-tab ${activeTab === 'whatsapp' ? 'active' : ''}`}
-              onClick={() => setActiveTab('whatsapp')}
-            >
-              💬 WhatsApp{whatsappOrders.length > 0 && <span className="worker-tab-count">{whatsappOrders.length}</span>}
-            </button>
-            <button
-              className={`worker-tab ${activeTab === 'delivery' ? 'active' : ''}`}
-              onClick={() => { const w = JSON.parse(localStorage.getItem('worker') || '{}'); fetchDeliveryOrders(w.store_id); setActiveTab('delivery'); }}
-            >
-              🛵 Delivery{deliveryOrders.length > 0 && <span className="worker-tab-count">{deliveryOrders.length}</span>}
-            </button>
+        {/* ── Contenido principal ── */}
+        <div className="worker-main">
+          <div className="worker-main-top">
+            <div className="worker-search">
+              <FontAwesomeIcon icon={faSearch} className="worker-search-icon" />
+              <input
+                type="text"
+                placeholder="Buscar pedido..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            {activeTab !== 'tasks' && activeTab !== 'procedures' && activeTab !== 'whatsapp' && activeTab !== 'delivery' && (
+              <div className="worker-filters">
+                {['all', 'pending', 'preparing', 'ready'].map(f => (
+                  <button
+                    key={f}
+                    className={`worker-filter-btn ${filter === f ? 'active' : ''}`}
+                    onClick={() => setFilter(f)}
+                  >
+                    {f === 'all' ? 'Todos' : f === 'pending' ? 'Pendiente' : f === 'preparing' ? 'Preparando' : 'Listo'}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          {activeTab !== 'tasks' && activeTab !== 'procedures' && activeTab !== 'whatsapp' && activeTab !== 'delivery' && (
-          <div className="worker-filters">
-            {['all', 'pending', 'preparing', 'ready'].map(f => (
-              <button
-                key={f}
-                className={`worker-filter-btn ${filter === f ? 'active' : ''}`}
-                onClick={() => setFilter(f)}
-              >
-                {f === 'all' ? 'Todos' : f === 'pending' ? 'Pendiente' : f === 'preparing' ? 'Preparando' : 'Listo'}
-              </button>
-            ))}
-          </div>
-          )}
-        </div>
-      </div>
 
       <div className="worker-orders" style={activeTab === 'tasks' ? { padding: 0 } : undefined}>
         {activeTab === 'delivery' ? (
@@ -2046,6 +2056,8 @@ function WorkerPanel() {
           );
         })()}
       </div>
+        </div>{/* /worker-main */}
+      </div>{/* /worker-body */}
 
       {selectedOrder && (
         <div className="worker-modal-overlay" onClick={() => setSelectedOrder(null)}>

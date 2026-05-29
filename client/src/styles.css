@@ -4069,31 +4069,130 @@ html body .store-container .store-product-card * {
 .worker-action-secondary:active { transform: scale(0.97); }
 .worker-action-secondary:disabled { opacity: 0.3; cursor: not-allowed; }
 
-/* ── Controls (búsqueda + tabs + filtros) ── */
-.worker-controls {
+/* ── Body: sidebar + main ── */
+.worker-body {
+  display: flex;
+  min-height: calc(100vh - 120px);
+}
+
+/* ── Sidebar vertical ── */
+.worker-sidebar {
+  width: 64px;
+  background: #0c0c10;
+  border-right: 1px solid rgba(255,255,255,0.07);
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
+  padding: 10px 6px;
+  position: sticky;
+  top: 120px;
+  height: calc(100vh - 120px);
+  overflow-y: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+.worker-sidebar::-webkit-scrollbar { display: none; }
+
+.worker-sidebar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 4px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.4);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-align: center;
+  width: 100%;
+}
+.worker-sidebar-item svg { font-size: 17px; }
+.worker-sidebar-item:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); }
+.worker-sidebar-item.active {
+  background: rgba(212,175,55,0.13);
+  color: #D4AF37;
+}
+.worker-sidebar-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  background: #D4AF37;
+  border-radius: 0 3px 3px 0;
+}
+
+.worker-sidebar-badge {
+  background: #D4AF37;
+  color: #000;
+  border-radius: 10px;
+  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 900;
+  min-width: 16px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.worker-sidebar-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.07);
+  margin: 6px 4px;
+}
+
+/* Wider sidebar on desktop */
+@media (min-width: 600px) {
+  .worker-sidebar {
+    width: 100px;
+  }
+  .worker-sidebar-item {
+    font-size: 10px;
+    padding: 11px 6px;
+  }
+}
+
+/* ── Main content area ── */
+.worker-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.worker-main-top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   background: #0e0e14;
   border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 10px 12px;
 }
 
 .worker-search {
-  display: none;
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .worker-search-icon {
   position: absolute;
-  left: 24px;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 10px;
   color: rgba(255,255,255,0.3);
-  margin-top: 5px;
+  font-size: 13px;
 }
 
 .worker-search input {
   width: 100%;
-  padding: 9px 10px 9px 36px;
+  padding: 9px 10px 9px 32px;
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px;
   font-size: 14px;
@@ -4105,53 +4204,12 @@ html body .store-container .store-product-card * {
 .worker-search input::placeholder { color: rgba(255,255,255,0.3); }
 .worker-search input:focus { border-color: rgba(212,175,55,0.4); background: rgba(255,255,255,0.08); }
 
-.worker-tabs-filters {
-  display: flex;
-  flex-direction: column;
-}
-
-/* ── Tabs ── */
-.worker-tabs {
-  display: flex;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-}
-
-.worker-tab {
-  flex: 1;
-  padding: 10px 8px;
-  border: none;
-  background: transparent;
-  color: rgba(255,255,255,0.4);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  transition: all var(--transition);
-}
-.worker-tab:hover { color: rgba(255,255,255,0.7); }
-.worker-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
-
-.worker-tab-count {
-  background: rgba(255,255,255,0.1);
-  border-radius: 10px;
-  padding: 1px 6px;
-  font-size: 11px;
-  font-weight: 700;
-}
-.worker-tab.active .worker-tab-count {
-  background: rgba(212,175,55,0.2);
-  color: var(--gold);
-}
-
 /* ── Filtros ── */
 .worker-filters {
-  display: none;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
-.worker-filters::-webkit-scrollbar { display: none; }
 
 .worker-filter-btn {
   flex-shrink: 0;
