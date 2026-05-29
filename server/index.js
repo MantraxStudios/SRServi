@@ -5212,7 +5212,8 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number, custom_total, total, terminal_id } = req.body;
+    const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number, custom_total, total, terminal_id,
+            source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone } = req.body;
 
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
@@ -5220,8 +5221,12 @@ app.post('/api/orders', async (req, res) => {
 
     // custom_total overrides computed total; fallback to `total` sent by client (includes tip)
     const resolvedTotal = custom_total ?? total ?? null;
-    console.log('Creating order:', { store_id, order_type, payment_method, table_number, terminal_id, resolvedTotal });
-    const order = await createOrder(parseInt(store_id), { order_type, payment_method, items, coupon_code, from_worker, delivery, table_number, custom_total: resolvedTotal, terminal_id: terminal_id ? parseInt(terminal_id) : null });
+    console.log('Creating order:', { store_id, order_type, payment_method, table_number, terminal_id, resolvedTotal, source });
+    const order = await createOrder(parseInt(store_id), {
+      order_type, payment_method, items, coupon_code, from_worker, delivery, table_number,
+      custom_total: resolvedTotal, terminal_id: terminal_id ? parseInt(terminal_id) : null,
+      source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone
+    });
 
     const socketId = userSockets.get(parseInt(store_id));
     if (socketId) {

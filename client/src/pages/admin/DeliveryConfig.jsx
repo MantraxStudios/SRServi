@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMotorcycle, faSave, faMapMarkerAlt, faClock, faMoneyBillWave, faSync } from '@fortawesome/free-solid-svg-icons';
+import { faMotorcycle, faSave, faMapMarkerAlt, faClock, faMoneyBillWave, faSync, faCreditCard } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 
@@ -32,7 +32,9 @@ export default function DeliveryConfig() {
     hours_source: 'cash_register',
     open_time: '09:00',
     close_time: '22:00',
-    estimated_minutes: 45
+    estimated_minutes: 45,
+    payment_cash: true,
+    payment_card: false
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -57,7 +59,9 @@ export default function DeliveryConfig() {
             hours_source: data.hours_source || 'cash_register',
             open_time: data.open_time || '09:00',
             close_time: data.close_time || '22:00',
-            estimated_minutes: data.estimated_minutes || 45
+            estimated_minutes: data.estimated_minutes || 45,
+            payment_cash: data.payment_cash !== false,
+            payment_card: !!data.payment_card
           });
         }
       }
@@ -234,6 +238,55 @@ export default function DeliveryConfig() {
         {form.hours_source === 'cash_register' && (
           <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#0369a1' }}>
             ℹ️ Tu local aparecerá como <strong>abierto</strong> cuando tengas una caja registradora activa, y como <strong>cerrado</strong> cuando la cierres.
+          </div>
+        )}
+      </div>
+
+      {/* Métodos de pago */}
+      <div style={sectionStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <FontAwesomeIcon icon={faCreditCard} style={{ color: '#D4AF37' }} />
+          <span style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>Métodos de pago aceptados</span>
+        </div>
+        <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 14, marginTop: 0 }}>
+          Indicá cómo acepta pago tu repartidor al hacer la entrega.
+        </p>
+        {[
+          { key: 'payment_cash', label: '💵 Efectivo contra entrega', desc: 'El cliente paga en efectivo al recibir el pedido' },
+          { key: 'payment_card', label: '💳 Tarjeta contra entrega (Tuu)', desc: 'Tu repartidor cobra con el terminal Tuu al entregar' }
+        ].map(opt => (
+          <div
+            key={opt.key}
+            onClick={() => {
+              const next = !form[opt.key];
+              if (!next && opt.key === 'payment_cash' && !form.payment_card) return;
+              if (!next && opt.key === 'payment_card' && !form.payment_cash) return;
+              f(opt.key, next);
+            }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+              border: form[opt.key] ? '2px solid #D4AF37' : '1px solid #d1d5db',
+              borderRadius: 10, cursor: 'pointer', marginBottom: 10,
+              background: form[opt.key] ? 'rgba(212,175,55,0.06)' : '#fafafa'
+            }}
+          >
+            <div style={{
+              width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+              background: form[opt.key] ? '#D4AF37' : '#f3f4f6',
+              border: form[opt.key] ? 'none' : '1.5px solid #d1d5db',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              {form[opt.key] && <span style={{ color: '#fff', fontSize: 12, fontWeight: 900 }}>✓</span>}
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#111' }}>{opt.label}</div>
+              <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{opt.desc}</div>
+            </div>
+          </div>
+        ))}
+        {form.payment_card && (
+          <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#0369a1' }}>
+            ℹ️ El pago con tarjeta usa el terminal Tuu de tu cuenta. El cliente elige pagar con tarjeta y tu repartidor procesa el cobro al llegar.
           </div>
         )}
       </div>

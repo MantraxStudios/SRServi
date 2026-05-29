@@ -2785,10 +2785,14 @@ export async function createOrder(storeId, orderData) {
 
   const isDeliveryApp = orderData.source === 'delivery_app';
   const deliveryStatus = isDeliveryApp ? 'waiting' : null;
+  // Delivery orders are always pending (payment collected at door)
+  const finalStatus = isDeliveryApp ? paidStatus : initialStatus;
+  const finalCashApproved = isDeliveryApp ? true : cashApproved;
+  const finalPaymentProcess = isDeliveryApp ? 1 : paymentProcess;
 
   const [result] = await pool.execute(
     'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number, source, customer_phone, delivery_address, delivery_status, delivery_customer_id, customer_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, paymentProcess, initialStatus, table_number || null, orderData.source || null, orderData.customer_phone || null, delivery_address || null, deliveryStatus, delivery_customer_id || null, customer_email || null]
+    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', finalCashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, finalPaymentProcess, finalStatus, table_number || null, orderData.source || null, orderData.customer_phone || null, delivery_address || null, deliveryStatus, delivery_customer_id || null, customer_email || null]
   );
   const orderId = result.insertId;
 
@@ -4864,6 +4868,8 @@ async function ensureDeliveryTables() {
       open_time VARCHAR(5) DEFAULT '09:00',
       close_time VARCHAR(5) DEFAULT '22:00',
       estimated_minutes INT DEFAULT 45,
+      payment_cash BOOLEAN NOT NULL DEFAULT TRUE,
+      payment_card BOOLEAN NOT NULL DEFAULT FALSE,
       FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
     )
   `);
@@ -4896,6 +4902,12 @@ async function ensureDeliveryTables() {
     if (!names.includes('delivery_customer_id')) await pool.execute("ALTER TABLE orders ADD COLUMN delivery_customer_id INT DEFAULT NULL");
     if (!names.includes('customer_email')) await pool.execute("ALTER TABLE orders ADD COLUMN customer_email VARCHAR(100) DEFAULT NULL");
   } catch {}
+  try {
+    const [dsCols] = await pool.execute('SHOW COLUMNS FROM delivery_settings');
+    const dsNames = dsCols.map(c => c.Field);
+    if (!dsNames.includes('payment_cash')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN payment_cash BOOLEAN NOT NULL DEFAULT TRUE");
+    if (!dsNames.includes('payment_card')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN payment_card BOOLEAN NOT NULL DEFAULT FALSE");
+  } catch {}
 }
 
 export async function getDeliverySettings(storeId) {
@@ -4906,16 +4918,19 @@ export async function getDeliverySettings(storeId) {
 
 export async function upsertDeliverySettings(storeId, data) {
   await ensureDeliveryTables();
-  const { address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes } = data;
+  const { address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes, payment_cash, payment_card } = data;
+  const pCash = payment_cash === false ? 0 : 1;
+  const pCard = payment_card === true ? 1 : 0;
   await pool.execute(`
-    INSERT INTO delivery_settings (store_id, address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO delivery_settings (store_id, address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes, payment_cash, payment_card)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       address = VALUES(address), lat = VALUES(lat), lng = VALUES(lng),
       radius_km = VALUES(radius_km), fee = VALUES(fee), min_order = VALUES(min_order),
       hours_source = VALUES(hours_source), open_time = VALUES(open_time),
-      close_time = VALUES(close_time), estimated_minutes = VALUES(estimated_minutes)
-  `, [storeId, address || null, lat || null, lng || null, radius_km || 5, fee || 0, min_order || 0, hours_source || 'cash_register', open_time || '09:00', close_time || '22:00', estimated_minutes || 45]);
+      close_time = VALUES(close_time), estimated_minutes = VALUES(estimated_minutes),
+      payment_cash = VALUES(payment_cash), payment_card = VALUES(payment_card)
+  `, [storeId, address || null, lat || null, lng || null, radius_km || 5, fee || 0, min_order || 0, hours_source || 'cash_register', open_time || '09:00', close_time || '22:00', estimated_minutes || 45, pCash, pCard]);
   return getDeliverySettings(storeId);
 }
 

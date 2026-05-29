@@ -368,6 +368,7 @@ export default function DeliveryStore() {
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [payStep, setPayStep] = useState('address');
   const [placing, setPlacing] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
 
   useEffect(() => {
     Promise.all([
@@ -379,7 +380,13 @@ export default function DeliveryStore() {
       setStore(storeData.store || storeData);
       setProducts((storeData.products || []).filter((p, i, a) => a.findIndex(x => x.id === p.id) === i));
       setCategories(storeData.categories || []);
-      if (dsRes.ok) setDeliverySettings(await dsRes.json());
+      if (dsRes.ok) {
+        const ds = await dsRes.json();
+        setDeliverySettings(ds);
+        // Set default payment method based on store configuration
+        if (ds.payment_cash !== false) setPaymentMethod('cash');
+        else if (ds.payment_card) setPaymentMethod('card');
+      }
     }).catch(() => {}).finally(() => setLoading(false));
   }, [code]);
 
@@ -428,7 +435,7 @@ export default function DeliveryStore() {
         body: JSON.stringify({
           store_id: store.id,
           order_type: 'delivery',
-          payment_method: 'cash',
+          payment_method: paymentMethod,
           source: 'delivery_app',
           delivery_address: deliveryAddress,
           delivery_customer_id: customer.id,
@@ -653,8 +660,41 @@ export default function DeliveryStore() {
               <div>📧 {customer?.email}</div>
             </div>
 
-            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: '#15803d', fontWeight: 600 }}>
-              💵 Pago contra entrega en efectivo
+            {/* Payment method */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 8 }}>Método de pago al recibir</label>
+              {deliverySettings?.payment_cash !== false && deliverySettings?.payment_card ? (
+                // Both methods available — show selector
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {[
+                    { value: 'cash', label: '💵 Efectivo', desc: 'Pagás al recibir' },
+                    { value: 'card', label: '💳 Tarjeta (Tuu)', desc: 'El repartidor cobra con terminal' }
+                  ].map(opt => (
+                    <div
+                      key={opt.value}
+                      onClick={() => setPaymentMethod(opt.value)}
+                      style={{
+                        flex: 1, padding: '12px', borderRadius: 10, cursor: 'pointer',
+                        border: paymentMethod === opt.value ? '2px solid #D4AF37' : '1px solid #e5e7eb',
+                        background: paymentMethod === opt.value ? 'rgba(212,175,55,0.06)' : '#f9fafb'
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#111', marginBottom: 2 }}>{opt.label}</div>
+                      <div style={{ fontSize: 11, color: '#6b7280' }}>{opt.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : deliverySettings?.payment_card && deliverySettings?.payment_cash === false ? (
+                // Only card
+                <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#0369a1', fontWeight: 600 }}>
+                  💳 Tarjeta con terminal Tuu (contra entrega)
+                </div>
+              ) : (
+                // Only cash (default)
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#15803d', fontWeight: 600 }}>
+                  💵 Efectivo contra entrega
+                </div>
+              )}
             </div>
 
             <button
