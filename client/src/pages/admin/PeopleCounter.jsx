@@ -52,6 +52,7 @@ export default function PeopleCounter() {
   const lastDetectRef = useRef(0);
   const nextIdRef = useRef(0);
   const dragRef = useRef(null);
+  const dragAnimRef = useRef(null);
   const storeIdRef = useRef(storeId);
   const tokenRef = useRef(token);
 
@@ -221,8 +222,8 @@ export default function PeopleCounter() {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
 
-    // Throttle detection to ~8 FPS
-    if (now - lastDetectRef.current > 125 && modelRef.current) {
+    // Throttle detection to ~5 FPS — enough for counting, much lighter
+    if (now - lastDetectRef.current > 200 && modelRef.current) {
       lastDetectRef.current = now;
       let preds = [];
       try { preds = await modelRef.current.detect(video); } catch {}
@@ -318,8 +319,9 @@ export default function PeopleCounter() {
     if (!isEditingLine) return;
     e.preventDefault();
     const { x, y } = getRelPos(e);
-    const d1 = Math.hypot(x - lineConfig.x1, y - lineConfig.y1);
-    const d2 = Math.hypot(x - lineConfig.x2, y - lineConfig.y2);
+    const l = lineRef.current;
+    const d1 = Math.hypot(x - l.x1, y - l.y1);
+    const d2 = Math.hypot(x - l.x2, y - l.y2);
     if (d1 < 0.07) dragRef.current = 'p1';
     else if (d2 < 0.07) dragRef.current = 'p2';
   };
@@ -328,12 +330,26 @@ export default function PeopleCounter() {
     if (!dragRef.current) return;
     e.preventDefault();
     const { x, y } = getRelPos(e);
-    setLineConfig(prev => dragRef.current === 'p1'
-      ? { ...prev, x1: x, y1: y }
-      : { ...prev, x2: x, y2: y });
+    // Update ref directly — zero React re-renders during drag
+    lineRef.current = dragRef.current === 'p1'
+      ? { ...lineRef.current, x1: x, y1: y }
+      : { ...lineRef.current, x2: x, y2: y };
+    // Redraw canvas at most once per frame (rAF-throttled)
+    if (!dragAnimRef.current) {
+      dragAnimRef.current = requestAnimationFrame(() => {
+        drawStaticLine();
+        dragAnimRef.current = null;
+      });
+    }
   };
 
-  const onUp = () => { dragRef.current = null; };
+  const onUp = () => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    if (dragAnimRef.current) { cancelAnimationFrame(dragAnimRef.current); dragAnimRef.current = null; }
+    // Sync React state once at end of drag (single re-render)
+    setLineConfig({ ...lineRef.current });
+  };
 
   // Stats chart
   const maxHourly = stats ? Math.max(1, ...stats.hourly.map(h => h.in + h.out)) : 1;
