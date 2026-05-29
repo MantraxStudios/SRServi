@@ -4908,6 +4908,20 @@ async function ensureDeliveryTables() {
     const dsNames = dsCols.map(c => c.Field);
     if (!dsNames.includes('payment_cash')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN payment_cash BOOLEAN NOT NULL DEFAULT TRUE");
     if (!dsNames.includes('payment_card')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN payment_card BOOLEAN NOT NULL DEFAULT FALSE");
+    if (!dsNames.includes('fee_type')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN fee_type VARCHAR(10) DEFAULT 'fixed'");
+    if (!dsNames.includes('fee_per_km')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN fee_per_km DECIMAL(10,2) DEFAULT 0");
+    if (!dsNames.includes('free_km')) await pool.execute("ALTER TABLE delivery_settings ADD COLUMN free_km DECIMAL(5,2) DEFAULT 0");
+  } catch {}
+  try {
+    const [dcCols] = await pool.execute('SHOW COLUMNS FROM delivery_customers');
+    const dcNames = dcCols.map(c => c.Field);
+    if (!dcNames.includes('password_hash')) await pool.execute("ALTER TABLE delivery_customers ADD COLUMN password_hash VARCHAR(255) DEFAULT NULL");
+  } catch {}
+  try {
+    const [oCols] = await pool.execute('SHOW COLUMNS FROM orders');
+    const oNames = oCols.map(c => c.Field);
+    if (!oNames.includes('delivery_fee')) await pool.execute("ALTER TABLE orders ADD COLUMN delivery_fee DECIMAL(10,2) DEFAULT 0");
+    if (!oNames.includes('customer_phone')) await pool.execute("ALTER TABLE orders ADD COLUMN customer_phone VARCHAR(30) DEFAULT NULL");
   } catch {}
 }
 
@@ -4919,19 +4933,20 @@ export async function getDeliverySettings(storeId) {
 
 export async function upsertDeliverySettings(storeId, data) {
   await ensureDeliveryTables();
-  const { address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes, payment_cash, payment_card } = data;
+  const { address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes, payment_cash, payment_card, fee_type, fee_per_km, free_km } = data;
   const pCash = payment_cash === false ? 0 : 1;
   const pCard = payment_card === true ? 1 : 0;
   await pool.execute(`
-    INSERT INTO delivery_settings (store_id, address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes, payment_cash, payment_card)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO delivery_settings (store_id, address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes, payment_cash, payment_card, fee_type, fee_per_km, free_km)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       address = VALUES(address), lat = VALUES(lat), lng = VALUES(lng),
       radius_km = VALUES(radius_km), fee = VALUES(fee), min_order = VALUES(min_order),
       hours_source = VALUES(hours_source), open_time = VALUES(open_time),
       close_time = VALUES(close_time), estimated_minutes = VALUES(estimated_minutes),
-      payment_cash = VALUES(payment_cash), payment_card = VALUES(payment_card)
-  `, [storeId, address || null, lat || null, lng || null, radius_km || 5, fee || 0, min_order || 0, hours_source || 'cash_register', open_time || '09:00', close_time || '22:00', estimated_minutes || 45, pCash, pCard]);
+      payment_cash = VALUES(payment_cash), payment_card = VALUES(payment_card),
+      fee_type = VALUES(fee_type), fee_per_km = VALUES(fee_per_km), free_km = VALUES(free_km)
+  `, [storeId, address || null, lat || null, lng || null, radius_km || 5, fee || 0, min_order || 0, hours_source || 'cash_register', open_time || '09:00', close_time || '22:00', estimated_minutes || 45, pCash, pCard, fee_type || 'fixed', fee_per_km || 0, free_km || 0]);
   return getDeliverySettings(storeId);
 }
 
@@ -4972,6 +4987,66 @@ export async function findOrCreateDeliveryCustomer(email) {
   );
   const [newRows] = await pool.execute('SELECT * FROM delivery_customers WHERE id = ? LIMIT 1', [res.insertId]);
   return { customer: newRows[0], isNew: true };
+}
+
+export async function registerDeliveryCustomer(email, password, name, phone) {
+  await ensureDeliveryTables();
+  const [exists] = await pool.execute('SELECT id FROM delivery_customers WHERE email = ? LIMIT 1', [email]);
+  if (exists[0]) throw new Error('Este email ya tiene una cuenta. Inicia sesión.');
+  const hash = await bcrypt.hash(password, 10);
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expires = new Date(Date.now() + 15 * 60 * 1000);
+  const [res] = await pool.execute(
+    'INSERT INTO delivery_customers (email, password_hash, name, phone, verification_code, verification_expires, email_verified) VALUES (?, ?, ?, ?, ?, ?, FALSE)',
+    [email, hash, name || null, phone || null, code, expires]
+  );
+  const [rows] = await pool.execute('SELECT * FROM delivery_customers WHERE id = ? LIMIT 1', [res.insertId]);
+  return { customer: rows[0], code };
+}
+
+export async function loginDeliveryCustomer(email, password) {
+  await ensureDeliveryTables();
+  const [rows] = await pool.execute('SELECT * FROM delivery_customers WHERE email = ? LIMIT 1', [email]);
+  if (!rows[0]) return null;
+  if (!rows[0].password_hash) return null; // email-code-only account
+  const valid = await bcrypt.compare(password, rows[0].password_hash);
+  return valid ? rows[0] : null;
+}
+
+export async function getCustomerOrders(customerId) {
+  await ensureDeliveryTables();
+  const [rows] = await pool.execute(
+    `SELECT o.id, o.total, o.delivery_address, o.delivery_status, o.status, o.payment_method,
+            o.created_at, o.store_id, o.delivery_fee, s.name AS store_name, s.logo_url AS store_logo
+     FROM orders o
+     JOIN stores s ON s.id = o.store_id
+     WHERE o.delivery_customer_id = ? AND o.source = 'delivery_app'
+     ORDER BY o.created_at DESC LIMIT 30`,
+    [customerId]
+  );
+  return rows;
+}
+
+export async function updateDeliveryCustomerProfile(customerId, name, phone) {
+  await pool.execute(
+    'UPDATE delivery_customers SET name = ?, phone = ? WHERE id = ?',
+    [name, phone || null, customerId]
+  );
+  const [rows] = await pool.execute('SELECT id, name, phone, email FROM delivery_customers WHERE id = ? LIMIT 1', [customerId]);
+  return rows[0] || null;
+}
+
+export async function getDeliveryOrderForTracking(orderId, customerId) {
+  await ensureDeliveryTables();
+  const [rows] = await pool.execute(
+    `SELECT o.id, o.total, o.delivery_address, o.delivery_status, o.status, o.payment_method,
+            o.created_at, o.delivery_fee, s.name AS store_name, s.logo_url AS store_logo
+     FROM orders o
+     JOIN stores s ON s.id = o.store_id
+     WHERE o.id = ? AND o.delivery_customer_id = ?`,
+    [orderId, customerId]
+  );
+  return rows[0] || null;
 }
 
 export async function setDeliveryCustomerCode(email) {
@@ -5047,9 +5122,20 @@ export async function updateDeliveryOrderStatus(orderId, storeId, status) {
     'UPDATE orders SET delivery_status = ? WHERE id = ? AND store_id = ?',
     [status, orderId, storeId]
   );
-  if (status === 'accepted') {
+  if (status === 'accepted' || status === 'preparing') {
     await pool.execute('UPDATE orders SET status = ? WHERE id = ? AND store_id = ?', ['pending', orderId, storeId]);
   }
+  if (status === 'delivered') {
+    await pool.execute('UPDATE orders SET status = ? WHERE id = ? AND store_id = ?', ['completed', orderId, storeId]);
+  }
+  // Return order with customer email for notifications
+  const [rows] = await pool.execute(
+    `SELECT o.*, dc.email AS dc_email, dc.name AS dc_name FROM orders o
+     LEFT JOIN delivery_customers dc ON dc.id = o.delivery_customer_id
+     WHERE o.id = ? LIMIT 1`,
+    [orderId]
+  );
+  return rows[0] || null;
 }
 
 // Restaurant Tables

@@ -217,6 +217,11 @@ import {
   deleteSubAccount,
   authenticateSubAccount,
   ensureDefaultRolesAndAccounts,
+  registerDeliveryCustomer,
+  loginDeliveryCustomer,
+  getCustomerOrders,
+  getDeliveryOrderForTracking,
+  updateDeliveryCustomerProfile,
   getPeopleCounterConfig,
   savePeopleCounterConfig,
   savePeopleCounterEvent,
@@ -11863,7 +11868,81 @@ app.get('/api/delivery/restaurants', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Customer auth: start (send code)
+// Customer auth: register with password
+app.post('/api/delivery/auth/register', async (req, res) => {
+  try {
+    const { email, password, name, phone } = req.body;
+    if (!email || !email.includes('@')) return res.status(400).json({ error: 'Email inválido' });
+    if (!password || password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
+    const { customer, code } = await registerDeliveryCustomer(email.toLowerCase().trim(), password, name.trim(), phone?.trim());
+    try {
+      await mailer.sendMail({
+        from: `"SRServi Delivery" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Verifica tu cuenta SRServi',
+        html: `<div style="font-family:sans-serif;max-width:420px;margin:0 auto;padding:28px;background:#0a0a0a;color:#fff;border-radius:12px">
+          <div style="text-align:center;margin-bottom:20px"><img src="https://srservi2.srautomatic.com/iconweb.png" width="48" style="border-radius:10px" /></div>
+          <h2 style="text-align:center;color:#D4AF37;margin:0 0 10px">Verifica tu email</h2>
+          <p style="text-align:center;color:#aaa;margin:0 0 24px">Hola ${name}! Ingresa este código para activar tu cuenta:</p>
+          <div style="text-align:center;font-size:40px;font-weight:900;letter-spacing:10px;color:#D4AF37;padding:20px;background:#111;border-radius:10px">${code}</div>
+          <p style="text-align:center;color:#666;font-size:12px;margin-top:16px">Expira en 15 minutos</p>
+        </div>`
+      });
+    } catch (mailErr) { console.warn('[Delivery Register] Email error:', mailErr.message); }
+    res.json({ message: 'Código enviado', customerId: customer.id });
+  } catch (e) { res.status(e.message.includes('ya tiene') ? 409 : 500).json({ error: e.message }); }
+});
+
+// Customer auth: login with password
+app.post('/api/delivery/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email y contraseña requeridos' });
+    const customer = await loginDeliveryCustomer(email.toLowerCase().trim(), password);
+    if (!customer) return res.status(401).json({ error: 'Email o contraseña incorrectos' });
+    const token = await createDeliverySession(customer.id);
+    const { password_hash: _, verification_code: __, ...safe } = customer;
+    res.json({ token, customer: safe });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Customer auth: my orders
+app.get('/api/delivery/my-orders', async (req, res) => {
+  try {
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    const customer = await getDeliveryCustomerByToken(token);
+    if (!customer) return res.status(401).json({ error: 'No autenticado' });
+    res.json(await getCustomerOrders(customer.id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Customer auth: track order
+app.get('/api/delivery/order/:id/track', async (req, res) => {
+  try {
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    const customer = await getDeliveryCustomerByToken(token);
+    if (!customer) return res.status(401).json({ error: 'No autenticado' });
+    const order = await getDeliveryOrderForTracking(parseInt(req.params.id), customer.id);
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+    res.json(order);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Customer: update own profile
+app.put('/api/delivery/my-profile', async (req, res) => {
+  try {
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    const customer = await getDeliveryCustomerByToken(token);
+    if (!customer) return res.status(401).json({ error: 'No autenticado' });
+    const { name, phone } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
+    const updated = await updateDeliveryCustomerProfile(customer.id, name.trim(), phone?.trim() || '');
+    res.json(updated);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Customer auth: start (send code) — kept for legacy / email-only accounts
 app.post('/api/delivery/auth/start', async (req, res) => {
   try {
     const { email } = req.body;
@@ -11926,14 +12005,37 @@ app.get('/api/worker/delivery', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Worker: accept or reject delivery order
+// Worker: update delivery order status
 app.put('/api/worker/delivery/:id/status', async (req, res) => {
   try {
     const token = (req.headers.authorization || '').replace('Bearer ', '');
     if (!token) return res.status(401).json({ error: 'Sin autorización' });
     const { store_id, status } = req.body;
-    if (!['accepted', 'rejected'].includes(status)) return res.status(400).json({ error: 'Estado inválido' });
-    await updateDeliveryOrderStatus(parseInt(req.params.id), parseInt(store_id), status);
+    const validStatuses = ['accepted', 'rejected', 'preparing', 'on_the_way', 'delivered'];
+    if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Estado inválido' });
+    const order = await updateDeliveryOrderStatus(parseInt(req.params.id), parseInt(store_id), status);
+    // Send status notification email
+    if (order?.dc_email && !['rejected'].includes(status)) {
+      const statusLabels = { accepted: '✅ Recibido', preparing: '🍳 Preparando', on_the_way: '🛵 En camino', delivered: '📦 Entregado' };
+      const statusMsg = { accepted: 'Hemos recibido tu pedido y lo estamos revisando.', preparing: 'Tu pedido está siendo preparado.', on_the_way: '¡Tu pedido está en camino! Prepárate para recibirlo.', delivered: '¡Tu pedido fue entregado! Gracias por tu compra.' };
+      try {
+        await mailer.sendMail({
+          from: `"SRServi Delivery" <${process.env.EMAIL_USER}>`,
+          to: order.dc_email,
+          subject: `${statusLabels[status]} — Pedido #${order.id}`,
+          html: `<div style="font-family:sans-serif;max-width:420px;margin:0 auto;padding:28px;background:#0a0a0a;color:#fff;border-radius:12px">
+            <div style="text-align:center;margin-bottom:16px"><img src="https://srservi2.srautomatic.com/iconweb.png" width="48" style="border-radius:10px" /></div>
+            <h2 style="text-align:center;color:#D4AF37;margin:0 0 10px">${statusLabels[status]}</h2>
+            <p style="text-align:center;color:#aaa">Hola ${order.dc_name || 'cliente'}!</p>
+            <p style="text-align:center;color:#ccc;margin:0 0 24px">${statusMsg[status]}</p>
+            <div style="background:#111;border-radius:10px;padding:16px;text-align:center">
+              <span style="color:#D4AF37;font-weight:900;font-size:18px">Pedido #${order.id}</span><br>
+              <span style="color:#666;font-size:13px">${order.delivery_address || ''}</span>
+            </div>
+          </div>`
+        });
+      } catch (mailErr) { console.warn('[Delivery Status Email]', mailErr.message); }
+    }
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

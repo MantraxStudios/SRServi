@@ -782,8 +782,12 @@ function WorkerPanel() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ store_id: workerData.store_id, status })
       });
-      setDeliveryOrders(prev => prev.filter(o => o.id !== orderId));
-      if (status === 'accepted') {
+      if (status === 'rejected' || status === 'delivered') {
+        setDeliveryOrders(prev => prev.filter(o => o.id !== orderId));
+      } else {
+        setDeliveryOrders(prev => prev.map(o => o.id === orderId ? { ...o, delivery_status: status } : o));
+      }
+      if (status === 'accepted' || status === 'preparing') {
         fetchOrders(workerData.store_id);
       }
     } catch (e) { alert('Error: ' + e.message); }
@@ -1403,21 +1407,26 @@ function WorkerPanel() {
                     <span style={{ fontSize: 11, color: '#6b7280' }}>{new Date(order.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
 
-                  {/* Acciones */}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      onClick={() => handleDeliveryAction(order.id, 'rejected')}
-                      style={{ flex: 1, padding: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#ef4444', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
-                    >
-                      ✕ Rechazar
-                    </button>
-                    <button
-                      onClick={() => handleDeliveryAction(order.id, 'accepted')}
-                      style={{ flex: 1, padding: '10px', background: '#D4AF37', border: 'none', borderRadius: 8, color: '#000', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}
-                    >
-                      ✓ Aceptar
-                    </button>
-                  </div>
+                  {/* Acciones — progresivas según estado */}
+                  {(() => {
+                    const ds = order.delivery_status;
+                    if (!ds || ds === 'waiting') return (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => handleDeliveryAction(order.id, 'rejected')} style={{ flex: 1, padding: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#ef4444', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>✕ Rechazar</button>
+                        <button onClick={() => handleDeliveryAction(order.id, 'accepted')} style={{ flex: 1, padding: '10px', background: '#D4AF37', border: 'none', borderRadius: 8, color: '#000', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>✓ Aceptar</button>
+                      </div>
+                    );
+                    if (ds === 'accepted') return (
+                      <button onClick={() => handleDeliveryAction(order.id, 'preparing')} style={{ width: '100%', padding: '11px', background: '#818cf8', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>🍳 Iniciar preparación</button>
+                    );
+                    if (ds === 'preparing') return (
+                      <button onClick={() => handleDeliveryAction(order.id, 'on_the_way')} style={{ width: '100%', padding: '11px', background: '#f59e0b', border: 'none', borderRadius: 8, color: '#000', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>🛵 Enviar al cliente</button>
+                    );
+                    if (ds === 'on_the_way') return (
+                      <button onClick={() => handleDeliveryAction(order.id, 'delivered')} style={{ width: '100%', padding: '11px', background: '#22c55e', border: 'none', borderRadius: 8, color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>📦 Marcar como entregado</button>
+                    );
+                    return null;
+                  })()}
                 </div>
               ))}
             </div>

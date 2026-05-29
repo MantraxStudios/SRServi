@@ -4,108 +4,128 @@ import { useParams, useNavigate } from 'react-router-dom';
 const API = 'https://srservi2.srautomatic.com';
 
 // ─── Auth Modal ───────────────────────────────────────────────────────────────
+const inp = { width: '100%', padding: '12px 14px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, color: '#111', fontSize: 14, outline: 'none', boxSizing: 'border-box' };
+
 function DeliveryAuthModal({ onAuth, onClose }) {
-  const [step, setStep] = useState('email');
+  const [tab, setTab] = useState('login'); // 'login' | 'register'
+  const [step, setStep] = useState('form'); // 'form' | 'verify'
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [needsProfile, setNeedsProfile] = useState(false);
+  const [code, setCode] = useState('');
+  const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const sendCode = async () => {
-    if (!email.trim() || !email.includes('@')) { setError('Email inválido'); return; }
+  const reset = (newTab) => { setTab(newTab); setStep('form'); setError(''); setCode(''); };
+
+  const handleLogin = async () => {
+    if (!email.includes('@') || !password) { setError('Completa todos los campos'); return; }
     setLoading(true); setError('');
     try {
-      const res = await fetch(`${API}/api/delivery/auth/start`, {
+      const r = await fetch(`${API}/api/delivery/auth/login`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase() })
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Error');
-      setNeedsProfile(data.needsProfile);
-      setStep('code');
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Error');
+      localStorage.setItem('deliveryToken', d.token);
+      localStorage.setItem('deliveryCustomer', JSON.stringify(d.customer));
+      onAuth(d.customer, d.token);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   };
 
-  const verify = async () => {
-    if (code.length !== 6) { setError('El código tiene 6 dígitos'); return; }
-    if (needsProfile && (!name.trim() || !phone.trim())) { setError('Nombre y teléfono requeridos'); return; }
+  const handleRegister = async () => {
+    if (!name.trim() || !email.includes('@') || !password || password.length < 6) {
+      setError('Completa todos los campos. La contraseña debe tener al menos 6 caracteres.'); return;
+    }
     setLoading(true); setError('');
     try {
-      const res = await fetch(`${API}/api/delivery/auth/verify`, {
+      const r = await fetch(`${API}/api/delivery/auth/register`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim(), name: name.trim() || undefined, phone: phone.trim() || undefined })
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password, name: name.trim(), phone: phone.trim() })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Error');
-      localStorage.setItem('deliveryToken', data.token);
-      localStorage.setItem('deliveryCustomer', JSON.stringify(data.customer));
-      onAuth(data.customer, data.token);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Error');
+      setStep('verify');
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const handleVerify = async () => {
+    if (code.length !== 6) { setError('El código tiene 6 dígitos'); return; }
+    setLoading(true); setError('');
+    try {
+      const r = await fetch(`${API}/api/delivery/auth/verify`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim(), name: name.trim(), phone: phone.trim() })
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Error');
+      localStorage.setItem('deliveryToken', d.token);
+      localStorage.setItem('deliveryCustomer', JSON.stringify(d.customer));
+      onAuth(d.customer, d.token);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '28px 24px 40px', width: '100%', maxWidth: 500 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111' }}>
-            {step === 'email' ? 'Iniciar sesión' : 'Verificar código'}
-          </h2>
-          <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: '50%', width: 32, height: 32, color: '#374151', fontSize: 16, cursor: 'pointer' }}>×</button>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '24px 22px 44px', width: '100%', maxWidth: 500 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div style={{ display: 'flex', gap: 0, background: '#f3f4f6', borderRadius: 10, padding: 3 }}>
+            {[['login', 'Ingresar'], ['register', 'Crear cuenta']].map(([t, lbl]) => (
+              <button key={t} onClick={() => reset(t)} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', background: tab === t ? '#fff' : 'transparent', color: tab === t ? '#111' : '#6b7280', boxShadow: tab === t ? '0 1px 4px rgba(0,0,0,0.08)' : 'none' }}>{lbl}</button>
+            ))}
+          </div>
+          <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 16, cursor: 'pointer' }}>×</button>
         </div>
 
-        {step === 'email' && (
-          <>
-            <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 16 }}>Ingresá tu email para recibir un código de verificación</p>
-            <input
-              type="email" autoFocus placeholder="tu@email.com" value={email}
-              onChange={e => { setEmail(e.target.value); setError(''); }}
-              onKeyDown={e => e.key === 'Enter' && sendCode()}
-              style={{ width: '100%', padding: '13px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, color: '#111', fontSize: 15, outline: 'none', boxSizing: 'border-box', marginBottom: error ? 8 : 16 }}
-            />
-            {error && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 12 }}>{error}</p>}
-            <button onClick={sendCode} disabled={loading} style={{ width: '100%', padding: '14px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 14px rgba(212,175,55,0.35)' }}>
-              {loading ? 'Enviando...' : 'Enviar código'}
+        {step === 'form' && tab === 'login' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <input type="email" placeholder="tu@email.com" value={email} autoFocus onChange={e => { setEmail(e.target.value); setError(''); }} onKeyDown={e => e.key === 'Enter' && handleLogin()} style={inp} />
+            <div style={{ position: 'relative' }}>
+              <input type={showPwd ? 'text' : 'password'} placeholder="Contraseña" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} onKeyDown={e => e.key === 'Enter' && handleLogin()} style={{ ...inp, paddingRight: 40 }} />
+              <button onClick={() => setShowPwd(s => !s)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#9ca3af' }}>{showPwd ? '🙈' : '👁'}</button>
+            </div>
+            {error && <p style={{ color: '#ef4444', fontSize: 12, margin: 0 }}>{error}</p>}
+            <button onClick={handleLogin} disabled={loading} style={{ padding: '14px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', marginTop: 4, boxShadow: '0 4px 14px rgba(212,175,55,0.35)' }}>
+              {loading ? 'Ingresando...' : 'Ingresar'}
             </button>
-          </>
+            <p style={{ textAlign: 'center', fontSize: 12, color: '#9ca3af', margin: 0 }}>¿Primera vez? <button onClick={() => reset('register')} style={{ background: 'none', border: 'none', color: '#D4AF37', fontWeight: 700, cursor: 'pointer', fontSize: 12 }}>Crear cuenta</button></p>
+          </div>
         )}
 
-        {step === 'code' && (
-          <>
-            {needsProfile && (
-              <>
-                <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 12 }}>Completá tu perfil para hacer delivery</p>
-                <input
-                  type="text" placeholder="Nombre completo" value={name}
-                  onChange={e => setName(e.target.value)}
-                  style={{ width: '100%', padding: '12px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, color: '#111', fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
-                />
-                <input
-                  type="tel" placeholder="Teléfono" value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  style={{ width: '100%', padding: '12px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, color: '#111', fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 16 }}
-                />
-              </>
-            )}
-            <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 8 }}>Código enviado a <strong style={{ color: '#D4AF37' }}>{email}</strong></p>
-            <input
-              type="text" inputMode="numeric" maxLength={6} placeholder="000000" value={code}
+        {step === 'form' && tab === 'register' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <input type="text" placeholder="Nombre completo *" value={name} autoFocus onChange={e => { setName(e.target.value); setError(''); }} style={inp} />
+            <input type="tel" placeholder="Teléfono" value={phone} onChange={e => { setPhone(e.target.value); setError(''); }} style={inp} />
+            <input type="email" placeholder="Email *" value={email} onChange={e => { setEmail(e.target.value); setError(''); }} style={inp} />
+            <div style={{ position: 'relative' }}>
+              <input type={showPwd ? 'text' : 'password'} placeholder="Contraseña * (mín. 6 caracteres)" value={password} onChange={e => { setPassword(e.target.value); setError(''); }} style={{ ...inp, paddingRight: 40 }} />
+              <button onClick={() => setShowPwd(s => !s)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#9ca3af' }}>{showPwd ? '🙈' : '👁'}</button>
+            </div>
+            {error && <p style={{ color: '#ef4444', fontSize: 12, margin: 0 }}>{error}</p>}
+            <button onClick={handleRegister} disabled={loading} style={{ padding: '14px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', marginTop: 4, boxShadow: '0 4px 14px rgba(212,175,55,0.35)' }}>
+              {loading ? 'Creando cuenta...' : 'Crear cuenta'}
+            </button>
+          </div>
+        )}
+
+        {step === 'verify' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <p style={{ color: '#6b7280', fontSize: 13, margin: 0 }}>Código enviado a <strong style={{ color: '#D4AF37' }}>{email}</strong></p>
+            <input type="text" inputMode="numeric" maxLength={6} placeholder="000000" autoFocus value={code}
               onChange={e => { setCode(e.target.value.replace(/\D/g, '')); setError(''); }}
-              autoFocus={!needsProfile}
-              style={{ width: '100%', padding: '14px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, color: '#D4AF37', fontSize: 24, fontWeight: 900, letterSpacing: 10, textAlign: 'center', outline: 'none', boxSizing: 'border-box', marginBottom: error ? 8 : 16 }}
-            />
-            {error && <p style={{ color: '#ef4444', fontSize: 12, marginBottom: 12 }}>{error}</p>}
-            <button onClick={verify} disabled={loading} style={{ width: '100%', padding: '14px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', marginBottom: 10, boxShadow: '0 4px 14px rgba(212,175,55,0.35)' }}>
-              {loading ? 'Verificando...' : 'Confirmar'}
+              style={{ ...inp, fontSize: 28, fontWeight: 900, letterSpacing: 12, textAlign: 'center', color: '#D4AF37', padding: '16px' }} />
+            {error && <p style={{ color: '#ef4444', fontSize: 12, margin: 0 }}>{error}</p>}
+            <button onClick={handleVerify} disabled={loading} style={{ padding: '14px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 14px rgba(212,175,55,0.35)' }}>
+              {loading ? 'Verificando...' : 'Verificar código'}
             </button>
-            <button onClick={() => { setStep('email'); setCode(''); setError(''); }} style={{ width: '100%', padding: '10px', background: 'transparent', color: '#6b7280', border: 'none', fontSize: 13, cursor: 'pointer' }}>
-              Cambiar email
-            </button>
-          </>
+            <button onClick={() => { setStep('form'); setCode(''); setError(''); }} style={{ padding: '10px', background: 'transparent', color: '#9ca3af', border: 'none', fontSize: 13, cursor: 'pointer' }}>← Volver</button>
+          </div>
         )}
       </div>
     </div>
@@ -374,6 +394,9 @@ export default function DeliveryStore() {
   const [payStep, setPayStep] = useState('address');
   const [placing, setPlacing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [customerCoords, setCustomerCoords] = useState(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [calculatedFee, setCalculatedFee] = useState(null); // null = use default fee
 
   // Handle return from Haulmer after payment
   useEffect(() => {
@@ -414,8 +437,34 @@ export default function DeliveryStore() {
     }).catch(() => {}).finally(() => setLoading(false));
   }, [code]);
 
+  const haversineKm = (lat1, lng1, lat2, lng2) => {
+    const R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const detectGPS = () => {
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(pos => {
+      const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      setCustomerCoords(coords);
+      if (deliverySettings?.fee_type === 'per_km' && deliverySettings?.lat && deliverySettings?.lng) {
+        const km = haversineKm(deliverySettings.lat, deliverySettings.lng, coords.lat, coords.lng);
+        const freeKm = Number(deliverySettings.free_km) || 0;
+        const perKm = Number(deliverySettings.fee_per_km) || 0;
+        const fee = Math.max(0, Math.round((Math.max(0, km - freeKm)) * perKm));
+        setCalculatedFee(fee);
+      }
+      setGpsLoading(false);
+    }, () => { alert('No se pudo obtener ubicación'); setGpsLoading(false); }, { enableHighAccuracy: true });
+  };
+
+  const distanceKm = customerCoords && deliverySettings?.lat && deliverySettings?.lng
+    ? Math.round(haversineKm(deliverySettings.lat, deliverySettings.lng, customerCoords.lat, customerCoords.lng) * 10) / 10
+    : null;
+
   const cartTotal = cart.reduce((s, i) => s + Number(i.price) * i.qty, 0);
-  const deliveryFee = Number(deliverySettings?.fee) || 0;
+  const deliveryFee = calculatedFee !== null ? calculatedFee : (Number(deliverySettings?.fee) || 0);
   const finalTotal = cartTotal + deliveryFee;
   const minOrder = Number(deliverySettings?.min_order) || 0;
   const cartItemCount = cart.reduce((s, i) => s + i.qty, 0);
@@ -459,6 +508,7 @@ export default function DeliveryStore() {
         payment_method: paymentMethod === 'card' ? 'card' : 'cash',
         source: 'delivery_app',
         delivery_address: deliveryAddress,
+        delivery_fee: deliveryFee,
         delivery_customer_id: customer.id,
         customer_name: customer.name,
         customer_phone: customer.phone,
@@ -504,9 +554,10 @@ export default function DeliveryStore() {
         return;
       }
 
-      // Cash — done
+      // Cash — go to tracking
       setPayStep('success');
       setCart([]);
+      localStorage.setItem('deliveryLastOrderId', String(order.id));
     } catch (e) { alert(e.message); }
     finally { setPlacing(false); }
   };
@@ -556,7 +607,9 @@ export default function DeliveryStore() {
               )}
             </div>
             {customer ? (
-              <div style={{ fontSize: 12, color: '#D4AF37', fontWeight: 700, flexShrink: 0 }}>👤 {customer.name?.split(' ')[0]}</div>
+              <button onClick={() => navigate('/delivery/account')} style={{ background: '#fdf9ed', border: '1.5px solid #D4AF37', borderRadius: 8, color: '#D4AF37', padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                👤 {customer.name?.split(' ')[0]}
+              </button>
             ) : (
               <button onClick={() => { setPendingCheckout(false); setShowAuth(true); }} style={{ background: '#fdf9ed', border: '1.5px solid #D4AF37', borderRadius: 8, color: '#D4AF37', padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
                 Ingresar
@@ -692,15 +745,24 @@ export default function DeliveryStore() {
               </div>
             </div>
 
-            {/* Address */}
+            {/* Address + GPS */}
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Dirección de entrega *</label>
               <input
                 type="text" placeholder="Ej: Av. Siempre Viva 742, piso 3"
                 value={deliveryAddress}
                 onChange={e => setDeliveryAddress(e.target.value)}
-                style={{ width: '100%', padding: '13px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, color: '#111', fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '13px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, color: '#111', fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
               />
+              <button onClick={detectGPS} disabled={gpsLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', color: '#15803d', fontSize: 12, fontWeight: 600 }}>
+                📍 {gpsLoading ? 'Detectando...' : customerCoords ? 'Actualizar ubicación GPS' : 'Detectar mi ubicación para calcular envío'}
+              </button>
+              {distanceKm !== null && (
+                <div style={{ marginTop: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#92400e' }}>
+                  📏 Tu distancia al local: <strong>{distanceKm} km</strong>
+                  {deliverySettings?.fee_type === 'per_km' && <span> · Envío calculado: <strong>${deliveryFee}</strong></span>}
+                </div>
+              )}
             </div>
 
             {/* Customer info */}
@@ -778,12 +840,22 @@ export default function DeliveryStore() {
               <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 4 }}>Tiempo estimado de entrega</div>
               <div style={{ fontSize: 26, fontWeight: 900, color: '#D4AF37' }}>~{deliverySettings?.estimated_minutes || parseInt(localStorage.getItem('deliveryLastEstimated') || '45')} min</div>
             </div>
-            <button
-              onClick={() => { setPayStep('address'); setShowCheckout(false); navigate('/delivery'); }}
-              style={{ background: '#D4AF37', color: '#000', border: 'none', borderRadius: 12, padding: '14px 36px', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 14px rgba(212,175,55,0.4)' }}
-            >
-              Volver al inicio
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {localStorage.getItem('deliveryLastOrderId') && (
+                <button
+                  onClick={() => navigate(`/delivery/track/${localStorage.getItem('deliveryLastOrderId')}`)}
+                  style={{ background: '#D4AF37', color: '#000', border: 'none', borderRadius: 12, padding: '14px 36px', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 14px rgba(212,175,55,0.4)' }}
+                >
+                  📍 Seguir mi pedido
+                </button>
+              )}
+              <button
+                onClick={() => { setPayStep('address'); setShowCheckout(false); navigate('/delivery'); }}
+                style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 12, padding: '12px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+              >
+                Volver al inicio
+              </button>
+            </div>
           </div>
         </div>
       )}

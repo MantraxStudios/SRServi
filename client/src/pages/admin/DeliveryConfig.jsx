@@ -28,6 +28,9 @@ export default function DeliveryConfig() {
     lng: '',
     radius_km: 5,
     fee: 0,
+    fee_type: 'fixed',
+    fee_per_km: 0,
+    free_km: 0,
     min_order: 0,
     hours_source: 'cash_register',
     open_time: '09:00',
@@ -55,6 +58,9 @@ export default function DeliveryConfig() {
             lng: data.lng || '',
             radius_km: data.radius_km || 5,
             fee: data.fee || 0,
+            fee_type: data.fee_type || 'fixed',
+            fee_per_km: data.fee_per_km || 0,
+            free_km: data.free_km || 0,
             min_order: data.min_order || 0,
             hours_source: data.hours_source || 'cash_register',
             open_time: data.open_time || '09:00',
@@ -174,20 +180,43 @@ export default function DeliveryConfig() {
           <span style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>Configuración de envío</span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
           <div>
             <label style={labelStyle}>Radio de cobertura (km)</label>
             <input style={inputStyle} type="number" min="0.5" max="50" step="0.5" value={form.radius_km} onChange={e => f('radius_km', parseFloat(e.target.value) || 5)} />
-          </div>
-          <div>
-            <label style={labelStyle}>Costo de envío ($)</label>
-            <input style={inputStyle} type="number" min="0" step="0.01" value={form.fee} onChange={e => f('fee', parseFloat(e.target.value) || 0)} />
           </div>
           <div>
             <label style={labelStyle}>Pedido mínimo ($)</label>
             <input style={inputStyle} type="number" min="0" step="0.01" value={form.min_order} onChange={e => f('min_order', parseFloat(e.target.value) || 0)} />
           </div>
         </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Tipo de costo de envío</label>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {[['fixed', '💵 Precio fijo'], ['per_km', '📏 Por kilómetro']].map(([v, lbl]) => (
+              <div key={v} onClick={() => f('fee_type', v)} style={{ flex: 1, padding: '10px', border: `2px solid ${form.fee_type === v ? '#D4AF37' : '#e5e7eb'}`, borderRadius: 8, cursor: 'pointer', background: form.fee_type === v ? 'rgba(212,175,55,0.05)' : '#fff', textAlign: 'center', fontSize: 13, fontWeight: 600, color: form.fee_type === v ? '#92400e' : '#374151' }}>{lbl}</div>
+            ))}
+          </div>
+        </div>
+
+        {form.fee_type === 'fixed' ? (
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Costo de envío ($)</label>
+            <input style={{ ...inputStyle, maxWidth: 180 }} type="number" min="0" step="0.01" value={form.fee} onChange={e => f('fee', parseFloat(e.target.value) || 0)} />
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div>
+              <label style={labelStyle}>Precio por km ($)</label>
+              <input style={inputStyle} type="number" min="0" step="0.01" value={form.fee_per_km} onChange={e => f('fee_per_km', parseFloat(e.target.value) || 0)} />
+            </div>
+            <div>
+              <label style={labelStyle}>Km gratuitos (0 = sin gratis)</label>
+              <input style={inputStyle} type="number" min="0" step="0.1" value={form.free_km} onChange={e => f('free_km', parseFloat(e.target.value) || 0)} />
+            </div>
+          </div>
+        )}
 
         <div>
           <label style={labelStyle}>Tiempo estimado de entrega (minutos)</label>

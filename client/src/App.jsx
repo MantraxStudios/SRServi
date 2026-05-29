@@ -44,6 +44,8 @@ import PeopleCounter from './pages/admin/PeopleCounter';
 import TableMap from './pages/admin/TableMap';
 import DeliveryLanding from './pages/DeliveryLanding';
 import DeliveryStore from './pages/DeliveryStore';
+import DeliveryTrack from './pages/DeliveryTrack';
+import DeliveryAccount from './pages/DeliveryAccount';
 import DeliveryConfig from './pages/admin/DeliveryConfig';
 import SubdomainConfig from './pages/admin/SubdomainConfig';
 import RolesManager from './pages/admin/RolesManager';
@@ -249,6 +251,8 @@ function App() {
           <Route path="/survey/:code" element={<ClientSurvey />} />
           <Route path="/delivery" element={<DeliveryLanding />} />
           <Route path="/delivery/:code" element={<DeliveryStore />} />
+          <Route path="/delivery/track/:orderId" element={<DeliveryTrack />} />
+          <Route path="/delivery/account" element={<DeliveryAccount />} />
           <Route path="/tv" element={<TvEntry />} />
           <Route path="/tv/:code" element={<TvDisplay />} />
           <Route path="/market/:code" element={<Minimarket />} />
