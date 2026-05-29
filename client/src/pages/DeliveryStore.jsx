@@ -116,26 +116,25 @@ function DeliveryAuthModal({ onAuth, onClose }) {
 function ProductModal({ product, onAdd, onClose }) {
   const [qty, setQty] = useState(1);
   const [selectedExtras, setSelectedExtras] = useState([]);
-  const [selectedIngredients, setSelectedIngredients] = useState(
-    (product.has_ingredients && product.ingredients?.length > 0)
-      ? product.ingredients.map(i => i.id)
-      : []
-  );
+  const [selectedIngredients, setSelectedIngredients] = useState([]);
+
+  const extras = Array.isArray(product.extras) ? product.extras : [];
+  const ingredients = Array.isArray(product.ingredients) ? product.ingredients : [];
 
   const extrasTotal = selectedExtras.reduce((sum, extraId) => {
-    const extra = product.extras?.find(e => e.id === extraId);
-    return sum + (extra?.price || 0);
+    const extra = extras.find(e => e.id === extraId);
+    return sum + (Number(extra?.price) || 0);
   }, 0);
 
-  const itemUnitPrice = product.price + extrasTotal;
+  const itemUnitPrice = Number(product.price) + extrasTotal;
   const itemTotal = itemUnitPrice * qty;
   const outOfStock = !product.unlimited_stock && product.stock === 0;
+  const maxExtras = product.max_extras || 0;
 
   const toggleExtra = (extraId) => {
-    const max = product.max_extras || 0;
     setSelectedExtras(prev => {
       if (prev.includes(extraId)) return prev.filter(id => id !== extraId);
-      if (max > 0 && prev.length >= max) return prev;
+      if (maxExtras > 0 && prev.length >= maxExtras) return prev;
       return [...prev, extraId];
     });
   };
@@ -147,71 +146,65 @@ function ProductModal({ product, onAdd, onClose }) {
   };
 
   const handleAdd = () => {
-    const allIngredients = product.ingredients || [];
-    const removedIngredients = allIngredients.filter(i => !selectedIngredients.includes(i.id));
     onAdd({
       id: product.id,
       name: product.name,
       price: itemUnitPrice,
       qty,
-      selectedIngredients: allIngredients.filter(i => selectedIngredients.includes(i.id)).map(i => ({ id: i.id, name: i.name })),
-      removedIngredients: removedIngredients.map(i => ({ id: i.id, name: i.name })),
-      selectedExtras: (product.extras || []).filter(e => selectedExtras.includes(e.id)).map(e => ({ id: e.id, name: e.name, price: e.price })),
+      selectedIngredients: ingredients.filter(i => selectedIngredients.includes(i.id)).map(i => ({ id: i.id, name: i.name })),
+      selectedExtras: extras.filter(e => selectedExtras.includes(e.id)).map(e => ({ id: e.id, name: e.name, price: Number(e.price) })),
     });
     onClose();
   };
 
+  const imgSrc = product.image ? (product.image.startsWith('http') ? product.image : `${API}${product.image}`) : null;
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 500, maxHeight: '92vh', overflowY: 'auto' }}>
-        {product.image && (
-          <div style={{ height: 220, overflow: 'hidden', borderRadius: '20px 20px 0 0', position: 'relative', flexShrink: 0 }}>
-            <img
-              src={product.image.startsWith('http') ? product.image : `${API}${product.image}`}
-              alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
+      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 500, maxHeight: '92vh', overflowY: 'auto', position: 'relative' }}>
+
+        {/* Close button — always top-right inside the modal */}
+        <button
+          onClick={onClose}
+          style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, background: imgSrc ? 'rgba(255,255,255,0.92)' : '#f3f4f6', border: 'none', borderRadius: '50%', width: 34, height: 34, color: '#374151', fontSize: 18, cursor: 'pointer', boxShadow: imgSrc ? '0 2px 8px rgba(0,0,0,0.15)' : 'none', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >×</button>
+
+        {imgSrc && (
+          <div style={{ height: 220, overflow: 'hidden', borderRadius: '20px 20px 0 0', flexShrink: 0 }}>
+            <img src={imgSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
         )}
 
         <div style={{ padding: '20px 20px 36px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800, fontSize: 20, color: '#111', lineHeight: 1.2, marginBottom: 6 }}>{product.name}</div>
-              {product.description && (
-                <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 8 }}>{product.description}</div>
-              )}
-              <div style={{ fontSize: 18, fontWeight: 800, color: '#D4AF37' }}>${product.price.toFixed(0)}</div>
-            </div>
-            {!product.image && (
-              <button onClick={onClose} style={{ background: '#f3f4f6', border: 'none', borderRadius: '50%', width: 32, height: 32, color: '#374151', fontSize: 18, cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>×</button>
+          <div style={{ marginBottom: 16, paddingRight: imgSrc ? 0 : 40 }}>
+            <div style={{ fontWeight: 800, fontSize: 20, color: '#111', lineHeight: 1.2, marginBottom: 6 }}>{product.name}</div>
+            {product.description && (
+              <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 8 }}>{product.description}</div>
             )}
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#D4AF37' }}>${Number(product.price).toFixed(0)}</div>
           </div>
 
-          {product.image && (
-            <button onClick={onClose} style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(255,255,255,0.9)', border: 'none', borderRadius: '50%', width: 34, height: 34, color: '#374151', fontSize: 18, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', lineHeight: 1 }}>×</button>
-          )}
-
-          {/* Ingredients (complements — deselect to remove) */}
-          {product.has_ingredients && product.ingredients?.length > 0 && (
-            <div style={{ marginTop: 20, marginBottom: 4 }}>
+          {/* Ingredients — positive selection */}
+          {product.has_ingredients && ingredients.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: '#111', marginBottom: 4 }}>Ingredientes</div>
-              <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10 }}>Destildá los que no querés incluir</div>
-              {product.ingredients.map(ing => {
-                const included = selectedIngredients.includes(ing.id);
+              <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10 }}>Seleccioná los que querés agregar</div>
+              {ingredients.map(ing => {
+                const selected = selectedIngredients.includes(ing.id);
                 return (
                   <div
                     key={ing.id}
                     onClick={() => toggleIngredient(ing.id)}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}
                   >
-                    <span style={{ fontSize: 14, color: included ? '#111' : '#9ca3af', textDecoration: included ? 'none' : 'line-through' }}>{ing.name}</span>
+                    <span style={{ fontSize: 14, color: '#111' }}>{ing.name}</span>
                     <div style={{
                       width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                      background: included ? '#D4AF37' : '#f3f4f6',
-                      border: included ? 'none' : '1.5px solid #d1d5db',
+                      background: selected ? '#D4AF37' : '#f3f4f6',
+                      border: selected ? 'none' : '1.5px solid #d1d5db',
                       display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
-                      {included && <span style={{ color: '#fff', fontSize: 11, fontWeight: 900 }}>✓</span>}
+                      {selected && <span style={{ color: '#fff', fontSize: 11, fontWeight: 900 }}>✓</span>}
                     </div>
                   </div>
                 );
@@ -220,15 +213,17 @@ function ProductModal({ product, onAdd, onClose }) {
           )}
 
           {/* Extras */}
-          {product.has_extras && product.extras?.length > 0 && (
-            <div style={{ marginTop: 20, marginBottom: 4 }}>
+          {product.has_extras && extras.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: '#111', marginBottom: 4 }}>Extras</div>
-              {product.max_extras > 0 && (
-                <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10 }}>Elegí hasta {product.max_extras} · {selectedExtras.length}/{product.max_extras}</div>
+              {maxExtras > 0 && (
+                <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10 }}>
+                  Elegí hasta {maxExtras} · {selectedExtras.length}/{maxExtras}
+                </div>
               )}
-              {product.extras.map(extra => {
+              {extras.map(extra => {
                 const isSelected = selectedExtras.includes(extra.id);
-                const maxReached = product.max_extras > 0 && selectedExtras.length >= product.max_extras;
+                const maxReached = maxExtras > 0 && selectedExtras.length >= maxExtras;
                 const disabled = !isSelected && maxReached;
                 return (
                   <div
@@ -238,7 +233,7 @@ function ProductModal({ product, onAdd, onClose }) {
                   >
                     <div>
                       <div style={{ fontSize: 14, color: '#111', fontWeight: isSelected ? 700 : 400 }}>{extra.name}</div>
-                      {extra.price > 0 && <div style={{ fontSize: 12, color: '#D4AF37', fontWeight: 600, marginTop: 1 }}>+${extra.price.toFixed(0)}</div>}
+                      {Number(extra.price) > 0 && <div style={{ fontSize: 12, color: '#D4AF37', fontWeight: 600, marginTop: 1 }}>+${Number(extra.price).toFixed(0)}</div>}
                     </div>
                     <div style={{
                       width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
@@ -255,7 +250,7 @@ function ProductModal({ product, onAdd, onClose }) {
           )}
 
           {/* Qty + Add */}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 24 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: '#f3f4f6', borderRadius: 12, padding: '8px 16px', flexShrink: 0 }}>
               <button onClick={() => setQty(q => Math.max(1, q - 1))} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#374151', fontWeight: 700, lineHeight: 1, padding: 0 }}>−</button>
               <span style={{ fontWeight: 800, fontSize: 16, minWidth: 24, textAlign: 'center' }}>{qty}</span>
@@ -369,6 +364,7 @@ export default function DeliveryStore() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showAuth, setShowAuth] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [payStep, setPayStep] = useState('address');
   const [placing, setPlacing] = useState(false);
@@ -394,7 +390,8 @@ export default function DeliveryStore() {
   const cartItemCount = cart.reduce((s, i) => s + i.qty, 0);
 
   const addToCart = (item) => {
-    const key = `${item.id}_${JSON.stringify(item.selectedExtras?.map(e => e.id).sort())}`;
+    const extraIds = (item.selectedExtras || []).map(e => e.id).sort((a, b) => a - b);
+    const key = `${item.id}_${extraIds.join(',')}`;
     setCart(prev => {
       const existing = prev.find(i => i.cartKey === key);
       if (existing) return prev.map(i => i.cartKey === key ? { ...i, qty: i.qty + item.qty } : i);
@@ -403,7 +400,11 @@ export default function DeliveryStore() {
   };
 
   const handleCheckout = () => {
-    if (!customer) { setShowAuth(true); return; }
+    if (!customer) {
+      setPendingCheckout(true);
+      setShowAuth(true);
+      return;
+    }
     setShowCheckout(true);
   };
 
@@ -411,7 +412,10 @@ export default function DeliveryStore() {
     setCustomer(c);
     localStorage.setItem('deliveryToken', t);
     setShowAuth(false);
-    setShowCheckout(true);
+    if (pendingCheckout) {
+      setPendingCheckout(false);
+      setShowCheckout(true);
+    }
   };
 
   const placeOrder = async () => {
@@ -497,7 +501,7 @@ export default function DeliveryStore() {
             {customer ? (
               <div style={{ fontSize: 12, color: '#D4AF37', fontWeight: 700, flexShrink: 0 }}>👤 {customer.name?.split(' ')[0]}</div>
             ) : (
-              <button onClick={() => setShowAuth(true)} style={{ background: '#fdf9ed', border: '1.5px solid #D4AF37', borderRadius: 8, color: '#D4AF37', padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+              <button onClick={() => { setPendingCheckout(false); setShowAuth(true); }} style={{ background: '#fdf9ed', border: '1.5px solid #D4AF37', borderRadius: 8, color: '#D4AF37', padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
                 Ingresar
               </button>
             )}
@@ -611,9 +615,9 @@ export default function DeliveryStore() {
                       + {item.selectedExtras.map(e => e.name).join(', ')}
                     </div>
                   )}
-                  {item.removedIngredients?.length > 0 && (
+                  {item.selectedIngredients?.length > 0 && (
                     <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-                      Sin: {item.removedIngredients.map(i => i.name).join(', ')}
+                      {item.selectedIngredients.map(i => i.name).join(', ')}
                     </div>
                   )}
                 </div>

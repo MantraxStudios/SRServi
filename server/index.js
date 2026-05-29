@@ -11783,7 +11783,7 @@ app.get('/api/delivery/restaurants', async (req, res) => {
     const result = stores.map(s => {
       let isOpen = false;
       if (s.hours_source === 'cash_register') {
-        isOpen = s.active_orders > 0;
+        isOpen = s.has_open_register > 0;
       } else {
         isOpen = currentTime >= s.open_time && currentTime <= s.close_time;
       }

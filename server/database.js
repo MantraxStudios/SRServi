@@ -4926,7 +4926,7 @@ export async function getNearbyDeliveryStores(lat, lng, radiusKm = 30) {
       ds.address, ds.lat, ds.lng, ds.radius_km, ds.fee, ds.min_order,
       ds.hours_source, ds.open_time, ds.close_time, ds.estimated_minutes,
       sc.delivery_enabled,
-      (SELECT COUNT(*) FROM orders o WHERE o.store_id = s.id AND o.status = 'pending' AND DATE(o.created_at) = CURDATE()) as active_orders,
+      (SELECT COUNT(*) FROM cash_registers cr WHERE cr.store_id = s.id AND cr.closed_at IS NULL) as has_open_register,
       (6371 * ACOS(
         COS(RADIANS(?)) * COS(RADIANS(ds.lat)) *
         COS(RADIANS(ds.lng) - RADIANS(?)) +
