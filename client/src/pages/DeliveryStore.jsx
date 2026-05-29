@@ -351,6 +351,11 @@ export default function DeliveryStore() {
   const { code } = useParams();
   const navigate = useNavigate();
 
+  // Detect return from Haulmer payment gateway
+  const searchParams = new URLSearchParams(window.location.search);
+  const haulmerRef = searchParams.get('ref');
+  const haulmerResult = searchParams.get('x_result');
+
   const [store, setStore] = useState(null);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -370,6 +375,26 @@ export default function DeliveryStore() {
   const [placing, setPlacing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
 
+  // Handle return from Haulmer after payment
+  useEffect(() => {
+    if (!haulmerRef || !haulmerRef.startsWith('SRSN-')) return;
+    if (haulmerResult === 'completed') {
+      // Confirm via our endpoint and show success
+      const xParams = {};
+      for (const [k, v] of searchParams.entries()) { if (k.startsWith('x_')) xParams[k] = v; }
+      fetch(`${API}/api/haulmer/confirm`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(xParams)
+      }).catch(() => {});
+      setPayStep('success');
+      // Clean URL
+      window.history.replaceState({}, '', `/delivery/${code}`);
+    } else {
+      // Cancelled or failed — just clean URL
+      window.history.replaceState({}, '', `/delivery/${code}`);
+    }
+  }, []);
+
   useEffect(() => {
     Promise.all([
       fetch(`${API}/api/public/${code}`),
@@ -383,7 +408,6 @@ export default function DeliveryStore() {
       if (dsRes.ok) {
         const ds = await dsRes.json();
         setDeliverySettings(ds);
-        // Set default payment method based on store configuration
         if (ds.payment_cash !== false) setPaymentMethod('cash');
         else if (ds.payment_card) setPaymentMethod('card');
       }
@@ -429,32 +453,58 @@ export default function DeliveryStore() {
     if (!deliveryAddress.trim()) return;
     setPlacing(true);
     try {
-      const res = await fetch(`${API}/api/orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          store_id: store.id,
-          order_type: 'delivery',
-          payment_method: paymentMethod,
-          source: 'delivery_app',
-          delivery_address: deliveryAddress,
-          delivery_customer_id: customer.id,
-          customer_name: customer.name,
-          customer_phone: customer.phone,
-          customer_email: customer.email,
-          total: finalTotal.toFixed(2),
-          items: cart.map(i => ({
-            product_id: i.id,
-            quantity: i.qty,
-            unit_price: i.price,
-            selected_ingredients: i.selectedIngredients || [],
-            selected_extras: i.selectedExtras || []
-          })),
-          delivery: true
-        })
+      const orderBody = {
+        store_id: store.id,
+        order_type: 'delivery',
+        payment_method: paymentMethod === 'card' ? 'card' : 'cash',
+        source: 'delivery_app',
+        delivery_address: deliveryAddress,
+        delivery_customer_id: customer.id,
+        customer_name: customer.name,
+        customer_phone: customer.phone,
+        customer_email: customer.email,
+        total: finalTotal.toFixed(2),
+        items: cart.map(i => ({
+          product_id: i.id,
+          quantity: i.qty,
+          unit_price: i.price,
+          selected_ingredients: i.selectedIngredients || [],
+          selected_extras: i.selectedExtras || []
+        })),
+        delivery: true
+      };
+
+      const orderRes = await fetch(`${API}/api/orders`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderBody)
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Error al crear pedido');
+      const order = await orderRes.json();
+      if (!orderRes.ok) throw new Error(order.error || 'Error al crear pedido');
+
+      if (paymentMethod === 'card') {
+        // Haulmer online payment — redirect customer to payment gateway
+        const hRes = await fetch(`${API}/api/haulmer/payment`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: store.id,
+            order_id: order.id,
+            amount: Math.round(finalTotal),
+            description: `Delivery #${order.id}`,
+            return_url: `/delivery/${code}`,
+            customer_email: customer.email,
+            customer_name: customer.name,
+            customer_phone: customer.phone
+          })
+        });
+        const hData = await hRes.json();
+        if (!hData.success) throw new Error(hData.error || 'Error generando pago Haulmer');
+        // Save cart so success screen works after redirect
+        localStorage.setItem('deliveryLastEstimated', String(deliverySettings?.estimated_minutes || 45));
+        window.location.href = hData.paymentUrl;
+        return;
+      }
+
+      // Cash — done
       setPayStep('success');
       setCart([]);
     } catch (e) { alert(e.message); }
@@ -726,7 +776,7 @@ export default function DeliveryStore() {
             </p>
             <div style={{ background: '#fff', borderRadius: 14, padding: '16px 24px', marginBottom: 28, boxShadow: '0 1px 6px rgba(0,0,0,0.07)', border: '1px solid #f0f0f0' }}>
               <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 4 }}>Tiempo estimado de entrega</div>
-              <div style={{ fontSize: 26, fontWeight: 900, color: '#D4AF37' }}>~{deliverySettings?.estimated_minutes || 45} min</div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: '#D4AF37' }}>~{deliverySettings?.estimated_minutes || parseInt(localStorage.getItem('deliveryLastEstimated') || '45')} min</div>
             </div>
             <button
               onClick={() => { setPayStep('address'); setShowCheckout(false); navigate('/delivery'); }}

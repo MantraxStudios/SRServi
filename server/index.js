@@ -8812,7 +8812,8 @@ async function startServer() {
     // POST /api/haulmer/payment — crea pago y devuelve URL
     app.post('/api/haulmer/payment', async (req, res) => {
       try {
-        const { store_id, order_id, amount, description } = req.body;
+        const { store_id, order_id, amount, description, return_url,
+                customer_email, customer_name, customer_phone } = req.body;
         const [storeRows] = await pool.execute('SELECT user_id, code FROM stores WHERE id = ?', [store_id]);
         if (!storeRows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
         let [cfgRows] = await pool.execute('SELECT * FROM haulmer_native_config WHERE store_id = ? LIMIT 1', [store_id]);
@@ -8824,20 +8825,28 @@ async function startServer() {
         const reference = `SRSN-${store_id}-${order_id || 0}-${Date.now()}`;
         const serverUrl = 'https://srservi2.srautomatic.com';
 
+        const nameParts = (customer_name || 'Cliente SRServi').split(' ');
+        const firstName = nameParts[0] || 'Cliente';
+        const lastName = nameParts.slice(1).join(' ') || 'SRServi';
+
+        const baseReturnUrl = return_url ? `${serverUrl}${return_url}` : `${serverUrl}/store/${storeCode}`;
+        const completeUrl = `${baseReturnUrl}${baseReturnUrl.includes('?') ? '&' : '?'}ref=${reference}`;
+        const cancelUrl = return_url ? `${serverUrl}${return_url}` : `${serverUrl}/store/${storeCode}`;
+
         const payload = {
           x_account_id: config.account_id,
           x_amount: Math.round(amount),
           x_currency: 'CLP',
-          x_customer_email: 'cliente@srservi.com',
-          x_customer_first_name: 'Cliente',
-          x_customer_last_name: 'SRServi',
-          x_customer_phone: '+56900000000',
+          x_customer_email: customer_email || 'cliente@srservi.com',
+          x_customer_first_name: firstName,
+          x_customer_last_name: lastName,
+          x_customer_phone: customer_phone || '+56900000000',
           x_description: description || 'Pago SRServi',
           x_reference: reference,
           x_shop_name: config.commerce_name || 'SRServi',
           x_url_callback: `${serverUrl}/api/haulmer/webhook`,
-          x_url_cancel:   `${serverUrl}/store/${storeCode}`,
-          x_url_complete: `${serverUrl}/store/${storeCode}`
+          x_url_cancel:   cancelUrl,
+          x_url_complete: completeUrl
         };
         payload.x_signature = haulmerSign(payload, config.secret_key);
 
