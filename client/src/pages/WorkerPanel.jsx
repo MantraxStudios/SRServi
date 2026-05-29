@@ -1341,28 +1341,59 @@ function WorkerPanel() {
             <div className="worker-orders-list">
               {deliveryOrders.map(order => (
                 <div key={order.id} className="worker-order-card" style={{ border: '2px solid rgba(212,175,55,0.4)', background: '#0f0f0f' }}>
+                  {/* Header */}
                   <div className="worker-order-header">
                     <h3 className="worker-order-number" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       🛵 Delivery #{order.id}
                     </h3>
-                    <span style={{ fontSize: 11, color: '#D4AF37', fontWeight: 700, background: 'rgba(212,175,55,0.12)', padding: '2px 8px', borderRadius: 20 }}>NUEVO</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 11, color: order.payment_method === 'card' ? '#22c55e' : '#D4AF37', fontWeight: 700, background: order.payment_method === 'card' ? 'rgba(34,197,94,0.12)' : 'rgba(212,175,55,0.12)', padding: '2px 8px', borderRadius: 20 }}>
+                        {order.payment_method === 'card' ? '💳 Pagado' : '💵 Efectivo'}
+                      </span>
+                      <span style={{ fontSize: 11, color: '#D4AF37', fontWeight: 700, background: 'rgba(212,175,55,0.12)', padding: '2px 8px', borderRadius: 20 }}>NUEVO</span>
+                    </div>
                   </div>
-                  <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{order.dc_name || order.customer_name || 'Cliente'}</div>
-                    <div style={{ fontSize: 12, color: '#9ca3af' }}>📞 {order.dc_phone || order.customer_phone || 'Sin teléfono'}</div>
-                    {order.delivery_address && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>📍 {order.delivery_address}</div>}
+
+                  {/* Cliente */}
+                  <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '10px 12px', marginBottom: 10 }}>
+                    <div style={{ fontSize: 13, color: '#fff', fontWeight: 700, marginBottom: 4 }}>
+                      👤 {order.dc_name || order.customer_name || 'Cliente'}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: order.dc_email || order.customer_email ? 2 : 0 }}>
+                      📞 {order.dc_phone || order.customer_phone || 'Sin teléfono'}
+                    </div>
+                    {(order.dc_email || order.customer_email) && (
+                      <div style={{ fontSize: 12, color: '#9ca3af' }}>✉️ {order.dc_email || order.customer_email}</div>
+                    )}
                   </div>
+
+                  {/* Dirección */}
+                  {order.delivery_address ? (
+                    <div style={{ background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 13, color: '#D4AF37', fontWeight: 600 }}>
+                      📍 {order.delivery_address}
+                    </div>
+                  ) : (
+                    <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 12, color: '#ef4444' }}>
+                      ⚠️ Sin dirección de entrega
+                    </div>
+                  )}
+
+                  {/* Items */}
                   {Array.isArray(order.items) && order.items.length > 0 && (
-                    <div style={{ marginBottom: 10 }}>
+                    <div style={{ marginBottom: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8 }}>
                       {order.items.map((item, i) => (
-                        <div key={i} style={{ fontSize: 12, color: '#d1d5db' }}>{item.quantity}× {item.product_name}</div>
+                        <div key={i} style={{ fontSize: 12, color: '#d1d5db', paddingBottom: 2 }}>{item.quantity}× {item.product_name}</div>
                       ))}
                     </div>
                   )}
+
+                  {/* Total + hora */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: '#D4AF37' }}>${Number(order.total).toFixed(0)}</span>
+                    <span style={{ fontSize: 17, fontWeight: 900, color: '#D4AF37' }}>${Number(order.total).toFixed(0)}</span>
                     <span style={{ fontSize: 11, color: '#6b7280' }}>{new Date(order.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
+
+                  {/* Acciones */}
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       onClick={() => handleDeliveryAction(order.id, 'rejected')}

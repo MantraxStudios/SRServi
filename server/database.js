@@ -2758,7 +2758,7 @@ export async function generateUniqueOrderNumber(storeId) {
 }
 
 export async function createOrder(storeId, orderData) {
-  const { order_type, items, payment_method, coupon_code, table_number, delivery_address, delivery_customer_id, customer_email } = orderData;
+  const { order_type, items, payment_method, coupon_code, table_number, delivery_address, delivery_customer_id, customer_email, customer_name } = orderData;
   
   let subtotal = 0;
   items.forEach(item => {
@@ -2791,8 +2791,8 @@ export async function createOrder(storeId, orderData) {
   const finalPaymentProcess = isDeliveryApp ? 1 : paymentProcess;
 
   const [result] = await pool.execute(
-    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number, source, customer_phone, delivery_address, delivery_status, delivery_customer_id, customer_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', finalCashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, finalPaymentProcess, finalStatus, table_number || null, orderData.source || null, orderData.customer_phone || null, delivery_address || null, deliveryStatus, delivery_customer_id || null, customer_email || null]
+    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number, source, customer_phone, customer_name, delivery_address, delivery_status, delivery_customer_id, customer_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', finalCashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, finalPaymentProcess, finalStatus, table_number || null, orderData.source || null, orderData.customer_phone || null, customer_name || null, delivery_address || null, deliveryStatus, delivery_customer_id || null, customer_email || null]
   );
   const orderId = result.insertId;
 
@@ -4901,6 +4901,7 @@ async function ensureDeliveryTables() {
     if (!names.includes('delivery_status')) await pool.execute("ALTER TABLE orders ADD COLUMN delivery_status VARCHAR(20) DEFAULT NULL");
     if (!names.includes('delivery_customer_id')) await pool.execute("ALTER TABLE orders ADD COLUMN delivery_customer_id INT DEFAULT NULL");
     if (!names.includes('customer_email')) await pool.execute("ALTER TABLE orders ADD COLUMN customer_email VARCHAR(100) DEFAULT NULL");
+    if (!names.includes('customer_name')) await pool.execute("ALTER TABLE orders ADD COLUMN customer_name VARCHAR(150) DEFAULT NULL");
   } catch {}
   try {
     const [dsCols] = await pool.execute('SHOW COLUMNS FROM delivery_settings');
