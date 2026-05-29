@@ -51,8 +51,8 @@ function Orders() {
             item.quantity,
             Number(item.unit_price).toFixed(2),
             (Number(item.unit_price) * Number(item.quantity)).toFixed(2),
-            Array.isArray(item.selected_ingredients) ? item.selected_ingredients.join(', ') : '',
-            Array.isArray(item.selected_extras) ? item.selected_extras.join(', ') : ''
+            Array.isArray(item.selected_ingredients) ? item.selected_ingredients.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ') : '',
+            Array.isArray(item.selected_extras) ? item.selected_extras.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ') : ''
           ].map(escape).join(';'));
         });
       } else {
@@ -379,12 +379,12 @@ function Orders() {
                       </div>
                       {item.selected_ingredients && item.selected_ingredients.length > 0 && (
                         <div className="text-sm text-muted">
-                          <strong>Ingredientes:</strong> {item.selected_ingredients.join(', ')}
+                          <strong>Ingredientes:</strong> {item.selected_ingredients.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ')}
                         </div>
                       )}
                       {item.selected_extras && item.selected_extras.length > 0 && (
                         <div className="text-sm text-muted">
-                          <strong>Extras:</strong> {item.selected_extras.join(', ')}
+                          <strong>Extras:</strong> {item.selected_extras.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ')}
                         </div>
                       )}
                     </div>

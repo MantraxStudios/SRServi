@@ -8,6 +8,7 @@ export const SECTIONS = [
   { key: 'analytics',      label: 'Análisis',             icon: '📈', group: 'Operaciones', actions: ['view'] },
   { key: 'cash_registers', label: 'Caja',                 icon: '💰', group: 'Operaciones', actions: ['view', 'edit'] },
   { key: 'ratings',        label: 'Calificaciones',       icon: '⭐', group: 'Operaciones', actions: ['view'] },
+  { key: 'people_counter', label: 'Contador de Aforo',    icon: '👁️', group: 'Operaciones', actions: ['view', 'edit'] },
   { key: 'ventas_mes',     label: 'Ventas del Mes',       icon: '💵', group: 'Operaciones', actions: ['view', 'edit'] },
   { key: 'workers',        label: 'Vendedores',           icon: '👥', group: 'Gestión',     actions: ['view', 'edit', 'delete'] },
   { key: 'tasks',          label: 'Tareas',               icon: '✅', group: 'Gestión',     actions: ['view', 'edit', 'delete'] },

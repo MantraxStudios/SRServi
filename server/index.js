@@ -215,7 +215,11 @@ import {
   createSubAccount,
   updateSubAccount,
   deleteSubAccount,
-  authenticateSubAccount
+  authenticateSubAccount,
+  getPeopleCounterConfig,
+  savePeopleCounterConfig,
+  savePeopleCounterEvent,
+  getPeopleCounterStats
 } from './database.js';
 import { registerSubdomain, unregisterSubdomain } from './nginx-manager.js';
 
@@ -12073,6 +12077,52 @@ app.post('/api/stores/:id/subdomain', authenticateToken, async (req, res) => {
     if (e.message.includes('ya está en uso')) return res.status(409).json({ error: e.message });
     res.status(500).json({ error: e.message });
   }
+});
+
+// ─── People Counter ───────────────────────────────────────────────────────────
+
+app.get('/api/stores/:id/people-counter/config', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const config = await getPeopleCounterConfig(storeId);
+    res.json(config || {});
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/stores/:id/people-counter/config', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const { line, flip } = req.body;
+    if (!line) return res.status(400).json({ error: 'line requerido' });
+    await savePeopleCounterConfig(storeId, line, !!flip);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/stores/:id/people-counter/event', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const { direction, crossed_at } = req.body;
+    await savePeopleCounterEvent(storeId, direction, crossed_at || new Date().toISOString());
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/stores/:id/people-counter/stats', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const date = req.query.date || new Date().toISOString().slice(0, 10);
+    const stats = await getPeopleCounterStats(storeId, date);
+    res.json(stats);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Admin: remove subdomain

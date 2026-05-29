@@ -5294,4 +5294,71 @@ export async function authenticateSubAccount(email, password) {
   };
 }
 
+// ─── People Counter ──────────────────────────────────────────────────────────
+
+async function ensurePeopleCounterTables() {
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS people_counter_events (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      store_id INT NOT NULL,
+      direction ENUM('in','out') NOT NULL DEFAULT 'in',
+      crossed_at DATETIME NOT NULL,
+      INDEX idx_store_date (store_id, crossed_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS people_counter_config (
+      store_id INT PRIMARY KEY,
+      line_config JSON NOT NULL,
+      flip_direction TINYINT(1) NOT NULL DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+}
+
+export async function getPeopleCounterConfig(storeId) {
+  await ensurePeopleCounterTables();
+  const [rows] = await pool.execute('SELECT * FROM people_counter_config WHERE store_id = ?', [storeId]);
+  if (!rows[0]) return null;
+  const line = typeof rows[0].line_config === 'string' ? JSON.parse(rows[0].line_config) : rows[0].line_config;
+  return { line, flip: !!rows[0].flip_direction };
+}
+
+export async function savePeopleCounterConfig(storeId, line, flip) {
+  await ensurePeopleCounterTables();
+  await pool.execute(
+    `INSERT INTO people_counter_config (store_id, line_config, flip_direction)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE line_config = VALUES(line_config), flip_direction = VALUES(flip_direction)`,
+    [storeId, JSON.stringify(line), flip ? 1 : 0]
+  );
+}
+
+export async function savePeopleCounterEvent(storeId, direction, crossedAt) {
+  await ensurePeopleCounterTables();
+  await pool.execute(
+    'INSERT INTO people_counter_events (store_id, direction, crossed_at) VALUES (?, ?, ?)',
+    [storeId, direction, new Date(crossedAt)]
+  );
+}
+
+export async function getPeopleCounterStats(storeId, date) {
+  await ensurePeopleCounterTables();
+  const [rows] = await pool.execute(
+    `SELECT HOUR(crossed_at) AS hour, direction, COUNT(*) AS cnt
+     FROM people_counter_events
+     WHERE store_id = ? AND DATE(crossed_at) = ?
+     GROUP BY hour, direction ORDER BY hour`,
+    [storeId, date]
+  );
+  const map = {};
+  for (const r of rows) {
+    if (!map[r.hour]) map[r.hour] = { hour: r.hour, in: 0, out: 0 };
+    map[r.hour][r.direction] = Number(r.cnt);
+  }
+  const hourly = Object.values(map).sort((a, b) => a.hour - b.hour);
+  const total = hourly.reduce((acc, h) => ({ in: acc.in + h.in, out: acc.out + h.out }), { in: 0, out: 0 });
+  return { date, total, hourly };
+}
+
 export { pool };

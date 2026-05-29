@@ -40,6 +40,7 @@ import LeonIA from './pages/admin/LeonIA';
 import Tasks from './pages/admin/Tasks';
 import Inventory from './pages/admin/Inventory';
 import Procedures from './pages/admin/Procedures';
+import PeopleCounter from './pages/admin/PeopleCounter';
 import TableMap from './pages/admin/TableMap';
 import DeliveryLanding from './pages/DeliveryLanding';
 import DeliveryStore from './pages/DeliveryStore';
@@ -293,6 +294,7 @@ function App() {
             <Route path="roles" element={<RolesManager />} />
             <Route path="sub-accounts" element={<SubAccounts />} />
             <Route path="ratings" element={<PermissionGate section="ratings"><Ratings /></PermissionGate>} />
+            <Route path="people-counter" element={<PermissionGate section="people_counter"><PeopleCounter /></PermissionGate>} />
             <Route path="survey-config" element={<SurveyConfig />} />
             <Route path="rappi" element={<PermissionGate section="canales"><RappiIntegration /></PermissionGate>} />
             <Route path="pedidosya" element={<PermissionGate section="canales"><PedidosYaIntegration /></PermissionGate>} />

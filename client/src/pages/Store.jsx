@@ -4540,10 +4540,10 @@ function Store() {
                     </div>
 
                     {item.selected_ingredients && item.selected_ingredients.length > 0 && (
-                      <div className="store-cart-item-extras">{item.selected_ingredients.join(', ')}</div>
+                      <div className="store-cart-item-extras">{item.selected_ingredients.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ')}</div>
                     )}
                     {item.selected_extras && item.selected_extras.length > 0 && (
-                      <div className="store-cart-item-extras">+ {item.selected_extras.join(', ')}</div>
+                      <div className="store-cart-item-extras">+ {item.selected_extras.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ')}</div>
                     )}
 
                     <div className="store-cart-item-bottom">

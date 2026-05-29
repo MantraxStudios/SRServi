@@ -48,6 +48,7 @@ import {
   faUserClock,
   faMoneyBill,
   faChair,
+  faCamera,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -627,6 +628,10 @@ function Layout() {
                   {can('ratings', 'view') && <NavLink to="/admin/ratings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faStar} />
                     <span>Calificaciones</span>
+                  </NavLink>}
+                  {can('people_counter', 'view') && <NavLink to="/admin/people-counter" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faCamera} />
+                    <span>Contador de Aforo</span>
                   </NavLink>}
                 </div>
               )}
