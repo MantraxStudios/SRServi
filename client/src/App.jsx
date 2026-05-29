@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, MemoryRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useStore } from './components/Layout';
@@ -114,14 +114,14 @@ function SubdomainDelivery({ subdomain }) {
     </div>
   );
 
-  // Render the delivery store app directly, providing the code via URL param emulation
+  // MemoryRouter keeps the browser URL as mitienda.srautomatic.com
+  // while React Router internally resolves /delivery/:code for useParams()
   return (
-    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <MemoryRouter initialEntries={[`/delivery/${storeCode}`]}>
       <Routes>
-        <Route path="*" element={<Navigate to={`/delivery/${storeCode}`} replace />} />
         <Route path="/delivery/:code" element={<DeliveryStore />} />
       </Routes>
-    </Router>
+    </MemoryRouter>
   );
 }
 
