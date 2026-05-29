@@ -66,6 +66,8 @@ export default function PeopleCounter() {
       try {
         setLoadMsg('Cargando TensorFlow.js...');
         await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+        setLoadMsg('Inicializando backend...');
+        await window.tf.ready();
         setLoadMsg('Cargando modelo de detección...');
         await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
         setLoadMsg('Inicializando detector...');
