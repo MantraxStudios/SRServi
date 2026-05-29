@@ -160,8 +160,8 @@ function TvEntry() {
           <div style={{
             width: '60px', height: '60px', background: '#D4AF37', borderRadius: '12px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px', fontSize: '22px', fontWeight: '900', color: '#0a0a0a'
-          }}>SR</div>
+            margin: '0 auto 16px'
+          }}><img src="/iconweb.png" alt="SRServi" style={{ width: 44, height: 44, objectFit: 'contain' }} /></div>
           <h1 style={{ color: '#fff', fontSize: '22px', margin: '0 0 6px', fontWeight: '700' }}>Pantalla TV</h1>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', margin: 0 }}>Ingresa el código de tu tienda</p>
         </div>
@@ -258,21 +258,21 @@ function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/admin" element={<ProtectedRoute><PluginProvider mode="admin"><RoleProvider><Layout /></RoleProvider></PluginProvider></ProtectedRoute>}>
             <Route index element={<AdminEditorRedirect />} />
-            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="dashboard" element={<PermissionGate section="dashboard"><Dashboard /></PermissionGate>} />
             <Route path="stores" element={<Stores />} />
-            <Route path="categories" element={<Categories />} />
-            <Route path="products" element={<Products />} />
-            <Route path="ingredients" element={<Complements />} />
-            <Route path="extras" element={<Complements />} />
-            <Route path="complements" element={<Complements />} />
-            <Route path="orders" element={<Orders />} />
-            <Route path="workers" element={<Workers />} />
+            <Route path="categories" element={<PermissionGate section="categories"><Categories /></PermissionGate>} />
+            <Route path="products" element={<PermissionGate section="products"><Products /></PermissionGate>} />
+            <Route path="ingredients" element={<PermissionGate section="categories"><Complements /></PermissionGate>} />
+            <Route path="extras" element={<PermissionGate section="categories"><Complements /></PermissionGate>} />
+            <Route path="complements" element={<PermissionGate section="categories"><Complements /></PermissionGate>} />
+            <Route path="orders" element={<PermissionGate section="orders"><Orders /></PermissionGate>} />
+            <Route path="workers" element={<PermissionGate section="workers"><Workers /></PermissionGate>} />
             <Route path="mercado-pago-points" element={<MercadoPagoPoints />} />
-            <Route path="coupons" element={<Coupons />} />
-            <Route path="configurations" element={<Configurations />} />
+            <Route path="coupons" element={<PermissionGate section="coupons"><Coupons /></PermissionGate>} />
+            <Route path="configurations" element={<PermissionGate section="configurations"><Configurations /></PermissionGate>} />
             <Route path="market" element={<Market />} />
             <Route path="plans" element={<Plans />} />
-            <Route path="analytics" element={<Analytics />} />
+            <Route path="analytics" element={<PermissionGate section="analytics"><Analytics /></PermissionGate>} />
             <Route path="worker-config" element={<WorkerConfig />} />
             <Route path="store-pin" element={<StorePin />} />
             <Route path="plugins" element={<Plugins />} />
@@ -282,29 +282,29 @@ function App() {
             <Route path="screensaver" element={<Screensaver />} />
             <Route path="tickets" element={<Tickets />} />
             <Route path="tutoriales" element={<Tutoriales />} />
-            <Route path="settings" element={<Settings />} />
+            <Route path="settings" element={<PermissionGate section="settings"><Settings /></PermissionGate>} />
             <Route path="leon-ia" element={<LeonIA />} />
-            <Route path="tasks" element={<Tasks />} />
-            <Route path="inventory" element={<Inventory />} />
-            <Route path="procedures" element={<Procedures />} />
-            <Route path="tables" element={<TableMap />} />
-            <Route path="delivery" element={<DeliveryConfig />} />
+            <Route path="tasks" element={<PermissionGate section="tasks"><Tasks /></PermissionGate>} />
+            <Route path="inventory" element={<PermissionGate section="inventory"><Inventory /></PermissionGate>} />
+            <Route path="procedures" element={<PermissionGate section="procedures"><Procedures /></PermissionGate>} />
+            <Route path="tables" element={<PermissionGate section="tables"><TableMap /></PermissionGate>} />
+            <Route path="delivery" element={<PermissionGate section="delivery"><DeliveryConfig /></PermissionGate>} />
             <Route path="subdomain" element={<SubdomainConfig />} />
             <Route path="roles" element={<RolesManager />} />
             <Route path="sub-accounts" element={<SubAccounts />} />
-            <Route path="ratings" element={<Ratings />} />
+            <Route path="ratings" element={<PermissionGate section="ratings"><Ratings /></PermissionGate>} />
             <Route path="survey-config" element={<SurveyConfig />} />
-            <Route path="rappi" element={<RappiIntegration />} />
-            <Route path="pedidosya" element={<PedidosYaIntegration />} />
-            <Route path="ubereats" element={<UberEatsIntegration />} />
+            <Route path="rappi" element={<PermissionGate section="canales"><RappiIntegration /></PermissionGate>} />
+            <Route path="pedidosya" element={<PermissionGate section="canales"><PedidosYaIntegration /></PermissionGate>} />
+            <Route path="ubereats" element={<PermissionGate section="canales"><UberEatsIntegration /></PermissionGate>} />
             <Route path="novedades" element={<Novedades />} />
-            <Route path="instagram" element={<InstagramAuto />} />
-            <Route path="tiktok" element={<TikTokAuto />} />
-            <Route path="cash-registers" element={<CashRegisters />} />
+            <Route path="instagram" element={<PermissionGate section="canales"><InstagramAuto /></PermissionGate>} />
+            <Route path="tiktok" element={<PermissionGate section="canales"><TikTokAuto /></PermissionGate>} />
+            <Route path="cash-registers" element={<PermissionGate section="cash_registers"><CashRegisters /></PermissionGate>} />
             <Route path="cctv" element={<CCTV />} />
-            <Route path="whatsapp" element={<WhatsApp />} />
-            <Route path="attendance" element={<AttendanceAdmin />} />
-            <Route path="ventas-mes" element={<VentasDelMes />} />
+            <Route path="whatsapp" element={<PermissionGate section="whatsapp"><WhatsApp /></PermissionGate>} />
+            <Route path="attendance" element={<PermissionGate section="attendance"><AttendanceAdmin /></PermissionGate>} />
+            <Route path="ventas-mes" element={<PermissionGate section="ventas_mes"><VentasDelMes /></PermissionGate>} />
             <Route path="editor/:code" element={<Store />} />
           </Route>
           <Route path="/attendance/:storeCode" element={<Attendance />} />

@@ -109,7 +109,8 @@
       "Bash(powershell *)",
       "Bash(dir /s /b \"*.jsx\" \"*.tsx\")",
       "Bash(Select-Object -Property Mode, Name, FullName)",
-      "Bash(Format-Table -AutoSize)"
+      "Bash(Format-Table -AutoSize)",
+      "Bash(findstr -i icon)"
     ]
   }
 }

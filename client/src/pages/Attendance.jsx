@@ -287,7 +287,7 @@ export default function Attendance() {
     return (
       <div style={s.screen}>
         <div style={s.loadingWrap}>
-          <div style={s.logoBox}>SR</div>
+          <div style={s.logoBox}><img src="/iconweb.png" alt="SR" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>
           <div style={s.spinner} />
           <p style={s.loadingTxt}>{loadingMsg}</p>
         </div>
@@ -311,7 +311,7 @@ export default function Attendance() {
     <div style={s.screen}>
       {/* Header */}
       <div style={s.header}>
-        <div style={s.logoBox}>SR</div>
+        <div style={s.logoBox}><img src="/iconweb.png" alt="SR" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>
         <span style={s.headerTitle}>Control de Asistencia</span>
         <LiveClock />
       </div>

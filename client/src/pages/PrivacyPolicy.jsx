@@ -4,7 +4,7 @@ export default function PrivacyPolicy() {
       <div style={s.container}>
 
         <div style={s.header}>
-          <div style={s.logo}>SR</div>
+          <div style={s.logo}><img src="/iconweb.png" alt="SR" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>
           <div>
             <h1 style={s.title}>Política de Privacidad</h1>
             <p style={s.subtitle}>SRServi — SRAutomatic SpA · Última actualización: enero 2025</p>

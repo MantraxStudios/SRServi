@@ -27,7 +27,7 @@ function RestaurantCard({ store, onClick }) {
           <img src={store.logo} alt={store.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #f9f5e8 0%, #f0e9c8 100%)' }}>
-            <div style={{ width: 56, height: 56, background: '#D4AF37', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 20, color: '#fff', letterSpacing: -1 }}>SR</div>
+            <div style={{ width: 56, height: 56, background: '#D4AF37', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src="/iconweb.png" alt="SR" style={{ width: 40, height: 40, objectFit: 'contain' }} /></div>
           </div>
         )}
         <div style={{
@@ -108,7 +108,7 @@ export default function DeliveryLanding() {
       <div style={{ background: '#fff', borderBottom: '1px solid #f0f0f0', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 1px 6px rgba(0,0,0,0.05)' }}>
         <div style={{ maxWidth: 700, margin: '0 auto', padding: '0 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0' }}>
-            <div style={{ width: 38, height: 38, background: '#D4AF37', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 13, color: '#fff', flexShrink: 0, letterSpacing: -0.5 }}>SR</div>
+            <div style={{ width: 38, height: 38, background: '#D4AF37', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><img src="/iconweb.png" alt="SR" style={{ width: 28, height: 28, objectFit: 'contain' }} /></div>
             <div>
               <div style={{ fontWeight: 800, fontSize: 17, color: '#111', lineHeight: 1 }}>SRServi Delivery</div>
               {coords && <div style={{ fontSize: 11, color: '#D4AF37', marginTop: 2 }}>Ubicación activa</div>}

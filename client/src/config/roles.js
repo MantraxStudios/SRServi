@@ -1,12 +1,10 @@
-// Sections the RBAC system can control.
-// key must match what Layout uses when calling can(key, action).
 export const SECTIONS = [
   { key: 'dashboard',      label: 'Dashboard',           icon: '📊', group: 'Operaciones', actions: ['view'] },
   { key: 'orders',         label: 'Pedidos',              icon: '🛒', group: 'Operaciones', actions: ['view', 'edit', 'delete'] },
   { key: 'tables',         label: 'Mesas',                icon: '🪑', group: 'Operaciones', actions: ['view', 'edit'] },
   { key: 'delivery',       label: 'Delivery',             icon: '🏍', group: 'Operaciones', actions: ['view', 'edit'] },
   { key: 'products',       label: 'Productos',            icon: '📦', group: 'Operaciones', actions: ['view', 'edit', 'delete'] },
-  { key: 'categories',     label: 'Categorías',           icon: '📁', group: 'Operaciones', actions: ['view', 'edit', 'delete'] },
+  { key: 'categories',     label: 'Categorías e ingredientes', icon: '📁', group: 'Operaciones', actions: ['view', 'edit', 'delete'] },
   { key: 'analytics',      label: 'Análisis',             icon: '📈', group: 'Operaciones', actions: ['view'] },
   { key: 'cash_registers', label: 'Caja',                 icon: '💰', group: 'Operaciones', actions: ['view', 'edit'] },
   { key: 'ratings',        label: 'Calificaciones',       icon: '⭐', group: 'Operaciones', actions: ['view'] },
@@ -18,6 +16,7 @@ export const SECTIONS = [
   { key: 'attendance',     label: 'Asistencia',           icon: '🕐', group: 'Gestión',     actions: ['view'] },
   { key: 'coupons',        label: 'Cupones',              icon: '%',  group: 'Gestión',     actions: ['view', 'edit', 'delete'] },
   { key: 'whatsapp',       label: 'WhatsApp',             icon: '💬', group: 'Canales',     actions: ['view', 'edit'] },
+  { key: 'canales',        label: 'Rappi / Instagram / TikTok', icon: '🌐', group: 'Canales', actions: ['view', 'edit'] },
   { key: 'configurations', label: 'Configuraciones',      icon: '⚙️', group: 'Config',      actions: ['view', 'edit'] },
   { key: 'settings',       label: 'Colores y QR',         icon: '🎨', group: 'Config',      actions: ['view', 'edit'] },
 ];
