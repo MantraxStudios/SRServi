@@ -1459,6 +1459,23 @@ function WorkerPanel() {
                       Mesa {order.table_number}
                     </div>
                   )}
+                  {order.order_type === 'delivery' && order.source === 'delivery_app' && (
+                    <div style={{ background: 'rgba(212,175,55,0.07)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 8, padding: '8px 10px', marginBottom: 6, fontSize: 12 }}>
+                      {(order.customer_name || order.customer_phone) && (
+                        <div style={{ color: '#d1d5db', fontWeight: 600, marginBottom: 2 }}>
+                          👤 {order.customer_name || ''}{order.customer_phone ? ` · 📞 ${order.customer_phone}` : ''}
+                        </div>
+                      )}
+                      {order.delivery_address ? (
+                        <div style={{ color: '#D4AF37', fontWeight: 600 }}>📍 {order.delivery_address}</div>
+                      ) : (
+                        <div style={{ color: '#ef4444' }}>⚠️ Sin dirección</div>
+                      )}
+                      <div style={{ color: '#6b7280', marginTop: 2 }}>
+                        {order.payment_method === 'card' ? '💳 Pagado online' : '💵 Cobra en efectivo'}
+                      </div>
+                    </div>
+                  )}
                   <div className="worker-order-info">
                     <div className="worker-status-badge" style={{ backgroundColor: `${getStatusColor(order.status)}22`, color: getStatusColor(order.status) }}>
                       <FontAwesomeIcon icon={getStatusIcon(order.status)} />
@@ -1585,6 +1602,23 @@ function WorkerPanel() {
                       marginBottom: '6px'
                     }}>
                       Mesa {order.table_number}
+                    </div>
+                  )}
+                  {order.order_type === 'delivery' && order.source === 'delivery_app' && (
+                    <div style={{ background: 'rgba(212,175,55,0.07)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 8, padding: '8px 10px', marginBottom: 6, fontSize: 12 }}>
+                      {(order.customer_name || order.customer_phone) && (
+                        <div style={{ color: '#d1d5db', fontWeight: 600, marginBottom: 2 }}>
+                          👤 {order.customer_name || ''}{order.customer_phone ? ` · 📞 ${order.customer_phone}` : ''}
+                        </div>
+                      )}
+                      {order.delivery_address ? (
+                        <div style={{ color: '#D4AF37', fontWeight: 600 }}>📍 {order.delivery_address}</div>
+                      ) : (
+                        <div style={{ color: '#ef4444' }}>⚠️ Sin dirección</div>
+                      )}
+                      <div style={{ color: '#6b7280', marginTop: 2 }}>
+                        {order.payment_method === 'card' ? '💳 Pagado online' : '💵 Cobra en efectivo'}
+                      </div>
                     </div>
                   )}
                   <div className="worker-order-info">
