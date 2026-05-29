@@ -305,7 +305,7 @@ function ProductCard({ product, cart, onSelect }) {
           </div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 15, fontWeight: 800, color: '#D4AF37' }}>${product.price.toFixed(0)}</span>
+          <span style={{ fontSize: 15, fontWeight: 800, color: '#D4AF37' }}>${Number(product.price).toFixed(0)}</span>
           {outOfStock && <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 600, background: '#fef2f2', padding: '2px 8px', borderRadius: 20 }}>Sin stock</span>}
         </div>
       </div>
@@ -383,10 +383,10 @@ export default function DeliveryStore() {
     }).catch(() => {}).finally(() => setLoading(false));
   }, [code]);
 
-  const cartTotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
-  const deliveryFee = deliverySettings?.fee || 0;
+  const cartTotal = cart.reduce((s, i) => s + Number(i.price) * i.qty, 0);
+  const deliveryFee = Number(deliverySettings?.fee) || 0;
   const finalTotal = cartTotal + deliveryFee;
-  const minOrder = deliverySettings?.min_order || 0;
+  const minOrder = Number(deliverySettings?.min_order) || 0;
   const cartItemCount = cart.reduce((s, i) => s + i.qty, 0);
 
   const addToCart = (item) => {
