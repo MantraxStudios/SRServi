@@ -222,6 +222,7 @@ import {
   getCustomerOrders,
   getDeliveryOrderForTracking,
   updateDeliveryCustomerProfile,
+  getOrderItems,
   getPeopleCounterConfig,
   savePeopleCounterConfig,
   savePeopleCounterEvent,
@@ -12015,24 +12016,94 @@ app.put('/api/worker/delivery/:id/status', async (req, res) => {
     if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Estado inválido' });
     const order = await updateDeliveryOrderStatus(parseInt(req.params.id), parseInt(store_id), status);
     // Send status notification email
-    if (order?.dc_email && !['rejected'].includes(status)) {
-      const statusLabels = { accepted: '✅ Recibido', preparing: '🍳 Preparando', on_the_way: '🛵 En camino', delivered: '📦 Entregado' };
-      const statusMsg = { accepted: 'Hemos recibido tu pedido y lo estamos revisando.', preparing: 'Tu pedido está siendo preparado.', on_the_way: '¡Tu pedido está en camino! Prepárate para recibirlo.', delivered: '¡Tu pedido fue entregado! Gracias por tu compra.' };
+    if (order?.dc_email && status !== 'rejected') {
+      const statusLabels = { accepted: '✅ Pedido recibido', preparing: '🍳 En preparación', on_the_way: '🛵 En camino', delivered: '📦 Entregado' };
+      const statusMsg = { accepted: 'Tu pedido fue recibido y está siendo revisado por el restaurante.', preparing: 'Manos a la obra — ya están preparando tu pedido.', on_the_way: '¡Tu pedido está en camino! Prepárate para recibirlo.', delivered: '¡Tu pedido fue entregado! Esperamos que lo disfrutes.' };
+      const statusColor = { accepted: '#0369a1', preparing: '#92400e', on_the_way: '#065f46', delivered: '#15803d' };
+      const statusBg = { accepted: '#e0f2fe', preparing: '#fef3c7', on_the_way: '#d1fae5', delivered: '#f0fdf4' };
       try {
+        const items = await getOrderItems(order.id);
+        const subtotal = items.reduce((s, i) => s + i.unit_price * i.quantity, 0);
+        const fee = Number(order.delivery_fee) || 0;
+        const total = Number(order.total) || subtotal + fee;
+
+        const itemsHtml = items.map(i => {
+          const extras = Array.isArray(i.selected_extras) ? i.selected_extras : (JSON.parse(i.selected_extras || '[]'));
+          const extrasStr = extras.length ? `<span style="color:#D4AF37;font-size:12px"> + ${extras.map(e => e.name).join(', ')}</span>` : '';
+          return `<tr>
+            <td style="padding:8px 0;border-bottom:1px solid #1e1e1e;color:#ccc;font-size:14px">${i.quantity}× ${i.product_name}${extrasStr}</td>
+            <td style="padding:8px 0;border-bottom:1px solid #1e1e1e;color:#fff;font-weight:600;text-align:right;font-size:14px;white-space:nowrap">$${(i.unit_price * i.quantity).toFixed(0)}</td>
+          </tr>`;
+        }).join('');
+
         await mailer.sendMail({
           from: `"SRServi Delivery" <${process.env.EMAIL_USER}>`,
           to: order.dc_email,
           subject: `${statusLabels[status]} — Pedido #${order.id}`,
-          html: `<div style="font-family:sans-serif;max-width:420px;margin:0 auto;padding:28px;background:#0a0a0a;color:#fff;border-radius:12px">
-            <div style="text-align:center;margin-bottom:16px"><img src="https://srservi2.srautomatic.com/iconweb.png" width="48" style="border-radius:10px" /></div>
-            <h2 style="text-align:center;color:#D4AF37;margin:0 0 10px">${statusLabels[status]}</h2>
-            <p style="text-align:center;color:#aaa">Hola ${order.dc_name || 'cliente'}!</p>
-            <p style="text-align:center;color:#ccc;margin:0 0 24px">${statusMsg[status]}</p>
-            <div style="background:#111;border-radius:10px;padding:16px;text-align:center">
-              <span style="color:#D4AF37;font-weight:900;font-size:18px">Pedido #${order.id}</span><br>
-              <span style="color:#666;font-size:13px">${order.delivery_address || ''}</span>
-            </div>
-          </div>`
+          html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f3f4f6;font-family:'Helvetica Neue',Arial,sans-serif">
+<div style="max-width:480px;margin:32px auto;background:#0a0a0a;border-radius:16px;overflow:hidden">
+
+  <!-- Header -->
+  <div style="background:#111;padding:24px;text-align:center;border-bottom:1px solid #1e1e1e">
+    <img src="https://srservi2.srautomatic.com/iconweb.png" width="44" height="44" style="border-radius:10px;display:block;margin:0 auto 12px" />
+    <div style="font-size:11px;letter-spacing:2px;color:#666;text-transform:uppercase;margin-bottom:4px">SRServi Delivery</div>
+    <div style="color:#fff;font-size:13px">Pedido #${order.id}</div>
+  </div>
+
+  <!-- Status badge -->
+  <div style="padding:28px 24px 20px;text-align:center">
+    <div style="display:inline-block;background:${statusBg[status]};color:${statusColor[status]};font-weight:700;font-size:15px;padding:10px 22px;border-radius:30px;margin-bottom:14px">
+      ${statusLabels[status]}
+    </div>
+    <p style="color:#aaa;font-size:14px;margin:0 0 4px">Hola <strong style="color:#fff">${order.dc_name || 'cliente'}</strong>,</p>
+    <p style="color:#888;font-size:14px;margin:0">${statusMsg[status]}</p>
+  </div>
+
+  <!-- Store -->
+  <div style="padding:0 24px 16px">
+    <div style="background:#111;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">🏪</span>
+      <span style="color:#D4AF37;font-weight:700;font-size:15px">${order.store_name || 'Restaurante'}</span>
+    </div>
+  </div>
+
+  <!-- Items -->
+  <div style="padding:0 24px 16px">
+    <div style="color:#555;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Tu pedido</div>
+    <table style="width:100%;border-collapse:collapse">
+      ${itemsHtml}
+    </table>
+    <table style="width:100%;border-collapse:collapse;margin-top:12px">
+      <tr>
+        <td style="color:#666;font-size:13px;padding:4px 0">Subtotal</td>
+        <td style="color:#999;font-size:13px;text-align:right;padding:4px 0">$${subtotal.toFixed(0)}</td>
+      </tr>
+      <tr>
+        <td style="color:#666;font-size:13px;padding:4px 0">Envío</td>
+        <td style="color:#999;font-size:13px;text-align:right;padding:4px 0">${fee > 0 ? '$' + fee.toFixed(0) : 'Gratis'}</td>
+      </tr>
+      <tr>
+        <td style="color:#fff;font-weight:700;font-size:15px;padding:10px 0 4px;border-top:1px solid #1e1e1e">Total</td>
+        <td style="color:#D4AF37;font-weight:900;font-size:17px;text-align:right;padding:10px 0 4px;border-top:1px solid #1e1e1e">$${total.toFixed(0)}</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Address -->
+  ${order.delivery_address ? `<div style="padding:0 24px 20px">
+    <div style="background:#111;border-radius:10px;padding:12px 16px">
+      <div style="color:#555;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Dirección de entrega</div>
+      <div style="color:#ccc;font-size:14px">📍 ${order.delivery_address}</div>
+    </div>
+  </div>` : ''}
+
+  <!-- Footer -->
+  <div style="padding:16px 24px 28px;text-align:center;border-top:1px solid #1e1e1e">
+    <p style="color:#444;font-size:12px;margin:0">SRServi · Sistema de gestión para restaurantes</p>
+  </div>
+
+</div>
+</body></html>`
         });
       } catch (mailErr) { console.warn('[Delivery Status Email]', mailErr.message); }
     }

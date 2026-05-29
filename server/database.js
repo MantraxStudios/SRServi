@@ -2979,7 +2979,7 @@ export async function getWhatsAppOrders(storeId) {
   return orders;
 }
 
-async function getOrderItems(orderId) {
+export async function getOrderItems(orderId) {
   const [rows] = await pool.execute(`
     SELECT oi.*, COALESCE(p.name, 'Producto eliminado') as product_name 
     FROM order_items oi 
@@ -5128,10 +5128,13 @@ export async function updateDeliveryOrderStatus(orderId, storeId, status) {
   if (status === 'delivered') {
     await pool.execute('UPDATE orders SET status = ? WHERE id = ? AND store_id = ?', ['completed', orderId, storeId]);
   }
-  // Return order with customer email for notifications
+  // Return order with customer email and store name for notifications
   const [rows] = await pool.execute(
-    `SELECT o.*, dc.email AS dc_email, dc.name AS dc_name FROM orders o
+    `SELECT o.*, dc.email AS dc_email, dc.name AS dc_name,
+            s.name AS store_name
+     FROM orders o
      LEFT JOIN delivery_customers dc ON dc.id = o.delivery_customer_id
+     LEFT JOIN stores s ON s.id = o.store_id
      WHERE o.id = ? LIMIT 1`,
     [orderId]
   );

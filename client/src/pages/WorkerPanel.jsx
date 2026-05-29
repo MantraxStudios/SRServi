@@ -566,6 +566,7 @@ function WorkerPanel() {
     // Polling de respaldo cada 30 segundos
     const pollInterval = setInterval(() => {
       fetchOrders(parsedWorker.store_id);
+      fetchDeliveryOrders(parsedWorker.store_id);
       fetchTasks();
       fetchCashRegister();
     }, 30000);
@@ -1271,7 +1272,7 @@ function WorkerPanel() {
           >
             <FontAwesomeIcon icon={faClock} />
             <span>Pedidos</span>
-            {orders.length > 0 && <span className="worker-sidebar-badge">{orders.length}</span>}
+            {(orders.length + deliveryOrders.length) > 0 && <span className="worker-sidebar-badge">{orders.length + deliveryOrders.length}</span>}
           </button>
           <button
             className={`worker-sidebar-item ${activeTab === 'completed' ? 'active' : ''}`}
@@ -1280,14 +1281,6 @@ function WorkerPanel() {
             <FontAwesomeIcon icon={faCheck} />
             <span>Completados</span>
             {completedOrders.length > 0 && <span className="worker-sidebar-badge">{completedOrders.length}</span>}
-          </button>
-          <button
-            className={`worker-sidebar-item ${activeTab === 'delivery' ? 'active' : ''}`}
-            onClick={() => { const w = JSON.parse(localStorage.getItem('worker') || '{}'); fetchDeliveryOrders(w.store_id); setActiveTab('delivery'); }}
-          >
-            <span style={{ fontSize: 16 }}>🛵</span>
-            <span>Delivery</span>
-            {deliveryOrders.length > 0 && <span className="worker-sidebar-badge">{deliveryOrders.length}</span>}
           </button>
           <button
             className={`worker-sidebar-item ${activeTab === 'whatsapp' ? 'active' : ''}`}
@@ -1327,7 +1320,7 @@ function WorkerPanel() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            {activeTab !== 'tasks' && activeTab !== 'procedures' && activeTab !== 'whatsapp' && activeTab !== 'delivery' && (
+            {activeTab !== 'tasks' && activeTab !== 'procedures' && activeTab !== 'whatsapp' && (
               <div className="worker-filters">
                 {['all', 'pending', 'preparing', 'ready'].map(f => (
                   <button
@@ -1343,13 +1336,10 @@ function WorkerPanel() {
           </div>
 
       <div className="worker-orders" style={activeTab === 'tasks' ? { padding: 0 } : undefined}>
-        {activeTab === 'delivery' ? (
-          deliveryLoading ? (
-            <div className="empty-state"><p>Cargando pedidos delivery...</p></div>
-          ) : deliveryOrders.length === 0 ? (
+        {activeTab === 'active' ? (
+          (filteredOrders.length === 0 && deliveryOrders.length === 0) ? (
             <div className="empty-state">
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🛵</div>
-              <p>No hay pedidos delivery esperando</p>
+              <p>No hay pedidos activos</p>
             </div>
           ) : (
             <div className="worker-orders-list">
@@ -1429,15 +1419,13 @@ function WorkerPanel() {
                   })()}
                 </div>
               ))}
-            </div>
-          )
-        ) : activeTab === 'active' ? (
-          filteredOrders.length === 0 ? (
-            <div className="empty-state">
-              <p>No hay pedidos activos</p>
-            </div>
-          ) : (
-            <div className="worker-orders-list">
+              {deliveryOrders.length > 0 && filteredOrders.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0 8px', opacity: 0.4 }}>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                  <span style={{ fontSize: 10, color: '#666', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Otros pedidos</span>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                </div>
+              )}
               {filteredOrders.map(order => (
                 <div
                   key={order.id}
