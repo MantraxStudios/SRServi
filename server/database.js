@@ -5150,7 +5150,7 @@ async function ensureRolesTables() {
       owner_id INT NOT NULL,
       name VARCHAR(100) NOT NULL,
       description VARCHAR(255) DEFAULT NULL,
-      permissions JSON NOT NULL DEFAULT '{}',
+      permissions JSON NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
     )
