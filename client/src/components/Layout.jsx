@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useRole } from '../context/RoleContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -108,6 +109,7 @@ function AppDownloadCard({ icon, title, description, loading, buildState, disabl
 
 function Layout() {
   const { user, token, logout } = useAuth();
+  const { can, isSubAccount } = useRole() || { can: () => true, isSubAccount: false };
   const [isPremiumUser, setIsPremiumUser] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -590,42 +592,42 @@ function Layout() {
               </button>
               {openDropdowns['operaciones'] && (
                 <div className="dropdown-content">
-                  <NavLink to="/admin/orders" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  {can('orders', 'view') && <NavLink to="/admin/orders" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faShoppingBag} />
                     <span>Pedidos</span>
-                  </NavLink>
-                  <NavLink to="/admin/tables" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('tables', 'view') && <NavLink to="/admin/tables" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faChair} />
                     <span>Mesas</span>
-                  </NavLink>
-                  <NavLink to="/admin/delivery" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('delivery', 'view') && <NavLink to="/admin/delivery" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faMotorcycle} />
                     <span>Delivery</span>
-                  </NavLink>
-                  <NavLink to="/admin/subdomain" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {!isSubAccount && <NavLink to="/admin/subdomain" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <span>🌐</span>
                     <span>Subdominio</span>
-                  </NavLink>
-                  <NavLink to="/admin/products" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('products', 'view') && <NavLink to="/admin/products" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faBox} />
                     <span>Productos</span>
-                  </NavLink>
-                  <NavLink to="/admin/ventas-mes" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('ventas_mes', 'view') && <NavLink to="/admin/ventas-mes" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faMoneyBill} />
                     <span>Ventas del Mes</span>
-                  </NavLink>
-                  <NavLink to="/admin/analytics" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('analytics', 'view') && <NavLink to="/admin/analytics" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faChartLine} />
                     <span>Análisis</span>
-                  </NavLink>
-                  <NavLink to="/admin/cash-registers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('cash_registers', 'view') && <NavLink to="/admin/cash-registers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faCashRegister} />
                     <span>Historial de Caja</span>
-                  </NavLink>
-                  <NavLink to="/admin/ratings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('ratings', 'view') && <NavLink to="/admin/ratings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faStar} />
                     <span>Calificaciones</span>
-                  </NavLink>
+                  </NavLink>}
                 </div>
               )}
             </li>
@@ -639,33 +641,56 @@ function Layout() {
               </button>
               {openDropdowns['gestion'] && (
                 <div className="dropdown-content">
-                  <NavLink to="/admin/workers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  {can('workers', 'view') && <NavLink to="/admin/workers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faUsers} />
                     <span>Vendedores</span>
-                  </NavLink>
-                  <NavLink to="/admin/tasks" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('tasks', 'view') && <NavLink to="/admin/tasks" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faClipboardList} />
                     <span>Tareas</span>
-                  </NavLink>
-                  <NavLink to="/admin/inventory" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('inventory', 'view') && <NavLink to="/admin/inventory" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faWarehouse} />
                     <span>Inventario</span>
-                  </NavLink>
-                  <NavLink to="/admin/procedures" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('procedures', 'view') && <NavLink to="/admin/procedures" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faList} />
                     <span>Procedimientos</span>
-                  </NavLink>
-                  <NavLink to="/admin/attendance" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('attendance', 'view') && <NavLink to="/admin/attendance" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faUserClock} />
                     <span>Asistencia</span>
-                  </NavLink>
-                  <NavLink to="/admin/coupons" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('coupons', 'view') && <NavLink to="/admin/coupons" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faPercent} />
                     <span>Cupones</span>
-                  </NavLink>
+                  </NavLink>}
                 </div>
               )}
             </li>
+
+            {/* ── EQUIPO (solo cuenta principal) ── */}
+            {!isSubAccount && (
+              <li className="dropdown-container">
+                <button className={`dropdown-header${openDropdowns['equipo'] ? ' open' : ''}`} onClick={() => toggleDropdown('equipo')}>
+                  <FontAwesomeIcon icon={faLock} />
+                  <span>Equipo</span>
+                  <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['equipo'] ? 180 : 0} />
+                </button>
+                {openDropdowns['equipo'] && (
+                  <div className="dropdown-content">
+                    <NavLink to="/admin/roles" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                      <span style={{ fontSize: 13 }}>🔐</span>
+                      <span>Roles</span>
+                    </NavLink>
+                    <NavLink to="/admin/sub-accounts" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                      <span style={{ fontSize: 13 }}>👤</span>
+                      <span>Cuentas</span>
+                    </NavLink>
+                  </div>
+                )}
+              </li>
+            )}
 
             {/* ── CANALES ── */}
             <li className="dropdown-container">
@@ -676,10 +701,10 @@ function Layout() {
               </button>
               {openDropdowns['canales'] && (
                 <div className="dropdown-content">
-                  <NavLink to="/admin/whatsapp" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  {can('whatsapp', 'view') && <NavLink to="/admin/whatsapp" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="#25D366" style={{ flexShrink: 0 }}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                     <span>WhatsApp</span>
-                  </NavLink>
+                  </NavLink>}
                   <NavLink to="/admin/rappi" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faMotorcycle} />
                     <span>Rappi</span>
@@ -739,14 +764,14 @@ function Layout() {
               </button>
               {openDropdowns['config'] && (
                 <div className="dropdown-content">
-                  <NavLink to="/admin/settings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  {can('settings', 'view') && <NavLink to="/admin/settings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faPalette} />
                     <span>Colores y QR</span>
-                  </NavLink>
-                  <NavLink to="/admin/configurations" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  </NavLink>}
+                  {can('configurations', 'view') && <NavLink to="/admin/configurations" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faTabletAlt} />
                     <span>Tótems y Pagos</span>
-                  </NavLink>
+                  </NavLink>}
                   <NavLink to="/admin/worker-config" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faCreditCard} />
                     <span>Pago Manual</span>

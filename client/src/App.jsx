@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, MemoryRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { RoleProvider, PermissionGate } from './context/RoleContext';
 import { useStore } from './components/Layout';
 import { PluginProvider } from './context/PluginContext';
 import Layout from './components/Layout';
@@ -44,6 +45,8 @@ import DeliveryLanding from './pages/DeliveryLanding';
 import DeliveryStore from './pages/DeliveryStore';
 import DeliveryConfig from './pages/admin/DeliveryConfig';
 import SubdomainConfig from './pages/admin/SubdomainConfig';
+import RolesManager from './pages/admin/RolesManager';
+import SubAccounts from './pages/admin/SubAccounts';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import Store from './pages/Store';
@@ -253,7 +256,7 @@ function App() {
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/admin" element={<ProtectedRoute><PluginProvider mode="admin"><Layout /></PluginProvider></ProtectedRoute>}>
+          <Route path="/admin" element={<ProtectedRoute><PluginProvider mode="admin"><RoleProvider><Layout /></RoleProvider></PluginProvider></ProtectedRoute>}>
             <Route index element={<AdminEditorRedirect />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="stores" element={<Stores />} />
@@ -287,6 +290,8 @@ function App() {
             <Route path="tables" element={<TableMap />} />
             <Route path="delivery" element={<DeliveryConfig />} />
             <Route path="subdomain" element={<SubdomainConfig />} />
+            <Route path="roles" element={<RolesManager />} />
+            <Route path="sub-accounts" element={<SubAccounts />} />
             <Route path="ratings" element={<Ratings />} />
             <Route path="survey-config" element={<SurveyConfig />} />
             <Route path="rappi" element={<RappiIntegration />} />

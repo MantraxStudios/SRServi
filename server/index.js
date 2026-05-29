@@ -205,7 +205,17 @@ import {
   getStoreBySubdomain,
   setStoreSubdomain,
   clearStoreSubdomain,
-  getStoreSubdomain
+  getStoreSubdomain,
+  getRoles,
+  getRoleById,
+  createRole,
+  updateRole,
+  deleteRole,
+  getSubAccounts,
+  createSubAccount,
+  updateSubAccount,
+  deleteSubAccount,
+  authenticateSubAccount
 } from './database.js';
 import { registerSubdomain, unregisterSubdomain } from './nginx-manager.js';
 
@@ -573,6 +583,36 @@ app.post('/api/auth/login', async (req, res) => {
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email y contraseña son requeridos' });
+    }
+
+    // Check sub-account first
+    let subAccount = null;
+    try { subAccount = await authenticateSubAccount(email, password); } catch (e) {
+      if (e.message === 'Cuenta desactivada') return res.status(403).json({ error: e.message });
+    }
+    if (subAccount) {
+      // JWT uses owner_id as "id" so existing store-ownership checks work transparently
+      const token = jwt.sign({
+        id: subAccount.owner_id,
+        sub_account_id: subAccount.id,
+        email: subAccount.email,
+        name: subAccount.name,
+        role_id: subAccount.role_id,
+        permissions: subAccount.role_permissions || {},
+        is_sub_account: true,
+        type: 'sub_account'
+      }, JWT_SECRET, { expiresIn: '7d' });
+      return res.json({
+        user: {
+          id: subAccount.owner_id,
+          sub_account_id: subAccount.id,
+          name: subAccount.name,
+          email: subAccount.email,
+          is_sub_account: true,
+          permissions: subAccount.role_permissions || {}
+        },
+        token
+      });
     }
 
     const user = await authenticateUser(email, password);
@@ -11899,6 +11939,79 @@ app.get('/api/public/delivery-settings/:storeCode', async (req, res) => {
     const store = await getStoreByCode(req.params.storeCode.toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
     res.json(await getDeliverySettings(store.id) || {});
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Admin Roles ─────────────────────────────────────────────────────────────
+
+app.get('/api/admin/roles', authenticateToken, async (req, res) => {
+  try { res.json(await getRoles(req.user.id)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/roles', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.is_sub_account) return res.status(403).json({ error: 'Sin permiso' });
+    const { name, description, permissions } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'Nombre requerido' });
+    res.json(await createRole(req.user.id, { name, description, permissions }));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/admin/roles/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.is_sub_account) return res.status(403).json({ error: 'Sin permiso' });
+    const { name, description, permissions } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'Nombre requerido' });
+    const updated = await updateRole(parseInt(req.params.id), req.user.id, { name, description, permissions });
+    if (!updated) return res.status(404).json({ error: 'Rol no encontrado' });
+    res.json(updated);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/roles/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.is_sub_account) return res.status(403).json({ error: 'Sin permiso' });
+    await deleteRole(parseInt(req.params.id), req.user.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(e.message.includes('eliminar') ? 409 : 500).json({ error: e.message }); }
+});
+
+// ─── Admin Sub-accounts ───────────────────────────────────────────────────────
+
+app.get('/api/admin/sub-accounts', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.is_sub_account) return res.status(403).json({ error: 'Sin permiso' });
+    res.json(await getSubAccounts(req.user.id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/sub-accounts', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.is_sub_account) return res.status(403).json({ error: 'Sin permiso' });
+    const { name, email, password, role_id } = req.body;
+    if (!name?.trim() || !email?.trim() || !password) return res.status(400).json({ error: 'Nombre, email y contraseña son requeridos' });
+    if (password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    res.json(await createSubAccount(req.user.id, { name, email, password, role_id }));
+  } catch (e) { res.status(e.message.includes('uso') || e.message.includes('registrado') ? 409 : 500).json({ error: e.message }); }
+});
+
+app.put('/api/admin/sub-accounts/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.is_sub_account) return res.status(403).json({ error: 'Sin permiso' });
+    const { name, email, role_id, is_active, password } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'Nombre requerido' });
+    if (password && password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    const updated = await updateSubAccount(parseInt(req.params.id), req.user.id, { name, email, role_id, is_active, password });
+    res.json(updated);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/sub-accounts/:id', authenticateToken, async (req, res) => {
+  try {
+    if (req.user.is_sub_account) return res.status(403).json({ error: 'Sin permiso' });
+    await deleteSubAccount(parseInt(req.params.id), req.user.id);
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

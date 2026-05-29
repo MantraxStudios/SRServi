@@ -5141,4 +5141,157 @@ export async function getStoreSubdomain(storeId) {
   return rows[0]?.subdomain || null;
 }
 
+// ─── Admin Roles & Sub-accounts ──────────────────────────────────────────────
+
+async function ensureRolesTables() {
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS admin_roles (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      owner_id INT NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      description VARCHAR(255) DEFAULT NULL,
+      permissions JSON NOT NULL DEFAULT '{}',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS admin_sub_accounts (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      owner_id INT NOT NULL,
+      role_id INT DEFAULT NULL,
+      name VARCHAR(150) NOT NULL,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (role_id) REFERENCES admin_roles(id) ON DELETE SET NULL
+    )
+  `);
+}
+
+export async function getRoles(ownerId) {
+  await ensureRolesTables();
+  const [rows] = await pool.execute(
+    `SELECT r.*, (SELECT COUNT(*) FROM admin_sub_accounts a WHERE a.role_id = r.id) AS accounts_count
+     FROM admin_roles r WHERE r.owner_id = ? ORDER BY r.created_at ASC`,
+    [ownerId]
+  );
+  return rows.map(r => ({ ...r, permissions: typeof r.permissions === 'string' ? JSON.parse(r.permissions) : r.permissions }));
+}
+
+export async function getRoleById(id, ownerId) {
+  await ensureRolesTables();
+  const [rows] = await pool.execute('SELECT * FROM admin_roles WHERE id = ? AND owner_id = ?', [id, ownerId]);
+  if (!rows[0]) return null;
+  const r = rows[0];
+  return { ...r, permissions: typeof r.permissions === 'string' ? JSON.parse(r.permissions) : r.permissions };
+}
+
+export async function createRole(ownerId, { name, description, permissions }) {
+  await ensureRolesTables();
+  const perms = JSON.stringify(permissions || {});
+  const [res] = await pool.execute(
+    'INSERT INTO admin_roles (owner_id, name, description, permissions) VALUES (?, ?, ?, ?)',
+    [ownerId, name.trim(), (description || '').trim(), perms]
+  );
+  return getRoleById(res.insertId, ownerId);
+}
+
+export async function updateRole(id, ownerId, { name, description, permissions }) {
+  await ensureRolesTables();
+  const perms = JSON.stringify(permissions || {});
+  await pool.execute(
+    'UPDATE admin_roles SET name = ?, description = ?, permissions = ? WHERE id = ? AND owner_id = ?',
+    [name.trim(), (description || '').trim(), perms, id, ownerId]
+  );
+  return getRoleById(id, ownerId);
+}
+
+export async function deleteRole(id, ownerId) {
+  await ensureRolesTables();
+  // Check if any accounts use this role
+  const [accounts] = await pool.execute('SELECT COUNT(*) AS cnt FROM admin_sub_accounts WHERE role_id = ?', [id]);
+  if (accounts[0].cnt > 0) throw new Error('No se puede eliminar: hay cuentas usando este rol');
+  await pool.execute('DELETE FROM admin_roles WHERE id = ? AND owner_id = ?', [id, ownerId]);
+}
+
+export async function getSubAccounts(ownerId) {
+  await ensureRolesTables();
+  const [rows] = await pool.execute(
+    `SELECT a.id, a.owner_id, a.role_id, a.name, a.email, a.is_active, a.created_at,
+            r.name AS role_name, r.permissions AS role_permissions
+     FROM admin_sub_accounts a
+     LEFT JOIN admin_roles r ON r.id = a.role_id
+     WHERE a.owner_id = ? ORDER BY a.created_at ASC`,
+    [ownerId]
+  );
+  return rows.map(r => ({
+    ...r,
+    role_permissions: r.role_permissions
+      ? (typeof r.role_permissions === 'string' ? JSON.parse(r.role_permissions) : r.role_permissions)
+      : {}
+  }));
+}
+
+export async function createSubAccount(ownerId, { name, email, password, role_id }) {
+  await ensureRolesTables();
+  const [conflict] = await pool.execute('SELECT id FROM users WHERE email = ?', [email.toLowerCase()]);
+  if (conflict[0]) throw new Error('Ese email ya está registrado como cuenta principal');
+  const [conflict2] = await pool.execute('SELECT id FROM admin_sub_accounts WHERE email = ?', [email.toLowerCase()]);
+  if (conflict2[0]) throw new Error('Ese email ya está en uso');
+  const hash = await bcrypt.hash(password, 10);
+  const [res] = await pool.execute(
+    'INSERT INTO admin_sub_accounts (owner_id, role_id, name, email, password_hash) VALUES (?, ?, ?, ?, ?)',
+    [ownerId, role_id || null, name.trim(), email.toLowerCase().trim(), hash]
+  );
+  const [rows] = await pool.execute('SELECT id, owner_id, role_id, name, email, is_active, created_at FROM admin_sub_accounts WHERE id = ?', [res.insertId]);
+  return rows[0];
+}
+
+export async function updateSubAccount(id, ownerId, { name, email, role_id, is_active, password }) {
+  await ensureRolesTables();
+  if (email) {
+    const [conflict] = await pool.execute('SELECT id FROM admin_sub_accounts WHERE email = ? AND id != ?', [email.toLowerCase(), id]);
+    if (conflict[0]) throw new Error('Ese email ya está en uso');
+  }
+  let query = 'UPDATE admin_sub_accounts SET name = ?, role_id = ?, is_active = ?';
+  const params = [name.trim(), role_id || null, is_active ? 1 : 0];
+  if (email) { query += ', email = ?'; params.push(email.toLowerCase().trim()); }
+  if (password) { query += ', password_hash = ?'; params.push(await bcrypt.hash(password, 10)); }
+  query += ' WHERE id = ? AND owner_id = ?';
+  params.push(id, ownerId);
+  await pool.execute(query, params);
+  const [rows] = await pool.execute('SELECT id, owner_id, role_id, name, email, is_active, created_at FROM admin_sub_accounts WHERE id = ?', [id]);
+  return rows[0];
+}
+
+export async function deleteSubAccount(id, ownerId) {
+  await ensureRolesTables();
+  await pool.execute('DELETE FROM admin_sub_accounts WHERE id = ? AND owner_id = ?', [id, ownerId]);
+}
+
+export async function authenticateSubAccount(email, password) {
+  await ensureRolesTables();
+  const [rows] = await pool.execute(
+    `SELECT a.*, r.permissions AS role_permissions
+     FROM admin_sub_accounts a
+     LEFT JOIN admin_roles r ON r.id = a.role_id
+     WHERE a.email = ? LIMIT 1`,
+    [email.toLowerCase()]
+  );
+  if (!rows[0]) return null;
+  const account = rows[0];
+  if (!account.is_active) throw new Error('Cuenta desactivada');
+  const valid = await bcrypt.compare(password, account.password_hash);
+  if (!valid) return null;
+  return {
+    ...account,
+    role_permissions: account.role_permissions
+      ? (typeof account.role_permissions === 'string' ? JSON.parse(account.role_permissions) : account.role_permissions)
+      : {}
+  };
+}
+
 export { pool };
