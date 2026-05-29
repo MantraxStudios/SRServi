@@ -11104,3 +11104,17 @@ html body .store-container .store-product-card * {
 .rich-content-dark table tr:nth-child(even) td {
   background: #141414;
 }
+
+/* ── People Counter responsive ── */
+.pc-wrap { padding: 16px; max-width: 980px; margin: 0 auto; }
+.pc-counter-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.pc-live-grid { display: grid; grid-template-columns: 1fr 260px; gap: 16px; align-items: start; }
+.pc-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+@media (max-width: 620px) {
+  .pc-wrap { padding: 12px; }
+  .pc-counter-cards { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .pc-counter-cards > div { padding: 12px 8px !important; }
+  .pc-counter-cards > div > div:first-child { font-size: 26px !important; }
+  .pc-live-grid { grid-template-columns: 1fr; }
+  .pc-stats-grid { grid-template-columns: 1fr; gap: 8px; }
+}

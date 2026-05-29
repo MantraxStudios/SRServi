@@ -384,7 +384,7 @@ export default function PeopleCounter() {
   const maxHourly = stats ? Math.max(1, ...stats.hourly.map(h => h.in + h.out)) : 1;
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'system-ui, sans-serif', maxWidth: 980, margin: '0 auto' }}>
+    <div className="pc-wrap" style={{ fontFamily: 'system-ui, sans-serif' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
@@ -406,7 +406,7 @@ export default function PeopleCounter() {
       {tab === 'live' && (
         <>
           {/* Counter cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+          <div className="pc-counter-cards">
             {[
               { label: 'Entradas hoy', value: counter.in, color: '#22c55e', bg: '#f0fdf4' },
               { label: 'Salidas hoy', value: counter.out, color: '#ef4444', bg: '#fef2f2' },
@@ -419,7 +419,7 @@ export default function PeopleCounter() {
             ))}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 16, alignItems: 'start' }}>
+          <div className="pc-live-grid">
             {/* Camera view */}
             <div style={{ background: '#111', borderRadius: 14, overflow: 'hidden' }}>
               <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
@@ -527,7 +527,7 @@ export default function PeopleCounter() {
 
           {stats && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+              <div className="pc-stats-grid">
                 {[
                   { label: 'Entradas', value: stats.total?.in || 0, color: '#22c55e', bg: '#f0fdf4' },
                   { label: 'Salidas', value: stats.total?.out || 0, color: '#ef4444', bg: '#fef2f2' },

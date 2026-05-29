@@ -216,6 +216,7 @@ import {
   updateSubAccount,
   deleteSubAccount,
   authenticateSubAccount,
+  ensureDefaultRolesAndAccounts,
   getPeopleCounterConfig,
   savePeopleCounterConfig,
   savePeopleCounterEvent,
@@ -11949,7 +11950,10 @@ app.get('/api/public/delivery-settings/:storeCode', async (req, res) => {
 // ─── Admin Roles ─────────────────────────────────────────────────────────────
 
 app.get('/api/admin/roles', authenticateToken, async (req, res) => {
-  try { res.json(await getRoles(req.user.id)); }
+  try {
+    if (!req.user.is_sub_account) await ensureDefaultRolesAndAccounts(req.user.id);
+    res.json(await getRoles(req.user.id));
+  }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -11986,6 +11990,7 @@ app.delete('/api/admin/roles/:id', authenticateToken, async (req, res) => {
 app.get('/api/admin/sub-accounts', authenticateToken, async (req, res) => {
   try {
     if (req.user.is_sub_account) return res.status(403).json({ error: 'Sin permiso' });
+    await ensureDefaultRolesAndAccounts(req.user.id);
     res.json(await getSubAccounts(req.user.id));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

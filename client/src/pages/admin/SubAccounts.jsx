@@ -29,6 +29,7 @@ export default function SubAccounts() {
   const [saving, setSaving]      = useState(false);
   const [deleting, setDeleting]  = useState(null);
   const [showPass, setShowPass]  = useState(false);
+  const [revealedId, setRevealedId] = useState(null); // id of account whose pass is visible
   const [error, setError]        = useState('');
 
   const load = useCallback(async () => {
@@ -129,10 +130,29 @@ export default function SubAccounts() {
                 )}
               </div>
               <div style={{ fontSize: 12, color: '#6b7280', marginTop: 1 }}>{acc.email}</div>
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-                Rol: <span style={{ color: acc.role_id ? '#D4AF37' : '#9ca3af', fontWeight: 600 }}>
-                  {acc.role_id ? roleName(acc.role_id) : 'Sin rol (sin acceso)'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                <span style={{ fontSize: 11, color: '#9ca3af' }}>
+                  Rol: <span style={{ color: acc.role_id ? '#D4AF37' : '#9ca3af', fontWeight: 600 }}>
+                    {acc.role_id ? roleName(acc.role_id) : 'Sin rol'}
+                  </span>
                 </span>
+                {acc.plain_password && (
+                  <>
+                    <span style={{ color: '#e5e7eb' }}>·</span>
+                    <span style={{ fontSize: 11, color: '#9ca3af' }}>Clave:</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: revealedId === acc.id ? '#111' : 'transparent',
+                      textShadow: revealedId === acc.id ? 'none' : '0 0 6px #6b7280',
+                      background: '#f3f4f6', borderRadius: 4, padding: '1px 6px', userSelect: revealedId === acc.id ? 'text' : 'none',
+                      letterSpacing: revealedId === acc.id ? 0 : '0.1em' }}>
+                      {acc.plain_password}
+                    </span>
+                    <button
+                      onClick={() => setRevealedId(revealedId === acc.id ? null : acc.id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 13, padding: '0 2px', lineHeight: 1 }}
+                      title={revealedId === acc.id ? 'Ocultar' : 'Mostrar contraseña'}
+                    >{revealedId === acc.id ? '🙈' : '👁'}</button>
+                  </>
+                )}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>

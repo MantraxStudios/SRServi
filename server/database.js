@@ -5163,12 +5163,88 @@ async function ensureRolesTables() {
       name VARCHAR(150) NOT NULL,
       email VARCHAR(255) UNIQUE NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
+      plain_password VARCHAR(255) DEFAULT NULL,
       is_active BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY (role_id) REFERENCES admin_roles(id) ON DELETE SET NULL
     )
   `);
+  // Migration: add plain_password if not exists
+  try {
+    await pool.execute('ALTER TABLE admin_sub_accounts ADD COLUMN IF NOT EXISTS plain_password VARCHAR(255) DEFAULT NULL');
+  } catch (_) {}
+}
+
+const DEFAULT_FULL_PERMS = {
+  dashboard: { view: true }, orders: { view: true, edit: true, delete: true },
+  tables: { view: true, edit: true }, delivery: { view: true, edit: true },
+  products: { view: true, edit: true, delete: true }, categories: { view: true, edit: true, delete: true },
+  analytics: { view: true }, cash_registers: { view: true, edit: true }, ratings: { view: true },
+  people_counter: { view: true, edit: true }, ventas_mes: { view: true, edit: true },
+  workers: { view: true, edit: true, delete: true }, tasks: { view: true, edit: true, delete: true },
+  inventory: { view: true, edit: true }, procedures: { view: true, edit: true, delete: true },
+  attendance: { view: true }, coupons: { view: true, edit: true, delete: true },
+  whatsapp: { view: true, edit: true }, canales: { view: true, edit: true },
+  configurations: { view: true, edit: true }, settings: { view: true, edit: true },
+};
+const DEFAULT_CAJERO_PERMS = {
+  dashboard: { view: true }, orders: { view: true, edit: true, delete: false },
+  tables: { view: true, edit: true }, delivery: { view: true, edit: true },
+  products: { view: true, edit: false, delete: false }, categories: { view: true, edit: false, delete: false },
+  analytics: { view: true }, cash_registers: { view: true, edit: true }, ratings: { view: true },
+  people_counter: { view: true, edit: false }, ventas_mes: { view: true, edit: false },
+  workers: { view: false, edit: false, delete: false }, tasks: { view: true, edit: true, delete: false },
+  inventory: { view: true, edit: true }, procedures: { view: true, edit: false, delete: false },
+  attendance: { view: true }, coupons: { view: true, edit: false, delete: false },
+  whatsapp: { view: true, edit: true }, canales: { view: false, edit: false },
+  configurations: { view: false, edit: false }, settings: { view: false, edit: false },
+};
+const DEFAULT_VENDEDOR_PERMS = {
+  dashboard: { view: true }, orders: { view: true, edit: true, delete: false },
+  tables: { view: true, edit: true }, delivery: { view: true, edit: false },
+  products: { view: true, edit: false, delete: false }, categories: { view: true, edit: false, delete: false },
+  analytics: { view: false }, cash_registers: { view: true, edit: true }, ratings: { view: false },
+  people_counter: { view: false, edit: false }, ventas_mes: { view: false, edit: false },
+  workers: { view: false, edit: false, delete: false }, tasks: { view: true, edit: false, delete: false },
+  inventory: { view: false, edit: false }, procedures: { view: true, edit: false, delete: false },
+  attendance: { view: false }, coupons: { view: false, edit: false, delete: false },
+  whatsapp: { view: false, edit: false }, canales: { view: false, edit: false },
+  configurations: { view: false, edit: false }, settings: { view: false, edit: false },
+};
+
+export async function ensureDefaultRolesAndAccounts(ownerId) {
+  await ensureRolesTables();
+  const [existing] = await pool.execute('SELECT id FROM admin_roles WHERE owner_id = ?', [ownerId]);
+  if (existing.length > 0) return;
+
+  const roleData = [
+    { name: 'Administrador', description: 'Acceso completo a todas las secciones', permissions: DEFAULT_FULL_PERMS },
+    { name: 'Cajero', description: 'Gestión de pedidos, caja y atención', permissions: DEFAULT_CAJERO_PERMS },
+    { name: 'Vendedor', description: 'Acceso básico a pedidos y mesas', permissions: DEFAULT_VENDEDOR_PERMS },
+  ];
+  const roleIds = {};
+  for (const r of roleData) {
+    const [res] = await pool.execute(
+      'INSERT INTO admin_roles (owner_id, name, description, permissions) VALUES (?, ?, ?, ?)',
+      [ownerId, r.name, r.description, JSON.stringify(r.permissions)]
+    );
+    roleIds[r.name] = res.insertId;
+  }
+
+  const defaultAccounts = [
+    { name: 'Admin', email: `admin.${ownerId}@srservi.local`, pass: 'Admin123', role: 'Administrador' },
+    { name: 'Cajero', email: `cajero.${ownerId}@srservi.local`, pass: 'Cajero123', role: 'Cajero' },
+  ];
+  for (const a of defaultAccounts) {
+    const [exists] = await pool.execute('SELECT id FROM admin_sub_accounts WHERE email = ?', [a.email]);
+    if (exists[0]) continue;
+    const hash = await bcrypt.hash(a.pass, 10);
+    await pool.execute(
+      'INSERT INTO admin_sub_accounts (owner_id, role_id, name, email, password_hash, plain_password, is_active) VALUES (?, ?, ?, ?, ?, ?, true)',
+      [ownerId, roleIds[a.role], a.name, a.email, hash, a.pass]
+    );
+  }
 }
 
 export async function getRoles(ownerId) {
@@ -5220,7 +5296,7 @@ export async function deleteRole(id, ownerId) {
 export async function getSubAccounts(ownerId) {
   await ensureRolesTables();
   const [rows] = await pool.execute(
-    `SELECT a.id, a.owner_id, a.role_id, a.name, a.email, a.is_active, a.created_at,
+    `SELECT a.id, a.owner_id, a.role_id, a.name, a.email, a.plain_password, a.is_active, a.created_at,
             r.name AS role_name, r.permissions AS role_permissions
      FROM admin_sub_accounts a
      LEFT JOIN admin_roles r ON r.id = a.role_id
@@ -5243,10 +5319,10 @@ export async function createSubAccount(ownerId, { name, email, password, role_id
   if (conflict2[0]) throw new Error('Ese email ya está en uso');
   const hash = await bcrypt.hash(password, 10);
   const [res] = await pool.execute(
-    'INSERT INTO admin_sub_accounts (owner_id, role_id, name, email, password_hash) VALUES (?, ?, ?, ?, ?)',
-    [ownerId, role_id || null, name.trim(), email.toLowerCase().trim(), hash]
+    'INSERT INTO admin_sub_accounts (owner_id, role_id, name, email, password_hash, plain_password) VALUES (?, ?, ?, ?, ?, ?)',
+    [ownerId, role_id || null, name.trim(), email.toLowerCase().trim(), hash, password]
   );
-  const [rows] = await pool.execute('SELECT id, owner_id, role_id, name, email, is_active, created_at FROM admin_sub_accounts WHERE id = ?', [res.insertId]);
+  const [rows] = await pool.execute('SELECT id, owner_id, role_id, name, email, plain_password, is_active, created_at FROM admin_sub_accounts WHERE id = ?', [res.insertId]);
   return rows[0];
 }
 
@@ -5259,11 +5335,11 @@ export async function updateSubAccount(id, ownerId, { name, email, role_id, is_a
   let query = 'UPDATE admin_sub_accounts SET name = ?, role_id = ?, is_active = ?';
   const params = [name.trim(), role_id || null, is_active ? 1 : 0];
   if (email) { query += ', email = ?'; params.push(email.toLowerCase().trim()); }
-  if (password) { query += ', password_hash = ?'; params.push(await bcrypt.hash(password, 10)); }
+  if (password) { query += ', password_hash = ?, plain_password = ?'; params.push(await bcrypt.hash(password, 10), password); }
   query += ' WHERE id = ? AND owner_id = ?';
   params.push(id, ownerId);
   await pool.execute(query, params);
-  const [rows] = await pool.execute('SELECT id, owner_id, role_id, name, email, is_active, created_at FROM admin_sub_accounts WHERE id = ?', [id]);
+  const [rows] = await pool.execute('SELECT id, owner_id, role_id, name, email, plain_password, is_active, created_at FROM admin_sub_accounts WHERE id = ?', [id]);
   return rows[0];
 }
 
