@@ -72,6 +72,8 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const [customTotal, setCustomTotal] = useState(null);
   const [editingTotal, setEditingTotal] = useState(false);
   const [editingPayTotal, setEditingPayTotal] = useState(false);
+  const [tables, setTables] = useState([]);
+  const [selectedTableId, setSelectedTableId] = useState(null);
 
   const categoryScrollRef = useRef(null);
   const payEditInputRef = useRef(null);
@@ -94,12 +96,13 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       if (!storeCode) throw new Error('No se encontro el codigo de tienda');
 
       // Use public API that returns everything together (products with ingredients/extras)
-      const [storeRes, terminalsRes, payMethodsRes, tuuRes, cfgRes] = await Promise.all([
+      const [storeRes, terminalsRes, payMethodsRes, tuuRes, cfgRes, tablesRes] = await Promise.all([
         fetch(API + `/api/public/${storeCode}`),
         fetch(API + `/api/public/${storeCode}/mercado-pago-terminals`),
         fetch(API + `/api/public/worker-payment-methods/${storeId}`),
         fetch(API + `/api/tuu/available?store_id=${storeId}&device_uid=${localStorage.getItem('deviceUid') || ''}`),
-        fetch(API + `/api/public/store-configurations/${storeId}`)
+        fetch(API + `/api/public/store-configurations/${storeId}`),
+        fetch(API + `/api/public/restaurant-tables/${storeCode}`)
       ]);
 
       if (!storeRes.ok) throw new Error('Error al cargar la tienda');
@@ -109,6 +112,8 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       const payMethodsData = payMethodsRes.ok ? await payMethodsRes.json() : [];
       const tuuData = tuuRes.ok ? await tuuRes.json() : { available: false };
       const cfgData = cfgRes.ok ? await cfgRes.json() : [];
+      const tablesData = tablesRes && tablesRes.ok ? await tablesRes.json() : [];
+      setTables(Array.isArray(tablesData) ? tablesData : []);
       const cfg = Array.isArray(cfgData) ? (cfgData.find(c => c.is_default) || cfgData[0]) : null;
       if (cfg) {
         setHideDecimals(!!cfg.hide_decimals);
@@ -404,7 +409,8 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       selected_terminal_id: method === 'card' && selectedTerminalId ? parseInt(selectedTerminalId) : null,
       total: Number(total).toFixed(2),
       custom_total: customTotal !== null ? Number(customTotal) : null,
-      from_worker: true
+      from_worker: true,
+      table_number: orderType === 'serve' && selectedTableId ? selectedTableId : null
     };
 
     try {
@@ -852,12 +858,56 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                     <span>Servir aquí</span>
                   </button>
                   <button
-                    onClick={() => setOrderType('takeout')}
+                    onClick={() => { setOrderType('takeout'); setSelectedTableId(null); }}
                     className={`worker-pos-type-btn${orderType === 'takeout' ? ' active' : ''}`}
                   >
                     <FontAwesomeIcon icon={faShoppingBag} />
                     <span>Para llevar</span>
                   </button>
+                </div>
+              )}
+
+              {/* Table selection (only for dine-in) */}
+              {orderType === 'serve' && tables.length > 0 && (
+                <div style={{ marginBottom: '8px' }}>
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Mesa
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => setSelectedTableId(null)}
+                      style={{
+                        padding: '5px 10px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 600,
+                        border: selectedTableId === null ? '1.5px solid #D4AF37' : '1px solid rgba(255,255,255,0.15)',
+                        background: selectedTableId === null ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.05)',
+                        color: selectedTableId === null ? '#D4AF37' : 'rgba(255,255,255,0.6)'
+                      }}
+                    >
+                      Sin mesa
+                    </button>
+                    {tables.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => setSelectedTableId(t.id)}
+                        style={{
+                          padding: '5px 10px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 600,
+                          border: selectedTableId === t.id
+                            ? '1.5px solid #D4AF37'
+                            : t.occupied ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(255,255,255,0.15)',
+                          background: selectedTableId === t.id
+                            ? 'rgba(212,175,55,0.15)'
+                            : t.occupied ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.05)',
+                          color: selectedTableId === t.id
+                            ? '#D4AF37'
+                            : t.occupied ? '#f87171' : 'rgba(255,255,255,0.6)'
+                        }}
+                        title={t.occupied ? 'Mesa con pedido pendiente' : ''}
+                      >
+                        {t.label}
+                        {t.occupied && <span style={{ marginLeft: 4, fontSize: 10 }}>●</span>}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 

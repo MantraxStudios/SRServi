@@ -253,6 +253,25 @@ async function createTables() {
   await pool.execute(createOrderItemsTable);
   await pool.execute(createWorkersTable);
 
+  // Initialize delivery tables early so columns exist before createOrder is called
+  try { await ensureDeliveryTables(); } catch (e) { console.warn('Delivery tables init:', e.message); }
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS restaurant_tables (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      label VARCHAR(50) NOT NULL DEFAULT 'Mesa',
+      capacity INT DEFAULT 4,
+      x INT DEFAULT 50,
+      y INT DEFAULT 50,
+      w INT DEFAULT 120,
+      h INT DEFAULT 80,
+      shape ENUM('rect','circle') DEFAULT 'rect',
+      sort_order INT DEFAULT 0,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS store_ratings (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -2739,7 +2758,7 @@ export async function generateUniqueOrderNumber(storeId) {
 }
 
 export async function createOrder(storeId, orderData) {
-  const { order_type, items, payment_method, coupon_code, table_number } = orderData;
+  const { order_type, items, payment_method, coupon_code, table_number, delivery_address, delivery_customer_id, customer_email } = orderData;
   
   let subtotal = 0;
   items.forEach(item => {
@@ -2764,9 +2783,12 @@ export async function createOrder(storeId, orderData) {
     posPin = pinRows[0]?.pos_pin || null;
   }
 
+  const isDeliveryApp = orderData.source === 'delivery_app';
+  const deliveryStatus = isDeliveryApp ? 'waiting' : null;
+
   const [result] = await pool.execute(
-    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number, source, customer_phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, paymentProcess, initialStatus, table_number || null, orderData.source || null, orderData.customer_phone || null]
+    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number, source, customer_phone, delivery_address, delivery_status, delivery_customer_id, customer_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', cashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, paymentProcess, initialStatus, table_number || null, orderData.source || null, orderData.customer_phone || null, delivery_address || null, deliveryStatus, delivery_customer_id || null, customer_email || null]
   );
   const orderId = result.insertId;
 
@@ -4823,6 +4845,240 @@ export async function getSalesFromOrders(storeId, year, month, amStart, amEnd, p
     [amStart, amEnd, pmStart, pmEnd, storeId, year, month]
   );
   return rows;
+}
+
+// ─── Delivery System ──────────────────────────────────────────────────────────
+
+async function ensureDeliveryTables() {
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS delivery_settings (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL UNIQUE,
+      address TEXT,
+      lat DECIMAL(10,7),
+      lng DECIMAL(10,7),
+      radius_km DECIMAL(5,2) DEFAULT 5,
+      fee DECIMAL(10,2) DEFAULT 0,
+      min_order DECIMAL(10,2) DEFAULT 0,
+      hours_source ENUM('cash_register','custom') DEFAULT 'cash_register',
+      open_time VARCHAR(5) DEFAULT '09:00',
+      close_time VARCHAR(5) DEFAULT '22:00',
+      estimated_minutes INT DEFAULT 45,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS delivery_customers (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      name VARCHAR(100),
+      email VARCHAR(100) NOT NULL UNIQUE,
+      phone VARCHAR(20),
+      email_verified BOOLEAN DEFAULT FALSE,
+      verification_code VARCHAR(6),
+      verification_expires DATETIME,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS delivery_sessions (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      customer_id INT NOT NULL,
+      token VARCHAR(255) NOT NULL UNIQUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (customer_id) REFERENCES delivery_customers(id) ON DELETE CASCADE
+    )
+  `);
+  try {
+    const [cols] = await pool.execute('SHOW COLUMNS FROM orders');
+    const names = cols.map(c => c.Field);
+    if (!names.includes('delivery_address')) await pool.execute("ALTER TABLE orders ADD COLUMN delivery_address TEXT DEFAULT NULL");
+    if (!names.includes('delivery_status')) await pool.execute("ALTER TABLE orders ADD COLUMN delivery_status VARCHAR(20) DEFAULT NULL");
+    if (!names.includes('delivery_customer_id')) await pool.execute("ALTER TABLE orders ADD COLUMN delivery_customer_id INT DEFAULT NULL");
+    if (!names.includes('customer_email')) await pool.execute("ALTER TABLE orders ADD COLUMN customer_email VARCHAR(100) DEFAULT NULL");
+  } catch {}
+}
+
+export async function getDeliverySettings(storeId) {
+  await ensureDeliveryTables();
+  const [rows] = await pool.execute('SELECT * FROM delivery_settings WHERE store_id = ? LIMIT 1', [storeId]);
+  return rows[0] || null;
+}
+
+export async function upsertDeliverySettings(storeId, data) {
+  await ensureDeliveryTables();
+  const { address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes } = data;
+  await pool.execute(`
+    INSERT INTO delivery_settings (store_id, address, lat, lng, radius_km, fee, min_order, hours_source, open_time, close_time, estimated_minutes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      address = VALUES(address), lat = VALUES(lat), lng = VALUES(lng),
+      radius_km = VALUES(radius_km), fee = VALUES(fee), min_order = VALUES(min_order),
+      hours_source = VALUES(hours_source), open_time = VALUES(open_time),
+      close_time = VALUES(close_time), estimated_minutes = VALUES(estimated_minutes)
+  `, [storeId, address || null, lat || null, lng || null, radius_km || 5, fee || 0, min_order || 0, hours_source || 'cash_register', open_time || '09:00', close_time || '22:00', estimated_minutes || 45]);
+  return getDeliverySettings(storeId);
+}
+
+export async function getNearbyDeliveryStores(lat, lng, radiusKm = 30) {
+  await ensureDeliveryTables();
+  const [rows] = await pool.execute(`
+    SELECT s.id, s.code, s.name, s.logo_url AS logo,
+      ds.address, ds.lat, ds.lng, ds.radius_km, ds.fee, ds.min_order,
+      ds.hours_source, ds.open_time, ds.close_time, ds.estimated_minutes,
+      sc.delivery_enabled,
+      (SELECT COUNT(*) FROM orders o WHERE o.store_id = s.id AND o.status = 'pending' AND DATE(o.created_at) = CURDATE()) as active_orders,
+      (6371 * ACOS(
+        COS(RADIANS(?)) * COS(RADIANS(ds.lat)) *
+        COS(RADIANS(ds.lng) - RADIANS(?)) +
+        SIN(RADIANS(?)) * SIN(RADIANS(ds.lat))
+      )) AS distance_km
+    FROM delivery_settings ds
+    JOIN stores s ON s.id = ds.store_id
+    LEFT JOIN store_configurations sc ON sc.store_id = s.id AND sc.is_default = TRUE
+    WHERE ds.lat IS NOT NULL AND ds.lng IS NOT NULL
+      AND sc.delivery_enabled = TRUE
+    HAVING distance_km <= LEAST(ds.radius_km, ?)
+    ORDER BY distance_km ASC
+    LIMIT 50
+  `, [lat, lng, lat, radiusKm]);
+  return rows;
+}
+
+export async function findOrCreateDeliveryCustomer(email) {
+  await ensureDeliveryTables();
+  const [rows] = await pool.execute('SELECT * FROM delivery_customers WHERE email = ? LIMIT 1', [email]);
+  if (rows[0]) return { customer: rows[0], isNew: false };
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expires = new Date(Date.now() + 10 * 60 * 1000);
+  const [res] = await pool.execute(
+    'INSERT INTO delivery_customers (email, verification_code, verification_expires) VALUES (?, ?, ?)',
+    [email, code, expires]
+  );
+  const [newRows] = await pool.execute('SELECT * FROM delivery_customers WHERE id = ? LIMIT 1', [res.insertId]);
+  return { customer: newRows[0], isNew: true };
+}
+
+export async function setDeliveryCustomerCode(email) {
+  await ensureDeliveryTables();
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expires = new Date(Date.now() + 10 * 60 * 1000);
+  await pool.execute(
+    'UPDATE delivery_customers SET verification_code = ?, verification_expires = ? WHERE email = ?',
+    [code, expires, email]
+  );
+  return code;
+}
+
+export async function verifyDeliveryCustomerCode(email, code) {
+  await ensureDeliveryTables();
+  const [rows] = await pool.execute(
+    'SELECT * FROM delivery_customers WHERE email = ? AND verification_code = ? AND verification_expires > NOW() LIMIT 1',
+    [email, code]
+  );
+  return rows[0] || null;
+}
+
+export async function completeDeliveryCustomerProfile(customerId, name, phone) {
+  await pool.execute(
+    'UPDATE delivery_customers SET name = ?, phone = ?, email_verified = TRUE, verification_code = NULL WHERE id = ?',
+    [name, phone, customerId]
+  );
+  const [rows] = await pool.execute('SELECT * FROM delivery_customers WHERE id = ? LIMIT 1', [customerId]);
+  return rows[0];
+}
+
+export async function createDeliverySession(customerId) {
+  await ensureDeliveryTables();
+  const { randomBytes } = await import('crypto');
+  const token = randomBytes(32).toString('hex');
+  await pool.execute('INSERT INTO delivery_sessions (customer_id, token) VALUES (?, ?)', [customerId, token]);
+  return token;
+}
+
+export async function getDeliveryCustomerByToken(token) {
+  await ensureDeliveryTables();
+  const [rows] = await pool.execute(`
+    SELECT dc.* FROM delivery_customers dc
+    JOIN delivery_sessions ds ON ds.customer_id = dc.id
+    WHERE ds.token = ? LIMIT 1
+  `, [token]);
+  return rows[0] || null;
+}
+
+export async function getPendingDeliveryOrders(storeId) {
+  await ensureDeliveryTables();
+  const [rows] = await pool.execute(`
+    SELECT o.*, dc.name as dc_name, dc.phone as dc_phone, dc.email as dc_email
+    FROM orders o
+    LEFT JOIN delivery_customers dc ON dc.id = o.delivery_customer_id
+    WHERE o.store_id = ? AND o.source = 'delivery_app' AND (o.delivery_status = 'waiting' OR o.delivery_status IS NULL AND o.source = 'delivery_app')
+    ORDER BY o.created_at ASC
+  `, [storeId]);
+  const result = [];
+  for (const order of rows) {
+    const [items] = await pool.execute(`
+      SELECT oi.*, p.name as product_name FROM order_items oi
+      LEFT JOIN products p ON p.id = oi.product_id
+      WHERE oi.order_id = ?
+    `, [order.id]);
+    result.push({ ...order, items });
+  }
+  return result;
+}
+
+export async function updateDeliveryOrderStatus(orderId, storeId, status) {
+  await pool.execute(
+    'UPDATE orders SET delivery_status = ? WHERE id = ? AND store_id = ?',
+    [status, orderId, storeId]
+  );
+  if (status === 'accepted') {
+    await pool.execute('UPDATE orders SET status = ? WHERE id = ? AND store_id = ?', ['pending', orderId, storeId]);
+  }
+}
+
+// Restaurant Tables
+export async function getRestaurantTables(storeId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM restaurant_tables WHERE store_id = ? ORDER BY sort_order ASC, id ASC',
+    [storeId]
+  );
+  return rows;
+}
+
+export async function getRestaurantTablesWithStatus(storeId) {
+  const [rows] = await pool.execute(`
+    SELECT t.*,
+      (SELECT COUNT(*) FROM orders o
+       WHERE o.store_id = ? AND o.table_number = t.id AND o.status = 'pending') > 0 AS occupied
+    FROM restaurant_tables t
+    WHERE t.store_id = ?
+    ORDER BY t.sort_order ASC, t.id ASC
+  `, [storeId, storeId]);
+  return rows;
+}
+
+export async function createRestaurantTable(storeId, data) {
+  const { label, capacity, x, y, w, h, shape, sort_order } = data;
+  const [result] = await pool.execute(
+    'INSERT INTO restaurant_tables (store_id, label, capacity, x, y, w, h, shape, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, label || 'Mesa', capacity || 4, x || 50, y || 50, w || 120, h || 80, shape || 'rect', sort_order || 0]
+  );
+  const [rows] = await pool.execute('SELECT * FROM restaurant_tables WHERE id = ?', [result.insertId]);
+  return rows[0];
+}
+
+export async function updateRestaurantTable(id, storeId, data) {
+  const { label, capacity, x, y, w, h, shape, sort_order } = data;
+  await pool.execute(
+    'UPDATE restaurant_tables SET label = ?, capacity = ?, x = ?, y = ?, w = ?, h = ?, shape = ?, sort_order = ? WHERE id = ? AND store_id = ?',
+    [label, capacity, x, y, w, h, shape, sort_order ?? 0, id, storeId]
+  );
+  const [rows] = await pool.execute('SELECT * FROM restaurant_tables WHERE id = ? AND store_id = ?', [id, storeId]);
+  return rows[0] || null;
+}
+
+export async function deleteRestaurantTable(id, storeId) {
+  await pool.execute('DELETE FROM restaurant_tables WHERE id = ? AND store_id = ?', [id, storeId]);
 }
 
 export { pool };

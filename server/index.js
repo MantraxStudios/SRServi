@@ -185,7 +185,23 @@ import {
   getSalesForMonth,
   upsertSaleRecord,
   deleteSaleRecord,
-  getSalesFromOrders
+  getSalesFromOrders,
+  getRestaurantTables,
+  getRestaurantTablesWithStatus,
+  createRestaurantTable,
+  updateRestaurantTable,
+  deleteRestaurantTable,
+  getDeliverySettings,
+  upsertDeliverySettings,
+  getNearbyDeliveryStores,
+  findOrCreateDeliveryCustomer,
+  setDeliveryCustomerCode,
+  verifyDeliveryCustomerCode,
+  completeDeliveryCustomerProfile,
+  createDeliverySession,
+  getDeliveryCustomerByToken,
+  getPendingDeliveryOrders,
+  updateDeliveryOrderStatus
 } from './database.js';
 
 const app = express();
@@ -11676,6 +11692,194 @@ app.delete('/api/attendance/:storeCode/sales', authenticateToken, async (req, re
       return res.status(400).json({ error: 'Datos inválidos' });
     await deleteSaleRecord(store.id, date, shift);
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Restaurant Tables — admin CRUD
+app.get('/api/restaurant-tables', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const store = await getStoreById(storeId);
+    if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+    res.json(await getRestaurantTablesWithStatus(storeId));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/restaurant-tables', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, ...data } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    const store = await getStoreById(parseInt(store_id));
+    if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+    res.json(await createRestaurantTable(parseInt(store_id), data));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/restaurant-tables/:id', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, ...data } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    const store = await getStoreById(parseInt(store_id));
+    if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+    const updated = await updateRestaurantTable(parseInt(req.params.id), parseInt(store_id), data);
+    if (!updated) return res.status(404).json({ error: 'Mesa no encontrada' });
+    res.json(updated);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/restaurant-tables/:id', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const store = await getStoreById(storeId);
+    if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+    await deleteRestaurantTable(parseInt(req.params.id), storeId);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Public: workers can see table status for their store
+app.get('/api/public/restaurant-tables/:storeCode', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    res.json(await getRestaurantTablesWithStatus(store.id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Delivery System ──────────────────────────────────────────────────────────
+
+// Admin: get/update delivery settings
+app.get('/api/delivery-settings', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const store = await getStoreById(storeId);
+    if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+    res.json(await getDeliverySettings(storeId) || {});
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/delivery-settings', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, ...data } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    const store = await getStoreById(parseInt(store_id));
+    if (!store || store.user_id !== req.user.id) return res.status(403).json({ error: 'Acceso denegado' });
+    res.json(await upsertDeliverySettings(parseInt(store_id), data));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Public: get nearby delivery restaurants
+app.get('/api/delivery/restaurants', async (req, res) => {
+  try {
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+    if (isNaN(lat) || isNaN(lng)) return res.status(400).json({ error: 'Coordenadas requeridas' });
+    const stores = await getNearbyDeliveryStores(lat, lng, 30);
+    const now = new Date();
+    const currentTime = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    const result = stores.map(s => {
+      let isOpen = false;
+      if (s.hours_source === 'cash_register') {
+        isOpen = s.active_orders > 0;
+      } else {
+        isOpen = currentTime >= s.open_time && currentTime <= s.close_time;
+      }
+      return {
+        id: s.id, code: s.code, name: s.name,
+        logo: s.logo ? `${BASE_URL}${s.logo}` : null,
+        address: s.address, distance_km: Math.round(s.distance_km * 10) / 10,
+        fee: s.fee, min_order: s.min_order, estimated_minutes: s.estimated_minutes,
+        isOpen
+      };
+    });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Customer auth: start (send code)
+app.post('/api/delivery/auth/start', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.includes('@')) return res.status(400).json({ error: 'Email inválido' });
+    const { customer, isNew } = await findOrCreateDeliveryCustomer(email.toLowerCase().trim());
+    let code;
+    if (!isNew) {
+      code = await setDeliveryCustomerCode(email.toLowerCase().trim());
+    } else {
+      code = customer.verification_code;
+    }
+    // Send verification email
+    try {
+      await mailer.sendMail({
+        from: `"SRServi Delivery" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Código de verificación SRServi',
+        html: `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:24px;background:#0a0a0a;color:#fff;border-radius:12px">
+          <div style="text-align:center;margin-bottom:20px">
+            <div style="background:#D4AF37;color:#000;font-weight:900;font-size:22px;padding:10px 20px;border-radius:8px;display:inline-block">SR</div>
+          </div>
+          <h2 style="text-align:center;color:#D4AF37">Código de verificación</h2>
+          <p style="text-align:center;color:#aaa">Ingresa este código en la app de delivery:</p>
+          <div style="text-align:center;font-size:36px;font-weight:900;letter-spacing:8px;color:#D4AF37;padding:20px">${code}</div>
+          <p style="text-align:center;color:#666;font-size:12px">Expira en 10 minutos</p>
+        </div>`
+      });
+    } catch (mailErr) {
+      console.warn('[Delivery] Email send error:', mailErr.message);
+    }
+    res.json({ message: 'Código enviado', isNew, needsProfile: isNew || !customer.name });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Customer auth: verify code
+app.post('/api/delivery/auth/verify', async (req, res) => {
+  try {
+    const { email, code, name, phone } = req.body;
+    if (!email || !code) return res.status(400).json({ error: 'Email y código requeridos' });
+    const customer = await verifyDeliveryCustomerCode(email.toLowerCase().trim(), code.trim());
+    if (!customer) return res.status(400).json({ error: 'Código inválido o expirado' });
+    let finalCustomer = customer;
+    if (name || phone) {
+      finalCustomer = await completeDeliveryCustomerProfile(customer.id, name || customer.name, phone || customer.phone);
+    }
+    const token = await createDeliverySession(customer.id);
+    const { verification_code: _, ...safeCustomer } = finalCustomer;
+    res.json({ token, customer: safeCustomer });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Worker: get pending delivery orders
+app.get('/api/worker/delivery', async (req, res) => {
+  try {
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Sin autorización' });
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    res.json(await getPendingDeliveryOrders(storeId));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Worker: accept or reject delivery order
+app.put('/api/worker/delivery/:id/status', async (req, res) => {
+  try {
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    if (!token) return res.status(401).json({ error: 'Sin autorización' });
+    const { store_id, status } = req.body;
+    if (!['accepted', 'rejected'].includes(status)) return res.status(400).json({ error: 'Estado inválido' });
+    await updateDeliveryOrderStatus(parseInt(req.params.id), parseInt(store_id), status);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Public: delivery store config (for store page in delivery mode)
+app.get('/api/public/delivery-settings/:storeCode', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    res.json(await getDeliverySettings(store.id) || {});
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -424,6 +424,8 @@ function WorkerPanel() {
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
   const [, setTick] = useState(0);
   const [showSessionExpired, setShowSessionExpired] = useState(false);
+  const [deliveryOrders, setDeliveryOrders] = useState([]);
+  const [deliveryLoading, setDeliveryLoading] = useState(false);
 
   const colors = storeColors || {
     primary: '#0a0a0a',
@@ -454,6 +456,7 @@ function WorkerPanel() {
     fetchStoreColors(parsedWorker.store_id);
     fetchOrders(parsedWorker.store_id);
     fetchWhatsAppOrders(parsedWorker.store_id);
+    fetchDeliveryOrders(parsedWorker.store_id);
     fetchWorkers(parsedWorker.store_id);
     fetchCashRegister();
     fetchTasks();
@@ -758,6 +761,34 @@ function WorkerPanel() {
     win.document.close();
     setTimeout(() => win.print(), 600);
   };
+  const fetchDeliveryOrders = async (storeId) => {
+    const BASE = 'https://srservi2.srautomatic.com';
+    const token = localStorage.getItem('workerToken');
+    setDeliveryLoading(true);
+    try {
+      const res = await fetch(`${BASE}/api/worker/delivery?store_id=${storeId}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setDeliveryOrders(await res.json());
+    } catch {}
+    finally { setDeliveryLoading(false); }
+  };
+
+  const handleDeliveryAction = async (orderId, status) => {
+    const BASE = 'https://srservi2.srautomatic.com';
+    const token = localStorage.getItem('workerToken');
+    const workerData = JSON.parse(localStorage.getItem('worker') || '{}');
+    try {
+      await fetch(`${BASE}/api/worker/delivery/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ store_id: workerData.store_id, status })
+      });
+      setDeliveryOrders(prev => prev.filter(o => o.id !== orderId));
+      if (status === 'accepted') {
+        fetchOrders(workerData.store_id);
+      }
+    } catch (e) { alert('Error: ' + e.message); }
+  };
+
   const fetchOrders = async (storeId) => {
     try {
       const token = localStorage.getItem('workerToken');
@@ -1274,8 +1305,14 @@ function WorkerPanel() {
             >
               💬 WhatsApp{whatsappOrders.length > 0 && <span className="worker-tab-count">{whatsappOrders.length}</span>}
             </button>
+            <button
+              className={`worker-tab ${activeTab === 'delivery' ? 'active' : ''}`}
+              onClick={() => { const w = JSON.parse(localStorage.getItem('worker') || '{}'); fetchDeliveryOrders(w.store_id); setActiveTab('delivery'); }}
+            >
+              🛵 Delivery{deliveryOrders.length > 0 && <span className="worker-tab-count">{deliveryOrders.length}</span>}
+            </button>
           </div>
-          {activeTab !== 'tasks' && activeTab !== 'procedures' && activeTab !== 'whatsapp' && (
+          {activeTab !== 'tasks' && activeTab !== 'procedures' && activeTab !== 'whatsapp' && activeTab !== 'delivery' && (
           <div className="worker-filters">
             {['all', 'pending', 'preparing', 'ready'].map(f => (
               <button
@@ -1292,7 +1329,59 @@ function WorkerPanel() {
       </div>
 
       <div className="worker-orders" style={activeTab === 'tasks' ? { padding: 0 } : undefined}>
-        {activeTab === 'active' ? (
+        {activeTab === 'delivery' ? (
+          deliveryLoading ? (
+            <div className="empty-state"><p>Cargando pedidos delivery...</p></div>
+          ) : deliveryOrders.length === 0 ? (
+            <div className="empty-state">
+              <div style={{ fontSize: 36, marginBottom: 8 }}>🛵</div>
+              <p>No hay pedidos delivery esperando</p>
+            </div>
+          ) : (
+            <div className="worker-orders-list">
+              {deliveryOrders.map(order => (
+                <div key={order.id} className="worker-order-card" style={{ border: '2px solid rgba(212,175,55,0.4)', background: '#0f0f0f' }}>
+                  <div className="worker-order-header">
+                    <h3 className="worker-order-number" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      🛵 Delivery #{order.id}
+                    </h3>
+                    <span style={{ fontSize: 11, color: '#D4AF37', fontWeight: 700, background: 'rgba(212,175,55,0.12)', padding: '2px 8px', borderRadius: 20 }}>NUEVO</span>
+                  </div>
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, color: '#fff', fontWeight: 600 }}>{order.dc_name || order.customer_name || 'Cliente'}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>📞 {order.dc_phone || order.customer_phone || 'Sin teléfono'}</div>
+                    {order.delivery_address && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>📍 {order.delivery_address}</div>}
+                  </div>
+                  {Array.isArray(order.items) && order.items.length > 0 && (
+                    <div style={{ marginBottom: 10 }}>
+                      {order.items.map((item, i) => (
+                        <div key={i} style={{ fontSize: 12, color: '#d1d5db' }}>{item.quantity}× {item.product_name}</div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: '#D4AF37' }}>${Number(order.total).toFixed(0)}</span>
+                    <span style={{ fontSize: 11, color: '#6b7280' }}>{new Date(order.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => handleDeliveryAction(order.id, 'rejected')}
+                      style={{ flex: 1, padding: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#ef4444', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                    >
+                      ✕ Rechazar
+                    </button>
+                    <button
+                      onClick={() => handleDeliveryAction(order.id, 'accepted')}
+                      style={{ flex: 1, padding: '10px', background: '#D4AF37', border: 'none', borderRadius: 8, color: '#000', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}
+                    >
+                      ✓ Aceptar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : activeTab === 'active' ? (
           filteredOrders.length === 0 ? (
             <div className="empty-state">
               <p>No hay pedidos activos</p>

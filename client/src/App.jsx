@@ -39,6 +39,10 @@ import LeonIA from './pages/admin/LeonIA';
 import Tasks from './pages/admin/Tasks';
 import Inventory from './pages/admin/Inventory';
 import Procedures from './pages/admin/Procedures';
+import TableMap from './pages/admin/TableMap';
+import DeliveryLanding from './pages/DeliveryLanding';
+import DeliveryStore from './pages/DeliveryStore';
+import DeliveryConfig from './pages/admin/DeliveryConfig';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import Store from './pages/Store';
@@ -182,6 +186,8 @@ function App() {
           <Route path="/store/:code" element={<Store />} />
           <Route path="/rate/:code" element={<Rate />} />
           <Route path="/survey/:code" element={<ClientSurvey />} />
+          <Route path="/delivery" element={<DeliveryLanding />} />
+          <Route path="/delivery/:code" element={<DeliveryStore />} />
           <Route path="/tv" element={<TvEntry />} />
           <Route path="/tv/:code" element={<TvDisplay />} />
           <Route path="/market/:code" element={<Minimarket />} />
@@ -221,6 +227,8 @@ function App() {
             <Route path="tasks" element={<Tasks />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="procedures" element={<Procedures />} />
+            <Route path="tables" element={<TableMap />} />
+            <Route path="delivery" element={<DeliveryConfig />} />
             <Route path="ratings" element={<Ratings />} />
             <Route path="survey-config" element={<SurveyConfig />} />
             <Route path="rappi" element={<RappiIntegration />} />
