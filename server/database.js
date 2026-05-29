@@ -5097,4 +5097,48 @@ export async function deleteRestaurantTable(id, storeId) {
   await pool.execute('DELETE FROM restaurant_tables WHERE id = ? AND store_id = ?', [id, storeId]);
 }
 
+// ─── Store Subdomain ──────────────────────────────────────────────────────────
+
+async function ensureSubdomainColumn() {
+  try {
+    const [cols] = await pool.execute('SHOW COLUMNS FROM stores');
+    if (!cols.map(c => c.Field).includes('subdomain')) {
+      await pool.execute('ALTER TABLE stores ADD COLUMN subdomain VARCHAR(100) UNIQUE DEFAULT NULL');
+      console.log('✅ Columna subdomain agregada a stores');
+    }
+  } catch (e) { console.warn('[subdomain migration]', e.message); }
+}
+
+export async function getStoreBySubdomain(subdomain) {
+  await ensureSubdomainColumn();
+  const [rows] = await pool.execute(
+    'SELECT id, code, name, logo_url FROM stores WHERE subdomain = ? LIMIT 1',
+    [subdomain.toLowerCase()]
+  );
+  return rows[0] || null;
+}
+
+export async function setStoreSubdomain(storeId, subdomain) {
+  await ensureSubdomainColumn();
+  const clean = subdomain.toLowerCase().replace(/[^a-z0-9-]/g, '');
+  const [conflict] = await pool.execute(
+    'SELECT id FROM stores WHERE subdomain = ? AND id != ?',
+    [clean, storeId]
+  );
+  if (conflict[0]) throw new Error('Ese subdominio ya está en uso por otra tienda');
+  await pool.execute('UPDATE stores SET subdomain = ? WHERE id = ?', [clean, storeId]);
+  return clean;
+}
+
+export async function clearStoreSubdomain(storeId) {
+  await ensureSubdomainColumn();
+  await pool.execute('UPDATE stores SET subdomain = NULL WHERE id = ?', [storeId]);
+}
+
+export async function getStoreSubdomain(storeId) {
+  await ensureSubdomainColumn();
+  const [rows] = await pool.execute('SELECT subdomain FROM stores WHERE id = ? LIMIT 1', [storeId]);
+  return rows[0]?.subdomain || null;
+}
+
 export { pool };

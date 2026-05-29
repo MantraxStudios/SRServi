@@ -602,6 +602,10 @@ function Layout() {
                     <FontAwesomeIcon icon={faMotorcycle} />
                     <span>Delivery</span>
                   </NavLink>
+                  <NavLink to="/admin/subdomain" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <span>🌐</span>
+                    <span>Subdominio</span>
+                  </NavLink>
                   <NavLink to="/admin/products" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faBox} />
                     <span>Productos</span>

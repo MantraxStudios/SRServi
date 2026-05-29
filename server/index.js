@@ -201,8 +201,13 @@ import {
   createDeliverySession,
   getDeliveryCustomerByToken,
   getPendingDeliveryOrders,
-  updateDeliveryOrderStatus
+  updateDeliveryOrderStatus,
+  getStoreBySubdomain,
+  setStoreSubdomain,
+  clearStoreSubdomain,
+  getStoreSubdomain
 } from './database.js';
+import { registerSubdomain, unregisterSubdomain } from './nginx-manager.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -11894,6 +11899,79 @@ app.get('/api/public/delivery-settings/:storeCode', async (req, res) => {
     const store = await getStoreByCode(req.params.storeCode.toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
     res.json(await getDeliverySettings(store.id) || {});
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Store Subdomains ─────────────────────────────────────────────────────────
+
+// Public: resolve subdomain → store
+app.get('/api/stores/by-subdomain/:subdomain', async (req, res) => {
+  try {
+    const subdomain = req.params.subdomain.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (!subdomain) return res.status(400).json({ error: 'Subdominio inválido' });
+    const store = await getStoreBySubdomain(subdomain);
+    if (!store) return res.status(404).json({ error: 'Subdominio no encontrado' });
+    res.json({ code: store.code, name: store.name, logo: store.logo_url });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: get current subdomain
+app.get('/api/stores/:id/subdomain', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const subdomain = await getStoreSubdomain(storeId);
+    const baseDomain = (() => { try { return new URL(process.env.BASE_URL || '').hostname.split('.').slice(1).join('.'); } catch { return 'srautomatic.com'; } })();
+    res.json({ subdomain, url: subdomain ? `https://${subdomain}.${baseDomain}` : null });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: set subdomain
+app.post('/api/stores/:id/subdomain', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const [owned] = await pool.execute('SELECT id, code FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+
+    const raw = (req.body.subdomain || '').toLowerCase().replace(/[^a-z0-9-]/g, '').trim();
+    if (!raw) return res.status(400).json({ error: 'Subdominio requerido' });
+    if (raw.length < 3) return res.status(400).json({ error: 'Mínimo 3 caracteres' });
+    if (raw.length > 40) return res.status(400).json({ error: 'Máximo 40 caracteres' });
+    const reserved = ['www', 'api', 'mail', 'smtp', 'ftp', 'admin', 'srservi2', 'app', 'static', 'cdn'];
+    if (reserved.includes(raw)) return res.status(400).json({ error: 'Subdominio reservado' });
+
+    // Release previous subdomain nginx config if exists
+    const prev = await getStoreSubdomain(storeId);
+    if (prev && prev !== raw) await unregisterSubdomain(prev);
+
+    const clean = await setStoreSubdomain(storeId, raw);
+    const nginxResult = await registerSubdomain(clean);
+
+    const baseDomain = (() => { try { return new URL(process.env.BASE_URL || '').hostname.split('.').slice(1).join('.'); } catch { return 'srautomatic.com'; } })();
+    res.json({
+      ok: true,
+      subdomain: clean,
+      url: `https://${clean}.${baseDomain}`,
+      nginx: nginxResult,
+      warning: nginxResult.dev ? 'Modo desarrollo: nginx no fue modificado' : (!nginxResult.ok ? `nginx: ${nginxResult.error}` : null)
+    });
+  } catch (e) {
+    if (e.message.includes('ya está en uso')) return res.status(409).json({ error: e.message });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: remove subdomain
+app.delete('/api/stores/:id/subdomain', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const prev = await getStoreSubdomain(storeId);
+    if (prev) await unregisterSubdomain(prev);
+    await clearStoreSubdomain(storeId);
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

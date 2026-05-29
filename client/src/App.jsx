@@ -43,6 +43,7 @@ import TableMap from './pages/admin/TableMap';
 import DeliveryLanding from './pages/DeliveryLanding';
 import DeliveryStore from './pages/DeliveryStore';
 import DeliveryConfig from './pages/admin/DeliveryConfig';
+import SubdomainConfig from './pages/admin/SubdomainConfig';
 import Minimarket from './pages/Minimarket';
 import Index from './pages/Index';
 import Store from './pages/Store';
@@ -70,6 +71,59 @@ import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 
 const TV_CODE_KEY = 'srservi_tv_code';
+const API_HOST = 'srservi2.srautomatic.com';
+
+// Detects if app is running on a store subdomain (e.g. mitienda.srautomatic.com)
+function getSubdomainInfo() {
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168')) return null;
+  const parts = hostname.split('.');
+  if (parts.length < 3) return null;
+  const apiParts = API_HOST.split('.');
+  const baseDomain = apiParts.slice(1).join('.');
+  if (!hostname.endsWith('.' + baseDomain)) return null;
+  const sub = parts[0];
+  if (sub === apiParts[0]) return null; // same as main app
+  return sub;
+}
+
+function SubdomainDelivery({ subdomain }) {
+  const [storeCode, setStoreCode] = useState(null);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    fetch(`https://${API_HOST}/api/stores/by-subdomain/${subdomain}`)
+      .then(r => r.json())
+      .then(d => { if (d.code) setStoreCode(d.code); else setNotFound(true); })
+      .catch(() => setNotFound(true));
+  }, [subdomain]);
+
+  if (notFound) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', fontFamily: 'sans-serif' }}>
+      <div style={{ textAlign: 'center', color: '#6b7280' }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🏪</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#111', marginBottom: 8 }}>Tienda no encontrada</div>
+        <div style={{ fontSize: 14 }}>El subdominio <strong>{subdomain}</strong> no está registrado.</div>
+      </div>
+    </div>
+  );
+
+  if (!storeCode) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb' }}>
+      <div style={{ color: '#D4AF37', fontWeight: 700, fontSize: 16 }}>Cargando tienda...</div>
+    </div>
+  );
+
+  // Render the delivery store app directly, providing the code via URL param emulation
+  return (
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Routes>
+        <Route path="*" element={<Navigate to={`/delivery/${storeCode}`} replace />} />
+        <Route path="/delivery/:code" element={<DeliveryStore />} />
+      </Routes>
+    </Router>
+  );
+}
 
 function TvEntry() {
   const navigate = useNavigate();
@@ -176,6 +230,9 @@ function PublicRoute({ children }) {
 }
 
 function App() {
+  const subdomain = getSubdomainInfo();
+  if (subdomain) return <SubdomainDelivery subdomain={subdomain} />;
+
   return (
     <AuthProvider>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -229,6 +286,7 @@ function App() {
             <Route path="procedures" element={<Procedures />} />
             <Route path="tables" element={<TableMap />} />
             <Route path="delivery" element={<DeliveryConfig />} />
+            <Route path="subdomain" element={<SubdomainConfig />} />
             <Route path="ratings" element={<Ratings />} />
             <Route path="survey-config" element={<SurveyConfig />} />
             <Route path="rappi" element={<RappiIntegration />} />
