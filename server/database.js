@@ -5285,9 +5285,8 @@ async function ensureRolesTables() {
       FOREIGN KEY (role_id) REFERENCES admin_roles(id) ON DELETE SET NULL
     )
   `);
-  // Migration: add plain_password if not exists
   try {
-    await pool.execute('ALTER TABLE admin_sub_accounts ADD COLUMN IF NOT EXISTS plain_password VARCHAR(255) DEFAULT NULL');
+    await pool.execute('ALTER TABLE admin_sub_accounts ADD COLUMN plain_password VARCHAR(255) DEFAULT NULL');
   } catch (_) {}
 }
 
