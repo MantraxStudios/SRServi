@@ -167,70 +167,63 @@ function Analytics() {
                   <FontAwesomeIcon icon={faTrophy} style={{ marginRight: 8, color: '#D4AF37' }} />
                   Días de Mayor Venta
                 </h3>
-                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginLeft: -4, marginRight: -4, paddingLeft: 4, paddingRight: 4 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(46px, 1fr))', gap: 6, minWidth: 340 }}>
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, minWidth: 300 }}>
                   {salesByDow.map((day, i) => {
                     const isBest = i === bestIdx;
                     const orderPct = (day.orders / maxOrders) * 100;
-                    const revPct   = (day.revenue / maxRev) * 100;
+                    const rev = Number(day.revenue) || 0;
+                    const revShort = rev >= 1000000
+                      ? `$${(rev/1000000).toFixed(1)}M`
+                      : rev >= 1000
+                        ? `$${(rev/1000).toFixed(rev >= 10000 ? 0 : 1)}k`
+                        : `$${Math.round(rev)}`;
                     return (
                       <div key={day.day_num} style={{
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                        background: isBest ? 'linear-gradient(160deg,#fffbeb,#fef3c7)' : '#f9fafb',
-                        border: isBest ? '2px solid #D4AF37' : '1px solid #e5e7eb',
-                        borderRadius: 14, padding: '14px 6px 10px',
-                        boxShadow: isBest ? '0 4px 16px rgba(212,175,55,0.25)' : 'none',
-                        position: 'relative', minWidth: 0,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                        background: isBest ? 'rgba(212,175,55,0.08)' : 'var(--muted)',
+                        border: isBest ? '1.5px solid rgba(212,175,55,0.45)' : '1px solid var(--border)',
+                        borderRadius: 12, padding: '10px 4px 8px',
+                        minWidth: 0, overflow: 'hidden',
                       }}>
-                        {isBest && (
-                          <span style={{
-                            position: 'absolute', top: -10,
-                            background: '#D4AF37', color: '#000',
-                            fontSize: 9, fontWeight: 900, padding: '2px 7px',
-                            borderRadius: 20, letterSpacing: '0.05em',
-                          }}>TOP</span>
-                        )}
-                        {/* Nombre del día */}
-                        <span style={{ fontSize: 11, fontWeight: 800, color: isBest ? '#92400e' : '#374151', textAlign: 'center', lineHeight: 1.2 }}>
-                          {day.day_name.slice(0, 3).toUpperCase()}
-                        </span>
-                        {/* Barra de pedidos */}
-                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                          <div style={{ width: '60%', height: 60, background: '#e5e7eb', borderRadius: 6, display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
-                            <div style={{
-                              width: '100%',
-                              height: `${orderPct}%`,
-                              background: isBest
-                                ? 'linear-gradient(180deg,#D4AF37,#a07c20)'
-                                : 'linear-gradient(180deg,#94a3b8,#64748b)',
-                              borderRadius: 6,
-                              transition: 'height 0.4s ease',
-                              minHeight: day.orders > 0 ? 4 : 0,
-                            }} />
-                          </div>
-                          <span style={{ fontSize: 13, fontWeight: 800, color: isBest ? '#92400e' : '#1e293b' }}>
-                            {day.orders}
+                        {/* Día + estrella si es el mejor */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: isBest ? '#D4AF37' : 'var(--muted-foreground)', lineHeight: 1 }}>
+                            {day.day_name.slice(0, 3).toUpperCase()}
                           </span>
-                          <span style={{ fontSize: 9, color: '#9ca3af', fontWeight: 600 }}>pedidos</span>
+                          {isBest && <span style={{ fontSize: 9, color: '#D4AF37', lineHeight: 1 }}>★</span>}
                         </div>
-                        {/* Ingresos */}
-                        <div style={{
-                          width: '100%', height: 4, background: '#e5e7eb', borderRadius: 4, overflow: 'hidden', marginTop: 2
-                        }}>
+
+                        {/* Barra */}
+                        <div style={{ width: '44%', height: 52, background: 'var(--border)', borderRadius: 4, display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
                           <div style={{
-                            height: '100%', width: `${revPct}%`,
-                            background: isBest ? '#D4AF37' : '#cbd5e1',
-                            borderRadius: 4, transition: 'width 0.4s ease',
+                            width: '100%', height: `${orderPct}%`,
+                            background: isBest ? 'linear-gradient(180deg,#D4AF37,#B8952D)' : 'linear-gradient(180deg,#94a3b8,#64748b)',
+                            borderRadius: 4, minHeight: day.orders > 0 ? 3 : 0,
+                            transition: 'height 0.4s ease',
                           }} />
                         </div>
-                        <span style={{ fontSize: 10, color: isBest ? '#92400e' : '#6b7280', fontWeight: 700, textAlign: 'center' }}>
-                          {formatCurrency(day.revenue)}
+
+                        {/* Número de pedidos */}
+                        <span style={{ fontSize: 14, fontWeight: 900, color: isBest ? '#D4AF37' : 'var(--foreground)', lineHeight: 1 }}>
+                          {day.orders}
+                        </span>
+
+                        {/* Ingresos abreviados — caben siempre */}
+                        <span style={{
+                          fontSize: 9, fontWeight: 700, lineHeight: 1,
+                          color: isBest ? 'rgba(212,175,55,0.75)' : 'var(--muted-foreground)',
+                          width: '100%', textAlign: 'center',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          paddingLeft: 2, paddingRight: 2,
+                        }}>
+                          {revShort}
                         </span>
                       </div>
                     );
                   })}
                 </div>
-                </div>{/* end scroll wrapper */}
+                </div>
               </div>
             );
           })()}
