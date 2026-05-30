@@ -135,61 +135,24 @@ function Analytics() {
       ) : (
         <>
           <div className="stats-grid" style={{ marginBottom: '32px' }}>
-            <div className="analytics-stat-card">
-              <div className="flex items-center gap-3" style={{ marginBottom: '12px' }}>
-                <div className="analytics-stat-icon revenue">
-                  <FontAwesomeIcon icon={faDollarSign} style={{ color: '#22c55e', fontSize: '20px' }} />
-                </div>
-                <div>
-                  <p className="analytics-stat-label">Ingresos</p>
-                  <p className="analytics-stat-value">
-                    {formatCurrency(summary?.revenue || 0)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="analytics-stat-card">
-              <div className="flex items-center gap-3" style={{ marginBottom: '12px' }}>
-                <div className="analytics-stat-icon orders">
-                  <FontAwesomeIcon icon={faShoppingCart} style={{ color: '#3b82f6', fontSize: '20px' }} />
-                </div>
-                <div>
-                  <p className="analytics-stat-label">Pedidos</p>
-                  <p className="analytics-stat-value">
-                    {summary?.totalOrders || 0}
-                  </p>
+            {[
+              { icon: faDollarSign, color: '#22c55e', cls: 'revenue', label: 'Ingresos', value: formatCurrency(summary?.revenue || 0) },
+              { icon: faShoppingCart, color: '#3b82f6', cls: 'orders', label: 'Pedidos', value: summary?.totalOrders || 0 },
+              { icon: faChartLine, color: 'var(--gold)', cls: 'average', label: 'Ticket Prom.', value: formatCurrency(summary?.avgOrder || 0) },
+              { icon: faClock, color: '#f59e0b', cls: 'pending', label: 'Pendientes', value: summary?.pendingOrders || 0 },
+            ].map(({ icon, color, cls, label, value }) => (
+              <div key={label} className="analytics-stat-card">
+                <div className="flex items-center gap-3">
+                  <div className={`analytics-stat-icon ${cls}`} style={{ flexShrink: 0 }}>
+                    <FontAwesomeIcon icon={icon} style={{ color, fontSize: '18px' }} />
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p className="analytics-stat-label">{label}</p>
+                    <p className="analytics-stat-value">{value}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div className="analytics-stat-card">
-              <div className="flex items-center gap-3" style={{ marginBottom: '12px' }}>
-                <div className="analytics-stat-icon average">
-                  <FontAwesomeIcon icon={faChartLine} style={{ color: 'var(--gold)', fontSize: '20px' }} />
-                </div>
-                <div>
-                  <p className="analytics-stat-label">Ticket Promedio</p>
-                  <p className="analytics-stat-value">
-                    {formatCurrency(summary?.avgOrder || 0)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="analytics-stat-card">
-              <div className="flex items-center gap-3" style={{ marginBottom: '12px' }}>
-                <div className="analytics-stat-icon pending">
-                  <FontAwesomeIcon icon={faClock} style={{ color: '#f59e0b', fontSize: '20px' }} />
-                </div>
-                <div>
-                  <p className="analytics-stat-label">Pendientes</p>
-                  <p className="analytics-stat-value">
-                    {summary?.pendingOrders || 0}
-                  </p>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
 
           {/* ── Días de mayor venta (Lun–Dom) ── */}
@@ -279,16 +242,18 @@ function Analytics() {
                 Ventas por Día
               </h3>
               {salesByDay.length > 0 ? (
-                <div className="analytics-chart">
-                  {salesByDay.map((day, index) => {
-                    const height = ((day.revenue || 0) / maxRevenue) * 100;
-                    return (
-                      <div key={index} className="analytics-chart-bar">
-                        <div className="analytics-bar" style={{ height: `${height}%` }} />
-                        <span className="analytics-bar-label">{formatDate(day.date)}</span>
-                      </div>
-                    );
-                  })}
+                <div style={{ overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+                  <div className="analytics-chart" style={{ minWidth: `${Math.max(salesByDay.length * 38, 200)}px` }}>
+                    {salesByDay.map((day, index) => {
+                      const height = ((day.revenue || 0) / maxRevenue) * 100;
+                      return (
+                        <div key={index} className="analytics-chart-bar">
+                          <div className="analytics-bar" style={{ height: `${height}%` }} />
+                          <span className="analytics-bar-label">{formatDate(day.date)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div className="empty-state">

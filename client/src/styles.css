@@ -5383,13 +5383,25 @@ html body .store-container .store-product-card * {
 .analytics-product-stats { display: flex; gap: 16px; font-size: 12px; color: var(--muted-foreground); }
 .analytics-header-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 @media (max-width: 640px) {
-  .analytics-container { padding: 14px; }
-  .analytics-header-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .analytics-container { padding: 12px; overflow-x: hidden; }
+  .analytics-header-row { flex-direction: column; align-items: flex-start; gap: 10px; }
   .analytics-date-filters { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
-  .analytics-date-btn { flex: 1 1 auto; text-align: center; padding: 8px 10px; font-size: 12px; min-width: 60px; }
-  .analytics-stat-value { font-size: 18px; }
-  .analytics-section { padding: 16px; }
-  .analytics-section-title { font-size: 15px; }
+  .analytics-date-btn { flex: 1 1 auto; text-align: center; padding: 8px 8px; font-size: 12px; min-width: 56px; }
+  .analytics-stat-card { padding: 12px; }
+  .analytics-stat-icon { width: 38px; height: 38px; flex-shrink: 0; }
+  .analytics-stat-value { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .analytics-stat-label { font-size: 11px; }
+  .analytics-section { padding: 14px; }
+  .analytics-section-title { font-size: 14px; margin-bottom: 14px; }
+  .analytics-top-products { grid-template-columns: 1fr; gap: 8px; }
+  .analytics-top-product { padding: 12px; gap: 10px; }
+  .analytics-grid-2-1 { gap: 12px; }
+}
+@media (max-width: 400px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .analytics-stat-card { padding: 10px 8px; }
+  .analytics-stat-icon { width: 32px; height: 32px; }
+  .analytics-stat-value { font-size: 14px; }
 }
 .market-error-banner { margin: 0 20px 20px; padding: 12px 20px; background-color: var(--danger-bg); border-radius: var(--radius-sm); display: flex; align-items: center; gap: 10px; color: #991b1b; }
 .market-success-overlay { background-color: var(--success); color: #fff; padding: 60px; border-radius: var(--radius-xl); text-align: center; }
