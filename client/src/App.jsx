@@ -120,12 +120,13 @@ function SubdomainDelivery({ subdomain }) {
     </div>
   );
 
-  // MemoryRouter keeps the browser URL as mitienda.srautomatic.com
-  // while React Router internally resolves /delivery/:code for useParams()
   return (
     <MemoryRouter initialEntries={[`/delivery/${storeCode}`]}>
       <Routes>
+        <Route path="/delivery/account" element={<DeliveryAccount />} />
+        <Route path="/delivery/track/:orderId" element={<DeliveryTrack />} />
         <Route path="/delivery/:code" element={<DeliveryStore />} />
+        <Route path="/delivery" element={<Navigate to={`/delivery/${storeCode}`} replace />} />
       </Routes>
     </MemoryRouter>
   );
