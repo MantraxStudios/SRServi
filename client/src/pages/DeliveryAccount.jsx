@@ -223,6 +223,36 @@ export default function DeliveryAccount() {
                     <div style={{ fontWeight: 900, fontSize: 17, color: '#D4AF37', flexShrink: 0 }}>${Number(order.total).toFixed(0)}</div>
                   </div>
 
+                  {/* Items del pedido */}
+                  {Array.isArray(order.items) && order.items.length > 0 && (
+                    <div style={{ margin: '12px 0', padding: '10px 12px', background: '#f9fafb', borderRadius: 10, border: '1px solid #f0f0f0' }}>
+                      {order.items.map((item, idx) => (
+                        <div key={idx} style={{ paddingBottom: idx < order.items.length - 1 ? 8 : 0, marginBottom: idx < order.items.length - 1 ? 8 : 0, borderBottom: idx < order.items.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <span style={{ fontWeight: 700, fontSize: 13, color: '#111' }}>
+                                {item.quantity}× {item.product_name}
+                              </span>
+                              {Array.isArray(item.selected_extras) && item.selected_extras.length > 0 && (
+                                <div style={{ fontSize: 11, color: '#D4AF37', marginTop: 2, fontWeight: 600 }}>
+                                  + {item.selected_extras.map(e => e.name || e).join(', ')}
+                                </div>
+                              )}
+                              {Array.isArray(item.selected_ingredients) && item.selected_ingredients.length > 0 && (
+                                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>
+                                  {item.selected_ingredients.map(i => i.name || i).join(', ')}
+                                </div>
+                              )}
+                            </div>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#374151', flexShrink: 0, marginLeft: 8 }}>
+                              ${(Number(item.unit_price) * Number(item.quantity)).toFixed(0)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: stLabel.color, background: stLabel.bg, padding: '4px 12px', borderRadius: 20 }}>
                       {stLabel.label}

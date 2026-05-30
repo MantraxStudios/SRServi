@@ -5095,7 +5095,12 @@ export async function getCustomerOrders(customerId) {
      ORDER BY o.created_at DESC LIMIT 30`,
     [customerId]
   );
-  return rows;
+  const orders = [];
+  for (const row of rows) {
+    const items = await getOrderItems(row.id);
+    orders.push({ ...row, items });
+  }
+  return orders;
 }
 
 export async function updateDeliveryCustomerProfile(customerId, name, phone) {
