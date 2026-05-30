@@ -1713,6 +1713,32 @@ export async function createStore(userId, data) {
     [storeId, vendorUsername, defaultPassword, 'Vendedor']
   );
 
+  const sampleProducts = [
+    { name: 'Hamburguesa Clásica', description: 'Jugosa hamburguesa con lechuga, tomate y queso', price: 8.99 },
+    { name: 'Pizza Margherita', description: 'Pizza con salsa de tomate, mozzarella y albahaca', price: 12.99 },
+    { name: 'Café Americano', description: 'Café negro intenso recién preparado', price: 2.50 },
+    { name: 'Refresco', description: 'Bebida fría de tu sabor favorito', price: 1.99 },
+    { name: 'Sándwich de Pollo', description: 'Pollo a la plancha con vegetales frescos', price: 7.50 },
+    { name: 'Hot Dog', description: 'Salchicha con mostaza, ketchup y cebolla', price: 4.99 },
+    { name: 'Papas Fritas', description: 'Papas crujientes con sal y especias', price: 3.50 },
+    { name: 'Ensalada César', description: 'Lechuga romana, crutones y aderezo César', price: 6.99 },
+    { name: 'Tacos (3 piezas)', description: 'Tacos con carne, cebolla y cilantro', price: 9.00 },
+    { name: 'Jugo Natural', description: 'Jugo exprimido al momento de frutas frescas', price: 3.99 },
+    { name: 'Agua Mineral', description: 'Agua purificada fría', price: 1.50 },
+    { name: 'Helado de Vainilla', description: 'Helado cremoso artesanal de vainilla', price: 3.00 },
+    { name: 'Sopa del Día', description: 'Sopa casera preparada con ingredientes frescos', price: 5.99 },
+    { name: 'Pasta Alfredo', description: 'Pasta con crema, mantequilla y parmesano', price: 10.99 },
+    { name: 'Pollo a la Plancha', description: 'Pechuga de pollo jugosa con guarnición', price: 11.50 },
+  ];
+
+  const shuffled = sampleProducts.sort(() => Math.random() - 0.5);
+  for (const product of shuffled.slice(0, 3)) {
+    await pool.execute(
+      'INSERT INTO products (store_id, user_id, category_id, name, description, price, image, has_extras, has_ingredients, max_extras, max_ingredients) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [storeId, userId, null, product.name, product.description, product.price, null, 0, 0, 0, 0]
+    );
+  }
+
   return {
     id: storeId,
     user_id: userId,
