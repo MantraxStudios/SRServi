@@ -215,6 +215,7 @@ export default function AttendanceAdmin() {
                   deletingId={deletingId}
                   onDelete={deletePerson}
                 />
+              )}
             </>
           )}
         </>
