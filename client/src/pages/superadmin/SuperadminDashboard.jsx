@@ -56,6 +56,7 @@ import {
   faSync,
   faInfoCircle,
   faUserSecret,
+  faThLarge,
 } from '@fortawesome/free-solid-svg-icons';
 
 function SuperadminDashboard() {
@@ -131,6 +132,7 @@ function SuperadminDashboard() {
   const [saOrderDetail, setSaOrderDetail] = useState(null);
   const [saOrderItems, setSaOrderItems] = useState([]);
   const [saDeleteConfirm, setSaDeleteConfirm] = useState(null);
+  const [userApps, setUserApps] = useState([]);
 
   const fetchSaOrders = async (filterOverride) => {
     setSaOrdersLoading(true);
@@ -334,6 +336,10 @@ function SuperadminDashboard() {
         return;
       } else if (activeTab === 'revenue') {
         await fetchSaRevenue();
+        return;
+      } else if (activeTab === 'apps') {
+        const res = await fetch(API + '/api/superadmin/user-apps', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (res.ok) setUserApps(await res.json());
         return;
       }
     } catch (error) {
@@ -786,6 +792,14 @@ function SuperadminDashboard() {
             <FontAwesomeIcon icon={faMoneyBillWave} />
             {sidebarOpen && <span>Ingresos</span>}
           </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'apps' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('apps'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faThLarge} />
+            {sidebarOpen && <span>Aplicaciones</span>}
+          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -849,7 +863,7 @@ function SuperadminDashboard() {
             </button>
             <div>
               <h1 className="admin-header-title">
-                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : activeTab === 'orders' ? 'Pedidos' : activeTab === 'revenue' ? 'Ingresos por Tienda' : 'Suscripciones'}
+                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : activeTab === 'orders' ? 'Pedidos' : activeTab === 'revenue' ? 'Ingresos por Tienda' : activeTab === 'apps' ? 'Aplicaciones por Cuenta' : 'Suscripciones'}
               </h1>
               <p className="admin-header-subtitle text-muted text-sm">
                 {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : activeTab === 'workshop' ? 'Revisa y aprueba plugins del workshop' : 'Ver todas las suscripciones'}
@@ -1977,7 +1991,137 @@ function SuperadminDashboard() {
                   </div>
                 )}
               </div>
-            ) : null}
+            ) : activeTab === 'apps' ? (() => {
+              const APP_COLS = [
+                { key: 'has_delivery', label: 'Delivery', emoji: '🛵' },
+                { key: 'has_tables', label: 'Mesas', emoji: '🍽️' },
+                { key: 'has_attendance', label: 'Asistencia', emoji: '📸' },
+                { key: 'has_workers', label: 'Vendedores', emoji: '👤' },
+                { key: 'has_cash_register', label: 'Caja', emoji: '💰' },
+                { key: 'has_tasks', label: 'Tareas', emoji: '✅' },
+                { key: 'has_procedures', label: 'Proced.', emoji: '📋' },
+                { key: 'has_coupons', label: 'Cupones', emoji: '🎫' },
+                { key: 'has_leon_ia', label: 'León IA', emoji: '🤖' },
+                { key: 'has_aforo', label: 'Aforo', emoji: '👥' },
+                { key: 'has_instagram', label: 'Instagram', emoji: '📷' },
+                { key: 'has_rappi', label: 'Rappi', emoji: '🟠' },
+                { key: 'has_pedidosya', label: 'PedidosYa', emoji: '🟡' },
+                { key: 'has_ubereats', label: 'UberEats', emoji: '⚫' },
+              ];
+
+              const filteredApps = userApps.filter(u =>
+                !searchTerm ||
+                u.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                u.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
+              );
+
+              const getScore = (u) => APP_COLS.filter(c => u[c.key] == 1).length;
+
+              return (
+                <div>
+                  {/* Summary bar */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 20 }}>
+                    {APP_COLS.map(col => {
+                      const count = userApps.filter(u => u[col.key] == 1).length;
+                      const pct = userApps.length ? Math.round(count / userApps.length * 100) : 0;
+                      return (
+                        <div key={col.key} style={{ background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 10, padding: '10px 12px' }}>
+                          <div style={{ fontSize: 18 }}>{col.emoji}</div>
+                          <div style={{ fontSize: 11, color: '#888', fontWeight: 600, marginTop: 2 }}>{col.label}</div>
+                          <div style={{ fontSize: 20, fontWeight: 900, color: '#111', lineHeight: 1.2 }}>{count}</div>
+                          <div style={{ fontSize: 10, color: pct >= 50 ? '#16a34a' : '#6b7280', fontWeight: 600 }}>{pct}% de cuentas</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {isMobile ? (
+                    <div className="sa-cards-list">
+                      {filteredApps.map(u => {
+                        const score = getScore(u);
+                        const active = APP_COLS.filter(c => u[c.key] == 1);
+                        return (
+                          <div key={u.user_id} className="sa-item-card">
+                            <div className="sa-item-card-top">
+                              <div className="sa-item-card-info">
+                                <div className="sa-item-card-title">{u.username}</div>
+                                <div className="sa-item-card-sub">{u.email}</div>
+                                {u.business_name && <div className="sa-item-card-sub">{u.business_name}</div>}
+                              </div>
+                              <span className="sa-apps-score" style={{ background: score >= 8 ? '#dcfce7' : score >= 4 ? '#fef9c3' : '#f3f4f6', color: score >= 8 ? '#166534' : score >= 4 ? '#854d0e' : '#6b7280' }}>
+                                {score}/{APP_COLS.length}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+                              {active.map(c => (
+                                <span key={c.key} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'rgba(34,197,94,0.1)', color: '#16a34a', fontWeight: 600 }}>
+                                  {c.emoji} {c.label}
+                                </span>
+                              ))}
+                              {active.length === 0 && <span style={{ fontSize: 11, color: '#aaa' }}>Sin apps activas</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {filteredApps.length === 0 && (
+                        <div className="empty-state">
+                          <FontAwesomeIcon icon={faThLarge} className="empty-state-icon" />
+                          <div>No se encontraron cuentas</div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="sa-apps-table">
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: 'left', minWidth: 140 }}>Usuario</th>
+                            <th style={{ textAlign: 'left', minWidth: 180 }}>Email</th>
+                            <th style={{ minWidth: 60 }}>Score</th>
+                            {APP_COLS.map(c => (
+                              <th key={c.key} title={c.label}>{c.emoji}<br /><span style={{ fontWeight: 500 }}>{c.label}</span></th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredApps.map(u => {
+                            const score = getScore(u);
+                            return (
+                              <tr key={u.user_id}>
+                                <td>
+                                  <div style={{ fontWeight: 700, fontSize: 13 }}>{u.username}</div>
+                                  {u.business_name && <div style={{ fontSize: 11, color: '#888' }}>{u.business_name}</div>}
+                                </td>
+                                <td style={{ fontSize: 12, color: '#555' }}>{u.email}</td>
+                                <td>
+                                  <span className="sa-apps-score" style={{ background: score >= 8 ? '#dcfce7' : score >= 4 ? '#fef9c3' : '#f3f4f6', color: score >= 8 ? '#166534' : score >= 4 ? '#854d0e' : '#6b7280' }}>
+                                    {score}/{APP_COLS.length}
+                                  </span>
+                                </td>
+                                {APP_COLS.map(c => (
+                                  <td key={c.key}>
+                                    <span className={`sa-app-chip ${u[c.key] == 1 ? 'on' : 'off'}`}>
+                                      {u[c.key] == 1 ? '✓' : '·'}
+                                    </span>
+                                  </td>
+                                ))}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {filteredApps.length === 0 && (
+                        <div className="empty-state">
+                          <FontAwesomeIcon icon={faThLarge} className="empty-state-icon" />
+                          <div>No se encontraron cuentas</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })() : null}
           </div>
         </div>
       </div>

@@ -1264,53 +1264,51 @@ function WorkerPanel() {
       </header>
 
       <div className="worker-body">
-        {/* ── Sidebar vertical ── */}
-        <nav className="worker-sidebar">
-          <button
-            className={`worker-sidebar-item ${activeTab === 'active' ? 'active' : ''}`}
-            onClick={() => setActiveTab('active')}
-          >
-            <FontAwesomeIcon icon={faClock} />
-            <span>Pedidos</span>
-            {(orders.length + deliveryOrders.length) > 0 && <span className="worker-sidebar-badge">{orders.length + deliveryOrders.length}</span>}
-          </button>
-          <button
-            className={`worker-sidebar-item ${activeTab === 'completed' ? 'active' : ''}`}
-            onClick={() => setActiveTab('completed')}
-          >
-            <FontAwesomeIcon icon={faCheck} />
-            <span>Completados</span>
-            {completedOrders.length > 0 && <span className="worker-sidebar-badge">{completedOrders.length}</span>}
-          </button>
-          <button
-            className={`worker-sidebar-item ${activeTab === 'whatsapp' ? 'active' : ''}`}
-            onClick={() => setActiveTab('whatsapp')}
-          >
-            <span style={{ fontSize: 16 }}>💬</span>
-            <span>WhatsApp</span>
-            {whatsappOrders.length > 0 && <span className="worker-sidebar-badge">{whatsappOrders.length}</span>}
-          </button>
-          <div className="worker-sidebar-divider" />
-          <button
-            className={`worker-sidebar-item ${activeTab === 'tasks' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('tasks'); setTaskError(''); }}
-          >
-            <FontAwesomeIcon icon={faClipboardList} />
-            <span>Tareas</span>
-            {(() => { const n = tasks.filter(t => t.day_of_week === new Date().getDay() && !t.completed_at).length; return n > 0 ? <span className="worker-sidebar-badge">{n}</span> : null; })()}
-          </button>
-          <button
-            className={`worker-sidebar-item ${activeTab === 'procedures' ? 'active' : ''}`}
-            onClick={() => setActiveTab('procedures')}
-          >
-            <FontAwesomeIcon icon={faBook} />
-            <span>Guías</span>
-          </button>
-        </nav>
-
         {/* ── Contenido principal ── */}
         <div className="worker-main">
           <div className="worker-main-top">
+            <div className="worker-tab-bar">
+              <button
+                className={`worker-tab-btn ${activeTab === 'active' ? 'active' : ''}`}
+                onClick={() => setActiveTab('active')}
+              >
+                <FontAwesomeIcon icon={faClock} />
+                <span>Pedidos</span>
+                {(orders.length + deliveryOrders.length) > 0 && <span className="worker-tab-badge">{orders.length + deliveryOrders.length}</span>}
+              </button>
+              <button
+                className={`worker-tab-btn ${activeTab === 'completed' ? 'active' : ''}`}
+                onClick={() => setActiveTab('completed')}
+              >
+                <FontAwesomeIcon icon={faCheck} />
+                <span>Completados</span>
+                {completedOrders.length > 0 && <span className="worker-tab-badge">{completedOrders.length}</span>}
+              </button>
+              <button
+                className={`worker-tab-btn ${activeTab === 'whatsapp' ? 'active' : ''}`}
+                onClick={() => setActiveTab('whatsapp')}
+              >
+                <span>💬</span>
+                <span>WhatsApp</span>
+                {whatsappOrders.length > 0 && <span className="worker-tab-badge">{whatsappOrders.length}</span>}
+              </button>
+              <div className="worker-tab-bar-sep" />
+              <button
+                className={`worker-tab-btn ${activeTab === 'tasks' ? 'active' : ''}`}
+                onClick={() => { setActiveTab('tasks'); setTaskError(''); }}
+              >
+                <FontAwesomeIcon icon={faClipboardList} />
+                <span>Tareas</span>
+                {(() => { const n = tasks.filter(t => t.day_of_week === new Date().getDay() && !t.completed_at).length; return n > 0 ? <span className="worker-tab-badge">{n}</span> : null; })()}
+              </button>
+              <button
+                className={`worker-tab-btn ${activeTab === 'procedures' ? 'active' : ''}`}
+                onClick={() => setActiveTab('procedures')}
+              >
+                <FontAwesomeIcon icon={faBook} />
+                <span>Guías</span>
+              </button>
+            </div>
             <div className="worker-search">
               <FontAwesomeIcon icon={faSearch} className="worker-search-icon" />
               <input
@@ -1320,19 +1318,6 @@ function WorkerPanel() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            {activeTab !== 'tasks' && activeTab !== 'procedures' && activeTab !== 'whatsapp' && (
-              <div className="worker-filters">
-                {['all', 'pending', 'preparing', 'ready'].map(f => (
-                  <button
-                    key={f}
-                    className={`worker-filter-btn ${filter === f ? 'active' : ''}`}
-                    onClick={() => setFilter(f)}
-                  >
-                    {f === 'all' ? 'Todos' : f === 'pending' ? 'Pendiente' : f === 'preparing' ? 'Preparando' : 'Listo'}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
       <div className="worker-orders" style={activeTab === 'tasks' ? { padding: 0 } : undefined}>

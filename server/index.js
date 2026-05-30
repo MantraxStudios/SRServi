@@ -226,7 +226,8 @@ import {
   getPeopleCounterConfig,
   savePeopleCounterConfig,
   savePeopleCounterEvent,
-  getPeopleCounterStats
+  getPeopleCounterStats,
+  getUserApps
 } from './database.js';
 import { registerSubdomain, unregisterSubdomain } from './nginx-manager.js';
 
@@ -3755,6 +3756,15 @@ app.get('/api/superadmin/users', authenticateSuperadminToken, async (req, res) =
   try {
     const users = await getAllUsers();
     res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/superadmin/user-apps', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const data = await getUserApps();
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -3542,6 +3542,51 @@ export async function getAllUsers() {
   return rows;
 }
 
+export async function getUserApps() {
+  const [rows] = await pool.execute(`
+    SELECT
+      u.id AS user_id,
+      u.username,
+      u.email,
+      u.business_name,
+      u.last_active,
+      COUNT(DISTINCT s.id) AS store_count,
+      MAX(CASE WHEN w.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_workers,
+      MAX(CASE WHEN rt.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_tables,
+      MAX(CASE WHEN ap.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_attendance,
+      MAX(CASE WHEN ds.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_delivery,
+      MAX(CASE WHEN cr.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_cash_register,
+      MAX(CASE WHEN c.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_coupons,
+      MAX(CASE WHEN ig.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_instagram,
+      MAX(CASE WHEN ra.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_rappi,
+      MAX(CASE WHEN py.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_pedidosya,
+      MAX(CASE WHEN ue.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_ubereats,
+      MAX(CASE WHEN ai.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_leon_ia,
+      MAX(CASE WHEN pcc.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_aforo,
+      MAX(CASE WHEN wp.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_procedures,
+      MAX(CASE WHEN t.store_id IS NOT NULL THEN 1 ELSE 0 END) AS has_tasks
+    FROM users u
+    LEFT JOIN stores s ON u.id = s.user_id
+    LEFT JOIN workers w ON s.id = w.store_id
+    LEFT JOIN restaurant_tables rt ON s.id = rt.store_id
+    LEFT JOIN attendance_persons ap ON s.id = ap.store_id
+    LEFT JOIN delivery_settings ds ON s.id = ds.store_id
+    LEFT JOIN cash_registers cr ON s.id = cr.store_id
+    LEFT JOIN coupons c ON s.id = c.store_id
+    LEFT JOIN instagram_configs ig ON s.id = ig.store_id
+    LEFT JOIN rappi_config ra ON s.id = ra.store_id
+    LEFT JOIN pedidosya_config py ON s.id = py.store_id
+    LEFT JOIN ubereats_config ue ON s.id = ue.store_id
+    LEFT JOIN ai_config ai ON s.id = ai.store_id
+    LEFT JOIN people_counter_config pcc ON s.id = pcc.store_id
+    LEFT JOIN worker_procedures wp ON s.id = wp.store_id
+    LEFT JOIN tasks t ON s.id = t.store_id
+    GROUP BY u.id
+    ORDER BY u.last_active DESC
+  `);
+  return rows;
+}
+
 export async function updateUserHeartbeat(userId, country) {
   if (country) {
     await pool.execute('UPDATE users SET last_active = NOW(), country = ? WHERE id = ?', [country, userId]);

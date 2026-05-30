@@ -4149,6 +4149,43 @@ html body .store-container .store-product-card * {
   margin: 6px 4px;
 }
 
+/* ── Barra de tabs horizontal ── */
+.worker-tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.worker-tab-bar::-webkit-scrollbar { display: none; }
+
+.worker-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 11px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  white-space: nowrap;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.worker-tab-btn:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); }
+.worker-tab-btn.active { background: rgba(212,175,55,0.13); color: #D4AF37; }
+
+.worker-tab-bar-sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(255,255,255,0.1);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
 /* Wider sidebar on desktop */
 @media (min-width: 600px) {
   .worker-sidebar {
@@ -6114,8 +6151,12 @@ html body .store-container .store-product-card * {
   left: 0;
   height: 100vh;
   z-index: 1000;
+  overflow: hidden;
+}
+
+.admin-layout .sidebar-nav {
+  min-height: 0;
   overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .admin-layout .admin-sidebar.collapsed {
@@ -6760,6 +6801,72 @@ html body .store-container .store-product-card * {
 
 .modal-close-actions {
   margin-top: var(--space-5);
+}
+
+/* Apps matrix tab */
+.sa-apps-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.sa-apps-table th {
+  background: #f5f5f7;
+  padding: 8px 10px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 11px;
+  color: #555;
+  white-space: nowrap;
+  border-bottom: 2px solid #e0e0e0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.sa-apps-table th:first-child,
+.sa-apps-table th:nth-child(2) {
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.sa-apps-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  text-align: center;
+  vertical-align: middle;
+}
+.sa-apps-table td:first-child,
+.sa-apps-table td:nth-child(2) {
+  text-align: left;
+}
+.sa-apps-table tr:hover td {
+  background: #fafaf8;
+}
+.sa-app-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 12px;
+}
+.sa-app-chip.on {
+  background: rgba(34,197,94,0.15);
+  color: #16a34a;
+}
+.sa-app-chip.off {
+  background: rgba(0,0,0,0.04);
+  color: #d1d5db;
+}
+.sa-apps-score {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 12px;
 }
 
 /* Superadmin responsive */
