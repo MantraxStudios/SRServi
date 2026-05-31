@@ -49,6 +49,7 @@ import {
   faMoneyBill,
   faChair,
   faCamera,
+  faCalendarDay,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -616,6 +617,10 @@ function Layout() {
                   {can('ventas_mes', 'view') && <NavLink to="/admin/ventas-mes" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faMoneyBill} />
                     <span>Ventas del Mes</span>
+                  </NavLink>}
+                  {can('analytics', 'view') && <NavLink to="/admin/ventas-dia" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faCalendarDay} />
+                    <span>Ventas del Día</span>
                   </NavLink>}
                   {can('analytics', 'view') && <NavLink to="/admin/analytics" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faChartLine} />

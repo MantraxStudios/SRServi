@@ -72,6 +72,7 @@ import CCTV from './pages/admin/CCTV';
 import WhatsApp from './pages/admin/WhatsApp';
 import AttendanceAdmin from './pages/admin/AttendanceAdmin';
 import VentasDelMes from './pages/admin/VentasDelMes';
+import VentasDelDia from './pages/admin/VentasDelDia';
 import Attendance from './pages/Attendance';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
@@ -312,6 +313,7 @@ function App() {
             <Route path="whatsapp" element={<PermissionGate section="whatsapp"><WhatsApp /></PermissionGate>} />
             <Route path="attendance" element={<PermissionGate section="attendance"><AttendanceAdmin /></PermissionGate>} />
             <Route path="ventas-mes" element={<PermissionGate section="ventas_mes"><VentasDelMes /></PermissionGate>} />
+            <Route path="ventas-dia" element={<PermissionGate section="analytics"><VentasDelDia /></PermissionGate>} />
             <Route path="editor/:code" element={<Store />} />
           </Route>
           <Route path="/attendance/:storeCode" element={<Attendance />} />

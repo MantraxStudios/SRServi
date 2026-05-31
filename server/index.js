@@ -223,6 +223,7 @@ import {
   getDeliveryOrderForTracking,
   updateDeliveryCustomerProfile,
   getOrderItems,
+  getDailySales,
   getPeopleCounterConfig,
   savePeopleCounterConfig,
   savePeopleCounterEvent,
@@ -2664,6 +2665,20 @@ app.get('/api/analytics/recent-orders', authenticateToken, async (req, res) => {
     }
     const orders = await getRecentOrders(parseInt(storeId), limit);
     res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/analytics/ventas-dia', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    const date = req.query.date || new Date().toISOString().split('T')[0];
+    if (!storeId) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const data = await getDailySales(parseInt(storeId), date);
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
