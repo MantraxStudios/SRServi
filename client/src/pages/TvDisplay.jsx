@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import { SOCKET_URL } from '../config.js';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUtensils, faBell, faClock, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import NoSleep from 'nosleep.js';
@@ -85,7 +86,13 @@ function TvDisplay() {
     const interval = setInterval(fetchOrders, 5000);
     const timeInterval = setInterval(() => setTime(new Date()), 1000);
 
-    const socket = io();
+    const socket = io(SOCKET_URL);
+    socket.on('connect', () => {
+      socket.emit('presence_join', { store_code: code, panel: 'tv' });
+    });
+    socket.on('reconnect', () => {
+      socket.emit('presence_join', { store_code: code, panel: 'tv' });
+    });
     socket.on('order_status_updated', () => fetchOrders());
     socket.on('new_order', () => fetchOrders());
 

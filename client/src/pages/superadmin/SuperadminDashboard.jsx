@@ -57,10 +57,16 @@ import {
   faInfoCircle,
   faUserSecret,
   faThLarge,
+  faTv,
+  faDesktop,
+  faChair,
+  faUserTie,
+  faWifi,
 } from '@fortawesome/free-solid-svg-icons';
 
 function SuperadminDashboard() {
   const [activeTab, setActiveTab] = useState('users');
+  const [presence, setPresence] = useState({ sessions: [] });
   const [users, setUsers] = useState([]);
   const [stores, setStores] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
@@ -259,6 +265,10 @@ function SuperadminDashboard() {
       if (tk) fetch(API + '/api/superadmin/tickets', { headers: { Authorization: 'Bearer ' + tk } }).then(r => r.json()).then(d => { if (Array.isArray(d)) setTickets(d); }).catch(() => {});
       const current = selectedTicketRef.current;
       if (current) reloadTicketMsgs(current);
+    });
+
+    socket.on('presence_update', (data) => {
+      setPresence(data || { sessions: [] });
     });
 
     socket.on('superadmin_new_order', (data) => {
@@ -809,6 +819,24 @@ function SuperadminDashboard() {
             <FontAwesomeIcon icon={faThLarge} />
             {sidebarOpen && <span>Aplicaciones</span>}
           </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'screens' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('screens'); setMobileMenuOpen(false); }}
+            style={{ position: 'relative' }}
+          >
+            <FontAwesomeIcon icon={faDesktop} />
+            {sidebarOpen && <span>Pantallas</span>}
+            {presence.sessions.length > 0 && (
+              <span style={{
+                width: 8, height: 8, borderRadius: '50%', background: '#22c55e',
+                boxShadow: '0 0 6px #22c55e', flexShrink: 0,
+                marginLeft: sidebarOpen ? 'auto' : undefined,
+                position: sidebarOpen ? 'static' : 'absolute',
+                top: sidebarOpen ? undefined : 6, right: sidebarOpen ? undefined : 6
+              }} />
+            )}
+          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -872,7 +900,7 @@ function SuperadminDashboard() {
             </button>
             <div>
               <h1 className="admin-header-title">
-                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : activeTab === 'orders' ? 'Pedidos' : activeTab === 'revenue' ? 'Ingresos por Tienda' : activeTab === 'apps' ? 'Aplicaciones por Cuenta' : 'Suscripciones'}
+                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : activeTab === 'orders' ? 'Pedidos' : activeTab === 'revenue' ? 'Ingresos por Tienda' : activeTab === 'apps' ? 'Aplicaciones por Cuenta' : activeTab === 'screens' ? 'Pantallas Activas' : 'Suscripciones'}
               </h1>
               <p className="admin-header-subtitle text-muted text-sm">
                 {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : activeTab === 'workshop' ? 'Revisa y aprueba plugins del workshop' : 'Ver todas las suscripciones'}
@@ -2187,6 +2215,121 @@ function SuperadminDashboard() {
                         <div className="empty-state">
                           <FontAwesomeIcon icon={faThLarge} className="empty-state-icon" />
                           <div>No se encontraron cuentas</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })() : activeTab === 'screens' ? (() => {
+              const sessions = presence.sessions || [];
+              const totalStores = stores.length || 1;
+
+              const PANELS = [
+                { key: 'store', label: 'Store / Totem', icon: faStore, color: '#D4AF37', desc: 'Página pública del cliente' },
+                { key: 'worker', label: 'Worker Panel', icon: faUserTie, color: '#3b82f6', desc: 'Panel de trabajadores' },
+                { key: 'tv', label: 'Pantalla TV', icon: faTv, color: '#a855f7', desc: 'Display de pedidos para cocina' },
+                { key: 'totem', label: 'Tótem Asistencia', icon: faChair, color: '#22c55e', desc: 'Registro de asistencia facial' },
+              ];
+
+              // Count unique stores per panel
+              const uniqueStoresByPanel = {};
+              PANELS.forEach(p => {
+                uniqueStoresByPanel[p.key] = new Set(sessions.filter(s => s.panel === p.key).map(s => s.store_code));
+              });
+
+              // All unique active store codes
+              const allActiveStoreCodes = new Set(sessions.map(s => s.store_code));
+
+              // For each store in the stores list, which panels does it have active?
+              const storePresence = stores.map(store => {
+                const code = store.code;
+                const active = PANELS.filter(p => uniqueStoresByPanel[p.key].has(code)).map(p => p.key);
+                return { ...store, active_panels: active };
+              }).filter(s => s.active_panels.length > 0);
+
+              const totalActiveSessions = sessions.length;
+              const totalActiveStores = allActiveStoreCodes.size;
+
+              return (
+                <div>
+                  {/* Header stats */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', animation: 'pulse 2s infinite', flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, color: '#aaa' }}>
+                      <strong style={{ color: '#fff' }}>{totalActiveSessions}</strong> sesiones activas en <strong style={{ color: '#fff' }}>{totalActiveStores}</strong> tiendas ({totalStores > 0 ? Math.round(totalActiveStores / totalStores * 100) : 0}% del total)
+                    </span>
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: '#555' }}>Actualización en tiempo real vía socket</span>
+                  </div>
+
+                  {/* Panel summary cards */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
+                    {PANELS.map(panel => {
+                      const count = uniqueStoresByPanel[panel.key].size;
+                      const sessionCount = sessions.filter(s => s.panel === panel.key).length;
+                      const pct = totalStores > 0 ? Math.round(count / totalStores * 100) : 0;
+                      return (
+                        <div key={panel.key} style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${count > 0 ? panel.color + '44' : 'rgba(255,255,255,0.06)'}`, borderRadius: 14, padding: '16px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 8, background: count > 0 ? panel.color + '22' : '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <FontAwesomeIcon icon={panel.icon} style={{ color: count > 0 ? panel.color : '#555', fontSize: 14 }} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{panel.label}</div>
+                              <div style={{ fontSize: 10, color: '#666' }}>{panel.desc}</div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 28, fontWeight: 900, color: count > 0 ? panel.color : '#444', lineHeight: 1 }}>{count}</div>
+                          <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>tiendas activas {sessionCount !== count && `(${sessionCount} sesiones)`}</div>
+                          <div style={{ marginTop: 8, background: 'rgba(255,255,255,0.05)', borderRadius: 4, height: 4, overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: panel.color, borderRadius: 4, transition: 'width 0.5s ease' }} />
+                          </div>
+                          <div style={{ fontSize: 10, color: panel.color, fontWeight: 700, marginTop: 3 }}>{pct}% del total</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Live sessions list */}
+                  {storePresence.length === 0 ? (
+                    <div className="empty-state">
+                      <FontAwesomeIcon icon={faWifi} className="empty-state-icon" />
+                      <div>Sin pantallas activas en este momento</div>
+                      <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>Se actualizará automáticamente cuando alguna pantalla se conecte</div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize: 12, color: '#888', fontWeight: 600, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
+                        Tiendas con actividad — {storePresence.length}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {storePresence.map(store => (
+                          <div key={store.code} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{store.name || store.code}</div>
+                              <div style={{ fontSize: 11, color: '#666' }}>{store.user_email || store.code}</div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                              {PANELS.map(panel => {
+                                const active = store.active_panels.includes(panel.key);
+                                const sessionCount = sessions.filter(s => s.panel === panel.key && s.store_code === store.code).length;
+                                if (!active) return null;
+                                return (
+                                  <span key={panel.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: panel.color + '22', color: panel.color, border: `1px solid ${panel.color}44` }}>
+                                    <FontAwesomeIcon icon={panel.icon} style={{ fontSize: 10 }} />
+                                    {panel.label}{sessionCount > 1 ? ` ×${sessionCount}` : ''}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Stores without any active panel */}
+                      {totalStores - storePresence.length > 0 && (
+                        <div style={{ marginTop: 16, padding: '10px 14px', background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10, fontSize: 12, color: '#555' }}>
+                          {totalStores - storePresence.length} tienda{totalStores - storePresence.length !== 1 ? 's' : ''} sin actividad en este momento
                         </div>
                       )}
                     </div>

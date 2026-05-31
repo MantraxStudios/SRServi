@@ -267,19 +267,46 @@ app.use(express.json({ limit: '5mb' }));
 
 const userSockets = new Map();
 
+// ── Presence tracking ──────────────────────────────────────────────────────
+// socketId → { store_code, panel, connected_at, store_name? }
+const presenceMap = new Map();
+
+function buildPresenceSessions() {
+  return Array.from(presenceMap.values());
+}
+
+function broadcastPresence() {
+  io.emit('presence_update', { sessions: buildPresenceSessions() });
+}
+
 io.on('connection', (socket) => {
   console.log('Cliente conectado:', socket.id);
-  
+
   socket.on('register_store', (storeId) => {
     userSockets.set(storeId, socket.id);
     socket.storeId = storeId;
     socket.join(`store_${storeId}`);
     console.log(`Socket ${socket.id} registrado para tienda ${storeId} (room: store_${storeId})`);
   });
-  
+
+  socket.on('presence_join', ({ store_code, panel, store_name }) => {
+    if (!store_code || !panel) return;
+    presenceMap.set(socket.id, {
+      store_code: String(store_code).toUpperCase(),
+      panel,
+      store_name: store_name || null,
+      connected_at: Date.now()
+    });
+    broadcastPresence();
+  });
+
   socket.on('disconnect', () => {
     if (socket.storeId) {
       userSockets.delete(socket.storeId);
+    }
+    if (presenceMap.has(socket.id)) {
+      presenceMap.delete(socket.id);
+      broadcastPresence();
     }
     console.log('Cliente desconectado:', socket.id);
   });

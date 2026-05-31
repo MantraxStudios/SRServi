@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import * as faceapi from '@vladmandic/face-api';
+import { io } from 'socket.io-client';
 
 const API = 'https://srservi2.srautomatic.com';
 const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
@@ -78,6 +79,19 @@ export default function Attendance() {
     clearTimeout(resetTimer.current);
     resetTimer.current = setTimeout(reset, AUTO_RESET_MS);
   }, [reset]);
+
+  // Presence tracking
+  useEffect(() => {
+    if (!storeCode) return;
+    const socket = io(API);
+    socket.on('connect', () => {
+      socket.emit('presence_join', { store_code: storeCode, panel: 'totem' });
+    });
+    socket.on('reconnect', () => {
+      socket.emit('presence_join', { store_code: storeCode, panel: 'totem' });
+    });
+    return () => socket.disconnect();
+  }, [storeCode]);
 
   // Load face-api.js models
   useEffect(() => {

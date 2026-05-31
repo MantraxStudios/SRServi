@@ -502,6 +502,7 @@ function WorkerPanel() {
     socket.on('connect', () => {
       console.log('Socket conectado - recargando pedidos');
       socket.emit('register_store', parsedWorker.store_id);
+      socket.emit('presence_join', { store_code: parsedWorker.store_code, panel: 'worker', store_name: parsedWorker.store_name });
       fetchOrders(parsedWorker.store_id);
       fetchWhatsAppOrders(parsedWorker.store_id);
       fetchCashRegister();

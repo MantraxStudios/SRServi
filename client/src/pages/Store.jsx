@@ -909,6 +909,7 @@ function Store() {
       if (storeIdRef.current) {
         socket.emit('register_store', storeIdRef.current);
       }
+      socket.emit('presence_join', { store_code: code, panel: 'store' });
     });
 
     socket.on('reconnect', () => {
@@ -916,6 +917,7 @@ function Store() {
       if (storeIdRef.current) {
         socket.emit('register_store', storeIdRef.current);
       }
+      socket.emit('presence_join', { store_code: code, panel: 'store' });
     });
 
     socket.on('product_created', (product) => {
