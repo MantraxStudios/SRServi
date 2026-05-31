@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock, faBook } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock, faBook, faChair } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
 import WorkerNewOrder from '../components/WorkerNewOrder';
+import WorkerTableMap from '../components/WorkerTableMap';
 
 const DAY_NAMES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const DAY_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
@@ -1292,6 +1293,13 @@ function WorkerPanel() {
                 <span>WhatsApp</span>
                 {whatsappOrders.length > 0 && <span className="worker-tab-badge">{whatsappOrders.length}</span>}
               </button>
+              <button
+                className={`worker-tab-btn ${activeTab === 'mesas' ? 'active' : ''}`}
+                onClick={() => setActiveTab('mesas')}
+              >
+                <FontAwesomeIcon icon={faChair} />
+                <span>Mesas</span>
+              </button>
               <div className="worker-tab-bar-sep" />
               <button
                 className={`worker-tab-btn ${activeTab === 'tasks' ? 'active' : ''}`}
@@ -1320,7 +1328,7 @@ function WorkerPanel() {
             </div>
           </div>
 
-      <div className="worker-orders" style={activeTab === 'tasks' ? { padding: 0 } : undefined}>
+      <div className="worker-orders" style={activeTab === 'tasks' || activeTab === 'mesas' ? { padding: 0 } : undefined}>
         {activeTab === 'active' ? (
           (filteredOrders.length === 0 && deliveryOrders.length === 0) ? (
             <div className="empty-state">
@@ -1778,6 +1786,16 @@ function WorkerPanel() {
               tasksLoading={tasksLoading}
               getTaskStatus={getTaskStatus}
               getCountdown={getCountdown}
+            />
+          </div>
+        )}
+        {activeTab === 'mesas' && worker && (
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <WorkerTableMap
+              worker={worker}
+              storeId={worker.store_id}
+              storeCode={storeCode}
+              onOrderCreated={() => fetchOrders(worker.store_id)}
             />
           </div>
         )}

@@ -629,6 +629,25 @@ function SuperadminDashboard() {
     return true;
   });
 
+  const getActivityStatus = (date) => {
+    if (!date) return 'inactive';
+    const now = new Date();
+    const lastActive = new Date(date);
+    const diffMs = now - lastActive;
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 5) return 'online';
+    if (diffMins < 60) return 'recent';
+    if (diffMins < 1440) return 'today';
+    return 'inactive';
+  };
+
+  const premiumUserIds = new Set(
+    subscriptions
+      .filter(s => s.current_plan && s.current_plan !== 'Gratis' && s.current_is_active)
+      .map(s => s.user_id)
+  );
+
   const stats = {
     totalUsers: users.length,
     bannedUsers: users.filter(u => u.is_banned).length,
@@ -638,7 +657,10 @@ function SuperadminDashboard() {
     activeStores: stores.filter(s => !s.is_banned).length,
     storesActive7d: stores.filter(isStoreActive7d).length,
     storesActive30d: stores.filter(isStoreActive30d).length,
-    storesInactive: stores.filter(s => !s.last_order_at).length
+    storesInactive: stores.filter(s => !s.last_order_at).length,
+    usersActiveToday: users.filter(u => ['online', 'recent', 'today'].includes(getActivityStatus(u.last_active))).length,
+    usersWithStores: users.filter(u => u.store_count > 0).length,
+    usersPremium: users.filter(u => premiumUserIds.has(u.id)).length,
   };
 
   const formatLastActive = (date) => {
@@ -655,19 +677,6 @@ function SuperadminDashboard() {
     if (diffHours < 24) return `Hace ${diffHours}h`;
     if (diffDays < 7) return `Hace ${diffDays}d`;
     return lastActive.toLocaleDateString('es-ES');
-  };
-
-  const getActivityStatus = (date) => {
-    if (!date) return 'inactive';
-    const now = new Date();
-    const lastActive = new Date(date);
-    const diffMs = now - lastActive;
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 5) return 'online';
-    if (diffMins < 60) return 'recent';
-    if (diffMins < 1440) return 'today';
-    return 'inactive';
   };
 
   return (
@@ -917,7 +926,69 @@ function SuperadminDashboard() {
                 <div>Cargando datos...</div>
               </div>
             ) : activeTab === 'users' ? (
-              <div className="admin-table-wrapper">
+              <>
+                {/* Usage percentage summary */}
+                {users.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '20px', padding: '0 0 4px' }}>
+                    {[
+                      {
+                        label: 'Activos',
+                        value: stats.activeUsers,
+                        pct: Math.round(stats.activeUsers / stats.totalUsers * 100),
+                        color: '#22c55e',
+                        emoji: '✅',
+                      },
+                      {
+                        label: 'Activos hoy',
+                        value: stats.usersActiveToday,
+                        pct: Math.round(stats.usersActiveToday / stats.totalUsers * 100),
+                        color: '#3b82f6',
+                        emoji: '🟢',
+                      },
+                      {
+                        label: 'Con tiendas',
+                        value: stats.usersWithStores,
+                        pct: Math.round(stats.usersWithStores / stats.totalUsers * 100),
+                        color: '#D4AF37',
+                        emoji: '🏪',
+                      },
+                      {
+                        label: 'Premium',
+                        value: stats.usersPremium,
+                        pct: Math.round(stats.usersPremium / stats.totalUsers * 100),
+                        color: '#a855f7',
+                        emoji: '⭐',
+                      },
+                      {
+                        label: 'Baneados',
+                        value: stats.bannedUsers,
+                        pct: Math.round(stats.bannedUsers / stats.totalUsers * 100),
+                        color: '#ef4444',
+                        emoji: '🚫',
+                      },
+                    ].map(card => (
+                      <div
+                        key={card.label}
+                        style={{
+                          background: 'rgba(255,255,255,0.03)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          borderRadius: '12px',
+                          padding: '14px 12px',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <div style={{ fontSize: '16px', marginBottom: '2px' }}>{card.emoji}</div>
+                        <div style={{ fontSize: '26px', fontWeight: '800', color: card.color, lineHeight: 1 }}>{card.value}</div>
+                        <div style={{ fontSize: '11px', color: '#888', marginTop: '4px', fontWeight: '600' }}>{card.label}</div>
+                        <div style={{ marginTop: '6px', background: 'rgba(255,255,255,0.07)', borderRadius: '4px', height: '4px', overflow: 'hidden' }}>
+                          <div style={{ width: `${card.pct}%`, height: '100%', background: card.color, borderRadius: '4px', transition: 'width 0.4s ease' }} />
+                        </div>
+                        <div style={{ fontSize: '10px', color: card.color, fontWeight: '700', marginTop: '3px' }}>{card.pct}% del total</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="admin-table-wrapper">
                 {isMobile ? (
                   <div className="sa-cards-list">
                     {filteredUsers.map(user => {
@@ -1021,6 +1092,7 @@ function SuperadminDashboard() {
                   </>
                 )}
               </div>
+              </>
             ) : activeTab === 'stores' ? (
               <div>
                 {/* Activity summary cards */}

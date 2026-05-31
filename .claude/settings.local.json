@@ -112,7 +112,8 @@
       "Bash(Format-Table -AutoSize)",
       "Bash(findstr -i icon)",
       "Bash(git checkout *)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(dir -Recurse -Name \"*server*\" -Type f)"
     ]
   }
 }

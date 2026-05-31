@@ -739,6 +739,10 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE orders ADD COLUMN pos_pin VARCHAR(8) DEFAULT NULL');
         console.log('✅ Columna pos_pin agregada a orders');
       }
+      if (!orderColumnNames.includes('persons')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN persons INT DEFAULT NULL');
+        console.log('✅ Columna persons agregada a orders');
+      }
     } catch (orderMigrationError) {
       console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
     }
@@ -2784,7 +2788,7 @@ export async function generateUniqueOrderNumber(storeId) {
 }
 
 export async function createOrder(storeId, orderData) {
-  const { order_type, items, payment_method, coupon_code, table_number, delivery_address, delivery_customer_id, customer_email, customer_name } = orderData;
+  const { order_type, items, payment_method, coupon_code, table_number, delivery_address, delivery_customer_id, customer_email, customer_name, persons } = orderData;
   
   let subtotal = 0;
   items.forEach(item => {
@@ -2817,8 +2821,8 @@ export async function createOrder(storeId, orderData) {
   const finalPaymentProcess = isDeliveryApp ? 1 : paymentProcess;
 
   const [result] = await pool.execute(
-    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number, source, customer_phone, customer_name, delivery_address, delivery_status, delivery_customer_id, customer_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', finalCashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, finalPaymentProcess, finalStatus, table_number || null, orderData.source || null, orderData.customer_phone || null, customer_name || null, delivery_address || null, deliveryStatus, delivery_customer_id || null, customer_email || null]
+    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number, persons, source, customer_phone, customer_name, delivery_address, delivery_status, delivery_customer_id, customer_email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', finalCashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, finalPaymentProcess, finalStatus, table_number || null, persons || null, orderData.source || null, orderData.customer_phone || null, customer_name || null, delivery_address || null, deliveryStatus, delivery_customer_id || null, customer_email || null]
   );
   const orderId = result.insertId;
 

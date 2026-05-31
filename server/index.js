@@ -5278,7 +5278,7 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/orders', async (req, res) => {
   try {
-    const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number, custom_total, total, terminal_id,
+    const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number, persons, custom_total, total, terminal_id,
             source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone } = req.body;
 
     if (!store_id || !items || items.length === 0) {
@@ -5289,7 +5289,7 @@ app.post('/api/orders', async (req, res) => {
     const resolvedTotal = custom_total ?? total ?? null;
     console.log('Creating order:', { store_id, order_type, payment_method, table_number, terminal_id, resolvedTotal, source });
     const order = await createOrder(parseInt(store_id), {
-      order_type, payment_method, items, coupon_code, from_worker, delivery, table_number,
+      order_type, payment_method, items, coupon_code, from_worker, delivery, table_number, persons: persons || null,
       custom_total: resolvedTotal, terminal_id: terminal_id ? parseInt(terminal_id) : null,
       source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone
     });
@@ -11825,6 +11825,75 @@ app.get('/api/public/restaurant-tables/:storeCode', async (req, res) => {
     const store = await getStoreByCode(req.params.storeCode.toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
     res.json(await getRestaurantTablesWithStatus(store.id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Get active (pending) order for a specific table
+app.get('/api/public/table-order/:storeCode/:tableId', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.storeCode.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const tableId = parseInt(req.params.tableId);
+    const [rows] = await pool.execute(`
+      SELECT o.id, o.order_number, o.total, o.status, o.payment_method, o.created_at, o.table_number, o.persons
+      FROM orders o
+      WHERE o.store_id = ? AND o.table_number = ? AND o.status = 'pending'
+      ORDER BY o.created_at DESC LIMIT 1
+    `, [store.id, tableId]);
+    if (rows.length === 0) return res.json(null);
+    const order = rows[0];
+    const [itemRows] = await pool.execute(`
+      SELECT oi.id, oi.product_id, oi.quantity, oi.unit_price,
+             oi.selected_ingredients, oi.selected_extras, p.name as product_name
+      FROM order_items oi
+      JOIN products p ON p.id = oi.product_id
+      WHERE oi.order_id = ?
+    `, [order.id]);
+    order.items = itemRows.map(r => ({
+      ...r,
+      selected_ingredients: (() => { try { return JSON.parse(r.selected_ingredients || '[]'); } catch { return []; } })(),
+      selected_extras: (() => { try { return JSON.parse(r.selected_extras || '[]'); } catch { return []; } })()
+    }));
+    res.json(order);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Add items to an existing pending order
+app.post('/api/orders/:id/add-items', async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const { store_id, items } = req.body;
+    if (!store_id || !items || items.length === 0) return res.status(400).json({ error: 'Items requeridos' });
+    const [orderRows] = await pool.execute(
+      "SELECT * FROM orders WHERE id = ? AND store_id = ? AND status = 'pending'",
+      [orderId, store_id]
+    );
+    if (orderRows.length === 0) return res.status(404).json({ error: 'Pedido no encontrado o no está pendiente' });
+    let additionalTotal = 0;
+    for (const item of items) {
+      await pool.execute(
+        'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras) VALUES (?, ?, ?, ?, ?, ?)',
+        [orderId, item.product_id, item.quantity, item.unit_price,
+         JSON.stringify(item.selected_ingredients || []), JSON.stringify(item.selected_extras || [])]
+      );
+      additionalTotal += parseFloat(item.unit_price) * parseInt(item.quantity);
+    }
+    await pool.execute('UPDATE orders SET total = total + ? WHERE id = ?', [additionalTotal, orderId]);
+    const [updated] = await pool.execute('SELECT * FROM orders WHERE id = ?', [orderId]);
+    const [itemRows] = await pool.execute(`
+      SELECT oi.id, oi.product_id, oi.quantity, oi.unit_price,
+             oi.selected_ingredients, oi.selected_extras, p.name as product_name
+      FROM order_items oi JOIN products p ON p.id = oi.product_id
+      WHERE oi.order_id = ?
+    `, [orderId]);
+    const order = { ...updated[0], items: itemRows.map(r => ({
+      ...r,
+      selected_ingredients: (() => { try { return JSON.parse(r.selected_ingredients || '[]'); } catch { return []; } })(),
+      selected_extras: (() => { try { return JSON.parse(r.selected_extras || '[]'); } catch { return []; } })()
+    })) };
+    const socketId = userSockets.get(parseInt(store_id));
+    if (socketId) io.to(socketId).emit('order_updated', order);
+    res.json(order);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
