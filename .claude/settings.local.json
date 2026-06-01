@@ -113,7 +113,9 @@
       "Bash(findstr -i icon)",
       "Bash(git checkout *)",
       "Bash(python3 *)",
-      "Bash(dir -Recurse -Name \"*server*\" -Type f)"
+      "Bash(dir -Recurse -Name \"*server*\" -Type f)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)"
     ]
   }
 }

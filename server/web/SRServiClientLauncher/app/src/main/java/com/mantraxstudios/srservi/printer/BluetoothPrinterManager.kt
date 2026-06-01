@@ -157,6 +157,9 @@ class BluetoothPrinterManager(private val context: Context) {
     }
 
     private fun buildReceipt(order: Order): ByteArray {
+        if (order.orderType == "ticketeria") {
+            return buildTicketeriaReceipt(order)
+        }
         val builder = ReceiptBuilder(paperWidth)
 
         builder.initialize()
@@ -263,6 +266,100 @@ class BluetoothPrinterManager(private val context: Context) {
         return builder.build()
     }
 
+    private fun buildTicketeriaReceipt(order: Order): ByteArray {
+        val builder = ReceiptBuilder(paperWidth)
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        val showDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+
+        builder.initialize()
+
+        // Header
+        builder.alignCenter()
+        builder.setBold(true)
+        builder.setDoubleSize(true)
+        builder.addText("SRServi")
+        builder.setDoubleSize(false)
+        builder.addNewLine()
+        builder.setBold(false)
+        builder.addSeparator()
+
+        // Event name
+        if (!order.eventName.isNullOrBlank()) {
+            builder.setBold(true)
+            builder.setDoubleSize(true)
+            builder.addText(order.eventName)
+            builder.setDoubleSize(false)
+            builder.setBold(false)
+            builder.addNewLine()
+        }
+
+        // Show time
+        if (!order.showTime.isNullOrBlank()) {
+            try {
+                val showDate = showDateFormat.parse(order.showTime)
+                if (showDate != null) {
+                    val formatted = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(showDate)
+                    builder.addText("Fecha del show: $formatted")
+                } else {
+                    builder.addText("Fecha del show: ${order.showTime}")
+                }
+            } catch (_: Exception) {
+                builder.addText("Fecha del show: ${order.showTime}")
+            }
+            builder.addNewLine()
+        }
+
+        builder.addSeparator()
+
+        // Order info
+        builder.addText("Pedido: ${order.orderNumber}")
+        builder.addNewLine()
+        builder.addText("Comprado: ${dateFormat.format(Date())}")
+        builder.addNewLine()
+        builder.addSeparator()
+
+        // QR code (encoded from order number)
+        builder.addQrCode(order.orderNumber)
+        builder.addNewLine()
+
+        // Code text under QR
+        builder.setBold(true)
+        builder.addText("Cod: ${order.orderNumber}")
+        builder.setBold(false)
+        builder.addNewLine()
+        builder.addSeparator()
+
+        // Items purchased
+        builder.alignLeft()
+        builder.addText("Lo que compraste:")
+        builder.addNewLine()
+        builder.addNewLine()
+        for (item in order.items) {
+            builder.addText("${item.quantity}x ${item.productName}")
+            builder.addNewLine()
+            builder.alignRight()
+            builder.addText("$${String.format("%.2f", item.unitPrice * item.quantity)}")
+            builder.addNewLine()
+            builder.alignLeft()
+        }
+
+        builder.addSeparator()
+        builder.setBold(true)
+        builder.addLeftRight("TOTAL:", "$${String.format("%.2f", order.total)}")
+        builder.addNewLine()
+        builder.setBold(false)
+        builder.addSeparator()
+
+        builder.alignCenter()
+        builder.addText("Presentar QR en el ingreso")
+        builder.addNewLine()
+        builder.addNewLine()
+        builder.addNewLine()
+        builder.cut()
+
+        return builder.build()
+    }
+
     fun printTestPage() {
         val os = outputStream ?: return
 
@@ -355,6 +452,23 @@ class ReceiptBuilder(private val width: Int) {
             addText(right)
             alignLeft()
         }
+    }
+
+    fun addQrCode(data: String) {
+        val dataBytes = data.toByteArray(Charsets.UTF_8)
+        val dataLen = dataBytes.size + 3
+        val pL = (dataLen and 0xFF).toByte()
+        val pH = ((dataLen shr 8) and 0xFF).toByte()
+
+        // Set error correction level M
+        addBytes(byteArrayOf(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x31))
+        // Set module size (5 dots = ~5mm per module, good scan size)
+        addBytes(byteArrayOf(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x05))
+        // Store QR data
+        addBytes(byteArrayOf(0x1D, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30))
+        addBytes(dataBytes)
+        // Print QR
+        addBytes(byteArrayOf(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30))
     }
 
     fun cut() {

@@ -5306,7 +5306,7 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   try {
     const { store_id, items, order_type, payment_method, coupon_code, from_worker, delivery, table_number, persons, custom_total, total, terminal_id,
-            source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone } = req.body;
+            source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone, event_name, show_time } = req.body;
 
     if (!store_id || !items || items.length === 0) {
       return res.status(400).json({ error: 'Datos del pedido incompletos' });
@@ -5318,7 +5318,8 @@ app.post('/api/orders', async (req, res) => {
     const order = await createOrder(parseInt(store_id), {
       order_type, payment_method, items, coupon_code, from_worker, delivery, table_number, persons: persons || null,
       custom_total: resolvedTotal, terminal_id: terminal_id ? parseInt(terminal_id) : null,
-      source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone
+      source, delivery_address, delivery_customer_id, customer_email, customer_name, customer_phone,
+      event_name: event_name || null, show_time: show_time || null
     });
 
     const socketId = userSockets.get(parseInt(store_id));
@@ -5827,6 +5828,8 @@ app.get('/api/store/:code/orders', async (req, res) => {
         table_number: order.table_number ?? null,
         reprint_count: order.reprint_count || 0,
         service_type: order.order_type === 'takeout' ? 'llevar' : 'servir',
+        event_name: order.event_name || null,
+        show_time: order.show_time || null,
         items: items.map(item => ({
           id: item.id,
           product_id: item.product_id,
