@@ -11,6 +11,7 @@ import android.os.Build
 import androidx.core.app.ActivityCompat
 import com.mantraxstudios.srservi.model.Order
 import com.mantraxstudios.srservi.model.OrderItem
+import com.mantraxstudios.srservi.model.TicketPurchase
 import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
@@ -346,6 +347,107 @@ class BluetoothPrinterManager(private val context: Context) {
         builder.addSeparator()
         builder.setBold(true)
         builder.addLeftRight("TOTAL:", "$${String.format("%.2f", order.total)}")
+        builder.addNewLine()
+        builder.setBold(false)
+        builder.addSeparator()
+
+        builder.alignCenter()
+        builder.addText("Presentar QR en el ingreso")
+        builder.addNewLine()
+        builder.addNewLine()
+        builder.addNewLine()
+        builder.cut()
+
+        return builder.build()
+    }
+
+    fun addToQueueTicketPurchase(purchase: TicketPurchase) {
+        val os = outputStream ?: throw IOException("Impresora no conectada")
+        Thread {
+            try {
+                os.write(buildTicketPurchaseReceipt(purchase))
+                os.flush()
+                listener?.onPrintSuccess(purchase.viewerCode)
+            } catch (e: Exception) {
+                listener?.onPrintError(purchase.viewerCode, e.message ?: "Error")
+            }
+        }.start()
+    }
+
+    private fun buildTicketPurchaseReceipt(purchase: TicketPurchase): ByteArray {
+        val builder = ReceiptBuilder(paperWidth)
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+
+        builder.initialize()
+
+        // Header
+        builder.alignCenter()
+        builder.setBold(true)
+        builder.setDoubleSize(true)
+        builder.addText("SRServi")
+        builder.setDoubleSize(false)
+        builder.addNewLine()
+        builder.setBold(false)
+        builder.addSeparator()
+
+        // Nombre del evento
+        if (!purchase.eventName.isNullOrBlank()) {
+            builder.setBold(true)
+            builder.setDoubleSize(true)
+            builder.addText(purchase.eventName)
+            builder.setDoubleSize(false)
+            builder.setBold(false)
+            builder.addNewLine()
+        }
+
+        // Fecha del show
+        if (!purchase.showTime.isNullOrBlank()) {
+            try {
+                val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault())
+                val d = fmt.parse(purchase.showTime)
+                if (d != null) builder.addText("Fecha: ${dateFormat.format(d)}")
+                else builder.addText("Fecha: ${purchase.showTime}")
+            } catch (_: Exception) {
+                builder.addText("Fecha: ${purchase.showTime}")
+            }
+            builder.addNewLine()
+        }
+
+        builder.addSeparator()
+
+        // Código y fecha de compra
+        builder.addText("Cod: ${purchase.viewerCode}")
+        builder.addNewLine()
+        builder.addText("Compra: ${dateFormat.format(Date())}")
+        builder.addNewLine()
+        builder.addSeparator()
+
+        // QR — usa la URL completa para que sea escaneable
+        builder.addQrCode(purchase.qrUrl)
+        builder.addNewLine()
+        builder.alignCenter()
+        builder.setBold(true)
+        builder.addText(purchase.viewerCode)
+        builder.setBold(false)
+        builder.addNewLine()
+        builder.addSeparator()
+
+        // Detalle de entradas
+        builder.alignLeft()
+        builder.addText("Entradas:")
+        builder.addNewLine()
+        for (item in purchase.items) {
+            builder.addText("${item.quantity}x ${item.categoryName}")
+            builder.addNewLine()
+            builder.alignRight()
+            builder.addText("$${String.format("%.2f", item.unitPrice * item.quantity)}")
+            builder.addNewLine()
+            builder.alignLeft()
+        }
+
+        builder.addSeparator()
+        builder.setBold(true)
+        builder.addLeftRight("TOTAL:", "$${String.format("%.2f", purchase.totalAmount)}")
         builder.addNewLine()
         builder.setBold(false)
         builder.addSeparator()

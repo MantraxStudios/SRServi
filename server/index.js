@@ -12938,6 +12938,52 @@ app.get('/api/ticketeria/public/events/:id', async (req, res) => {
 });
 
 // ── Público: crear compra sin pasarela (para terminal POS físico) ────
+// Endpoint para el launcher Android — entrega compras de ticketería confirmadas del día
+app.get('/api/store/:code/ticket-purchases', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+
+    const [rows] = await pool.execute(
+      `SELECT tp.*, te.name AS event_name, te.event_date, te.time_start
+       FROM ticket_purchases tp
+       JOIN ticket_events te ON te.id = tp.event_id
+       WHERE tp.store_id = ? AND tp.status = 'paid'
+         AND tp.viewer_code IS NOT NULL
+         AND DATE(tp.paid_at) = CURDATE()
+       ORDER BY tp.paid_at DESC`,
+      [store.id]
+    );
+
+    const purchases = [];
+    for (const row of rows) {
+      const [items] = await pool.execute(
+        'SELECT * FROM ticket_purchase_items WHERE purchase_id = ?',
+        [row.id]
+      );
+      const showTime = row.event_date
+        ? `${String(row.event_date).slice(0, 10)}${row.time_start ? 'T' + String(row.time_start).slice(0, 5) : ''}`.replace(/T$/, '')
+        : null;
+      purchases.push({
+        id: row.id,
+        viewer_code: row.viewer_code,
+        qr_url: `${BASE_URL}/ticket/${row.viewer_code}`,
+        event_name: row.event_name || null,
+        show_time: showTime,
+        total_amount: parseFloat(row.total_amount || 0),
+        paid_at: row.paid_at,
+        items: items.map(i => ({
+          category_name: i.category_name,
+          quantity: i.quantity,
+          unit_price: parseFloat(i.unit_price || 0)
+        }))
+      });
+    }
+
+    res.json({ store: { code: store.code, name: store.name }, total: purchases.length, purchases });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/ticketeria/purchase/init', async (req, res) => {
   try {
     const { store_id, event_id, buyer_name, buyer_email, buyer_phone, items } = req.body;

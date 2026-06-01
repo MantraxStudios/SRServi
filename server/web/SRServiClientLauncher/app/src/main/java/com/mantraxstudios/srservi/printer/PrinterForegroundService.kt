@@ -34,6 +34,7 @@ class PrinterForegroundService : Service() {
         const val KEY_PRINTED_IDS = "printed_order_ids"
         const val KEY_REPRINT_COUNTS = "reprint_counts"
         const val KEY_PRINTER_ADDRESS = "printer_mac_address"
+        const val KEY_PRINTED_TICKET_IDS = "printed_ticket_purchase_ids"
         private const val POLL_INTERVAL = 3000L
 
         fun start(context: Context) {
@@ -244,12 +245,31 @@ class PrinterForegroundService : Service() {
                 }
 
                 val allToPrint = (toPrint + toReprint).distinctBy { it.id }
-                if (allToPrint.isEmpty()) return@Thread
 
                 // Marcar como impresos ANTES de encolar para evitar doble impresion
                 for (order in toPrint) printedIds.add(order.id)
                 prefs.edit().putString(KEY_PRINTED_IDS, printedIds.joinToString(",")).apply()
-                printerManager.addAllToQueue(allToPrint)
+                if (allToPrint.isNotEmpty()) printerManager.addAllToQueue(allToPrint)
+
+                // ── Ticket purchases de ticketería ──────────────────────
+                val ticketResponse = ApiService.fetchTicketPurchases(storeCode) ?: return@Thread
+
+                val printedTicketStr = prefs.getString(KEY_PRINTED_TICKET_IDS, "") ?: ""
+                val printedTicketIds = mutableSetOf<Int>()
+                if (printedTicketStr.isNotEmpty()) {
+                    printedTicketStr.split(",").forEach { s ->
+                        s.trim().toIntOrNull()?.let { printedTicketIds.add(it) }
+                    }
+                }
+
+                val ticketsToPrint = ticketResponse.purchases.filter { it.id !in printedTicketIds }
+                if (ticketsToPrint.isNotEmpty()) {
+                    for (purchase in ticketsToPrint) printedTicketIds.add(purchase.id)
+                    prefs.edit().putString(KEY_PRINTED_TICKET_IDS, printedTicketIds.joinToString(",")).apply()
+                    for (purchase in ticketsToPrint) {
+                        printerManager.addToQueueTicketPurchase(purchase)
+                    }
+                }
             } finally {
                 isFetching = false
             }
