@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faChair, faPlus, faMinus, faTrash, faArrowLeft,
@@ -8,11 +8,82 @@ import {
 import { getImageUrl } from '../config.js';
 
 const API = 'https://srservi2.srautomatic.com';
+const CANVAS_W = 900;
+const CANVAS_H = 540;
 
+// ── Table shape (read-only, same visual as admin) ──────────────────────────────
+function WorkerTableShape({ table, onClick }) {
+  const isCircle = table.shape === 'circle';
+  const occupied  = !!table.occupied;
+  const w = table.w || 80;
+  const h = isCircle ? w : (table.h || 60);
+
+  const borderColor = occupied ? '#f87171' : '#4ade80';
+  const bgColor     = occupied ? 'rgba(248,113,113,0.12)' : 'rgba(74,222,128,0.08)';
+  const glowColor   = occupied ? 'rgba(248,113,113,0.30)' : 'rgba(74,222,128,0.20)';
+  const labelSize   = Math.min(14, Math.max(9, w / 9));
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        position: 'absolute',
+        left: table.x ?? 0,
+        top: table.y ?? 0,
+        width: w,
+        height: h,
+        cursor: 'pointer',
+        userSelect: 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxSizing: 'border-box',
+        borderRadius: isCircle ? '50%' : '12px',
+        border: `2px solid ${borderColor}`,
+        background: bgColor,
+        boxShadow: `0 0 12px ${glowColor}, 0 3px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)`,
+        transition: 'transform 0.1s, box-shadow 0.15s',
+        zIndex: 1,
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.07)'; e.currentTarget.style.zIndex = 5; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)';    e.currentTarget.style.zIndex = 1; }}
+    >
+      {/* Status glow dot */}
+      <div style={{
+        position: 'absolute', top: 7, right: 8,
+        width: 7, height: 7, borderRadius: '50%',
+        background: occupied ? '#f87171' : '#4ade80',
+        boxShadow: `0 0 8px ${occupied ? '#f87171' : '#4ade80'}, 0 0 3px ${occupied ? '#f87171' : '#4ade80'}`,
+      }} />
+
+      <span style={{
+        fontSize: labelSize, fontWeight: 800, color: '#fff',
+        lineHeight: 1.2, textAlign: 'center', padding: '0 6px',
+        letterSpacing: 0.3, textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+      }}>
+        {table.label}
+      </span>
+      <span style={{
+        fontSize: Math.max(9, labelSize - 2),
+        color: occupied ? '#fca5a5' : 'rgba(255,255,255,0.5)',
+        marginTop: 3, fontWeight: 600,
+      }}>
+        {occupied ? 'OCUPADA' : `${table.capacity}p`}
+      </span>
+    </div>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
 export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCreated }) {
   // ── Tables ──
   const [tables, setTables] = useState([]);
   const [loadingTables, setLoadingTables] = useState(true);
+
+  // ── Canvas scale ──
+  const canvasWrapRef = useRef(null);
+  const [canvasScale, setCanvasScale] = useState(1);
 
   // ── Selected table + its active order ──
   const [selectedTable, setSelectedTable] = useState(null);
@@ -65,6 +136,28 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
     const iv = setInterval(fetchTables, 15000);
     return () => clearInterval(iv);
   }, [fetchTables]);
+
+  // ── Scale canvas to fit container ──
+  useEffect(() => {
+    if (!canvasWrapRef.current) return;
+    const calc = () => {
+      const w = canvasWrapRef.current?.offsetWidth ?? CANVAS_W;
+      setCanvasScale(Math.min(1, (w - 24) / CANVAS_W));
+    };
+    calc();
+    const obs = new ResizeObserver(calc);
+    obs.observe(canvasWrapRef.current);
+    return () => obs.disconnect();
+  }, [tables]); // recalc when tables load so ref is mounted
+
+  // ── Auto-layout tables that have no saved coordinates ──
+  const positionedTables = tables.map((t, i) => {
+    if (t.x != null && t.y != null) return t;
+    const cols = Math.ceil(Math.sqrt(tables.length));
+    const col  = i % cols;
+    const row  = Math.floor(i / cols);
+    return { ...t, x: 40 + col * 130, y: 40 + row * 110, w: 80, h: 60, shape: 'rect' };
+  });
 
   // ── Load product data (once) ──
   const loadData = async () => {
@@ -143,7 +236,7 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
   const addToCart = () => {
     if (!selectedProduct) return;
     const ingTotal = selIngredients.reduce((s, i) => s + parseFloat(i.price || 0), 0);
-    const exTotal = selExtras.reduce((s, e) => s + parseFloat(e.price || 0), 0);
+    const exTotal  = selExtras.reduce((s, e) => s + parseFloat(e.price || 0), 0);
     const unitPrice = parseFloat(selectedProduct.price) + ingTotal + exTotal;
     setCart(prev => [...prev, {
       id: Date.now(),
@@ -152,14 +245,14 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
       unit_price: unitPrice,
       quantity: qty,
       selected_ingredients: selIngredients.map(i => i.name),
-      selected_extras: selExtras.map(e => e.name)
+      selected_extras:      selExtras.map(e => e.name)
     }]);
     setSelectedProduct(null);
   };
 
   const removeCartItem = (id) => setCart(prev => prev.filter(i => i.id !== id));
 
-  const cartTotal = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0);
+  const cartTotal  = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0);
   const orderTotal = activeOrder ? parseFloat(activeOrder.total || 0) : 0;
 
   // ── Create new order for table ──
@@ -237,7 +330,7 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
     setSaving(false);
   };
 
-  // ── Complete table (mark order as completed) ──
+  // ── Complete table ──
   const handleCompleteTable = async () => {
     if (!activeOrder) return;
     const token = localStorage.getItem('workerToken');
@@ -258,90 +351,113 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
 
   // ── Filtered products for picker ──
   const filteredProducts = products.filter(p => {
-    const matchCat = pickerCategory === 'all' || p.category_id === pickerCategory;
+    const matchCat    = pickerCategory === 'all' || p.category_id === pickerCategory;
     const matchSearch = !pickerSearch || p.name.toLowerCase().includes(pickerSearch.toLowerCase());
     return matchCat && matchSearch;
   });
 
+  // ── Stats ──
+  const freeCount     = tables.filter(t => !t.occupied).length;
+  const occupiedCount = tables.filter(t =>  t.occupied).length;
+
   // ─────────────────────────────────────────────
-  // RENDER: no table selected → table grid
+  // RENDER: no table selected → canvas floor plan
   // ─────────────────────────────────────────────
   if (!selectedTable) {
     return (
-      <div style={{ padding: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>Mapa de Mesas</div>
-          <button
-            onClick={() => { setLoadingTables(true); fetchTables(); }}
-            style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 14 }}
-          >
-            <FontAwesomeIcon icon={faRefresh} />
-          </button>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+
+        {/* ── Header ── */}
+        <div style={{
+          padding: '12px 16px',
+          borderBottom: '1px solid #1a1a1a',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: '#0d0d0d', flexShrink: 0
+        }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: 0.3 }}>
+            Mapa de Mesas
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#4ade80' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80', display: 'inline-block', boxShadow: '0 0 5px #4ade80' }} />
+              <span>{freeCount} libre{freeCount !== 1 ? 's' : ''}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#f87171' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f87171', display: 'inline-block', boxShadow: '0 0 5px #f87171' }} />
+              <span>{occupiedCount} ocupada{occupiedCount !== 1 ? 's' : ''}</span>
+            </div>
+            <button
+              onClick={() => { setLoadingTables(true); fetchTables(); }}
+              style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 14, padding: 4, lineHeight: 1 }}
+            >
+              <FontAwesomeIcon icon={faRefresh} />
+            </button>
+          </div>
         </div>
 
-        {loadingTables ? (
-          <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>
-            <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 24 }} />
-          </div>
-        ) : tables.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>
-            <FontAwesomeIcon icon={faChair} style={{ fontSize: 32, marginBottom: 12, display: 'block' }} />
-            <div>No hay mesas configuradas</div>
-            <div style={{ fontSize: 12, marginTop: 4 }}>Configúralas desde el panel de administración</div>
-          </div>
-        ) : (
-          <>
-            <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#22c55e' }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
-                Libre
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#ef4444' }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
-                Ocupada
+        {/* ── Canvas area ── */}
+        <div ref={canvasWrapRef} style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
+          {loadingTables ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#888' }}>
+              <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 28 }} />
+            </div>
+          ) : tables.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#555' }}>
+              <FontAwesomeIcon icon={faChair} style={{ fontSize: 36, marginBottom: 14, display: 'block' }} />
+              <div style={{ fontSize: 14, color: '#666' }}>No hay mesas configuradas</div>
+              <div style={{ fontSize: 12, color: '#444', marginTop: 4 }}>
+                Configúralas desde el panel de administración
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
-              {tables.map(table => {
-                const occupied = !!table.occupied;
-                return (
-                  <button
+          ) : (
+            /* Scaled canvas wrapper */
+            <div style={{
+              position: 'relative',
+              width: CANVAS_W * canvasScale,
+              height: CANVAS_H * canvasScale,
+              margin: '0 auto',
+            }}>
+              {/* Inner canvas at native size, scaled down */}
+              <div style={{
+                position: 'absolute',
+                top: 0, left: 0,
+                width: CANVAS_W,
+                height: CANVAS_H,
+                transformOrigin: 'top left',
+                transform: `scale(${canvasScale})`,
+                background: '#0c0c14',
+                backgroundImage: 'radial-gradient(circle, #2a2a4a 1px, transparent 1px)',
+                backgroundSize: '32px 32px',
+                borderRadius: 14,
+                border: '1px solid #1a1a2e',
+                boxShadow: '0 4px 32px rgba(0,0,0,0.5)',
+                overflow: 'hidden',
+              }}>
+                {positionedTables.map(table => (
+                  <WorkerTableShape
                     key={table.id}
+                    table={table}
                     onClick={() => handleSelectTable(table)}
-                    style={{
-                      background: occupied ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.06)',
-                      border: `2px solid ${occupied ? '#ef4444' : '#22c55e'}`,
-                      borderRadius: 14,
-                      padding: '18px 12px',
-                      cursor: 'pointer',
-                      textAlign: 'center',
-                      transition: 'all 0.15s',
-                      position: 'relative'
-                    }}
-                  >
-                    <div style={{
-                      position: 'absolute', top: 8, right: 10,
-                      width: 10, height: 10, borderRadius: '50%',
-                      background: occupied ? '#ef4444' : '#22c55e',
-                      boxShadow: `0 0 6px ${occupied ? '#ef4444' : '#22c55e'}`
-                    }} />
-                    <FontAwesomeIcon
-                      icon={faChair}
-                      style={{ fontSize: 26, color: occupied ? '#ef4444' : '#22c55e', marginBottom: 8, display: 'block', margin: '0 auto 8px' }}
-                    />
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 2 }}>{table.label}</div>
-                    <div style={{ fontSize: 11, color: '#888' }}>
-                      <FontAwesomeIcon icon={faUsers} style={{ marginRight: 3 }} />
-                      {table.capacity}p
-                    </div>
-                    <div style={{ fontSize: 11, fontWeight: 600, marginTop: 6, color: occupied ? '#ef4444' : '#22c55e' }}>
-                      {occupied ? 'Ocupada' : 'Libre'}
-                    </div>
-                  </button>
-                );
-              })}
+                  />
+                ))}
+              </div>
             </div>
-          </>
+          )}
+        </div>
+
+        {/* ── Stats bar ── */}
+        {!loadingTables && tables.length > 0 && (
+          <div style={{
+            padding: '8px 16px',
+            borderTop: '1px solid #1a1a1a',
+            background: '#0d0d0d',
+            display: 'flex', gap: 20, flexShrink: 0,
+            fontSize: 12, color: '#666'
+          }}>
+            <span>Total: <strong style={{ color: '#aaa' }}>{tables.length}</strong></span>
+            <span style={{ color: '#4ade80' }}>Libres: <strong>{freeCount}</strong></span>
+            <span style={{ color: '#f87171' }}>Ocupadas: <strong>{occupiedCount}</strong></span>
+          </div>
         )}
       </div>
     );
@@ -450,11 +566,11 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
   // RENDER: Ingredient/extra config modal
   // ─────────────────────────────────────────────
   if (selectedProduct) {
-    const hasIngredients = (selectedProduct.ingredients || []).length > 0;
-    const hasExtras = (selectedProduct.extras || []).length > 0;
-    const ingPrice = selIngredients.reduce((s, i) => s + parseFloat(i.price || 0), 0);
-    const exPrice = selExtras.reduce((s, e) => s + parseFloat(e.price || 0), 0);
-    const totalUnitPrice = parseFloat(selectedProduct.price) + ingPrice + exPrice;
+    const hasIngredients  = (selectedProduct.ingredients || []).length > 0;
+    const hasExtras       = (selectedProduct.extras || []).length > 0;
+    const ingPrice        = selIngredients.reduce((s, i) => s + parseFloat(i.price || 0), 0);
+    const exPrice         = selExtras.reduce((s, e) => s + parseFloat(e.price || 0), 0);
+    const totalUnitPrice  = parseFloat(selectedProduct.price) + ingPrice + exPrice;
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -469,7 +585,6 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
-          {/* Steps nav */}
           {hasIngredients && hasExtras && (
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               {['ingredients', 'extras'].map(step => (
@@ -484,12 +599,11 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
             </div>
           )}
 
-          {/* Ingredients */}
           {(configStep === 'ingredients' || !hasIngredients) && hasIngredients && (
             <div>
               <div style={{ fontSize: 12, color: '#888', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Complementos</div>
               {(selectedProduct.ingredients || []).map(ing => {
-                const selected = selIngredients.find(i => i.name === ing.name);
+                const selected   = selIngredients.find(i => i.name === ing.name);
                 const outOfStock = !ing.unlimited_stock && ing.stock === 0;
                 return (
                   <button
@@ -519,12 +633,11 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
             </div>
           )}
 
-          {/* Extras */}
           {(configStep === 'extras' || !hasIngredients) && hasExtras && (
             <div>
               <div style={{ fontSize: 12, color: '#888', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Extras</div>
               {(selectedProduct.extras || []).map(ex => {
-                const selected = selExtras.find(e => e.name === ex.name);
+                const selected   = selExtras.find(e => e.name === ex.name);
                 const outOfStock = !ex.unlimited_stock && ex.stock === 0;
                 return (
                   <button
@@ -554,15 +667,12 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
             </div>
           )}
 
-          {/* If no complements/extras */}
           {!hasIngredients && !hasExtras && (
             <div style={{ textAlign: 'center', padding: 30, color: '#666' }}>Sin complementos ni extras</div>
           )}
         </div>
 
-        {/* Footer: quantity + add */}
         <div style={{ padding: '12px 16px', borderTop: '1px solid #222', background: '#0d0d0d', flexShrink: 0 }}>
-          {/* Step navigation */}
           {hasIngredients && hasExtras && configStep === 'ingredients' && (
             <button
               onClick={() => setConfigStep('extras')}
@@ -646,7 +756,6 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
           />
         </div>
 
-        {/* Loading order */}
         {loadingOrder && (
           <div style={{ padding: 20, textAlign: 'center', color: '#888' }}>
             <FontAwesomeIcon icon={faSpinner} spin />
@@ -654,7 +763,6 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
           </div>
         )}
 
-        {/* Active order items */}
         {!loadingOrder && activeOrder && (activeOrder.items || []).length > 0 && (
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #1a1a1a' }}>
             <div style={{ fontSize: 12, color: '#888', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 }}>
@@ -669,14 +777,10 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{item.product_name}</div>
                   {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients : []).length > 0 && (
-                    <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
-                      {item.selected_ingredients.join(', ')}
-                    </div>
+                    <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{item.selected_ingredients.join(', ')}</div>
                   )}
                   {(Array.isArray(item.selected_extras) ? item.selected_extras : []).length > 0 && (
-                    <div style={{ fontSize: 11, color: '#888' }}>
-                      + {item.selected_extras.join(', ')}
-                    </div>
+                    <div style={{ fontSize: 11, color: '#888' }}>+ {item.selected_extras.join(', ')}</div>
                   )}
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#D4AF37', flexShrink: 0 }}>
@@ -691,7 +795,6 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
           </div>
         )}
 
-        {/* Cart (new items being added) */}
         {cart.length > 0 && (
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #1a1a1a' }}>
             <div style={{ fontSize: 12, color: '#888', fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 }}>
@@ -726,7 +829,6 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
           </div>
         )}
 
-        {/* Empty state */}
         {!loadingOrder && !activeOrder && cart.length === 0 && (
           <div style={{ padding: 30, textAlign: 'center', color: '#555' }}>
             <FontAwesomeIcon icon={faUtensils} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
@@ -734,7 +836,6 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
           </div>
         )}
 
-        {/* Messages */}
         {savedMsg && (
           <div style={{ margin: '12px 16px', background: 'rgba(34,197,94,0.1)', border: '1px solid #22c55e', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 6 }}>
             <FontAwesomeIcon icon={faCheckCircle} />
@@ -771,7 +872,6 @@ export default function WorkerTableMap({ worker, storeId, storeCode, onOrderCrea
           </button>
         )}
 
-        {/* Grand total if both order and cart exist */}
         {activeOrder && cart.length > 0 && (
           <div style={{ fontSize: 12, color: '#888', textAlign: 'center' }}>
             Total acumulado: {currencySymbol}{fmt(orderTotal + cartTotal)}
