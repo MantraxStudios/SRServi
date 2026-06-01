@@ -62,13 +62,25 @@ function EventCard({ event, onSelect }) {
   );
 }
 
-function PurchaseForm({ event, storeId, onBack, onSuccess }) {
+// Obtener terminal POS guardado desde el Store
+function getSavedTerminal() {
+  const id = localStorage.getItem('srservi_last_terminal_id');
+  const provider = localStorage.getItem('srservi_last_terminal_provider') || '';
+  const name = localStorage.getItem('srservi_last_terminal_name') || '';
+  if (!id) return null;
+  return { id, provider, name };
+}
+
+function PurchaseForm({ event, storeId, storeCode, onBack }) {
   const [categories, setCategories] = useState([]);
   const [qtys, setQtys] = useState({});
   const [buyer, setBuyer] = useState({ name: '', email: '', phone: '' });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [posWaiting, setPosWaiting] = useState(false);   // esperando pago en terminal
+  const [posMessage, setPosMessage] = useState('');
+  const terminal = getSavedTerminal();
 
   useEffect(() => {
     fetch(`${API}/api/ticketeria/public/events/${event.id}`)
@@ -95,6 +107,48 @@ function PurchaseForm({ event, storeId, onBack, onSuccess }) {
     });
   };
 
+  const pollAndConfirm = (reference, paymentKey, provider) => {
+    const maxAttempts = 120; // 2 minutos a 1 seg
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        clearInterval(interval);
+        setPosWaiting(false);
+        setError('Tiempo de espera agotado. Intenta nuevamente.');
+        return;
+      }
+      try {
+        let statusData;
+        if (provider === 'tuu') {
+          const r = await fetch(`${API}/api/tuu/status/${paymentKey}`);
+          statusData = await r.json();
+          if (statusData.status === 'Completed') {
+            clearInterval(interval);
+            await fetch(`${API}/api/ticketeria/purchase/${reference}/confirm`, { method: 'POST' });
+            window.location.href = `/tickets/${storeCode}?ref=${reference}`;
+          } else if (['Canceled', 'Failed', 'Timeout'].includes(statusData.status)) {
+            clearInterval(interval);
+            setPosWaiting(false);
+            setError('Pago cancelado o rechazado en el terminal.');
+          }
+        } else if (provider === 'square') {
+          const r = await fetch(`${API}/api/plugins/payments/status/${encodeURIComponent(paymentKey)}`);
+          statusData = await r.json();
+          if (statusData.status === 'Completed') {
+            clearInterval(interval);
+            await fetch(`${API}/api/ticketeria/purchase/${reference}/confirm`, { method: 'POST' });
+            window.location.href = `/tickets/${storeCode}?ref=${reference}`;
+          } else if (['Canceled', 'Timeout'].includes(statusData.status)) {
+            clearInterval(interval);
+            setPosWaiting(false);
+            setError('Pago cancelado en el terminal.');
+          }
+        }
+      } catch { /* ignorar errores de red transitoria */ }
+    }, 2000);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (totalTickets === 0) { setError('Selecciona al menos una entrada'); return; }
@@ -103,19 +157,63 @@ function PurchaseForm({ event, storeId, onBack, onSuccess }) {
     setSubmitting(true);
     try {
       const items = categories.filter(c => qtys[c.id] > 0).map(c => ({ category_id: c.id, quantity: qtys[c.id] }));
+      const body = { store_id: storeId, event_id: event.id, buyer_name: buyer.name, buyer_email: buyer.email, buyer_phone: buyer.phone, items };
+
+      // ── Con terminal POS físico ──────────────────────────────────────
+      if (terminal && total > 0) {
+        const initRes = await fetch(`${API}/api/ticketeria/purchase/init`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        const initData = await initRes.json();
+        if (!initRes.ok) { setError(initData.error || 'Error creando compra'); return; }
+        if (initData.free) { window.location.href = `/tickets/${storeCode}?ref=${initData.reference}`; return; }
+
+        const { reference, totalAmount } = initData;
+        let chargeRes, chargeData;
+
+        if (terminal.provider === 'tuu') {
+          chargeRes = await fetch(`${API}/api/tuu/charge`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ store_id: storeId, amount: Math.round(totalAmount), description: `Entradas: ${event.name}`, terminal_id: parseInt(terminal.id) })
+          });
+          chargeData = await chargeRes.json();
+          if (!chargeData.success) { setError(chargeData.error || 'Error activando terminal TUU'); return; }
+          setPosMessage(`Cobrando $${totalAmount.toLocaleString('es-CL')} en ${terminal.name || 'terminal'}…`);
+          setPosWaiting(true);
+          pollAndConfirm(reference, chargeData.paymentKey, 'tuu');
+
+        } else if (terminal.provider === 'square') {
+          chargeRes = await fetch(`${API}/api/plugins/payments/charge`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ store_id: storeId, amount: totalAmount, description: `Entradas: ${event.name}`, terminal_id: parseInt(terminal.id), terminal_provider: 'square' })
+          });
+          chargeData = await chargeRes.json();
+          if (!chargeData.success) { setError(chargeData.error || 'Error activando terminal Square'); return; }
+          setPosMessage(`Cobrando $${totalAmount.toLocaleString('es-CL')} en ${terminal.name || 'terminal'}…`);
+          setPosWaiting(true);
+          pollAndConfirm(reference, chargeData.paymentKey, 'square');
+
+        } else {
+          // Proveedor no soportado → Haulmer como fallback
+          const res = await fetch(`${API}/api/ticketeria/purchase`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+          });
+          const data = await res.json();
+          if (!res.ok) { setError(data.error || 'Error'); return; }
+          window.location.href = data.paymentUrl;
+        }
+        return;
+      }
+
+      // ── Sin terminal: Haulmer online ─────────────────────────────────
       const res = await fetch(`${API}/api/ticketeria/purchase`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store_id: storeId, event_id: event.id, buyer_name: buyer.name, buyer_email: buyer.email, buyer_phone: buyer.phone, items })
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Error procesando compra'); return; }
-      // Entradas gratis: ir directo a confirmación sin pasarela
-      if (data.free) {
-        window.location.href = data.redirectUrl;
-        return;
-      }
+      if (data.free) { window.location.href = data.redirectUrl; return; }
       window.location.href = data.paymentUrl;
+
     } catch { setError('Error de conexión. Intenta nuevamente.'); }
     finally { setSubmitting(false); }
   };
@@ -123,6 +221,18 @@ function PurchaseForm({ event, storeId, onBack, onSuccess }) {
   const dateStr = new Date(event.event_date + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
   if (loading) return <div style={{ textAlign: 'center', padding: 40 }}><FontAwesomeIcon icon={faSpinner} spin style={{ color: GOLD, fontSize: 28 }} /></div>;
+
+  // Pantalla de espera cuando el POS está procesando
+  if (posWaiting) return (
+    <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+      <div style={{ width: 56, height: 56, border: `5px solid ${GOLD}30`, borderTopColor: GOLD, borderRadius: '50%', animation: 'spin .9s linear infinite', margin: '0 auto 20px' }} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <h3 style={{ color: '#111', marginBottom: 8 }}>Esperando pago en terminal</h3>
+      <p style={{ color: '#6b7280', fontSize: 14 }}>{posMessage}</p>
+      <p style={{ color: '#9ca3af', fontSize: 12, marginTop: 8 }}>El cliente debe pagar en el terminal POS. No cierres esta pantalla.</p>
+      {terminal && <p style={{ color: GOLD, fontSize: 13, fontWeight: 600, marginTop: 4 }}>Terminal: {terminal.name || terminal.id}</p>}
+    </div>
+  );
 
   return (
     <form onSubmit={handleSubmit}>
@@ -194,7 +304,7 @@ function PurchaseForm({ event, storeId, onBack, onSuccess }) {
         cursor: totalTickets === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10
       }}>
         {submitting ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faShoppingCart} />}
-        {submitting ? 'Redirigiendo...' : 'Pagar con Haulmer'}
+        {submitting ? 'Procesando...' : terminal && total > 0 ? `Cobrar en ${terminal.name || 'Terminal POS'}` : 'Pagar con Haulmer'}
       </button>
 
       <p style={{ textAlign: 'center', fontSize: 12, color: '#9ca3af', marginTop: 10 }}>
@@ -355,7 +465,7 @@ export default function TicketeriaPublic() {
             </button>
           </div>
         ) : selectedEvent ? (
-          <PurchaseForm event={selectedEvent} storeId={store?.id} onBack={() => setSelectedEvent(null)} onSuccess={() => {}} />
+          <PurchaseForm event={selectedEvent} storeId={store?.id} storeCode={storeCode} onBack={() => setSelectedEvent(null)} />
         ) : (
           <div>
             <h2 style={{ color: '#111', marginBottom: 4, fontSize: 22, fontWeight: 800 }}>

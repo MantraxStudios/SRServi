@@ -12879,6 +12879,56 @@ app.get('/api/ticketeria/public/events/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Público: crear compra sin pasarela (para terminal POS físico) ────
+app.post('/api/ticketeria/purchase/init', async (req, res) => {
+  try {
+    const { store_id, event_id, buyer_name, buyer_email, buyer_phone, items } = req.body;
+    if (!store_id || !event_id || !buyer_name || !buyer_email || !items?.length)
+      return res.status(400).json({ error: 'Campos requeridos: store_id, event_id, buyer_name, buyer_email, items' });
+
+    const [evRows] = await pool.execute("SELECT * FROM ticket_events WHERE id = ? AND status = 'active'", [parseInt(event_id)]);
+    if (!evRows[0]) return res.status(404).json({ error: 'Evento no disponible' });
+
+    let totalAmount = 0;
+    const resolvedItems = [];
+    for (const item of items) {
+      if (!item.category_id || !item.quantity || item.quantity < 1) continue;
+      const [cats] = await pool.execute('SELECT * FROM ticket_categories WHERE id = ? AND event_id = ?', [parseInt(item.category_id), parseInt(event_id)]);
+      if (!cats[0]) return res.status(400).json({ error: `Categoría ${item.category_id} no válida` });
+      const cat = cats[0];
+      const qty = parseInt(item.quantity);
+      resolvedItems.push({ category_id: cat.id, category_name: cat.name, quantity: qty, unit_price: cat.price, subtotal: cat.price * qty });
+      totalAmount += cat.price * qty;
+    }
+    if (!resolvedItems.length) return res.status(400).json({ error: 'Ningún ítem válido' });
+
+    const [storeRows] = await pool.execute('SELECT user_id, code FROM stores WHERE id = ?', [parseInt(store_id)]);
+    if (!storeRows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
+
+    const [purchaseResult] = await pool.execute(
+      'INSERT INTO ticket_purchases (store_id, event_id, buyer_name, buyer_email, buyer_phone, total_amount) VALUES (?,?,?,?,?,?)',
+      [parseInt(store_id), parseInt(event_id), buyer_name, buyer_email, buyer_phone || null, totalAmount]
+    );
+    const purchaseId = purchaseResult.insertId;
+    for (const item of resolvedItems) {
+      await pool.execute(
+        'INSERT INTO ticket_purchase_items (purchase_id, category_id, category_name, quantity, unit_price, subtotal) VALUES (?,?,?,?,?,?)',
+        [purchaseId, item.category_id, item.category_name, item.quantity, item.unit_price, item.subtotal]
+      );
+    }
+    const reference = `TKT-${purchaseId}-${Date.now()}`;
+    await pool.execute('UPDATE ticket_purchases SET haulmer_reference = ? WHERE id = ?', [reference, purchaseId]);
+
+    if (totalAmount === 0) {
+      await pool.execute("UPDATE ticket_purchases SET status = 'paid', paid_at = NOW() WHERE id = ?", [purchaseId]);
+      issueAndEmailTickets(purchaseId).catch(e => console.error('[Ticketería gratis]', e.message));
+      return res.json({ success: true, free: true, reference, purchaseId, totalAmount, storeId: parseInt(store_id) });
+    }
+
+    res.json({ success: true, reference, purchaseId, totalAmount, storeId: parseInt(store_id), eventName: evRows[0].name });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Público: iniciar compra con Haulmer ─────────────────────────────
 app.post('/api/ticketeria/purchase', async (req, res) => {
   try {
