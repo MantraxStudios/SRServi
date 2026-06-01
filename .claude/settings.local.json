@@ -115,7 +115,8 @@
       "Bash(python3 *)",
       "Bash(dir -Recurse -Name \"*server*\" -Type f)",
       "Bash(Select-Object Name, Mode)",
-      "Bash(Select-Object Name, PSIsContainer)"
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(PowerShell *)"
     ]
   }
 }

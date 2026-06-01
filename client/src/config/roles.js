@@ -15,6 +15,7 @@ export const SECTIONS = [
   { key: 'inventory',      label: 'Inventario',           icon: '🏭', group: 'Gestión',     actions: ['view', 'edit'] },
   { key: 'procedures',     label: 'Procedimientos',       icon: '📋', group: 'Gestión',     actions: ['view', 'edit', 'delete'] },
   { key: 'attendance',     label: 'Asistencia',           icon: '🕐', group: 'Gestión',     actions: ['view'] },
+  { key: 'loyalty',        label: 'Cliente Habitual',     icon: '⭐', group: 'Gestión',     actions: ['view', 'edit', 'delete'] },
   { key: 'coupons',        label: 'Cupones',              icon: '%',  group: 'Gestión',     actions: ['view', 'edit', 'delete'] },
   { key: 'whatsapp',       label: 'WhatsApp',             icon: '💬', group: 'Canales',     actions: ['view', 'edit'] },
   { key: 'canales',        label: 'Rappi / Instagram / TikTok', icon: '🌐', group: 'Canales', actions: ['view', 'edit'] },

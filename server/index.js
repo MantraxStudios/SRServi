@@ -229,7 +229,13 @@ import {
   savePeopleCounterConfig,
   savePeopleCounterEvent,
   getPeopleCounterStats,
-  getUserApps
+  getUserApps,
+  getLoyaltyConfig,
+  saveLoyaltyConfig,
+  getLoyalCustomers,
+  createLoyalCustomer,
+  incrementLoyalCustomerPurchases,
+  deleteLoyalCustomer
 } from './database.js';
 import { registerSubdomain, unregisterSubdomain } from './nginx-manager.js';
 
@@ -13148,6 +13154,83 @@ app.post('/api/ticketeria/purchase/:reference/confirm', async (req, res) => {
     const [rows] = await pool.execute('SELECT tp.*, te.name AS event_name FROM ticket_purchases tp JOIN ticket_events te ON te.id = tp.event_id WHERE tp.haulmer_reference = ?', [reference]);
     if (!rows[0]) return res.status(404).json({ error: 'No encontrado' });
     res.json(rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Loyalty System ──────────────────────────────────────────────────────────
+
+// Public: get loyalty config + customers for checkout (by store code)
+app.get('/api/public/:code/loyalty', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const [config, customers] = await Promise.all([
+      getLoyaltyConfig(store.id),
+      getLoyalCustomers(store.id)
+    ]);
+    res.json({ config, customers });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Public: register new loyal customer
+app.post('/api/public/:code/loyalty/register', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const { name, phone, face_descriptor, face_photo } = req.body;
+    if (!name || !face_descriptor) return res.status(400).json({ error: 'name y face_descriptor son requeridos' });
+    const id = await createLoyalCustomer(store.id, name, phone, face_descriptor, face_photo);
+    res.json({ id, name, phone: phone || null, purchase_count: 0 });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Public: record a purchase for a loyal customer
+app.post('/api/public/:code/loyalty/purchase/:customerId', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    await incrementLoyalCustomerPurchases(parseInt(req.params.customerId));
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: get loyalty config
+app.get('/api/loyalty/config', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const config = await getLoyaltyConfig(storeId);
+    res.json(config);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: save loyalty config
+app.put('/api/loyalty/config', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, enabled, discount_percentage, required_purchases } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    await saveLoyaltyConfig(store_id, enabled, discount_percentage, required_purchases);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: list loyal customers
+app.get('/api/loyalty/customers', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const customers = await getLoyalCustomers(storeId);
+    res.json(customers);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: delete loyal customer
+app.delete('/api/loyalty/customers/:id', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.body.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    await deleteLoyalCustomer(parseInt(req.params.id), storeId);
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

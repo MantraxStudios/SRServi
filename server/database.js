@@ -5690,4 +5690,95 @@ export async function getPeopleCounterStats(storeId, date) {
   return { date, total, hourly };
 }
 
+// ─── Loyalty System ───────────────────────────────────────────────────────────
+
+let _loyaltyReady = false;
+async function ensureLoyaltyTables() {
+  if (_loyaltyReady) return;
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS loyalty_config (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL UNIQUE,
+      enabled BOOLEAN DEFAULT FALSE,
+      discount_percentage DECIMAL(5,2) DEFAULT 10.00,
+      required_purchases INT DEFAULT 5,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_loyconf_store (store_id),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS loyal_customers (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      phone VARCHAR(50),
+      face_descriptor JSON NOT NULL,
+      face_photo MEDIUMTEXT,
+      purchase_count INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_loyal_store (store_id),
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+  _loyaltyReady = true;
+}
+
+export async function getLoyaltyConfig(storeId) {
+  await ensureLoyaltyTables();
+  const [rows] = await pool.execute(
+    'SELECT * FROM loyalty_config WHERE store_id = ?',
+    [storeId]
+  );
+  if (rows[0]) return rows[0];
+  return { store_id: storeId, enabled: false, discount_percentage: 10.00, required_purchases: 5 };
+}
+
+export async function saveLoyaltyConfig(storeId, enabled, discountPercentage, requiredPurchases) {
+  await ensureLoyaltyTables();
+  await pool.execute(`
+    INSERT INTO loyalty_config (store_id, enabled, discount_percentage, required_purchases)
+    VALUES (?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      enabled = VALUES(enabled),
+      discount_percentage = VALUES(discount_percentage),
+      required_purchases = VALUES(required_purchases)
+  `, [storeId, enabled ? 1 : 0, discountPercentage, requiredPurchases]);
+}
+
+export async function getLoyalCustomers(storeId) {
+  await ensureLoyaltyTables();
+  const [rows] = await pool.execute(
+    'SELECT id, name, phone, face_descriptor, face_photo, purchase_count, created_at FROM loyal_customers WHERE store_id = ? ORDER BY name ASC',
+    [storeId]
+  );
+  return rows.map(r => ({
+    ...r,
+    face_descriptor: typeof r.face_descriptor === 'string' ? JSON.parse(r.face_descriptor) : r.face_descriptor
+  }));
+}
+
+export async function createLoyalCustomer(storeId, name, phone, faceDescriptor, facePhoto) {
+  await ensureLoyaltyTables();
+  const [result] = await pool.execute(
+    'INSERT INTO loyal_customers (store_id, name, phone, face_descriptor, face_photo) VALUES (?, ?, ?, ?, ?)',
+    [storeId, name, phone || null, JSON.stringify(faceDescriptor), facePhoto || null]
+  );
+  return result.insertId;
+}
+
+export async function incrementLoyalCustomerPurchases(customerId) {
+  await pool.execute(
+    'UPDATE loyal_customers SET purchase_count = purchase_count + 1 WHERE id = ?',
+    [customerId]
+  );
+}
+
+export async function deleteLoyalCustomer(id, storeId) {
+  await pool.execute(
+    'DELETE FROM loyal_customers WHERE id = ? AND store_id = ?',
+    [id, storeId]
+  );
+}
+
 export { pool };

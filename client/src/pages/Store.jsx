@@ -54,6 +54,7 @@ import {
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
 import CameraModal from '../components/CameraModal';
+import LoyaltyCheckModal from '../components/LoyaltyCheckModal';
 import RecipeEditor from '../components/RecipeEditor';
 import {
   DndContext,
@@ -857,6 +858,10 @@ function Store() {
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponLoading, setCouponLoading] = useState(false);
+  const [loyaltyModalOpen, setLoyaltyModalOpen] = useState(false);
+  const [loyaltyCustomer, setLoyaltyCustomer] = useState(null);
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
+  const [loyaltyConfig, setLoyaltyConfig] = useState(null);
   const [pendingOrderData, setPendingOrderData] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
   const [configurations, setConfigurations] = useState([]);
@@ -1322,6 +1327,12 @@ function Store() {
     if (deliveryMode && lastOrderNumber) {
       downloadReceiptPng(lastOrderNumber, pendingOrderData?.order?.total);
     }
+    // Record loyalty purchase
+    if (loyaltyCustomer?.id) {
+      fetch(`${API}/api/public/${code}/loyalty/purchase/${loyaltyCustomer.id}`, { method: 'POST' }).catch(() => {});
+      setLoyaltyCustomer(null);
+      setLoyaltyDiscount(0);
+    }
     const toRatingTimer = setTimeout(() => {
       setPaymentConfirmed(false);
       setOrderRating(null);
@@ -1335,6 +1346,12 @@ function Store() {
     if (!cashPaymentSuccess) return;
     if (deliveryMode && lastOrderNumber) {
       downloadReceiptPng(lastOrderNumber, pendingOrderData?.order?.total);
+    }
+    // Record loyalty purchase
+    if (loyaltyCustomer?.id) {
+      fetch(`${API}/api/public/${code}/loyalty/purchase/${loyaltyCustomer.id}`, { method: 'POST' }).catch(() => {});
+      setLoyaltyCustomer(null);
+      setLoyaltyDiscount(0);
     }
     const toRatingTimer = setTimeout(() => {
       setCashPaymentSuccess(false);
@@ -1697,6 +1714,12 @@ function Store() {
       setCashRegisterOpen(data.cash_register_open !== false);
       if (data.top_selling) setTopSellingIds(data.top_selling);
 
+      // Fetch loyalty config (silently)
+      fetch(`/api/public/${code}/loyalty`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.config) setLoyaltyConfig(d.config); })
+        .catch(() => {});
+
       // Welcome/language modal disabled — no longer shown on page load
 
       const terminalsResponse = await fetch(`/api/public/${code}/pos-terminals`);
@@ -1888,7 +1911,7 @@ function Store() {
     setExtrasModalOpen(false);
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || loyaltyModalOpen;
 
   useEffect(() => {
     anyModalOpenRef.current = anyModalOpen;
@@ -2174,10 +2197,18 @@ function Store() {
     return Math.max(subtotal - discount, 0) * (tipPercent / 100);
   };
 
+  const getLoyaltyDiscountAmount = () => {
+    if (!loyaltyDiscount) return 0;
+    const subtotal = getCartTotal();
+    const couponDiscount = Number(appliedCoupon?.discount_total || 0);
+    return Math.round(Math.max(subtotal - couponDiscount, 0) * loyaltyDiscount / 100);
+  };
+
   const getCartSubtotal = () => {
     const subtotal = getCartTotal();
-    const discount = Number(appliedCoupon?.discount_total || 0);
-    return Math.max(subtotal - discount, 0);
+    const couponDiscount = Number(appliedCoupon?.discount_total || 0);
+    const loyalDiscountAmt = getLoyaltyDiscountAmount();
+    return Math.max(subtotal - couponDiscount - loyalDiscountAmt, 0);
   };
 
   const SQUARE_COMMISSION_RATE = 0.086;
@@ -2204,15 +2235,13 @@ function Store() {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     setCartOpen(false);
-    if (deliveryMode) {
-      const configTip = parseFloat(selectedConfiguration?.tip_percentage) || 0;
-      setTipPercent(configTip);
-      setTipEnabled(configTip > 0);
-      setPaymentModalOpen(true);
+    const configTip = parseFloat(selectedConfiguration?.tip_percentage) || 0;
+    setTipPercent(configTip);
+    setTipEnabled(configTip > 0);
+    // Show loyalty check if enabled and not already checked
+    if (!deliveryMode && loyaltyConfig?.enabled && !loyaltyCustomer && loyaltyDiscount === 0) {
+      setLoyaltyModalOpen(true);
     } else {
-      const configTip = parseFloat(selectedConfiguration?.tip_percentage) || 0;
-      setTipPercent(configTip);
-      setTipEnabled(configTip > 0);
       setPaymentModalOpen(true);
     }
   };
@@ -5133,6 +5162,12 @@ function Store() {
                     <span>-{colors.currency.symbol}{formatPrice(appliedCoupon.discount_total || 0)}</span>
                   </div>
                 )}
+                {loyaltyDiscount > 0 && loyaltyCustomer && (
+                  <div className="store-cart-summary-row store-cart-discount" style={{ color: '#16a34a' }}>
+                    <span>⭐ Descuento cliente habitual ({loyaltyDiscount}%)</span>
+                    <span>-{colors.currency.symbol}{formatPrice(getLoyaltyDiscountAmount())}</span>
+                  </div>
+                )}
                 <div className="store-cart-summary-total">
                   <span>{selectedTerminalProvider === 'square' ? t('subtotal', lang) : t('total', lang)}</span>
                   <span>{colors.currency.symbol}{formatPrice(getCartSubtotal())}</span>
@@ -5240,6 +5275,24 @@ function Store() {
           </div>
         )}
       </div>
+
+      {loyaltyModalOpen && (
+        <LoyaltyCheckModal
+          storeCode={code}
+          primaryColor={colors.primary}
+          accentColor={colors.accent}
+          onClose={() => {
+            setLoyaltyModalOpen(false);
+            setPaymentModalOpen(true);
+          }}
+          onResult={({ customer, discountPercent }) => {
+            setLoyaltyModalOpen(false);
+            setLoyaltyCustomer(customer || null);
+            setLoyaltyDiscount(discountPercent || 0);
+            setPaymentModalOpen(true);
+          }}
+        />
+      )}
 
       {paymentModalOpen && (
         <div className="modal-overlay">

@@ -676,6 +676,10 @@ function Layout() {
                     <FontAwesomeIcon icon={faUserClock} />
                     <span>Asistencia</span>
                   </NavLink>}
+                  {can('loyalty', 'view') && <NavLink to="/admin/loyalty" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faStar} />
+                    <span>Cliente Habitual</span>
+                  </NavLink>}
                   {can('coupons', 'view') && <NavLink to="/admin/coupons" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faPercent} />
                     <span>Cupones</span>

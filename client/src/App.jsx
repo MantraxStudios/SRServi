@@ -71,6 +71,7 @@ import CashRegisters from './pages/admin/CashRegisters';
 import CCTV from './pages/admin/CCTV';
 import WhatsApp from './pages/admin/WhatsApp';
 import AttendanceAdmin from './pages/admin/AttendanceAdmin';
+import LoyaltyConfig from './pages/admin/LoyaltyConfig';
 import VentasDelMes from './pages/admin/VentasDelMes';
 import VentasDelDia from './pages/admin/VentasDelDia';
 import Attendance from './pages/Attendance';
@@ -315,6 +316,7 @@ function App() {
             <Route path="cctv" element={<CCTV />} />
             <Route path="whatsapp" element={<PermissionGate section="whatsapp"><WhatsApp /></PermissionGate>} />
             <Route path="attendance" element={<PermissionGate section="attendance"><AttendanceAdmin /></PermissionGate>} />
+            <Route path="loyalty" element={<PermissionGate section="loyalty"><LoyaltyConfig /></PermissionGate>} />
             <Route path="ventas-mes" element={<PermissionGate section="ventas_mes"><VentasDelMes /></PermissionGate>} />
             <Route path="ventas-dia" element={<PermissionGate section="analytics"><VentasDelDia /></PermissionGate>} />
             <Route path="ticketeria" element={<Ticketeria />} />
