@@ -39,7 +39,10 @@ import {
   faFileExcel,
   faUpload,
   faEllipsisV,
-  faFlask
+  faFlask,
+  faTicket,
+  faCalendarAlt,
+  faStar
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -278,6 +281,8 @@ function Store() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const selectedProductRef = useRef(null);
   const [orderType, setOrderType] = useState('serve');
+  const [eventName, setEventName] = useState('');
+  const [showTime, setShowTime] = useState('');
   const [productConfig, setProductConfig] = useState({
     selectedIngredients: [],
     selectedExtras: [],
@@ -1735,6 +1740,9 @@ function Store() {
       selected_ingredients: item.selected_ingredients,
       selected_extras: item.selected_extras
     }));
+    const ticketData = orderType === 'ticketeria'
+      ? { event_name: eventName || null, show_time: showTime || null }
+      : {};
 
     try {
       // --- TUU POS nativo ---
@@ -1747,6 +1755,7 @@ function Store() {
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
+            ...ticketData,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null
           })
         });
@@ -1784,6 +1793,7 @@ function Store() {
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
+            ...ticketData,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null
           })
         });
@@ -1818,7 +1828,8 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: selectedMethod,
             items: cartItems, selected_terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
             coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null
+            table_number: tableNum ? parseInt(tableNum) : null,
+            ...ticketData
           })
         });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
@@ -1836,7 +1847,8 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null
+            table_number: tableNum ? parseInt(tableNum) : null,
+            ...ticketData
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -1869,7 +1881,8 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null
+            table_number: tableNum ? parseInt(tableNum) : null,
+            ...ticketData
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -1903,7 +1916,8 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null
+            table_number: tableNum ? parseInt(tableNum) : null,
+            ...ticketData
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -1937,6 +1951,7 @@ function Store() {
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
+            ...ticketData,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null
           })
         });
@@ -2091,7 +2106,8 @@ function Store() {
         body: JSON.stringify({
           store_id: storeId, order_type: orderType, payment_method: 'card',
           items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-          total: Number(finalTotal).toFixed(2), delivery: false, table_number: null, terminal_id: null
+          total: Number(finalTotal).toFixed(2), delivery: false, table_number: null, terminal_id: null,
+          ...(orderType === 'ticketeria' ? { event_name: eventName || null, show_time: showTime || null } : {})
         })
       });
       if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -4641,24 +4657,90 @@ function Store() {
 
         {cart.length > 0 && (
           <div className="store-cart-footer">
-            {selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout && (
+            {[selectedConfiguration?.allow_serve, selectedConfiguration?.allow_takeout, selectedConfiguration?.allow_ticketeria].filter(Boolean).length >= 2 && (
               <div className="store-cart-order-type">
                 <label className="store-cart-order-label">{t('orderType', lang)}</label>
-                <div className="store-cart-type-grid">
-                  <button
-                    onClick={() => setOrderType('serve')}
-                    className={`store-cart-type-btn${orderType === 'serve' ? ' active store-glow-pulse' : ''}`}
-                  >
-                    <FontAwesomeIcon icon={faBox} />
-                    <span>{t('serveHere', lang)}</span>
-                  </button>
-                  <button
-                    onClick={() => setOrderType('takeout')}
-                    className={`store-cart-type-btn${orderType === 'takeout' ? ' active store-glow-pulse' : ''}`}
-                  >
-                    <FontAwesomeIcon icon={faShoppingCart} />
-                    <span>{t('takeoutShort', lang)}</span>
-                  </button>
+                <div className={`store-cart-type-grid${selectedConfiguration?.allow_ticketeria && selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout ? ' three' : ''}`}>
+                  {selectedConfiguration?.allow_serve && (
+                    <button
+                      onClick={() => setOrderType('serve')}
+                      className={`store-cart-type-btn${orderType === 'serve' ? ' active store-glow-pulse' : ''}`}
+                    >
+                      <FontAwesomeIcon icon={faBox} />
+                      <span>{t('serveHere', lang)}</span>
+                    </button>
+                  )}
+                  {selectedConfiguration?.allow_takeout && (
+                    <button
+                      onClick={() => setOrderType('takeout')}
+                      className={`store-cart-type-btn${orderType === 'takeout' ? ' active store-glow-pulse' : ''}`}
+                    >
+                      <FontAwesomeIcon icon={faShoppingCart} />
+                      <span>{t('takeoutShort', lang)}</span>
+                    </button>
+                  )}
+                  {selectedConfiguration?.allow_ticketeria && (
+                    <button
+                      onClick={() => setOrderType('ticketeria')}
+                      className={`store-cart-type-btn store-cart-type-btn--ticket${orderType === 'ticketeria' ? ' active store-glow-pulse' : ''}`}
+                    >
+                      <FontAwesomeIcon icon={faTicket} />
+                      <span>Ticket</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {orderType === 'ticketeria' && (
+              <div className="store-ticket-panel">
+                <div className="store-ticket-panel-header">
+                  <span className="store-ticket-panel-icon">
+                    <FontAwesomeIcon icon={faTicket} />
+                  </span>
+                  <span>Información del Show</span>
+                  <span className="store-ticket-panel-stars">
+                    <FontAwesomeIcon icon={faStar} />
+                    <FontAwesomeIcon icon={faStar} />
+                    <FontAwesomeIcon icon={faStar} />
+                  </span>
+                </div>
+                <div className="store-ticket-panel-sep" />
+                <div className="store-ticket-panel-body">
+                  <div className="store-ticket-field">
+                    <label>
+                      <FontAwesomeIcon icon={faStar} style={{ fontSize: '8px', marginRight: '5px' }} />
+                      Nombre del show / evento
+                    </label>
+                    <input
+                      type="text"
+                      className="store-ticket-input"
+                      value={eventName}
+                      onChange={e => setEventName(e.target.value)}
+                      placeholder="Ej: Rock en Vivo 2026"
+                    />
+                  </div>
+                  <div className="store-ticket-field">
+                    <label>
+                      <FontAwesomeIcon icon={faCalendarAlt} style={{ fontSize: '10px', marginRight: '5px' }} />
+                      Fecha y hora del show
+                    </label>
+                    <input
+                      type="datetime-local"
+                      className="store-ticket-input store-ticket-input--datetime"
+                      value={showTime}
+                      onChange={e => setShowTime(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="store-ticket-panel-perforation">
+                  <span className="store-ticket-notch store-ticket-notch--left" />
+                  <div className="store-ticket-perf-line" />
+                  <span className="store-ticket-notch store-ticket-notch--right" />
+                </div>
+                <div className="store-ticket-panel-footer">
+                  <FontAwesomeIcon icon={faQrcode} />
+                  <span>Se generará QR al confirmar</span>
                 </div>
               </div>
             )}

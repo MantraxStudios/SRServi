@@ -3485,6 +3485,171 @@ html body .store-container .store-product-card * {
   color: #dc2626;
 }
 
+/* ── 3-column order type grid (for ticketeria) ── */
+.store-cart-type-grid.three {
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.store-cart-type-grid.three .store-cart-type-btn {
+  padding: 10px 6px;
+  font-size: 12px;
+  gap: 5px;
+}
+
+/* Ticket mode button */
+.store-cart-type-btn--ticket.active {
+  background: linear-gradient(135deg, #1a1a1a 0%, #111 100%);
+  border-color: var(--store-accent, #D4AF37);
+  color: var(--store-accent, #D4AF37);
+}
+
+/* ── Ticket info panel ── */
+@keyframes store-ticket-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.store-ticket-panel {
+  margin-bottom: 14px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1.5px solid var(--store-accent, #D4AF37);
+  background: var(--store-primary, #111);
+  box-shadow: 0 4px 20px rgba(212, 175, 55, 0.18), 0 1px 4px rgba(0,0,0,0.4);
+  animation: store-ticket-in 0.25s ease;
+}
+
+.store-ticket-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--store-accent, #D4AF37);
+  color: var(--store-primary, #000);
+  font-weight: 800;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+
+.store-ticket-panel-icon {
+  font-size: 15px;
+}
+
+.store-ticket-panel-stars {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  font-size: 8px;
+  opacity: 0.7;
+}
+
+.store-ticket-panel-sep {
+  height: 1px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--store-accent, #D4AF37) 0px,
+    var(--store-accent, #D4AF37) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  opacity: 0.4;
+  margin: 0;
+}
+
+.store-ticket-panel-body {
+  padding: 14px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.store-ticket-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.store-ticket-field label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--store-accent, #D4AF37);
+}
+
+.store-ticket-input {
+  width: 100%;
+  padding: 9px 11px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(212, 175, 55, 0.3);
+  border-radius: 8px;
+  color: var(--store-secondary, #fff);
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+  box-sizing: border-box;
+}
+
+.store-ticket-input:focus {
+  border-color: var(--store-accent, #D4AF37);
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.store-ticket-input::placeholder {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.store-ticket-input--datetime {
+  color-scheme: dark;
+}
+
+/* Perforation row */
+.store-ticket-panel-perforation {
+  display: flex;
+  align-items: center;
+  padding: 0 0;
+  margin: 4px 0 0;
+}
+
+.store-ticket-notch {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--card, #fff);
+  flex-shrink: 0;
+}
+
+.store-ticket-notch--left {
+  margin-left: -7px;
+}
+
+.store-ticket-notch--right {
+  margin-right: -7px;
+}
+
+.store-ticket-perf-line {
+  flex: 1;
+  height: 0;
+  border-top: 2px dashed rgba(212, 175, 55, 0.45);
+  margin: 0 4px;
+}
+
+.store-ticket-panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 14px 10px;
+  font-size: 11px;
+  color: rgba(212, 175, 55, 0.6);
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
 /* Legacy cart classes (kept for other pages) */
 .cart-drawer {
   position: fixed;

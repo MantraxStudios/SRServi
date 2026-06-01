@@ -1016,6 +1016,10 @@ async function migrateTables() {
       } else {
         console.log('ℹ️ Tabla store_configurations ya tiene columna allow_takeout');
       }
+      if (!configColNames.includes('allow_ticketeria')) {
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN allow_ticketeria BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna allow_ticketeria agregada a store_configurations');
+      }
       if (!configColNames.includes('hide_decimals')) {
         console.log('⚠️ Agregando columna hide_decimals a tabla store_configurations...');
         await pool.execute('ALTER TABLE store_configurations ADD COLUMN hide_decimals BOOLEAN NOT NULL DEFAULT FALSE');
@@ -2194,6 +2198,7 @@ export async function getStoreConfigurations(storeId) {
     is_minimarket: Boolean(row.is_minimarket),
     allow_serve: Boolean(row.allow_serve),
     allow_takeout: Boolean(row.allow_takeout),
+    allow_ticketeria: Boolean(row.allow_ticketeria),
     hide_decimals: Boolean(row.hide_decimals),
     allow_table_service: Boolean(row.allow_table_service),
     delivery_enabled: Boolean(row.delivery_enabled)
