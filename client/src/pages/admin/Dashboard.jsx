@@ -10,17 +10,71 @@ import {
   faPlus,
   faCog,
   faDesktop,
-  faDownload
+  faDownload,
+  faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useStore } from '../../components/Layout';
+
+const API = 'https://srservi2.srautomatic.com';
 
 function Dashboard() {
   const { user, token } = useAuth();
   const { selectedStore, storeLoading } = useStore();
   if (!storeLoading && selectedStore) return <Navigate to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`} replace />;
   if (!storeLoading && !selectedStore) return <Navigate to="/admin/stores" replace />;
+
+  const [buildState, setBuildState] = useState({ status: 'idle', progress: '' });
+
+  const handleDownloadApp = async () => {
+    if (buildState.status === 'building') return;
+    const storeCode = selectedStore?.code || user?.code;
+    if (!storeCode) return alert('No hay código de tienda');
+
+    setBuildState({ status: 'building', progress: 'Iniciando compilación...' });
+    try {
+      const res = await fetch(`${API}/api/apps/android/build`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appName: 'launcher', storeCode })
+      });
+      const data = await res.json();
+      if (!res.ok) { setBuildState({ status: 'error', progress: data.error }); return; }
+
+      const download = (jobId) => {
+        const params = new URLSearchParams({ appName: 'launcher', storeCode });
+        if (jobId) params.set('jobId', jobId);
+        fetch(`${API}/api/apps/android/download?${params}`, { headers: { Authorization: 'Bearer ' + token } })
+          .then(r => r.blob())
+          .then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `SRServi-${storeCode}.apk`;
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+            setBuildState({ status: 'idle', progress: '' });
+          })
+          .catch(() => setBuildState({ status: 'error', progress: 'Error al descargar' }));
+      };
+
+      if (data.cached || data.status === 'done') { download(null); return; }
+
+      const jobId = data.jobId;
+      setBuildState({ status: 'building', progress: 'Compilando APK...' });
+      const poll = async () => {
+        try {
+          const sr = await fetch(`${API}/api/apps/android/status/${jobId}`, { headers: { Authorization: 'Bearer ' + token } });
+          const st = await sr.json();
+          if (st.status === 'done') { download(jobId); }
+          else if (st.status === 'error') { setBuildState({ status: 'error', progress: st.error }); }
+          else { setBuildState({ status: 'building', progress: st.progress }); setTimeout(poll, 4000); }
+        } catch { setTimeout(poll, 6000); }
+      };
+      setTimeout(poll, 4000);
+    } catch { setBuildState({ status: 'error', progress: 'Error de conexión' }); }
+  };
+
   const [stats, setStats] = useState({
     products: 0,
     categories: 0,
@@ -209,20 +263,25 @@ function Dashboard() {
                 </div>
                 <FontAwesomeIcon icon={faArrowRight} className="quick-action-arrow" />
               </Link>
-              <a
-                href="/api/download/launcher"
+              <button
+                onClick={handleDownloadApp}
+                disabled={buildState.status === 'building'}
                 className="quick-action"
-                style={{ textDecoration: 'none' }}
+                style={{ border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: buildState.status === 'building' ? 'not-allowed' : 'pointer', opacity: buildState.status === 'building' ? 0.8 : 1 }}
               >
-                <div className="quick-action-icon" style={{ backgroundColor: '#D4AF37' }}>
-                  <FontAwesomeIcon icon={faDownload} />
+                <div className="quick-action-icon" style={{ backgroundColor: buildState.status === 'error' ? '#ef4444' : '#D4AF37' }}>
+                  <FontAwesomeIcon icon={buildState.status === 'building' ? faSpinner : faDownload} spin={buildState.status === 'building'} />
                 </div>
                 <div className="quick-action-info">
-                  <div className="quick-action-label">Descargar App Android</div>
-                  <div className="quick-action-sublabel">SRServi Launcher Client</div>
+                  <div className="quick-action-label">
+                    {buildState.status === 'building' ? 'Compilando...' : buildState.status === 'error' ? 'Error — reintentar' : 'Descargar App Android'}
+                  </div>
+                  <div className="quick-action-sublabel" style={{ color: buildState.status === 'error' ? '#ef4444' : undefined }}>
+                    {buildState.status === 'building' ? buildState.progress : buildState.status === 'error' ? buildState.progress : `SRServi Launcher — ${selectedStore?.code || user?.code || ''}`}
+                  </div>
                 </div>
-                <FontAwesomeIcon icon={faArrowRight} className="quick-action-arrow" />
-              </a>
+                {buildState.status !== 'building' && <FontAwesomeIcon icon={faArrowRight} className="quick-action-arrow" />}
+              </button>
             </div>
           </div>
 
