@@ -10,6 +10,7 @@ import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
+import QRCode from 'qrcode';
 import AdmZip from 'adm-zip';
 import { startBuild, getBuildJob, getCachedApk } from './android-build.js';
 import { execFile, execSync } from 'child_process';
@@ -223,6 +224,7 @@ import {
   getDeliveryOrderForTracking,
   updateDeliveryCustomerProfile,
   getOrderItems,
+  getDailySales,
   getPeopleCounterConfig,
   savePeopleCounterConfig,
   savePeopleCounterEvent,
@@ -243,6 +245,14 @@ const PORT = process.env.SERVER_PORT || 8888;
 const HOST = process.env.SERVER_HOST || '127.0.0.1';
 const JWT_SECRET = process.env.JWT_SECRET || 'srservi-secret-key-2024';
 const BASE_URL = process.env.BASE_URL || 'https://srservi2.srautomatic.com';
+
+const HAULMER_API_URL = 'https://core.payment.haulmer.com/api/v1/payment';
+
+function haulmerSignGlobal(data, secret) {
+  const keys = Object.keys(data).filter(k => k.startsWith('x_')).sort();
+  const str = keys.filter(k => data[k] != null && data[k] !== '').map(k => k + data[k]).join('');
+  return crypto.createHmac('sha256', secret).update(str).digest('hex');
+}
 
 const mailer = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || '163.227.179.59',
@@ -2664,6 +2674,20 @@ app.get('/api/analytics/recent-orders', authenticateToken, async (req, res) => {
     }
     const orders = await getRecentOrders(parseInt(storeId), limit);
     res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/analytics/ventas-dia', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    const date = req.query.date || new Date().toISOString().split('T')[0];
+    if (!storeId) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const data = await getDailySales(parseInt(storeId), date);
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -7828,6 +7852,7 @@ async function startServer() {
   try {
     await initDatabase();
     console.log('Base de datos inicializada');
+    await initTicketeriaTables();
 
     app.set('io', io);
 
@@ -9043,6 +9068,14 @@ async function startServer() {
 
         if (result === 'completed' && tx.status !== 'completed') {
           const orderNumber = await haulmerConfirmOrder(tx, reference, params.x_authorization_code || null);
+          // Handle ticket purchases (TKT- prefix)
+          if (reference.startsWith('TKT-')) {
+            const [tktPurchases] = await pool.execute("SELECT * FROM ticket_purchases WHERE haulmer_reference = ? AND status = 'pending'", [reference]);
+            if (tktPurchases[0]) {
+              await pool.execute("UPDATE ticket_purchases SET status = 'paid', paid_at = NOW() WHERE haulmer_reference = ?", [reference]);
+              issueAndEmailTickets(tktPurchases[0].id).catch(e => console.error('[Ticketería]', e.message));
+            }
+          }
           if (tx.order_id) {
             io.to(`store_${tx.store_id}`).emit('qr_payment_completed', { order_id: tx.order_id, reference, order_number: orderNumber });
             // Also emit payment_confirmed so WorkerPanel picks it up in real-time
@@ -12422,6 +12455,699 @@ app.delete('/api/stores/:id/subdomain', authenticateToken, async (req, res) => {
     if (prev) await unregisterSubdomain(prev);
     await clearStoreSubdomain(storeId);
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// =====================================================================
+// TICKETERÍA — Venta de entradas con Haulmer + envío por correo
+// =====================================================================
+
+async function initTicketeriaTables() {
+  try {
+    await pool.execute(`CREATE TABLE IF NOT EXISTS ticket_events (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      store_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      event_date DATE NOT NULL,
+      time_start TIME NOT NULL,
+      time_end TIME,
+      location VARCHAR(500),
+      image_url VARCHAR(1000),
+      max_capacity INT DEFAULT NULL,
+      sold_count INT DEFAULT 0,
+      status ENUM('active','cancelled','finished') DEFAULT 'active',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.execute(`CREATE TABLE IF NOT EXISTS ticket_categories (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      event_id INT NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      description VARCHAR(255),
+      price INT NOT NULL DEFAULT 0,
+      max_qty INT DEFAULT NULL,
+      sort_order INT DEFAULT 0,
+      FOREIGN KEY (event_id) REFERENCES ticket_events(id) ON DELETE CASCADE
+    )`);
+    await pool.execute(`CREATE TABLE IF NOT EXISTS ticket_purchases (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      store_id INT NOT NULL,
+      event_id INT NOT NULL,
+      buyer_name VARCHAR(255) NOT NULL,
+      buyer_email VARCHAR(255) NOT NULL,
+      buyer_phone VARCHAR(50),
+      total_amount INT NOT NULL,
+      haulmer_reference VARCHAR(120),
+      viewer_code VARCHAR(7) UNIQUE,
+      admitted TINYINT(1) DEFAULT 0,
+      admitted_at TIMESTAMP NULL,
+      status ENUM('pending','paid','failed','cancelled') DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      paid_at TIMESTAMP NULL
+    )`);
+    try { await pool.execute('ALTER TABLE ticket_purchases ADD COLUMN viewer_code VARCHAR(7) UNIQUE'); } catch(e) { if (!e.message.includes('Duplicate column')) {} }
+    try { await pool.execute('ALTER TABLE ticket_purchases ADD COLUMN admitted TINYINT(1) DEFAULT 0'); } catch(e) {}
+    try { await pool.execute('ALTER TABLE ticket_purchases ADD COLUMN admitted_at TIMESTAMP NULL'); } catch(e) {}
+    await pool.execute(`CREATE TABLE IF NOT EXISTS ticket_purchase_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      purchase_id INT NOT NULL,
+      category_id INT NOT NULL,
+      category_name VARCHAR(100) NOT NULL,
+      quantity INT NOT NULL,
+      unit_price INT NOT NULL,
+      subtotal INT NOT NULL,
+      FOREIGN KEY (purchase_id) REFERENCES ticket_purchases(id) ON DELETE CASCADE
+    )`);
+    await pool.execute(`CREATE TABLE IF NOT EXISTS ticket_issued (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      purchase_id INT NOT NULL,
+      event_id INT NOT NULL,
+      category_id INT NOT NULL,
+      category_name VARCHAR(100) NOT NULL,
+      ticket_code VARCHAR(30) NOT NULL UNIQUE,
+      buyer_name VARCHAR(255) NOT NULL,
+      buyer_email VARCHAR(255) NOT NULL,
+      status ENUM('valid','used','cancelled') DEFAULT 'valid',
+      used_at TIMESTAMP NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (purchase_id) REFERENCES ticket_purchases(id) ON DELETE CASCADE
+    )`);
+    await pool.execute(`CREATE TABLE IF NOT EXISTS ticket_filter_config (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      store_id INT NOT NULL UNIQUE,
+      show_search TINYINT(1) DEFAULT 1,
+      show_genre  TINYINT(1) DEFAULT 1,
+      show_country TINYINT(1) DEFAULT 0,
+      show_price  TINYINT(1) DEFAULT 1,
+      show_date   TINYINT(1) DEFAULT 1,
+      genres      TEXT DEFAULT NULL,
+      countries   TEXT DEFAULT NULL,
+      updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`);
+    // Migrations: add country/genre/min_age/max_age to ticket_events
+    for (const col of [
+      "ALTER TABLE ticket_events ADD COLUMN country VARCHAR(100) DEFAULT NULL",
+      "ALTER TABLE ticket_events ADD COLUMN genre   VARCHAR(100) DEFAULT NULL",
+    ]) {
+      try { await pool.execute(col); } catch(e) { if (!e.message.includes('Duplicate column')) {} }
+    }
+    console.log('✅ Tablas de Ticketería listas');
+  } catch (e) { console.error('[Ticketería] Table init error:', e.message); }
+}
+
+function generateTicketCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 7; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+async function issueAndEmailTickets(purchaseId) {
+  try {
+    const [purchases] = await pool.execute(
+      'SELECT tp.*, te.name AS event_name, te.event_date, te.time_start, te.time_end, te.location FROM ticket_purchases tp JOIN ticket_events te ON te.id = tp.event_id WHERE tp.id = ?',
+      [purchaseId]
+    );
+    if (!purchases[0]) return;
+    const purchase = purchases[0];
+
+    // No re-emitir si ya tiene viewer_code
+    if (purchase.viewer_code) return;
+
+    // Generar viewer_code único para la compra
+    let viewerCode;
+    let unique = false;
+    while (!unique) {
+      viewerCode = generateTicketCode();
+      const [ex] = await pool.execute('SELECT id FROM ticket_purchases WHERE viewer_code = ?', [viewerCode]);
+      if (!ex[0]) unique = true;
+    }
+    await pool.execute('UPDATE ticket_purchases SET viewer_code = ? WHERE id = ?', [viewerCode, purchaseId]);
+
+    const [items] = await pool.execute('SELECT * FROM ticket_purchase_items WHERE purchase_id = ?', [purchaseId]);
+    const totalTickets = items.reduce((s, i) => s + i.quantity, 0);
+
+    // Registrar tickets individuales en ticket_issued (para trazabilidad interna)
+    const [existingIssued] = await pool.execute('SELECT id FROM ticket_issued WHERE purchase_id = ? LIMIT 1', [purchaseId]);
+    if (!existingIssued[0]) {
+      for (const item of items) {
+        for (let i = 0; i < item.quantity; i++) {
+          let code2;
+          let u2 = false;
+          while (!u2) {
+            code2 = generateTicketCode();
+            const [e2] = await pool.execute('SELECT id FROM ticket_issued WHERE ticket_code = ?', [code2]);
+            if (!e2[0]) u2 = true;
+          }
+          await pool.execute(
+            'INSERT INTO ticket_issued (purchase_id, event_id, category_id, category_name, ticket_code, buyer_name, buyer_email) VALUES (?,?,?,?,?,?,?)',
+            [purchaseId, purchase.event_id, item.category_id, item.category_name, code2, purchase.buyer_name, purchase.buyer_email]
+          );
+        }
+      }
+      await pool.execute('UPDATE ticket_events SET sold_count = sold_count + ? WHERE id = ?', [totalTickets, purchase.event_id]);
+    }
+
+    // ── Construir email ──────────────────────────────────────────────
+    const ticketUrl = `${BASE_URL}/ticket/${viewerCode}`;
+
+    // QR como buffer PNG (adjunto CID — visible en todos los clientes de correo)
+    const qrBuffer = await QRCode.toBuffer(ticketUrl, {
+      width: 260, margin: 2,
+      color: { dark: '#111111', light: '#ffffff' }
+    });
+
+    // Fecha: el campo event_date viene como Date object o string YYYY-MM-DD
+    const rawDate = purchase.event_date;
+    const dateObj = rawDate instanceof Date ? rawDate : new Date(String(rawDate).slice(0,10) + 'T12:00:00');
+    const eventDate = dateObj.toLocaleDateString('es-CL', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    const timeStr = purchase.time_start
+      ? String(purchase.time_start).slice(0, 5) + (purchase.time_end ? ' – ' + String(purchase.time_end).slice(0, 5) : '')
+      : '';
+    const totalStr = purchase.total_amount === 0 ? 'Gratis' : `$${Number(purchase.total_amount).toLocaleString('es-CL')}`;
+
+    // Filas de categorías
+    const catRows = items.map(item =>
+      `<tr>
+        <td style="padding:7px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;">${item.category_name}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;text-align:center;">${item.quantity}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#C8A415;font-weight:700;text-align:right;">${item.unit_price === 0 ? 'Gratis' : '$'+Number(item.unit_price).toLocaleString('es-CL')}</td>
+      </tr>`
+    ).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:30px 10px;">
+  <tr><td align="center">
+  <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+
+    <!-- Header dorado -->
+    <tr><td style="background:#C8A415;padding:24px 30px;text-align:center;">
+      <div style="font-size:28px;margin-bottom:6px;">🎟️</div>
+      <h1 style="margin:0;color:#fff;font-size:22px;font-weight:900;letter-spacing:0.5px;">Tus Entradas</h1>
+      <p style="margin:4px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">${purchase.event_name}</p>
+    </td></tr>
+
+    <!-- Info evento -->
+    <tr><td style="background:#fff;padding:24px 30px 0;">
+      <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:20px;">
+        <tr><td style="padding:4px 0;font-size:14px;color:#374151;">📅 <strong>${eventDate}</strong></td></tr>
+        ${timeStr ? `<tr><td style="padding:4px 0;font-size:14px;color:#374151;">⏰ ${timeStr}</td></tr>` : ''}
+        ${purchase.location ? `<tr><td style="padding:4px 0;font-size:14px;color:#374151;">📍 ${purchase.location}</td></tr>` : ''}
+        <tr><td style="padding:4px 0;font-size:14px;color:#374151;">👤 ${purchase.buyer_name} &lt;${purchase.buyer_email}&gt;</td></tr>
+      </table>
+    </td></tr>
+
+    <!-- Tabla de entradas -->
+    <tr><td style="background:#fff;padding:0 30px 20px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+        <thead><tr style="background:#f9fafb;">
+          <th style="padding:9px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;">Categoría</th>
+          <th style="padding:9px 12px;text-align:center;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;">Cant.</th>
+          <th style="padding:9px 12px;text-align:right;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;">Precio</th>
+        </tr></thead>
+        <tbody>${catRows}</tbody>
+        <tfoot><tr style="background:#f9fafb;">
+          <td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#111;">Total · ${totalTickets} persona${totalTickets !== 1 ? 's' : ''}</td>
+          <td style="padding:9px 12px;font-size:16px;font-weight:900;color:#C8A415;text-align:right;">${totalStr}</td>
+        </tr></tfoot>
+      </table>
+    </td></tr>
+
+    <!-- QR central — adjunto CID -->
+    <tr><td style="background:#fffbeb;padding:28px 30px;text-align:center;border-top:2px solid #C8A41540;border-bottom:2px solid #C8A41540;">
+      <p style="margin:0 0 16px;font-size:14px;color:#374151;font-weight:600;">Presenta este código QR en la entrada del evento</p>
+      <img src="cid:ticket-qr" width="220" height="220" alt="QR Entrada" style="display:block;margin:0 auto;border-radius:10px;border:4px solid #C8A415;"/>
+      <div style="margin-top:14px;font-family:monospace;font-size:24px;font-weight:900;letter-spacing:5px;color:#111;">${viewerCode}</div>
+      <p style="margin:8px 0 0;font-size:12px;color:#9ca3af;">Código único de tu compra</p>
+    </td></tr>
+
+    <!-- Botón ver online -->
+    <tr><td style="background:#fff;padding:20px 30px;text-align:center;">
+      <a href="${ticketUrl}" style="display:inline-block;background:#C8A415;color:#fff;font-weight:800;font-size:15px;padding:13px 32px;border-radius:10px;text-decoration:none;">
+        Ver entrada en línea
+      </a>
+      <p style="margin:10px 0 0;font-size:12px;color:#9ca3af;">También puedes ver el estado de tu entrada en cualquier momento desde el enlace</p>
+    </td></tr>
+
+    <!-- Footer -->
+    <tr><td style="background:#f9fafb;padding:14px 30px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;font-size:11px;color:#9ca3af;">Powered by SRServi · Ref: ${purchase.haulmer_reference || viewerCode}</p>
+    </td></tr>
+
+  </table>
+  </td></tr>
+</table>
+</body></html>`;
+
+    await mailer.sendMail({
+      from: `"SRServi Tickets" <${process.env.EMAIL_USER}>`,
+      to: purchase.buyer_email,
+      subject: `🎟️ Tus entradas — ${purchase.event_name}`,
+      html,
+      attachments: [{
+        filename: 'entrada-qr.png',
+        content: qrBuffer,
+        cid: 'ticket-qr'   // referenciado en el HTML como src="cid:ticket-qr"
+      }]
+    });
+  } catch (e) { console.error('[Ticketería] issueAndEmailTickets error:', e.message); }
+}
+
+// ── Admin: Eventos ──────────────────────────────────────────────────
+app.get('/api/ticketeria/events', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const [rows] = await pool.execute('SELECT * FROM ticket_events WHERE store_id = ? ORDER BY event_date DESC', [storeId]);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/ticketeria/events', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, name, description, event_date, time_start, time_end, location, image_url, max_capacity } = req.body;
+    if (!store_id || !name || !event_date || !time_start) return res.status(400).json({ error: 'Campos requeridos: store_id, name, event_date, time_start' });
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [parseInt(store_id), req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const { genre, country } = req.body;
+    const [result] = await pool.execute(
+      'INSERT INTO ticket_events (store_id, name, description, event_date, time_start, time_end, location, image_url, max_capacity, genre, country) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+      [parseInt(store_id), name, description || null, event_date, time_start, time_end || null, location || null, image_url || null, max_capacity || null, genre || null, country || null]
+    );
+    const [newEvent] = await pool.execute('SELECT * FROM ticket_events WHERE id = ?', [result.insertId]);
+    res.json(newEvent[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/ticketeria/events/:id', authenticateToken, async (req, res) => {
+  try {
+    const eventId = parseInt(req.params.id);
+    const [evRows] = await pool.execute('SELECT te.* FROM ticket_events te JOIN stores s ON s.id = te.store_id WHERE te.id = ? AND s.user_id = ?', [eventId, req.user.id]);
+    if (!evRows[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const { name, description, event_date, time_start, time_end, location, image_url, max_capacity, status, genre, country } = req.body;
+    await pool.execute(
+      'UPDATE ticket_events SET name=?, description=?, event_date=?, time_start=?, time_end=?, location=?, image_url=?, max_capacity=?, status=?, genre=?, country=? WHERE id=?',
+      [name || evRows[0].name, description ?? evRows[0].description, event_date || evRows[0].event_date, time_start || evRows[0].time_start, time_end ?? evRows[0].time_end, location ?? evRows[0].location, image_url ?? evRows[0].image_url, max_capacity ?? evRows[0].max_capacity, status || evRows[0].status, genre ?? evRows[0].genre, country ?? evRows[0].country, eventId]
+    );
+    const [updated] = await pool.execute('SELECT * FROM ticket_events WHERE id = ?', [eventId]);
+    res.json(updated[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/ticketeria/events/:id', authenticateToken, async (req, res) => {
+  try {
+    const eventId = parseInt(req.params.id);
+    const [evRows] = await pool.execute('SELECT te.id FROM ticket_events te JOIN stores s ON s.id = te.store_id WHERE te.id = ? AND s.user_id = ?', [eventId, req.user.id]);
+    if (!evRows[0]) return res.status(403).json({ error: 'Sin permiso' });
+    await pool.execute('DELETE FROM ticket_events WHERE id = ?', [eventId]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: Categorías ───────────────────────────────────────────────
+app.get('/api/ticketeria/events/:id/categories', async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM ticket_categories WHERE event_id = ? ORDER BY sort_order, id', [parseInt(req.params.id)]);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/ticketeria/events/:id/categories', authenticateToken, async (req, res) => {
+  try {
+    const eventId = parseInt(req.params.id);
+    const [evRows] = await pool.execute('SELECT te.id FROM ticket_events te JOIN stores s ON s.id = te.store_id WHERE te.id = ? AND s.user_id = ?', [eventId, req.user.id]);
+    if (!evRows[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const { name, description, price, max_qty, sort_order } = req.body;
+    if (!name || price == null) return res.status(400).json({ error: 'name y price requeridos' });
+    const [result] = await pool.execute(
+      'INSERT INTO ticket_categories (event_id, name, description, price, max_qty, sort_order) VALUES (?,?,?,?,?,?)',
+      [eventId, name, description || null, parseInt(price), (max_qty !== '' && max_qty != null) ? parseInt(max_qty) : null, sort_order || 0]
+    );
+    const [newCat] = await pool.execute('SELECT * FROM ticket_categories WHERE id = ?', [result.insertId]);
+    res.json(newCat[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/ticketeria/categories/:id', authenticateToken, async (req, res) => {
+  try {
+    const catId = parseInt(req.params.id);
+    const [catRows] = await pool.execute(
+      'SELECT tc.* FROM ticket_categories tc JOIN ticket_events te ON te.id = tc.event_id JOIN stores s ON s.id = te.store_id WHERE tc.id = ? AND s.user_id = ?',
+      [catId, req.user.id]
+    );
+    if (!catRows[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const { name, description, price, max_qty, sort_order } = req.body;
+    await pool.execute(
+      'UPDATE ticket_categories SET name=?, description=?, price=?, max_qty=?, sort_order=? WHERE id=?',
+      [name || catRows[0].name, description ?? catRows[0].description, price != null ? parseInt(price) : catRows[0].price, (max_qty !== '' && max_qty != null) ? parseInt(max_qty) : null, sort_order ?? catRows[0].sort_order, catId]
+    );
+    const [updated] = await pool.execute('SELECT * FROM ticket_categories WHERE id = ?', [catId]);
+    res.json(updated[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/ticketeria/categories/:id', authenticateToken, async (req, res) => {
+  try {
+    const catId = parseInt(req.params.id);
+    const [catRows] = await pool.execute(
+      'SELECT tc.id FROM ticket_categories tc JOIN ticket_events te ON te.id = tc.event_id JOIN stores s ON s.id = te.store_id WHERE tc.id = ? AND s.user_id = ?',
+      [catId, req.user.id]
+    );
+    if (!catRows[0]) return res.status(403).json({ error: 'Sin permiso' });
+    await pool.execute('DELETE FROM ticket_categories WHERE id = ?', [catId]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: Compras y tickets emitidos ───────────────────────────────
+app.get('/api/ticketeria/purchases', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const eventId = req.query.event_id ? parseInt(req.query.event_id) : null;
+    const query = eventId
+      ? 'SELECT tp.*, te.name AS event_name FROM ticket_purchases tp JOIN ticket_events te ON te.id = tp.event_id WHERE tp.store_id = ? AND tp.event_id = ? ORDER BY tp.created_at DESC'
+      : 'SELECT tp.*, te.name AS event_name FROM ticket_purchases tp JOIN ticket_events te ON te.id = tp.event_id WHERE tp.store_id = ? ORDER BY tp.created_at DESC';
+    const params = eventId ? [storeId, eventId] : [storeId];
+    const [rows] = await pool.execute(query, params);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/ticketeria/tickets', authenticateToken, async (req, res) => {
+  try {
+    const eventId = parseInt(req.query.event_id);
+    if (!eventId) return res.status(400).json({ error: 'event_id requerido' });
+    const [evRows] = await pool.execute('SELECT te.id FROM ticket_events te JOIN stores s ON s.id = te.store_id WHERE te.id = ? AND s.user_id = ?', [eventId, req.user.id]);
+    if (!evRows[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const [rows] = await pool.execute('SELECT * FROM ticket_issued WHERE event_id = ? ORDER BY created_at DESC', [eventId]);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: Validar/escanear ticket ──────────────────────────────────
+app.post('/api/ticketeria/tickets/:code/scan', authenticateToken, async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase();
+    const [rows] = await pool.execute(
+      'SELECT ti.*, te.name AS event_name, te.event_date, te.time_start, te.location FROM ticket_issued ti JOIN ticket_events te ON te.id = ti.event_id WHERE ti.ticket_code = ?',
+      [code]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Ticket no encontrado' });
+    const ticket = rows[0];
+    const [evRows] = await pool.execute('SELECT te.id FROM ticket_events te JOIN stores s ON s.id = te.store_id WHERE te.id = ? AND s.user_id = ?', [ticket.event_id, req.user.id]);
+    if (!evRows[0]) return res.status(403).json({ error: 'Sin permiso' });
+    if (ticket.status === 'used') return res.status(409).json({ error: 'Ticket ya utilizado', ticket });
+    if (ticket.status === 'cancelled') return res.status(409).json({ error: 'Ticket cancelado', ticket });
+    await pool.execute('UPDATE ticket_issued SET status = ?, used_at = NOW() WHERE ticket_code = ?', ['used', code]);
+    ticket.status = 'used';
+    res.json({ success: true, ticket });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Público: info básica de tienda por código ────────────────────────
+app.get('/api/stores/by-code/:code', async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT id, name, code FROM stores WHERE code = ?', [req.params.code.toUpperCase()]);
+    if (!rows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
+    res.json(rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Público: config de filtros ───────────────────────────────────────
+app.get('/api/ticketeria/filter-config', async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const [rows] = await pool.execute('SELECT * FROM ticket_filter_config WHERE store_id = ? LIMIT 1', [storeId]);
+    if (!rows[0]) return res.json({ show_search:1, show_genre:1, show_country:0, show_price:1, show_date:1, genres:[], countries:[] });
+    const cfg = rows[0];
+    res.json({ ...cfg, genres: cfg.genres ? JSON.parse(cfg.genres) : [], countries: cfg.countries ? JSON.parse(cfg.countries) : [] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: guardar config de filtros ────────────────────────────────
+app.post('/api/ticketeria/filter-config', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, show_search, show_genre, show_country, show_price, show_date, genres, countries } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [parseInt(store_id), req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const genresJson = JSON.stringify(Array.isArray(genres) ? genres : []);
+    const countriesJson = JSON.stringify(Array.isArray(countries) ? countries : []);
+    await pool.execute(`INSERT INTO ticket_filter_config (store_id, show_search, show_genre, show_country, show_price, show_date, genres, countries)
+      VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE show_search=?, show_genre=?, show_country=?, show_price=?, show_date=?, genres=?, countries=?`,
+      [parseInt(store_id), show_search?1:0, show_genre?1:0, show_country?1:0, show_price?1:0, show_date?1:0, genresJson, countriesJson,
+       show_search?1:0, show_genre?1:0, show_country?1:0, show_price?1:0, show_date?1:0, genresJson, countriesJson]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Público: eventos disponibles (con filtros) ───────────────────────
+app.get('/api/ticketeria/public/events', async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const { search, genre, country, date_from, date_to } = req.query;
+    let sql = "SELECT * FROM ticket_events WHERE store_id = ? AND status = 'active'";
+    const params = [storeId];
+    if (search)    { sql += ' AND name LIKE ?'; params.push(`%${search}%`); }
+    if (genre)     { sql += ' AND genre = ?'; params.push(genre); }
+    if (country)   { sql += ' AND country = ?'; params.push(country); }
+    if (date_from) { sql += ' AND event_date >= ?'; params.push(date_from); }
+    if (date_to)   { sql += ' AND event_date <= ?'; params.push(date_to); }
+    sql += ' ORDER BY event_date ASC';
+    const [rows] = await pool.execute(sql, params);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/ticketeria/public/events/:id', async (req, res) => {
+  try {
+    const eventId = parseInt(req.params.id);
+    const [evRows] = await pool.execute('SELECT * FROM ticket_events WHERE id = ?', [eventId]);
+    if (!evRows[0]) return res.status(404).json({ error: 'Evento no encontrado' });
+    const [cats] = await pool.execute('SELECT * FROM ticket_categories WHERE event_id = ? ORDER BY sort_order, id', [eventId]);
+    res.json({ ...evRows[0], categories: cats });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Público: crear compra sin pasarela (para terminal POS físico) ────
+app.post('/api/ticketeria/purchase/init', async (req, res) => {
+  try {
+    const { store_id, event_id, buyer_name, buyer_email, buyer_phone, items } = req.body;
+    if (!store_id || !event_id || !items?.length)
+      return res.status(400).json({ error: 'Campos requeridos: store_id, event_id, items' });
+    const safeName = (buyer_name || '').trim() || 'Cliente';
+    const safeEmail = (buyer_email || '').trim() || '';
+
+    const [evRows] = await pool.execute("SELECT * FROM ticket_events WHERE id = ? AND status = 'active'", [parseInt(event_id)]);
+    if (!evRows[0]) return res.status(404).json({ error: 'Evento no disponible' });
+
+    let totalAmount = 0;
+    const resolvedItems = [];
+    for (const item of items) {
+      if (!item.category_id || !item.quantity || item.quantity < 1) continue;
+      const [cats] = await pool.execute('SELECT * FROM ticket_categories WHERE id = ? AND event_id = ?', [parseInt(item.category_id), parseInt(event_id)]);
+      if (!cats[0]) return res.status(400).json({ error: `Categoría ${item.category_id} no válida` });
+      const cat = cats[0];
+      const qty = parseInt(item.quantity);
+      resolvedItems.push({ category_id: cat.id, category_name: cat.name, quantity: qty, unit_price: cat.price, subtotal: cat.price * qty });
+      totalAmount += cat.price * qty;
+    }
+    if (!resolvedItems.length) return res.status(400).json({ error: 'Ningún ítem válido' });
+
+    const [storeRows] = await pool.execute('SELECT user_id, code FROM stores WHERE id = ?', [parseInt(store_id)]);
+    if (!storeRows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
+
+    const [purchaseResult] = await pool.execute(
+      'INSERT INTO ticket_purchases (store_id, event_id, buyer_name, buyer_email, buyer_phone, total_amount) VALUES (?,?,?,?,?,?)',
+      [parseInt(store_id), parseInt(event_id), safeName, safeEmail, buyer_phone || null, totalAmount]
+    );
+    const purchaseId = purchaseResult.insertId;
+    for (const item of resolvedItems) {
+      await pool.execute(
+        'INSERT INTO ticket_purchase_items (purchase_id, category_id, category_name, quantity, unit_price, subtotal) VALUES (?,?,?,?,?,?)',
+        [purchaseId, item.category_id, item.category_name, item.quantity, item.unit_price, item.subtotal]
+      );
+    }
+    const reference = `TKT-${purchaseId}-${Date.now()}`;
+    await pool.execute('UPDATE ticket_purchases SET haulmer_reference = ? WHERE id = ?', [reference, purchaseId]);
+
+    if (totalAmount === 0) {
+      await pool.execute("UPDATE ticket_purchases SET status = 'paid', paid_at = NOW() WHERE id = ?", [purchaseId]);
+      issueAndEmailTickets(purchaseId).catch(e => console.error('[Ticketería gratis]', e.message));
+      return res.json({ success: true, free: true, reference, purchaseId, totalAmount, storeId: parseInt(store_id) });
+    }
+
+    res.json({ success: true, reference, purchaseId, totalAmount, storeId: parseInt(store_id), eventName: evRows[0].name });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Público: iniciar compra con Haulmer ─────────────────────────────
+app.post('/api/ticketeria/purchase', async (req, res) => {
+  try {
+    const { store_id, event_id, buyer_name, buyer_email, buyer_phone, items } = req.body;
+    if (!store_id || !event_id || !buyer_name || !buyer_email || !items?.length) {
+      return res.status(400).json({ error: 'Campos requeridos: store_id, event_id, buyer_name, buyer_email, items' });
+    }
+
+    const [evRows] = await pool.execute("SELECT * FROM ticket_events WHERE id = ? AND status = 'active'", [parseInt(event_id)]);
+    if (!evRows[0]) return res.status(404).json({ error: 'Evento no disponible' });
+    const event = evRows[0];
+
+    let totalAmount = 0;
+    const resolvedItems = [];
+    for (const item of items) {
+      if (!item.category_id || !item.quantity || item.quantity < 1) continue;
+      const [cats] = await pool.execute('SELECT * FROM ticket_categories WHERE id = ? AND event_id = ?', [parseInt(item.category_id), parseInt(event_id)]);
+      if (!cats[0]) return res.status(400).json({ error: `Categoría ${item.category_id} no válida` });
+      const cat = cats[0];
+      const qty = parseInt(item.quantity);
+      resolvedItems.push({ category_id: cat.id, category_name: cat.name, quantity: qty, unit_price: cat.price, subtotal: cat.price * qty });
+      totalAmount += cat.price * qty;
+    }
+    if (!resolvedItems.length) return res.status(400).json({ error: 'Ningún ítem válido' });
+
+    const [storeRows] = await pool.execute('SELECT user_id, code FROM stores WHERE id = ?', [parseInt(store_id)]);
+    if (!storeRows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
+
+    const [purchaseResult] = await pool.execute(
+      'INSERT INTO ticket_purchases (store_id, event_id, buyer_name, buyer_email, buyer_phone, total_amount) VALUES (?,?,?,?,?,?)',
+      [parseInt(store_id), parseInt(event_id), buyer_name, buyer_email, buyer_phone || null, totalAmount]
+    );
+    const purchaseId = purchaseResult.insertId;
+
+    for (const item of resolvedItems) {
+      await pool.execute(
+        'INSERT INTO ticket_purchase_items (purchase_id, category_id, category_name, quantity, unit_price, subtotal) VALUES (?,?,?,?,?,?)',
+        [purchaseId, item.category_id, item.category_name, item.quantity, item.unit_price, item.subtotal]
+      );
+    }
+
+    const reference = `TKT-${purchaseId}-${Date.now()}`;
+    await pool.execute('UPDATE ticket_purchases SET haulmer_reference = ? WHERE id = ?', [reference, purchaseId]);
+
+    // Entradas gratis: sin pasarela de pago
+    if (totalAmount === 0) {
+      await pool.execute("UPDATE ticket_purchases SET status = 'paid', paid_at = NOW() WHERE id = ?", [purchaseId]);
+      issueAndEmailTickets(purchaseId).catch(e => console.error('[Ticketería gratis]', e.message));
+      const storeCode = storeRows[0].code;
+      return res.json({ success: true, free: true, reference, purchaseId, redirectUrl: `/tickets/${storeCode}?ref=${reference}` });
+    }
+
+    // Solo se necesita Haulmer si hay cobro
+    let [cfgRows] = await pool.execute('SELECT * FROM haulmer_native_config WHERE store_id = ? LIMIT 1', [parseInt(store_id)]);
+    if (!cfgRows[0]) [cfgRows] = await pool.execute('SELECT * FROM haulmer_native_config WHERE user_id = ? AND store_id IS NULL LIMIT 1', [storeRows[0].user_id]);
+    const config = cfgRows[0];
+    if (!config?.account_id || !config?.secret_key) return res.status(400).json({ error: 'Pasarela Haulmer no configurada para esta tienda' });
+
+    const serverUrl = BASE_URL;
+    const storeCode = storeRows[0].code;
+    const nameParts = buyer_name.split(' ');
+    const payload = {
+      x_account_id: config.account_id,
+      x_amount: Math.round(totalAmount),
+      x_currency: 'CLP',
+      x_customer_email: buyer_email,
+      x_customer_first_name: nameParts[0],
+      x_customer_last_name: nameParts.slice(1).join(' ') || 'Comprador',
+      x_customer_phone: buyer_phone || '+56900000000',
+      x_description: `Entradas: ${event.name}`,
+      x_reference: reference,
+      x_shop_name: config.commerce_name || 'SRServi',
+      x_url_callback: `${serverUrl}/api/haulmer/webhook`,
+      x_url_cancel: `${serverUrl}/tickets/${storeCode}?cancelled=1`,
+      x_url_complete: `${serverUrl}/tickets/${storeCode}?ref=${reference}`
+    };
+    payload.x_signature = haulmerSignGlobal(payload, config.secret_key);
+
+    const hRes = await fetch(HAULMER_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-REDIRECT': 'false' },
+      body: JSON.stringify(payload)
+    });
+    if (!hRes.ok) throw new Error(`Haulmer ${hRes.status}: ${await hRes.text()}`);
+
+    const raw = await hRes.text();
+    let paymentUrl = null;
+    try { const d = JSON.parse(raw); paymentUrl = d.url || d.redirectUrl || d.x_redirect_url || d.processUrl || d.payment_url; } catch {}
+    if (!paymentUrl && raw.startsWith('http')) paymentUrl = raw.trim();
+    if (!paymentUrl) throw new Error('No se obtuvo URL de pago de Haulmer');
+
+    await pool.execute(
+      'INSERT INTO haulmer_native_transactions (store_id, order_id, reference, amount, status) VALUES (?, NULL, ?, ?, ?)',
+      [parseInt(store_id), reference, Math.round(totalAmount), 'pending']
+    );
+
+    res.json({ success: true, paymentUrl, reference, purchaseId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Público: estado de compra ────────────────────────────────────────
+app.get('/api/ticketeria/purchase/:reference/status', async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT tp.*, te.name AS event_name FROM ticket_purchases tp JOIN ticket_events te ON te.id = tp.event_id WHERE tp.haulmer_reference = ?',
+      [req.params.reference]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'No encontrado' });
+    res.json(rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Público: ver compra por viewer_code ─────────────────────────────
+app.get('/api/ticketeria/public/ticket/:code', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase();
+    const [pRows] = await pool.execute(`
+      SELECT tp.*, te.name AS event_name, te.event_date, te.time_start, te.time_end, te.location, te.image_url AS event_image
+      FROM ticket_purchases tp
+      JOIN ticket_events te ON te.id = tp.event_id
+      WHERE tp.viewer_code = ?`, [code]);
+    if (!pRows[0]) return res.status(404).json({ error: 'Entrada no encontrada' });
+    const purchase = pRows[0];
+    const [items] = await pool.execute('SELECT * FROM ticket_purchase_items WHERE purchase_id = ? ORDER BY id', [purchase.id]);
+    res.json({ ...purchase, items });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: admitir compra completa por viewer_code ──────────────────
+app.post('/api/ticketeria/admit/:code', authenticateToken, async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase();
+    const [pRows] = await pool.execute(`
+      SELECT tp.* FROM ticket_purchases tp
+      JOIN ticket_events te ON te.id = tp.event_id
+      JOIN stores s ON s.id = tp.store_id
+      WHERE tp.viewer_code = ? AND s.user_id = ?`, [code, req.user.id]);
+    if (!pRows[0]) return res.status(404).json({ error: 'Entrada no encontrada o sin permiso' });
+    const purchase = pRows[0];
+    if (purchase.admitted) return res.status(409).json({ error: 'Ya fue admitida', purchase });
+    await pool.execute('UPDATE ticket_purchases SET admitted = 1, admitted_at = NOW() WHERE id = ?', [purchase.id]);
+    await pool.execute("UPDATE ticket_issued SET status = 'used', used_at = NOW() WHERE purchase_id = ?", [purchase.id]);
+    res.json({ success: true, purchase: { ...purchase, admitted: 1 } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Confirmar ticket desde redirect de Haulmer ───────────────────────
+app.post('/api/ticketeria/purchase/:reference/confirm', async (req, res) => {
+  try {
+    const reference = req.params.reference;
+    if (!reference.startsWith('TKT-')) return res.status(400).json({ error: 'Referencia inválida' });
+    const [purchases] = await pool.execute("SELECT * FROM ticket_purchases WHERE haulmer_reference = ? AND status = 'pending'", [reference]);
+    if (purchases[0]) {
+      await pool.execute("UPDATE ticket_purchases SET status = 'paid', paid_at = NOW() WHERE haulmer_reference = ?", [reference]);
+      issueAndEmailTickets(purchases[0].id).catch(e => console.error('[Ticketería]', e.message));
+    }
+    const [rows] = await pool.execute('SELECT tp.*, te.name AS event_name FROM ticket_purchases tp JOIN ticket_events te ON te.id = tp.event_id WHERE tp.haulmer_reference = ?', [reference]);
+    if (!rows[0]) return res.status(404).json({ error: 'No encontrado' });
+    res.json(rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

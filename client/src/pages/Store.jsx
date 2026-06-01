@@ -40,9 +40,13 @@ import {
   faUpload,
   faEllipsisV,
   faFlask,
-  faTicket,
+  faTicketAlt,
   faCalendarAlt,
-  faStar
+  faMapMarkerAlt,
+  faEnvelope,
+  faPhone,
+  faUser,
+  faSpinner,
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -259,6 +263,545 @@ function SortableComplementRow({ item, active, onToggle, onEdit, onDelete }) {
   );
 }
 
+const TICKET_API = 'https://srservi2.srautomatic.com';
+
+function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, terminalName, onClose }) {
+  const [phase, setPhase] = useState('events'); // events|select|confirm|paying|waiting|success|error
+  const [allEvents, setAllEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [qtys, setQtys] = useState({});
+  const [payError, setPayError] = useState('');
+  const [waitMsg, setWaitMsg] = useState('');
+  const [successCode, setSuccessCode] = useState('');
+  const [successUrl, setSuccessUrl] = useState('');
+
+  // Filtros
+  const [filterCfg, setFilterCfg] = useState({ show_search:1, show_genre:1, show_country:0, show_price:1, show_date:1, genres:[], countries:[] });
+  const [search, setSearch] = useState('');
+  const [activeGenre, setActiveGenre] = useState('');
+  const [activeCountry, setActiveCountry] = useState('');
+  const [priceFilter, setPriceFilter] = useState('all'); // all|free|low|medium|high
+  const [dateFilter, setDateFilter] = useState('all'); // all|today|week|month
+  const [vkbOpen, setVkbOpen] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${TICKET_API}/api/ticketeria/public/events?store_id=${storeId}`).then(r => r.json()),
+      fetch(`${TICKET_API}/api/ticketeria/filter-config?store_id=${storeId}`).then(r => r.json()),
+    ]).then(([evs, cfg]) => {
+      setAllEvents(Array.isArray(evs) ? evs : []);
+      setFilterCfg(prev => ({ ...prev, ...cfg, genres: cfg.genres || [], countries: cfg.countries || [] }));
+    }).catch(() => {}).finally(() => setLoadingEvents(false));
+  }, [storeId]);
+
+  // Filtrado en cliente
+  const events = allEvents.filter(ev => {
+    if (search && !ev.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (activeGenre && ev.genre !== activeGenre) return false;
+    if (activeCountry && ev.country !== activeCountry) return false;
+    if (dateFilter !== 'all') {
+      const evDate = ev.event_date ? new Date(String(ev.event_date).slice(0,10) + 'T12:00:00') : null;
+      if (!evDate) return false;
+      const now = new Date(); now.setHours(0,0,0,0);
+      if (dateFilter === 'today') {
+        if (evDate.toDateString() !== now.toDateString()) return false;
+      } else if (dateFilter === 'week') {
+        const end = new Date(now); end.setDate(end.getDate() + 7);
+        if (evDate < now || evDate > end) return false;
+      } else if (dateFilter === 'month') {
+        const end = new Date(now); end.setMonth(end.getMonth() + 1);
+        if (evDate < now || evDate > end) return false;
+      }
+    }
+    // price filter requires knowing min price of event — skip if no categories loaded
+    return true;
+  });
+
+  const selectEvent = async (ev) => {
+    setSelectedEvent(ev);
+    const r = await fetch(`${TICKET_API}/api/ticketeria/public/events/${ev.id}`);
+    const d = await r.json();
+    const cats = d.categories || [];
+    setCategories(cats);
+    const init = {};
+    cats.forEach(c => { init[c.id] = 0; });
+    setQtys(init);
+    setPhase('select');
+  };
+
+  const total = categories.reduce((s, c) => s + (qtys[c.id] || 0) * c.price, 0);
+  const totalTickets = Object.values(qtys).reduce((a, b) => a + b, 0);
+  const adj = (id, d) => setQtys(p => {
+    const cat = categories.find(c => c.id === id);
+    const v = Math.max(0, (p[id] || 0) + d);
+    return { ...p, [id]: Math.min(v, cat?.max_qty ?? 20) };
+  });
+
+  const buildItems = () => categories.filter(c => qtys[c.id] > 0).map(c => ({ category_id: c.id, quantity: qtys[c.id] }));
+
+  const confirmPurchase = async (reference) => {
+    await fetch(`${TICKET_API}/api/ticketeria/purchase/${reference}/confirm`, { method: 'POST' });
+    const r = await fetch(`${TICKET_API}/api/ticketeria/purchase/${reference}/status`);
+    const d = await r.json();
+    const code = d.viewer_code || reference;
+    setSuccessCode(code);
+    setSuccessUrl(`${TICKET_API.replace('https://srservi2.srautomatic.com', window.location.origin)}/ticket/${code}`);
+    setPhase('success');
+  };
+
+  const pollTerminal = (reference, paymentKey, provider) => {
+    let attempts = 0;
+    const iv = setInterval(async () => {
+      attempts++;
+      if (attempts > 90) { clearInterval(iv); setPayError('Tiempo agotado.'); setPhase('error'); return; }
+      try {
+        let statusUrl = provider === 'tuu'
+          ? `${TICKET_API}/api/tuu/status/${paymentKey}`
+          : `${TICKET_API}/api/plugins/payments/status/${encodeURIComponent(paymentKey)}`;
+        const r = await fetch(statusUrl);
+        const d = await r.json();
+        const done = d.status === 'Completed';
+        const fail = ['Canceled', 'Failed', 'Timeout'].includes(d.status);
+        if (done) { clearInterval(iv); await confirmPurchase(reference); }
+        else if (fail) { clearInterval(iv); setPayError('Pago cancelado en el terminal.'); setPhase('error'); }
+      } catch {}
+    }, 2000);
+  };
+
+  const handlePay = async (method = 'terminal') => {
+    setPayError('');
+    setPhase('paying');
+    try {
+      const body = { store_id: storeId, event_id: selectedEvent.id, items: buildItems() };
+
+      // Gratis o efectivo
+      if (total === 0 || method === 'cash') {
+        const r = await fetch(`${TICKET_API}/api/ticketeria/purchase/init`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await r.json();
+        if (!r.ok) { setPayError(d.error || 'Error'); setPhase('error'); return; }
+        await confirmPurchase(d.reference);
+        return;
+      }
+
+      // Terminal TUU o Square
+      if (terminalId && (terminalProvider === 'tuu' || terminalProvider === 'square')) {
+        const initR = await fetch(`${TICKET_API}/api/ticketeria/purchase/init`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const initD = await initR.json();
+        if (!initR.ok) { setPayError(initD.error || 'Error'); setPhase('error'); return; }
+
+        const chargeUrl = terminalProvider === 'tuu' ? `${TICKET_API}/api/tuu/charge` : `${TICKET_API}/api/plugins/payments/charge`;
+        const chargeBody = terminalProvider === 'tuu'
+          ? { store_id: storeId, amount: Math.round(initD.totalAmount), description: `Entradas: ${selectedEvent.name}`, terminal_id: parseInt(terminalId) }
+          : { store_id: storeId, amount: initD.totalAmount, description: `Entradas: ${selectedEvent.name}`, terminal_id: parseInt(terminalId), terminal_provider: 'square' };
+
+        const chargeR = await fetch(chargeUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(chargeBody) });
+        const chargeD = await chargeR.json();
+        if (!chargeD.success) { setPayError(chargeD.error || 'Error activando terminal'); setPhase('error'); return; }
+
+        setWaitMsg(`Cobrando $${initD.totalAmount.toLocaleString('es-CL')} en ${terminalName || 'terminal'}…`);
+        setPhase('waiting');
+        pollTerminal(initD.reference, chargeD.paymentKey, terminalProvider);
+        return;
+      }
+
+      // Haulmer online (sin terminal)
+      const r = await fetch(`${TICKET_API}/api/ticketeria/purchase`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!r.ok) { setPayError(d.error || 'Error'); setPhase('error'); return; }
+      if (d.free) { await confirmPurchase(d.reference); return; }
+      window.open(d.paymentUrl, '_blank');
+      // Esperar confirmación del webhook
+      setWaitMsg('Esperando confirmación de pago Haulmer…');
+      setPhase('waiting');
+      let att = 0;
+      const iv = setInterval(async () => {
+        att++;
+        if (att > 150) { clearInterval(iv); setPhase('error'); setPayError('Tiempo agotado.'); return; }
+        const sr = await fetch(`${TICKET_API}/api/ticketeria/purchase/${d.reference}/status`);
+        const sd = await sr.json();
+        if (sd.status === 'paid') { clearInterval(iv); await confirmPurchase(d.reference); }
+      }, 3000);
+
+    } catch (e) { setPayError(e.message); setPhase('error'); }
+  };
+
+  const formatDate = (raw) => {
+    if (!raw) return '';
+    return new Date(String(raw).slice(0,10) + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const overlay = { position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--store-secondary, #fff)', display: 'flex', flexDirection: 'column', overflow: 'hidden' };
+  const hdr = { background: 'var(--store-primary, #111)', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 };
+  const btn = (bg, color) => ({ padding: '12px 20px', background: bg, border: 'none', borderRadius: 10, color, fontWeight: 700, fontSize: 15, cursor: 'pointer', width: '100%' });
+
+  return (
+    <div style={overlay}>
+      {/* Header */}
+      <div style={hdr}>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--store-secondary, #fff)', cursor: 'pointer', fontSize: 20, padding: '0 4px', lineHeight: 1 }}>
+          <FontAwesomeIcon icon={faArrowLeft} />
+        </button>
+        <FontAwesomeIcon icon={faTicketAlt} style={{ color: 'var(--store-accent, #C8A415)', fontSize: 18 }} />
+        <span style={{ color: 'var(--store-secondary, #fff)', fontWeight: 800, fontSize: 17 }}>
+          {phase === 'events' ? 'Ticketería' : phase === 'select' || phase === 'confirm' ? selectedEvent?.name : phase === 'waiting' ? 'Procesando pago' : phase === 'success' ? '¡Confirmado!' : 'Error'}
+        </span>
+        {terminalId && (
+          <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--store-accent, #C8A415)', fontWeight: 600, background: 'rgba(255,255,255,0.1)', padding: '3px 9px', borderRadius: 20 }}>
+            {terminalName || terminalProvider?.toUpperCase()}
+          </span>
+        )}
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+
+        {/* ── VirtualKeyboard para búsqueda ── */}
+        {vkbOpen && (
+          <VirtualKeyboard
+            value={search}
+            onChange={setSearch}
+            onClose={() => setVkbOpen(false)}
+            placeholder="Buscar evento..."
+          />
+        )}
+
+        {/* ── LISTA DE EVENTOS ── */}
+        {phase === 'events' && (
+          <>
+          {/* Barra de filtros */}
+          {!loadingEvents && allEvents.length > 0 && (
+            <div style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+              {/* Búsqueda */}
+              {!!filterCfg.show_search && (
+                <button onClick={() => setVkbOpen(true)} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                  padding: '10px 14px', background: '#fff', border: '1px solid #e5e7eb',
+                  borderRadius: 10, cursor: 'pointer', textAlign: 'left', boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}>
+                  <FontAwesomeIcon icon={faSearch} style={{ color: '#9ca3af', fontSize: 14 }} />
+                  <span style={{ flex: 1, fontSize: 14, color: search ? '#111' : '#9ca3af', fontWeight: search ? 600 : 400 }}>
+                    {search || 'Buscar evento por nombre…'}
+                  </span>
+                  {search && (
+                    <span onClick={e => { e.stopPropagation(); setSearch(''); }} style={{ color: '#9ca3af', fontSize: 16, lineHeight: 1 }}>×</span>
+                  )}
+                </button>
+              )}
+
+              {/* Géneros */}
+              {!!filterCfg.show_genre && filterCfg.genres?.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                  {['all', ...filterCfg.genres].map(g => (
+                    <button key={g} onClick={() => setActiveGenre(g === 'all' ? '' : g)}
+                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                        background: (g === 'all' && !activeGenre) || activeGenre === g ? 'var(--store-primary, #111)' : '#fff',
+                        color: (g === 'all' && !activeGenre) || activeGenre === g ? 'var(--store-secondary, #fff)' : '#374151',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                      {g === 'all' ? 'Todos' : g}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Países */}
+              {!!filterCfg.show_country && filterCfg.countries?.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                  {['all', ...filterCfg.countries].map(c => (
+                    <button key={c} onClick={() => setActiveCountry(c === 'all' ? '' : c)}
+                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                        background: (c === 'all' && !activeCountry) || activeCountry === c ? 'var(--store-primary, #111)' : '#fff',
+                        color: (c === 'all' && !activeCountry) || activeCountry === c ? 'var(--store-secondary, #fff)' : '#374151',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                      {c === 'all' ? 'Todos' : c}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Fecha */}
+              {!!filterCfg.show_date && (
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                  {[['all','Todos'],['today','Hoy'],['week','Esta semana'],['month','Este mes']].map(([key, label]) => (
+                    <button key={key} onClick={() => setDateFilter(key)}
+                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                        background: dateFilter === key ? 'var(--store-accent, #C8A415)' : '#fff',
+                        color: dateFilter === key ? '#fff' : '#374151',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {loadingEvents ? (
+            <div style={{ textAlign: 'center', paddingTop: 60 }}>
+              <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 32, color: 'var(--store-accent, #C8A415)' }} />
+            </div>
+          ) : events.length === 0 ? (
+            <div style={{ textAlign: 'center', paddingTop: 60, color: '#9ca3af' }}>
+              <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 44, display: 'block', marginBottom: 12 }} />
+              {search || activeGenre || activeCountry || dateFilter !== 'all' ? 'Sin resultados para este filtro' : 'No hay eventos disponibles'}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+              {events.map(ev => {
+                const evDate = ev.event_date ? new Date(String(ev.event_date).slice(0,10) + 'T12:00:00') : null;
+                const dayNum  = evDate ? evDate.toLocaleDateString('es-CL', { day: '2-digit' }) : '';
+                const month   = evDate ? evDate.toLocaleDateString('es-CL', { month: 'long' }) : '';
+                const weekday = evDate ? evDate.toLocaleDateString('es-CL', { weekday: 'long' }) : '';
+                const year    = evDate ? evDate.getFullYear() : '';
+                const timeStr = ev.time_start ? String(ev.time_start).slice(0,5) + (ev.time_end ? ` – ${String(ev.time_end).slice(0,5)}` : '') : '';
+                return (
+                  <div key={ev.id} onClick={() => selectEvent(ev)}
+                    style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', transition: 'transform .15s, box-shadow .15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.14)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'; }}>
+
+                    {/* Imagen o banner de color */}
+                    {ev.image_url
+                      ? <img src={ev.image_url} alt={ev.name} style={{ width: '100%', height: 150, objectFit: 'cover', display: 'block' }} />
+                      : <div style={{ width: '100%', height: 80, background: 'var(--store-primary, #111)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 32, color: 'var(--store-accent, #C8A415)', opacity: 0.5 }} />
+                        </div>}
+
+                    {/* Fecha grande destacada */}
+                    <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6' }}>
+                      {/* Bloque día/mes */}
+                      <div style={{ background: 'var(--store-primary, #111)', padding: '12px 16px', textAlign: 'center', minWidth: 72, flexShrink: 0 }}>
+                        <div style={{ fontSize: 34, fontWeight: 900, lineHeight: 1, color: 'var(--store-accent, #C8A415)' }}>{dayNum}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 2 }}>{month}</div>
+                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 1 }}>{year}</div>
+                      </div>
+                      {/* Bloque hora/día semana */}
+                      <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
+                        <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'capitalize' }}>{weekday}</div>
+                        {timeStr && (
+                          <div style={{ fontSize: 20, fontWeight: 900, color: '#111', lineHeight: 1, letterSpacing: '-0.5px' }}>
+                            <FontAwesomeIcon icon={faClock} style={{ fontSize: 13, color: 'var(--store-accent, #C8A415)', marginRight: 5 }} />
+                            {timeStr}
+                          </div>
+                        )}
+                        {ev.location && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 4 }} />{ev.location}</div>}
+                      </div>
+                    </div>
+
+                    {/* Nombre evento */}
+                    <div style={{ padding: '12px 14px' }}>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: '#111', lineHeight: 1.3 }}>{ev.name}</div>
+                      {ev.description && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4, lineHeight: 1.4 }}>{ev.description}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+          }</>
+        )}
+
+        {/* ── SELECTOR DE ENTRADAS ── */}
+        {phase === 'select' && (
+          <div style={{ maxWidth: 500, margin: '0 auto' }}>
+            {/* Cabecera con fecha/hora grande */}
+            {selectedEvent && (() => {
+              const evDate = selectedEvent.event_date ? new Date(String(selectedEvent.event_date).slice(0,10) + 'T12:00:00') : null;
+              const dayNum  = evDate ? evDate.toLocaleDateString('es-CL', { day: '2-digit' }) : '';
+              const month   = evDate ? evDate.toLocaleDateString('es-CL', { month: 'long' }) : '';
+              const weekday = evDate ? evDate.toLocaleDateString('es-CL', { weekday: 'long' }) : '';
+              const timeStr = selectedEvent.time_start ? String(selectedEvent.time_start).slice(0,5) + (selectedEvent.time_end ? ` – ${String(selectedEvent.time_end).slice(0,5)}` : '') : '';
+              return (
+                <div style={{ background: 'var(--store-primary, #111)', borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>
+                  {selectedEvent.image_url && <img src={selectedEvent.image_url} alt={selectedEvent.name} style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }} />}
+                  <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                    <div style={{ background: 'var(--store-accent, #C8A415)', padding: '14px 18px', textAlign: 'center', minWidth: 80 }}>
+                      <div style={{ fontSize: 42, fontWeight: 900, lineHeight: 1, color: '#111' }}>{dayNum}</div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#111', textTransform: 'uppercase' }}>{month}</div>
+                    </div>
+                    <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{selectedEvent.name}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', textTransform: 'capitalize' }}>{weekday}</div>
+                      {timeStr && <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--store-accent, #C8A415)', letterSpacing: '-0.5px' }}><FontAwesomeIcon icon={faClock} style={{ fontSize: 14, marginRight: 6 }} />{timeStr}</div>}
+                      {selectedEvent.location && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 5 }} />{selectedEvent.location}</div>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+            {categories.length === 0
+              ? <p style={{ color: '#9ca3af', textAlign: 'center', paddingTop: 30 }}>Este evento no tiene categorías configuradas</p>
+              : categories.map(cat => (
+                <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${qtys[cat.id] > 0 ? 'var(--store-accent, #C8A415)' : '#e5e7eb'}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{cat.name}</div>
+                    {cat.description && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{cat.description}</div>}
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: 17, color: 'var(--store-accent, #C8A415)', minWidth: 70, textAlign: 'right' }}>
+                    {cat.price === 0 ? 'Gratis' : `$${cat.price.toLocaleString('es-CL')}`}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button type="button" onClick={() => adj(cat.id, -1)} disabled={!qtys[cat.id]} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--store-accent, #C8A415)', background: '#fff', color: 'var(--store-accent, #C8A415)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FontAwesomeIcon icon={faMinus} />
+                    </button>
+                    <span style={{ minWidth: 24, textAlign: 'center', fontWeight: 800, fontSize: 18, color: '#111' }}>{qtys[cat.id] || 0}</span>
+                    <button type="button" onClick={() => adj(cat.id, 1)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--store-accent, #C8A415)', background: 'var(--store-accent, #C8A415)', color: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FontAwesomeIcon icon={faPlus} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+            {totalTickets > 0 && (
+              <div style={{ marginTop: 8, padding: '14px 18px', background: 'var(--store-primary, #111)', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--store-secondary, #fff)', fontSize: 14 }}>{totalTickets} entrada{totalTickets !== 1 ? 's' : ''}</span>
+                <span style={{ color: 'var(--store-accent, #C8A415)', fontWeight: 900, fontSize: 20 }}>${total.toLocaleString('es-CL')}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── RESUMEN DE COMPRA ── */}
+        {phase === 'confirm' && (
+          <div style={{ maxWidth: 500, margin: '0 auto' }}>
+            {/* Info evento */}
+            <div style={{ background: 'var(--store-primary, #111)', borderRadius: 14, overflow: 'hidden', marginBottom: 14 }}>
+              {selectedEvent?.image_url && <img src={selectedEvent.image_url} alt={selectedEvent.name} style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />}
+              <div style={{ padding: '14px 16px' }}>
+                <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--store-secondary, #fff)', marginBottom: 6 }}>{selectedEvent?.name}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+                  {selectedEvent?.event_date && <span><FontAwesomeIcon icon={faCalendarAlt} style={{ marginRight: 6, color: 'var(--store-accent, #C8A415)' }} />{formatDate(selectedEvent.event_date)}</span>}
+                  {selectedEvent?.time_start && <span><FontAwesomeIcon icon={faClock} style={{ marginRight: 6, color: 'var(--store-accent, #C8A415)' }} />{String(selectedEvent.time_start).slice(0,5)}{selectedEvent.time_end ? ` – ${String(selectedEvent.time_end).slice(0,5)}` : ''}</span>}
+                  {selectedEvent?.location && <span><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 6, color: 'var(--store-accent, #C8A415)' }} />{selectedEvent.location}</span>}
+                </div>
+              </div>
+            </div>
+
+            {/* Detalle de entradas */}
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: 14 }}>
+              {categories.filter(c => qtys[c.id] > 0).map((cat, i, arr) => (
+                <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{cat.name}</span>
+                    <span style={{ marginLeft: 10, fontSize: 13, color: '#9ca3af' }}>× {qtys[cat.id]}</span>
+                  </div>
+                  <span style={{ fontWeight: 700, color: 'var(--store-accent, #C8A415)', fontSize: 15 }}>
+                    {cat.price === 0 ? 'Gratis' : `$${(cat.price * qtys[cat.id]).toLocaleString('es-CL')}`}
+                  </span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
+                <span style={{ fontWeight: 700, fontSize: 15, color: '#374151' }}>{totalTickets} persona{totalTickets !== 1 ? 's' : ''}</span>
+                <span style={{ fontWeight: 900, fontSize: 22, color: 'var(--store-accent, #C8A415)' }}>
+                  {total === 0 ? 'Gratis' : `$${total.toLocaleString('es-CL')}`}
+                </span>
+              </div>
+            </div>
+
+            {/* Método de pago */}
+            {terminalId && <div style={{ padding: '8px 12px', background: '#fffbeb', borderRadius: 8, fontSize: 13, color: '#92760a', marginBottom: 8, border: '1px solid #C8A41540' }}>
+              <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: 6 }} />Terminal: {terminalName || terminalProvider?.toUpperCase()}
+            </div>}
+          </div>
+        )}
+
+        {/* ── ESPERANDO PAGO ── */}
+        {phase === 'waiting' && (
+          <div style={{ textAlign: 'center', paddingTop: 60 }}>
+            <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 48, color: 'var(--store-accent, #C8A415)', marginBottom: 20, display: 'block' }} />
+            <h3 style={{ margin: '0 0 8px', color: '#111', fontSize: 18 }}>Esperando pago…</h3>
+            <p style={{ color: '#6b7280', fontSize: 14 }}>{waitMsg}</p>
+            <p style={{ color: '#9ca3af', fontSize: 12, marginTop: 8 }}>No cierres esta pantalla</p>
+          </div>
+        )}
+
+        {/* ── PROCESANDO ── */}
+        {phase === 'paying' && (
+          <div style={{ textAlign: 'center', paddingTop: 60 }}>
+            <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 40, color: 'var(--store-accent, #C8A415)', marginBottom: 16, display: 'block' }} />
+            <p style={{ color: '#374151' }}>Procesando…</p>
+          </div>
+        )}
+
+        {/* ── ÉXITO ── */}
+        {phase === 'success' && (
+          <div style={{ textAlign: 'center', paddingTop: 24, maxWidth: 420, margin: '0 auto' }}>
+            <div style={{ width: 64, height: 64, background: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+              <FontAwesomeIcon icon={faCheckCircle} style={{ color: '#16a34a', fontSize: 36 }} />
+            </div>
+            <h2 style={{ color: '#16a34a', margin: '0 0 4px', fontSize: 22 }}>¡Pago confirmado!</h2>
+            <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 20 }}>{selectedEvent?.name} · {totalTickets} entrada{totalTickets !== 1 ? 's' : ''}</p>
+
+            {/* QR grande para escanear en la puerta */}
+            <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '2px solid var(--store-accent, #C8A415)', marginBottom: 16, display: 'inline-block' }}>
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(successUrl)}&bgcolor=ffffff&color=111111&margin=2`}
+                alt="QR" width={200} height={200} style={{ display: 'block', borderRadius: 8 }} />
+              <div style={{ marginTop: 12, fontFamily: 'monospace', fontSize: 22, fontWeight: 900, letterSpacing: 4, color: '#111' }}>{successCode}</div>
+              <div style={{ marginTop: 4, fontSize: 11, color: '#9ca3af' }}>Escanea este código en la entrada</div>
+            </div>
+
+            <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 20 }}>
+              El cliente puede guardar el código en su teléfono
+            </div>
+
+            <button onClick={() => { setPhase('events'); setSelectedEvent(null); setQtys({}); setSuccessCode(''); setSuccessUrl(''); }}
+              style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
+              Nueva compra
+            </button>
+          </div>
+        )}
+
+        {/* ── ERROR ── */}
+        {phase === 'error' && (
+          <div style={{ textAlign: 'center', paddingTop: 40, maxWidth: 400, margin: '0 auto' }}>
+            <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: 50, color: '#ef4444', marginBottom: 14, display: 'block' }} />
+            <h3 style={{ color: '#dc2626', margin: '0 0 8px' }}>Error en el pago</h3>
+            <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 20 }}>{payError}</p>
+            <button onClick={() => setPhase('confirm')} style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
+              Intentar nuevamente
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Botones inferiores */}
+      {(phase === 'select' || phase === 'confirm') && (
+        <div style={{ padding: '12px 16px', background: 'var(--store-secondary, #fff)', borderTop: '1px solid #e5e7eb', flexShrink: 0 }}>
+          {phase === 'select' ? (
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setPhase('events')} style={{ ...btn('#f3f4f6', '#374151'), flex: '0 0 auto', width: 'auto', padding: '12px 18px' }}>
+                <FontAwesomeIcon icon={faArrowLeft} />
+              </button>
+              <button onClick={() => { if (totalTickets === 0) return; setPhase('confirm'); }}
+                disabled={totalTickets === 0}
+                style={{ ...btn(totalTickets === 0 ? '#d1d5db' : 'var(--store-primary, #111)', 'var(--store-secondary, #fff)'), flex: 1, cursor: totalTickets === 0 ? 'not-allowed' : 'pointer' }}>
+                Ver resumen · {totalTickets} entrada{totalTickets !== 1 ? 's' : ''} {total > 0 ? `· $${total.toLocaleString('es-CL')}` : '· Gratis'}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button onClick={() => handlePay('terminal')} style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
+                {terminalId && total > 0
+                  ? `Cobrar en ${terminalName || terminalProvider?.toUpperCase() || 'Terminal'} · $${total.toLocaleString('es-CL')}`
+                  : total === 0 ? '✓ Confirmar (Gratis)' : `Pagar con Haulmer · $${total.toLocaleString('es-CL')}`}
+              </button>
+              {total > 0 && (
+                <button onClick={() => handlePay('cash')} style={{ ...btn('#f3f4f6', '#374151') }}>
+                  <FontAwesomeIcon icon={faMoneyBillWave} style={{ marginRight: 6 }} />Efectivo
+                </button>
+              )}
+              <button onClick={() => setPhase('select')} style={{ ...btn('transparent', '#9ca3af'), border: 'none', fontSize: 13 }}>
+                <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 5 }} />Volver
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Store() {
   const { code } = useParams();
   const navigate = useNavigate();
@@ -281,8 +824,6 @@ function Store() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const selectedProductRef = useRef(null);
   const [orderType, setOrderType] = useState('serve');
-  const [eventName, setEventName] = useState('');
-  const [showTime, setShowTime] = useState('');
   const [productConfig, setProductConfig] = useState({
     selectedIngredients: [],
     selectedExtras: [],
@@ -368,6 +909,7 @@ function Store() {
   });
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [posSelectModalOpen, setPosSelectModalOpen] = useState(false);
+  const [ticketMode, setTicketMode] = useState(false);
   const [posSelectList, setPosSelectList] = useState([]);
   const [posSelectLoading, setPosSelectLoading] = useState(false);
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
@@ -1740,9 +2282,6 @@ function Store() {
       selected_ingredients: item.selected_ingredients,
       selected_extras: item.selected_extras
     }));
-    const ticketData = orderType === 'ticketeria'
-      ? { event_name: eventName || null, show_time: showTime || null }
-      : {};
 
     try {
       // --- TUU POS nativo ---
@@ -1755,7 +2294,6 @@ function Store() {
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
-            ...ticketData,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null
           })
         });
@@ -1793,7 +2331,6 @@ function Store() {
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
-            ...ticketData,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null
           })
         });
@@ -1828,8 +2365,7 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: selectedMethod,
             items: cartItems, selected_terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
             coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null,
-            ...ticketData
+            table_number: tableNum ? parseInt(tableNum) : null
           })
         });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
@@ -1847,8 +2383,7 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null,
-            ...ticketData
+            table_number: tableNum ? parseInt(tableNum) : null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -1881,8 +2416,7 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null,
-            ...ticketData
+            table_number: tableNum ? parseInt(tableNum) : null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -1916,8 +2450,7 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null,
-            ...ticketData
+            table_number: tableNum ? parseInt(tableNum) : null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -1951,7 +2484,6 @@ function Store() {
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
-            ...ticketData,
             terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null
           })
         });
@@ -2106,8 +2638,7 @@ function Store() {
         body: JSON.stringify({
           store_id: storeId, order_type: orderType, payment_method: 'card',
           items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-          total: Number(finalTotal).toFixed(2), delivery: false, table_number: null, terminal_id: null,
-          ...(orderType === 'ticketeria' ? { event_name: eventName || null, show_time: showTime || null } : {})
+          total: Number(finalTotal).toFixed(2), delivery: false, table_number: null, terminal_id: null
         })
       });
       if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -3346,6 +3877,16 @@ function Store() {
 
   return (
     <PluginProvider mode="store">
+    {ticketMode && (
+      <TicketPanel
+        storeId={store?.store?.id}
+        storeCode={code}
+        terminalId={selectedTerminalId}
+        terminalProvider={selectedTerminalProvider}
+        terminalName={localStorage.getItem('srservi_last_terminal_name') || ''}
+        onClose={() => setTicketMode(false)}
+      />
+    )}
     <div
       ref={storeContainerRef}
       className="store-container"
@@ -4657,90 +5198,24 @@ function Store() {
 
         {cart.length > 0 && (
           <div className="store-cart-footer">
-            {[selectedConfiguration?.allow_serve, selectedConfiguration?.allow_takeout, selectedConfiguration?.allow_ticketeria].filter(Boolean).length >= 2 && (
+            {selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout && (
               <div className="store-cart-order-type">
                 <label className="store-cart-order-label">{t('orderType', lang)}</label>
-                <div className={`store-cart-type-grid${selectedConfiguration?.allow_ticketeria && selectedConfiguration?.allow_serve && selectedConfiguration?.allow_takeout ? ' three' : ''}`}>
-                  {selectedConfiguration?.allow_serve && (
-                    <button
-                      onClick={() => setOrderType('serve')}
-                      className={`store-cart-type-btn${orderType === 'serve' ? ' active store-glow-pulse' : ''}`}
-                    >
-                      <FontAwesomeIcon icon={faBox} />
-                      <span>{t('serveHere', lang)}</span>
-                    </button>
-                  )}
-                  {selectedConfiguration?.allow_takeout && (
-                    <button
-                      onClick={() => setOrderType('takeout')}
-                      className={`store-cart-type-btn${orderType === 'takeout' ? ' active store-glow-pulse' : ''}`}
-                    >
-                      <FontAwesomeIcon icon={faShoppingCart} />
-                      <span>{t('takeoutShort', lang)}</span>
-                    </button>
-                  )}
-                  {selectedConfiguration?.allow_ticketeria && (
-                    <button
-                      onClick={() => setOrderType('ticketeria')}
-                      className={`store-cart-type-btn store-cart-type-btn--ticket${orderType === 'ticketeria' ? ' active store-glow-pulse' : ''}`}
-                    >
-                      <FontAwesomeIcon icon={faTicket} />
-                      <span>Ticket</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {orderType === 'ticketeria' && (
-              <div className="store-ticket-panel">
-                <div className="store-ticket-panel-header">
-                  <span className="store-ticket-panel-icon">
-                    <FontAwesomeIcon icon={faTicket} />
-                  </span>
-                  <span>Información del Show</span>
-                  <span className="store-ticket-panel-stars">
-                    <FontAwesomeIcon icon={faStar} />
-                    <FontAwesomeIcon icon={faStar} />
-                    <FontAwesomeIcon icon={faStar} />
-                  </span>
-                </div>
-                <div className="store-ticket-panel-sep" />
-                <div className="store-ticket-panel-body">
-                  <div className="store-ticket-field">
-                    <label>
-                      <FontAwesomeIcon icon={faStar} style={{ fontSize: '8px', marginRight: '5px' }} />
-                      Nombre del show / evento
-                    </label>
-                    <input
-                      type="text"
-                      className="store-ticket-input"
-                      value={eventName}
-                      onChange={e => setEventName(e.target.value)}
-                      placeholder="Ej: Rock en Vivo 2026"
-                    />
-                  </div>
-                  <div className="store-ticket-field">
-                    <label>
-                      <FontAwesomeIcon icon={faCalendarAlt} style={{ fontSize: '10px', marginRight: '5px' }} />
-                      Fecha y hora del show
-                    </label>
-                    <input
-                      type="datetime-local"
-                      className="store-ticket-input store-ticket-input--datetime"
-                      value={showTime}
-                      onChange={e => setShowTime(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="store-ticket-panel-perforation">
-                  <span className="store-ticket-notch store-ticket-notch--left" />
-                  <div className="store-ticket-perf-line" />
-                  <span className="store-ticket-notch store-ticket-notch--right" />
-                </div>
-                <div className="store-ticket-panel-footer">
-                  <FontAwesomeIcon icon={faQrcode} />
-                  <span>Se generará QR al confirmar</span>
+                <div className="store-cart-type-grid">
+                  <button
+                    onClick={() => setOrderType('serve')}
+                    className={`store-cart-type-btn${orderType === 'serve' ? ' active store-glow-pulse' : ''}`}
+                  >
+                    <FontAwesomeIcon icon={faBox} />
+                    <span>{t('serveHere', lang)}</span>
+                  </button>
+                  <button
+                    onClick={() => setOrderType('takeout')}
+                    className={`store-cart-type-btn${orderType === 'takeout' ? ' active store-glow-pulse' : ''}`}
+                  >
+                    <FontAwesomeIcon icon={faShoppingCart} />
+                    <span>{t('takeoutShort', lang)}</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -6606,6 +7081,15 @@ function Store() {
                 style={{ padding: '14px', borderRadius: '10px', border: '2px solid var(--store-primary)', background: '#fff', color: 'var(--store-primary)', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
               >
                 Cambiar POS
+              </button>
+              <button
+                onClick={() => {
+                  setPinOptionsModalOpen(false);
+                  setTicketMode(true);
+                }}
+                style={{ padding: '14px', borderRadius: '10px', border: '2px solid #C8A415', background: '#fffbeb', color: '#92760a', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                🎟️ Modo Ticketería
               </button>
               <button
                 onClick={() => {

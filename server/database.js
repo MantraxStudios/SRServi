@@ -3001,6 +3001,78 @@ export async function getOrders(storeId, todayOnly = false) {
   return orders;
 }
 
+export async function getDailySales(storeId, date) {
+  const [orderRows] = await pool.execute(
+    `SELECT o.*, w.name as completed_by_name
+     FROM orders o
+     LEFT JOIN workers w ON o.completed_by = w.id
+     WHERE o.store_id = ? AND DATE(o.created_at) = ?
+     AND (o.payment_process = 1 OR (o.payment_method = 'cash' AND o.cash_approved = 0))
+     ORDER BY o.created_at DESC`,
+    [storeId, date]
+  );
+
+  const orders = [];
+  for (const order of orderRows) {
+    let items = await getOrderItems(order.id);
+    if (!items.length && order.external_items) {
+      try {
+        const ext = typeof order.external_items === 'string' ? JSON.parse(order.external_items) : order.external_items;
+        items = ext.map(i => ({ ...i, product_name: i.name, selected_ingredients: [], selected_extras: [] }));
+      } catch {}
+    }
+    orders.push({ ...order, total: parseFloat(order.total) || 0, items });
+  }
+
+  const completed = orders.filter(o => ['completed', 'paid', 'processed', 'approved'].includes(o.status));
+  const totalRevenue = completed.reduce((sum, o) => sum + o.total, 0);
+
+  const byPaymentMethod = {};
+  completed.forEach(o => {
+    const pm = o.payment_method || 'other';
+    if (!byPaymentMethod[pm]) byPaymentMethod[pm] = { count: 0, total: 0 };
+    byPaymentMethod[pm].count++;
+    byPaymentMethod[pm].total += o.total;
+  });
+
+  const byOrderType = {};
+  completed.forEach(o => {
+    const ot = o.order_type || 'other';
+    if (!byOrderType[ot]) byOrderType[ot] = { count: 0, total: 0 };
+    byOrderType[ot].count++;
+    byOrderType[ot].total += o.total;
+  });
+
+  const productMap = {};
+  completed.forEach(o => {
+    o.items.forEach(item => {
+      const name = item.product_name || 'Desconocido';
+      if (!productMap[name]) productMap[name] = { name, quantity: 0, revenue: 0 };
+      productMap[name].quantity += item.quantity || 0;
+      productMap[name].revenue += (item.unit_price || 0) * (item.quantity || 0);
+    });
+  });
+  const topProducts = Object.values(productMap)
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 15);
+
+  return {
+    date,
+    orders,
+    summary: {
+      totalOrders: orders.length,
+      completedOrders: completed.length,
+      pendingOrders: orders.filter(o => ['pending', 'waiting'].includes(o.status)).length,
+      cancelledOrders: orders.filter(o => o.status === 'cancelled').length,
+      totalRevenue,
+      avgOrder: completed.length ? totalRevenue / completed.length : 0,
+      byPaymentMethod,
+      byOrderType,
+    },
+    topProducts,
+  };
+}
+
 export async function getWhatsAppOrders(storeId) {
   const [rows] = await pool.execute(
     `SELECT o.*, w.name as completed_by_name
