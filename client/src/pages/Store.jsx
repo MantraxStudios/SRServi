@@ -925,6 +925,9 @@ function Store() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cashRegisterOpen, setCashRegisterOpen] = useState(true);
+  const [storeOpeningAmount, setStoreOpeningAmount] = useState('');
+  const [storeOpeningLoading, setStoreOpeningLoading] = useState(false);
+  const [storeOpeningError, setStoreOpeningError] = useState('');
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -1758,6 +1761,25 @@ function Store() {
     const interval = setInterval(checkCaja, 5000);
     return () => clearInterval(interval);
   }, [store?.store?.id]);
+
+  const openCashFromStore = async () => {
+    setStoreOpeningLoading(true);
+    setStoreOpeningError('');
+    const token = localStorage.getItem('workerToken') || localStorage.getItem('token') || adminToken;
+    if (!token) { setStoreOpeningError('Iniciá sesión como vendedor primero'); setStoreOpeningLoading(false); return; }
+    try {
+      const res = await fetch('/api/cash-register/open', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opening_amount: parseFloat(storeOpeningAmount) || 0 })
+      });
+      const data = await res.json();
+      if (!res.ok) { setStoreOpeningError(data.error || 'Error al abrir caja'); return; }
+      setCashRegisterOpen(true);
+      setStoreOpeningAmount('');
+    } catch { setStoreOpeningError('Error de conexión'); }
+    finally { setStoreOpeningLoading(false); }
+  };
 
   const fetchStore = async () => {
     try {
@@ -3869,18 +3891,69 @@ function Store() {
           <p style={{ margin: '0 0 20px', fontSize: 15, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6 }}>
             Para comenzar a vender, abrí la caja desde uno de estos lugares:
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left', background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: '14px 20px', width: '100%', maxWidth: 340, margin: '0 auto', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'rgba(255,255,255,0.75)' }}>
-              <span style={{ fontSize: 18 }}>🏪</span>
-              <span><strong style={{ color: '#fff' }}>Panel del vendedor</strong> → sección <strong style={{ color: '#fff' }}>Caja</strong></span>
+          {/* Formulario de apertura de caja */}
+          <div style={{ width: '100%', maxWidth: 340, margin: '0 auto', boxSizing: 'border-box' }}>
+            <div style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${accent}44`, borderRadius: 14, padding: '20px 20px 16px', boxSizing: 'border-box' }}>
+              <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1 }}>
+                Apertura de caja
+              </p>
+              <div style={{ position: 'relative', marginBottom: 12 }}>
+                <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.35)', fontSize: 15, fontWeight: 700, pointerEvents: 'none' }}>$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="Efectivo en caja (opcional)"
+                  value={storeOpeningAmount}
+                  onChange={e => setStoreOpeningAmount(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && openCashFromStore()}
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    padding: '12px 12px 12px 26px',
+                    background: 'rgba(255,255,255,0.07)',
+                    border: `1.5px solid ${storeOpeningError ? '#ef4444' : 'rgba(255,255,255,0.12)'}`,
+                    borderRadius: 10, color: '#fff', fontSize: 16, fontWeight: 600,
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              {storeOpeningError && (
+                <p style={{ margin: '0 0 10px', fontSize: 12, color: '#f87171' }}>{storeOpeningError}</p>
+              )}
+              <button
+                onClick={openCashFromStore}
+                disabled={storeOpeningLoading}
+                style={{
+                  width: '100%', padding: '13px',
+                  background: storeOpeningLoading ? `${accent}66` : accent,
+                  border: 'none', borderRadius: 10,
+                  color: bg, fontWeight: 800, fontSize: 16,
+                  cursor: storeOpeningLoading ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  transition: 'opacity 0.2s',
+                }}
+              >
+                <FontAwesomeIcon icon={storeOpeningLoading ? faSpinner : faLock} spin={storeOpeningLoading} />
+                {storeOpeningLoading ? 'Abriendo…' : 'Abrir Caja'}
+              </button>
             </div>
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.07)' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'rgba(255,255,255,0.75)' }}>
-              <span style={{ fontSize: 18 }}>⚙️</span>
-              <span><strong style={{ color: '#fff' }}>Admin Panel</strong> → <strong style={{ color: '#fff' }}>Administración</strong> → <strong style={{ color: '#fff' }}>Operación y pedidos</strong></span>
+
+            <div style={{ height: 16 }} />
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left', background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '12px 18px', boxSizing: 'border-box' }}>
+              <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>También podés abrir desde:</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>
+                <span style={{ fontSize: 16 }}>🏪</span>
+                <span><strong style={{ color: 'rgba(255,255,255,0.8)' }}>Panel del vendedor</strong> → Caja</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>
+                <span style={{ fontSize: 16 }}>⚙️</span>
+                <span><strong style={{ color: 'rgba(255,255,255,0.8)' }}>Admin Panel</strong> → Operación y pedidos</span>
+              </div>
             </div>
           </div>
-          <p style={{ margin: '16px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
+
+          <p style={{ margin: '16px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.15)' }}>
             Esperando apertura de caja…
           </p>
         </div>
