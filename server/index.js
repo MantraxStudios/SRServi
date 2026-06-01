@@ -1034,6 +1034,8 @@ app.get('/api/public/lookup/:code', async (req, res) => {
     }
 
     const stores = await getStores(user.id);
+    const userPlanForLookup = await getUserPlan(user.id);
+    const isPremiumForLookup = !!(userPlanForLookup && userPlanForLookup.plan_name && userPlanForLookup.plan_name !== 'Gratis');
     const visibleStores = stores
       .filter(s => !s.is_banned)
       .map(s => ({
@@ -1043,7 +1045,7 @@ app.get('/api/public/lookup/:code', async (req, res) => {
         primary_color: s.primary_color || '#000000',
         secondary_color: s.secondary_color || '#FFFFFF',
         accent_color: s.accent_color || '#D4AF37',
-        logo_url: s.logo_url || null
+        logo_url: isPremiumForLookup ? (s.logo_url || null) : null
       }));
 
     if (visibleStores.length === 0) {
@@ -1102,8 +1104,11 @@ app.get('/api/public/:code', async (req, res) => {
     
     const products = await getPublicProducts(store.id);
     const categories = await getCategories(store.id);
-
     const openRegister = await getOpenCashRegister(store.id);
+
+    // Premium check — logo and custom styles only for active paid plans
+    const userPlan = await getUserPlan(store.user_id);
+    const isPremium = !!(userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis');
 
     // Smart mode: get top selling product IDs (last 30 days)
     let topSellingIds = [];
@@ -1130,7 +1135,7 @@ app.get('/api/public/:code', async (req, res) => {
         secondary_color: store.secondary_color || '#FFFFFF',
         accent_color: store.accent_color || '#D4AF37',
         header_color: store.header_color || '#000000',
-        logo_url: store.logo_url || null,
+        logo_url: isPremium ? (store.logo_url || null) : null,
         currency_code: store.currency_code || 'USD',
         currency_symbol: store.currency_symbol || '$',
         currency_name: store.currency_name || 'Dólar Estadounidense',
