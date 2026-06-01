@@ -181,27 +181,27 @@ function ScannerTab({ token }) {
   const [code, setCode] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [admitting, setAdmitting] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const extractCode = (raw) => {
+    const m = raw.trim().match(/\/ticket\/([A-Z0-9]{7})(?:\?.*)?$/i);
+    return m ? m[1].toUpperCase() : raw.trim().toUpperCase();
+  };
 
   const scan = async (e) => {
     e.preventDefault();
     if (!code.trim()) return;
     setLoading(true);
     setResult(null);
+    const rawCode = extractCode(code);
     try {
-      // Extraer código si se escanea la URL completa
-      let rawCode = code.trim();
-      const urlMatch = rawCode.match(/\/ticket\/([A-Z0-9]{7})$/i);
-      if (urlMatch) rawCode = urlMatch[1].toUpperCase();
-      else rawCode = rawCode.toUpperCase();
-
-      const res = await fetch(`${API}/api/ticketeria/tickets/${rawCode}/scan`, {
-        method: 'POST', headers: { Authorization: 'Bearer ' + token }
-      });
+      const res = await fetch(`${API}/api/ticketeria/public/ticket/${rawCode}`);
       const data = await res.json();
-      setResult({ ok: res.ok, ...data });
+      if (!res.ok) { setResult({ ok: false, error: data.error || 'No encontrado' }); return; }
+      setResult({ ok: true, purchase: data, code: rawCode });
     } catch {
       setResult({ ok: false, error: 'Error de red' });
     } finally {
@@ -211,40 +211,94 @@ function ScannerTab({ token }) {
     }
   };
 
+  const admit = async () => {
+    if (!result?.code) return;
+    setAdmitting(true);
+    try {
+      const res = await fetch(`${API}/api/ticketeria/admit/${result.code}`, {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error); return; }
+      setResult(r => ({ ...r, purchase: { ...r.purchase, admitted: 1, admitted_at: new Date().toISOString() } }));
+    } catch { alert('Error de red'); }
+    finally { setAdmitting(false); }
+  };
+
+  const p = result?.purchase;
+  const isAdmitted = !!p?.admitted;
+  const totalTickets = p?.items?.reduce((s, i) => s + i.quantity, 0) ?? 0;
+
+  const formatDate = (raw) => {
+    if (!raw) return '';
+    const s = typeof raw === 'string' ? raw : String(raw);
+    return new Date(s.slice(0, 10) + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', paddingTop: 10 }}>
+    <div style={{ maxWidth: 520, margin: '0 auto', paddingTop: 10 }}>
       <h3 style={{ color: '#111', marginBottom: 16, fontSize: 16, fontWeight: 700 }}>
         <FontAwesomeIcon icon={faQrcode} style={{ marginRight: 8, color: GOLD }} />Escáner de Entradas
       </h3>
       <form onSubmit={scan} style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        <input ref={inputRef} value={code} onChange={e => setCode(e.target.value.toUpperCase())}
-          placeholder="Escanea o escribe el código (T-XXXXXXXX)"
-          style={{ ...inputS, flex: 1, fontFamily: 'monospace', fontSize: 16, letterSpacing: 2 }} />
+        <input ref={inputRef} value={code} onChange={e => setCode(e.target.value)}
+          placeholder="Escanea el QR o escribe el código (7 caracteres)"
+          style={{ ...inputS, flex: 1, fontFamily: 'monospace', fontSize: 15, letterSpacing: 2 }} />
         <button type="submit" disabled={loading} style={btnPrimary}>
-          {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Validar'}
+          {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Buscar'}
         </button>
       </form>
-      {result && (
-        <div style={{
-          padding: '16px 20px', borderRadius: 12,
-          background: result.ok ? '#f0fdf4' : '#fef2f2',
-          border: `1px solid ${result.ok ? '#86efac' : '#fca5a5'}`
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: result.ticket ? 8 : 0 }}>
-            <FontAwesomeIcon icon={result.ok ? faCheckCircle : faTimesCircle}
-              style={{ color: result.ok ? '#16a34a' : '#dc2626', fontSize: 22 }} />
-            <span style={{ fontWeight: 700, fontSize: 16, color: result.ok ? '#16a34a' : '#dc2626' }}>
-              {result.ok ? '✅ ENTRADA VÁLIDA' : `❌ ${result.error || 'Error'}`}
-            </span>
-          </div>
-          {result.ticket && (
-            <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.9, marginLeft: 32 }}>
-              <div><strong>Código:</strong> {result.ticket.ticket_code}</div>
-              <div><strong>Titular:</strong> {result.ticket.buyer_name}</div>
-              <div><strong>Categoría:</strong> {result.ticket.category_name}</div>
-              <div><strong>Evento:</strong> {result.ticket.event_name}</div>
+
+      {result && !result.ok && (
+        <div style={{ padding: '14px 18px', borderRadius: 12, background: '#fef2f2', border: '1px solid #fca5a5', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <FontAwesomeIcon icon={faTimesCircle} style={{ color: '#dc2626', fontSize: 20 }} />
+          <span style={{ fontWeight: 700, color: '#dc2626' }}>❌ {result.error}</span>
+        </div>
+      )}
+
+      {result?.ok && p && (
+        <div style={{ background: '#fff', borderRadius: 14, border: `2px solid ${isAdmitted ? '#fca5a5' : '#86efac'}`, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
+          {/* Estado */}
+          <div style={{ padding: '14px 18px', background: isAdmitted ? '#fef2f2' : '#f0fdf4', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <FontAwesomeIcon icon={isAdmitted ? faTimesCircle : faCheckCircle}
+              style={{ color: isAdmitted ? '#dc2626' : '#16a34a', fontSize: 22 }} />
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 16, color: isAdmitted ? '#dc2626' : '#16a34a' }}>
+                {isAdmitted ? 'ENTRADA YA UTILIZADA' : 'ENTRADA VÁLIDA'}
+              </div>
+              {isAdmitted && p.admitted_at && (
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>
+                  Admitida el {new Date(p.admitted_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Info */}
+          <div style={{ padding: '14px 18px', borderTop: '1px solid #f3f4f6' }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: '#111', marginBottom: 4 }}>{p.event_name}</div>
+            <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 10 }}>📅 {formatDate(p.event_date)}{p.time_start ? ` · ⏰ ${String(p.time_start).slice(0,5)}` : ''}{p.location ? ` · 📍 ${p.location}` : ''}</div>
+            <div style={{ fontSize: 14, color: '#374151', marginBottom: 6 }}>👤 <strong>{p.buyer_name}</strong> — {p.buyer_email}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 }}>
+              {(p.items || []).map((item, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#f9fafb', borderRadius: 8, fontSize: 14 }}>
+                  <span style={{ fontWeight: 600, color: '#111' }}>{item.category_name}</span>
+                  <span style={{ color: '#374151' }}>{item.quantity} persona{item.quantity !== 1 ? 's' : ''}</span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: '#fffbeb', borderRadius: 8, fontSize: 14, fontWeight: 700 }}>
+                <span style={{ color: '#111' }}>Total</span>
+                <span style={{ color: GOLD }}>{totalTickets} persona{totalTickets !== 1 ? 's' : ''} · {p.total_amount === 0 ? 'Gratis' : `$${Number(p.total_amount).toLocaleString('es-CL')}`}</span>
+              </div>
+            </div>
+
+            {!isAdmitted && (
+              <button onClick={admit} disabled={admitting} style={{ width: '100%', padding: '12px', background: '#16a34a', border: 'none', borderRadius: 10, color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                {admitting ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheckCircle} />}
+                {admitting ? 'Procesando...' : `Admitir ${totalTickets} persona${totalTickets !== 1 ? 's' : ''}`}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
