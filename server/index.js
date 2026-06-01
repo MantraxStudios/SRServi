@@ -12685,7 +12685,7 @@ app.post('/api/ticketeria/events/:id/categories', authenticateToken, async (req,
     if (!name || price == null) return res.status(400).json({ error: 'name y price requeridos' });
     const [result] = await pool.execute(
       'INSERT INTO ticket_categories (event_id, name, description, price, max_qty, sort_order) VALUES (?,?,?,?,?,?)',
-      [eventId, name, description || null, parseInt(price), max_qty || null, sort_order || 0]
+      [eventId, name, description || null, parseInt(price), (max_qty !== '' && max_qty != null) ? parseInt(max_qty) : null, sort_order || 0]
     );
     const [newCat] = await pool.execute('SELECT * FROM ticket_categories WHERE id = ?', [result.insertId]);
     res.json(newCat[0]);
@@ -12703,7 +12703,7 @@ app.put('/api/ticketeria/categories/:id', authenticateToken, async (req, res) =>
     const { name, description, price, max_qty, sort_order } = req.body;
     await pool.execute(
       'UPDATE ticket_categories SET name=?, description=?, price=?, max_qty=?, sort_order=? WHERE id=?',
-      [name || catRows[0].name, description ?? catRows[0].description, price != null ? parseInt(price) : catRows[0].price, max_qty ?? catRows[0].max_qty, sort_order ?? catRows[0].sort_order, catId]
+      [name || catRows[0].name, description ?? catRows[0].description, price != null ? parseInt(price) : catRows[0].price, (max_qty !== '' && max_qty != null) ? parseInt(max_qty) : null, sort_order ?? catRows[0].sort_order, catId]
     );
     const [updated] = await pool.execute('SELECT * FROM ticket_categories WHERE id = ?', [catId]);
     res.json(updated[0]);
