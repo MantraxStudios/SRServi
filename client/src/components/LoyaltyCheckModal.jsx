@@ -4,8 +4,33 @@ import {
   faCamera, faTimes, faCheck, faSpinner, faStar, faUserPlus, faUser, faPhone,
 } from '@fortawesome/free-solid-svg-icons';
 
-// face-api se carga dinámicamente solo cuando el usuario activa la cámara
+// Estado global persistente en memoria (sobrevive re-renders, se pierde al recargar la página)
 let faceapiModule = null;
+let modelsReady = false;
+let preloadPromise = null;
+
+// Llamar esto en background desde Store.jsx cuando loyalty está habilitado
+export async function preloadFaceApi() {
+  if (modelsReady) return;
+  if (preloadPromise) return preloadPromise;
+  preloadPromise = (async () => {
+    try {
+      if (!faceapiModule) faceapiModule = await import('@vladmandic/face-api');
+      const faceapi = faceapiModule;
+      if (!faceapi.nets.tinyFaceDetector.isLoaded) {
+        try { await faceapi.tf.setBackend('webgl'); } catch { await faceapi.tf.setBackend('cpu'); }
+        await faceapi.tf.ready();
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL);
+        await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODELS_URL);
+        await faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URL);
+      }
+      modelsReady = true;
+    } catch {
+      preloadPromise = null; // permitir reintentar si falla
+    }
+  })();
+  return preloadPromise;
+}
 
 const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 const MATCH_THRESHOLD = 0.5;
@@ -52,25 +77,15 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
   useEffect(() => () => stopCamera(), []);
 
   async function startCamera() {
-    setPhase('loading');
     setError('');
+    // Si los modelos ya están listos, saltar directamente a cámara
+    if (!modelsReady) {
+      setPhase('loading');
+      setLoadingMsg('Cargando motor IA…');
+      await preloadFaceApi();
+    }
     try {
-      // Cargar face-api dinámicamente (solo la primera vez)
-      if (!faceapiModule) {
-        setLoadingMsg('Cargando motor IA…');
-        faceapiModule = await import('@vladmandic/face-api');
-      }
       const faceapi = faceapiModule;
-
-      if (!faceapi.nets.tinyFaceDetector.isLoaded) {
-        try { await faceapi.tf.setBackend('webgl'); } catch { await faceapi.tf.setBackend('cpu'); }
-        await faceapi.tf.ready();
-        setLoadingMsg('Cargando detector facial…');
-        await faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL);
-        setLoadingMsg('Cargando reconocimiento…');
-        await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODELS_URL);
-        await faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URL);
-      }
 
       // Construir matcher con clientes cargados
       if (customers.length > 0) {
@@ -214,6 +229,9 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
             <div style={{ fontSize: 44, marginBottom: 10 }}>⭐</div>
             <div style={s.title}>Cliente Habitual</div>
             <div style={s.sub}>Detecta tu rostro para identificarte y acceder a descuentos exclusivos.</div>
+            {modelsReady && (
+              <div style={{ fontSize: 11, color: '#16a34a', marginBottom: 8 }}>✓ Motor listo</div>
+            )}
             {error && <div style={s.err}>{error}</div>}
             <button style={s.btn} onClick={startCamera}>
               <FontAwesomeIcon icon={faCamera} /> Permitir cámara
