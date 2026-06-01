@@ -12852,6 +12852,14 @@ app.post('/api/ticketeria/purchase', async (req, res) => {
     const reference = `TKT-${purchaseId}-${Date.now()}`;
     await pool.execute('UPDATE ticket_purchases SET haulmer_reference = ? WHERE id = ?', [reference, purchaseId]);
 
+    // Entradas gratis: marcar pagado y enviar correo directamente
+    if (totalAmount === 0) {
+      await pool.execute("UPDATE ticket_purchases SET status = 'paid', paid_at = NOW() WHERE id = ?", [purchaseId]);
+      issueAndEmailTickets(purchaseId).catch(e => console.error('[Ticketería gratis]', e.message));
+      const storeCode = storeRows[0].code;
+      return res.json({ success: true, free: true, reference, purchaseId, redirectUrl: `/tickets/${storeCode}?ref=${reference}` });
+    }
+
     const serverUrl = BASE_URL;
     const storeCode = storeRows[0].code;
     const nameParts = buyer_name.split(' ');

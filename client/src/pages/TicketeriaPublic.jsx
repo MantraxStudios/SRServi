@@ -110,6 +110,11 @@ function PurchaseForm({ event, storeId, onBack, onSuccess }) {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Error procesando compra'); return; }
+      // Entradas gratis: ir directo a confirmación sin pasarela
+      if (data.free) {
+        window.location.href = data.redirectUrl;
+        return;
+      }
       window.location.href = data.paymentUrl;
     } catch { setError('Error de conexión. Intenta nuevamente.'); }
     finally { setSubmitting(false); }
@@ -210,7 +215,7 @@ function ConfirmationView({ reference, storeCode }) {
         await fetch(`${API}/api/ticketeria/purchase/${reference}/confirm`, { method: 'POST' });
         const res = await fetch(`${API}/api/ticketeria/purchase/${reference}/status`);
         const data = await res.json();
-        if (data.status === 'paid') {
+        if (data.status === 'paid' || data.total_amount === 0) {
           setPurchase(data);
           setStatus('success');
         } else if (data.status === 'failed' || data.status === 'cancelled') {

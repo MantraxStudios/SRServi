@@ -6,7 +6,7 @@ import {
   faPlus, faEdit, faTrash, faSave, faTimes, faTicketAlt,
   faCalendarAlt, faClock, faMapMarkerAlt, faUsers, faQrcode,
   faCheckCircle, faTimesCircle, faSpinner, faTag, faSyncAlt,
-  faChevronDown, faChevronUp, faDollarSign
+  faChevronDown, faChevronUp, faDollarSign, faImage, faUpload
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -22,7 +22,7 @@ const btnPrimary = { padding: '8px 16px', background: GOLD, border: 'none', bord
 const btnSecondary = { padding: '8px 16px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 };
 const iconBtn = { background: 'transparent', border: 'none', color: GOLD, cursor: 'pointer', fontSize: 14, padding: '4px 6px', borderRadius: 6 };
 
-function EventForm({ event, onSave, onCancel }) {
+function EventForm({ event, onSave, onCancel, token }) {
   const [form, setForm] = useState({
     name: event?.name || '',
     description: event?.description || '',
@@ -32,9 +32,25 @@ function EventForm({ event, onSave, onCancel }) {
     location: event?.location || '',
     max_capacity: event?.max_capacity || '',
     status: event?.status || 'active',
+    image_url: event?.image_url || '',
   });
   const [saving, setSaving] = useState(false);
+  const [uploadingImg, setUploadingImg] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImg(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const res = await fetch(`${API}/api/upload`, { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+      const data = await res.json();
+      if (data.url) set('image_url', `${API}${data.url}`);
+    } catch { alert('Error subiendo imagen'); }
+    finally { setUploadingImg(false); }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,6 +63,37 @@ function EventForm({ event, onSave, onCancel }) {
       <input required placeholder="Nombre del evento *" value={form.name} onChange={e => set('name', e.target.value)} style={inputS} />
       <textarea placeholder="Descripción (opcional)" value={form.description} onChange={e => set('description', e.target.value)}
         style={{ ...inputS, minHeight: 70, resize: 'vertical' }} />
+
+      {/* Imagen */}
+      <div>
+        <label style={labelS}>Imagen del evento</label>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px',
+            background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8,
+            cursor: uploadingImg ? 'wait' : 'pointer', fontSize: 13, color: '#374151', fontWeight: 600, whiteSpace: 'nowrap'
+          }}>
+            {uploadingImg ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faUpload} />}
+            {uploadingImg ? 'Subiendo...' : 'Subir imagen'}
+            <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={uploadingImg} />
+          </label>
+          {form.image_url && (
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <img src={form.image_url} alt="preview" style={{ height: 60, borderRadius: 8, border: '1px solid #e5e7eb', objectFit: 'cover', maxWidth: 120 }} />
+              <button type="button" onClick={() => set('image_url', '')}
+                style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', border: 'none', borderRadius: '50%', width: 18, height: 18, color: '#fff', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                ×
+              </button>
+            </div>
+          )}
+          {!form.image_url && (
+            <div style={{ flex: 1 }}>
+              <input placeholder="O pega una URL de imagen" value={form.image_url} onChange={e => set('image_url', e.target.value)} style={{ ...inputS, fontSize: 13 }} />
+            </div>
+          )}
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
         <div>
           <label style={labelS}>Fecha *</label>
@@ -78,7 +125,7 @@ function EventForm({ event, onSave, onCancel }) {
       </div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
         <button type="button" onClick={onCancel} style={btnSecondary}>Cancelar</button>
-        <button type="submit" disabled={saving} style={btnPrimary}>
+        <button type="submit" disabled={saving || uploadingImg} style={btnPrimary}>
           {saving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />} Guardar
         </button>
       </div>
@@ -375,7 +422,7 @@ export default function Ticketeria() {
           {(showEventForm || editingEvent) && (
             <div style={{ ...card, border: `1px solid ${GOLD}50`, background: '#fffbeb' }}>
               <h3 style={{ margin: '0 0 14px', color: '#111', fontSize: 15, fontWeight: 700 }}>{editingEvent ? 'Editar Evento' : 'Nuevo Evento'}</h3>
-              <EventForm event={editingEvent} onSave={handleSaveEvent} onCancel={() => { setShowEventForm(false); setEditingEvent(null); }} />
+              <EventForm event={editingEvent} token={token} onSave={handleSaveEvent} onCancel={() => { setShowEventForm(false); setEditingEvent(null); }} />
             </div>
           )}
 
