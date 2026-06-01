@@ -39,7 +39,14 @@ import {
   faFileExcel,
   faUpload,
   faEllipsisV,
-  faFlask
+  faFlask,
+  faTicketAlt,
+  faCalendarAlt,
+  faMapMarkerAlt,
+  faEnvelope,
+  faPhone,
+  faUser,
+  faSpinner,
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
@@ -256,6 +263,357 @@ function SortableComplementRow({ item, active, onToggle, onEdit, onDelete }) {
   );
 }
 
+const TICKET_API = 'https://srservi2.srautomatic.com';
+
+function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, terminalName, onClose }) {
+  const [phase, setPhase] = useState('events'); // events|select|buyer|paying|waiting|success|error
+  const [events, setEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [qtys, setQtys] = useState({});
+  const [buyer, setBuyer] = useState({ name: '', email: '', phone: '' });
+  const [buyerError, setBuyerError] = useState('');
+  const [payError, setPayError] = useState('');
+  const [waitMsg, setWaitMsg] = useState('');
+  const [successCode, setSuccessCode] = useState('');
+  const [successEmail, setSuccessEmail] = useState('');
+
+  useEffect(() => {
+    fetch(`${TICKET_API}/api/ticketeria/public/events?store_id=${storeId}`)
+      .then(r => r.json())
+      .then(d => setEvents(Array.isArray(d) ? d : []))
+      .catch(() => {})
+      .finally(() => setLoadingEvents(false));
+  }, [storeId]);
+
+  const selectEvent = async (ev) => {
+    setSelectedEvent(ev);
+    const r = await fetch(`${TICKET_API}/api/ticketeria/public/events/${ev.id}`);
+    const d = await r.json();
+    const cats = d.categories || [];
+    setCategories(cats);
+    const init = {};
+    cats.forEach(c => { init[c.id] = 0; });
+    setQtys(init);
+    setPhase('select');
+  };
+
+  const total = categories.reduce((s, c) => s + (qtys[c.id] || 0) * c.price, 0);
+  const totalTickets = Object.values(qtys).reduce((a, b) => a + b, 0);
+  const adj = (id, d) => setQtys(p => {
+    const cat = categories.find(c => c.id === id);
+    const v = Math.max(0, (p[id] || 0) + d);
+    return { ...p, [id]: Math.min(v, cat?.max_qty ?? 20) };
+  });
+
+  const buildItems = () => categories.filter(c => qtys[c.id] > 0).map(c => ({ category_id: c.id, quantity: qtys[c.id] }));
+
+  const confirmBuyer = () => {
+    if (!buyer.name.trim() || !buyer.email.trim()) { setBuyerError('Nombre y correo son requeridos'); return; }
+    setBuyerError('');
+    handlePay();
+  };
+
+  const confirmPurchase = async (reference) => {
+    await fetch(`${TICKET_API}/api/ticketeria/purchase/${reference}/confirm`, { method: 'POST' });
+    const r = await fetch(`${TICKET_API}/api/ticketeria/purchase/${reference}/status`);
+    const d = await r.json();
+    setSuccessCode(d.viewer_code || reference);
+    setSuccessEmail(buyer.email);
+    setPhase('success');
+  };
+
+  const pollTerminal = (reference, paymentKey, provider) => {
+    let attempts = 0;
+    const iv = setInterval(async () => {
+      attempts++;
+      if (attempts > 90) { clearInterval(iv); setPayError('Tiempo agotado.'); setPhase('error'); return; }
+      try {
+        let statusUrl = provider === 'tuu'
+          ? `${TICKET_API}/api/tuu/status/${paymentKey}`
+          : `${TICKET_API}/api/plugins/payments/status/${encodeURIComponent(paymentKey)}`;
+        const r = await fetch(statusUrl);
+        const d = await r.json();
+        const done = d.status === 'Completed';
+        const fail = ['Canceled', 'Failed', 'Timeout'].includes(d.status);
+        if (done) { clearInterval(iv); await confirmPurchase(reference); }
+        else if (fail) { clearInterval(iv); setPayError('Pago cancelado en el terminal.'); setPhase('error'); }
+      } catch {}
+    }, 2000);
+  };
+
+  const handlePay = async (method = 'terminal') => {
+    setPayError('');
+    setPhase('paying');
+    try {
+      const body = { store_id: storeId, event_id: selectedEvent.id, buyer_name: buyer.name, buyer_email: buyer.email, buyer_phone: buyer.phone, items: buildItems() };
+
+      // Gratis o efectivo
+      if (total === 0 || method === 'cash') {
+        const r = await fetch(`${TICKET_API}/api/ticketeria/purchase/init`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const d = await r.json();
+        if (!r.ok) { setPayError(d.error || 'Error'); setPhase('error'); return; }
+        await confirmPurchase(d.reference);
+        return;
+      }
+
+      // Terminal TUU o Square
+      if (terminalId && (terminalProvider === 'tuu' || terminalProvider === 'square')) {
+        const initR = await fetch(`${TICKET_API}/api/ticketeria/purchase/init`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const initD = await initR.json();
+        if (!initR.ok) { setPayError(initD.error || 'Error'); setPhase('error'); return; }
+
+        const chargeUrl = terminalProvider === 'tuu' ? `${TICKET_API}/api/tuu/charge` : `${TICKET_API}/api/plugins/payments/charge`;
+        const chargeBody = terminalProvider === 'tuu'
+          ? { store_id: storeId, amount: Math.round(initD.totalAmount), description: `Entradas: ${selectedEvent.name}`, terminal_id: parseInt(terminalId) }
+          : { store_id: storeId, amount: initD.totalAmount, description: `Entradas: ${selectedEvent.name}`, terminal_id: parseInt(terminalId), terminal_provider: 'square' };
+
+        const chargeR = await fetch(chargeUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(chargeBody) });
+        const chargeD = await chargeR.json();
+        if (!chargeD.success) { setPayError(chargeD.error || 'Error activando terminal'); setPhase('error'); return; }
+
+        setWaitMsg(`Cobrando $${initD.totalAmount.toLocaleString('es-CL')} en ${terminalName || 'terminal'}…`);
+        setPhase('waiting');
+        pollTerminal(initD.reference, chargeD.paymentKey, terminalProvider);
+        return;
+      }
+
+      // Haulmer online (sin terminal)
+      const r = await fetch(`${TICKET_API}/api/ticketeria/purchase`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!r.ok) { setPayError(d.error || 'Error'); setPhase('error'); return; }
+      if (d.free) { await confirmPurchase(d.reference); return; }
+      window.open(d.paymentUrl, '_blank');
+      // Esperar confirmación del webhook
+      setWaitMsg('Esperando confirmación de pago Haulmer…');
+      setPhase('waiting');
+      let att = 0;
+      const iv = setInterval(async () => {
+        att++;
+        if (att > 150) { clearInterval(iv); setPhase('error'); setPayError('Tiempo agotado.'); return; }
+        const sr = await fetch(`${TICKET_API}/api/ticketeria/purchase/${d.reference}/status`);
+        const sd = await sr.json();
+        if (sd.status === 'paid') { clearInterval(iv); setSuccessCode(sd.viewer_code || d.reference); setSuccessEmail(buyer.email); setPhase('success'); }
+      }, 3000);
+
+    } catch (e) { setPayError(e.message); setPhase('error'); }
+  };
+
+  const formatDate = (raw) => {
+    if (!raw) return '';
+    return new Date(String(raw).slice(0,10) + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const overlay = { position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--store-secondary, #fff)', display: 'flex', flexDirection: 'column', overflow: 'hidden' };
+  const hdr = { background: 'var(--store-primary, #111)', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 };
+  const btn = (bg, color) => ({ padding: '12px 20px', background: bg, border: 'none', borderRadius: 10, color, fontWeight: 700, fontSize: 15, cursor: 'pointer', width: '100%' });
+
+  return (
+    <div style={overlay}>
+      {/* Header */}
+      <div style={hdr}>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--store-secondary, #fff)', cursor: 'pointer', fontSize: 20, padding: '0 4px', lineHeight: 1 }}>
+          <FontAwesomeIcon icon={faArrowLeft} />
+        </button>
+        <FontAwesomeIcon icon={faTicketAlt} style={{ color: 'var(--store-accent, #C8A415)', fontSize: 18 }} />
+        <span style={{ color: 'var(--store-secondary, #fff)', fontWeight: 800, fontSize: 17 }}>
+          {phase === 'events' ? 'Ticketería' : phase === 'select' ? selectedEvent?.name : phase === 'buyer' ? 'Datos del comprador' : phase === 'waiting' ? 'Procesando pago' : phase === 'success' ? '¡Listo!' : 'Error de pago'}
+        </span>
+        {terminalId && (
+          <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--store-accent, #C8A415)', fontWeight: 600, background: 'rgba(255,255,255,0.1)', padding: '3px 9px', borderRadius: 20 }}>
+            {terminalName || terminalProvider?.toUpperCase()}
+          </span>
+        )}
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+
+        {/* ── LISTA DE EVENTOS ── */}
+        {phase === 'events' && (
+          loadingEvents ? (
+            <div style={{ textAlign: 'center', paddingTop: 60 }}>
+              <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 32, color: 'var(--store-accent, #C8A415)' }} />
+            </div>
+          ) : events.length === 0 ? (
+            <div style={{ textAlign: 'center', paddingTop: 60, color: '#9ca3af' }}>
+              <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 44, display: 'block', marginBottom: 12 }} />
+              No hay eventos disponibles
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+              {events.map(ev => (
+                <div key={ev.id} onClick={() => selectEvent(ev)} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', overflow: 'hidden', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', transition: 'transform .15s, box-shadow .15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.12)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.07)'; }}>
+                  {ev.image_url
+                    ? <img src={ev.image_url} alt={ev.name} style={{ width: '100%', height: 130, objectFit: 'cover', display: 'block' }} />
+                    : <div style={{ width: '100%', height: 100, background: 'var(--store-primary, #111)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 36, color: 'var(--store-accent, #C8A415)', opacity: 0.6 }} />
+                      </div>}
+                  <div style={{ padding: '12px 14px' }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: '#111', marginBottom: 4 }}>{ev.name}</div>
+                    <div style={{ fontSize: 12, color: '#6b7280', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span><FontAwesomeIcon icon={faCalendarAlt} style={{ marginRight: 5, color: 'var(--store-accent, #C8A415)' }} />{formatDate(ev.event_date)}</span>
+                      {ev.time_start && <span><FontAwesomeIcon icon={faClock} style={{ marginRight: 5, color: 'var(--store-accent, #C8A415)' }} />{String(ev.time_start).slice(0,5)}{ev.time_end ? ` – ${String(ev.time_end).slice(0,5)}` : ''}</span>}
+                      {ev.location && <span><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 5, color: 'var(--store-accent, #C8A415)' }} />{ev.location}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* ── SELECTOR DE ENTRADAS ── */}
+        {phase === 'select' && (
+          <div style={{ maxWidth: 500, margin: '0 auto' }}>
+            {categories.length === 0
+              ? <p style={{ color: '#9ca3af', textAlign: 'center', paddingTop: 30 }}>Este evento no tiene categorías configuradas</p>
+              : categories.map(cat => (
+                <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${qtys[cat.id] > 0 ? 'var(--store-accent, #C8A415)' : '#e5e7eb'}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{cat.name}</div>
+                    {cat.description && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{cat.description}</div>}
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: 17, color: 'var(--store-accent, #C8A415)', minWidth: 70, textAlign: 'right' }}>
+                    {cat.price === 0 ? 'Gratis' : `$${cat.price.toLocaleString('es-CL')}`}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button type="button" onClick={() => adj(cat.id, -1)} disabled={!qtys[cat.id]} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--store-accent, #C8A415)', background: '#fff', color: 'var(--store-accent, #C8A415)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FontAwesomeIcon icon={faMinus} />
+                    </button>
+                    <span style={{ minWidth: 24, textAlign: 'center', fontWeight: 800, fontSize: 18, color: '#111' }}>{qtys[cat.id] || 0}</span>
+                    <button type="button" onClick={() => adj(cat.id, 1)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--store-accent, #C8A415)', background: 'var(--store-accent, #C8A415)', color: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FontAwesomeIcon icon={faPlus} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+            {totalTickets > 0 && (
+              <div style={{ marginTop: 8, padding: '14px 18px', background: 'var(--store-primary, #111)', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--store-secondary, #fff)', fontSize: 14 }}>{totalTickets} entrada{totalTickets !== 1 ? 's' : ''}</span>
+                <span style={{ color: 'var(--store-accent, #C8A415)', fontWeight: 900, fontSize: 20 }}>${total.toLocaleString('es-CL')}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── DATOS DEL COMPRADOR ── */}
+        {phase === 'buyer' && (
+          <div style={{ maxWidth: 460, margin: '0 auto' }}>
+            <div style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', marginBottom: 16, border: '1px solid #e5e7eb' }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: '#111', marginBottom: 4 }}>{selectedEvent?.name}</div>
+              <div style={{ fontSize: 13, color: '#6b7280' }}>{totalTickets} entrada{totalTickets !== 1 ? 's' : ''} · {total === 0 ? 'Gratis' : `$${total.toLocaleString('es-CL')}`}</div>
+            </div>
+            {[
+              { key: 'name', icon: faUser, placeholder: 'Nombre completo *', type: 'text' },
+              { key: 'email', icon: faEnvelope, placeholder: 'Correo electrónico * (recibirá las entradas aquí)', type: 'email' },
+              { key: 'phone', icon: faPhone, placeholder: 'Teléfono (opcional)', type: 'tel' },
+            ].map(f => (
+              <div key={f.key} style={{ position: 'relative', marginBottom: 10 }}>
+                <FontAwesomeIcon icon={f.icon} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 13 }} />
+                <input type={f.type} placeholder={f.placeholder} value={buyer[f.key]} onChange={e => setBuyer(b => ({ ...b, [f.key]: e.target.value }))}
+                  style={{ width: '100%', padding: '12px 12px 12px 34px', background: '#fff', border: '1px solid #d1d5db', borderRadius: 10, fontSize: 14, color: '#111', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+            ))}
+            {buyerError && <div style={{ padding: '8px 12px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{buyerError}</div>}
+          </div>
+        )}
+
+        {/* ── ESPERANDO PAGO ── */}
+        {phase === 'waiting' && (
+          <div style={{ textAlign: 'center', paddingTop: 60 }}>
+            <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 48, color: 'var(--store-accent, #C8A415)', marginBottom: 20, display: 'block' }} />
+            <h3 style={{ margin: '0 0 8px', color: '#111', fontSize: 18 }}>Esperando pago…</h3>
+            <p style={{ color: '#6b7280', fontSize: 14 }}>{waitMsg}</p>
+            <p style={{ color: '#9ca3af', fontSize: 12, marginTop: 8 }}>No cierres esta pantalla</p>
+          </div>
+        )}
+
+        {/* ── PROCESANDO ── */}
+        {phase === 'paying' && (
+          <div style={{ textAlign: 'center', paddingTop: 60 }}>
+            <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 40, color: 'var(--store-accent, #C8A415)', marginBottom: 16, display: 'block' }} />
+            <p style={{ color: '#374151' }}>Procesando…</p>
+          </div>
+        )}
+
+        {/* ── ÉXITO ── */}
+        {phase === 'success' && (
+          <div style={{ textAlign: 'center', paddingTop: 40, maxWidth: 400, margin: '0 auto' }}>
+            <div style={{ width: 72, height: 72, background: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <FontAwesomeIcon icon={faCheckCircle} style={{ color: '#16a34a', fontSize: 40 }} />
+            </div>
+            <h2 style={{ color: '#16a34a', margin: '0 0 8px', fontSize: 22 }}>¡Entradas confirmadas!</h2>
+            <p style={{ color: '#374151', fontSize: 14, marginBottom: 6 }}>Las entradas fueron enviadas a:</p>
+            <p style={{ color: 'var(--store-accent, #C8A415)', fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{successEmail}</p>
+            {successCode && (
+              <div style={{ padding: '12px 16px', background: '#fffbeb', border: '1px solid #C8A41550', borderRadius: 10, marginBottom: 16 }}>
+                <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Código de entrada</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 24, fontWeight: 900, letterSpacing: 4, color: '#111' }}>{successCode}</div>
+              </div>
+            )}
+            <button onClick={() => { setPhase('events'); setSelectedEvent(null); setBuyer({ name: '', email: '', phone: '' }); setQtys({}); }}
+              style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)'), marginTop: 8 }}>
+              Nueva compra
+            </button>
+          </div>
+        )}
+
+        {/* ── ERROR ── */}
+        {phase === 'error' && (
+          <div style={{ textAlign: 'center', paddingTop: 40, maxWidth: 400, margin: '0 auto' }}>
+            <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: 50, color: '#ef4444', marginBottom: 14, display: 'block' }} />
+            <h3 style={{ color: '#dc2626', margin: '0 0 8px' }}>Error en el pago</h3>
+            <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 20 }}>{payError}</p>
+            <button onClick={() => setPhase('buyer')} style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
+              Intentar nuevamente
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Botón inferior según fase */}
+      {(phase === 'select' || phase === 'buyer') && (
+        <div style={{ padding: '12px 16px', background: 'var(--store-secondary, #fff)', borderTop: '1px solid #e5e7eb', flexShrink: 0 }}>
+          {phase === 'select' ? (
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setPhase('events')} style={{ ...btn('#f3f4f6', '#374151'), flex: '0 0 auto', width: 'auto', padding: '12px 18px' }}>
+                <FontAwesomeIcon icon={faArrowLeft} />
+              </button>
+              <button onClick={() => { if (totalTickets === 0) return; setPhase('buyer'); }}
+                disabled={totalTickets === 0}
+                style={{ ...btn(totalTickets === 0 ? '#d1d5db' : 'var(--store-primary, #111)', 'var(--store-secondary, #fff)'), flex: 1, cursor: totalTickets === 0 ? 'not-allowed' : 'pointer' }}>
+                Continuar · {totalTickets} entrada{totalTickets !== 1 ? 's' : ''} {total > 0 ? `· $${total.toLocaleString('es-CL')}` : '· Gratis'}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Efectivo siempre disponible */}
+              <button onClick={() => confirmBuyer()} style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
+                {terminalId && total > 0
+                  ? `Cobrar en ${terminalName || terminalProvider?.toUpperCase() || 'Terminal'} · $${total.toLocaleString('es-CL')}`
+                  : total === 0 ? 'Confirmar (Gratis)' : `Pagar con Haulmer · $${total.toLocaleString('es-CL')}`}
+              </button>
+              {total > 0 && (
+                <button onClick={() => { if (!buyer.name.trim() || !buyer.email.trim()) { setBuyerError('Nombre y correo son requeridos'); return; } setBuyerError(''); handlePay('cash'); }}
+                  style={{ ...btn('#f3f4f6', '#374151') }}>
+                  <FontAwesomeIcon icon={faMoneyBillWave} style={{ marginRight: 6 }} />Efectivo
+                </button>
+              )}
+              <button onClick={() => setPhase('select')} style={{ ...btn('transparent', '#9ca3af'), border: 'none', fontSize: 13 }}>
+                Volver
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Store() {
   const { code } = useParams();
   const navigate = useNavigate();
@@ -363,6 +721,7 @@ function Store() {
   });
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [posSelectModalOpen, setPosSelectModalOpen] = useState(false);
+  const [ticketMode, setTicketMode] = useState(false);
   const [posSelectList, setPosSelectList] = useState([]);
   const [posSelectLoading, setPosSelectLoading] = useState(false);
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
@@ -3330,6 +3689,16 @@ function Store() {
 
   return (
     <PluginProvider mode="store">
+    {ticketMode && (
+      <TicketPanel
+        storeId={store?.store?.id}
+        storeCode={code}
+        terminalId={selectedTerminalId}
+        terminalProvider={selectedTerminalProvider}
+        terminalName={localStorage.getItem('srservi_last_terminal_name') || ''}
+        onClose={() => setTicketMode(false)}
+      />
+    )}
     <div
       ref={storeContainerRef}
       className="store-container"
@@ -6528,7 +6897,7 @@ function Store() {
               <button
                 onClick={() => {
                   setPinOptionsModalOpen(false);
-                  window.location.href = `/tickets/${code}`;
+                  setTicketMode(true);
                 }}
                 style={{ padding: '14px', borderRadius: '10px', border: '2px solid #C8A415', background: '#fffbeb', color: '#92760a', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
