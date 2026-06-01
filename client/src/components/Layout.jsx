@@ -50,6 +50,7 @@ import {
   faChair,
   faCamera,
   faCalendarDay,
+  faCalendarAlt,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -638,6 +639,10 @@ function Layout() {
                     <FontAwesomeIcon icon={faCamera} />
                     <span>Contador de Aforo</span>
                   </NavLink>}
+                  <NavLink to="/admin/ticketeria" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faTicketAlt} />
+                    <span>Ticketería</span>
+                  </NavLink>
                 </div>
               )}
             </li>
