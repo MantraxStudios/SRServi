@@ -39,6 +39,7 @@ class BluetoothPrinterManager(private val context: Context) {
     private var outputStream: OutputStream? = null
     private var connectedDevice: BluetoothDevice? = null
     private val printQueue: ConcurrentLinkedQueue<Order> = ConcurrentLinkedQueue()
+    private val ticketQueue: ConcurrentLinkedQueue<TicketPurchase> = ConcurrentLinkedQueue()
     private var isPrinting = false
     private var paperWidth = PAPER_58MM
     private var listener: PrinterListener? = null
@@ -131,22 +132,41 @@ class BluetoothPrinterManager(private val context: Context) {
 
     private fun processQueue() {
         if (isPrinting) return
-        val order = printQueue.poll() ?: return
 
-        isPrinting = true
-        Thread {
-            try {
-                printReceipt(order)
-                listener?.onPrintSuccess(order.orderNumber)
-            } catch (e: Exception) {
-                listener?.onPrintError(order.orderNumber, e.message ?: "Error desconocido")
-            } finally {
-                isPrinting = false
-                if (printQueue.isNotEmpty()) {
-                    processQueue()
+        val order = printQueue.poll()
+        if (order != null) {
+            isPrinting = true
+            Thread {
+                try {
+                    printReceipt(order)
+                    listener?.onPrintSuccess(order.orderNumber)
+                } catch (e: Exception) {
+                    listener?.onPrintError(order.orderNumber, e.message ?: "Error desconocido")
+                } finally {
+                    isPrinting = false
+                    if (printQueue.isNotEmpty() || ticketQueue.isNotEmpty()) processQueue()
                 }
-            }
-        }.start()
+            }.start()
+            return
+        }
+
+        val purchase = ticketQueue.poll()
+        if (purchase != null) {
+            isPrinting = true
+            Thread {
+                try {
+                    val os = outputStream ?: throw IOException("Impresora no conectada")
+                    os.write(buildTicketPurchaseReceipt(purchase))
+                    os.flush()
+                    listener?.onPrintSuccess(purchase.viewerCode)
+                } catch (e: Exception) {
+                    listener?.onPrintError(purchase.viewerCode, e.message ?: "Error")
+                } finally {
+                    isPrinting = false
+                    if (printQueue.isNotEmpty() || ticketQueue.isNotEmpty()) processQueue()
+                }
+            }.start()
+        }
     }
 
     private fun printReceipt(order: Order) {
@@ -362,16 +382,8 @@ class BluetoothPrinterManager(private val context: Context) {
     }
 
     fun addToQueueTicketPurchase(purchase: TicketPurchase) {
-        val os = outputStream ?: throw IOException("Impresora no conectada")
-        Thread {
-            try {
-                os.write(buildTicketPurchaseReceipt(purchase))
-                os.flush()
-                listener?.onPrintSuccess(purchase.viewerCode)
-            } catch (e: Exception) {
-                listener?.onPrintError(purchase.viewerCode, e.message ?: "Error")
-            }
-        }.start()
+        ticketQueue.add(purchase)
+        processQueue()
     }
 
     private fun buildTicketPurchaseReceipt(purchase: TicketPurchase): ByteArray {
