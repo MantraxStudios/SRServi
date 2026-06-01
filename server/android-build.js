@@ -61,15 +61,20 @@ export function getCachedApk(appName, storeCode) {
   return existsSync(file) ? file : null;
 }
 
-export async function startBuild(appName, storeCode) {
+export async function startBuild(appName, storeCode, force = false) {
   const app = APPS[appName];
   if (!app) throw new Error(`App desconocida: ${appName}`);
 
   const cacheKey  = app.injectFiles.length ? (storeCode || '_generic') : '_generic';
   const cacheFile = join(CACHE_DIR, appName, `${cacheKey}.apk`);
 
-  if (existsSync(cacheFile)) {
+  if (!force && existsSync(cacheFile)) {
     return { cached: true, apkPath: cacheFile, outputName: app.outputName };
+  }
+
+  // Force rebuild: remove stale cache
+  if (force && existsSync(cacheFile)) {
+    try { rmSync(cacheFile); } catch {}
   }
 
   const jobId = randomUUID();

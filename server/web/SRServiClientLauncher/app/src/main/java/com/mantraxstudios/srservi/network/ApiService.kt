@@ -2,6 +2,7 @@ package com.mantraxstudios.srservi.network
 
 import com.google.gson.Gson
 import com.mantraxstudios.srservi.model.OrdersResponse
+import com.mantraxstudios.srservi.model.TicketPurchasesResponse
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -15,11 +16,13 @@ object ApiService {
     fun fetchOrders(storeCode: String): OrdersResponse? {
         val url = "$BASE_URL/$storeCode/orders"
         val response = httpGet(url)
-        return if (response != null) {
-            gson.fromJson(response, OrdersResponse::class.java)
-        } else {
-            null
-        }
+        return if (response != null) gson.fromJson(response, OrdersResponse::class.java) else null
+    }
+
+    fun fetchTicketPurchases(storeCode: String): TicketPurchasesResponse? {
+        val url = "$BASE_URL/$storeCode/ticket-purchases"
+        val response = httpGet(url)
+        return if (response != null) gson.fromJson(response, TicketPurchasesResponse::class.java) else null
     }
 
     private fun httpGet(urlString: String): String? {

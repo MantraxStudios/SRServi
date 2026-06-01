@@ -30,10 +30,16 @@ class PrinterForegroundService : Service() {
         const val NOTIFICATION_ID = 1
         private const val NOTIFICATION_RELAUNCH_ID = 2
         const val ACTION_ORDERS_UPDATED = "com.mantraxstudios.srservi.ORDERS_UPDATED"
+        const val ACTION_PENDING_HISTORY = "com.mantraxstudios.srservi.PENDING_HISTORY"
+        const val EXTRA_HISTORY_COUNT = "history_count"
         const val PREFS_NAME = "srservi_prefs"
         const val KEY_PRINTED_IDS = "printed_order_ids"
         const val KEY_REPRINT_COUNTS = "reprint_counts"
         const val KEY_PRINTER_ADDRESS = "printer_mac_address"
+        const val KEY_PRINTED_TICKET_IDS = "printed_ticket_purchase_ids"
+        const val KEY_INITIALIZED = "printer_initialized"
+        const val KEY_HISTORY_ORDER_IDS = "pending_history_order_ids"
+        const val KEY_HISTORY_TICKET_IDS = "pending_history_ticket_ids"
         private const val POLL_INTERVAL = 3000L
 
         fun start(context: Context) {
@@ -198,26 +204,59 @@ class PrinterForegroundService : Service() {
         Thread {
             try {
                 val response = ApiService.fetchOrders(storeCode) ?: return@Thread
+                val ticketResponse = ApiService.fetchTicketPurchases(storeCode)
 
                 handler.post { sendBroadcast(Intent(ACTION_ORDERS_UPDATED)) }
 
+                val initialized = prefs.getBoolean(KEY_INITIALIZED, false)
+
+                // ── PRIMER CICLO: guardar historial por separado, preguntar al usuario ──
+                if (!initialized) {
+                    val existingOrders = response.orders.filter { it.cashApproved == 1 }
+                    val existingTickets = ticketResponse?.purchases ?: emptyList()
+                    val totalExisting = existingOrders.size + existingTickets.size
+
+                    // Guardar IDs históricos separados (el usuario decide si imprimirlos)
+                    val historyOrderIds = existingOrders.map { it.id }.joinToString(",")
+                    val historyTicketIds = existingTickets.map { it.id }.joinToString(",")
+                    // Guardar reprint_counts iniciales para no disparar reprints del historial
+                    val reprintMap = response.orders.associate { it.id to it.reprintCount }
+                    val reprintStr = reprintMap.entries.joinToString(",") { "${it.key}:${it.value}" }
+
+                    prefs.edit()
+                        .putString(KEY_HISTORY_ORDER_IDS, historyOrderIds)
+                        .putString(KEY_HISTORY_TICKET_IDS, historyTicketIds)
+                        .putString(KEY_REPRINT_COUNTS, reprintStr)
+                        .putBoolean(KEY_INITIALIZED, true)
+                        .apply()
+
+                    // Notificar al Activity
+                    if (totalExisting > 0) {
+                        handler.post {
+                            sendBroadcast(Intent(ACTION_PENDING_HISTORY).apply {
+                                putExtra(EXTRA_HISTORY_COUNT, totalExisting)
+                            })
+                        }
+                    }
+                    return@Thread
+                }
+
                 if (!printerManager.isConnected()) return@Thread
 
-                // Leer IDs impresos frescos en cada ciclo para evitar duplicados
+                // ── CICLOS NORMALES: solo imprimir novedades ──
                 val idsString = prefs.getString(KEY_PRINTED_IDS, "") ?: ""
                 val printedIds = mutableSetOf<Int>()
                 if (idsString.isNotEmpty()) {
-                    idsString.split(",").forEach { s ->
-                        s.trim().toIntOrNull()?.let { printedIds.add(it) }
-                    }
+                    idsString.split(",").forEach { s -> s.trim().toIntOrNull()?.let { printedIds.add(it) } }
                 }
 
-                // Imprimir cuando cash_approved == 1 (la orden fue aprobada para impresion).
-                val toPrint = response.orders.filter {
-                    it.cashApproved == 1 && it.id !in printedIds
-                }
+                // Ignorar IDs que están en historial pendiente (esperando decisión del usuario)
+                val historyStr = prefs.getString(KEY_HISTORY_ORDER_IDS, "") ?: ""
+                val historyIds = mutableSetOf<Int>()
+                if (historyStr.isNotEmpty()) historyStr.split(",").forEach { s -> s.trim().toIntOrNull()?.let { historyIds.add(it) } }
 
-                // Detectar solicitudes de reimpresion comparando reprint_count
+                val toPrint = response.orders.filter { it.cashApproved == 1 && it.id !in printedIds && it.id !in historyIds }
+
                 val reprintCountsStr = prefs.getString(KEY_REPRINT_COUNTS, "") ?: ""
                 val storedReprintCounts = mutableMapOf<Int, Int>()
                 if (reprintCountsStr.isNotEmpty()) {
@@ -236,7 +275,6 @@ class PrinterForegroundService : Service() {
                     order.reprintCount > stored
                 }
 
-                // Actualizar contadores de reimpresion
                 if (toReprint.isNotEmpty()) {
                     for (order in toReprint) storedReprintCounts[order.id] = order.reprintCount
                     val newStr = storedReprintCounts.entries.joinToString(",") { "${it.key}:${it.value}" }
@@ -244,12 +282,26 @@ class PrinterForegroundService : Service() {
                 }
 
                 val allToPrint = (toPrint + toReprint).distinctBy { it.id }
-                if (allToPrint.isEmpty()) return@Thread
-
-                // Marcar como impresos ANTES de encolar para evitar doble impresion
                 for (order in toPrint) printedIds.add(order.id)
                 prefs.edit().putString(KEY_PRINTED_IDS, printedIds.joinToString(",")).apply()
-                printerManager.addAllToQueue(allToPrint)
+                if (allToPrint.isNotEmpty()) printerManager.addAllToQueue(allToPrint)
+
+                if (ticketResponse != null) {
+                    val printedTicketStr = prefs.getString(KEY_PRINTED_TICKET_IDS, "") ?: ""
+                    val printedTicketIds = mutableSetOf<Int>()
+                    if (printedTicketStr.isNotEmpty()) {
+                        printedTicketStr.split(",").forEach { s -> s.trim().toIntOrNull()?.let { printedTicketIds.add(it) } }
+                    }
+                    val historyTicketStr = prefs.getString(KEY_HISTORY_TICKET_IDS, "") ?: ""
+                    val historyTicketIds = mutableSetOf<Int>()
+                    if (historyTicketStr.isNotEmpty()) historyTicketStr.split(",").forEach { s -> s.trim().toIntOrNull()?.let { historyTicketIds.add(it) } }
+                    val ticketsToPrint = ticketResponse.purchases.filter { it.id !in printedTicketIds && it.id !in historyTicketIds }
+                    if (ticketsToPrint.isNotEmpty()) {
+                        for (purchase in ticketsToPrint) printedTicketIds.add(purchase.id)
+                        prefs.edit().putString(KEY_PRINTED_TICKET_IDS, printedTicketIds.joinToString(",")).apply()
+                        for (purchase in ticketsToPrint) printerManager.addToQueueTicketPurchase(purchase)
+                    }
+                }
             } finally {
                 isFetching = false
             }

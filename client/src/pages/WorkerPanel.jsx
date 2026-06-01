@@ -1079,15 +1079,26 @@ function WorkerPanel() {
     return `${letter}${num.toString().padStart(2, '0')}`;
   };
 
+  const [reprintingIds, setReprintingIds] = useState(new Set());
+  const [reprintedIds, setReprintedIds] = useState(new Set());
+
   const reprintOrder = async (orderId) => {
+    if (reprintingIds.has(orderId)) return;
+    setReprintingIds(prev => new Set([...prev, orderId]));
     try {
       const token = localStorage.getItem('workerToken');
-      await fetch(`/api/orders/${orderId}/reprint?store_id=${worker.store_id}`, {
+      const res = await fetch(`/api/orders/${orderId}/reprint?store_id=${worker.store_id}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!res.ok) throw new Error('Error del servidor');
+      setReprintedIds(prev => new Set([...prev, orderId]));
+      setTimeout(() => setReprintedIds(prev => { const n = new Set(prev); n.delete(orderId); return n; }), 3000);
     } catch (error) {
       console.error('Error al solicitar reimpresión:', error);
+      alert('Error al reimprimir. Verificá que la impresora esté conectada.');
+    } finally {
+      setReprintingIds(prev => { const n = new Set(prev); n.delete(orderId); return n; });
     }
   };
 
@@ -1528,15 +1539,21 @@ function WorkerPanel() {
                         onPointerDown={e => e.stopPropagation()}
                         onClick={e => { e.stopPropagation(); reprintOrder(order.id); }}
                         title="Reimprimir"
+                        disabled={reprintingIds.has(order.id)}
                         style={{
                           width: '34px', height: '34px', borderRadius: '50%',
-                          background: 'rgba(212,175,55,0.15)', border: '1.5px solid #D4AF37',
-                          color: '#D4AF37', cursor: 'pointer', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem',
-                          touchAction: 'manipulation'
+                          background: reprintedIds.has(order.id) ? 'rgba(34,197,94,0.15)' : 'rgba(212,175,55,0.15)',
+                          border: `1.5px solid ${reprintedIds.has(order.id) ? '#22c55e' : '#D4AF37'}`,
+                          color: reprintedIds.has(order.id) ? '#22c55e' : '#D4AF37',
+                          cursor: reprintingIds.has(order.id) ? 'not-allowed' : 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem',
+                          touchAction: 'manipulation', transition: 'all 0.2s'
                         }}
                       >
-                        <FontAwesomeIcon icon={faPrint} />
+                        <FontAwesomeIcon
+                          icon={reprintedIds.has(order.id) ? faCheck : faPrint}
+                          spin={reprintingIds.has(order.id)}
+                        />
                       </button>
                       <button
                         onPointerDown={e => e.stopPropagation()}

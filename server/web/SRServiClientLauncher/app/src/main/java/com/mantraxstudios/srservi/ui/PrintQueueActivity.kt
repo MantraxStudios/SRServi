@@ -48,6 +48,13 @@ class PrintQueueActivity : AppCompatActivity() {
         }
     }
 
+    private val pendingHistoryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val count = intent.getIntExtra(PrinterForegroundService.EXTRA_HISTORY_COUNT, 0)
+            if (count > 0) showHistoryPrompt(count)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_print_queue)
@@ -96,9 +103,13 @@ class PrintQueueActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         ContextCompat.registerReceiver(
-            this,
-            ordersUpdatedReceiver,
+            this, ordersUpdatedReceiver,
             IntentFilter(PrinterForegroundService.ACTION_ORDERS_UPDATED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        ContextCompat.registerReceiver(
+            this, pendingHistoryReceiver,
+            IntentFilter(PrinterForegroundService.ACTION_PENDING_HISTORY),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
     }
@@ -106,6 +117,7 @@ class PrintQueueActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         unregisterReceiver(ordersUpdatedReceiver)
+        try { unregisterReceiver(pendingHistoryReceiver) } catch (_: Exception) {}
     }
 
     private fun getPrintedIds(): MutableSet<Int> {
@@ -235,6 +247,79 @@ class PrintQueueActivity : AppCompatActivity() {
                 val ids = getPrintedIds().also { set -> unprintedOrders.forEach { set.add(it.id) } }
                 prefs.edit().putString(KEY_PRINTED_IDS, ids.joinToString(",")).apply()
                 initialCheckDone = true
+            }
+            .show()
+    }
+
+    private fun showHistoryPrompt(count: Int) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        val container = LinearLayout(this)
+        container.orientation = LinearLayout.VERTICAL
+        container.gravity = Gravity.CENTER
+        container.setPadding(48, 48, 48, 48)
+
+        val tvCount = TextView(this)
+        tvCount.text = count.toString()
+        tvCount.textSize = 72f
+        tvCount.setTextColor(getColor(R.color.gold))
+        tvCount.gravity = Gravity.CENTER
+        tvCount.setTypeface(null, android.graphics.Typeface.BOLD)
+        container.addView(tvCount)
+
+        val tvLabel = TextView(this)
+        tvLabel.text = if (count == 1) "boleta sin imprimir" else "boletas sin imprimir"
+        tvLabel.textSize = 18f
+        tvLabel.setTextColor(getColor(R.color.text_primary))
+        tvLabel.gravity = Gravity.CENTER
+        container.addView(tvLabel)
+
+        val tvSub = TextView(this)
+        tvSub.text = "del historial de hoy"
+        tvSub.textSize = 14f
+        tvSub.setTextColor(getColor(R.color.text_secondary))
+        tvSub.gravity = Gravity.CENTER
+        val p = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        p.topMargin = 8
+        tvSub.layoutParams = p
+        container.addView(tvSub)
+
+        AlertDialog.Builder(this)
+            .setTitle("Historial pendiente")
+            .setView(container)
+            .setCancelable(false)
+            .setPositiveButton("Imprimir") { _, _ ->
+                // Obtener IDs históricos y encolarlos para impresión
+                val historyOrderStr = prefs.getString(PrinterForegroundService.KEY_HISTORY_ORDER_IDS, "") ?: ""
+                val historyOrderIds = mutableSetOf<Int>()
+                if (historyOrderStr.isNotEmpty()) historyOrderStr.split(",").forEach { s -> s.trim().toIntOrNull()?.let { historyOrderIds.add(it) } }
+
+                val ordersToReprint = orders.filter { it.id in historyOrderIds }
+                // Marcar como impresos y encolar
+                val printed = getPrintedIds().also { set -> historyOrderIds.forEach { set.add(it) } }
+                prefs.edit()
+                    .putString(KEY_PRINTED_IDS, printed.joinToString(","))
+                    .putString(PrinterForegroundService.KEY_HISTORY_ORDER_IDS, "")
+                    .putString(PrinterForegroundService.KEY_HISTORY_TICKET_IDS, "")
+                    .apply()
+                if (!printerManager.isConnected()) {
+                    Toast.makeText(this, "Conecta una impresora primero", Toast.LENGTH_SHORT).show()
+                } else if (ordersToReprint.isNotEmpty()) {
+                    printerManager.addAllToQueue(ordersToReprint)
+                    Toast.makeText(this, "$count boletas enviadas a imprimir", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("No imprimir") { _, _ ->
+                // Solo limpiar los IDs del historial para que el servicio los ignore
+                val historyOrderStr = prefs.getString(PrinterForegroundService.KEY_HISTORY_ORDER_IDS, "") ?: ""
+                val historyIds = mutableSetOf<Int>()
+                if (historyOrderStr.isNotEmpty()) historyOrderStr.split(",").forEach { s -> s.trim().toIntOrNull()?.let { historyIds.add(it) } }
+                val printed = getPrintedIds().also { set -> historyIds.forEach { set.add(it) } }
+                prefs.edit()
+                    .putString(KEY_PRINTED_IDS, printed.joinToString(","))
+                    .putString(PrinterForegroundService.KEY_HISTORY_ORDER_IDS, "")
+                    .putString(PrinterForegroundService.KEY_HISTORY_TICKET_IDS, "")
+                    .apply()
             }
             .show()
     }

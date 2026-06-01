@@ -1,23 +1,128 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPalette, faCoins, faChevronDown, faCheck, faFire, faClock, faShieldAlt, faLock, faUnlock, faRobot, faKey } from '@fortawesome/free-solid-svg-icons';
+import {
+  faPalette, faCoins, faChevronDown, faCheck, faFire, faClock,
+  faShieldAlt, faLock, faUnlock, faRobot, faKey, faEye, faEyeSlash,
+  faStore, faSpinner
+} from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { Link } from 'react-router-dom';
 import { QRCodeCanvas } from 'qrcode.react';
 
 const CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'Dolar Estadounidense' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'Libra Esterlina' },
-  { code: 'JPY', symbol: '¥', name: 'Yen Japonés' },
-  { code: 'MXN', symbol: '$', name: 'Peso Mexicano' },
-  { code: 'COP', symbol: '$', name: 'Peso Colombiano' },
-  { code: 'ARS', symbol: '$', name: 'Peso Argentino' },
+  { code: 'USD', symbol: '$',  name: 'Dólar Estadounidense' },
+  { code: 'EUR', symbol: '€',  name: 'Euro' },
+  { code: 'GBP', symbol: '£',  name: 'Libra Esterlina' },
+  { code: 'JPY', symbol: '¥',  name: 'Yen Japonés' },
+  { code: 'MXN', symbol: '$',  name: 'Peso Mexicano' },
+  { code: 'COP', symbol: '$',  name: 'Peso Colombiano' },
+  { code: 'ARS', symbol: '$',  name: 'Peso Argentino' },
   { code: 'PEN', symbol: 'S/', name: 'Sol Peruano' },
   { code: 'BRL', symbol: 'R$', name: 'Real Brasileño' },
-  { code: 'CLP', symbol: '$', name: 'Peso Chileno' }
+  { code: 'CLP', symbol: '$',  name: 'Peso Chileno' },
 ];
+
+/* ── Shared style tokens ─────────────────────────────── */
+const GOLD  = '#D4AF37';
+const card  = {
+  background: '#fff',
+  borderRadius: 16,
+  border: '1px solid #e5e7eb',
+  overflow: 'hidden',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+  marginBottom: 20,
+};
+const cardHeader = {
+  padding: '18px 22px',
+  borderBottom: '1px solid #f3f4f6',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+};
+const cardTitle  = { fontWeight: 800, fontSize: 15, color: '#111' };
+const cardBody   = { padding: '20px 22px' };
+const label      = { display: 'block', fontWeight: 600, fontSize: 13, color: '#374151', marginBottom: 6 };
+const hint       = { fontSize: 12, color: '#9ca3af', marginTop: 4 };
+const inputBase  = {
+  width: '100%', boxSizing: 'border-box',
+  padding: '10px 12px', borderRadius: 10,
+  border: '1.5px solid #e5e7eb',
+  fontSize: 14, color: '#111',
+  outline: 'none', background: '#fff',
+  transition: 'border-color 0.15s',
+};
+const badge = (color, bg) => ({
+  display: 'inline-flex', alignItems: 'center', gap: 6,
+  padding: '4px 10px', borderRadius: 20,
+  fontSize: 12, fontWeight: 700,
+  color, background: bg,
+});
+const btnGold = {
+  display: 'inline-flex', alignItems: 'center', gap: 7,
+  padding: '10px 18px', borderRadius: 10, border: 'none',
+  background: GOLD, color: '#000', fontWeight: 800, fontSize: 14,
+  cursor: 'pointer', transition: 'opacity 0.15s',
+};
+const btnSecondary = {
+  display: 'inline-flex', alignItems: 'center', gap: 7,
+  padding: '10px 18px', borderRadius: 10,
+  border: '1.5px solid #e5e7eb',
+  background: '#f9fafb', color: '#374151', fontWeight: 700, fontSize: 14,
+  cursor: 'pointer',
+};
+const btnDanger = { ...btnSecondary, border: '1.5px solid #fca5a5', color: '#dc2626', background: '#fff5f5' };
+
+/* ── Toggle switch ───────────────────────────────────── */
+function Toggle({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      style={{
+        width: 44, height: 24, borderRadius: 12, border: 'none',
+        background: checked ? GOLD : '#d1d5db',
+        position: 'relative', cursor: 'pointer',
+        flexShrink: 0, transition: 'background 0.2s',
+        padding: 0,
+      }}
+    >
+      <span style={{
+        position: 'absolute', top: 3,
+        left: checked ? 23 : 3,
+        width: 18, height: 18, borderRadius: '50%',
+        background: '#fff',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+        transition: 'left 0.2s',
+      }} />
+    </button>
+  );
+}
+
+/* ── Color row ───────────────────────────────────────── */
+function ColorRow({ label: lbl, name, value, onChange }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5 }}>{lbl}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <label style={{
+          width: 38, height: 38, borderRadius: 10,
+          border: '2px solid #e5e7eb', overflow: 'hidden',
+          cursor: 'pointer', flexShrink: 0, display: 'block',
+          background: value,
+        }}>
+          <input type="color" name={name} value={value} onChange={onChange}
+            style={{ opacity: 0, width: '100%', height: '100%', cursor: 'pointer', border: 'none', padding: 0 }} />
+        </label>
+        <input
+          type="text" name={name} value={value} onChange={onChange}
+          maxLength={7}
+          style={{ ...inputBase, fontFamily: 'monospace', fontSize: 13, letterSpacing: 1, textTransform: 'uppercase', flex: 1 }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function Settings() {
   const { user, token } = useAuth();
@@ -33,7 +138,7 @@ function Settings() {
     smart_mode: true,
     inactivity_timeout: 120,
     show_top_selling: true,
-    paid_order_status: 'pending'
+    paid_order_status: 'pending',
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -59,34 +164,30 @@ function Settings() {
   useEffect(() => {
     if (selectedStore) {
       setFormData({
-        primary_color: selectedStore.primary_color || '#000000',
-        secondary_color: selectedStore.secondary_color || '#FFFFFF',
-        accent_color: selectedStore.accent_color || '#D4AF37',
-        header_color: selectedStore.header_color || '#000000',
-        currency_code: selectedStore.currency_code || 'USD',
-        currency_symbol: selectedStore.currency_symbol || '$',
-        currency_name: selectedStore.currency_name || 'Dólar Estadounidense',
-        smart_mode: selectedStore.smart_mode ?? true,
+        primary_color:     selectedStore.primary_color     || '#000000',
+        secondary_color:   selectedStore.secondary_color   || '#FFFFFF',
+        accent_color:      selectedStore.accent_color      || '#D4AF37',
+        header_color:      selectedStore.header_color      || '#000000',
+        currency_code:     selectedStore.currency_code     || 'USD',
+        currency_symbol:   selectedStore.currency_symbol   || '$',
+        currency_name:     selectedStore.currency_name     || 'Dólar Estadounidense',
+        smart_mode:        selectedStore.smart_mode        ?? true,
         inactivity_timeout: selectedStore.inactivity_timeout ?? 120,
-        show_top_selling: selectedStore.show_top_selling ?? true,
-        paid_order_status: selectedStore.paid_order_status ?? 'pending'
+        show_top_selling:  selectedStore.show_top_selling  ?? true,
+        paid_order_status: selectedStore.paid_order_status ?? 'pending',
       });
     }
   }, [selectedStore]);
 
   useEffect(() => {
-    if (token) {
-      fetch('/api/auth/2fa/status', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      }).then(r => r.json()).then(data => {
-        setTotpEnabled(data.enabled || false);
-      }).catch(() => {});
-    }
+    if (!token) return;
+    fetch('/api/auth/2fa/status', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => setTotpEnabled(d.enabled || false)).catch(() => {});
   }, [token]);
 
   useEffect(() => {
     if (!token) return;
-    fetch('/api/user/chatgpt-key', { headers: { 'Authorization': `Bearer ${token}` } })
+    fetch('/api/user/chatgpt-key', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => { setChatgptHasKey(d.has_key); setChatgptKeyPreview(d.key_preview); })
       .catch(() => {});
@@ -94,12 +195,11 @@ function Settings() {
 
   const saveChatgptKey = async () => {
     if (!chatgptKey) return;
-    setChatgptSaving(true);
-    setChatgptMsg(null);
+    setChatgptSaving(true); setChatgptMsg(null);
     try {
       const res = await fetch('/api/user/chatgpt-key', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ api_key: chatgptKey }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
@@ -107,100 +207,66 @@ function Settings() {
       setChatgptKeyPreview(`sk-...${chatgptKey.slice(-4)}`);
       setChatgptKey('');
       setChatgptMsg({ text: 'API key guardada correctamente', ok: true });
-    } catch (e) {
-      setChatgptMsg({ text: e.message, ok: false });
-    } finally {
-      setChatgptSaving(false);
-      setTimeout(() => setChatgptMsg(null), 4000);
-    }
+    } catch (e) { setChatgptMsg({ text: e.message, ok: false }); }
+    finally { setChatgptSaving(false); setTimeout(() => setChatgptMsg(null), 4000); }
   };
 
   const removeChatgptKey = async () => {
-    setChatgptSaving(true);
-    setChatgptMsg(null);
+    setChatgptSaving(true); setChatgptMsg(null);
     try {
       const res = await fetch('/api/user/chatgpt-key', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ api_key: null }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
-      setChatgptHasKey(false);
-      setChatgptKeyPreview(null);
-      setChatgptKey('');
+      setChatgptHasKey(false); setChatgptKeyPreview(null); setChatgptKey('');
       setChatgptMsg({ text: 'API key eliminada', ok: true });
-    } catch (e) {
-      setChatgptMsg({ text: e.message, ok: false });
-    } finally {
-      setChatgptSaving(false);
-      setTimeout(() => setChatgptMsg(null), 4000);
-    }
+    } catch (e) { setChatgptMsg({ text: e.message, ok: false }); }
+    finally { setChatgptSaving(false); setTimeout(() => setChatgptMsg(null), 4000); }
   };
 
   const startTotpSetup = async () => {
-    setTotpError('');
-    setTotpLoading(true);
+    setTotpError(''); setTotpLoading(true);
     try {
-      const res = await fetch('/api/auth/2fa/setup', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch('/api/auth/2fa/setup', { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al generar código');
-      setTotpSetup(data);
-      setTotpStep('setup');
-      setTotpCode('');
-    } catch (err) {
-      setTotpError(err.message);
-    } finally {
-      setTotpLoading(false);
-    }
+      setTotpSetup(data); setTotpStep('setup'); setTotpCode('');
+    } catch (err) { setTotpError(err.message); }
+    finally { setTotpLoading(false); }
   };
 
   const confirmTotpEnable = async () => {
-    setTotpError('');
-    setTotpLoading(true);
+    setTotpError(''); setTotpLoading(true);
     try {
       const res = await fetch('/api/auth/2fa/enable', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ code: totpCode })
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ code: totpCode }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Código incorrecto');
-      setTotpEnabled(true);
-      setTotpStep('idle');
-      setTotpSetup(null);
-      setTotpCode('');
-      setTotpSuccess('Verificación en 2 pasos activada correctamente');
-      setTimeout(() => setTotpSuccess(''), 4000);
-    } catch (err) {
-      setTotpError(err.message);
-    } finally {
-      setTotpLoading(false);
-    }
+      setTotpEnabled(true); setTotpStep('idle'); setTotpSetup(null); setTotpCode('');
+      setTotpSuccess('Verificación en 2 pasos activada'); setTimeout(() => setTotpSuccess(''), 4000);
+    } catch (err) { setTotpError(err.message); }
+    finally { setTotpLoading(false); }
   };
 
   const confirmTotpDisable = async () => {
-    setTotpError('');
-    setTotpLoading(true);
+    setTotpError(''); setTotpLoading(true);
     try {
       const res = await fetch('/api/auth/2fa/disable', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ code: totpDisableCode })
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ code: totpDisableCode }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Código incorrecto');
-      setTotpEnabled(false);
-      setTotpStep('idle');
-      setTotpDisableCode('');
-      setTotpSuccess('Verificación en 2 pasos desactivada');
-      setTimeout(() => setTotpSuccess(''), 4000);
-    } catch (err) {
-      setTotpError(err.message);
-    } finally {
-      setTotpLoading(false);
-    }
+      setTotpEnabled(false); setTotpStep('idle'); setTotpDisableCode('');
+      setTotpSuccess('Verificación en 2 pasos desactivada'); setTimeout(() => setTotpSuccess(''), 4000);
+    } catch (err) { setTotpError(err.message); }
+    finally { setTotpLoading(false); }
   };
 
   const handleChange = (e) => {
@@ -209,354 +275,304 @@ function Settings() {
   };
 
   const selectCurrency = (currency) => {
-    setFormData(prev => ({
-      ...prev,
-      currency_code: currency.code,
-      currency_symbol: currency.symbol,
-      currency_name: currency.name
-    }));
+    setFormData(prev => ({ ...prev, currency_code: currency.code, currency_symbol: currency.symbol, currency_name: currency.name }));
     setCurrencyDropdownOpen(false);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess(false);
-    setLoading(true);
+    setError(''); setSuccess(false); setLoading(true);
     try {
-      const response = await fetch(`/api/stores/${selectedStore.id}`, {
+      const res = await fetch(`/api/stores/${selectedStore.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ ...formData, name: selectedStore.name })
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...formData, name: selectedStore.name }),
       });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'Error al guardar la configuración');
-      }
-      setSuccess(true);
-      fetchStores();
-      setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+      if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).error) || 'Error al guardar');
+      setSuccess(true); fetchStores(); setTimeout(() => setSuccess(false), 3000);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
   if (!selectedStore) {
     return (
-      <div className="no-store-message">
-        <h2>Selecciona una tienda</h2>
-        <p>Debes seleccionar una tienda desde el menú lateral para ver su configuración</p>
-        <Link to="/admin/stores" className="btn btn-primary">Ir a Tiendas</Link>
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <FontAwesomeIcon icon={faStore} style={{ fontSize: 40, color: '#d1d5db', marginBottom: 16, display: 'block' }} />
+        <h2 style={{ margin: '0 0 8px', color: '#111' }}>Seleccioná una tienda</h2>
+        <p style={{ color: '#6b7280', marginBottom: 20 }}>Elegí una tienda desde el menú lateral para ver su configuración.</p>
+        <Link to="/admin/stores" style={{ ...btnGold, textDecoration: 'none', display: 'inline-flex' }}>Ir a Tiendas</Link>
       </div>
     );
   }
 
+  const mins = Math.floor((formData.inactivity_timeout || 120) / 60);
+  const secs = (formData.inactivity_timeout || 120) % 60;
+
   return (
     <>
+      {/* ── Page header ── */}
       <header className="admin-header">
-        <h1>Colores y Configuración</h1>
+        <div className="admin-header-row">
+          <div className="admin-header-info">
+            <h1>Configuración</h1>
+            <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>{selectedStore.name}</p>
+          </div>
+        </div>
       </header>
-      <div className="admin-main">
-        {error && <div className="error">{error}</div>}
-        {success && <div className="success">Configuración guardada exitosamente</div>}
+
+      <div className="admin-main" style={{ maxWidth: 760 }}>
+
+        {/* ── Global alerts ── */}
+        {error   && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 8 }}>
+            ✕ {error}
+          </div>
+        )}
+        {success && (
+          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FontAwesomeIcon icon={faCheck} /> Configuración guardada correctamente
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
 
-          {/* ── Colores ───────────────────────────── */}
-          <div className="card" style={{ marginBottom: '16px' }}>
-            <div className="card-header">
-              <div className="card-title">
-                <FontAwesomeIcon icon={faPalette} className="gap-2" />
-                Colores de tu Tienda
+          {/* ══ COLORES ══════════════════════════════════════════════ */}
+          <div style={card}>
+            <div style={cardHeader}>
+              <div style={{ width: 34, height: 34, borderRadius: 9, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <FontAwesomeIcon icon={faPalette} style={{ color: GOLD, fontSize: 15 }} />
+              </div>
+              <div>
+                <div style={cardTitle}>Colores de tu Tienda</div>
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>Personalizá la apariencia del tótem</div>
               </div>
             </div>
-
-            <div className="color-grid">
-              <div className="form-group">
-                <label>Color Primario (Texto y Bordes)</label>
-                <div className="color-picker-group">
-                  <input type="color" name="primary_color" value={formData.primary_color} onChange={handleChange} className="color-preview" />
-                  <input type="text" name="primary_color" value={formData.primary_color} onChange={handleChange} className="flex-1" placeholder="#000000" />
-                </div>
+            <div style={cardBody}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20, marginBottom: 24 }}>
+                <ColorRow label="Color Primario"   name="primary_color"   value={formData.primary_color}   onChange={handleChange} />
+                <ColorRow label="Color Secundario" name="secondary_color" value={formData.secondary_color} onChange={handleChange} />
+                <ColorRow label="Color de Acento"  name="accent_color"    value={formData.accent_color}    onChange={handleChange} />
+                <ColorRow label="Encabezado"        name="header_color"   value={formData.header_color}    onChange={handleChange} />
               </div>
 
-              <div className="form-group">
-                <label>Color Secundario (Fondo)</label>
-                <div className="color-picker-group">
-                  <input type="color" name="secondary_color" value={formData.secondary_color} onChange={handleChange} className="color-preview" />
-                  <input type="text" name="secondary_color" value={formData.secondary_color} onChange={handleChange} className="flex-1" placeholder="#FFFFFF" />
+              {/* Live preview */}
+              <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+                <div style={{ background: formData.header_color, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ color: formData.accent_color, fontWeight: 800, fontSize: 16 }}>{selectedStore.name || user?.business_name}</span>
+                  <span style={{ color: formData.accent_color, fontSize: 12, fontWeight: 600 }}>{formData.currency_symbol} {formData.currency_code}</span>
                 </div>
-              </div>
-
-              <div className="form-group">
-                <label>Color de Acento (Botones)</label>
-                <div className="color-picker-group">
-                  <input type="color" name="accent_color" value={formData.accent_color} onChange={handleChange} className="color-preview" />
-                  <input type="text" name="accent_color" value={formData.accent_color} onChange={handleChange} className="flex-1" placeholder="#D4AF37" />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Color del Encabezado</label>
-                <div className="color-picker-group">
-                  <input type="color" name="header_color" value={formData.header_color} onChange={handleChange} className="color-preview" />
-                  <input type="text" name="header_color" value={formData.header_color} onChange={handleChange} className="flex-1" placeholder="#000000" />
-                </div>
-              </div>
-            </div>
-
-            <div className="preview-section">
-              <h3>Vista Previa</h3>
-              <div style={{
-                backgroundColor: formData.secondary_color,
-                border: `3px solid ${formData.primary_color}`,
-                borderRadius: 'var(--radius-lg)',
-                padding: '24px'
-              }}>
-                <div style={{
-                  backgroundColor: formData.header_color,
-                  color: formData.accent_color,
-                  padding: '16px',
-                  borderRadius: 'var(--radius-md)',
-                  marginBottom: '16px',
-                  textAlign: 'center'
-                }}>
-                  <h2 className="font-bold">{user?.business_name || user?.username}</h2>
-                  <small>{formData.currency_symbol} Moneda: {formData.currency_code}</small>
-                </div>
-                <div style={{ color: formData.primary_color }} className="font-semibold">
-                  Este es un ejemplo de texto con tu color primario
-                </div>
-                <div className="flex gap-2" style={{ marginTop: '16px' }}>
-                  <button type="button" style={{
-                    backgroundColor: formData.accent_color, color: formData.primary_color,
-                    padding: '12px 24px', borderRadius: 'var(--radius-md)', border: 'none', fontWeight: '600', cursor: 'pointer'
-                  }}>
-                    {formData.currency_symbol} 12.99
-                  </button>
-                  <button type="button" style={{
-                    backgroundColor: formData.primary_color, color: formData.secondary_color,
-                    padding: '12px 24px', borderRadius: 'var(--radius-md)', border: 'none', fontWeight: '600', cursor: 'pointer'
-                  }}>
-                    Botón Secundario
-                  </button>
+                <div style={{ background: formData.secondary_color, padding: '18px' }}>
+                  <div style={{ color: formData.primary_color, fontWeight: 600, fontSize: 14, marginBottom: 14 }}>
+                    Ejemplo de producto
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button type="button" style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: formData.accent_color, color: formData.primary_color, fontWeight: 700, fontSize: 13, cursor: 'default' }}>
+                      {formData.currency_symbol} 12.99
+                    </button>
+                    <button type="button" style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: formData.primary_color, color: formData.secondary_color, fontWeight: 700, fontSize: 13, cursor: 'default' }}>
+                      Agregar
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ── Moneda ────────────────────────────── */}
-          <div className="card" style={{ marginBottom: '16px' }}>
-            <div className="card-header">
-              <div className="card-title">
-                <FontAwesomeIcon icon={faCoins} className="gap-2" />
-                Moneda de tu Tienda
+          {/* ══ MONEDA ═══════════════════════════════════════════════ */}
+          <div style={card}>
+            <div style={cardHeader}>
+              <div style={{ width: 34, height: 34, borderRadius: 9, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <FontAwesomeIcon icon={faCoins} style={{ color: '#16a34a', fontSize: 15 }} />
+              </div>
+              <div>
+                <div style={cardTitle}>Moneda</div>
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>Los precios se mostrarán con esta moneda</div>
               </div>
             </div>
-            <div className="form-group" style={{ padding: '0 20px 20px' }}>
-              <label>Selecciona la moneda que usarás en tu tienda</label>
-              <div className="currency-dropdown">
+            <div style={cardBody}>
+              <div style={{ position: 'relative' }}>
                 <button
                   type="button"
-                  onClick={() => setCurrencyDropdownOpen(!currencyDropdownOpen)}
-                  className="currency-dropdown-btn"
+                  onClick={() => setCurrencyDropdownOpen(o => !o)}
+                  style={{
+                    ...inputBase, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    cursor: 'pointer', background: '#fff', fontWeight: 600,
+                    border: currencyDropdownOpen ? `1.5px solid ${GOLD}` : '1.5px solid #e5e7eb',
+                  }}
                 >
-                  <span>
-                    <strong>{formData.currency_symbol}</strong> - {formData.currency_name} ({formData.currency_code})
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ ...badge('#000', GOLD + '33'), fontFamily: 'monospace', fontWeight: 800 }}>{formData.currency_symbol}</span>
+                    <span>{formData.currency_name}</span>
+                    <span style={{ color: '#9ca3af', fontSize: 12 }}>({formData.currency_code})</span>
                   </span>
-                  <span className="text-xs"><FontAwesomeIcon icon={faChevronDown} /></span>
+                  <FontAwesomeIcon icon={faChevronDown} style={{ color: '#9ca3af', fontSize: 12, transition: 'transform 0.2s', transform: currencyDropdownOpen ? 'rotate(180deg)' : 'none' }} />
                 </button>
+
                 {currencyDropdownOpen && (
-                  <div className="currency-dropdown-list">
-                    {CURRENCIES.map((currency) => (
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 100,
+                    background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.12)', overflow: 'hidden',
+                  }}>
+                    {CURRENCIES.map(c => (
                       <button
-                        key={currency.code}
-                        type="button"
-                        onClick={() => selectCurrency(currency)}
-                        className={`currency-option ${formData.currency_code === currency.code ? 'active' : ''}`}
+                        key={c.code} type="button"
+                        onClick={() => selectCurrency(c)}
+                        style={{
+                          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '11px 16px', border: 'none', textAlign: 'left', cursor: 'pointer',
+                          background: formData.currency_code === c.code ? '#fffbeb' : '#fff',
+                          borderBottom: '1px solid #f3f4f6',
+                          fontSize: 14,
+                        }}
                       >
-                        <span><strong>{currency.symbol}</strong> {currency.code} - {currency.name}</span>
-                        {formData.currency_code === currency.code && (
-                          <span className="icon-success"><FontAwesomeIcon icon={faCheck} /></span>
-                        )}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 800, color: GOLD, minWidth: 22 }}>{c.symbol}</span>
+                          <span style={{ fontWeight: 600 }}>{c.code}</span>
+                          <span style={{ color: '#6b7280' }}>— {c.name}</span>
+                        </span>
+                        {formData.currency_code === c.code && <FontAwesomeIcon icon={faCheck} style={{ color: GOLD, fontSize: 13 }} />}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
-              <small className="currency-hint">Los precios en tu tienda se mostrarán con esta moneda</small>
             </div>
           </div>
 
-          {/* ── Comportamiento ────────────────────── */}
-          <div className="card" style={{ marginBottom: '16px' }}>
-            <div className="card-header">
-              <div className="card-title">
-                <FontAwesomeIcon icon={faFire} className="gap-2" />
-                Comportamiento de la Tienda
+          {/* ══ COMPORTAMIENTO ═══════════════════════════════════════ */}
+          <div style={card}>
+            <div style={cardHeader}>
+              <div style={{ width: 34, height: 34, borderRadius: 9, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <FontAwesomeIcon icon={faFire} style={{ color: '#f97316', fontSize: 15 }} />
+              </div>
+              <div>
+                <div style={cardTitle}>Comportamiento</div>
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>Ajustá cómo funciona el tótem</div>
               </div>
             </div>
-            <div style={{ padding: '0 20px 20px' }}>
-              <div className="form-group">
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '15px' }}>
-                  <input
-                    type="checkbox"
-                    checked={!!formData.smart_mode}
-                    onChange={(e) => setFormData(prev => ({ ...prev, smart_mode: e.target.checked }))}
-                    style={{ width: '20px', height: '20px' }}
-                  />
-                  <div>
-                    <strong>Modo Smart</strong>
-                    <div style={{ fontSize: '12px', color: '#888', fontWeight: '400' }}>
-                      Los productos más vendidos aparecen primero con un badge brillante
-                    </div>
-                  </div>
-                </label>
+            <div style={cardBody}>
+
+              {/* Smart mode */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '14px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 3 }}>Modo Smart</div>
+                  <div style={{ fontSize: 13, color: '#6b7280' }}>Los productos más vendidos aparecen primero con un badge brillante</div>
+                </div>
+                <Toggle checked={!!formData.smart_mode} onChange={v => setFormData(p => ({ ...p, smart_mode: v }))} />
               </div>
 
-              <div className="form-group">
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '15px' }}>
-                  <input
-                    type="checkbox"
-                    checked={!!formData.show_top_selling}
-                    onChange={(e) => setFormData(prev => ({ ...prev, show_top_selling: e.target.checked }))}
-                    style={{ width: '20px', height: '20px' }}
-                  />
-                  <div>
-                    <strong>Mostrar "Más vendidos"</strong>
-                    <div style={{ fontSize: '12px', color: '#888', fontWeight: '400' }}>
-                      Muestra el badge de llama 🔥 y reordena los productos más vendidos al inicio
-                    </div>
-                  </div>
-                </label>
+              {/* Top selling */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '14px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 3 }}>Mostrar "Más vendidos" 🔥</div>
+                  <div style={{ fontSize: 13, color: '#6b7280' }}>Badge de llama y reordenamiento de los más vendidos</div>
+                </div>
+                <Toggle checked={!!formData.show_top_selling} onChange={v => setFormData(p => ({ ...p, show_top_selling: v }))} />
               </div>
 
-              <div className="form-group">
-                <label>
-                  <FontAwesomeIcon icon={faClock} /> Tiempo de inactividad (segundos)
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <input
-                    type="number"
-                    min="30"
-                    max="600"
-                    value={formData.inactivity_timeout}
-                    onChange={(e) => setFormData(prev => ({ ...prev, inactivity_timeout: parseInt(e.target.value) || 120 }))}
-                    style={{ width: '100px' }}
-                  />
-                  <span style={{ fontSize: '13px', color: '#888' }}>
-                    {Math.floor((formData.inactivity_timeout || 120) / 60)}m {(formData.inactivity_timeout || 120) % 60}s — después de este tiempo sin uso aparece el modal "¿Sigues ahí?"
+              {/* Inactivity timeout */}
+              <div style={{ padding: '16px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <FontAwesomeIcon icon={faClock} style={{ color: '#6b7280', fontSize: 13 }} />
+                  <span style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>Tiempo de inactividad</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
+                    <button type="button" onClick={() => setFormData(p => ({ ...p, inactivity_timeout: Math.max(30, (p.inactivity_timeout || 120) - 10) }))}
+                      style={{ padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 16, color: '#374151', fontWeight: 700 }}>−</button>
+                    <span style={{ padding: '8px 4px', fontSize: 15, fontWeight: 800, color: '#111', minWidth: 48, textAlign: 'center' }}>{formData.inactivity_timeout || 120}s</span>
+                    <button type="button" onClick={() => setFormData(p => ({ ...p, inactivity_timeout: Math.min(600, (p.inactivity_timeout || 120) + 10) }))}
+                      style={{ padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 16, color: '#374151', fontWeight: 700 }}>+</button>
+                  </div>
+                  <span style={{ fontSize: 13, color: '#9ca3af' }}>
+                    {mins > 0 ? `${mins}m ` : ''}{secs > 0 ? `${secs}s` : ''} — después aparece el modal "¿Seguís ahí?"
                   </span>
                 </div>
               </div>
 
-              <div className="form-group">
-                <label style={{ fontWeight: 600, fontSize: '15px', marginBottom: '8px', display: 'block' }}>
-                  Estado inicial del pedido al pagar
-                </label>
-                <div style={{ fontSize: '12px', color: '#888', marginBottom: '12px' }}>
-                  Cuando un pedido se paga con éxito, ¿en qué estado debe quedar?
-                </div>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              {/* Estado inicial del pedido */}
+              <div style={{ paddingTop: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 4 }}>Estado inicial del pedido al pagar</div>
+                <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 14 }}>¿En qué estado queda el pedido cuando se cobra con éxito?</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
                   {[
-                    { value: 'pending', label: 'Pendiente', desc: 'El pedido queda en cola para preparar' },
-                    { value: 'completed', label: 'Completado', desc: 'El pedido se marca directo como listo' }
+                    { value: 'pending',   label: 'Pendiente',   desc: 'Queda en cola para preparar', icon: '⏳' },
+                    { value: 'completed', label: 'Completado',  desc: 'Se marca directo como listo', icon: '✅' },
                   ].map(opt => (
                     <label key={opt.value} style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer',
-                      flex: '1 1 180px', padding: '12px 14px', borderRadius: '10px',
-                      border: `2px solid ${formData.paid_order_status === opt.value ? '#D4AF37' : '#e5e7eb'}`,
+                      display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer',
+                      padding: '14px 16px', borderRadius: 12,
+                      border: `2px solid ${formData.paid_order_status === opt.value ? GOLD : '#e5e7eb'}`,
                       background: formData.paid_order_status === opt.value ? '#fffbeb' : '#f9fafb',
-                      transition: 'border-color 0.2s, background 0.2s'
+                      transition: 'all 0.15s',
                     }}>
-                      <input
-                        type="radio"
-                        name="paid_order_status"
-                        value={opt.value}
+                      <input type="radio" name="paid_order_status" value={opt.value}
                         checked={formData.paid_order_status === opt.value}
-                        onChange={() => setFormData(prev => ({ ...prev, paid_order_status: opt.value }))}
-                        style={{ marginTop: '2px', accentColor: '#D4AF37' }}
-                      />
+                        onChange={() => setFormData(p => ({ ...p, paid_order_status: opt.value }))}
+                        style={{ accentColor: GOLD, marginTop: 2, flexShrink: 0 }} />
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '14px' }}>{opt.label}</div>
-                        <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>{opt.desc}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{opt.icon} {opt.label}</div>
+                        <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>{opt.desc}</div>
                       </div>
                     </label>
                   ))}
                 </div>
               </div>
+
             </div>
           </div>
 
+          {/* ── Save button ── */}
           <button
             type="submit"
-            className="btn btn-primary btn-full btn-lg"
             disabled={loading}
-            style={{ marginBottom: '24px' }}
+            style={{
+              ...btnGold, width: '100%', justifyContent: 'center',
+              padding: '14px', fontSize: 15, borderRadius: 12,
+              marginBottom: 24,
+              opacity: loading ? 0.7 : 1,
+            }}
           >
-            {loading ? 'Guardando...' : 'Guardar Configuración'}
+            {loading ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando…</> : <><FontAwesomeIcon icon={faCheck} /> Guardar configuración</>}
           </button>
         </form>
 
-        {/* ── Seguridad 2FA (fuera del form) ──────── */}
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">
-              <FontAwesomeIcon icon={faShieldAlt} className="gap-2" />
-              Verificación en 2 pasos (2FA)
+        {/* ══ SEGURIDAD 2FA ═════════════════════════════════════════ */}
+        <div style={card}>
+          <div style={cardHeader}>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <FontAwesomeIcon icon={faShieldAlt} style={{ color: '#3b82f6', fontSize: 15 }} />
             </div>
+            <div style={{ flex: 1 }}>
+              <div style={cardTitle}>Verificación en 2 pasos</div>
+              <div style={{ fontSize: 12, color: '#9ca3af' }}>Protegé tu cuenta con autenticación adicional</div>
+            </div>
+            <span style={totpEnabled ? badge('#16a34a', '#f0fdf4') : badge('#9ca3af', '#f3f4f6')}>
+              {totpEnabled ? '● Activa' : '○ Inactiva'}
+            </span>
           </div>
-
-          <div style={{ padding: '0 20px 20px' }}>
-            {totpError && <div className="error" style={{ marginBottom: '12px' }}>{totpError}</div>}
-            {totpSuccess && <div className="success" style={{ marginBottom: '12px' }}>{totpSuccess}</div>}
+          <div style={cardBody}>
+            {totpError   && <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#dc2626' }}>{totpError}</div>}
+            {totpSuccess && <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#16a34a' }}><FontAwesomeIcon icon={faCheck} style={{ marginRight: 6 }} />{totpSuccess}</div>}
 
             {totpStep === 'idle' && (
-              <div>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '14px', padding: '14px',
-                  borderRadius: '10px', marginBottom: '16px',
-                  background: totpEnabled ? '#f0fdf4' : '#fffbeb',
-                  border: `1px solid ${totpEnabled ? '#16a34a' : '#D4AF37'}`
-                }}>
-                  <FontAwesomeIcon
-                    icon={totpEnabled ? faLock : faUnlock}
-                    style={{ fontSize: '22px', color: totpEnabled ? '#16a34a' : '#D4AF37' }}
-                  />
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '14px' }}>
-                      {totpEnabled ? 'Verificación en 2 pasos activada' : 'Verificación en 2 pasos desactivada'}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
-                      {totpEnabled
-                        ? 'Tu cuenta está protegida. Se pedirá un código al iniciar sesión.'
-                        : 'Actívala para mayor seguridad. Funciona con Google Authenticator, Authy y otras apps.'}
-                    </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontSize: 14, color: '#374151' }}>
+                    {totpEnabled
+                      ? 'Tu cuenta está protegida. Se pedirá un código al iniciar sesión.'
+                      : 'Activá para mayor seguridad. Compatible con Google Authenticator, Authy y más.'}
                   </div>
                 </div>
                 {totpEnabled ? (
-                  <button
-                    onClick={() => { setTotpStep('disable'); setTotpDisableCode(''); setTotpError(''); }}
-                    className="btn btn-secondary"
-                    style={{ color: '#dc2626', borderColor: '#dc2626' }}
-                  >
-                    <FontAwesomeIcon icon={faUnlock} style={{ marginRight: '6px' }} />
-                    Desactivar 2FA
+                  <button onClick={() => { setTotpStep('disable'); setTotpDisableCode(''); setTotpError(''); }} style={btnDanger}>
+                    <FontAwesomeIcon icon={faUnlock} /> Desactivar 2FA
                   </button>
                 ) : (
-                  <button
-                    onClick={startTotpSetup}
-                    className="btn btn-primary"
-                    disabled={totpLoading}
-                    style={{ background: '#D4AF37', border: 'none', color: '#000', fontWeight: 800 }}
-                  >
-                    <FontAwesomeIcon icon={faShieldAlt} style={{ marginRight: '6px' }} />
-                    {totpLoading ? 'Generando...' : 'Activar verificación en 2 pasos'}
+                  <button onClick={startTotpSetup} disabled={totpLoading} style={{ ...btnGold }}>
+                    {totpLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faShieldAlt} />}
+                    {totpLoading ? 'Generando…' : 'Activar 2FA'}
                   </button>
                 )}
               </div>
@@ -564,178 +580,121 @@ function Settings() {
 
             {totpStep === 'setup' && totpSetup && (
               <div>
-                <p style={{ fontSize: '14px', color: '#444', marginBottom: '16px' }}>
-                  <strong>Paso 1:</strong> Abre <strong>Google Authenticator</strong>, <strong>Authy</strong> u otra app y escanea este código QR:
+                <p style={{ fontSize: 14, color: '#374151', marginTop: 0, marginBottom: 16 }}>
+                  <strong>Paso 1:</strong> Abrí <strong>Google Authenticator</strong> o <strong>Authy</strong> y escaneá:
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                  <div style={{ padding: '16px', background: '#fff', border: '2px solid #000', borderRadius: '12px' }}>
-                    <QRCodeCanvas value={totpSetup.otpauthUrl} size={200} level="H" bgColor="#ffffff" fgColor="#000000" />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+                  <div style={{ padding: 16, background: '#fff', border: '2px solid #111', borderRadius: 12 }}>
+                    <QRCodeCanvas value={totpSetup.otpauthUrl} size={180} level="H" />
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: '12px', color: '#888', marginBottom: '4px' }}>¿No puedes escanear? Ingresa este código manualmente:</p>
-                    <div style={{
-                      fontFamily: 'monospace', fontSize: '14px', fontWeight: 700,
-                      background: '#f3f4f6', padding: '8px 14px', borderRadius: '8px',
-                      letterSpacing: '3px', color: '#1a1a1a', border: '1px solid #e0e0e0'
-                    }}>
+                    <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 6 }}>¿No podés escanear? Ingresá este código:</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, background: '#f3f4f6', padding: '8px 14px', borderRadius: 8, letterSpacing: 3, color: '#111', border: '1px solid #e0e0e0' }}>
                       {totpSetup.secret}
                     </div>
                   </div>
                 </div>
-                <p style={{ fontSize: '14px', color: '#444', marginBottom: '10px' }}>
-                  <strong>Paso 2:</strong> Ingresa el código de 6 dígitos que muestra la app para confirmar:
+                <p style={{ fontSize: 14, color: '#374151', marginBottom: 10 }}>
+                  <strong>Paso 2:</strong> Ingresá el código de 6 dígitos de la app:
                 </p>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-                  <div className="form-group" style={{ margin: 0, flex: 1 }}>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={totpCode}
-                      onChange={e => { setTotpCode(e.target.value.replace(/\D/g, '')); setTotpError(''); }}
-                      placeholder="000000"
-                      style={{ fontSize: '22px', letterSpacing: '8px', textAlign: 'center', fontWeight: 700 }}
-                    />
-                  </div>
-                  <button
-                    onClick={confirmTotpEnable}
-                    className="btn btn-primary"
-                    disabled={totpLoading || totpCode.length !== 6}
-                    style={{ background: '#D4AF37', border: 'none', color: '#000', fontWeight: 800, height: '46px' }}
-                  >
-                    {totpLoading ? 'Verificando...' : 'Confirmar'}
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <input type="text" inputMode="numeric" maxLength={6} value={totpCode}
+                    onChange={e => { setTotpCode(e.target.value.replace(/\D/g, '')); setTotpError(''); }}
+                    placeholder="000 000"
+                    style={{ ...inputBase, fontSize: 24, letterSpacing: 8, textAlign: 'center', fontWeight: 800, flex: '1 1 140px', maxWidth: 200 }} />
+                  <button onClick={confirmTotpEnable} disabled={totpLoading || totpCode.length !== 6} style={{ ...btnGold, opacity: totpCode.length !== 6 ? 0.5 : 1 }}>
+                    {totpLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheck} />}
+                    Confirmar
                   </button>
+                  <button onClick={() => { setTotpStep('idle'); setTotpSetup(null); setTotpError(''); }}
+                    style={{ ...btnSecondary }}>Cancelar</button>
                 </div>
-                <button
-                  onClick={() => { setTotpStep('idle'); setTotpSetup(null); setTotpError(''); }}
-                  style={{ marginTop: '10px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '13px' }}
-                >
-                  Cancelar
-                </button>
               </div>
             )}
 
             {totpStep === 'disable' && (
               <div>
-                <p style={{ fontSize: '14px', color: '#444', marginBottom: '14px' }}>
-                  Para desactivar, ingresa el código actual de tu app de autenticación:
+                <p style={{ fontSize: 14, color: '#374151', marginTop: 0, marginBottom: 14 }}>
+                  Ingresá el código actual de tu app para desactivar:
                 </p>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-                  <div className="form-group" style={{ margin: 0, flex: 1 }}>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={totpDisableCode}
-                      onChange={e => { setTotpDisableCode(e.target.value.replace(/\D/g, '')); setTotpError(''); }}
-                      placeholder="000000"
-                      style={{ fontSize: '22px', letterSpacing: '8px', textAlign: 'center', fontWeight: 700 }}
-                    />
-                  </div>
-                  <button
-                    onClick={confirmTotpDisable}
-                    className="btn"
-                    disabled={totpLoading || totpDisableCode.length !== 6}
-                    style={{ background: '#dc2626', border: 'none', color: '#fff', fontWeight: 800, height: '46px' }}
-                  >
-                    {totpLoading ? 'Desactivando...' : 'Desactivar'}
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <input type="text" inputMode="numeric" maxLength={6} value={totpDisableCode}
+                    onChange={e => { setTotpDisableCode(e.target.value.replace(/\D/g, '')); setTotpError(''); }}
+                    placeholder="000 000"
+                    style={{ ...inputBase, fontSize: 24, letterSpacing: 8, textAlign: 'center', fontWeight: 800, flex: '1 1 140px', maxWidth: 200 }} />
+                  <button onClick={confirmTotpDisable} disabled={totpLoading || totpDisableCode.length !== 6}
+                    style={{ ...btnDanger, background: '#dc2626', color: '#fff', border: 'none', opacity: totpDisableCode.length !== 6 ? 0.5 : 1 }}>
+                    {totpLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faUnlock} />}
+                    Desactivar
                   </button>
+                  <button onClick={() => { setTotpStep('idle'); setTotpError(''); }} style={btnSecondary}>Cancelar</button>
                 </div>
-                <button
-                  onClick={() => { setTotpStep('idle'); setTotpError(''); }}
-                  style={{ marginTop: '10px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '13px' }}
-                >
-                  Cancelar
-                </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* ── ChatGPT API Key ──────────────────────── */}
-        <div className="card" style={{ marginTop: '16px' }}>
-          <div className="card-header">
-            <div className="card-title">
-              <FontAwesomeIcon icon={faRobot} className="gap-2" />
-              León IA — API Key de ChatGPT
+        {/* ══ CHATGPT API KEY ═══════════════════════════════════════ */}
+        <div style={card}>
+          <div style={cardHeader}>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <FontAwesomeIcon icon={faRobot} style={{ color: '#16a34a', fontSize: 15 }} />
             </div>
+            <div style={{ flex: 1 }}>
+              <div style={cardTitle}>León IA — API Key de ChatGPT</div>
+              <div style={{ fontSize: 12, color: '#9ca3af' }}>Mejorá las respuestas usando tu propia key de OpenAI</div>
+            </div>
+            {chatgptHasKey && <span style={badge('#16a34a', '#f0fdf4')}>● Configurada</span>}
           </div>
-          <div style={{ padding: '0 20px 20px' }}>
+          <div style={cardBody}>
             {chatgptMsg && (
-              <div className={chatgptMsg.ok ? 'success' : 'error'} style={{ marginBottom: '12px' }}>
+              <div style={{ background: chatgptMsg.ok ? '#f0fdf4' : '#fef2f2', border: `1px solid ${chatgptMsg.ok ? '#86efac' : '#fca5a5'}`, borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: chatgptMsg.ok ? '#16a34a' : '#dc2626' }}>
                 {chatgptMsg.text}
               </div>
             )}
 
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px',
-              borderRadius: '10px', marginBottom: '16px',
-              background: chatgptHasKey ? '#f0fdf4' : '#fffbeb',
-              border: `1px solid ${chatgptHasKey ? '#16a34a' : '#D4AF37'}`
-            }}>
-              <FontAwesomeIcon icon={faKey} style={{ fontSize: '18px', color: chatgptHasKey ? '#16a34a' : '#D4AF37' }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '14px' }}>
-                  {chatgptHasKey ? `API Key configurada: ${chatgptKeyPreview}` : 'Sin API Key configurada'}
-                </div>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
-                  {chatgptHasKey
-                    ? 'León IA usará ChatGPT (gpt-4o-mini) para respuestas más inteligentes y personalizadas.'
-                    : 'Sin key, León IA usa su motor propio. Con tu key de OpenAI, las respuestas serán mucho más completas.'}
+            {chatgptHasKey && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '12px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <FontAwesomeIcon icon={faKey} style={{ color: '#16a34a' }} />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>Key activa: <span style={{ fontFamily: 'monospace' }}>{chatgptKeyPreview}</span></div>
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>León IA usará GPT-4o-mini para respuestas más completas</div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="form-group">
-              <label>
-                {chatgptHasKey ? 'Reemplazar API Key' : 'Ingresar API Key de OpenAI'}
-              </label>
+            <div style={{ marginBottom: 14 }}>
+              <label style={label}>{chatgptHasKey ? 'Reemplazar API Key' : 'Ingresar API Key de OpenAI'}</label>
               <div style={{ position: 'relative' }}>
                 <input
                   type={showChatgptKey ? 'text' : 'password'}
                   value={chatgptKey}
                   onChange={e => setChatgptKey(e.target.value)}
                   placeholder="sk-..."
-                  style={{ paddingRight: '44px', fontFamily: 'monospace', fontSize: '13px' }}
+                  style={{ ...inputBase, paddingRight: 44, fontFamily: 'monospace', fontSize: 13 }}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowChatgptKey(p => !p)}
-                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '4px' }}
-                >
-                  <FontAwesomeIcon icon={showChatgptKey ? faUnlock : faLock} />
+                <button type="button" onClick={() => setShowChatgptKey(p => !p)}
+                  style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4, fontSize: 14 }}>
+                  <FontAwesomeIcon icon={showChatgptKey ? faEye : faEyeSlash} />
                 </button>
               </div>
-              <small style={{ color: '#888', fontSize: '11px', marginTop: '4px', display: 'block' }}>
-                Obtené tu key en platform.openai.com/api-keys — empieza con "sk-"
-              </small>
+              <div style={hint}>Obtené tu key en platform.openai.com/api-keys — empieza con "sk-"</div>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={saveChatgptKey}
-                disabled={chatgptSaving || !chatgptKey}
-                className="btn btn-primary"
-                style={{ background: '#D4AF37', border: 'none', color: '#000', fontWeight: 800 }}
-              >
-                <FontAwesomeIcon icon={faKey} style={{ marginRight: '6px' }} />
-                {chatgptSaving ? 'Guardando...' : 'Guardar API Key'}
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button type="button" onClick={saveChatgptKey} disabled={chatgptSaving || !chatgptKey} style={{ ...btnGold, opacity: !chatgptKey ? 0.5 : 1 }}>
+                {chatgptSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faKey} />}
+                {chatgptSaving ? 'Guardando…' : 'Guardar API Key'}
               </button>
               {chatgptHasKey && (
-                <button
-                  type="button"
-                  onClick={removeChatgptKey}
-                  disabled={chatgptSaving}
-                  className="btn btn-secondary"
-                  style={{ color: '#dc2626', borderColor: '#dc2626' }}
-                >
+                <button type="button" onClick={removeChatgptKey} disabled={chatgptSaving} style={btnDanger}>
                   Eliminar API Key
                 </button>
               )}
             </div>
           </div>
         </div>
+
       </div>
     </>
   );

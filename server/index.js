@@ -1040,6 +1040,8 @@ app.get('/api/public/lookup/:code', async (req, res) => {
     }
 
     const stores = await getStores(user.id);
+    const userPlanForLookup = await getUserPlan(user.id);
+    const isPremiumForLookup = !!(userPlanForLookup && userPlanForLookup.plan_name && userPlanForLookup.plan_name !== 'Gratis');
     const visibleStores = stores
       .filter(s => !s.is_banned)
       .map(s => ({
@@ -1049,7 +1051,7 @@ app.get('/api/public/lookup/:code', async (req, res) => {
         primary_color: s.primary_color || '#000000',
         secondary_color: s.secondary_color || '#FFFFFF',
         accent_color: s.accent_color || '#D4AF37',
-        logo_url: s.logo_url || null
+        logo_url: isPremiumForLookup ? (s.logo_url || null) : null
       }));
 
     if (visibleStores.length === 0) {
@@ -1108,8 +1110,11 @@ app.get('/api/public/:code', async (req, res) => {
     
     const products = await getPublicProducts(store.id);
     const categories = await getCategories(store.id);
-
     const openRegister = await getOpenCashRegister(store.id);
+
+    // Premium check — logo and custom styles only for active paid plans
+    const userPlan = await getUserPlan(store.user_id);
+    const isPremium = !!(userPlan && userPlan.plan_name && userPlan.plan_name !== 'Gratis');
 
     // Smart mode: get top selling product IDs (last 30 days)
     let topSellingIds = [];
@@ -1136,7 +1141,7 @@ app.get('/api/public/:code', async (req, res) => {
         secondary_color: store.secondary_color || '#FFFFFF',
         accent_color: store.accent_color || '#D4AF37',
         header_color: store.header_color || '#000000',
-        logo_url: store.logo_url || null,
+        logo_url: isPremium ? (store.logo_url || null) : null,
         currency_code: store.currency_code || 'USD',
         currency_symbol: store.currency_symbol || '$',
         currency_name: store.currency_name || 'Dólar Estadounidense',
@@ -11513,7 +11518,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     // Android app build — starts background compile job and returns jobId
     app.post('/api/apps/android/build', async (req, res) => {
       try {
-        const { appName, storeCode } = req.body;
+        const { appName, storeCode, force } = req.body;
         const validApps = ['launcher', 'tvordenes', 'cctv'];
         if (!validApps.includes(appName)) return res.status(400).json({ error: 'App inválida' });
 
@@ -11526,7 +11531,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
         }
 
         const code = storeCode ? storeCode.toUpperCase() : null;
-        const result = await startBuild(appName, code);
+        const result = await startBuild(appName, code, !!force);
 
         if (result.cached) {
           return res.json({ status: 'done', jobId: null, cached: true, appName, storeCode: code });
@@ -12944,6 +12949,52 @@ app.get('/api/ticketeria/public/events/:id', async (req, res) => {
 });
 
 // ── Público: crear compra sin pasarela (para terminal POS físico) ────
+// Endpoint para el launcher Android — entrega compras de ticketería confirmadas del día
+app.get('/api/store/:code/ticket-purchases', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code);
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+
+    const [rows] = await pool.execute(
+      `SELECT tp.*, te.name AS event_name, te.event_date, te.time_start
+       FROM ticket_purchases tp
+       JOIN ticket_events te ON te.id = tp.event_id
+       WHERE tp.store_id = ? AND tp.status = 'paid'
+         AND tp.viewer_code IS NOT NULL
+         AND DATE(tp.paid_at) = CURDATE()
+       ORDER BY tp.paid_at DESC`,
+      [store.id]
+    );
+
+    const purchases = [];
+    for (const row of rows) {
+      const [items] = await pool.execute(
+        'SELECT * FROM ticket_purchase_items WHERE purchase_id = ?',
+        [row.id]
+      );
+      const showTime = row.event_date
+        ? `${String(row.event_date).slice(0, 10)}${row.time_start ? 'T' + String(row.time_start).slice(0, 5) : ''}`.replace(/T$/, '')
+        : null;
+      purchases.push({
+        id: row.id,
+        viewer_code: row.viewer_code,
+        qr_url: `${BASE_URL}/ticket/${row.viewer_code}`,
+        event_name: row.event_name || null,
+        show_time: showTime,
+        total_amount: parseFloat(row.total_amount || 0),
+        paid_at: row.paid_at,
+        items: items.map(i => ({
+          category_name: i.category_name,
+          quantity: i.quantity,
+          unit_price: parseFloat(i.unit_price || 0)
+        }))
+      });
+    }
+
+    res.json({ store: { code: store.code, name: store.name }, total: purchases.length, purchases });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/ticketeria/purchase/init', async (req, res) => {
   try {
     const { store_id, event_id, buyer_name, buyer_email, buyer_phone, items } = req.body;

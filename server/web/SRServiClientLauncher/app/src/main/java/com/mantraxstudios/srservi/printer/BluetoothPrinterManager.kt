@@ -11,6 +11,7 @@ import android.os.Build
 import androidx.core.app.ActivityCompat
 import com.mantraxstudios.srservi.model.Order
 import com.mantraxstudios.srservi.model.OrderItem
+import com.mantraxstudios.srservi.model.TicketPurchase
 import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
@@ -38,6 +39,7 @@ class BluetoothPrinterManager(private val context: Context) {
     private var outputStream: OutputStream? = null
     private var connectedDevice: BluetoothDevice? = null
     private val printQueue: ConcurrentLinkedQueue<Order> = ConcurrentLinkedQueue()
+    private val ticketQueue: ConcurrentLinkedQueue<TicketPurchase> = ConcurrentLinkedQueue()
     private var isPrinting = false
     private var paperWidth = PAPER_58MM
     private var listener: PrinterListener? = null
@@ -130,22 +132,41 @@ class BluetoothPrinterManager(private val context: Context) {
 
     private fun processQueue() {
         if (isPrinting) return
-        val order = printQueue.poll() ?: return
 
-        isPrinting = true
-        Thread {
-            try {
-                printReceipt(order)
-                listener?.onPrintSuccess(order.orderNumber)
-            } catch (e: Exception) {
-                listener?.onPrintError(order.orderNumber, e.message ?: "Error desconocido")
-            } finally {
-                isPrinting = false
-                if (printQueue.isNotEmpty()) {
-                    processQueue()
+        val order = printQueue.poll()
+        if (order != null) {
+            isPrinting = true
+            Thread {
+                try {
+                    printReceipt(order)
+                    listener?.onPrintSuccess(order.orderNumber)
+                } catch (e: Exception) {
+                    listener?.onPrintError(order.orderNumber, e.message ?: "Error desconocido")
+                } finally {
+                    isPrinting = false
+                    if (printQueue.isNotEmpty() || ticketQueue.isNotEmpty()) processQueue()
                 }
-            }
-        }.start()
+            }.start()
+            return
+        }
+
+        val purchase = ticketQueue.poll()
+        if (purchase != null) {
+            isPrinting = true
+            Thread {
+                try {
+                    val os = outputStream ?: throw IOException("Impresora no conectada")
+                    os.write(buildTicketPurchaseReceipt(purchase))
+                    os.flush()
+                    listener?.onPrintSuccess(purchase.viewerCode)
+                } catch (e: Exception) {
+                    listener?.onPrintError(purchase.viewerCode, e.message ?: "Error")
+                } finally {
+                    isPrinting = false
+                    if (printQueue.isNotEmpty() || ticketQueue.isNotEmpty()) processQueue()
+                }
+            }.start()
+        }
     }
 
     private fun printReceipt(order: Order) {
@@ -352,6 +373,105 @@ class BluetoothPrinterManager(private val context: Context) {
 
         builder.alignCenter()
         builder.addText("Presentar QR en el ingreso")
+        builder.addNewLine()
+        builder.addNewLine()
+        builder.addNewLine()
+        builder.addNewLine()
+        builder.addNewLine()
+        builder.addNewLine()
+        builder.cut()
+
+        return builder.build()
+    }
+
+    fun addToQueueTicketPurchase(purchase: TicketPurchase) {
+        ticketQueue.add(purchase)
+        processQueue()
+    }
+
+    private fun buildTicketPurchaseReceipt(purchase: TicketPurchase): ByteArray {
+        val builder = ReceiptBuilder(paperWidth)
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+
+        builder.initialize()
+
+        // Header
+        builder.alignCenter()
+        builder.setBold(true)
+        builder.setDoubleSize(true)
+        builder.addText("SRServi")
+        builder.setDoubleSize(false)
+        builder.addNewLine()
+        builder.setBold(false)
+        builder.addSeparator()
+
+        // Nombre del evento
+        if (!purchase.eventName.isNullOrBlank()) {
+            builder.setBold(true)
+            builder.setDoubleSize(true)
+            builder.addText(purchase.eventName)
+            builder.setDoubleSize(false)
+            builder.setBold(false)
+            builder.addNewLine()
+        }
+
+        // Fecha del show
+        if (!purchase.showTime.isNullOrBlank()) {
+            try {
+                val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault())
+                val d = fmt.parse(purchase.showTime)
+                if (d != null) builder.addText("Fecha: ${dateFormat.format(d)}")
+                else builder.addText("Fecha: ${purchase.showTime}")
+            } catch (_: Exception) {
+                builder.addText("Fecha: ${purchase.showTime}")
+            }
+            builder.addNewLine()
+        }
+
+        builder.addSeparator()
+
+        // Código y fecha de compra
+        builder.addText("Cod: ${purchase.viewerCode}")
+        builder.addNewLine()
+        builder.addText("Compra: ${dateFormat.format(Date())}")
+        builder.addNewLine()
+        builder.addSeparator()
+
+        // QR — usa la URL completa para que sea escaneable
+        builder.addQrCode(purchase.qrUrl)
+        builder.addNewLine()
+        builder.alignCenter()
+        builder.setBold(true)
+        builder.addText(purchase.viewerCode)
+        builder.setBold(false)
+        builder.addNewLine()
+        builder.addSeparator()
+
+        // Detalle de entradas
+        builder.alignLeft()
+        builder.addText("Entradas:")
+        builder.addNewLine()
+        for (item in purchase.items) {
+            builder.addText("${item.quantity}x ${item.categoryName}")
+            builder.addNewLine()
+            builder.alignRight()
+            builder.addText("$${String.format("%.2f", item.unitPrice * item.quantity)}")
+            builder.addNewLine()
+            builder.alignLeft()
+        }
+
+        builder.addSeparator()
+        builder.setBold(true)
+        builder.addLeftRight("TOTAL:", "$${String.format("%.2f", purchase.totalAmount)}")
+        builder.addNewLine()
+        builder.setBold(false)
+        builder.addSeparator()
+
+        builder.alignCenter()
+        builder.addText("Presentar QR en el ingreso")
+        builder.addNewLine()
+        builder.addNewLine()
+        builder.addNewLine()
         builder.addNewLine()
         builder.addNewLine()
         builder.addNewLine()

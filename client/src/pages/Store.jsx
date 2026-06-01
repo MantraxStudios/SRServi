@@ -436,29 +436,74 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
     return new Date(String(raw).slice(0,10) + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const overlay = { position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--store-secondary, #fff)', display: 'flex', flexDirection: 'column', overflow: 'hidden' };
-  const hdr = { background: 'var(--store-primary, #111)', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 };
-  const btn = (bg, color) => ({ padding: '12px 20px', background: bg, border: 'none', borderRadius: 10, color, fontWeight: 700, fontSize: 15, cursor: 'pointer', width: '100%' });
+  const overlay = { position: 'fixed', inset: 0, zIndex: 9999, background: '#080808', display: 'flex', flexDirection: 'column', overflow: 'hidden' };
+  const btn = (bg, color) => ({ padding: '14px 20px', background: bg, border: 'none', borderRadius: 12, color, fontWeight: 700, fontSize: 15, cursor: 'pointer', width: '100%' });
+
+  const headerTitle = phase === 'events' ? null
+    : phase === 'select' || phase === 'confirm' ? selectedEvent?.name
+    : phase === 'waiting' ? 'Procesando pago'
+    : phase === 'success' ? '¡Confirmado!'
+    : 'Error';
 
   return (
     <div style={overlay}>
-      {/* Header */}
-      <div style={hdr}>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--store-secondary, #fff)', cursor: 'pointer', fontSize: 20, padding: '0 4px', lineHeight: 1 }}>
-          <FontAwesomeIcon icon={faArrowLeft} />
-        </button>
-        <FontAwesomeIcon icon={faTicketAlt} style={{ color: 'var(--store-accent, #C8A415)', fontSize: 18 }} />
-        <span style={{ color: 'var(--store-secondary, #fff)', fontWeight: 800, fontSize: 17 }}>
-          {phase === 'events' ? 'Ticketería' : phase === 'select' || phase === 'confirm' ? selectedEvent?.name : phase === 'waiting' ? 'Procesando pago' : phase === 'success' ? '¡Confirmado!' : 'Error'}
-        </span>
-        {terminalId && (
-          <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--store-accent, #C8A415)', fontWeight: 600, background: 'rgba(255,255,255,0.1)', padding: '3px 9px', borderRadius: 20 }}>
-            {terminalName || terminalProvider?.toUpperCase()}
-          </span>
+      {/* ── Header ── */}
+      <div style={{
+        background: 'linear-gradient(180deg, #111 0%, #0d0d0d 100%)',
+        borderBottom: '2px solid var(--store-accent, #D4AF37)',
+        padding: '0',
+        flexShrink: 0,
+      }}>
+        {/* Top bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px' }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'var(--store-accent, #D4AF37)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <FontAwesomeIcon icon={faTicketAlt} style={{ color: '#000', fontSize: 17 }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: '#fff', fontWeight: 900, fontSize: 18, lineHeight: 1.1, letterSpacing: 0.3 }}>
+              {headerTitle || 'Ticketería'}
+            </div>
+            {phase === 'events' && (
+              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>
+                Seleccioná un evento
+              </div>
+            )}
+          </div>
+          {terminalId && (
+            <span style={{ fontSize: 11, color: 'var(--store-accent, #D4AF37)', fontWeight: 700, background: 'rgba(212,175,55,0.12)', padding: '4px 10px', borderRadius: 20, border: '1px solid rgba(212,175,55,0.25)' }}>
+              {terminalName || terminalProvider?.toUpperCase()}
+            </span>
+          )}
+        </div>
+        {/* Breadcrumb strip */}
+        {(phase === 'select' || phase === 'confirm') && (
+          <div style={{ display: 'flex', borderTop: '1px solid #1e1e1e' }}>
+            {[['events','Eventos'],['select','Entradas'],['confirm','Pago']].map(([p, label], i, arr) => {
+              const steps = ['events','select','confirm'];
+              const idx = steps.indexOf(phase);
+              const stepIdx = steps.indexOf(p);
+              const done = stepIdx < idx;
+              const active = stepIdx === idx;
+              return (
+                <div key={p} style={{ flex: 1, padding: '8px 0', textAlign: 'center', fontSize: 11, fontWeight: 700,
+                  borderRight: i < arr.length - 1 ? '1px solid #1e1e1e' : 'none',
+                  color: active ? 'var(--store-accent, #D4AF37)' : done ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)',
+                  borderBottom: active ? '2px solid var(--store-accent, #D4AF37)' : '2px solid transparent',
+                }}>
+                  {done ? '✓ ' : ''}{label}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', background: '#080808' }}>
 
         {/* ── VirtualKeyboard para búsqueda ── */}
         {vkbOpen && (
@@ -481,58 +526,62 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
               {!!filterCfg.show_search && (
                 <button onClick={() => setVkbOpen(true)} style={{
                   display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                  padding: '10px 14px', background: '#fff', border: '1px solid #e5e7eb',
-                  borderRadius: 10, cursor: 'pointer', textAlign: 'left', boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                  padding: '11px 14px', background: '#111', border: '1px solid #222',
+                  borderRadius: 12, cursor: 'pointer', textAlign: 'left', boxSizing: 'border-box'
                 }}>
-                  <FontAwesomeIcon icon={faSearch} style={{ color: '#9ca3af', fontSize: 14 }} />
-                  <span style={{ flex: 1, fontSize: 14, color: search ? '#111' : '#9ca3af', fontWeight: search ? 600 : 400 }}>
-                    {search || 'Buscar evento por nombre…'}
+                  <FontAwesomeIcon icon={faSearch} style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14 }} />
+                  <span style={{ flex: 1, fontSize: 14, color: search ? '#fff' : 'rgba(255,255,255,0.3)', fontWeight: search ? 600 : 400 }}>
+                    {search || 'Buscar evento…'}
                   </span>
                   {search && (
-                    <span onClick={e => { e.stopPropagation(); setSearch(''); }} style={{ color: '#9ca3af', fontSize: 16, lineHeight: 1 }}>×</span>
+                    <span onClick={e => { e.stopPropagation(); setSearch(''); }} style={{ color: 'rgba(255,255,255,0.4)', fontSize: 18, lineHeight: 1 }}>×</span>
                   )}
                 </button>
               )}
 
               {/* Géneros */}
               {!!filterCfg.show_genre && filterCfg.genres?.length > 0 && (
-                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-                  {['all', ...filterCfg.genres].map(g => (
-                    <button key={g} onClick={() => setActiveGenre(g === 'all' ? '' : g)}
-                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                        background: (g === 'all' && !activeGenre) || activeGenre === g ? 'var(--store-primary, #111)' : '#fff',
-                        color: (g === 'all' && !activeGenre) || activeGenre === g ? 'var(--store-secondary, #fff)' : '#374151',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                      {g === 'all' ? 'Todos' : g}
-                    </button>
-                  ))}
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+                  {['all', ...filterCfg.genres].map(g => {
+                    const active = (g === 'all' && !activeGenre) || activeGenre === g;
+                    return (
+                      <button key={g} onClick={() => setActiveGenre(g === 'all' ? '' : g)}
+                        style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: `1px solid ${active ? 'var(--store-accent, #D4AF37)' : '#2a2a2a'}`, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                          background: active ? 'rgba(212,175,55,0.12)' : 'transparent',
+                          color: active ? 'var(--store-accent, #D4AF37)' : 'rgba(255,255,255,0.4)',
+                          letterSpacing: 0.3 }}>
+                        {g === 'all' ? 'Todos' : g}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
               {/* Países */}
               {!!filterCfg.show_country && filterCfg.countries?.length > 0 && (
-                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-                  {['all', ...filterCfg.countries].map(c => (
-                    <button key={c} onClick={() => setActiveCountry(c === 'all' ? '' : c)}
-                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                        background: (c === 'all' && !activeCountry) || activeCountry === c ? 'var(--store-primary, #111)' : '#fff',
-                        color: (c === 'all' && !activeCountry) || activeCountry === c ? 'var(--store-secondary, #fff)' : '#374151',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                      {c === 'all' ? 'Todos' : c}
-                    </button>
-                  ))}
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+                  {['all', ...filterCfg.countries].map(c => {
+                    const active = (c === 'all' && !activeCountry) || activeCountry === c;
+                    return (
+                      <button key={c} onClick={() => setActiveCountry(c === 'all' ? '' : c)}
+                        style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: `1px solid ${active ? 'var(--store-accent, #D4AF37)' : '#2a2a2a'}`, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                          background: active ? 'rgba(212,175,55,0.12)' : 'transparent',
+                          color: active ? 'var(--store-accent, #D4AF37)' : 'rgba(255,255,255,0.4)' }}>
+                        {c === 'all' ? 'Todos' : c}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
               {/* Fecha */}
               {!!filterCfg.show_date && (
-                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
                   {[['all','Todos'],['today','Hoy'],['week','Esta semana'],['month','Este mes']].map(([key, label]) => (
                     <button key={key} onClick={() => setDateFilter(key)}
-                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                        background: dateFilter === key ? 'var(--store-accent, #C8A415)' : '#fff',
-                        color: dateFilter === key ? '#fff' : '#374151',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: `1px solid ${dateFilter === key ? 'var(--store-accent, #D4AF37)' : '#2a2a2a'}`, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                        background: dateFilter === key ? 'rgba(212,175,55,0.12)' : 'transparent',
+                        color: dateFilter === key ? 'var(--store-accent, #D4AF37)' : 'rgba(255,255,255,0.4)' }}>
                       {label}
                     </button>
                   ))}
@@ -542,62 +591,71 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
           )}
 
           {loadingEvents ? (
-            <div style={{ textAlign: 'center', paddingTop: 60 }}>
-              <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 32, color: 'var(--store-accent, #C8A415)' }} />
+            <div style={{ textAlign: 'center', paddingTop: 80 }}>
+              <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 36, color: 'var(--store-accent, #D4AF37)' }} />
+              <div style={{ marginTop: 14, color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Cargando eventos…</div>
             </div>
           ) : events.length === 0 ? (
-            <div style={{ textAlign: 'center', paddingTop: 60, color: '#9ca3af' }}>
-              <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 44, display: 'block', marginBottom: 12 }} />
-              {search || activeGenre || activeCountry || dateFilter !== 'all' ? 'Sin resultados para este filtro' : 'No hay eventos disponibles'}
+            <div style={{ textAlign: 'center', paddingTop: 80 }}>
+              <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(212,175,55,0.08)', border: '2px solid rgba(212,175,55,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 30, color: 'rgba(212,175,55,0.5)' }} />
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 15, fontWeight: 600 }}>
+                {search || activeGenre || activeCountry || dateFilter !== 'all' ? 'Sin resultados' : 'No hay eventos disponibles'}
+              </div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
               {events.map(ev => {
                 const evDate = ev.event_date ? new Date(String(ev.event_date).slice(0,10) + 'T12:00:00') : null;
                 const dayNum  = evDate ? evDate.toLocaleDateString('es-CL', { day: '2-digit' }) : '';
-                const month   = evDate ? evDate.toLocaleDateString('es-CL', { month: 'long' }) : '';
+                const month   = evDate ? evDate.toLocaleDateString('es-CL', { month: 'short' }).toUpperCase() : '';
                 const weekday = evDate ? evDate.toLocaleDateString('es-CL', { weekday: 'long' }) : '';
                 const year    = evDate ? evDate.getFullYear() : '';
                 const timeStr = ev.time_start ? String(ev.time_start).slice(0,5) + (ev.time_end ? ` – ${String(ev.time_end).slice(0,5)}` : '') : '';
                 return (
                   <div key={ev.id} onClick={() => selectEvent(ev)}
-                    style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', transition: 'transform .15s, box-shadow .15s' }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.14)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'; }}>
+                    style={{ background: '#111', borderRadius: 16, border: '1px solid #222', overflow: 'hidden', cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.4)', transition: 'transform .15s, border-color .15s, box-shadow .15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'var(--store-accent, #D4AF37)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(212,175,55,0.15)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = '#222'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.4)'; }}>
 
-                    {/* Imagen o banner de color */}
+                    {/* Imagen o banner */}
                     {ev.image_url
-                      ? <img src={ev.image_url} alt={ev.name} style={{ width: '100%', height: 150, objectFit: 'cover', display: 'block' }} />
-                      : <div style={{ width: '100%', height: 80, background: 'var(--store-primary, #111)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 32, color: 'var(--store-accent, #C8A415)', opacity: 0.5 }} />
+                      ? <div style={{ position: 'relative' }}>
+                          <img src={ev.image_url} alt={ev.name} style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
+                          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.8) 100%)' }} />
+                        </div>
+                      : <div style={{ width: '100%', height: 90, background: 'linear-gradient(135deg, #1a1a1a 0%, #111 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 36, color: 'rgba(212,175,55,0.3)' }} />
                         </div>}
 
-                    {/* Fecha grande destacada */}
-                    <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6' }}>
-                      {/* Bloque día/mes */}
-                      <div style={{ background: 'var(--store-primary, #111)', padding: '12px 16px', textAlign: 'center', minWidth: 72, flexShrink: 0 }}>
-                        <div style={{ fontSize: 34, fontWeight: 900, lineHeight: 1, color: 'var(--store-accent, #C8A415)' }}>{dayNum}</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 2 }}>{month}</div>
-                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 1 }}>{year}</div>
+                    {/* Contenido */}
+                    <div style={{ display: 'flex', borderTop: '1px solid #1e1e1e' }}>
+                      {/* Bloque fecha */}
+                      <div style={{ background: 'var(--store-accent, #D4AF37)', padding: '14px 16px', textAlign: 'center', minWidth: 76, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ fontSize: 38, fontWeight: 900, lineHeight: 1, color: '#000' }}>{dayNum}</div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: '#000', letterSpacing: '1px', marginTop: 2 }}>{month}</div>
+                        <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.55)', marginTop: 1 }}>{year}</div>
                       </div>
-                      {/* Bloque hora/día semana */}
-                      <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
-                        <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'capitalize' }}>{weekday}</div>
+                      {/* Info derecha */}
+                      <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4, minWidth: 0 }}>
+                        <div style={{ fontWeight: 900, fontSize: 16, color: '#fff', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.name}</div>
+                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'capitalize' }}>{weekday}</div>
                         {timeStr && (
-                          <div style={{ fontSize: 20, fontWeight: 900, color: '#111', lineHeight: 1, letterSpacing: '-0.5px' }}>
-                            <FontAwesomeIcon icon={faClock} style={{ fontSize: 13, color: 'var(--store-accent, #C8A415)', marginRight: 5 }} />
+                          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--store-accent, #D4AF37)', letterSpacing: '-0.3px' }}>
+                            <FontAwesomeIcon icon={faClock} style={{ fontSize: 11, marginRight: 5, opacity: 0.8 }} />
                             {timeStr}
                           </div>
                         )}
-                        {ev.location && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 4 }} />{ev.location}</div>}
+                        {ev.location && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 4 }} />{ev.location}</div>}
                       </div>
                     </div>
 
-                    {/* Nombre evento */}
-                    <div style={{ padding: '12px 14px' }}>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: '#111', lineHeight: 1.3 }}>{ev.name}</div>
-                      {ev.description && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4, lineHeight: 1.4 }}>{ev.description}</div>}
-                    </div>
+                    {ev.description && (
+                      <div style={{ padding: '10px 14px', borderTop: '1px solid #1a1a1a' }}>
+                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{ev.description}</div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -617,40 +675,51 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
               const weekday = evDate ? evDate.toLocaleDateString('es-CL', { weekday: 'long' }) : '';
               const timeStr = selectedEvent.time_start ? String(selectedEvent.time_start).slice(0,5) + (selectedEvent.time_end ? ` – ${String(selectedEvent.time_end).slice(0,5)}` : '') : '';
               return (
-                <div style={{ background: 'var(--store-primary, #111)', borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>
-                  {selectedEvent.image_url && <img src={selectedEvent.image_url} alt={selectedEvent.name} style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }} />}
-                  <div style={{ display: 'flex', alignItems: 'stretch' }}>
-                    <div style={{ background: 'var(--store-accent, #C8A415)', padding: '14px 18px', textAlign: 'center', minWidth: 80 }}>
-                      <div style={{ fontSize: 42, fontWeight: 900, lineHeight: 1, color: '#111' }}>{dayNum}</div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: '#111', textTransform: 'uppercase' }}>{month}</div>
+                <div style={{ background: '#111', borderRadius: 16, overflow: 'hidden', marginBottom: 20, border: '1px solid #2a2a2a', boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>
+                  {selectedEvent.image_url
+                    ? <div style={{ position: 'relative' }}>
+                        <img src={selectedEvent.image_url} alt={selectedEvent.name} style={{ width: '100%', height: 130, objectFit: 'cover', display: 'block' }} />
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.85) 100%)' }} />
+                        <div style={{ position: 'absolute', bottom: 12, left: 14, right: 14 }}>
+                          <div style={{ fontWeight: 900, fontSize: 18, color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>{selectedEvent.name}</div>
+                        </div>
+                      </div>
+                    : <div style={{ padding: '16px 16px 0' }}>
+                        <div style={{ fontWeight: 900, fontSize: 18, color: '#fff' }}>{selectedEvent.name}</div>
+                      </div>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px' }}>
+                    <div style={{ background: 'var(--store-accent, #D4AF37)', borderRadius: 10, padding: '10px 14px', textAlign: 'center', flexShrink: 0 }}>
+                      <div style={{ fontSize: 32, fontWeight: 900, lineHeight: 1, color: '#000' }}>{dayNum}</div>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: '#000', letterSpacing: 1 }}>{month?.toUpperCase()}</div>
                     </div>
-                    <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{selectedEvent.name}</div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', textTransform: 'capitalize' }}>{weekday}</div>
-                      {timeStr && <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--store-accent, #C8A415)', letterSpacing: '-0.5px' }}><FontAwesomeIcon icon={faClock} style={{ fontSize: 14, marginRight: 6 }} />{timeStr}</div>}
-                      {selectedEvent.location && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 5 }} />{selectedEvent.location}</div>}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'capitalize' }}>{weekday}</div>
+                      {timeStr && <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--store-accent, #D4AF37)', letterSpacing: '-0.5px' }}><FontAwesomeIcon icon={faClock} style={{ fontSize: 13, marginRight: 6, opacity: 0.8 }} />{timeStr}</div>}
+                      {selectedEvent.location && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 5 }} />{selectedEvent.location}</div>}
                     </div>
                   </div>
                 </div>
               );
             })()}
             {categories.length === 0
-              ? <p style={{ color: '#9ca3af', textAlign: 'center', paddingTop: 30 }}>Este evento no tiene categorías configuradas</p>
+              ? <p style={{ color: 'rgba(255,255,255,0.3)', textAlign: 'center', paddingTop: 30 }}>Este evento no tiene categorías configuradas</p>
               : categories.map(cat => (
-                <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#fff', borderRadius: 12, marginBottom: 10, border: `1px solid ${qtys[cat.id] > 0 ? 'var(--store-accent, #C8A415)' : '#e5e7eb'}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{cat.name}</div>
-                    {cat.description && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{cat.description}</div>}
+                <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px', background: qtys[cat.id] > 0 ? 'rgba(212,175,55,0.06)' : '#111', borderRadius: 14, marginBottom: 10, border: `1.5px solid ${qtys[cat.id] > 0 ? 'var(--store-accent, #D4AF37)' : '#222'}`, transition: 'border-color 0.2s, background 0.2s' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: 15, color: '#fff' }}>{cat.name}</div>
+                    {cat.description && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>{cat.description}</div>}
+                    <div style={{ fontWeight: 900, fontSize: 16, color: 'var(--store-accent, #D4AF37)', marginTop: 4 }}>
+                      {cat.price === 0 ? 'Gratis' : `$${cat.price.toLocaleString('es-CL')}`}
+                    </div>
                   </div>
-                  <div style={{ fontWeight: 800, fontSize: 17, color: 'var(--store-accent, #C8A415)', minWidth: 70, textAlign: 'right' }}>
-                    {cat.price === 0 ? 'Gratis' : `$${cat.price.toLocaleString('es-CL')}`}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <button type="button" onClick={() => adj(cat.id, -1)} disabled={!qtys[cat.id]} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--store-accent, #C8A415)', background: '#fff', color: 'var(--store-accent, #C8A415)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: '#1a1a1a', borderRadius: 10, border: '1px solid #2a2a2a', overflow: 'hidden' }}>
+                    <button type="button" onClick={() => adj(cat.id, -1)} disabled={!qtys[cat.id]}
+                      style={{ width: 40, height: 40, border: 'none', background: 'transparent', color: qtys[cat.id] ? 'var(--store-accent, #D4AF37)' : 'rgba(255,255,255,0.2)', cursor: qtys[cat.id] ? 'pointer' : 'not-allowed', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <FontAwesomeIcon icon={faMinus} />
                     </button>
-                    <span style={{ minWidth: 24, textAlign: 'center', fontWeight: 800, fontSize: 18, color: '#111' }}>{qtys[cat.id] || 0}</span>
-                    <button type="button" onClick={() => adj(cat.id, 1)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--store-accent, #C8A415)', background: 'var(--store-accent, #C8A415)', color: '#fff', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ minWidth: 36, textAlign: 'center', fontWeight: 900, fontSize: 18, color: '#fff', borderLeft: '1px solid #2a2a2a', borderRight: '1px solid #2a2a2a', padding: '0 4px', lineHeight: '40px' }}>{qtys[cat.id] || 0}</span>
+                    <button type="button" onClick={() => adj(cat.id, 1)}
+                      style={{ width: 40, height: 40, border: 'none', background: 'transparent', color: 'var(--store-accent, #D4AF37)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <FontAwesomeIcon icon={faPlus} />
                     </button>
                   </div>
@@ -658,9 +727,9 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
               ))}
 
             {totalTickets > 0 && (
-              <div style={{ marginTop: 8, padding: '14px 18px', background: 'var(--store-primary, #111)', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--store-secondary, #fff)', fontSize: 14 }}>{totalTickets} entrada{totalTickets !== 1 ? 's' : ''}</span>
-                <span style={{ color: 'var(--store-accent, #C8A415)', fontWeight: 900, fontSize: 20 }}>${total.toLocaleString('es-CL')}</span>
+              <div style={{ marginTop: 12, padding: '16px 18px', background: 'rgba(212,175,55,0.08)', borderRadius: 14, border: '1.5px solid var(--store-accent, #D4AF37)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: 600 }}>{totalTickets} entrada{totalTickets !== 1 ? 's' : ''}</span>
+                <span style={{ color: 'var(--store-accent, #D4AF37)', fontWeight: 900, fontSize: 24 }}>{total === 0 ? 'Gratis' : `$${total.toLocaleString('es-CL')}`}</span>
               </div>
             )}
           </div>
@@ -670,87 +739,117 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
         {phase === 'confirm' && (
           <div style={{ maxWidth: 500, margin: '0 auto' }}>
             {/* Info evento */}
-            <div style={{ background: 'var(--store-primary, #111)', borderRadius: 14, overflow: 'hidden', marginBottom: 14 }}>
-              {selectedEvent?.image_url && <img src={selectedEvent.image_url} alt={selectedEvent.name} style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />}
+            <div style={{ background: '#111', borderRadius: 16, overflow: 'hidden', marginBottom: 16, border: '1px solid #2a2a2a' }}>
+              {selectedEvent?.image_url && (
+                <div style={{ position: 'relative' }}>
+                  <img src={selectedEvent.image_url} alt={selectedEvent.name} style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }} />
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 20%, rgba(0,0,0,0.7) 100%)' }} />
+                </div>
+              )}
               <div style={{ padding: '14px 16px' }}>
-                <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--store-secondary, #fff)', marginBottom: 6 }}>{selectedEvent?.name}</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
-                  {selectedEvent?.event_date && <span><FontAwesomeIcon icon={faCalendarAlt} style={{ marginRight: 6, color: 'var(--store-accent, #C8A415)' }} />{formatDate(selectedEvent.event_date)}</span>}
-                  {selectedEvent?.time_start && <span><FontAwesomeIcon icon={faClock} style={{ marginRight: 6, color: 'var(--store-accent, #C8A415)' }} />{String(selectedEvent.time_start).slice(0,5)}{selectedEvent.time_end ? ` – ${String(selectedEvent.time_end).slice(0,5)}` : ''}</span>}
-                  {selectedEvent?.location && <span><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 6, color: 'var(--store-accent, #C8A415)' }} />{selectedEvent.location}</span>}
+                <div style={{ fontWeight: 900, fontSize: 18, color: '#fff', marginBottom: 8 }}>{selectedEvent?.name}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {selectedEvent?.event_date && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+                      <FontAwesomeIcon icon={faCalendarAlt} style={{ color: 'var(--store-accent, #D4AF37)', width: 14 }} />
+                      {formatDate(selectedEvent.event_date)}
+                    </div>
+                  )}
+                  {selectedEvent?.time_start && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+                      <FontAwesomeIcon icon={faClock} style={{ color: 'var(--store-accent, #D4AF37)', width: 14 }} />
+                      {String(selectedEvent.time_start).slice(0,5)}{selectedEvent.time_end ? ` – ${String(selectedEvent.time_end).slice(0,5)}` : ''}
+                    </div>
+                  )}
+                  {selectedEvent?.location && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+                      <FontAwesomeIcon icon={faMapMarkerAlt} style={{ color: 'var(--store-accent, #D4AF37)', width: 14 }} />
+                      {selectedEvent.location}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Detalle de entradas */}
-            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: 14 }}>
+            <div style={{ background: '#111', borderRadius: 14, border: '1px solid #222', overflow: 'hidden', marginBottom: 14 }}>
               {categories.filter(c => qtys[c.id] > 0).map((cat, i, arr) => (
-                <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: i < arr.length - 1 ? '1px solid #1a1a1a' : 'none' }}>
                   <div>
-                    <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{cat.name}</span>
-                    <span style={{ marginLeft: 10, fontSize: 13, color: '#9ca3af' }}>× {qtys[cat.id]}</span>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: '#fff' }}>{cat.name}</span>
+                    <span style={{ marginLeft: 10, fontSize: 13, color: 'rgba(255,255,255,0.35)', fontWeight: 600 }}>× {qtys[cat.id]}</span>
                   </div>
-                  <span style={{ fontWeight: 700, color: 'var(--store-accent, #C8A415)', fontSize: 15 }}>
+                  <span style={{ fontWeight: 800, color: 'var(--store-accent, #D4AF37)', fontSize: 15 }}>
                     {cat.price === 0 ? 'Gratis' : `$${(cat.price * qtys[cat.id]).toLocaleString('es-CL')}`}
                   </span>
                 </div>
               ))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
-                <span style={{ fontWeight: 700, fontSize: 15, color: '#374151' }}>{totalTickets} persona{totalTickets !== 1 ? 's' : ''}</span>
-                <span style={{ fontWeight: 900, fontSize: 22, color: 'var(--store-accent, #C8A415)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'rgba(212,175,55,0.06)', borderTop: '2px solid rgba(212,175,55,0.2)' }}>
+                <span style={{ fontWeight: 700, fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>{totalTickets} persona{totalTickets !== 1 ? 's' : ''}</span>
+                <span style={{ fontWeight: 900, fontSize: 26, color: 'var(--store-accent, #D4AF37)' }}>
                   {total === 0 ? 'Gratis' : `$${total.toLocaleString('es-CL')}`}
                 </span>
               </div>
             </div>
 
-            {/* Método de pago */}
-            {terminalId && <div style={{ padding: '8px 12px', background: '#fffbeb', borderRadius: 8, fontSize: 13, color: '#92760a', marginBottom: 8, border: '1px solid #C8A41540' }}>
-              <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: 6 }} />Terminal: {terminalName || terminalProvider?.toUpperCase()}
-            </div>}
+            {/* Terminal */}
+            {terminalId && (
+              <div style={{ padding: '10px 14px', background: 'rgba(212,175,55,0.06)', borderRadius: 10, fontSize: 13, color: 'var(--store-accent, #D4AF37)', marginBottom: 8, border: '1px solid rgba(212,175,55,0.2)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FontAwesomeIcon icon={faCreditCard} />
+                Terminal: {terminalName || terminalProvider?.toUpperCase()}
+              </div>
+            )}
           </div>
         )}
 
         {/* ── ESPERANDO PAGO ── */}
         {phase === 'waiting' && (
-          <div style={{ textAlign: 'center', paddingTop: 60 }}>
-            <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 48, color: 'var(--store-accent, #C8A415)', marginBottom: 20, display: 'block' }} />
-            <h3 style={{ margin: '0 0 8px', color: '#111', fontSize: 18 }}>Esperando pago…</h3>
-            <p style={{ color: '#6b7280', fontSize: 14 }}>{waitMsg}</p>
-            <p style={{ color: '#9ca3af', fontSize: 12, marginTop: 8 }}>No cierres esta pantalla</p>
+          <div style={{ textAlign: 'center', paddingTop: 80, maxWidth: 340, margin: '0 auto' }}>
+            <div style={{ width: 80, height: 80, borderRadius: '50%', border: '3px solid rgba(212,175,55,0.3)', borderTopColor: 'var(--store-accent, #D4AF37)', animation: 'spin 1s linear infinite', margin: '0 auto 24px' }} />
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 8 }}>Esperando pago…</div>
+            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginBottom: 6 }}>{waitMsg}</div>
+            <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>No cierres esta pantalla</div>
           </div>
         )}
 
         {/* ── PROCESANDO ── */}
         {phase === 'paying' && (
-          <div style={{ textAlign: 'center', paddingTop: 60 }}>
-            <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 40, color: 'var(--store-accent, #C8A415)', marginBottom: 16, display: 'block' }} />
-            <p style={{ color: '#374151' }}>Procesando…</p>
+          <div style={{ textAlign: 'center', paddingTop: 80 }}>
+            <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 44, color: 'var(--store-accent, #D4AF37)', marginBottom: 20, display: 'block' }} />
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15 }}>Procesando…</div>
           </div>
         )}
 
         {/* ── ÉXITO ── */}
         {phase === 'success' && (
-          <div style={{ textAlign: 'center', paddingTop: 24, maxWidth: 420, margin: '0 auto' }}>
-            <div style={{ width: 64, height: 64, background: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-              <FontAwesomeIcon icon={faCheckCircle} style={{ color: '#16a34a', fontSize: 36 }} />
+          <div style={{ textAlign: 'center', paddingTop: 20, maxWidth: 440, margin: '0 auto' }}>
+            {/* Checkmark */}
+            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(34,197,94,0.12)', border: '2px solid #22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <FontAwesomeIcon icon={faCheckCircle} style={{ color: '#22c55e', fontSize: 38 }} />
             </div>
-            <h2 style={{ color: '#16a34a', margin: '0 0 4px', fontSize: 22 }}>¡Pago confirmado!</h2>
-            <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 20 }}>{selectedEvent?.name} · {totalTickets} entrada{totalTickets !== 1 ? 's' : ''}</p>
-
-            {/* QR grande para escanear en la puerta */}
-            <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '2px solid var(--store-accent, #C8A415)', marginBottom: 16, display: 'inline-block' }}>
-              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(successUrl)}&bgcolor=ffffff&color=111111&margin=2`}
-                alt="QR" width={200} height={200} style={{ display: 'block', borderRadius: 8 }} />
-              <div style={{ marginTop: 12, fontFamily: 'monospace', fontSize: 22, fontWeight: 900, letterSpacing: 4, color: '#111' }}>{successCode}</div>
-              <div style={{ marginTop: 4, fontSize: 11, color: '#9ca3af' }}>Escanea este código en la entrada</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: '#fff', marginBottom: 4 }}>¡Confirmado!</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 24 }}>
+              {selectedEvent?.name} · {totalTickets} entrada{totalTickets !== 1 ? 's' : ''}
             </div>
 
-            <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 20 }}>
-              El cliente puede guardar el código en su teléfono
+            {/* QR Card */}
+            <div style={{ background: '#fff', borderRadius: 20, padding: '24px 20px', border: '3px solid var(--store-accent, #D4AF37)', marginBottom: 20, display: 'inline-block', boxShadow: '0 8px 40px rgba(212,175,55,0.25)' }}>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(successUrl)}&bgcolor=ffffff&color=000000&margin=2`}
+                alt="QR" width={220} height={220} style={{ display: 'block', borderRadius: 8 }}
+              />
+              <div style={{ marginTop: 14, fontFamily: 'monospace', fontSize: 24, fontWeight: 900, letterSpacing: 6, color: '#111', textAlign: 'center' }}>{successCode}</div>
+              <div style={{ marginTop: 6, fontSize: 11, color: '#9ca3af', textAlign: 'center', letterSpacing: 0.5 }}>PRESENTAR EN EL INGRESO</div>
             </div>
 
-            <button onClick={() => { setPhase('events'); setSelectedEvent(null); setQtys({}); setSuccessCode(''); setSuccessUrl(''); }}
-              style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginBottom: 24 }}>
+              El cliente puede fotografiar el código
+            </div>
+
+            <button
+              onClick={() => { setPhase('events'); setSelectedEvent(null); setQtys({}); setSuccessCode(''); setSuccessUrl(''); }}
+              style={{ ...btn('var(--store-accent, #D4AF37)', '#000') }}
+            >
               Nueva compra
             </button>
           </div>
@@ -758,11 +857,13 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
 
         {/* ── ERROR ── */}
         {phase === 'error' && (
-          <div style={{ textAlign: 'center', paddingTop: 40, maxWidth: 400, margin: '0 auto' }}>
-            <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: 50, color: '#ef4444', marginBottom: 14, display: 'block' }} />
-            <h3 style={{ color: '#dc2626', margin: '0 0 8px' }}>Error en el pago</h3>
-            <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 20 }}>{payError}</p>
-            <button onClick={() => setPhase('confirm')} style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
+          <div style={{ textAlign: 'center', paddingTop: 60, maxWidth: 400, margin: '0 auto' }}>
+            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(239,68,68,0.1)', border: '2px solid #ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: 38, color: '#ef4444' }} />
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 8 }}>Error en el pago</div>
+            <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14, marginBottom: 24 }}>{payError}</div>
+            <button onClick={() => setPhase('confirm')} style={{ ...btn('#1a1a1a', '#fff'), border: '1px solid #333' }}>
               Intentar nuevamente
             </button>
           </div>
@@ -771,31 +872,33 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
 
       {/* Botones inferiores */}
       {(phase === 'select' || phase === 'confirm') && (
-        <div style={{ padding: '12px 16px', background: 'var(--store-secondary, #fff)', borderTop: '1px solid #e5e7eb', flexShrink: 0 }}>
+        <div style={{ padding: '14px 16px', background: '#0d0d0d', borderTop: '1px solid #1a1a1a', flexShrink: 0 }}>
           {phase === 'select' ? (
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setPhase('events')} style={{ ...btn('#f3f4f6', '#374151'), flex: '0 0 auto', width: 'auto', padding: '12px 18px' }}>
+              <button onClick={() => setPhase('events')}
+                style={{ ...btn('#1a1a1a', 'rgba(255,255,255,0.6)'), flex: '0 0 auto', width: 'auto', padding: '14px 18px', border: '1px solid #2a2a2a' }}>
                 <FontAwesomeIcon icon={faArrowLeft} />
               </button>
-              <button onClick={() => { if (totalTickets === 0) return; setPhase('confirm'); }}
+              <button
+                onClick={() => { if (totalTickets === 0) return; setPhase('confirm'); }}
                 disabled={totalTickets === 0}
-                style={{ ...btn(totalTickets === 0 ? '#d1d5db' : 'var(--store-primary, #111)', 'var(--store-secondary, #fff)'), flex: 1, cursor: totalTickets === 0 ? 'not-allowed' : 'pointer' }}>
-                Ver resumen · {totalTickets} entrada{totalTickets !== 1 ? 's' : ''} {total > 0 ? `· $${total.toLocaleString('es-CL')}` : '· Gratis'}
+                style={{ ...btn(totalTickets === 0 ? '#1a1a1a' : 'var(--store-accent, #D4AF37)', totalTickets === 0 ? 'rgba(255,255,255,0.2)' : '#000'), flex: 1, cursor: totalTickets === 0 ? 'not-allowed' : 'pointer', fontSize: 14 }}>
+                {totalTickets === 0 ? 'Seleccioná entradas' : `Ver resumen · ${totalTickets} entrada${totalTickets !== 1 ? 's' : ''} ${total > 0 ? `· $${total.toLocaleString('es-CL')}` : '· Gratis'}`}
               </button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button onClick={() => handlePay('terminal')} style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
+              <button onClick={() => handlePay('terminal')} style={{ ...btn('var(--store-accent, #D4AF37)', '#000'), fontSize: 15 }}>
                 {terminalId && total > 0
                   ? `Cobrar en ${terminalName || terminalProvider?.toUpperCase() || 'Terminal'} · $${total.toLocaleString('es-CL')}`
-                  : total === 0 ? '✓ Confirmar (Gratis)' : `Pagar con Haulmer · $${total.toLocaleString('es-CL')}`}
+                  : total === 0 ? '✓ Confirmar (Gratis)' : `Pagar · $${total.toLocaleString('es-CL')}`}
               </button>
               {total > 0 && (
-                <button onClick={() => handlePay('cash')} style={{ ...btn('#f3f4f6', '#374151') }}>
-                  <FontAwesomeIcon icon={faMoneyBillWave} style={{ marginRight: 6 }} />Efectivo
+                <button onClick={() => handlePay('cash')} style={{ ...btn('#1a1a1a', '#fff'), border: '1px solid #2a2a2a', fontSize: 14 }}>
+                  <FontAwesomeIcon icon={faMoneyBillWave} style={{ marginRight: 6, color: 'var(--store-accent, #D4AF37)' }} />Pagar en efectivo
                 </button>
               )}
-              <button onClick={() => setPhase('select')} style={{ ...btn('transparent', '#9ca3af'), border: 'none', fontSize: 13 }}>
+              <button onClick={() => setPhase('select')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 13, cursor: 'pointer', padding: '8px', textAlign: 'center', width: '100%' }}>
                 <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 5 }} />Volver
               </button>
             </div>
@@ -823,6 +926,9 @@ function Store() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [cashRegisterOpen, setCashRegisterOpen] = useState(true);
+  const [storeOpeningAmount, setStoreOpeningAmount] = useState('');
+  const [storeOpeningLoading, setStoreOpeningLoading] = useState(false);
+  const [storeOpeningError, setStoreOpeningError] = useState('');
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -1672,6 +1778,25 @@ function Store() {
     const interval = setInterval(checkCaja, 5000);
     return () => clearInterval(interval);
   }, [store?.store?.id]);
+
+  const openCashFromStore = async () => {
+    setStoreOpeningLoading(true);
+    setStoreOpeningError('');
+    const token = localStorage.getItem('workerToken') || localStorage.getItem('token') || adminToken;
+    if (!token) { setStoreOpeningError('Iniciá sesión como vendedor primero'); setStoreOpeningLoading(false); return; }
+    try {
+      const res = await fetch('/api/cash-register/open', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opening_amount: parseFloat(storeOpeningAmount) || 0 })
+      });
+      const data = await res.json();
+      if (!res.ok) { setStoreOpeningError(data.error || 'Error al abrir caja'); return; }
+      setCashRegisterOpen(true);
+      setStoreOpeningAmount('');
+    } catch { setStoreOpeningError('Error de conexión'); }
+    finally { setStoreOpeningLoading(false); }
+  };
 
   const fetchStore = async () => {
     try {
@@ -3795,18 +3920,69 @@ function Store() {
           <p style={{ margin: '0 0 20px', fontSize: 15, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6 }}>
             Para comenzar a vender, abrí la caja desde uno de estos lugares:
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left', background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: '14px 20px', width: '100%', maxWidth: 340, margin: '0 auto', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'rgba(255,255,255,0.75)' }}>
-              <span style={{ fontSize: 18 }}>🏪</span>
-              <span><strong style={{ color: '#fff' }}>Panel del vendedor</strong> → sección <strong style={{ color: '#fff' }}>Caja</strong></span>
+          {/* Formulario de apertura de caja */}
+          <div style={{ width: '100%', maxWidth: 340, margin: '0 auto', boxSizing: 'border-box' }}>
+            <div style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${accent}44`, borderRadius: 14, padding: '20px 20px 16px', boxSizing: 'border-box' }}>
+              <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1 }}>
+                Apertura de caja
+              </p>
+              <div style={{ position: 'relative', marginBottom: 12 }}>
+                <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.35)', fontSize: 15, fontWeight: 700, pointerEvents: 'none' }}>$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="Efectivo en caja (opcional)"
+                  value={storeOpeningAmount}
+                  onChange={e => setStoreOpeningAmount(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && openCashFromStore()}
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    padding: '12px 12px 12px 26px',
+                    background: 'rgba(255,255,255,0.07)',
+                    border: `1.5px solid ${storeOpeningError ? '#ef4444' : 'rgba(255,255,255,0.12)'}`,
+                    borderRadius: 10, color: '#fff', fontSize: 16, fontWeight: 600,
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              {storeOpeningError && (
+                <p style={{ margin: '0 0 10px', fontSize: 12, color: '#f87171' }}>{storeOpeningError}</p>
+              )}
+              <button
+                onClick={openCashFromStore}
+                disabled={storeOpeningLoading}
+                style={{
+                  width: '100%', padding: '13px',
+                  background: storeOpeningLoading ? `${accent}66` : accent,
+                  border: 'none', borderRadius: 10,
+                  color: bg, fontWeight: 800, fontSize: 16,
+                  cursor: storeOpeningLoading ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  transition: 'opacity 0.2s',
+                }}
+              >
+                <FontAwesomeIcon icon={storeOpeningLoading ? faSpinner : faLock} spin={storeOpeningLoading} />
+                {storeOpeningLoading ? 'Abriendo…' : 'Abrir Caja'}
+              </button>
             </div>
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.07)' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'rgba(255,255,255,0.75)' }}>
-              <span style={{ fontSize: 18 }}>⚙️</span>
-              <span><strong style={{ color: '#fff' }}>Admin Panel</strong> → <strong style={{ color: '#fff' }}>Administración</strong> → <strong style={{ color: '#fff' }}>Operación y pedidos</strong></span>
+
+            <div style={{ height: 16 }} />
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left', background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '12px 18px', boxSizing: 'border-box' }}>
+              <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>También podés abrir desde:</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>
+                <span style={{ fontSize: 16 }}>🏪</span>
+                <span><strong style={{ color: 'rgba(255,255,255,0.8)' }}>Panel del vendedor</strong> → Caja</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>
+                <span style={{ fontSize: 16 }}>⚙️</span>
+                <span><strong style={{ color: 'rgba(255,255,255,0.8)' }}>Admin Panel</strong> → Operación y pedidos</span>
+              </div>
             </div>
           </div>
-          <p style={{ margin: '16px 0 0', fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
+
+          <p style={{ margin: '16px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.15)' }}>
             Esperando apertura de caja…
           </p>
         </div>
