@@ -12883,8 +12883,10 @@ app.get('/api/ticketeria/public/events/:id', async (req, res) => {
 app.post('/api/ticketeria/purchase/init', async (req, res) => {
   try {
     const { store_id, event_id, buyer_name, buyer_email, buyer_phone, items } = req.body;
-    if (!store_id || !event_id || !buyer_name || !buyer_email || !items?.length)
-      return res.status(400).json({ error: 'Campos requeridos: store_id, event_id, buyer_name, buyer_email, items' });
+    if (!store_id || !event_id || !items?.length)
+      return res.status(400).json({ error: 'Campos requeridos: store_id, event_id, items' });
+    const safeName = (buyer_name || '').trim() || 'Cliente';
+    const safeEmail = (buyer_email || '').trim() || '';
 
     const [evRows] = await pool.execute("SELECT * FROM ticket_events WHERE id = ? AND status = 'active'", [parseInt(event_id)]);
     if (!evRows[0]) return res.status(404).json({ error: 'Evento no disponible' });
@@ -12907,7 +12909,7 @@ app.post('/api/ticketeria/purchase/init', async (req, res) => {
 
     const [purchaseResult] = await pool.execute(
       'INSERT INTO ticket_purchases (store_id, event_id, buyer_name, buyer_email, buyer_phone, total_amount) VALUES (?,?,?,?,?,?)',
-      [parseInt(store_id), parseInt(event_id), buyer_name, buyer_email, buyer_phone || null, totalAmount]
+      [parseInt(store_id), parseInt(event_id), safeName, safeEmail, buyer_phone || null, totalAmount]
     );
     const purchaseId = purchaseResult.insertId;
     for (const item of resolvedItems) {

@@ -266,18 +266,16 @@ function SortableComplementRow({ item, active, onToggle, onEdit, onDelete }) {
 const TICKET_API = 'https://srservi2.srautomatic.com';
 
 function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, terminalName, onClose }) {
-  const [phase, setPhase] = useState('events'); // events|select|buyer|paying|waiting|success|error
+  const [phase, setPhase] = useState('events'); // events|select|confirm|paying|waiting|success|error
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [categories, setCategories] = useState([]);
   const [qtys, setQtys] = useState({});
-  const [buyer, setBuyer] = useState({ name: '', email: '', phone: '' });
-  const [buyerError, setBuyerError] = useState('');
   const [payError, setPayError] = useState('');
   const [waitMsg, setWaitMsg] = useState('');
   const [successCode, setSuccessCode] = useState('');
-  const [successEmail, setSuccessEmail] = useState('');
+  const [successUrl, setSuccessUrl] = useState('');
 
   useEffect(() => {
     fetch(`${TICKET_API}/api/ticketeria/public/events?store_id=${storeId}`)
@@ -309,18 +307,13 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
 
   const buildItems = () => categories.filter(c => qtys[c.id] > 0).map(c => ({ category_id: c.id, quantity: qtys[c.id] }));
 
-  const confirmBuyer = () => {
-    if (!buyer.name.trim() || !buyer.email.trim()) { setBuyerError('Nombre y correo son requeridos'); return; }
-    setBuyerError('');
-    handlePay();
-  };
-
   const confirmPurchase = async (reference) => {
     await fetch(`${TICKET_API}/api/ticketeria/purchase/${reference}/confirm`, { method: 'POST' });
     const r = await fetch(`${TICKET_API}/api/ticketeria/purchase/${reference}/status`);
     const d = await r.json();
-    setSuccessCode(d.viewer_code || reference);
-    setSuccessEmail(buyer.email);
+    const code = d.viewer_code || reference;
+    setSuccessCode(code);
+    setSuccessUrl(`${TICKET_API.replace('https://srservi2.srautomatic.com', window.location.origin)}/ticket/${code}`);
     setPhase('success');
   };
 
@@ -347,7 +340,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
     setPayError('');
     setPhase('paying');
     try {
-      const body = { store_id: storeId, event_id: selectedEvent.id, buyer_name: buyer.name, buyer_email: buyer.email, buyer_phone: buyer.phone, items: buildItems() };
+      const body = { store_id: storeId, event_id: selectedEvent.id, items: buildItems() };
 
       // Gratis o efectivo
       if (total === 0 || method === 'cash') {
@@ -394,7 +387,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
         if (att > 150) { clearInterval(iv); setPhase('error'); setPayError('Tiempo agotado.'); return; }
         const sr = await fetch(`${TICKET_API}/api/ticketeria/purchase/${d.reference}/status`);
         const sd = await sr.json();
-        if (sd.status === 'paid') { clearInterval(iv); setSuccessCode(sd.viewer_code || d.reference); setSuccessEmail(buyer.email); setPhase('success'); }
+        if (sd.status === 'paid') { clearInterval(iv); await confirmPurchase(d.reference); }
       }, 3000);
 
     } catch (e) { setPayError(e.message); setPhase('error'); }
@@ -418,7 +411,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
         </button>
         <FontAwesomeIcon icon={faTicketAlt} style={{ color: 'var(--store-accent, #C8A415)', fontSize: 18 }} />
         <span style={{ color: 'var(--store-secondary, #fff)', fontWeight: 800, fontSize: 17 }}>
-          {phase === 'events' ? 'Ticketería' : phase === 'select' ? selectedEvent?.name : phase === 'buyer' ? 'Datos del comprador' : phase === 'waiting' ? 'Procesando pago' : phase === 'success' ? '¡Listo!' : 'Error de pago'}
+          {phase === 'events' ? 'Ticketería' : phase === 'select' || phase === 'confirm' ? selectedEvent?.name : phase === 'waiting' ? 'Procesando pago' : phase === 'success' ? '¡Confirmado!' : 'Error'}
         </span>
         {terminalId && (
           <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--store-accent, #C8A415)', fontWeight: 600, background: 'rgba(255,255,255,0.1)', padding: '3px 9px', borderRadius: 20 }}>
@@ -500,25 +493,47 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
           </div>
         )}
 
-        {/* ── DATOS DEL COMPRADOR ── */}
-        {phase === 'buyer' && (
-          <div style={{ maxWidth: 460, margin: '0 auto' }}>
-            <div style={{ background: '#fff', borderRadius: 12, padding: '14px 16px', marginBottom: 16, border: '1px solid #e5e7eb' }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: '#111', marginBottom: 4 }}>{selectedEvent?.name}</div>
-              <div style={{ fontSize: 13, color: '#6b7280' }}>{totalTickets} entrada{totalTickets !== 1 ? 's' : ''} · {total === 0 ? 'Gratis' : `$${total.toLocaleString('es-CL')}`}</div>
-            </div>
-            {[
-              { key: 'name', icon: faUser, placeholder: 'Nombre completo *', type: 'text' },
-              { key: 'email', icon: faEnvelope, placeholder: 'Correo electrónico * (recibirá las entradas aquí)', type: 'email' },
-              { key: 'phone', icon: faPhone, placeholder: 'Teléfono (opcional)', type: 'tel' },
-            ].map(f => (
-              <div key={f.key} style={{ position: 'relative', marginBottom: 10 }}>
-                <FontAwesomeIcon icon={f.icon} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 13 }} />
-                <input type={f.type} placeholder={f.placeholder} value={buyer[f.key]} onChange={e => setBuyer(b => ({ ...b, [f.key]: e.target.value }))}
-                  style={{ width: '100%', padding: '12px 12px 12px 34px', background: '#fff', border: '1px solid #d1d5db', borderRadius: 10, fontSize: 14, color: '#111', outline: 'none', boxSizing: 'border-box' }} />
+        {/* ── RESUMEN DE COMPRA ── */}
+        {phase === 'confirm' && (
+          <div style={{ maxWidth: 500, margin: '0 auto' }}>
+            {/* Info evento */}
+            <div style={{ background: 'var(--store-primary, #111)', borderRadius: 14, overflow: 'hidden', marginBottom: 14 }}>
+              {selectedEvent?.image_url && <img src={selectedEvent.image_url} alt={selectedEvent.name} style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />}
+              <div style={{ padding: '14px 16px' }}>
+                <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--store-secondary, #fff)', marginBottom: 6 }}>{selectedEvent?.name}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+                  {selectedEvent?.event_date && <span><FontAwesomeIcon icon={faCalendarAlt} style={{ marginRight: 6, color: 'var(--store-accent, #C8A415)' }} />{formatDate(selectedEvent.event_date)}</span>}
+                  {selectedEvent?.time_start && <span><FontAwesomeIcon icon={faClock} style={{ marginRight: 6, color: 'var(--store-accent, #C8A415)' }} />{String(selectedEvent.time_start).slice(0,5)}{selectedEvent.time_end ? ` – ${String(selectedEvent.time_end).slice(0,5)}` : ''}</span>}
+                  {selectedEvent?.location && <span><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 6, color: 'var(--store-accent, #C8A415)' }} />{selectedEvent.location}</span>}
+                </div>
               </div>
-            ))}
-            {buyerError && <div style={{ padding: '8px 12px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, color: '#dc2626', fontSize: 13, marginBottom: 12 }}>{buyerError}</div>}
+            </div>
+
+            {/* Detalle de entradas */}
+            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: 14 }}>
+              {categories.filter(c => qtys[c.id] > 0).map((cat, i, arr) => (
+                <div key={cat.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{cat.name}</span>
+                    <span style={{ marginLeft: 10, fontSize: 13, color: '#9ca3af' }}>× {qtys[cat.id]}</span>
+                  </div>
+                  <span style={{ fontWeight: 700, color: 'var(--store-accent, #C8A415)', fontSize: 15 }}>
+                    {cat.price === 0 ? 'Gratis' : `$${(cat.price * qtys[cat.id]).toLocaleString('es-CL')}`}
+                  </span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
+                <span style={{ fontWeight: 700, fontSize: 15, color: '#374151' }}>{totalTickets} persona{totalTickets !== 1 ? 's' : ''}</span>
+                <span style={{ fontWeight: 900, fontSize: 22, color: 'var(--store-accent, #C8A415)' }}>
+                  {total === 0 ? 'Gratis' : `$${total.toLocaleString('es-CL')}`}
+                </span>
+              </div>
+            </div>
+
+            {/* Método de pago */}
+            {terminalId && <div style={{ padding: '8px 12px', background: '#fffbeb', borderRadius: 8, fontSize: 13, color: '#92760a', marginBottom: 8, border: '1px solid #C8A41540' }}>
+              <FontAwesomeIcon icon={faCreditCard} style={{ marginRight: 6 }} />Terminal: {terminalName || terminalProvider?.toUpperCase()}
+            </div>}
           </div>
         )}
 
@@ -542,21 +557,27 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
 
         {/* ── ÉXITO ── */}
         {phase === 'success' && (
-          <div style={{ textAlign: 'center', paddingTop: 40, maxWidth: 400, margin: '0 auto' }}>
-            <div style={{ width: 72, height: 72, background: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <FontAwesomeIcon icon={faCheckCircle} style={{ color: '#16a34a', fontSize: 40 }} />
+          <div style={{ textAlign: 'center', paddingTop: 24, maxWidth: 420, margin: '0 auto' }}>
+            <div style={{ width: 64, height: 64, background: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+              <FontAwesomeIcon icon={faCheckCircle} style={{ color: '#16a34a', fontSize: 36 }} />
             </div>
-            <h2 style={{ color: '#16a34a', margin: '0 0 8px', fontSize: 22 }}>¡Entradas confirmadas!</h2>
-            <p style={{ color: '#374151', fontSize: 14, marginBottom: 6 }}>Las entradas fueron enviadas a:</p>
-            <p style={{ color: 'var(--store-accent, #C8A415)', fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{successEmail}</p>
-            {successCode && (
-              <div style={{ padding: '12px 16px', background: '#fffbeb', border: '1px solid #C8A41550', borderRadius: 10, marginBottom: 16 }}>
-                <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Código de entrada</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 24, fontWeight: 900, letterSpacing: 4, color: '#111' }}>{successCode}</div>
-              </div>
-            )}
-            <button onClick={() => { setPhase('events'); setSelectedEvent(null); setBuyer({ name: '', email: '', phone: '' }); setQtys({}); }}
-              style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)'), marginTop: 8 }}>
+            <h2 style={{ color: '#16a34a', margin: '0 0 4px', fontSize: 22 }}>¡Pago confirmado!</h2>
+            <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 20 }}>{selectedEvent?.name} · {totalTickets} entrada{totalTickets !== 1 ? 's' : ''}</p>
+
+            {/* QR grande para escanear en la puerta */}
+            <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '2px solid var(--store-accent, #C8A415)', marginBottom: 16, display: 'inline-block' }}>
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(successUrl)}&bgcolor=ffffff&color=111111&margin=2`}
+                alt="QR" width={200} height={200} style={{ display: 'block', borderRadius: 8 }} />
+              <div style={{ marginTop: 12, fontFamily: 'monospace', fontSize: 22, fontWeight: 900, letterSpacing: 4, color: '#111' }}>{successCode}</div>
+              <div style={{ marginTop: 4, fontSize: 11, color: '#9ca3af' }}>Escanea este código en la entrada</div>
+            </div>
+
+            <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 20 }}>
+              El cliente puede guardar el código en su teléfono
+            </div>
+
+            <button onClick={() => { setPhase('events'); setSelectedEvent(null); setQtys({}); setSuccessCode(''); setSuccessUrl(''); }}
+              style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
               Nueva compra
             </button>
           </div>
@@ -568,43 +589,41 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
             <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: 50, color: '#ef4444', marginBottom: 14, display: 'block' }} />
             <h3 style={{ color: '#dc2626', margin: '0 0 8px' }}>Error en el pago</h3>
             <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 20 }}>{payError}</p>
-            <button onClick={() => setPhase('buyer')} style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
+            <button onClick={() => setPhase('confirm')} style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
               Intentar nuevamente
             </button>
           </div>
         )}
       </div>
 
-      {/* Botón inferior según fase */}
-      {(phase === 'select' || phase === 'buyer') && (
+      {/* Botones inferiores */}
+      {(phase === 'select' || phase === 'confirm') && (
         <div style={{ padding: '12px 16px', background: 'var(--store-secondary, #fff)', borderTop: '1px solid #e5e7eb', flexShrink: 0 }}>
           {phase === 'select' ? (
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setPhase('events')} style={{ ...btn('#f3f4f6', '#374151'), flex: '0 0 auto', width: 'auto', padding: '12px 18px' }}>
                 <FontAwesomeIcon icon={faArrowLeft} />
               </button>
-              <button onClick={() => { if (totalTickets === 0) return; setPhase('buyer'); }}
+              <button onClick={() => { if (totalTickets === 0) return; setPhase('confirm'); }}
                 disabled={totalTickets === 0}
                 style={{ ...btn(totalTickets === 0 ? '#d1d5db' : 'var(--store-primary, #111)', 'var(--store-secondary, #fff)'), flex: 1, cursor: totalTickets === 0 ? 'not-allowed' : 'pointer' }}>
-                Continuar · {totalTickets} entrada{totalTickets !== 1 ? 's' : ''} {total > 0 ? `· $${total.toLocaleString('es-CL')}` : '· Gratis'}
+                Ver resumen · {totalTickets} entrada{totalTickets !== 1 ? 's' : ''} {total > 0 ? `· $${total.toLocaleString('es-CL')}` : '· Gratis'}
               </button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {/* Efectivo siempre disponible */}
-              <button onClick={() => confirmBuyer()} style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
+              <button onClick={() => handlePay('terminal')} style={{ ...btn('var(--store-primary, #111)', 'var(--store-secondary, #fff)') }}>
                 {terminalId && total > 0
                   ? `Cobrar en ${terminalName || terminalProvider?.toUpperCase() || 'Terminal'} · $${total.toLocaleString('es-CL')}`
-                  : total === 0 ? 'Confirmar (Gratis)' : `Pagar con Haulmer · $${total.toLocaleString('es-CL')}`}
+                  : total === 0 ? '✓ Confirmar (Gratis)' : `Pagar con Haulmer · $${total.toLocaleString('es-CL')}`}
               </button>
               {total > 0 && (
-                <button onClick={() => { if (!buyer.name.trim() || !buyer.email.trim()) { setBuyerError('Nombre y correo son requeridos'); return; } setBuyerError(''); handlePay('cash'); }}
-                  style={{ ...btn('#f3f4f6', '#374151') }}>
+                <button onClick={() => handlePay('cash')} style={{ ...btn('#f3f4f6', '#374151') }}>
                   <FontAwesomeIcon icon={faMoneyBillWave} style={{ marginRight: 6 }} />Efectivo
                 </button>
               )}
               <button onClick={() => setPhase('select')} style={{ ...btn('transparent', '#9ca3af'), border: 'none', fontSize: 13 }}>
-                Volver
+                <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 5 }} />Volver
               </button>
             </div>
           )}
