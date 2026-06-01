@@ -376,6 +376,9 @@ class BluetoothPrinterManager(private val context: Context) {
         builder.addNewLine()
         builder.addNewLine()
         builder.addNewLine()
+        builder.addNewLine()
+        builder.addNewLine()
+        builder.addNewLine()
         builder.cut()
 
         return builder.build()
@@ -466,6 +469,9 @@ class BluetoothPrinterManager(private val context: Context) {
 
         builder.alignCenter()
         builder.addText("Presentar QR en el ingreso")
+        builder.addNewLine()
+        builder.addNewLine()
+        builder.addNewLine()
         builder.addNewLine()
         builder.addNewLine()
         builder.addNewLine()
