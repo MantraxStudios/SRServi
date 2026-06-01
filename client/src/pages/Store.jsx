@@ -1839,20 +1839,10 @@ function Store() {
       setCashRegisterOpen(data.cash_register_open !== false);
       if (data.top_selling) setTopSellingIds(data.top_selling);
 
-      // Fetch loyalty config y precargar modelos en background si está activo
+      // Fetch loyalty config (solo config, sin descargar modelos)
       fetch(`/api/public/${code}/loyalty`)
         .then(r => r.ok ? r.json() : null)
-        .then(d => {
-          if (d?.config) {
-            setLoyaltyConfig(d.config);
-            if (d.config.enabled) {
-              // Precargar face-api + modelos silenciosamente mientras el cliente navega
-              import('../components/LoyaltyCheckModal')
-                .then(m => m.preloadFaceApi())
-                .catch(() => {});
-            }
-          }
-        })
+        .then(d => { if (d?.config) setLoyaltyConfig(d.config); })
         .catch(() => {});
 
       // Welcome/language modal disabled — no longer shown on page load
