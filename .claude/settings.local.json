@@ -118,7 +118,8 @@
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(dir)",
       "Bash(gradlew.bat assembleDebug)",
-      "Bash(./gradlew assembleDebug)"
+      "Bash(./gradlew assembleDebug)",
+      "Bash(grep -v \"//.*logo\\\\|#.*logo\")"
     ]
   }
 }
