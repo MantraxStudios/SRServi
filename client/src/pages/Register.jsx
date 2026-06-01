@@ -94,7 +94,7 @@ function Register() {
       const res = await fetch(`${API}/api/apps/android/build`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appName, storeCode: code })
+        body: JSON.stringify({ appName, storeCode: code, force: true })
       });
       const data = await res.json();
       if (!res.ok) {

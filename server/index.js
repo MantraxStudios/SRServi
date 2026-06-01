@@ -11507,7 +11507,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
     // Android app build — starts background compile job and returns jobId
     app.post('/api/apps/android/build', async (req, res) => {
       try {
-        const { appName, storeCode } = req.body;
+        const { appName, storeCode, force } = req.body;
         const validApps = ['launcher', 'tvordenes', 'cctv'];
         if (!validApps.includes(appName)) return res.status(400).json({ error: 'App inválida' });
 
@@ -11520,7 +11520,7 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
         }
 
         const code = storeCode ? storeCode.toUpperCase() : null;
-        const result = await startBuild(appName, code);
+        const result = await startBuild(appName, code, !!force);
 
         if (result.cached) {
           return res.json({ status: 'done', jobId: null, cached: true, appName, storeCode: code });
