@@ -85,8 +85,7 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      setPhase('scanning');
+      setPhase('scanning'); // video element se renderiza DESPUÉS de este setState
     } catch (e) {
       setError(e.name === 'NotAllowedError'
         ? 'Permisos de cámara denegados. Actívalos en tu navegador.'
@@ -94,6 +93,15 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
       setPhase('permission');
     }
   }
+
+  // Conecta el stream al <video> después de que React lo renderice en fase 'scanning'
+  useEffect(() => {
+    if (phase !== 'scanning') return;
+    if (videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [phase]);
 
   const runDetection = useCallback(async () => {
     if (!faceapiModule) return;
@@ -226,7 +234,13 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
             <div style={s.title}>Escaneando…</div>
             <div style={s.sub}>Mira directo a la cámara</div>
             <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
-              <video ref={videoRef} autoPlay muted playsInline style={{ width: '100%', display: 'block', borderRadius: 12 }} />
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                style={{ width: '100%', minHeight: 220, display: 'block', borderRadius: 12, background: '#111', objectFit: 'cover' }}
+              />
               <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
             </div>
             <button style={s.ghost} onClick={skip}>Omitir</button>
