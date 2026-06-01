@@ -12495,10 +12495,16 @@ async function initTicketeriaTables() {
       buyer_phone VARCHAR(50),
       total_amount INT NOT NULL,
       haulmer_reference VARCHAR(120),
+      viewer_code VARCHAR(7) UNIQUE,
+      admitted TINYINT(1) DEFAULT 0,
+      admitted_at TIMESTAMP NULL,
       status ENUM('pending','paid','failed','cancelled') DEFAULT 'pending',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       paid_at TIMESTAMP NULL
     )`);
+    try { await pool.execute('ALTER TABLE ticket_purchases ADD COLUMN viewer_code VARCHAR(7) UNIQUE'); } catch(e) { if (!e.message.includes('Duplicate column')) {} }
+    try { await pool.execute('ALTER TABLE ticket_purchases ADD COLUMN admitted TINYINT(1) DEFAULT 0'); } catch(e) {}
+    try { await pool.execute('ALTER TABLE ticket_purchases ADD COLUMN admitted_at TIMESTAMP NULL'); } catch(e) {}
     await pool.execute(`CREATE TABLE IF NOT EXISTS ticket_purchase_items (
       id INT AUTO_INCREMENT PRIMARY KEY,
       purchase_id INT NOT NULL,
@@ -12543,89 +12549,131 @@ async function issueAndEmailTickets(purchaseId) {
     if (!purchases[0]) return;
     const purchase = purchases[0];
 
-    // No emitir si ya hay tickets para esta compra
-    const [existing] = await pool.execute('SELECT id FROM ticket_issued WHERE purchase_id = ? LIMIT 1', [purchaseId]);
-    if (existing[0]) return;
+    // No re-emitir si ya tiene viewer_code
+    if (purchase.viewer_code) return;
+
+    // Generar viewer_code único para la compra
+    let viewerCode;
+    let unique = false;
+    while (!unique) {
+      viewerCode = generateTicketCode();
+      const [ex] = await pool.execute('SELECT id FROM ticket_purchases WHERE viewer_code = ?', [viewerCode]);
+      if (!ex[0]) unique = true;
+    }
+    await pool.execute('UPDATE ticket_purchases SET viewer_code = ? WHERE id = ?', [viewerCode, purchaseId]);
 
     const [items] = await pool.execute('SELECT * FROM ticket_purchase_items WHERE purchase_id = ?', [purchaseId]);
+    const totalTickets = items.reduce((s, i) => s + i.quantity, 0);
 
-    const tickets = [];
-    for (const item of items) {
-      for (let i = 0; i < item.quantity; i++) {
-        let code;
-        let unique = false;
-        while (!unique) {
-          code = generateTicketCode();
-          const [exists] = await pool.execute('SELECT id FROM ticket_issued WHERE ticket_code = ?', [code]);
-          if (!exists[0]) unique = true;
+    // Registrar tickets individuales en ticket_issued (para trazabilidad interna)
+    const [existingIssued] = await pool.execute('SELECT id FROM ticket_issued WHERE purchase_id = ? LIMIT 1', [purchaseId]);
+    if (!existingIssued[0]) {
+      for (const item of items) {
+        for (let i = 0; i < item.quantity; i++) {
+          let code2;
+          let u2 = false;
+          while (!u2) {
+            code2 = generateTicketCode();
+            const [e2] = await pool.execute('SELECT id FROM ticket_issued WHERE ticket_code = ?', [code2]);
+            if (!e2[0]) u2 = true;
+          }
+          await pool.execute(
+            'INSERT INTO ticket_issued (purchase_id, event_id, category_id, category_name, ticket_code, buyer_name, buyer_email) VALUES (?,?,?,?,?,?,?)',
+            [purchaseId, purchase.event_id, item.category_id, item.category_name, code2, purchase.buyer_name, purchase.buyer_email]
+          );
         }
-        await pool.execute(
-          'INSERT INTO ticket_issued (purchase_id, event_id, category_id, category_name, ticket_code, buyer_name, buyer_email) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [purchaseId, purchase.event_id, item.category_id, item.category_name, code, purchase.buyer_name, purchase.buyer_email]
-        );
-        tickets.push({ code, category: item.category_name });
       }
+      await pool.execute('UPDATE ticket_events SET sold_count = sold_count + ? WHERE id = ?', [totalTickets, purchase.event_id]);
     }
 
-    await pool.execute('UPDATE ticket_events SET sold_count = sold_count + ? WHERE id = ?', [tickets.length, purchase.event_id]);
+    // ── Construir email ──────────────────────────────────────────────
+    const ticketUrl = `${BASE_URL}/ticket/${viewerCode}`;
 
-    const eventDate = new Date(purchase.event_date).toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr = purchase.time_start ? purchase.time_start.slice(0, 5) + (purchase.time_end ? ' – ' + purchase.time_end.slice(0, 5) : '') : '';
-    const totalStr = purchase.total_amount === 0 ? 'Gratis' : `$${purchase.total_amount.toLocaleString('es-CL')}`;
+    // QR como buffer PNG (adjunto CID — visible en todos los clientes de correo)
+    const qrBuffer = await QRCode.toBuffer(ticketUrl, {
+      width: 260, margin: 2,
+      color: { dark: '#111111', light: '#ffffff' }
+    });
 
-    // Generar bloque HTML por cada entrada con QR embebido + enlace a la página del ticket
-    const ticketHtmlParts = [];
-    for (const t of tickets) {
-      const ticketUrl = `${BASE_URL}/ticket/${t.code}`;
-      const qrDataUrl = await QRCode.toDataURL(ticketUrl, { width: 180, margin: 1, color: { dark: '#111111', light: '#ffffff' } });
-      ticketHtmlParts.push(`
-        <table cellpadding="0" cellspacing="0" style="width:100%;max-width:480px;margin:0 auto 16px;background:#fff;border:2px solid #C8A415;border-radius:14px;overflow:hidden;">
-          <tr>
-            <td style="padding:16px 20px;text-align:center;background:#fffbeb;border-bottom:1px solid #C8A41530;">
-              <img src="${qrDataUrl}" width="180" height="180" style="display:block;margin:0 auto;" alt="QR Entrada"/>
-              <div style="margin-top:10px;font-size:22px;font-weight:900;color:#111;letter-spacing:3px;font-family:monospace;">${t.code}</div>
-              <div style="margin-top:4px;font-size:13px;color:#6b7280;">${t.category}</div>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:14px 20px;text-align:center;">
-              <a href="${ticketUrl}" style="display:inline-block;background:#C8A415;color:#fff;font-weight:800;font-size:14px;padding:11px 28px;border-radius:10px;text-decoration:none;letter-spacing:0.3px;">
-                🎟️ Ver entrada digital
-              </a>
-              <p style="margin:10px 0 0;font-size:11px;color:#9ca3af;">Toca el botón o escanea el QR para ver el estado de tu entrada</p>
-            </td>
-          </tr>
-        </table>`);
-    }
+    // Fecha: el campo event_date viene como Date object o string YYYY-MM-DD
+    const rawDate = purchase.event_date;
+    const dateObj = rawDate instanceof Date ? rawDate : new Date(String(rawDate).slice(0,10) + 'T12:00:00');
+    const eventDate = dateObj.toLocaleDateString('es-CL', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    const timeStr = purchase.time_start
+      ? String(purchase.time_start).slice(0, 5) + (purchase.time_end ? ' – ' + String(purchase.time_end).slice(0, 5) : '')
+      : '';
+    const totalStr = purchase.total_amount === 0 ? 'Gratis' : `$${Number(purchase.total_amount).toLocaleString('es-CL')}`;
+
+    // Filas de categorías
+    const catRows = items.map(item =>
+      `<tr>
+        <td style="padding:7px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;">${item.category_name}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#374151;text-align:center;">${item.quantity}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #f3f4f6;font-size:14px;color:#C8A415;font-weight:700;text-align:right;">${item.unit_price === 0 ? 'Gratis' : '$'+Number(item.unit_price).toLocaleString('es-CL')}</td>
+      </tr>`
+    ).join('');
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:30px 0;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:30px 10px;">
   <tr><td align="center">
-    <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
-      <!-- Header -->
-      <tr><td style="background:#C8A415;border-radius:14px 14px 0 0;padding:22px 30px;text-align:center;">
-        <h1 style="margin:0;color:#fff;font-size:24px;font-weight:900;">🎟️ Tus Entradas</h1>
-      </td></tr>
-      <!-- Body -->
-      <tr><td style="background:#fff;padding:28px 30px;">
-        <h2 style="margin:0 0 8px;font-size:20px;color:#111;">${purchase.event_name}</h2>
-        <table cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-          <tr><td style="padding:3px 0;font-size:14px;color:#374151;">📅 <strong>${eventDate}</strong></td></tr>
-          ${timeStr ? `<tr><td style="padding:3px 0;font-size:14px;color:#374151;">⏰ ${timeStr}</td></tr>` : ''}
-          ${purchase.location ? `<tr><td style="padding:3px 0;font-size:14px;color:#374151;">📍 ${purchase.location}</td></tr>` : ''}
-          <tr><td style="padding:3px 0;font-size:14px;color:#374151;">👤 ${purchase.buyer_name}</td></tr>
-          <tr><td style="padding:3px 0;font-size:14px;color:#374151;">🎫 ${tickets.length} entrada${tickets.length !== 1 ? 's' : ''} · ${totalStr}</td></tr>
-        </table>
-        <p style="margin:0 0 20px;font-size:14px;color:#6b7280;">Hola <strong>${purchase.buyer_name}</strong>, tu compra fue confirmada. Presenta cada entrada en la puerta.</p>
-        ${ticketHtmlParts.join('')}
-        <p style="margin:20px 0 0;font-size:11px;color:#9ca3af;text-align:center;">Ref: ${purchase.haulmer_reference}</p>
-      </td></tr>
-      <!-- Footer -->
-      <tr><td style="background:#f9fafb;border-radius:0 0 14px 14px;padding:14px 30px;text-align:center;border-top:1px solid #e5e7eb;">
-        <p style="margin:0;font-size:11px;color:#9ca3af;">Powered by SRServi · No responder este correo</p>
-      </td></tr>
-    </table>
+  <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+
+    <!-- Header dorado -->
+    <tr><td style="background:#C8A415;padding:24px 30px;text-align:center;">
+      <div style="font-size:28px;margin-bottom:6px;">🎟️</div>
+      <h1 style="margin:0;color:#fff;font-size:22px;font-weight:900;letter-spacing:0.5px;">Tus Entradas</h1>
+      <p style="margin:4px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">${purchase.event_name}</p>
+    </td></tr>
+
+    <!-- Info evento -->
+    <tr><td style="background:#fff;padding:24px 30px 0;">
+      <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:20px;">
+        <tr><td style="padding:4px 0;font-size:14px;color:#374151;">📅 <strong>${eventDate}</strong></td></tr>
+        ${timeStr ? `<tr><td style="padding:4px 0;font-size:14px;color:#374151;">⏰ ${timeStr}</td></tr>` : ''}
+        ${purchase.location ? `<tr><td style="padding:4px 0;font-size:14px;color:#374151;">📍 ${purchase.location}</td></tr>` : ''}
+        <tr><td style="padding:4px 0;font-size:14px;color:#374151;">👤 ${purchase.buyer_name} &lt;${purchase.buyer_email}&gt;</td></tr>
+      </table>
+    </td></tr>
+
+    <!-- Tabla de entradas -->
+    <tr><td style="background:#fff;padding:0 30px 20px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+        <thead><tr style="background:#f9fafb;">
+          <th style="padding:9px 12px;text-align:left;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;">Categoría</th>
+          <th style="padding:9px 12px;text-align:center;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;">Cant.</th>
+          <th style="padding:9px 12px;text-align:right;font-size:12px;color:#6b7280;font-weight:600;text-transform:uppercase;">Precio</th>
+        </tr></thead>
+        <tbody>${catRows}</tbody>
+        <tfoot><tr style="background:#f9fafb;">
+          <td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#111;">Total · ${totalTickets} persona${totalTickets !== 1 ? 's' : ''}</td>
+          <td style="padding:9px 12px;font-size:16px;font-weight:900;color:#C8A415;text-align:right;">${totalStr}</td>
+        </tr></tfoot>
+      </table>
+    </td></tr>
+
+    <!-- QR central — adjunto CID -->
+    <tr><td style="background:#fffbeb;padding:28px 30px;text-align:center;border-top:2px solid #C8A41540;border-bottom:2px solid #C8A41540;">
+      <p style="margin:0 0 16px;font-size:14px;color:#374151;font-weight:600;">Presenta este código QR en la entrada del evento</p>
+      <img src="cid:ticket-qr" width="220" height="220" alt="QR Entrada" style="display:block;margin:0 auto;border-radius:10px;border:4px solid #C8A415;"/>
+      <div style="margin-top:14px;font-family:monospace;font-size:24px;font-weight:900;letter-spacing:5px;color:#111;">${viewerCode}</div>
+      <p style="margin:8px 0 0;font-size:12px;color:#9ca3af;">Código único de tu compra</p>
+    </td></tr>
+
+    <!-- Botón ver online -->
+    <tr><td style="background:#fff;padding:20px 30px;text-align:center;">
+      <a href="${ticketUrl}" style="display:inline-block;background:#C8A415;color:#fff;font-weight:800;font-size:15px;padding:13px 32px;border-radius:10px;text-decoration:none;">
+        Ver entrada en línea
+      </a>
+      <p style="margin:10px 0 0;font-size:12px;color:#9ca3af;">También puedes ver el estado de tu entrada en cualquier momento desde el enlace</p>
+    </td></tr>
+
+    <!-- Footer -->
+    <tr><td style="background:#f9fafb;padding:14px 30px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;font-size:11px;color:#9ca3af;">Powered by SRServi · Ref: ${purchase.haulmer_reference || viewerCode}</p>
+    </td></tr>
+
+  </table>
   </td></tr>
 </table>
 </body></html>`;
@@ -12633,8 +12681,13 @@ async function issueAndEmailTickets(purchaseId) {
     await mailer.sendMail({
       from: `"SRServi Tickets" <${process.env.EMAIL_USER}>`,
       to: purchase.buyer_email,
-      subject: `🎟️ Tus entradas para ${purchase.event_name}`,
-      html
+      subject: `🎟️ Tus entradas — ${purchase.event_name}`,
+      html,
+      attachments: [{
+        filename: 'entrada-qr.png',
+        content: qrBuffer,
+        cid: 'ticket-qr'   // referenciado en el HTML como src="cid:ticket-qr"
+      }]
     });
   } catch (e) { console.error('[Ticketería] issueAndEmailTickets error:', e.message); }
 }
@@ -12938,21 +12991,37 @@ app.get('/api/ticketeria/purchase/:reference/status', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Público: ver un ticket por código ───────────────────────────────
+// ── Público: ver compra por viewer_code ─────────────────────────────
 app.get('/api/ticketeria/public/ticket/:code', async (req, res) => {
   try {
     const code = req.params.code.toUpperCase();
-    const [rows] = await pool.execute(`
-      SELECT ti.*, te.name AS event_name, te.event_date, te.time_start, te.time_end, te.location, te.image_url AS event_image,
-             tp.buyer_phone, tp.total_amount, tp.haulmer_reference,
-             (SELECT COUNT(*) FROM ticket_issued WHERE purchase_id = ti.purchase_id) AS total_tickets_purchase,
-             (SELECT GROUP_CONCAT(CONCAT(category_name,':', ticket_code) ORDER BY id SEPARATOR '|') FROM ticket_issued WHERE purchase_id = ti.purchase_id) AS all_tickets
-      FROM ticket_issued ti
-      JOIN ticket_events te ON te.id = ti.event_id
-      JOIN ticket_purchases tp ON tp.id = ti.purchase_id
-      WHERE ti.ticket_code = ?`, [code]);
-    if (!rows[0]) return res.status(404).json({ error: 'Ticket no encontrado' });
-    res.json(rows[0]);
+    const [pRows] = await pool.execute(`
+      SELECT tp.*, te.name AS event_name, te.event_date, te.time_start, te.time_end, te.location, te.image_url AS event_image
+      FROM ticket_purchases tp
+      JOIN ticket_events te ON te.id = tp.event_id
+      WHERE tp.viewer_code = ?`, [code]);
+    if (!pRows[0]) return res.status(404).json({ error: 'Entrada no encontrada' });
+    const purchase = pRows[0];
+    const [items] = await pool.execute('SELECT * FROM ticket_purchase_items WHERE purchase_id = ? ORDER BY id', [purchase.id]);
+    res.json({ ...purchase, items });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: admitir compra completa por viewer_code ──────────────────
+app.post('/api/ticketeria/admit/:code', authenticateToken, async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase();
+    const [pRows] = await pool.execute(`
+      SELECT tp.* FROM ticket_purchases tp
+      JOIN ticket_events te ON te.id = tp.event_id
+      JOIN stores s ON s.id = tp.store_id
+      WHERE tp.viewer_code = ? AND s.user_id = ?`, [code, req.user.id]);
+    if (!pRows[0]) return res.status(404).json({ error: 'Entrada no encontrada o sin permiso' });
+    const purchase = pRows[0];
+    if (purchase.admitted) return res.status(409).json({ error: 'Ya fue admitida', purchase });
+    await pool.execute('UPDATE ticket_purchases SET admitted = 1, admitted_at = NOW() WHERE id = ?', [purchase.id]);
+    await pool.execute("UPDATE ticket_issued SET status = 'used', used_at = NOW() WHERE purchase_id = ?", [purchase.id]);
+    res.json({ success: true, purchase: { ...purchase, admitted: 1 } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
