@@ -6528,6 +6528,15 @@ function Store() {
               <button
                 onClick={() => {
                   setPinOptionsModalOpen(false);
+                  window.location.href = `/tickets/${code}`;
+                }}
+                style={{ padding: '14px', borderRadius: '10px', border: '2px solid #C8A415', background: '#fffbeb', color: '#92760a', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                🎟️ Modo Ticketería
+              </button>
+              <button
+                onClick={() => {
+                  setPinOptionsModalOpen(false);
                   setEditMode(true);
                 }}
                 style={{ padding: '14px', borderRadius: '10px', border: '2px solid var(--store-accent)', background: 'var(--store-primary)', color: 'var(--store-secondary)', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}
