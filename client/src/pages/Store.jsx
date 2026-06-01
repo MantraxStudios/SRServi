@@ -434,26 +434,56 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
               No hay eventos disponibles
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
-              {events.map(ev => (
-                <div key={ev.id} onClick={() => selectEvent(ev)} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb', overflow: 'hidden', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', transition: 'transform .15s, box-shadow .15s' }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.12)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.07)'; }}>
-                  {ev.image_url
-                    ? <img src={ev.image_url} alt={ev.name} style={{ width: '100%', height: 130, objectFit: 'cover', display: 'block' }} />
-                    : <div style={{ width: '100%', height: 100, background: 'var(--store-primary, #111)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 36, color: 'var(--store-accent, #C8A415)', opacity: 0.6 }} />
-                      </div>}
-                  <div style={{ padding: '12px 14px' }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: '#111', marginBottom: 4 }}>{ev.name}</div>
-                    <div style={{ fontSize: 12, color: '#6b7280', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <span><FontAwesomeIcon icon={faCalendarAlt} style={{ marginRight: 5, color: 'var(--store-accent, #C8A415)' }} />{formatDate(ev.event_date)}</span>
-                      {ev.time_start && <span><FontAwesomeIcon icon={faClock} style={{ marginRight: 5, color: 'var(--store-accent, #C8A415)' }} />{String(ev.time_start).slice(0,5)}{ev.time_end ? ` – ${String(ev.time_end).slice(0,5)}` : ''}</span>}
-                      {ev.location && <span><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 5, color: 'var(--store-accent, #C8A415)' }} />{ev.location}</span>}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+              {events.map(ev => {
+                const evDate = ev.event_date ? new Date(String(ev.event_date).slice(0,10) + 'T12:00:00') : null;
+                const dayNum  = evDate ? evDate.toLocaleDateString('es-CL', { day: '2-digit' }) : '';
+                const month   = evDate ? evDate.toLocaleDateString('es-CL', { month: 'long' }) : '';
+                const weekday = evDate ? evDate.toLocaleDateString('es-CL', { weekday: 'long' }) : '';
+                const year    = evDate ? evDate.getFullYear() : '';
+                const timeStr = ev.time_start ? String(ev.time_start).slice(0,5) + (ev.time_end ? ` – ${String(ev.time_end).slice(0,5)}` : '') : '';
+                return (
+                  <div key={ev.id} onClick={() => selectEvent(ev)}
+                    style={{ background: '#fff', borderRadius: 16, border: '1px solid #e5e7eb', overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', transition: 'transform .15s, box-shadow .15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.14)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)'; }}>
+
+                    {/* Imagen o banner de color */}
+                    {ev.image_url
+                      ? <img src={ev.image_url} alt={ev.name} style={{ width: '100%', height: 150, objectFit: 'cover', display: 'block' }} />
+                      : <div style={{ width: '100%', height: 80, background: 'var(--store-primary, #111)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 32, color: 'var(--store-accent, #C8A415)', opacity: 0.5 }} />
+                        </div>}
+
+                    {/* Fecha grande destacada */}
+                    <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6' }}>
+                      {/* Bloque día/mes */}
+                      <div style={{ background: 'var(--store-primary, #111)', padding: '12px 16px', textAlign: 'center', minWidth: 72, flexShrink: 0 }}>
+                        <div style={{ fontSize: 34, fontWeight: 900, lineHeight: 1, color: 'var(--store-accent, #C8A415)' }}>{dayNum}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 2 }}>{month}</div>
+                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 1 }}>{year}</div>
+                      </div>
+                      {/* Bloque hora/día semana */}
+                      <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 3 }}>
+                        <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'capitalize' }}>{weekday}</div>
+                        {timeStr && (
+                          <div style={{ fontSize: 20, fontWeight: 900, color: '#111', lineHeight: 1, letterSpacing: '-0.5px' }}>
+                            <FontAwesomeIcon icon={faClock} style={{ fontSize: 13, color: 'var(--store-accent, #C8A415)', marginRight: 5 }} />
+                            {timeStr}
+                          </div>
+                        )}
+                        {ev.location && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 4 }} />{ev.location}</div>}
+                      </div>
+                    </div>
+
+                    {/* Nombre evento */}
+                    <div style={{ padding: '12px 14px' }}>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: '#111', lineHeight: 1.3 }}>{ev.name}</div>
+                      {ev.description && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4, lineHeight: 1.4 }}>{ev.description}</div>}
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )
         )}
@@ -461,6 +491,31 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
         {/* ── SELECTOR DE ENTRADAS ── */}
         {phase === 'select' && (
           <div style={{ maxWidth: 500, margin: '0 auto' }}>
+            {/* Cabecera con fecha/hora grande */}
+            {selectedEvent && (() => {
+              const evDate = selectedEvent.event_date ? new Date(String(selectedEvent.event_date).slice(0,10) + 'T12:00:00') : null;
+              const dayNum  = evDate ? evDate.toLocaleDateString('es-CL', { day: '2-digit' }) : '';
+              const month   = evDate ? evDate.toLocaleDateString('es-CL', { month: 'long' }) : '';
+              const weekday = evDate ? evDate.toLocaleDateString('es-CL', { weekday: 'long' }) : '';
+              const timeStr = selectedEvent.time_start ? String(selectedEvent.time_start).slice(0,5) + (selectedEvent.time_end ? ` – ${String(selectedEvent.time_end).slice(0,5)}` : '') : '';
+              return (
+                <div style={{ background: 'var(--store-primary, #111)', borderRadius: 14, overflow: 'hidden', marginBottom: 16 }}>
+                  {selectedEvent.image_url && <img src={selectedEvent.image_url} alt={selectedEvent.name} style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }} />}
+                  <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                    <div style={{ background: 'var(--store-accent, #C8A415)', padding: '14px 18px', textAlign: 'center', minWidth: 80 }}>
+                      <div style={{ fontSize: 42, fontWeight: 900, lineHeight: 1, color: '#111' }}>{dayNum}</div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: '#111', textTransform: 'uppercase' }}>{month}</div>
+                    </div>
+                    <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{selectedEvent.name}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', textTransform: 'capitalize' }}>{weekday}</div>
+                      {timeStr && <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--store-accent, #C8A415)', letterSpacing: '-0.5px' }}><FontAwesomeIcon icon={faClock} style={{ fontSize: 14, marginRight: 6 }} />{timeStr}</div>}
+                      {selectedEvent.location && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 5 }} />{selectedEvent.location}</div>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
             {categories.length === 0
               ? <p style={{ color: '#9ca3af', textAlign: 'center', paddingTop: 30 }}>Este evento no tiene categorías configuradas</p>
               : categories.map(cat => (
