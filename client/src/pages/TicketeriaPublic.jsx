@@ -11,41 +11,53 @@ const GOLD = '#C8A415';
 
 function EventCard({ event, onSelect }) {
   const dateStr = new Date(event.event_date + 'T12:00:00').toLocaleDateString('es-CL', {
-    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
+    weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'
   });
   const isSoldOut = event.max_capacity && event.sold_count >= event.max_capacity;
 
   return (
     <div onClick={() => !isSoldOut && onSelect(event)} style={{
-      background: '#fff', borderRadius: 14, padding: '20px',
+      background: '#fff', borderRadius: 14, overflow: 'hidden',
       border: '1px solid #e5e7eb', cursor: isSoldOut ? 'not-allowed' : 'pointer',
-      opacity: isSoldOut ? 0.6 : 1, transition: 'box-shadow 0.15s, border-color 0.15s',
-      marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.07)'
+      opacity: isSoldOut ? 0.6 : 1, transition: 'box-shadow 0.18s, transform 0.18s',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column'
     }}
-      onMouseEnter={e => { if (!isSoldOut) { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)'; e.currentTarget.style.borderColor = GOLD; } }}
-      onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.07)'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+      onMouseEnter={e => { if (!isSoldOut) { e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.13)'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.07)'; e.currentTarget.style.transform = 'none'; }}
     >
-      {event.image_url && <img src={event.image_url} alt={event.name} style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 10, marginBottom: 14 }} />}
-      <h3 style={{ margin: '0 0 8px', color: '#111', fontSize: 19, fontWeight: 700 }}>{event.name}</h3>
-      {event.description && <p style={{ margin: '0 0 12px', color: '#6b7280', fontSize: 14, lineHeight: 1.5 }}>{event.description}</p>}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 13, color: '#6b7280' }}>
-        <span><FontAwesomeIcon icon={faCalendarAlt} style={{ marginRight: 6, color: GOLD }} />{dateStr}</span>
-        <span><FontAwesomeIcon icon={faClock} style={{ marginRight: 6, color: GOLD }} />
-          {event.time_start?.slice(0, 5)}{event.time_end ? ` – ${event.time_end.slice(0, 5)}` : ''}
-        </span>
-        {event.location && <span><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 6, color: GOLD }} />{event.location}</span>}
+      {/* Imagen o placeholder de color */}
+      <div style={{ width: '100%', height: 160, background: event.image_url ? 'transparent' : `linear-gradient(135deg, ${GOLD}33 0%, ${GOLD}11 100%)`, flexShrink: 0, position: 'relative' }}>
+        {event.image_url
+          ? <img src={event.image_url} alt={event.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 40, color: GOLD + '80' }} />
+            </div>
+        }
+        {isSoldOut && (
+          <div style={{ position: 'absolute', top: 10, right: 10, background: '#ef4444', color: '#fff', fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 20 }}>AGOTADO</div>
+        )}
       </div>
-      {isSoldOut ? (
-        <div style={{ marginTop: 12, color: '#ef4444', fontWeight: 700, fontSize: 13 }}>AGOTADO</div>
-      ) : (
-        <button style={{
-          marginTop: 16, width: '100%', padding: '11px', background: GOLD, border: 'none',
-          borderRadius: 10, color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer',
-          letterSpacing: '0.3px'
-        }}>
-          <FontAwesomeIcon icon={faTicketAlt} style={{ marginRight: 8 }} />Ver entradas
-        </button>
-      )}
+
+      {/* Info */}
+      <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <h3 style={{ margin: '0 0 6px', color: '#111', fontSize: 16, fontWeight: 700, lineHeight: 1.3 }}>{event.name}</h3>
+        {event.description && <p style={{ margin: '0 0 10px', color: '#6b7280', fontSize: 12, lineHeight: 1.5, flex: 1 }}>{event.description}</p>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12, color: '#6b7280', marginTop: 'auto' }}>
+          <span><FontAwesomeIcon icon={faCalendarAlt} style={{ marginRight: 5, color: GOLD }} />{dateStr}</span>
+          <span><FontAwesomeIcon icon={faClock} style={{ marginRight: 5, color: GOLD }} />
+            {event.time_start?.slice(0, 5)}{event.time_end ? ` – ${event.time_end.slice(0, 5)}` : ''}
+          </span>
+          {event.location && <span><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 5, color: GOLD }} />{event.location}</span>}
+        </div>
+        {!isSoldOut && (
+          <button style={{
+            marginTop: 12, width: '100%', padding: '10px', background: GOLD, border: 'none',
+            borderRadius: 9, color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer'
+          }}>
+            <FontAwesomeIcon icon={faTicketAlt} style={{ marginRight: 7 }} />Comprar entradas
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -347,11 +359,15 @@ export default function TicketeriaPublic() {
             <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 22 }}>Selecciona un evento para comprar tus entradas.</p>
 
             {events.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 50, color: '#d1d5db' }}>
-                <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 50, marginBottom: 14, display: 'block' }} />
+              <div style={{ textAlign: 'center', padding: 50 }}>
+                <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 50, marginBottom: 14, display: 'block', color: '#d1d5db' }} />
                 <span style={{ color: '#9ca3af' }}>No hay eventos disponibles en este momento.</span>
               </div>
-            ) : events.map(ev => <EventCard key={ev.id} event={ev} onSelect={setSelectedEvent} />)}
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 18 }}>
+                {events.map(ev => <EventCard key={ev.id} event={ev} onSelect={setSelectedEvent} />)}
+              </div>
+            )}
           </div>
         )}
       </div>

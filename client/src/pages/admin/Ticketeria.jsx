@@ -5,7 +5,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus, faEdit, faTrash, faSave, faTimes, faTicketAlt,
   faCalendarAlt, faClock, faMapMarkerAlt, faUsers, faQrcode,
-  faCheckCircle, faTimesCircle, faSpinner, faTag, faSyncAlt
+  faCheckCircle, faTimesCircle, faSpinner, faTag, faSyncAlt,
+  faChevronDown, faChevronUp, faDollarSign
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -387,37 +388,71 @@ export default function Ticketeria() {
             </div>
           ) : events.map(ev => {
             const badge = statusBadge(ev.status);
+            const isOpen = expandedEvent === ev.id;
+            const catList = categories[ev.id] || [];
             return (
               <div key={ev.id} style={{ ...card, padding: 0, overflow: 'hidden' }}>
-                <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => toggleExpand(ev.id)}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{ev.name}</span>
-                      <span style={{ fontSize: 11, padding: '2px 9px', borderRadius: 20, fontWeight: 600, background: badge.bg, color: badge.color }}>{badge.label}</span>
+                {/* Imagen del evento si existe */}
+                {ev.image_url && (
+                  <img src={ev.image_url} alt={ev.name} style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
+                )}
+
+                {/* Info principal */}
+                <div style={{ padding: '14px 18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                        <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{ev.name}</span>
+                        <span style={{ fontSize: 11, padding: '2px 9px', borderRadius: 20, fontWeight: 600, background: badge.bg, color: badge.color }}>{badge.label}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#6b7280', flexWrap: 'wrap' }}>
+                        <span><FontAwesomeIcon icon={faCalendarAlt} style={{ marginRight: 4, color: GOLD }} />
+                          {new Date(ev.event_date + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                        </span>
+                        <span><FontAwesomeIcon icon={faClock} style={{ marginRight: 4, color: GOLD }} />{ev.time_start?.slice(0, 5)}{ev.time_end ? ` – ${ev.time_end.slice(0, 5)}` : ''}</span>
+                        {ev.location && <span><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 4, color: GOLD }} />{ev.location}</span>}
+                        <span><FontAwesomeIcon icon={faUsers} style={{ marginRight: 4, color: GOLD }} />{ev.sold_count} vendidas{ev.max_capacity ? ` / ${ev.max_capacity}` : ''}</span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 14, marginTop: 4, fontSize: 12, color: '#6b7280', flexWrap: 'wrap' }}>
-                      <span><FontAwesomeIcon icon={faCalendarAlt} style={{ marginRight: 4, color: GOLD }} />
-                        {new Date(ev.event_date + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
-                      </span>
-                      <span><FontAwesomeIcon icon={faClock} style={{ marginRight: 4, color: GOLD }} />{ev.time_start?.slice(0, 5)}{ev.time_end ? ` – ${ev.time_end.slice(0, 5)}` : ''}</span>
-                      {ev.location && <span><FontAwesomeIcon icon={faMapMarkerAlt} style={{ marginRight: 4, color: GOLD }} />{ev.location}</span>}
-                      <span><FontAwesomeIcon icon={faUsers} style={{ marginRight: 4, color: GOLD }} />{ev.sold_count} vendidas{ev.max_capacity ? ` / ${ev.max_capacity}` : ''}</span>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => { setEditingEvent(ev); setShowEventForm(false); }} style={iconBtn} title="Editar evento"><FontAwesomeIcon icon={faEdit} /></button>
+                      <button onClick={() => handleDeleteEvent(ev.id)} style={{ ...iconBtn, color: '#ef4444' }} title="Eliminar"><FontAwesomeIcon icon={faTrash} /></button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <button onClick={e => { e.stopPropagation(); setEditingEvent(ev); setShowEventForm(false); }} style={iconBtn}><FontAwesomeIcon icon={faEdit} /></button>
-                    <button onClick={e => { e.stopPropagation(); handleDeleteEvent(ev.id); }} style={{ ...iconBtn, color: '#ef4444' }}><FontAwesomeIcon icon={faTrash} /></button>
-                  </div>
+
+                  {/* Botón Precios — siempre visible */}
+                  <button
+                    onClick={() => toggleExpand(ev.id)}
+                    style={{
+                      marginTop: 12, width: '100%', padding: '9px 14px',
+                      background: isOpen ? '#fffbeb' : '#f9fafb',
+                      border: `1px solid ${isOpen ? GOLD + '60' : '#e5e7eb'}`,
+                      borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      color: '#374151', fontSize: 13, fontWeight: 600
+                    }}
+                  >
+                    <span>
+                      <FontAwesomeIcon icon={faDollarSign} style={{ marginRight: 7, color: GOLD }} />
+                      Precios por categoría
+                      {catList.length > 0 && (
+                        <span style={{ marginLeft: 8, background: GOLD, color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10 }}>
+                          {catList.length}
+                        </span>
+                      )}
+                    </span>
+                    <FontAwesomeIcon icon={isOpen ? faChevronUp : faChevronDown} style={{ color: '#9ca3af', fontSize: 11 }} />
+                  </button>
                 </div>
 
-                {expandedEvent === ev.id && (
-                  <div style={{ borderTop: '1px solid #f3f4f6', padding: '14px 18px', background: '#fafafa' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                {/* Panel de categorías */}
+                {isOpen && (
+                  <div style={{ borderTop: `1px solid ${GOLD}30`, padding: '14px 18px', background: '#fffbeb' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
-                        <FontAwesomeIcon icon={faTag} style={{ marginRight: 6, color: GOLD }} />Categorías y precios
+                        <FontAwesomeIcon icon={faTag} style={{ marginRight: 6, color: GOLD }} />Adulto · Niño · Adulto Mayor · etc.
                       </span>
                       <button onClick={() => { setAddingCatFor(ev.id); setEditingCat(null); }} style={{ ...btnPrimary, fontSize: 12, padding: '5px 12px' }}>
-                        <FontAwesomeIcon icon={faPlus} /> Agregar
+                        <FontAwesomeIcon icon={faPlus} /> Nueva categoría
                       </button>
                     </div>
 
@@ -428,19 +463,23 @@ export default function Ticketeria() {
                       <CategoryForm cat={editingCat} onSave={handleSaveCategory} onCancel={() => setEditingCat(null)} />
                     )}
 
-                    {(categories[ev.id] || []).length === 0 ? (
-                      <div style={{ fontSize: 13, color: '#9ca3af', padding: '8px 0' }}>Sin categorías. Agrega al menos una (Adulto, Niño, etc.)</div>
-                    ) : (categories[ev.id] || []).map(cat => (
-                      <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#fff', borderRadius: 8, marginBottom: 6, border: '1px solid #e5e7eb' }}>
+                    {catList.length === 0 ? (
+                      <div style={{ fontSize: 13, color: '#9ca3af', padding: '8px 0', textAlign: 'center' }}>
+                        Aún no hay categorías. Haz clic en "Nueva categoría" para agregar Adulto, Niño, Adulto Mayor, etc.
+                      </div>
+                    ) : catList.map(cat => (
+                      <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: '#fff', borderRadius: 8, marginBottom: 6, border: '1px solid #e5e7eb' }}>
                         <FontAwesomeIcon icon={faTag} style={{ color: GOLD, fontSize: 12, flexShrink: 0 }} />
-                        <span style={{ flex: 1, fontWeight: 600, fontSize: 14, color: '#111' }}>{cat.name}</span>
-                        {cat.description && <span style={{ fontSize: 12, color: '#9ca3af', flex: 1 }}>{cat.description}</span>}
-                        <span style={{ fontWeight: 700, color: GOLD, fontSize: 15, minWidth: 80, textAlign: 'right' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontWeight: 600, fontSize: 14, color: '#111' }}>{cat.name}</span>
+                          {cat.description && <span style={{ fontSize: 12, color: '#9ca3af', marginLeft: 8 }}>{cat.description}</span>}
+                        </div>
+                        <span style={{ fontWeight: 800, color: GOLD, fontSize: 16, minWidth: 80, textAlign: 'right' }}>
                           {cat.price === 0 ? 'Gratis' : `$${cat.price.toLocaleString('es-CL')}`}
                         </span>
-                        {cat.max_qty && <span style={{ fontSize: 11, color: '#9ca3af' }}>Máx: {cat.max_qty}</span>}
-                        <button onClick={() => { setEditingCat({ ...cat, event_id: ev.id }); setAddingCatFor(null); }} style={iconBtn}><FontAwesomeIcon icon={faEdit} /></button>
-                        <button onClick={() => handleDeleteCategory(cat.id)} style={{ ...iconBtn, color: '#ef4444' }}><FontAwesomeIcon icon={faTrash} /></button>
+                        {cat.max_qty && <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap' }}>Máx {cat.max_qty}</span>}
+                        <button onClick={() => { setEditingCat({ ...cat, event_id: ev.id }); setAddingCatFor(null); }} style={iconBtn} title="Editar precio"><FontAwesomeIcon icon={faEdit} /></button>
+                        <button onClick={() => handleDeleteCategory(cat.id)} style={{ ...iconBtn, color: '#ef4444' }} title="Eliminar"><FontAwesomeIcon icon={faTrash} /></button>
                       </div>
                     ))}
                   </div>
