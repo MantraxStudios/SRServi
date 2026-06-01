@@ -7,7 +7,7 @@ import {
   faCalendarAlt, faClock, faMapMarkerAlt, faUsers, faQrcode,
   faCheckCircle, faTimesCircle, faSpinner, faTag, faSyncAlt,
   faChevronDown, faChevronUp, faDollarSign, faImage, faUpload,
-  faFilter, faSearch, faGlobe, faMusicNote, faToggleOn, faToggleOff
+  faFilter, faSearch, faGlobe, faMusic, faToggleOn, faToggleOff
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';

@@ -47,6 +47,9 @@ import {
   faPhone,
   faUser,
   faSpinner,
+  faSearch,
+  faTicket,
+  faStar,
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
