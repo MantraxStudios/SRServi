@@ -1,45 +1,51 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-  faCamera, faTimes, faCheck, faSpinner, faStar, faUserPlus, faUser, faPhone,
-} from '@fortawesome/free-solid-svg-icons';
-
-// Estado global persistente en memoria (sobrevive re-renders, se pierde al recargar la página)
-let faceapiModule = null;
-let modelsReady = false;
-let preloadPromise = null;
-
-// Llamar esto en background desde Store.jsx cuando loyalty está habilitado
-export async function preloadFaceApi() {
-  if (modelsReady) return;
-  if (preloadPromise) return preloadPromise;
-  preloadPromise = (async () => {
-    try {
-      if (!faceapiModule) faceapiModule = await import('@vladmandic/face-api');
-      const faceapi = faceapiModule;
-      if (!faceapi.nets.tinyFaceDetector.isLoaded) {
-        try { await faceapi.tf.setBackend('webgl'); } catch { await faceapi.tf.setBackend('cpu'); }
-        await faceapi.tf.ready();
-        await faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL);
-        await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODELS_URL);
-        await faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URL);
-      }
-      modelsReady = true;
-    } catch {
-      preloadPromise = null; // permitir reintentar si falla
-    }
-  })();
-  return preloadPromise;
-}
+import { faCamera, faTimes, faCheck, faSpinner, faStar, faUserPlus } from '@fortawesome/free-solid-svg-icons';
 
 const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 const MATCH_THRESHOLD = 0.5;
 const STABLE_FRAMES = 4;
 const API = 'https://srservi2.srautomatic.com';
 
+// Persiste entre renders (se pierde al recargar página; el browser cache de CDN evita re-descarga)
+let faceapiModule = null;
+let modelsReady = false;
+let bgPromise = null;
+
+export async function preloadFaceApi() {
+  if (modelsReady) return true;
+  if (bgPromise) return bgPromise;
+  bgPromise = (async () => {
+    try {
+      if (!faceapiModule) faceapiModule = await import('@vladmandic/face-api');
+      const fa = faceapiModule;
+      if (!fa.nets.tinyFaceDetector.isLoaded) {
+        try { await fa.tf.setBackend('webgl'); } catch { await fa.tf.setBackend('cpu'); }
+        await fa.tf.ready();
+        await fa.nets.tinyFaceDetector.loadFromUri(MODELS_URL);
+        await fa.nets.faceLandmark68TinyNet.loadFromUri(MODELS_URL);
+        await fa.nets.faceRecognitionNet.loadFromUri(MODELS_URL);
+      }
+      modelsReady = true;
+      return true;
+    } catch {
+      bgPromise = null;
+      return false;
+    }
+  })();
+  return bgPromise;
+}
+
+const STEPS = [
+  'Descargando motor IA…',
+  'Iniciando detector de rostros…',
+  'Cargando reconocimiento facial…',
+  'Abriendo cámara…',
+];
+
 export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primaryColor = '#111', accentColor = '#D4AF37' }) {
-  const [phase, setPhase] = useState('permission'); // permission | loading | scanning | matched | not_found | register
-  const [loadingMsg, setLoadingMsg] = useState('');
+  const [phase, setPhase] = useState('permission');
+  const [stepIdx, setStepIdx] = useState(0);
   const [customers, setCustomers] = useState([]);
   const [loyaltyConfig, setLoyaltyConfig] = useState(null);
   const [matchedCustomer, setMatchedCustomer] = useState(null);
@@ -57,14 +63,10 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
   const stableCount = useRef(0);
   const intervalRef = useRef(null);
 
-  // Cargar datos de loyalty al montar
   useEffect(() => {
     fetch(`${API}/api/public/${storeCode}/loyalty`)
       .then(r => r.json())
-      .then(data => {
-        setLoyaltyConfig(data.config);
-        setCustomers(data.customers || []);
-      })
+      .then(d => { setLoyaltyConfig(d.config); setCustomers(d.customers || []); })
       .catch(() => {});
   }, [storeCode]);
 
@@ -73,60 +75,82 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
   }
-
   useEffect(() => () => stopCamera(), []);
+
+  // Conecta stream al <video> una vez que React lo monta
+  useEffect(() => {
+    if (phase !== 'scanning' || !videoRef.current || !streamRef.current) return;
+    videoRef.current.srcObject = streamRef.current;
+    videoRef.current.play().catch(() => {});
+  }, [phase]);
 
   async function startCamera() {
     setError('');
-    // Si los modelos ya están listos, saltar directamente a cámara
-    if (!modelsReady) {
-      setPhase('loading');
-      setLoadingMsg('Cargando motor IA…');
-      await preloadFaceApi();
-    }
-    try {
-      const faceapi = faceapiModule;
+    setPhase('loading');
+    setStepIdx(0);
 
-      // Construir matcher con clientes cargados
-      if (customers.length > 0) {
-        const labeled = customers.map(c =>
-          new faceapi.LabeledFaceDescriptors(String(c.id), [new Float32Array(c.face_descriptor)])
-        );
-        matcherRef.current = new faceapi.FaceMatcher(labeled, MATCH_THRESHOLD);
+    try {
+      // ── Paso 1: cargar módulo JS ──────────────────────────────────────────
+      if (!faceapiModule) {
+        setStepIdx(0);
+        faceapiModule = await import('@vladmandic/face-api');
+      }
+      const fa = faceapiModule;
+
+      // ── Paso 2: inicializar backend + modelos ─────────────────────────────
+      if (!modelsReady) {
+        setStepIdx(1);
+        try { await fa.tf.setBackend('webgl'); } catch { await fa.tf.setBackend('cpu'); }
+        await fa.tf.ready();
+
+        setStepIdx(2);
+        await fa.nets.tinyFaceDetector.loadFromUri(MODELS_URL);
+        await fa.nets.faceLandmark68TinyNet.loadFromUri(MODELS_URL);
+        await fa.nets.faceRecognitionNet.loadFromUri(MODELS_URL);
+        modelsReady = true;
+        bgPromise = Promise.resolve(true);
       }
 
+      // Construir matcher
+      if (customers.length > 0) {
+        const labeled = customers.map(c =>
+          new fa.LabeledFaceDescriptors(String(c.id), [new Float32Array(c.face_descriptor)])
+        );
+        matcherRef.current = new fa.FaceMatcher(labeled, MATCH_THRESHOLD);
+      }
+
+      // ── Paso 3: cámara ────────────────────────────────────────────────────
+      setStepIdx(3);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false,
       });
       streamRef.current = stream;
-      setPhase('scanning'); // video element se renderiza DESPUÉS de este setState
+      setPhase('scanning');
+
     } catch (e) {
-      setError(e.name === 'NotAllowedError'
-        ? 'Permisos de cámara denegados. Actívalos en tu navegador.'
-        : 'Error: ' + e.message);
+      // Limpiar estado para que pueda reintentar
+      if (!modelsReady) { faceapiModule = null; bgPromise = null; }
+      if (e.name === 'NotAllowedError') {
+        setError('Permisos de cámara denegados. Actívalos en tu navegador e intenta de nuevo.');
+      } else if (e.message?.includes('fetch')) {
+        setError('Sin conexión para descargar los modelos. Verifica tu internet.');
+      } else {
+        setError('Error: ' + e.message);
+      }
       setPhase('permission');
     }
   }
 
-  // Conecta el stream al <video> después de que React lo renderice en fase 'scanning'
-  useEffect(() => {
-    if (phase !== 'scanning') return;
-    if (videoRef.current && streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-      videoRef.current.play().catch(() => {});
-    }
-  }, [phase]);
-
   const runDetection = useCallback(async () => {
-    if (!faceapiModule) return;
-    const faceapi = faceapiModule;
+    if (!faceapiModule || !modelsReady) return;
+    const fa = faceapiModule;
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || video.readyState < 2) return;
 
-    const detection = await faceapi
-      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.45 }))
+    const detection = await fa
+      .detectSingleFace(video, new fa.TinyFaceDetectorOptions({ scoreThreshold: 0.45 }))
       .withFaceLandmarks(true)
       .withFaceDescriptor();
 
@@ -134,8 +158,8 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (!detection) { stableCount.current = 0; return; }
 
-    const dims = faceapi.matchDimensions(canvas, video, true);
-    const resized = faceapi.resizeResults(detection, dims);
+    const dims = fa.matchDimensions(canvas, video, true);
+    const resized = fa.resizeResults(detection, dims);
     const box = resized.detection.box;
     ctx.strokeStyle = accentColor;
     ctx.lineWidth = 3;
@@ -160,9 +184,8 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
     const cap = document.createElement('canvas');
     cap.width = video.videoWidth; cap.height = video.videoHeight;
     cap.getContext('2d').drawImage(video, 0, 0);
-    const photo = cap.toDataURL('image/jpeg', 0.7);
     setCurrentDescriptor(descriptor);
-    setCurrentPhoto(photo);
+    setCurrentPhoto(cap.toDataURL('image/jpeg', 0.7));
 
     if (matcherRef.current && customers.length > 0) {
       const best = matcherRef.current.findBestMatch(new Float32Array(descriptor));
@@ -195,13 +218,13 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
       onResult({ customer: { ...data, purchase_count: 0 }, discountPercent: null });
     } catch (e) {
       setError(e.message);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   const qualifies = matchedCustomer && loyaltyConfig &&
     Number(matchedCustomer.purchase_count) >= Number(loyaltyConfig.required_purchases);
+
+  const skip = () => { stopCamera(); onResult({ customer: null, discountPercent: null }); };
 
   const s = {
     overlay: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
@@ -212,10 +235,8 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
     btn: { width: '100%', padding: '13px', background: primaryColor, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: 'pointer', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
     ghost: { width: '100%', padding: '11px', background: 'transparent', color: '#6b7280', border: '1.5px solid #e5e7eb', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer', marginTop: 8 },
     input: { width: '100%', padding: '11px 14px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 15, marginBottom: 10, boxSizing: 'border-box' },
-    err: { color: '#ef4444', fontSize: 12, marginTop: 4 },
+    err: { color: '#ef4444', fontSize: 12, marginTop: 6, padding: '8px 12px', background: '#fef2f2', borderRadius: 8, border: '1px solid #fecaca' },
   };
-
-  const skip = () => { stopCamera(); onResult({ customer: null, discountPercent: null }); };
 
   return (
     <div style={s.overlay}>
@@ -224,47 +245,74 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
           <FontAwesomeIcon icon={faTimes} />
         </button>
 
+        {/* ── Pantalla inicial ── */}
         {phase === 'permission' && (
           <>
             <div style={{ fontSize: 44, marginBottom: 10 }}>⭐</div>
             <div style={s.title}>Cliente Habitual</div>
             <div style={s.sub}>Detecta tu rostro para identificarte y acceder a descuentos exclusivos.</div>
-            {modelsReady && (
-              <div style={{ fontSize: 11, color: '#16a34a', marginBottom: 8 }}>✓ Motor listo</div>
-            )}
+            {modelsReady && <div style={{ fontSize: 11, color: '#16a34a', marginBottom: 8 }}>✓ Motor listo — apertura instantánea</div>}
             {error && <div style={s.err}>{error}</div>}
             <button style={s.btn} onClick={startCamera}>
-              <FontAwesomeIcon icon={faCamera} /> Permitir cámara
+              <FontAwesomeIcon icon={faCamera} />
+              {modelsReady ? 'Abrir cámara' : 'Permitir cámara'}
             </button>
             <button style={s.ghost} onClick={skip}>Continuar sin escanear</button>
           </>
         )}
 
+        {/* ── Cargando modelos ── */}
         {phase === 'loading' && (
-          <div style={{ padding: '28px 0' }}>
-            <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 32, color: primaryColor, marginBottom: 14 }} />
-            <div style={s.title}>{loadingMsg || 'Cargando…'}</div>
+          <div style={{ padding: '20px 0' }}>
+            <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 30, color: primaryColor, marginBottom: 14 }} />
+            <div style={s.title}>Preparando reconocimiento</div>
+
+            {/* Barra de progreso */}
+            <div style={{ background: '#f3f4f6', borderRadius: 99, height: 8, margin: '16px 0 8px', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                borderRadius: 99,
+                background: accentColor,
+                width: `${Math.round((stepIdx + 1) / STEPS.length * 100)}%`,
+                transition: 'width 0.4s ease',
+              }} />
+            </div>
+
+            {/* Pasos */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12, textAlign: 'left' }}>
+              {STEPS.map((label, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: i < stepIdx ? '#16a34a' : i === stepIdx ? primaryColor : '#d1d5db', fontWeight: i === stepIdx ? 700 : 400 }}>
+                  <span style={{ width: 18, textAlign: 'center', flexShrink: 0 }}>
+                    {i < stepIdx ? '✓' : i === stepIdx ? <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 11 }} /> : '○'}
+                  </span>
+                  {label}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 14 }}>
+              Solo se descarga la primera vez — el navegador lo guarda en caché
+            </div>
+
+            <button style={{ ...s.ghost, marginTop: 18 }} onClick={skip}>Omitir y continuar</button>
           </div>
         )}
 
+        {/* ── Escaneando ── */}
         {phase === 'scanning' && (
           <>
-            <div style={s.title}>Escaneando…</div>
+            <div style={s.title}>Escaneando rostro…</div>
             <div style={s.sub}>Mira directo a la cámara</div>
             <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                style={{ width: '100%', minHeight: 220, display: 'block', borderRadius: 12, background: '#111', objectFit: 'cover' }}
-              />
+              <video ref={videoRef} autoPlay muted playsInline
+                style={{ width: '100%', minHeight: 220, display: 'block', borderRadius: 12, background: '#111', objectFit: 'cover' }} />
               <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
             </div>
             <button style={s.ghost} onClick={skip}>Omitir</button>
           </>
         )}
 
+        {/* ── Cliente reconocido ── */}
         {phase === 'matched' && matchedCustomer && (
           <>
             <div style={{ fontSize: 44, marginBottom: 10 }}>👋</div>
@@ -293,6 +341,7 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
           </>
         )}
 
+        {/* ── No reconocido ── */}
         {phase === 'not_found' && (
           <>
             <div style={{ fontSize: 44, marginBottom: 10 }}>🤔</div>
@@ -305,6 +354,7 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
           </>
         )}
 
+        {/* ── Registro ── */}
         {phase === 'register' && (
           <>
             <div style={{ fontSize: 44, marginBottom: 10 }}>📝</div>
