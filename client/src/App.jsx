@@ -78,6 +78,7 @@ import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 import Ticketeria from './pages/admin/Ticketeria';
 import TicketeriaPublic from './pages/TicketeriaPublic';
+import TicketViewer from './pages/TicketViewer';
 
 const TV_CODE_KEY = 'srservi_tv_code';
 const API_HOST = 'srservi2.srautomatic.com';
@@ -320,6 +321,7 @@ function App() {
             <Route path="editor/:code" element={<Store />} />
           </Route>
           <Route path="/tickets/:storeCode" element={<TicketeriaPublic />} />
+          <Route path="/ticket/:code" element={<TicketViewer />} />
           <Route path="/attendance/:storeCode" element={<Attendance />} />
           <Route path="/worker-login" element={<WorkerLogin />} />
           <Route path="/worker-panel" element={<WorkerPanel />} />

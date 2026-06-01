@@ -191,7 +191,13 @@ function ScannerTab({ token }) {
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch(`${API}/api/ticketeria/tickets/${code.trim()}/scan`, {
+      // Extraer código si se escanea la URL completa
+      let rawCode = code.trim();
+      const urlMatch = rawCode.match(/\/ticket\/([A-Z0-9]{7})$/i);
+      if (urlMatch) rawCode = urlMatch[1].toUpperCase();
+      else rawCode = rawCode.toUpperCase();
+
+      const res = await fetch(`${API}/api/ticketeria/tickets/${rawCode}/scan`, {
         method: 'POST', headers: { Authorization: 'Bearer ' + token }
       });
       const data = await res.json();
