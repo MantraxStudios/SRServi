@@ -7849,6 +7849,7 @@ async function startServer() {
   try {
     await initDatabase();
     console.log('Base de datos inicializada');
+    await initTicketeriaTables();
 
     app.set('io', io);
 
@@ -12458,7 +12459,7 @@ app.delete('/api/stores/:id/subdomain', authenticateToken, async (req, res) => {
 // TICKETERÍA — Venta de entradas con Haulmer + envío por correo
 // =====================================================================
 
-(async () => {
+async function initTicketeriaTables() {
   try {
     await pool.execute(`CREATE TABLE IF NOT EXISTS ticket_events (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -12522,8 +12523,9 @@ app.delete('/api/stores/:id/subdomain', authenticateToken, async (req, res) => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (purchase_id) REFERENCES ticket_purchases(id) ON DELETE CASCADE
     )`);
+    console.log('✅ Tablas de Ticketería listas');
   } catch (e) { console.error('[Ticketería] Table init error:', e.message); }
-})();
+}
 
 function generateTicketCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
