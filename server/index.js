@@ -12826,15 +12826,10 @@ app.post('/api/ticketeria/purchase', async (req, res) => {
       resolvedItems.push({ category_id: cat.id, category_name: cat.name, quantity: qty, unit_price: cat.price, subtotal: cat.price * qty });
       totalAmount += cat.price * qty;
     }
-    if (!resolvedItems.length || totalAmount <= 0) return res.status(400).json({ error: 'Ningún ítem válido' });
+    if (!resolvedItems.length) return res.status(400).json({ error: 'Ningún ítem válido' });
 
     const [storeRows] = await pool.execute('SELECT user_id, code FROM stores WHERE id = ?', [parseInt(store_id)]);
     if (!storeRows[0]) return res.status(404).json({ error: 'Tienda no encontrada' });
-
-    let [cfgRows] = await pool.execute('SELECT * FROM haulmer_native_config WHERE store_id = ? LIMIT 1', [parseInt(store_id)]);
-    if (!cfgRows[0]) [cfgRows] = await pool.execute('SELECT * FROM haulmer_native_config WHERE user_id = ? AND store_id IS NULL LIMIT 1', [storeRows[0].user_id]);
-    const config = cfgRows[0];
-    if (!config?.account_id || !config?.secret_key) return res.status(400).json({ error: 'Pasarela Haulmer no configurada para esta tienda' });
 
     const [purchaseResult] = await pool.execute(
       'INSERT INTO ticket_purchases (store_id, event_id, buyer_name, buyer_email, buyer_phone, total_amount) VALUES (?,?,?,?,?,?)',
@@ -12852,13 +12847,19 @@ app.post('/api/ticketeria/purchase', async (req, res) => {
     const reference = `TKT-${purchaseId}-${Date.now()}`;
     await pool.execute('UPDATE ticket_purchases SET haulmer_reference = ? WHERE id = ?', [reference, purchaseId]);
 
-    // Entradas gratis: marcar pagado y enviar correo directamente
+    // Entradas gratis: sin pasarela de pago
     if (totalAmount === 0) {
       await pool.execute("UPDATE ticket_purchases SET status = 'paid', paid_at = NOW() WHERE id = ?", [purchaseId]);
       issueAndEmailTickets(purchaseId).catch(e => console.error('[Ticketería gratis]', e.message));
       const storeCode = storeRows[0].code;
       return res.json({ success: true, free: true, reference, purchaseId, redirectUrl: `/tickets/${storeCode}?ref=${reference}` });
     }
+
+    // Solo se necesita Haulmer si hay cobro
+    let [cfgRows] = await pool.execute('SELECT * FROM haulmer_native_config WHERE store_id = ? LIMIT 1', [parseInt(store_id)]);
+    if (!cfgRows[0]) [cfgRows] = await pool.execute('SELECT * FROM haulmer_native_config WHERE user_id = ? AND store_id IS NULL LIMIT 1', [storeRows[0].user_id]);
+    const config = cfgRows[0];
+    if (!config?.account_id || !config?.secret_key) return res.status(400).json({ error: 'Pasarela Haulmer no configurada para esta tienda' });
 
     const serverUrl = BASE_URL;
     const storeCode = storeRows[0].code;
