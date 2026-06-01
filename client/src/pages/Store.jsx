@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { detectLanguage, t, LANGUAGES } from '../i18n';
@@ -54,7 +54,7 @@ import {
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl } from '../config.js';
 import CameraModal from '../components/CameraModal';
-import LoyaltyCheckModal from '../components/LoyaltyCheckModal';
+const LoyaltyCheckModal = lazy(() => import('../components/LoyaltyCheckModal'));
 import RecipeEditor from '../components/RecipeEditor';
 import {
   DndContext,
@@ -5453,21 +5453,23 @@ function Store() {
       </div>
 
       {loyaltyModalOpen && (
-        <LoyaltyCheckModal
-          storeCode={code}
-          primaryColor={colors.primary}
-          accentColor={colors.accent}
-          onClose={() => {
-            setLoyaltyModalOpen(false);
-            setPaymentModalOpen(true);
-          }}
-          onResult={({ customer, discountPercent }) => {
-            setLoyaltyModalOpen(false);
-            setLoyaltyCustomer(customer || null);
-            setLoyaltyDiscount(discountPercent || 0);
-            setPaymentModalOpen(true);
-          }}
-        />
+        <Suspense fallback={null}>
+          <LoyaltyCheckModal
+            storeCode={code}
+            primaryColor={colors.primary}
+            accentColor={colors.accent}
+            onClose={() => {
+              setLoyaltyModalOpen(false);
+              setPaymentModalOpen(true);
+            }}
+            onResult={({ customer, discountPercent }) => {
+              setLoyaltyModalOpen(false);
+              setLoyaltyCustomer(customer || null);
+              setLoyaltyDiscount(discountPercent || 0);
+              setPaymentModalOpen(true);
+            }}
+          />
+        </Suspense>
       )}
 
       {paymentModalOpen && (
