@@ -12529,6 +12529,25 @@ async function initTicketeriaTables() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (purchase_id) REFERENCES ticket_purchases(id) ON DELETE CASCADE
     )`);
+    await pool.execute(`CREATE TABLE IF NOT EXISTS ticket_filter_config (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      store_id INT NOT NULL UNIQUE,
+      show_search TINYINT(1) DEFAULT 1,
+      show_genre  TINYINT(1) DEFAULT 1,
+      show_country TINYINT(1) DEFAULT 0,
+      show_price  TINYINT(1) DEFAULT 1,
+      show_date   TINYINT(1) DEFAULT 1,
+      genres      TEXT DEFAULT NULL,
+      countries   TEXT DEFAULT NULL,
+      updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`);
+    // Migrations: add country/genre/min_age/max_age to ticket_events
+    for (const col of [
+      "ALTER TABLE ticket_events ADD COLUMN country VARCHAR(100) DEFAULT NULL",
+      "ALTER TABLE ticket_events ADD COLUMN genre   VARCHAR(100) DEFAULT NULL",
+    ]) {
+      try { await pool.execute(col); } catch(e) { if (!e.message.includes('Duplicate column')) {} }
+    }
     console.log('✅ Tablas de Ticketería listas');
   } catch (e) { console.error('[Ticketería] Table init error:', e.message); }
 }
@@ -12710,9 +12729,10 @@ app.post('/api/ticketeria/events', authenticateToken, async (req, res) => {
     if (!store_id || !name || !event_date || !time_start) return res.status(400).json({ error: 'Campos requeridos: store_id, name, event_date, time_start' });
     const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [parseInt(store_id), req.user.id]);
     if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const { genre, country } = req.body;
     const [result] = await pool.execute(
-      'INSERT INTO ticket_events (store_id, name, description, event_date, time_start, time_end, location, image_url, max_capacity) VALUES (?,?,?,?,?,?,?,?,?)',
-      [parseInt(store_id), name, description || null, event_date, time_start, time_end || null, location || null, image_url || null, max_capacity || null]
+      'INSERT INTO ticket_events (store_id, name, description, event_date, time_start, time_end, location, image_url, max_capacity, genre, country) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+      [parseInt(store_id), name, description || null, event_date, time_start, time_end || null, location || null, image_url || null, max_capacity || null, genre || null, country || null]
     );
     const [newEvent] = await pool.execute('SELECT * FROM ticket_events WHERE id = ?', [result.insertId]);
     res.json(newEvent[0]);
@@ -12724,10 +12744,10 @@ app.put('/api/ticketeria/events/:id', authenticateToken, async (req, res) => {
     const eventId = parseInt(req.params.id);
     const [evRows] = await pool.execute('SELECT te.* FROM ticket_events te JOIN stores s ON s.id = te.store_id WHERE te.id = ? AND s.user_id = ?', [eventId, req.user.id]);
     if (!evRows[0]) return res.status(403).json({ error: 'Sin permiso' });
-    const { name, description, event_date, time_start, time_end, location, image_url, max_capacity, status } = req.body;
+    const { name, description, event_date, time_start, time_end, location, image_url, max_capacity, status, genre, country } = req.body;
     await pool.execute(
-      'UPDATE ticket_events SET name=?, description=?, event_date=?, time_start=?, time_end=?, location=?, image_url=?, max_capacity=?, status=? WHERE id=?',
-      [name || evRows[0].name, description ?? evRows[0].description, event_date || evRows[0].event_date, time_start || evRows[0].time_start, time_end ?? evRows[0].time_end, location ?? evRows[0].location, image_url ?? evRows[0].image_url, max_capacity ?? evRows[0].max_capacity, status || evRows[0].status, eventId]
+      'UPDATE ticket_events SET name=?, description=?, event_date=?, time_start=?, time_end=?, location=?, image_url=?, max_capacity=?, status=?, genre=?, country=? WHERE id=?',
+      [name || evRows[0].name, description ?? evRows[0].description, event_date || evRows[0].event_date, time_start || evRows[0].time_start, time_end ?? evRows[0].time_end, location ?? evRows[0].location, image_url ?? evRows[0].image_url, max_capacity ?? evRows[0].max_capacity, status || evRows[0].status, genre ?? evRows[0].genre, country ?? evRows[0].country, eventId]
     );
     const [updated] = await pool.execute('SELECT * FROM ticket_events WHERE id = ?', [eventId]);
     res.json(updated[0]);
@@ -12856,15 +12876,50 @@ app.get('/api/stores/by-code/:code', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Público: eventos disponibles ────────────────────────────────────
+// ── Público: config de filtros ───────────────────────────────────────
+app.get('/api/ticketeria/filter-config', async (req, res) => {
+  try {
+    const storeId = parseInt(req.query.store_id);
+    if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
+    const [rows] = await pool.execute('SELECT * FROM ticket_filter_config WHERE store_id = ? LIMIT 1', [storeId]);
+    if (!rows[0]) return res.json({ show_search:1, show_genre:1, show_country:0, show_price:1, show_date:1, genres:[], countries:[] });
+    const cfg = rows[0];
+    res.json({ ...cfg, genres: cfg.genres ? JSON.parse(cfg.genres) : [], countries: cfg.countries ? JSON.parse(cfg.countries) : [] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Admin: guardar config de filtros ────────────────────────────────
+app.post('/api/ticketeria/filter-config', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, show_search, show_genre, show_country, show_price, show_date, genres, countries } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id requerido' });
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [parseInt(store_id), req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const genresJson = JSON.stringify(Array.isArray(genres) ? genres : []);
+    const countriesJson = JSON.stringify(Array.isArray(countries) ? countries : []);
+    await pool.execute(`INSERT INTO ticket_filter_config (store_id, show_search, show_genre, show_country, show_price, show_date, genres, countries)
+      VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE show_search=?, show_genre=?, show_country=?, show_price=?, show_date=?, genres=?, countries=?`,
+      [parseInt(store_id), show_search?1:0, show_genre?1:0, show_country?1:0, show_price?1:0, show_date?1:0, genresJson, countriesJson,
+       show_search?1:0, show_genre?1:0, show_country?1:0, show_price?1:0, show_date?1:0, genresJson, countriesJson]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Público: eventos disponibles (con filtros) ───────────────────────
 app.get('/api/ticketeria/public/events', async (req, res) => {
   try {
     const storeId = parseInt(req.query.store_id);
     if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
-    const [rows] = await pool.execute(
-      "SELECT * FROM ticket_events WHERE store_id = ? AND status = 'active' ORDER BY event_date ASC",
-      [storeId]
-    );
+    const { search, genre, country, date_from, date_to } = req.query;
+    let sql = "SELECT * FROM ticket_events WHERE store_id = ? AND status = 'active'";
+    const params = [storeId];
+    if (search)    { sql += ' AND name LIKE ?'; params.push(`%${search}%`); }
+    if (genre)     { sql += ' AND genre = ?'; params.push(genre); }
+    if (country)   { sql += ' AND country = ?'; params.push(country); }
+    if (date_from) { sql += ' AND event_date >= ?'; params.push(date_from); }
+    if (date_to)   { sql += ' AND event_date <= ?'; params.push(date_to); }
+    sql += ' ORDER BY event_date ASC';
+    const [rows] = await pool.execute(sql, params);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

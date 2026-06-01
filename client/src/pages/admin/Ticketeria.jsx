@@ -6,7 +6,8 @@ import {
   faPlus, faEdit, faTrash, faSave, faTimes, faTicketAlt,
   faCalendarAlt, faClock, faMapMarkerAlt, faUsers, faQrcode,
   faCheckCircle, faTimesCircle, faSpinner, faTag, faSyncAlt,
-  faChevronDown, faChevronUp, faDollarSign, faImage, faUpload
+  faChevronDown, faChevronUp, faDollarSign, faImage, faUpload,
+  faFilter, faSearch, faGlobe, faMusicNote, faToggleOn, faToggleOff
 } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -22,7 +23,7 @@ const btnPrimary = { padding: '8px 16px', background: GOLD, border: 'none', bord
 const btnSecondary = { padding: '8px 16px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 };
 const iconBtn = { background: 'transparent', border: 'none', color: GOLD, cursor: 'pointer', fontSize: 14, padding: '4px 6px', borderRadius: 6 };
 
-function EventForm({ event, onSave, onCancel, token }) {
+function EventForm({ event, onSave, onCancel, token, filterConfig }) {
   const [form, setForm] = useState({
     name: event?.name || '',
     description: event?.description || '',
@@ -33,6 +34,8 @@ function EventForm({ event, onSave, onCancel, token }) {
     max_capacity: event?.max_capacity || '',
     status: event?.status || 'active',
     image_url: event?.image_url || '',
+    genre: event?.genre || '',
+    country: event?.country || '',
   });
   const [saving, setSaving] = useState(false);
   const [uploadingImg, setUploadingImg] = useState(false);
@@ -109,6 +112,18 @@ function EventForm({ event, onSave, onCancel, token }) {
         </div>
       </div>
       <input placeholder="Lugar / Dirección" value={form.location} onChange={e => set('location', e.target.value)} style={inputS} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div>
+          <label style={labelS}>Género / Tipo</label>
+          <input list="genre-opts" placeholder="Ej: Concierto, Teatro…" value={form.genre} onChange={e => set('genre', e.target.value)} style={inputS} />
+          {filterConfig?.genres?.length > 0 && <datalist id="genre-opts">{filterConfig.genres.map(g => <option key={g} value={g} />)}</datalist>}
+        </div>
+        <div>
+          <label style={labelS}>País</label>
+          <input list="country-opts" placeholder="Ej: Chile, Argentina…" value={form.country} onChange={e => set('country', e.target.value)} style={inputS} />
+          {filterConfig?.countries?.length > 0 && <datalist id="country-opts">{filterConfig.countries.map(c => <option key={c} value={c} />)}</datalist>}
+        </div>
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <div>
           <label style={labelS}>Capacidad máxima (opcional)</label>
@@ -305,6 +320,123 @@ function ScannerTab({ token }) {
   );
 }
 
+function FiltersTab({ storeId, token }) {
+  const [cfg, setCfg] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [newGenre, setNewGenre] = useState('');
+  const [newCountry, setNewCountry] = useState('');
+
+  useEffect(() => {
+    if (!storeId) return;
+    fetch(`${API}/api/ticketeria/filter-config?store_id=${storeId}`)
+      .then(r => r.json())
+      .then(d => setCfg({ show_search:1, show_genre:1, show_country:0, show_price:1, show_date:1, genres:[], countries:[], ...d }))
+      .catch(() => {});
+  }, [storeId]);
+
+  if (!cfg) return <div style={{ padding: 20, color: '#888', textAlign: 'center' }}><FontAwesomeIcon icon={faSpinner} spin /></div>;
+
+  const toggle = (k) => setCfg(c => ({ ...c, [k]: c[k] ? 0 : 1 }));
+  const addTag = (field, val, setter) => {
+    const trimmed = val.trim();
+    if (!trimmed) return;
+    setCfg(c => ({ ...c, [field]: [...(c[field] || []).filter(x => x !== trimmed), trimmed] }));
+    setter('');
+  };
+  const removeTag = (field, val) => setCfg(c => ({ ...c, [field]: (c[field] || []).filter(x => x !== val) }));
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await fetch(`${API}/api/ticketeria/filter-config`, {
+        method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: storeId, ...cfg })
+      });
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } finally { setSaving(false); }
+  };
+
+  const filters = [
+    { key: 'show_search',  label: 'Búsqueda por nombre', desc: 'Teclado virtual para buscar eventos' },
+    { key: 'show_genre',   label: 'Filtro por género',   desc: 'Chips: Concierto, Teatro, etc.' },
+    { key: 'show_country', label: 'Filtro por país',     desc: 'Chips: Chile, Argentina, etc.' },
+    { key: 'show_price',   label: 'Filtro por precio',   desc: 'Rango: Gratis / Bajo / Medio / Alto' },
+    { key: 'show_date',    label: 'Filtro por fecha',    desc: 'Hoy / Esta semana / Este mes' },
+  ];
+
+  return (
+    <div style={{ maxWidth: 600 }}>
+      <h3 style={{ color: '#111', fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Filtros visibles en el tótem</h3>
+      <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 20 }}>Elige qué filtros puede usar el cliente al comprar entradas en el tótem.</p>
+
+      {/* Toggles */}
+      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: 20 }}>
+        {filters.map((f, i) => (
+          <div key={f.key} onClick={() => toggle(f.key)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px', borderBottom: i < filters.length-1 ? '1px solid #f3f4f6' : 'none', cursor: 'pointer', userSelect: 'none' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 14, color: '#111' }}>{f.label}</div>
+              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{f.desc}</div>
+            </div>
+            <div style={{ width: 44, height: 24, borderRadius: 12, background: cfg[f.key] ? GOLD : '#d1d5db', position: 'relative', transition: 'background .2s', flexShrink: 0 }}>
+              <div style={{ position: 'absolute', top: 2, left: cfg[f.key] ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'left .2s' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Géneros */}
+      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: '16px', marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 10 }}>Géneros disponibles</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+          {(cfg.genres || []).map(g => (
+            <span key={g} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: '#fffbeb', border: `1px solid ${GOLD}50`, borderRadius: 20, fontSize: 13, color: '#111' }}>
+              {g}
+              <button onClick={() => removeTag('genres', g)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1 }}>×</button>
+            </span>
+          ))}
+          {(cfg.genres || []).length === 0 && <span style={{ fontSize: 13, color: '#9ca3af' }}>Sin géneros configurados</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input placeholder="Agregar género (ej: Concierto)" value={newGenre} onChange={e => setNewGenre(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addTag('genres', newGenre, setNewGenre); }}
+            style={{ ...inputS, flex: 1, fontSize: 13 }} />
+          <button onClick={() => addTag('genres', newGenre, setNewGenre)} style={{ ...btnPrimary, padding: '8px 14px', fontSize: 13 }}>
+            <FontAwesomeIcon icon={faPlus} />
+          </button>
+        </div>
+      </div>
+
+      {/* Países */}
+      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: '16px', marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 10 }}>Países disponibles</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+          {(cfg.countries || []).map(c => (
+            <span key={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 20, fontSize: 13, color: '#111' }}>
+              {c}
+              <button onClick={() => removeTag('countries', c)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1 }}>×</button>
+            </span>
+          ))}
+          {(cfg.countries || []).length === 0 && <span style={{ fontSize: 13, color: '#9ca3af' }}>Sin países configurados</span>}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input placeholder="Agregar país (ej: Chile)" value={newCountry} onChange={e => setNewCountry(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') addTag('countries', newCountry, setNewCountry); }}
+            style={{ ...inputS, flex: 1, fontSize: 13 }} />
+          <button onClick={() => addTag('countries', newCountry, setNewCountry)} style={{ ...btnPrimary, padding: '8px 14px', fontSize: 13 }}>
+            <FontAwesomeIcon icon={faPlus} />
+          </button>
+        </div>
+      </div>
+
+      <button onClick={save} disabled={saving} style={{ ...btnPrimary, minWidth: 140 }}>
+        {saving ? <FontAwesomeIcon icon={faSpinner} spin /> : saved ? <FontAwesomeIcon icon={faCheckCircle} /> : <FontAwesomeIcon icon={faSave} />}
+        {saved ? 'Guardado' : 'Guardar filtros'}
+      </button>
+    </div>
+  );
+}
+
 export default function Ticketeria() {
   const { token } = useAuth();
   const { selectedStore } = useStore();
@@ -322,9 +454,16 @@ export default function Ticketeria() {
   const [purchases, setPurchases] = useState([]);
   const [purchasesLoading, setPurchasesLoading] = useState(false);
   const [filterEvent, setFilterEvent] = useState('');
+  const [filterConfig, setFilterConfig] = useState(null);
   const [error, setError] = useState('');
 
-  useEffect(() => { if (storeId) loadEvents(); }, [storeId]);
+  useEffect(() => {
+    if (storeId) {
+      loadEvents();
+      fetch(`${API}/api/ticketeria/filter-config?store_id=${storeId}`)
+        .then(r => r.json()).then(d => setFilterConfig(d)).catch(() => {});
+    }
+  }, [storeId]);
 
   const loadEvents = async () => {
     if (!storeId) return;
@@ -456,7 +595,7 @@ export default function Ticketeria() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-        {[['events', faCalendarAlt, 'Eventos'], ['purchases', faUsers, 'Compras'], ['scanner', faQrcode, 'Escáner']].map(([key, icon, label]) => (
+        {[['events', faCalendarAlt, 'Eventos'], ['purchases', faUsers, 'Compras'], ['scanner', faQrcode, 'Escáner'], ['filters', faFilter, 'Filtros']].map(([key, icon, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
             padding: '7px 16px', borderRadius: 8, border: tab === key ? 'none' : '1px solid #e5e7eb',
             cursor: 'pointer', fontSize: 13, fontWeight: 600,
@@ -482,7 +621,7 @@ export default function Ticketeria() {
           {(showEventForm || editingEvent) && (
             <div style={{ ...card, border: `1px solid ${GOLD}50`, background: '#fffbeb' }}>
               <h3 style={{ margin: '0 0 14px', color: '#111', fontSize: 15, fontWeight: 700 }}>{editingEvent ? 'Editar Evento' : 'Nuevo Evento'}</h3>
-              <EventForm event={editingEvent} token={token} onSave={handleSaveEvent} onCancel={() => { setShowEventForm(false); setEditingEvent(null); }} />
+              <EventForm event={editingEvent} token={token} filterConfig={filterConfig} onSave={handleSaveEvent} onCancel={() => { setShowEventForm(false); setEditingEvent(null); }} />
             </div>
           )}
 
@@ -657,6 +796,9 @@ export default function Ticketeria() {
 
       {/* ── ESCÁNER ── */}
       {tab === 'scanner' && <ScannerTab token={token} />}
+
+      {/* ── FILTROS ── */}
+      {tab === 'filters' && <FiltersTab storeId={storeId} token={token} />}
     </div>
   );
 }

@@ -267,7 +267,7 @@ const TICKET_API = 'https://srservi2.srautomatic.com';
 
 function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, terminalName, onClose }) {
   const [phase, setPhase] = useState('events'); // events|select|confirm|paying|waiting|success|error
-  const [events, setEvents] = useState([]);
+  const [allEvents, setAllEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [categories, setCategories] = useState([]);
@@ -277,13 +277,47 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
   const [successCode, setSuccessCode] = useState('');
   const [successUrl, setSuccessUrl] = useState('');
 
+  // Filtros
+  const [filterCfg, setFilterCfg] = useState({ show_search:1, show_genre:1, show_country:0, show_price:1, show_date:1, genres:[], countries:[] });
+  const [search, setSearch] = useState('');
+  const [activeGenre, setActiveGenre] = useState('');
+  const [activeCountry, setActiveCountry] = useState('');
+  const [priceFilter, setPriceFilter] = useState('all'); // all|free|low|medium|high
+  const [dateFilter, setDateFilter] = useState('all'); // all|today|week|month
+  const [vkbOpen, setVkbOpen] = useState(false);
+
   useEffect(() => {
-    fetch(`${TICKET_API}/api/ticketeria/public/events?store_id=${storeId}`)
-      .then(r => r.json())
-      .then(d => setEvents(Array.isArray(d) ? d : []))
-      .catch(() => {})
-      .finally(() => setLoadingEvents(false));
+    Promise.all([
+      fetch(`${TICKET_API}/api/ticketeria/public/events?store_id=${storeId}`).then(r => r.json()),
+      fetch(`${TICKET_API}/api/ticketeria/filter-config?store_id=${storeId}`).then(r => r.json()),
+    ]).then(([evs, cfg]) => {
+      setAllEvents(Array.isArray(evs) ? evs : []);
+      setFilterCfg(prev => ({ ...prev, ...cfg, genres: cfg.genres || [], countries: cfg.countries || [] }));
+    }).catch(() => {}).finally(() => setLoadingEvents(false));
   }, [storeId]);
+
+  // Filtrado en cliente
+  const events = allEvents.filter(ev => {
+    if (search && !ev.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (activeGenre && ev.genre !== activeGenre) return false;
+    if (activeCountry && ev.country !== activeCountry) return false;
+    if (dateFilter !== 'all') {
+      const evDate = ev.event_date ? new Date(String(ev.event_date).slice(0,10) + 'T12:00:00') : null;
+      if (!evDate) return false;
+      const now = new Date(); now.setHours(0,0,0,0);
+      if (dateFilter === 'today') {
+        if (evDate.toDateString() !== now.toDateString()) return false;
+      } else if (dateFilter === 'week') {
+        const end = new Date(now); end.setDate(end.getDate() + 7);
+        if (evDate < now || evDate > end) return false;
+      } else if (dateFilter === 'month') {
+        const end = new Date(now); end.setMonth(end.getMonth() + 1);
+        if (evDate < now || evDate > end) return false;
+      }
+    }
+    // price filter requires knowing min price of event — skip if no categories loaded
+    return true;
+  });
 
   const selectEvent = async (ev) => {
     setSelectedEvent(ev);
@@ -422,16 +456,95 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
 
+        {/* ── VirtualKeyboard para búsqueda ── */}
+        {vkbOpen && (
+          <VirtualKeyboard
+            value={search}
+            onChange={setSearch}
+            onClose={() => setVkbOpen(false)}
+            placeholder="Buscar evento..."
+          />
+        )}
+
         {/* ── LISTA DE EVENTOS ── */}
         {phase === 'events' && (
-          loadingEvents ? (
+          <>
+          {/* Barra de filtros */}
+          {!loadingEvents && allEvents.length > 0 && (
+            <div style={{ marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+              {/* Búsqueda */}
+              {!!filterCfg.show_search && (
+                <button onClick={() => setVkbOpen(true)} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                  padding: '10px 14px', background: '#fff', border: '1px solid #e5e7eb',
+                  borderRadius: 10, cursor: 'pointer', textAlign: 'left', boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}>
+                  <FontAwesomeIcon icon={faSearch} style={{ color: '#9ca3af', fontSize: 14 }} />
+                  <span style={{ flex: 1, fontSize: 14, color: search ? '#111' : '#9ca3af', fontWeight: search ? 600 : 400 }}>
+                    {search || 'Buscar evento por nombre…'}
+                  </span>
+                  {search && (
+                    <span onClick={e => { e.stopPropagation(); setSearch(''); }} style={{ color: '#9ca3af', fontSize: 16, lineHeight: 1 }}>×</span>
+                  )}
+                </button>
+              )}
+
+              {/* Géneros */}
+              {!!filterCfg.show_genre && filterCfg.genres?.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                  {['all', ...filterCfg.genres].map(g => (
+                    <button key={g} onClick={() => setActiveGenre(g === 'all' ? '' : g)}
+                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                        background: (g === 'all' && !activeGenre) || activeGenre === g ? 'var(--store-primary, #111)' : '#fff',
+                        color: (g === 'all' && !activeGenre) || activeGenre === g ? 'var(--store-secondary, #fff)' : '#374151',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                      {g === 'all' ? 'Todos' : g}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Países */}
+              {!!filterCfg.show_country && filterCfg.countries?.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                  {['all', ...filterCfg.countries].map(c => (
+                    <button key={c} onClick={() => setActiveCountry(c === 'all' ? '' : c)}
+                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                        background: (c === 'all' && !activeCountry) || activeCountry === c ? 'var(--store-primary, #111)' : '#fff',
+                        color: (c === 'all' && !activeCountry) || activeCountry === c ? 'var(--store-secondary, #fff)' : '#374151',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                      {c === 'all' ? 'Todos' : c}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Fecha */}
+              {!!filterCfg.show_date && (
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                  {[['all','Todos'],['today','Hoy'],['week','Esta semana'],['month','Este mes']].map(([key, label]) => (
+                    <button key={key} onClick={() => setDateFilter(key)}
+                      style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                        background: dateFilter === key ? 'var(--store-accent, #C8A415)' : '#fff',
+                        color: dateFilter === key ? '#fff' : '#374151',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {loadingEvents ? (
             <div style={{ textAlign: 'center', paddingTop: 60 }}>
               <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 32, color: 'var(--store-accent, #C8A415)' }} />
             </div>
           ) : events.length === 0 ? (
             <div style={{ textAlign: 'center', paddingTop: 60, color: '#9ca3af' }}>
               <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 44, display: 'block', marginBottom: 12 }} />
-              No hay eventos disponibles
+              {search || activeGenre || activeCountry || dateFilter !== 'all' ? 'Sin resultados para este filtro' : 'No hay eventos disponibles'}
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
@@ -486,6 +599,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
               })}
             </div>
           )
+          }</>
         )}
 
         {/* ── SELECTOR DE ENTRADAS ── */}
