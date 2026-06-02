@@ -605,7 +605,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
               </div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
               {events.map(ev => {
                 const evDate = ev.event_date ? new Date(String(ev.event_date).slice(0,10) + 'T12:00:00') : null;
                 const dayNum  = evDate ? evDate.toLocaleDateString('es-CL', { day: '2-digit' }) : '';
@@ -615,88 +615,49 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
                 const timeStr = ev.time_start ? String(ev.time_start).slice(0,5) + (ev.time_end ? ` – ${String(ev.time_end).slice(0,5)}` : '') : '';
                 return (
                   <div key={ev.id} onClick={() => selectEvent(ev)}
-                    style={{ background: '#111', borderRadius: 18, border: '1px solid #1e1e1e', overflow: 'hidden', cursor: 'pointer', boxShadow: '0 6px 28px rgba(0,0,0,0.55)', transition: 'transform .15s, border-color .15s', WebkitTapHighlightColor: 'transparent' }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = 'rgba(212,175,55,0.6)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = '#1e1e1e'; }}
-                    onTouchStart={e => { e.currentTarget.style.transform = 'scale(0.97)'; }}
+                    style={{ borderRadius: 14, overflow: 'hidden', cursor: 'pointer', position: 'relative', aspectRatio: '2/3', background: '#111', boxShadow: '0 4px 18px rgba(0,0,0,0.6)', transition: 'transform .12s', WebkitTapHighlightColor: 'transparent' }}
+                    onTouchStart={e => { e.currentTarget.style.transform = 'scale(0.95)'; }}
                     onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
                   >
-                    {/* ── Hero: imagen con todo superpuesto ── */}
-                    <div style={{ position: 'relative', height: 200 }}>
-                      {ev.image_url
-                        ? <img src={ev.image_url} alt={ev.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                        : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #1c1c1c 0%, #0d0d0d 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 52, color: 'rgba(212,175,55,0.12)' }} />
-                          </div>
-                      }
-                      {/* Gradiente oscuro */}
-                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, transparent 35%, rgba(0,0,0,0.85) 100%)' }} />
+                    {/* Imagen o fondo */}
+                    {ev.image_url
+                      ? <img src={ev.image_url} alt={ev.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      : <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, #1e1e1e 0%, #0d0d0d 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FontAwesomeIcon icon={faTicketAlt} style={{ fontSize: 28, color: 'rgba(212,175,55,0.18)' }} />
+                        </div>
+                    }
 
-                      {/* Badge de fecha — esquina inferior izquierda */}
+                    {/* Gradiente bottom-up */}
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 25%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.96) 100%)' }} />
+
+                    {/* Contenido superpuesto */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px 8px 10px' }}>
+                      {/* Badge fecha */}
                       {evDate && (
-                        <div style={{
-                          position: 'absolute', bottom: 14, left: 14,
-                          background: 'var(--store-accent, #D4AF37)',
-                          borderRadius: 12, padding: '6px 11px',
-                          textAlign: 'center', minWidth: 48,
-                          boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-                        }}>
-                          <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1, color: '#000' }}>{dayNum}</div>
-                          <div style={{ fontSize: 10, fontWeight: 900, color: 'rgba(0,0,0,0.7)', letterSpacing: '1.5px', marginTop: 1 }}>{month}</div>
+                        <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', background: 'var(--store-accent, #D4AF37)', borderRadius: 7, padding: '3px 7px', marginBottom: 6 }}>
+                          <span style={{ fontSize: 15, fontWeight: 900, lineHeight: 1, color: '#000' }}>{dayNum}</span>
+                          <span style={{ fontSize: 8, fontWeight: 900, color: 'rgba(0,0,0,0.65)', letterSpacing: '1px' }}>{month}</span>
                         </div>
                       )}
-
-                      {/* Nombre del evento — sobre el gradiente inferior */}
+                      {/* Nombre */}
                       <div style={{
-                        position: 'absolute', bottom: 14,
-                        left: evDate ? 84 : 14, right: 14,
+                        fontSize: 11, fontWeight: 800, color: '#fff', lineHeight: 1.3,
+                        textShadow: '0 1px 6px rgba(0,0,0,0.9)',
+                        overflow: 'hidden', display: '-webkit-box',
+                        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                        marginBottom: timeStr ? 3 : 0,
                       }}>
-                        <div style={{
-                          fontWeight: 900, fontSize: 17, color: '#fff',
-                          lineHeight: 1.25, textShadow: '0 2px 10px rgba(0,0,0,0.9)',
-                          overflow: 'hidden', display: '-webkit-box',
-                          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                        }}>
-                          {ev.name}
+                        {ev.name}
+                      </div>
+                      {/* Hora */}
+                      {timeStr && (
+                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--store-accent, #D4AF37)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <FontAwesomeIcon icon={faClock} style={{ fontSize: 8 }} />
+                          {timeStr}
                         </div>
-                      </div>
-                    </div>
-
-                    {/* ── Strip inferior ── */}
-                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, background: '#111' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', rowGap: 3 }}>
-                          {timeStr && (
-                            <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--store-accent, #D4AF37)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <FontAwesomeIcon icon={faClock} style={{ fontSize: 11, opacity: 0.75 }} />
-                              {timeStr}
-                            </span>
-                          )}
-                          {weekday && (
-                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.38)', textTransform: 'capitalize' }}>
-                              {weekday}
-                            </span>
-                          )}
-                        </div>
-                        {ev.location && (
-                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <FontAwesomeIcon icon={faMapMarkerAlt} style={{ fontSize: 10, flexShrink: 0 }} />
-                            {ev.location}
-                          </div>
-                        )}
-                      </div>
-                      {/* Pill CTA */}
-                      <div style={{
-                        flexShrink: 0,
-                        background: 'rgba(212,175,55,0.12)',
-                        border: '1px solid rgba(212,175,55,0.35)',
-                        borderRadius: 24, padding: '7px 16px',
-                        fontSize: 12, fontWeight: 800,
-                        color: 'var(--store-accent, #D4AF37)',
-                        letterSpacing: 0.3,
-                      }}>
-                        Ver →
-                      </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -935,11 +896,6 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
                   ? `Cobrar en ${terminalName || terminalProvider?.toUpperCase() || 'Terminal'} · $${total.toLocaleString('es-CL')}`
                   : total === 0 ? '✓ Confirmar (Gratis)' : `Pagar · $${total.toLocaleString('es-CL')}`}
               </button>
-              {total > 0 && (
-                <button onClick={() => handlePay('cash')} style={{ ...btn('#1a1a1a', '#fff'), border: '1px solid #2a2a2a', fontSize: 14 }}>
-                  <FontAwesomeIcon icon={faMoneyBillWave} style={{ marginRight: 6, color: 'var(--store-accent, #D4AF37)' }} />Pagar en efectivo
-                </button>
-              )}
               <button onClick={() => setPhase('select')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 13, cursor: 'pointer', padding: '8px', textAlign: 'center', width: '100%' }}>
                 <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 5 }} />Volver
               </button>
