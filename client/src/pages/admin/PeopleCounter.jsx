@@ -220,16 +220,10 @@ export default function PeopleCounter() {
     return () => clearInterval(rtspPollRef.current);
   }, [tab, storeId, token]);
 
-  // Refrescar snapshot siempre que el stream esté activo (intenta cargar aunque aún no haya frame)
-  const hasSnap = agentStatus.hasSnapshot || rtspStatus.hasSnapshot || rtspStatus.running;
-  useEffect(() => {
-    clearInterval(snapIntervalRef.current);
-    if (tab === 'rtsp' && rtspStatus.running) {
-      setSnapTs(Date.now());
-      snapIntervalRef.current = setInterval(() => setSnapTs(Date.now()), 200);
-    }
-    return () => clearInterval(snapIntervalRef.current);
-  }, [tab, rtspStatus.running]);
+  // URL del stream MJPEG — conexión única, frames continuos sin polling
+  const mjpegUrl = rtspStatus.running || agentStatus.active
+    ? `${API}/api/stores/${storeId}/people-counter/mjpeg?token=${encodeURIComponent(token)}`
+    : null;
 
   async function saveRTSP() {
     if (!storeId || !token) return;
@@ -776,28 +770,24 @@ export default function PeopleCounter() {
             </button>
           </div>
 
-          {/* Preview snapshot */}
-          {rtspStatus.running && (
+          {/* Preview MJPEG — una sola conexión, fluido sin polling */}
+          {mjpegUrl && (
             <div style={{ background: '#fff', borderRadius: 14, padding: 18, border: '1px solid #e5e7eb' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#374151' }}>Vista previa en vivo</h3>
-                <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>● 1fps</span>
+                <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>● en vivo</span>
               </div>
-              <div style={{ borderRadius: 10, overflow: 'hidden', background: '#111', aspectRatio: '16/9', position: 'relative' }}>
+              <div style={{ borderRadius: 10, overflow: 'hidden', background: '#111', aspectRatio: '16/9' }}>
                 <img
-                  src={`${API}/api/stores/${storeId}/people-counter/snapshot?token=${encodeURIComponent(token)}&t=${snapTs || Date.now()}`}
+                  key={mjpegUrl}
+                  src={mjpegUrl}
                   style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
                   alt="preview"
-                  onError={e => { e.target.style.opacity = '0'; }}
-                  onLoad={e => { e.target.style.opacity = '1'; }}
                 />
-                {!rtspStatus.hasSnapshot && (
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                    <div style={{ width: 28, height: 28, border: '3px solid #D4AF37', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                    <span style={{ color: '#aaa', fontSize: 13 }}>Cargando video…</span>
-                  </div>
-                )}
               </div>
+              <p style={{ fontSize: 11, color: '#9ca3af', margin: '8px 0 0' }}>
+                Stream MJPEG directo — hasta 5fps según la cámara
+              </p>
             </div>
           )}
 

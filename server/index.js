@@ -13375,6 +13375,41 @@ app.get('/api/stores/:id/people-counter/agent-status', authenticateToken, async 
   res.json({ active: !!active, hasSnapshot: localSnapshots.has(storeId), lastPing: lastPing || null });
 });
 
+// GET stream MJPEG — una conexión, frames continuos, browser lo maneja nativo
+app.get('/api/stores/:id/people-counter/mjpeg', async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const rawToken = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+    if (!rawToken) return res.status(401).send('Sin token');
+    let userId;
+    try { userId = jwt.verify(rawToken, process.env.JWT_SECRET || 'srservi_secret_key_2024').id; } catch { return res.status(401).send('Token inválido'); }
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, userId]);
+    if (!owned[0]) return res.status(403).send('Sin permiso');
+
+    res.setHeader('Content-Type', 'multipart/x-mixed-replace; boundary=mjpegframe');
+    res.setHeader('Cache-Control', 'no-cache, no-store');
+    res.setHeader('Connection', 'close');
+    res.flushHeaders();
+
+    let lastSnap = null;
+    const interval = setInterval(() => {
+      if (res.destroyed) { clearInterval(interval); return; }
+      const snap = localSnapshots.get(storeId) || getRTSP()?.getSnapshot(storeId);
+      if (!snap || snap === lastSnap) return;
+      lastSnap = snap;
+      try {
+        res.write('--mjpegframe\r\n');
+        res.write('Content-Type: image/jpeg\r\n');
+        res.write(`Content-Length: ${snap.length}\r\n\r\n`);
+        res.write(snap);
+        res.write('\r\n');
+      } catch { clearInterval(interval); }
+    }, 100); // 10fps máximo
+
+    req.on('close', () => clearInterval(interval));
+  } catch (e) { res.status(500).send(e.message); }
+});
+
 // GET snapshot JPEG — acepta token en header o query param
 app.get('/api/stores/:id/people-counter/snapshot', async (req, res) => {
   try {
