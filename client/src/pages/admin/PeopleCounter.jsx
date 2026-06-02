@@ -215,14 +215,15 @@ export default function PeopleCounter() {
     return () => clearInterval(rtspPollRef.current);
   }, [tab, storeId, token]);
 
-  // Refrescar snapshot cada segundo mientras la pestaña RTSP está abierta y el stream corre
+  // Refrescar snapshot cada segundo solo cuando hay imagen disponible
   useEffect(() => {
     clearInterval(snapIntervalRef.current);
-    if (tab === 'rtsp' && rtspStatus.running) {
+    if (tab === 'rtsp' && rtspStatus.running && rtspStatus.hasSnapshot) {
+      setSnapTs(Date.now()); // primer frame inmediato
       snapIntervalRef.current = setInterval(() => setSnapTs(Date.now()), 1000);
     }
     return () => clearInterval(snapIntervalRef.current);
-  }, [tab, rtspStatus.running]);
+  }, [tab, rtspStatus.running, rtspStatus.hasSnapshot]);
 
   async function saveRTSP() {
     if (!storeId || !token) return;
@@ -610,16 +611,31 @@ export default function PeopleCounter() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Estado */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderRadius: 12, background: rtspStatus.running ? '#f0fdf4' : '#f9fafb', border: `1.5px solid ${rtspStatus.running ? '#86efac' : '#e5e7eb'}` }}>
-            <div style={{ width: 12, height: 12, borderRadius: '50%', background: rtspStatus.running ? '#22c55e' : '#9ca3af', flexShrink: 0, boxShadow: rtspStatus.running ? '0 0 0 4px #bbf7d0' : 'none', animation: rtspStatus.running ? 'pulse 2s infinite' : 'none' }} />
-            <div style={{ flex: 1 }}>
+          <div style={{ padding: '14px 18px', borderRadius: 12, background: rtspStatus.error ? '#fef2f2' : rtspStatus.running ? '#f0fdf4' : '#f9fafb', border: `1.5px solid ${rtspStatus.error ? '#fca5a5' : rtspStatus.running ? '#86efac' : '#e5e7eb'}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: rtspStatus.error ? 8 : 0 }}>
+              <div style={{ width: 12, height: 12, borderRadius: '50%', flexShrink: 0, background: rtspStatus.error ? '#ef4444' : rtspStatus.running ? '#22c55e' : '#9ca3af' }} />
               <div style={{ fontWeight: 700, color: '#111', fontSize: 14 }}>
-                {rtspStatus.running ? '🔴 Grabando en segundo plano' : 'Stream inactivo'}
+                {rtspStatus.error ? 'Error de conexión' : rtspStatus.running ? (rtspStatus.hasSnapshot ? '🔴 Conectado — grabando' : '⏳ Conectando a cámara…') : 'Stream inactivo'}
               </div>
-              {rtspStatus.running && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>Entradas: {rtspStatus.in ?? 0} · Salidas: {rtspStatus.out ?? 0}</div>}
-              {rtspStatus.error && <div style={{ fontSize: 12, color: '#ef4444', marginTop: 2 }}>⚠ {rtspStatus.error}</div>}
+              {rtspStatus.running && !rtspStatus.error && (
+                <span style={{ marginLeft: 'auto', fontSize: 12, color: '#6b7280' }}>
+                  Entradas: {rtspStatus.in ?? 0} · Salidas: {rtspStatus.out ?? 0}
+                </span>
+              )}
             </div>
+            {rtspStatus.error && (
+              <div style={{ fontSize: 12, color: '#dc2626', background: '#fff', borderRadius: 8, padding: '8px 10px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                {rtspStatus.error}
+              </div>
+            )}
           </div>
+
+          {/* Ayuda Tapo */}
+          {rtspStatus.error && rtspStatus.error.toLowerCase().includes('401') && (
+            <div style={{ padding: '12px 16px', borderRadius: 10, background: '#fffbeb', border: '1px solid #fde68a', fontSize: 13, color: '#92400e' }}>
+              <strong>Tapo C210:</strong> El usuario/contraseña son los que configuraste en <em>Tapo App → Cámara → Ajustes → Cuenta de cámara</em>, no tu cuenta TP-Link.
+            </div>
+          )}
 
           {/* Formulario */}
           <div style={{ background: '#fff', borderRadius: 14, padding: 22, border: '1px solid #e5e7eb' }}>
@@ -697,8 +713,8 @@ export default function PeopleCounter() {
             </button>
           </div>
 
-          {/* Preview snapshot */}
-          {rtspStatus.running && (
+          {/* Preview snapshot — solo cuando hay imagen */}
+          {rtspStatus.running && rtspStatus.hasSnapshot && (
             <div style={{ background: '#fff', borderRadius: 14, padding: 18, border: '1px solid #e5e7eb' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#374151' }}>Vista previa en vivo</h3>
