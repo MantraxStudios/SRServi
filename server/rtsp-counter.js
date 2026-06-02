@@ -220,8 +220,9 @@ class RTSPCounterService {
   getStatus(storeId) {
     const s = this.streams.get(storeId);
     if (!s) return { running: false };
+    const ffAlive = s.ffmpegCount && !s.ffmpegCount.killed && s.ffmpegCount.exitCode === null;
     return {
-      running: true,
+      running: ffAlive,
       in: s.countIn,
       out: s.countOut,
       hasSnapshot: !!s.snapshot,

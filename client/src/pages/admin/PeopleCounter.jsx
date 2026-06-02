@@ -655,10 +655,41 @@ export default function PeopleCounter() {
             )}
           </div>
 
-          {/* Aviso de arquitectura */}
-          <div style={{ padding: '12px 16px', borderRadius: 10, background: '#f0f9ff', border: '1px solid #bae6fd', fontSize: 13, color: '#0369a1' }}>
-            💡 <strong>¿Por qué un agente local?</strong> La Tapo C210 usa una IP local (192.168.x.x) que solo es accesible desde tu red WiFi. El servidor remoto no puede conectarse directamente — el agente actúa como puente.
-          </div>
+          {/* Error del stream con diagnóstico específico */}
+          {rtspStatus.error && (
+            <div style={{ borderRadius: 12, overflow: 'hidden', border: '1.5px solid #fca5a5' }}>
+              <div style={{ background: '#fef2f2', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 16 }}>⚠️</span>
+                <span style={{ fontWeight: 700, color: '#dc2626', fontSize: 14 }}>
+                  {rtspStatus.error.includes('401') ? 'Credenciales incorrectas' :
+                   rtspStatus.error.includes('Connection refused') || rtspStatus.error.includes('refused') ? 'Cámara no encontrada en esa IP/puerto' :
+                   rtspStatus.error.includes('timeout') ? 'Tiempo de espera agotado — verifica la IP' :
+                   'Error de conexión'}
+                </span>
+              </div>
+              <div style={{ background: '#fff', padding: '12px 16px', fontSize: 13 }}>
+                {rtspStatus.error.includes('401') ? (
+                  <div>
+                    <p style={{ margin: '0 0 8px', color: '#374151' }}>
+                      El usuario/contraseña son incorrectos. Para la <strong>Tapo C210</strong>:
+                    </p>
+                    <ol style={{ margin: 0, paddingLeft: 20, color: '#6b7280', lineHeight: 1.8 }}>
+                      <li>Abre la <strong>app Tapo</strong> en tu celular</li>
+                      <li>Selecciona la cámara → ⚙️ Ajustes</li>
+                      <li>Ve a <strong>"Cuenta de cámara"</strong> o "Advanced Settings"</li>
+                      <li>Activa RTSP y <strong>crea un usuario y contraseña nuevos</strong></li>
+                      <li>Usa <em>esos datos</em> aquí — <strong>no</strong> tu cuenta TP-Link</li>
+                    </ol>
+                    <p style={{ margin: '8px 0 0', color: '#6b7280', fontSize: 12 }}>
+                      También prueba el canal <code style={{ background: '#f3f4f6', padding: '1px 5px', borderRadius: 4 }}>stream1</code> en vez de <code style={{ background: '#f3f4f6', padding: '1px 5px', borderRadius: 4 }}>stream</code>
+                    </p>
+                  </div>
+                ) : (
+                  <code style={{ fontSize: 11, color: '#6b7280', wordBreak: 'break-all' }}>{rtspStatus.error}</code>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Formulario */}
           <div style={{ background: '#fff', borderRadius: 14, padding: 22, border: '1px solid #e5e7eb' }}>
