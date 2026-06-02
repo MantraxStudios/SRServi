@@ -94,6 +94,7 @@ export default function PeopleCounter() {
   const rtspPollRef = useRef(null);
   const snapIntervalRef = useRef(null);
   const [snapTs, setSnapTs] = useState(0);
+  const [agentStatus, setAgentStatus] = useState({ active: false, hasSnapshot: false });
 
   const rtspUrl = rtspIp
     ? `rtsp://${rtspUser ? encodeURIComponent(rtspUser) + (rtspPass ? ':' + encodeURIComponent(rtspPass) : '') + '@' : ''}${rtspIp}${rtspPort && rtspPort !== '554' ? ':' + rtspPort : ''}/${rtspPath}`
@@ -198,7 +199,7 @@ export default function PeopleCounter() {
       }).catch(() => {});
   }, [storeId, token]);
 
-  // Polling de estado RTSP cuando la pestaña está activa
+  // Polling de estado RTSP + agente local cuando la pestaña está activa
   useEffect(() => {
     if (tab !== 'rtsp' || !storeId || !token) {
       clearInterval(rtspPollRef.current);
@@ -209,21 +210,26 @@ export default function PeopleCounter() {
         .then(r => r.ok ? r.json() : null)
         .then(d => { if (d) setRtspStatus(d); })
         .catch(() => {});
+      fetch(`${API}/api/stores/${storeId}/people-counter/agent-status`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d) setAgentStatus(d); })
+        .catch(() => {});
     };
     poll();
     rtspPollRef.current = setInterval(poll, 5000);
     return () => clearInterval(rtspPollRef.current);
   }, [tab, storeId, token]);
 
-  // Refrescar snapshot cada segundo solo cuando hay imagen disponible
+  // Refrescar snapshot cuando hay imagen (del agente local o del servidor)
+  const hasSnap = agentStatus.hasSnapshot || rtspStatus.hasSnapshot;
   useEffect(() => {
     clearInterval(snapIntervalRef.current);
-    if (tab === 'rtsp' && rtspStatus.running && rtspStatus.hasSnapshot) {
-      setSnapTs(Date.now()); // primer frame inmediato
+    if (tab === 'rtsp' && hasSnap) {
+      setSnapTs(Date.now());
       snapIntervalRef.current = setInterval(() => setSnapTs(Date.now()), 1000);
     }
     return () => clearInterval(snapIntervalRef.current);
-  }, [tab, rtspStatus.running, rtspStatus.hasSnapshot]);
+  }, [tab, hasSnap]);
 
   async function saveRTSP() {
     if (!storeId || !token) return;
@@ -610,32 +616,49 @@ export default function PeopleCounter() {
       {tab === 'rtsp' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Estado */}
-          <div style={{ padding: '14px 18px', borderRadius: 12, background: rtspStatus.error ? '#fef2f2' : rtspStatus.running ? '#f0fdf4' : '#f9fafb', border: `1.5px solid ${rtspStatus.error ? '#fca5a5' : rtspStatus.running ? '#86efac' : '#e5e7eb'}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: rtspStatus.error ? 8 : 0 }}>
-              <div style={{ width: 12, height: 12, borderRadius: '50%', flexShrink: 0, background: rtspStatus.error ? '#ef4444' : rtspStatus.running ? '#22c55e' : '#9ca3af' }} />
-              <div style={{ fontWeight: 700, color: '#111', fontSize: 14 }}>
-                {rtspStatus.error ? 'Error de conexión' : rtspStatus.running ? (rtspStatus.hasSnapshot ? '🔴 Conectado — grabando' : '⏳ Conectando a cámara…') : 'Stream inactivo'}
+          {/* Estado agente local */}
+          <div style={{ padding: '16px 18px', borderRadius: 12, background: agentStatus.active ? '#f0fdf4' : '#fafafa', border: `1.5px solid ${agentStatus.active ? '#86efac' : '#e5e7eb'}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <div style={{ width: 11, height: 11, borderRadius: '50%', flexShrink: 0, background: agentStatus.active ? '#22c55e' : '#9ca3af', boxShadow: agentStatus.active ? '0 0 0 3px #bbf7d0' : 'none' }} />
+              <div style={{ fontWeight: 700, color: '#111', fontSize: 14, flex: 1 }}>
+                {agentStatus.active ? '🟢 Agente local conectado' : '⚪ Agente local no detectado'}
               </div>
-              {rtspStatus.running && !rtspStatus.error && (
-                <span style={{ marginLeft: 'auto', fontSize: 12, color: '#6b7280' }}>
-                  Entradas: {rtspStatus.in ?? 0} · Salidas: {rtspStatus.out ?? 0}
-                </span>
-              )}
             </div>
-            {rtspStatus.error && (
-              <div style={{ fontSize: 12, color: '#dc2626', background: '#fff', borderRadius: 8, padding: '8px 10px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                {rtspStatus.error}
+
+            {!agentStatus.active && (
+              <>
+                <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 12px', lineHeight: 1.5 }}>
+                  La cámara RTSP está en tu red local — el servidor remoto no puede alcanzarla.<br/>
+                  Descarga el <strong>agente local</strong>, ejecútalo en el computador del local y conecta automáticamente.
+                </p>
+                <div style={{ background: '#1e293b', borderRadius: 10, padding: '12px 16px', marginBottom: 12, fontFamily: 'monospace', fontSize: 12, color: '#94a3b8' }}>
+                  <div style={{ color: '#64748b', marginBottom: 6 }}># 1. Descarga el agente y guárdalo en tu PC</div>
+                  <div style={{ color: '#e2e8f0' }}>node srservi-agente-local.js \</div>
+                  <div style={{ color: '#e2e8f0', paddingLeft: 16 }}>--server {API} \</div>
+                  <div style={{ color: '#e2e8f0', paddingLeft: 16 }}>--store {storeId} \</div>
+                  <div style={{ color: '#e2e8f0', paddingLeft: 16 }}>--token TU_TOKEN</div>
+                </div>
+                <a
+                  href={`${API}/api/people-counter/download-agent`}
+                  download="srservi-agente-local.js"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: '#111', color: '#fff', borderRadius: 9, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}
+                >
+                  ⬇ Descargar agente local (.js)
+                </a>
+              </>
+            )}
+
+            {agentStatus.active && (
+              <div style={{ fontSize: 13, color: '#16a34a' }}>
+                📡 Recibiendo stream — la vista previa se actualiza cada segundo
               </div>
             )}
           </div>
 
-          {/* Ayuda Tapo */}
-          {rtspStatus.error && rtspStatus.error.toLowerCase().includes('401') && (
-            <div style={{ padding: '12px 16px', borderRadius: 10, background: '#fffbeb', border: '1px solid #fde68a', fontSize: 13, color: '#92400e' }}>
-              <strong>Tapo C210:</strong> El usuario/contraseña son los que configuraste en <em>Tapo App → Cámara → Ajustes → Cuenta de cámara</em>, no tu cuenta TP-Link.
-            </div>
-          )}
+          {/* Aviso de arquitectura */}
+          <div style={{ padding: '12px 16px', borderRadius: 10, background: '#f0f9ff', border: '1px solid #bae6fd', fontSize: 13, color: '#0369a1' }}>
+            💡 <strong>¿Por qué un agente local?</strong> La Tapo C210 usa una IP local (192.168.x.x) que solo es accesible desde tu red WiFi. El servidor remoto no puede conectarse directamente — el agente actúa como puente.
+          </div>
 
           {/* Formulario */}
           <div style={{ background: '#fff', borderRadius: 14, padding: 22, border: '1px solid #e5e7eb' }}>
@@ -713,8 +736,8 @@ export default function PeopleCounter() {
             </button>
           </div>
 
-          {/* Preview snapshot — solo cuando hay imagen */}
-          {rtspStatus.running && rtspStatus.hasSnapshot && (
+          {/* Preview snapshot — cuando el agente local tiene imagen */}
+          {hasSnap && (
             <div style={{ background: '#fff', borderRadius: 14, padding: 18, border: '1px solid #e5e7eb' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#374151' }}>Vista previa en vivo</h3>

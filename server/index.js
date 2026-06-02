@@ -13347,7 +13347,35 @@ app.get('/api/stores/:id/people-counter/rtsp/status', authenticateToken, async (
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET snapshot JPEG del preview RTSP — acepta token en header o query param (necesario para <img>)
+// Snapshots en memoria subidos por el agente local
+const localSnapshots = new Map(); // storeId → Buffer JPEG
+const localAgentPing = new Map(); // storeId → timestamp último ping
+
+// POST: agente local sube snapshot JPEG
+app.post('/api/stores/:id/people-counter/snapshot-upload', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => {
+      localSnapshots.set(storeId, Buffer.concat(chunks));
+      localAgentPing.set(storeId, Date.now());
+      res.json({ ok: true });
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET: estado del agente local
+app.get('/api/stores/:id/people-counter/agent-status', authenticateToken, async (req, res) => {
+  const storeId = parseInt(req.params.id);
+  const lastPing = localAgentPing.get(storeId);
+  const active = lastPing && (Date.now() - lastPing) < 15000; // activo si ping < 15s
+  res.json({ active: !!active, hasSnapshot: localSnapshots.has(storeId), lastPing: lastPing || null });
+});
+
+// GET snapshot JPEG — acepta token en header o query param
 app.get('/api/stores/:id/people-counter/snapshot', async (req, res) => {
   try {
     const storeId = parseInt(req.params.id);
@@ -13358,13 +13386,29 @@ app.get('/api/stores/:id/people-counter/snapshot', async (req, res) => {
     const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, userId]);
     if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
 
-    const snap = getRTSP()?.getSnapshot(storeId);
-    if (!snap) return res.status(404).send('Sin imagen aún — espera unos segundos');
-
+    // Preferir snapshot del agente local; fallback al servidor remoto
+    const snap = localSnapshots.get(storeId) || getRTSP()?.getSnapshot(storeId);
+    if (!snap) return res.status(404).send('Sin imagen');
     res.setHeader('Content-Type', 'image/jpeg');
     res.setHeader('Cache-Control', 'no-store');
     res.send(snap);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET: descargar el agente local como archivo
+import { readFileSync as fsReadFileSync } from 'fs';
+import { join as fsJoin, dirname as fsDirname } from 'path';
+import { fileURLToPath as fsFileURLToPath } from 'url';
+const __serverDir2 = fsDirname(fsFileURLToPath(import.meta.url));
+
+app.get('/api/people-counter/download-agent', authenticateToken, (req, res) => {
+  try {
+    const agentPath = fsJoin(__serverDir2, 'local-rtsp-agent.js');
+    const content = fsReadFileSync(agentPath, 'utf8');
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Content-Disposition', 'attachment; filename="srservi-agente-local.js"');
+    res.send(content);
+  } catch (e) { res.status(500).json({ error: 'Agente no encontrado' }); }
 });
 
 startServer();
