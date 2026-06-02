@@ -616,12 +616,16 @@ export default function PeopleCounter() {
       {tab === 'rtsp' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-              <div style={{ width: 11, height: 11, borderRadius: '50%', flexShrink: 0, background: agentStatus.active ? '#22c55e' : '#9ca3af', boxShadow: agentStatus.active ? '0 0 0 3px #bbf7d0' : 'none' }} />
-              <div style={{ fontWeight: 700, color: '#111', fontSize: 14, flex: 1 }}>
-                {agentStatus.active ? '🟢 Agente local conectado' : '⚪ Agente local no detectado'}
-              </div>
-            </div>
+          {/* Estado de conexión — servidor directo o agente local */}
+          {(() => {
+            const serverOk = rtspStatus.running && !rtspStatus.error;
+            const connecting = rtspStatus.running && !rtspStatus.hasSnapshot && !rtspStatus.error;
+            const connected = rtspStatus.running && rtspStatus.hasSnapshot;
+            const agentOk = agentStatus.active;
+
+            if (connected || agentOk) {
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderRadius: 12, background: '#f0fdf4', border: '1.5px solid #86efac' }}>
                   <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 0 3px #bbf7d0', flexShrink: 0 }} />
                   <div>
                     <div style={{ fontWeight: 700, color: '#15803d', fontSize: 14 }}>🔴 Conectado — grabando en tiempo real</div>
