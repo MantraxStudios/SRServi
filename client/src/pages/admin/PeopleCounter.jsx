@@ -226,7 +226,7 @@ export default function PeopleCounter() {
     clearInterval(snapIntervalRef.current);
     if (tab === 'rtsp' && rtspStatus.running) {
       setSnapTs(Date.now());
-      snapIntervalRef.current = setInterval(() => setSnapTs(Date.now()), 1500);
+      snapIntervalRef.current = setInterval(() => setSnapTs(Date.now()), 200);
     }
     return () => clearInterval(snapIntervalRef.current);
   }, [tab, rtspStatus.running]);

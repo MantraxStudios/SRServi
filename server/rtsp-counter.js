@@ -260,7 +260,7 @@ class RTSPCounterService {
       '-fflags', '+genpts+discardcorrupt',
       '-i', rtspUrl,
       '-filter_complex',
-      `[0:v]split=2[cnt][snp];[cnt]fps=2,scale=${W}:${H}[co];[snp]fps=1,scale=640:360[so]`,
+      `[0:v]split=2[cnt][snp];[cnt]fps=2,scale=${W}:${H}[co];[snp]fps=5,scale=640:360[so]`,
       // Salida 1: raw RGB → stdout para conteo
       '-map', '[co]', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-loglevel', 'error', 'pipe:1',
       // Salida 2: JPEG sobreescrito en archivo temporal para preview
@@ -303,7 +303,7 @@ class RTSPCounterService {
         const data = await readFile(snapPath);
         if (data?.length > 100) state.snapshot = data;
       } catch {}
-    }, 1000);
+    }, 200);
 
     this.streams.set(storeId, state);
     console.log(`[RTSP:${storeId}] Iniciado → ${rtspUrl.replace(/:([^@]+)@/, ':***@')}`);
