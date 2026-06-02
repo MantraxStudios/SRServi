@@ -958,6 +958,7 @@ function Store() {
   const [loyaltyModalOpen, setLoyaltyModalOpen] = useState(false);
   const [loyaltyCustomer, setLoyaltyCustomer] = useState(null);
   const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
+  const loyaltyDiscountRef = useRef(0);
   const [loyaltyConfig, setLoyaltyConfig] = useState(null);
   const [pendingOrderData, setPendingOrderData] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
@@ -1428,6 +1429,7 @@ function Store() {
     if (loyaltyCustomer?.id) {
       fetch(`${API}/api/public/${code}/loyalty/purchase/${loyaltyCustomer.id}`, { method: 'POST' }).catch(() => {});
       setLoyaltyCustomer(null);
+      loyaltyDiscountRef.current = 0;
       setLoyaltyDiscount(0);
     }
     const toRatingTimer = setTimeout(() => {
@@ -1448,6 +1450,7 @@ function Store() {
     if (loyaltyCustomer?.id) {
       fetch(`${API}/api/public/${code}/loyalty/purchase/${loyaltyCustomer.id}`, { method: 'POST' }).catch(() => {});
       setLoyaltyCustomer(null);
+      loyaltyDiscountRef.current = 0;
       setLoyaltyDiscount(0);
     }
     const toRatingTimer = setTimeout(() => {
@@ -2314,10 +2317,11 @@ function Store() {
   };
 
   const getLoyaltyDiscountAmount = () => {
-    if (!loyaltyDiscount) return 0;
+    const disc = loyaltyDiscountRef.current;
+    if (!disc) return 0;
     const subtotal = getCartTotal();
     const couponDiscount = Number(appliedCoupon?.discount_total || 0);
-    return Math.round(Math.max(subtotal - couponDiscount, 0) * loyaltyDiscount / 100);
+    return Math.round(Math.max(subtotal - couponDiscount, 0) * disc / 100);
   };
 
   const getCartSubtotal = () => {
@@ -5351,6 +5355,7 @@ function Store() {
             onResult={({ customer, discountPercent }) => {
               setLoyaltyModalOpen(false);
               setLoyaltyCustomer(customer || null);
+              loyaltyDiscountRef.current = discountPercent || 0;
               setLoyaltyDiscount(discountPercent || 0);
               if (pendingPaymentMethod) {
                 const m = pendingPaymentMethod;
