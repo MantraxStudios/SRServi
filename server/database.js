@@ -5626,6 +5626,19 @@ export async function authenticateSubAccount(email, password) {
 // ─── People Counter ──────────────────────────────────────────────────────────
 
 let _peopleCounterReady = false;
+
+async function addColumnIfMissing(table, column, definition) {
+  const [rows] = await pool.execute(
+    `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+    [table, column]
+  );
+  if (!rows[0].cnt) {
+    await pool.execute(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+    console.log(`[DB] Columna añadida: ${table}.${column}`);
+  }
+}
+
 async function ensurePeopleCounterTables() {
   if (_peopleCounterReady) return;
   await pool.execute(`
@@ -5640,22 +5653,15 @@ async function ensurePeopleCounterTables() {
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS people_counter_config (
       store_id INT PRIMARY KEY,
-      line_config JSON NOT NULL DEFAULT ('{}'),
+      line_config JSON NOT NULL,
       flip_direction TINYINT(1) NOT NULL DEFAULT 0,
-      rtsp_url VARCHAR(500) DEFAULT NULL,
-      rtsp_enabled TINYINT(1) NOT NULL DEFAULT 0,
-      rtsp_sensitivity INT NOT NULL DEFAULT 30,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
-  // Migrar tabla existente si le faltan columnas RTSP
-  for (const col of [
-    'ADD COLUMN IF NOT EXISTS rtsp_url VARCHAR(500) DEFAULT NULL',
-    'ADD COLUMN IF NOT EXISTS rtsp_enabled TINYINT(1) NOT NULL DEFAULT 0',
-    'ADD COLUMN IF NOT EXISTS rtsp_sensitivity INT NOT NULL DEFAULT 30',
-  ]) {
-    await pool.execute(`ALTER TABLE people_counter_config ${col}`).catch(() => {});
-  }
+  // Migración compatible con MySQL 5.x: verificar en information_schema
+  await addColumnIfMissing('people_counter_config', 'rtsp_url',         'VARCHAR(500) DEFAULT NULL');
+  await addColumnIfMissing('people_counter_config', 'rtsp_enabled',     'TINYINT(1) NOT NULL DEFAULT 0');
+  await addColumnIfMissing('people_counter_config', 'rtsp_sensitivity', 'INT NOT NULL DEFAULT 30');
   _peopleCounterReady = true;
 }
 
