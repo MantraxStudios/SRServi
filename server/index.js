@@ -229,6 +229,9 @@ import {
   savePeopleCounterConfig,
   savePeopleCounterEvent,
   getPeopleCounterStats,
+  savePeopleCounterRTSP,
+  getPeopleCounterRTSP,
+  getStoresWithRTSP,
   getUserApps,
   getLoyaltyConfig,
   saveLoyaltyConfig,
@@ -11671,6 +11674,15 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
       initWhatsApp(storeId).catch(e => console.warn(`[WhatsApp:${storeId}] Auto-start failed:`, e.message));
     }
 
+    // RTSP people counter — reanudar streams activos al arrancar
+    try {
+      const { rtspCounterService } = await import('./rtsp-counter.js');
+      await rtspCounterService.initAll();
+      app._rtspCounterService = rtspCounterService;
+    } catch (e) {
+      console.warn('[RTSP] No se pudo iniciar servicio de aforo RTSP:', e.message);
+    }
+
     server.listen(PORT, HOST, () => {
       console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
     });
@@ -13282,6 +13294,80 @@ app.delete('/api/loyalty/customers/:id', authenticateToken, async (req, res) => 
     if (!storeId) return res.status(400).json({ error: 'store_id requerido' });
     await deleteLoyalCustomer(parseInt(req.params.id), storeId);
     res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── RTSP People Counter ─────────────────────────────────────────────────────
+
+function getRTSP() { return app._rtspCounterService || null; }
+
+// GET config RTSP
+app.get('/api/stores/:id/people-counter/rtsp', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    const config = await getPeopleCounterRTSP(storeId);
+    const status = getRTSP()?.getStatus(storeId) || { running: false };
+    res.json({ ...config, ...status });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST guardar + iniciar/detener stream RTSP
+app.post('/api/stores/:id/people-counter/rtsp', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+
+    const { rtsp_url, rtsp_enabled, rtsp_sensitivity } = req.body;
+    await savePeopleCounterRTSP(storeId, rtsp_url, rtsp_enabled, rtsp_sensitivity);
+
+    const svc = getRTSP();
+    if (svc) {
+      if (rtsp_enabled && rtsp_url) {
+        // Obtener línea actual de config
+        const counterConfig = await import('./database.js').then(m => m.getPeopleCounterConfig(storeId));
+        await svc.startStore(storeId, rtsp_url, counterConfig?.line || null, counterConfig?.flip || false, rtsp_sensitivity || 30);
+      } else {
+        svc.stopStore(storeId);
+      }
+    }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET status del stream
+app.get('/api/stores/:id/people-counter/rtsp/status', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    res.json(getRTSP()?.getStatus(storeId) || { running: false });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// GET archivos HLS del preview (stream.m3u8 + segmentos .ts)
+import { createReadStream, existsSync as fsExistsSync } from 'fs';
+import { join as pathJoin } from 'path';
+import { tmpdir as osTmpdir } from 'os';
+
+app.get('/api/stores/:id/people-counter/hls/:file', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.id);
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+
+    const hlsDir = pathJoin(osTmpdir(), 'srservi-hls', String(storeId));
+    const filePath = pathJoin(hlsDir, req.params.file);
+
+    if (!fsExistsSync(filePath)) return res.status(404).send('No disponible aún');
+
+    const ext = req.params.file.split('.').pop();
+    const mime = ext === 'm3u8' ? 'application/vnd.apple.mpegurl' : 'video/MP2T';
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    createReadStream(filePath).pipe(res);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

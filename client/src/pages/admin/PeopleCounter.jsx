@@ -80,6 +80,17 @@ export default function PeopleCounter() {
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
+  // RTSP state
+  const [rtspUrl, setRtspUrl] = useState('');
+  const [rtspEnabled, setRtspEnabled] = useState(false);
+  const [rtspSensitivity, setRtspSensitivity] = useState(30);
+  const [rtspStatus, setRtspStatus] = useState({ running: false });
+  const [rtspSaving, setRtspSaving] = useState(false);
+  const [rtspMsg, setRtspMsg] = useState('');
+  const rtspPollRef = useRef(null);
+  const hlsRef = useRef(null);
+  const rtspVideoRef = useRef(null);
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -151,6 +162,76 @@ export default function PeopleCounter() {
   }, [storeId, token, statsDate]);
 
   useEffect(() => { if (tab === 'stats') loadStats(statsDate); }, [tab]);
+
+  // Cargar config RTSP
+  useEffect(() => {
+    if (!storeId || !token) return;
+    fetch(`${API}/api/stores/${storeId}/people-counter/rtsp`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        setRtspUrl(d.rtsp_url || '');
+        setRtspEnabled(!!d.rtsp_enabled);
+        setRtspSensitivity(d.rtsp_sensitivity || 30);
+        setRtspStatus({ running: d.running, in: d.in, out: d.out, error: d.error });
+      }).catch(() => {});
+  }, [storeId, token]);
+
+  // Polling de estado RTSP cuando la pestaña está activa
+  useEffect(() => {
+    if (tab !== 'rtsp' || !storeId || !token) {
+      clearInterval(rtspPollRef.current);
+      return;
+    }
+    const poll = () => {
+      fetch(`${API}/api/stores/${storeId}/people-counter/rtsp/status`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d) setRtspStatus(d); })
+        .catch(() => {});
+    };
+    poll();
+    rtspPollRef.current = setInterval(poll, 5000);
+    return () => clearInterval(rtspPollRef.current);
+  }, [tab, storeId, token]);
+
+  // Inicializar HLS player cuando la pestaña RTSP está activa y el stream corre
+  useEffect(() => {
+    if (tab !== 'rtsp' || !rtspStatus.running || !rtspVideoRef.current) return;
+    const hlsUrl = `${API}/api/stores/${storeId}/people-counter/hls/stream.m3u8`;
+    import('https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js').then(mod => {
+      const HLS = mod.default || mod;
+      if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+      if (HLS.isSupported()) {
+        const hls = new HLS({ xhrSetup: xhr => xhr.setRequestHeader('Authorization', `Bearer ${token}`) });
+        hls.loadSource(hlsUrl);
+        hls.attachMedia(rtspVideoRef.current);
+        hlsRef.current = hls;
+      } else if (rtspVideoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+        rtspVideoRef.current.src = hlsUrl;
+      }
+    }).catch(() => {});
+    return () => { if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
+  }, [tab, rtspStatus.running, storeId, token]);
+
+  async function saveRTSP() {
+    if (!storeId || !token) return;
+    setRtspSaving(true); setRtspMsg('');
+    try {
+      const res = await fetch(`${API}/api/stores/${storeId}/people-counter/rtsp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ rtsp_url: rtspUrl, rtsp_enabled: rtspEnabled, rtsp_sensitivity: rtspSensitivity }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Error');
+      setRtspMsg(rtspEnabled ? '✓ Stream iniciado en segundo plano' : '✓ Stream detenido');
+      setTimeout(() => setRtspMsg(''), 3000);
+    } catch (e) {
+      setRtspMsg('Error: ' + e.message);
+    } finally {
+      setRtspSaving(false);
+    }
+  }
 
   // ── Drawing ──────────────────────────────────────────────────────────────────
 
@@ -392,7 +473,7 @@ export default function PeopleCounter() {
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>Detección por movimiento en tiempo real — sin descarga de modelos</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {[['live', '📷 En Vivo'], ['stats', '📊 Estadísticas']].map(([t, lbl]) => (
+          {[['live', '📷 En Vivo'], ['rtsp', '📡 Cámara RTSP'], ['stats', '📊 Estadísticas']].map(([t, lbl]) => (
             <button key={t} onClick={() => setTab(t)}
               style={{ padding: '9px 18px', borderRadius: 8, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer',
                 background: tab === t ? '#D4AF37' : '#f3f4f6', color: tab === t ? '#000' : '#374151' }}>
@@ -511,6 +592,95 @@ export default function PeopleCounter() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── RTSP TAB ── */}
+      {tab === 'rtsp' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {/* Estado actual */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderRadius: 12, background: rtspStatus.running ? '#f0fdf4' : '#f9fafb', border: `1.5px solid ${rtspStatus.running ? '#86efac' : '#e5e7eb'}` }}>
+            <div style={{ width: 12, height: 12, borderRadius: '50%', background: rtspStatus.running ? '#22c55e' : '#9ca3af', flexShrink: 0, boxShadow: rtspStatus.running ? '0 0 0 3px #bbf7d0' : 'none' }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, color: '#111', fontSize: 14 }}>
+                {rtspStatus.running ? 'Stream activo — contando en segundo plano' : 'Stream inactivo'}
+              </div>
+              {rtspStatus.running && (
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                  Esta sesión: {rtspStatus.in ?? 0} entradas · {rtspStatus.out ?? 0} salidas
+                </div>
+              )}
+              {rtspStatus.error && (
+                <div style={{ fontSize: 12, color: '#ef4444', marginTop: 2 }}>⚠ {rtspStatus.error}</div>
+              )}
+            </div>
+          </div>
+
+          {/* Configuración */}
+          <div style={{ background: '#fff', borderRadius: 14, padding: 22, border: '1px solid #e5e7eb' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: '#374151' }}>Configuración de cámara RTSP</h3>
+
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>URL del stream RTSP</label>
+            <input
+              type="text"
+              value={rtspUrl}
+              onChange={e => setRtspUrl(e.target.value)}
+              placeholder="rtsp://usuario:clave@192.168.1.10:554/stream"
+              style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #d1d5db', borderRadius: 9, fontSize: 14, marginBottom: 16, boxSizing: 'border-box', fontFamily: 'monospace' }}
+            />
+
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+              Sensibilidad de movimiento: <strong>{rtspSensitivity}</strong>
+            </label>
+            <input type="range" min={10} max={80} value={rtspSensitivity}
+              onChange={e => setRtspSensitivity(Number(e.target.value))}
+              style={{ width: '100%', marginBottom: 16 }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9ca3af', marginTop: -12, marginBottom: 16 }}>
+              <span>Menos sensible</span><span>Más sensible</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f9fafb', borderRadius: 10, border: '1px solid #e5e7eb', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Activar stream</div>
+                <div style={{ fontSize: 12, color: '#6b7280' }}>El conteo seguirá aunque cierres esta página</div>
+              </div>
+              <button onClick={() => setRtspEnabled(p => !p)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 30, color: rtspEnabled ? '#22c55e' : '#9ca3af', padding: 0 }}>
+                {rtspEnabled ? '🟢' : '⚪'}
+              </button>
+            </div>
+
+            {rtspMsg && (
+              <div style={{ padding: '10px 14px', borderRadius: 9, background: rtspMsg.startsWith('Error') ? '#fef2f2' : '#f0fdf4', color: rtspMsg.startsWith('Error') ? '#ef4444' : '#16a34a', fontSize: 13, marginBottom: 12, fontWeight: 600 }}>
+                {rtspMsg}
+              </div>
+            )}
+
+            <button onClick={saveRTSP} disabled={rtspSaving || !rtspUrl.trim()}
+              style={{ width: '100%', padding: '12px', background: rtspSaving ? '#9ca3af' : '#111', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: rtspSaving ? 'not-allowed' : 'pointer' }}>
+              {rtspSaving ? 'Guardando...' : rtspEnabled ? '▶ Guardar y activar stream' : '⏹ Guardar y detener stream'}
+            </button>
+          </div>
+
+          {/* Preview HLS */}
+          {rtspStatus.running && (
+            <div style={{ background: '#fff', borderRadius: 14, padding: 18, border: '1px solid #e5e7eb' }}>
+              <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: '#374151' }}>Vista previa en vivo</h3>
+              <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', background: '#111', aspectRatio: '16/9' }}>
+                <video ref={rtspVideoRef} autoPlay muted playsInline controls
+                  style={{ width: '100%', height: '100%', display: 'block', objectFit: 'contain' }} />
+              </div>
+              <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>
+                Preview con ~4s de delay vía HLS. El conteo en segundo plano es en tiempo real (2fps).
+              </p>
+            </div>
+          )}
+
+          {/* Nota sobre línea de conteo */}
+          <div style={{ padding: '14px 18px', borderRadius: 12, background: '#fffbeb', border: '1px solid #fde68a', fontSize: 13, color: '#92400e' }}>
+            <strong>💡 Nota:</strong> La línea de detección configurada en la pestaña <em>En Vivo</em> se usa también para el conteo RTSP. Ajústala antes de activar el stream.
+          </div>
+        </div>
       )}
 
       {/* ── STATS TAB ── */}
