@@ -92,8 +92,8 @@ export default function PeopleCounter() {
   const [rtspSaving, setRtspSaving] = useState(false);
   const [rtspMsg, setRtspMsg] = useState('');
   const rtspPollRef = useRef(null);
-  const hlsRef = useRef(null);
-  const rtspVideoRef = useRef(null);
+  const snapIntervalRef = useRef(null);
+  const [snapTs, setSnapTs] = useState(0);
 
   const rtspUrl = rtspIp
     ? `rtsp://${rtspUser ? encodeURIComponent(rtspUser) + (rtspPass ? ':' + encodeURIComponent(rtspPass) : '') + '@' : ''}${rtspIp}${rtspPort && rtspPort !== '554' ? ':' + rtspPort : ''}/${rtspPath}`
@@ -215,35 +215,14 @@ export default function PeopleCounter() {
     return () => clearInterval(rtspPollRef.current);
   }, [tab, storeId, token]);
 
-  // Inicializar HLS player — token en query param para que los segmentos .ts también se autentiquen
+  // Refrescar snapshot cada segundo mientras la pestaña RTSP está abierta y el stream corre
   useEffect(() => {
-    if (tab !== 'rtsp' || !rtspStatus.running || !rtspVideoRef.current) return;
-    const hlsUrl = `${API}/api/stores/${storeId}/people-counter/hls/stream.m3u8?token=${encodeURIComponent(token)}`;
-    const video = rtspVideoRef.current;
-
-    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
-
-    import('https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js').then(mod => {
-      const HLS = mod.default || mod;
-      if (HLS && HLS.isSupported()) {
-        const hls = new HLS({
-          // Añadir token a cada segmento .ts
-          xhrSetup: (xhr, url) => {
-            const sep = url.includes('?') ? '&' : '?';
-            xhr.open('GET', url + sep + 'token=' + encodeURIComponent(token));
-          }
-        });
-        hls.loadSource(hlsUrl);
-        hls.attachMedia(video);
-        hlsRef.current = hls;
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // Safari nativo
-        video.src = hlsUrl;
-      }
-    }).catch(() => {});
-
-    return () => { if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
-  }, [tab, rtspStatus.running, storeId, token]);
+    clearInterval(snapIntervalRef.current);
+    if (tab === 'rtsp' && rtspStatus.running) {
+      snapIntervalRef.current = setInterval(() => setSnapTs(Date.now()), 1000);
+    }
+    return () => clearInterval(snapIntervalRef.current);
+  }, [tab, rtspStatus.running]);
 
   async function saveRTSP() {
     if (!storeId || !token) return;
@@ -718,15 +697,23 @@ export default function PeopleCounter() {
             </button>
           </div>
 
-          {/* Preview HLS */}
+          {/* Preview snapshot */}
           {rtspStatus.running && (
             <div style={{ background: '#fff', borderRadius: 14, padding: 18, border: '1px solid #e5e7eb' }}>
-              <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700, color: '#374151' }}>Vista previa</h3>
-              <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', background: '#111', aspectRatio: '16/9' }}>
-                <video ref={rtspVideoRef} autoPlay muted playsInline controls
-                  style={{ width: '100%', height: '100%', display: 'block', objectFit: 'contain' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#374151' }}>Vista previa en vivo</h3>
+                <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>● 1fps</span>
               </div>
-              <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 8, margin: '8px 0 0' }}>~4 segundos de delay. El conteo en segundo plano es en tiempo real.</p>
+              <div style={{ borderRadius: 10, overflow: 'hidden', background: '#111', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {snapTs > 0
+                  ? <img
+                      src={`${API}/api/stores/${storeId}/people-counter/snapshot?token=${encodeURIComponent(token)}&t=${snapTs}`}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                      alt="preview"
+                    />
+                  : <span style={{ color: '#555', fontSize: 13 }}>Esperando primer frame...</span>
+                }
+              </div>
             </div>
           )}
 

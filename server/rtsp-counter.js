@@ -227,27 +227,30 @@ class RTSPCounterService {
     return join(this.hlsDir, String(storeId));
   }
 
+  getSnapshot(storeId) {
+    return this.streams.get(storeId)?.snapshot || null;
+  }
+
   async _startStore(storeId, rtspUrl, lineConfig, flip, sensitivity = 30) {
-    this.stopStore(storeId); // detener anterior si existe
+    this.stopStore(storeId);
 
     const state = {
       rtspUrl, lineConfig, flip, sensitivity,
       tracks: [], prevFrame: null,
       countIn: 0, countOut: 0,
-      error: null,
-      ffmpegCount: null, ffmpegHLS: null,
+      error: null, snapshot: null,
+      ffmpegCount: null, ffmpegSnap: null,
       bufferCount: Buffer.alloc(0),
+      bufferSnap: Buffer.alloc(0),
     };
 
-    // ── Proceso 1: frames raw para conteo ──────────────────────────────────
+    // ── Proceso 1: frames raw 80×60 para conteo ────────────────────────────
     const ffCount = spawn(ffmpegBin, [
       '-rtsp_transport', 'tcp',
       '-i', rtspUrl,
       '-vf', `fps=2,scale=${W}:${H}`,
-      '-f', 'rawvideo',
-      '-pix_fmt', 'rgb24',
-      '-loglevel', 'error',
-      'pipe:1',
+      '-f', 'rawvideo', '-pix_fmt', 'rgb24',
+      '-loglevel', 'error', 'pipe:1',
     ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
     ffCount.stdout.on('data', chunk => {
@@ -261,47 +264,45 @@ class RTSPCounterService {
 
     ffCount.stderr.on('data', d => {
       const msg = d.toString();
-      if (msg.includes('error') || msg.includes('Error')) {
-        state.error = msg.slice(0, 120);
-        console.error(`[RTSP:${storeId}] FFmpeg error:`, state.error);
+      if (msg.toLowerCase().includes('error')) {
+        state.error = msg.replace(/\n/g, ' ').slice(0, 150);
+        console.error(`[RTSP:${storeId}]`, state.error);
       }
     });
 
-    ffCount.on('exit', (code) => {
-      console.log(`[RTSP:${storeId}] FFmpeg count exited (${code})`);
-      if (this.streams.has(storeId)) state.error = state.error || 'Stream terminó inesperadamente';
+    ffCount.on('exit', code => {
+      if (this.streams.has(storeId))
+        state.error = state.error || `Stream desconectado (código ${code})`;
     });
 
     state.ffmpegCount = ffCount;
 
-    // ── Proceso 2: HLS para preview en browser ─────────────────────────────
-    const hlsOut = this.getHLSDir(storeId);
-    mkdirSync(hlsOut, { recursive: true });
-
-    const ffHLS = spawn(ffmpegBin, [
+    // ── Proceso 2: JPEG 640×360 a 1fps → snapshot en memoria ──────────────
+    // Detectamos frames JPEG completos por sus marcadores SOI (FFD8) / EOI (FFD9)
+    const ffSnap = spawn(ffmpegBin, [
       '-rtsp_transport', 'tcp',
       '-i', rtspUrl,
-      '-c:v', 'libx264',
-      '-preset', 'ultrafast',
-      '-tune', 'zerolatency',
-      '-g', '30',
-      '-sc_threshold', '0',
-      '-f', 'hls',
-      '-hls_time', '2',
-      '-hls_list_size', '3',
-      '-hls_flags', 'delete_segments+independent_segments',
-      '-loglevel', 'error',
-      join(hlsOut, 'stream.m3u8'),
-    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+      '-vf', 'fps=1,scale=640:360',
+      '-f', 'image2pipe', '-vcodec', 'mjpeg', '-q:v', '5',
+      '-loglevel', 'error', 'pipe:1',
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
-    ffHLS.stderr.on('data', d => {
-      const msg = d.toString();
-      if (msg.includes('error') || msg.includes('Error')) {
-        console.error(`[RTSP-HLS:${storeId}]`, msg.slice(0, 100));
+    ffSnap.stdout.on('data', chunk => {
+      state.bufferSnap = Buffer.concat([state.bufferSnap, chunk]);
+      // Extraer JPEGs completos (FFD8...FFD9)
+      let i = 0;
+      while (i < state.bufferSnap.length - 1) {
+        if (state.bufferSnap[i] === 0xFF && state.bufferSnap[i + 1] === 0xD8) {
+          const end = state.bufferSnap.indexOf(Buffer.from([0xFF, 0xD9]), i + 2);
+          if (end === -1) break;
+          state.snapshot = state.bufferSnap.slice(i, end + 2);
+          i = end + 2;
+        } else { i++; }
       }
+      state.bufferSnap = state.bufferSnap.slice(i);
     });
 
-    state.ffmpegHLS = ffHLS;
+    state.ffmpegSnap = ffSnap;
     this.streams.set(storeId, state);
     console.log(`[RTSP:${storeId}] Iniciado → ${rtspUrl}`);
   }
@@ -310,12 +311,7 @@ class RTSPCounterService {
     const state = this.streams.get(storeId);
     if (!state) return;
     try { state.ffmpegCount?.kill('SIGKILL'); } catch {}
-    try { state.ffmpegHLS?.kill('SIGKILL'); } catch {}
-    // Limpiar archivos HLS
-    const hlsOut = this.getHLSDir(storeId);
-    if (existsSync(hlsOut)) {
-      try { rmSync(hlsOut, { recursive: true, force: true }); } catch {}
-    }
+    try { state.ffmpegSnap?.kill('SIGKILL'); } catch {}
     this.streams.delete(storeId);
     console.log(`[RTSP:${storeId}] Detenido`);
   }

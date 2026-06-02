@@ -13347,15 +13347,10 @@ app.get('/api/stores/:id/people-counter/rtsp/status', authenticateToken, async (
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// GET archivos HLS del preview (stream.m3u8 + segmentos .ts)
-import { createReadStream, existsSync as fsExistsSync } from 'fs';
-import { join as pathJoin } from 'path';
-import { tmpdir as osTmpdir } from 'os';
-
-app.get('/api/stores/:id/people-counter/hls/:file', async (req, res) => {
+// GET snapshot JPEG del preview RTSP — acepta token en header o query param (necesario para <img>)
+app.get('/api/stores/:id/people-counter/snapshot', async (req, res) => {
   try {
     const storeId = parseInt(req.params.id);
-    // Acepta token en header O en query param (necesario para segmentos .ts de HLS.js)
     const rawToken = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
     if (!rawToken) return res.status(401).send('Sin token');
     let userId;
@@ -13363,16 +13358,12 @@ app.get('/api/stores/:id/people-counter/hls/:file', async (req, res) => {
     const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, userId]);
     if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
 
-    const hlsDir = pathJoin(osTmpdir(), 'srservi-hls', String(storeId));
-    const filePath = pathJoin(hlsDir, req.params.file);
+    const snap = getRTSP()?.getSnapshot(storeId);
+    if (!snap) return res.status(404).send('Sin imagen aún — espera unos segundos');
 
-    if (!fsExistsSync(filePath)) return res.status(404).send('No disponible aún');
-
-    const ext = req.params.file.split('.').pop();
-    const mime = ext === 'm3u8' ? 'application/vnd.apple.mpegurl' : 'video/MP2T';
-    res.setHeader('Content-Type', mime);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    createReadStream(filePath).pipe(res);
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(snap);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
