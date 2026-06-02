@@ -241,34 +241,33 @@ class RTSPCounterService {
   async _startStore(storeId, rtspUrl, lineConfig, flip, sensitivity = 30) {
     this.stopStore(storeId);
 
+    const snapPath = join(tmpdir(), `srservi_snap_${storeId}.jpg`);
+
     const state = {
       rtspUrl, lineConfig, flip, sensitivity,
       tracks: [], prevFrame: null,
       countIn: 0, countOut: 0,
-      error: null, snapshot: null,
+      error: null, snapshot: null, snapError: null,
       ffmpegCount: null, ffmpegSnap: null,
+      snapInterval: null,
       bufferCount: Buffer.alloc(0),
-      bufferSnap: Buffer.alloc(0),
     };
 
-    // Flags de compatibilidad para cámaras como Tapo que usan RTSP estricto
-    const rtspFlags = [
+    // ── UN solo proceso FFmpeg: una conexión RTSP, dos salidas ───────────────
+    // split → [cnt] raw 80×60 a 2fps para conteo │ [snp] JPEG 640×360 a 1fps para preview
+    const ff = spawn(ffmpegBin, [
       '-rtsp_transport', 'tcp',
-      '-allowed_media_types', 'video',
-      '-stimeout', '10000000',   // timeout de conexión 10s
       '-fflags', '+genpts+discardcorrupt',
-    ];
-
-    // ── Proceso 1: frames raw 80×60 para conteo ────────────────────────────
-    const ffCount = spawn(ffmpegBin, [
-      ...rtspFlags,
       '-i', rtspUrl,
-      '-vf', `fps=2,scale=${W}:${H}`,
-      '-f', 'rawvideo', '-pix_fmt', 'rgb24',
-      '-loglevel', 'error', 'pipe:1',
+      '-filter_complex',
+      `[0:v]split=2[cnt][snp];[cnt]fps=2,scale=${W}:${H}[co];[snp]fps=1,scale=640:360[so]`,
+      // Salida 1: raw RGB → stdout para conteo
+      '-map', '[co]', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-loglevel', 'error', 'pipe:1',
+      // Salida 2: JPEG sobreescrito en archivo temporal para preview
+      '-map', '[so]', '-f', 'image2', '-vcodec', 'mjpeg', '-q:v', '5', '-update', '1', '-y', snapPath,
     ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
-    ffCount.stdout.on('data', chunk => {
+    ff.stdout.on('data', chunk => {
       state.bufferCount = Buffer.concat([state.bufferCount, chunk]);
       while (state.bufferCount.length >= FRAME_SIZE) {
         const frame = state.bufferCount.slice(0, FRAME_SIZE);
@@ -277,65 +276,35 @@ class RTSPCounterService {
       }
     });
 
-    ffCount.stderr.on('data', d => {
-      const msg = d.toString();
-      if (msg.toLowerCase().includes('error')) {
-        state.error = msg.replace(/\n/g, ' ').slice(0, 150);
+    let stderrBuf = '';
+    ff.stderr.on('data', d => {
+      stderrBuf += d.toString();
+      const lines = stderrBuf.split('\n')
+        .filter(l => /error|refused|timeout|invalid|401|406/i.test(l));
+      if (lines.length) {
+        state.error = lines[lines.length - 1].trim().slice(0, 200);
         console.error(`[RTSP:${storeId}]`, state.error);
       }
+      if (stderrBuf.length > 4000) stderrBuf = stderrBuf.slice(-2000);
     });
 
-    ffCount.on('exit', code => {
+    ff.on('exit', code => {
+      clearInterval(state.snapInterval);
       if (this.streams.has(storeId))
-        state.error = state.error || `Stream desconectado (código ${code})`;
+        state.error = state.error || `Stream terminó (código ${code})`;
     });
 
-    state.ffmpegCount = ffCount;
+    state.ffmpegCount = ff;
 
-    // ── Proceso 2: JPEG 640×360 a 1fps → snapshot en memoria ──────────────
-    const ffSnap = spawn(ffmpegBin, [
-      ...rtspFlags,
-      '-i', rtspUrl,
-      '-vf', 'fps=1,scale=640:360',
-      '-f', 'image2pipe', '-vcodec', 'mjpeg', '-q:v', '5',
-      '-loglevel', 'error', 'pipe:1',
-    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    // Leer el JPEG cada segundo y guardarlo en memoria para el endpoint /snapshot
+    const { readFile } = await import('fs/promises');
+    state.snapInterval = setInterval(async () => {
+      try {
+        const data = await readFile(snapPath);
+        if (data?.length > 100) state.snapshot = data;
+      } catch {}
+    }, 1000);
 
-    ffSnap.stdout.on('data', chunk => {
-      state.bufferSnap = Buffer.concat([state.bufferSnap, chunk]);
-      let i = 0;
-      while (i < state.bufferSnap.length - 1) {
-        if (state.bufferSnap[i] === 0xFF && state.bufferSnap[i + 1] === 0xD8) {
-          const end = state.bufferSnap.indexOf(Buffer.from([0xFF, 0xD9]), i + 2);
-          if (end === -1) break;
-          state.snapshot = state.bufferSnap.slice(i, end + 2);
-          state.snapError = null; // limpiar error al tener imagen
-          i = end + 2;
-        } else { i++; }
-      }
-      state.bufferSnap = state.bufferSnap.slice(i);
-    });
-
-    let snapStderr = '';
-    ffSnap.stderr.on('data', d => {
-      snapStderr += d.toString();
-      // Guardar último error relevante
-      const lines = snapStderr.split('\n').filter(l => l.includes('error') || l.includes('Error') || l.includes('Connection') || l.includes('refused') || l.includes('timeout') || l.includes('Invalid'));
-      if (lines.length) {
-        state.snapError = lines[lines.length - 1].slice(0, 200);
-        console.error(`[RTSP-snap:${storeId}]`, state.snapError);
-      }
-      if (snapStderr.length > 4000) snapStderr = snapStderr.slice(-2000);
-    });
-
-    ffSnap.on('exit', code => {
-      if (this.streams.has(storeId) && !state.snapshot) {
-        state.snapError = state.snapError || `FFmpeg terminó sin capturar (código ${code}). Verifica la URL y credenciales.`;
-        state.error = state.snapError;
-      }
-    });
-
-    state.ffmpegSnap = ffSnap;
     this.streams.set(storeId, state);
     console.log(`[RTSP:${storeId}] Iniciado → ${rtspUrl.replace(/:([^@]+)@/, ':***@')}`);
   }
@@ -343,8 +312,8 @@ class RTSPCounterService {
   stopStore(storeId) {
     const state = this.streams.get(storeId);
     if (!state) return;
+    clearInterval(state.snapInterval);
     try { state.ffmpegCount?.kill('SIGKILL'); } catch {}
-    try { state.ffmpegSnap?.kill('SIGKILL'); } catch {}
     this.streams.delete(storeId);
     console.log(`[RTSP:${storeId}] Detenido`);
   }
