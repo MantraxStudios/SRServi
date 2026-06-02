@@ -221,9 +221,25 @@ export default function PeopleCounter() {
   }, [tab, storeId, token]);
 
   // URL del stream MJPEG — conexión única, frames continuos sin polling
-  const mjpegUrl = rtspStatus.running || agentStatus.active
+  const rtspActive = rtspStatus.running || agentStatus.active;
+  const mjpegUrl = rtspActive
     ? `${API}/api/stores/${storeId}/people-counter/mjpeg?token=${encodeURIComponent(token)}`
     : null;
+
+  // Cuando RTSP está activo, refrescar contador desde DB cada 5s (el servidor cuenta)
+  useEffect(() => {
+    if (!rtspActive || !storeId || !token) return;
+    const refresh = () => {
+      fetch(`${API}/api/stores/${storeId}/people-counter/stats?date=${getToday()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(r => r.ok ? r.json() : null)
+        .then(d => { if (d) setCounter({ in: d.total?.in || 0, out: d.total?.out || 0 }); })
+        .catch(() => {});
+    };
+    refresh();
+    const iv = setInterval(refresh, 5000);
+    return () => clearInterval(iv);
+  }, [rtspActive, storeId, token]);
 
   async function saveRTSP() {
     if (!storeId || !token) return;
@@ -290,11 +306,12 @@ export default function PeopleCounter() {
   }, [drawLine]);
 
   useEffect(() => {
-    if (!isRunning) {
+    // Dibujar línea estática cuando no hay detección corriendo O cuando hay RTSP activo
+    if (!isRunning || rtspActive) {
       const t = setTimeout(drawStaticLine, 50);
       return () => clearTimeout(t);
     }
-  }, [lineConfig, isRunning, flipDir, drawStaticLine]);
+  }, [lineConfig, isRunning, flipDir, drawStaticLine, rtspActive]);
 
   // ── Camera ───────────────────────────────────────────────────────────────────
 
@@ -513,23 +530,44 @@ export default function PeopleCounter() {
           </div>
 
           <div className="pc-live-grid">
-            {/* Camera view */}
+            {/* Camera view — RTSP o webcam */}
             <div style={{ background: '#111', borderRadius: 14, overflow: 'hidden' }}>
               <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-                <video ref={videoRef} autoPlay playsInline muted
-                  style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }} />
+
+                {/* Badge fuente de video */}
+                <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 10, background: rtspActive ? 'rgba(34,197,94,0.9)' : 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, pointerEvents: 'none' }}>
+                  {rtspActive ? '📡 RTSP' : '📷 Webcam'}
+                </div>
+
+                {/* Video RTSP (MJPEG) */}
+                {rtspActive && mjpegUrl ? (
+                  <img
+                    key={mjpegUrl}
+                    src={mjpegUrl}
+                    style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }}
+                    alt="rtsp"
+                  />
+                ) : (
+                  <video ref={videoRef} autoPlay playsInline muted
+                    style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }} />
+                )}
+
+                {/* Canvas para línea — siempre encima independiente de la fuente */}
                 <canvas ref={canvasRef}
                   style={{ position: 'absolute', inset: 0, width: '100%', height: '100%',
                     cursor: isEditingLine ? 'crosshair' : 'default', touchAction: 'none' }}
                   onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
                   onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
                 />
-                {isRunning && (
+
+                {/* Contadores en vivo */}
+                {(isRunning || rtspActive) && (
                   <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 8, pointerEvents: 'none' }}>
                     <span style={{ background: 'rgba(34,197,94,0.9)', color: '#fff', fontSize: 14, fontWeight: 800, padding: '5px 12px', borderRadius: 20 }}>↑ {counter.in}</span>
                     <span style={{ background: 'rgba(239,68,68,0.9)', color: '#fff', fontSize: 14, fontWeight: 800, padding: '5px 12px', borderRadius: 20 }}>↓ {counter.out}</span>
                   </div>
                 )}
+
                 {isEditingLine && (
                   <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
                     background: 'rgba(0,0,0,0.75)', color: '#D4AF37', fontSize: 12, fontWeight: 700,
@@ -542,21 +580,30 @@ export default function PeopleCounter() {
 
             {/* Controls */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {cameras.length > 1 && (
-                <div>
-                  <label style={{ fontSize: 11, color: '#6b7280', fontWeight: 700, display: 'block', marginBottom: 5 }}>Cámara</label>
-                  <select value={camId} onChange={e => setCamId(e.target.value)} disabled={isRunning}
-                    style={{ width: '100%', padding: '9px 10px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 13, background: '#fff' }}>
-                    {cameras.map((c, i) => <option key={c.deviceId} value={c.deviceId}>{c.label || `Cámara ${i + 1}`}</option>)}
-                  </select>
+              {/* Fuente de video activa */}
+              {rtspActive ? (
+                <div style={{ padding: '12px 14px', borderRadius: 10, background: '#f0fdf4', border: '1.5px solid #86efac', fontSize: 13 }}>
+                  <div style={{ fontWeight: 700, color: '#15803d', marginBottom: 2 }}>🔴 Cámara RTSP activa</div>
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>El conteo lo hace el servidor. Ajusta la línea abajo y se aplica automáticamente.</div>
                 </div>
+              ) : (
+                <>
+                  {cameras.length > 1 && (
+                    <div>
+                      <label style={{ fontSize: 11, color: '#6b7280', fontWeight: 700, display: 'block', marginBottom: 5 }}>Cámara del dispositivo</label>
+                      <select value={camId} onChange={e => setCamId(e.target.value)} disabled={isRunning}
+                        style={{ width: '100%', padding: '9px 10px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 13, background: '#fff' }}>
+                        {cameras.map((c, i) => <option key={c.deviceId} value={c.deviceId}>{c.label || `Cámara ${i + 1}`}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  <button onClick={isRunning ? stopCamera : startCamera}
+                    style={{ padding: '13px', borderRadius: 10, border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer',
+                      background: isRunning ? '#fee2e2' : '#D4AF37', color: isRunning ? '#dc2626' : '#000' }}>
+                    {isRunning ? '⏹ Detener' : '▶ Iniciar detección (webcam)'}
+                  </button>
+                </>
               )}
-
-              <button onClick={isRunning ? stopCamera : startCamera}
-                style={{ padding: '13px', borderRadius: 10, border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer',
-                  background: isRunning ? '#fee2e2' : '#D4AF37', color: isRunning ? '#dc2626' : '#000' }}>
-                {isRunning ? '⏹ Detener' : '▶ Iniciar detección'}
-              </button>
 
               {/* Sensitivity */}
               <div style={{ background: '#f9fafb', borderRadius: 12, padding: 16, border: '1px solid #e5e7eb' }}>

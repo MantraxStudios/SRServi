@@ -605,7 +605,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
               </div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
               {events.map(ev => {
                 const evDate = ev.event_date ? new Date(String(ev.event_date).slice(0,10) + 'T12:00:00') : null;
                 const dayNum  = evDate ? evDate.toLocaleDateString('es-CL', { day: '2-digit' }) : '';
