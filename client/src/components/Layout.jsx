@@ -476,8 +476,8 @@ function Layout() {
         <nav className={`admin-sidebar ${(isEditorMode || isLeonIA) ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : (menuOpen ? 'mobile-open' : 'mobile-closed')}${(!isEditorMode && !isLeonIA) && menuOpen && !isMobile ? ' desktop-sidebar-open' : ''}`}>
           <div className="sidebar-header">
             <div className="sidebar-brand">
-              <div className="sidebar-brand-logo">
-                <img src="/iconweb.png" alt="SRServi" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+              <div className="sidebar-brand-logo" style={{ overflow: 'hidden', padding: 0 }}>
+                <img src="/iconweb.png" alt="SRServi" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
               <div className="sidebar-brand-text">
                 <h1>SRServi</h1>

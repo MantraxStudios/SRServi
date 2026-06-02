@@ -168,9 +168,8 @@ function TvEntry() {
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{
             width: '60px', height: '60px', background: '#D4AF37', borderRadius: '12px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px'
-          }}><img src="/iconweb.png" alt="SRServi" style={{ width: 44, height: 44, objectFit: 'contain' }} /></div>
+            overflow: 'hidden', margin: '0 auto 16px'
+          }}><img src="/iconweb.png" alt="SRServi" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>
           <h1 style={{ color: '#fff', fontSize: '22px', margin: '0 0 6px', fontWeight: '700' }}>Pantalla TV</h1>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', margin: 0 }}>Ingresa el código de tu tienda</p>
         </div>
