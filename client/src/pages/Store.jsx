@@ -7109,7 +7109,7 @@ function Store() {
       )}
 
       {pinModalOpen && (
-        <div className="store-modal-overlay" onClick={() => setPinModalOpen(false)}>
+        <div className="store-modal-overlay" onClick={() => setPinModalOpen(false)} style={ticketMode ? { zIndex: 10001 } : undefined}>
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()}>
             <div style={{ textAlign: 'center', marginBottom: '16px' }}>
               <FontAwesomeIcon icon={faLock} style={{ fontSize: '28px', color: 'var(--store-accent)', marginBottom: '8px' }} />
@@ -7185,13 +7185,24 @@ function Store() {
       )}
       {/* PIN Options modal - shown after correct PIN entry */}
       {pinOptionsModalOpen && (
-        <div className="store-modal-overlay" onClick={() => setPinOptionsModalOpen(false)}>
+        <div className="store-modal-overlay" onClick={() => setPinOptionsModalOpen(false)} style={ticketMode ? { zIndex: 10001 } : undefined}>
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '320px' }}>
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
               <FontAwesomeIcon icon={faLock} style={{ fontSize: '28px', color: 'var(--store-accent)', marginBottom: '8px' }} />
               <h3 style={{ margin: 0, color: 'var(--store-primary)' }}>¿Qué deseas hacer?</h3>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {ticketMode && (
+                <button
+                  onClick={() => {
+                    setPinOptionsModalOpen(false);
+                    setTicketMode(false); localStorage.removeItem('srservi_ticket_mode');
+                  }}
+                  style={{ padding: '14px', borderRadius: '10px', border: '2px solid #2563eb', background: '#eff6ff', color: '#1d4ed8', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  🏪 Salir del modo Ticketería
+                </button>
+              )}
               <button
                 onClick={async () => {
                   setPinOptionsModalOpen(false);
