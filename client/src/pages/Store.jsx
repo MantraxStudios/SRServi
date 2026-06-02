@@ -2366,15 +2366,12 @@ function Store() {
 
     // Si solo hay un método de pago activo y no hay propina configurada, ir directo
     // (solo contar tarjeta y efectivo — qrProvider/haulmerNative son variantes de tarjeta)
-    console.log('[checkout] card:', localAcceptCard, 'cash:', localAcceptCash, 'tip:', configTip, 'delivery:', deliveryMode);
-    if (!deliveryMode && configTip === 0) {
+    if (!deliveryMode) {
       const methodCount = [localAcceptCard, localAcceptCash].filter(Boolean).length;
       if (methodCount === 1) {
         const singleMethod = localAcceptCard ? 'card' : 'cash';
-        // Verificar loyalty antes de pagar
         if (loyaltyConfig?.enabled && !loyaltyCustomer && loyaltyDiscount === 0) {
           setLoyaltyModalOpen(true);
-          // Guardar método para usarlo después del loyalty check
           setPendingPaymentMethod(singleMethod);
         } else {
           handlePaymentMethodSelect(singleMethod);
