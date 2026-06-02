@@ -5625,7 +5625,9 @@ export async function authenticateSubAccount(email, password) {
 
 // ─── People Counter ──────────────────────────────────────────────────────────
 
+let _peopleCounterReady = false;
 async function ensurePeopleCounterTables() {
+  if (_peopleCounterReady) return;
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS people_counter_events (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -5638,11 +5640,23 @@ async function ensurePeopleCounterTables() {
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS people_counter_config (
       store_id INT PRIMARY KEY,
-      line_config JSON NOT NULL,
+      line_config JSON NOT NULL DEFAULT ('{}'),
       flip_direction TINYINT(1) NOT NULL DEFAULT 0,
+      rtsp_url VARCHAR(500) DEFAULT NULL,
+      rtsp_enabled TINYINT(1) NOT NULL DEFAULT 0,
+      rtsp_sensitivity INT NOT NULL DEFAULT 30,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  // Migrar tabla existente si le faltan columnas RTSP
+  for (const col of [
+    'ADD COLUMN IF NOT EXISTS rtsp_url VARCHAR(500) DEFAULT NULL',
+    'ADD COLUMN IF NOT EXISTS rtsp_enabled TINYINT(1) NOT NULL DEFAULT 0',
+    'ADD COLUMN IF NOT EXISTS rtsp_sensitivity INT NOT NULL DEFAULT 30',
+  ]) {
+    await pool.execute(`ALTER TABLE people_counter_config ${col}`).catch(() => {});
+  }
+  _peopleCounterReady = true;
 }
 
 export async function getPeopleCounterConfig(storeId) {
@@ -5655,10 +5669,6 @@ export async function getPeopleCounterConfig(storeId) {
 
 export async function savePeopleCounterConfig(storeId, line, flip) {
   await ensurePeopleCounterTables();
-  // Migrar columnas RTSP si no existen (ALTER idempotente)
-  await pool.execute(`ALTER TABLE people_counter_config ADD COLUMN IF NOT EXISTS rtsp_url VARCHAR(500) DEFAULT NULL`).catch(() => {});
-  await pool.execute(`ALTER TABLE people_counter_config ADD COLUMN IF NOT EXISTS rtsp_enabled TINYINT(1) NOT NULL DEFAULT 0`).catch(() => {});
-  await pool.execute(`ALTER TABLE people_counter_config ADD COLUMN IF NOT EXISTS rtsp_sensitivity INT NOT NULL DEFAULT 30`).catch(() => {});
   await pool.execute(
     `INSERT INTO people_counter_config (store_id, line_config, flip_direction)
      VALUES (?, ?, ?)
@@ -5669,9 +5679,6 @@ export async function savePeopleCounterConfig(storeId, line, flip) {
 
 export async function savePeopleCounterRTSP(storeId, rtspUrl, enabled, sensitivity) {
   await ensurePeopleCounterTables();
-  await pool.execute(`ALTER TABLE people_counter_config ADD COLUMN IF NOT EXISTS rtsp_url VARCHAR(500) DEFAULT NULL`).catch(() => {});
-  await pool.execute(`ALTER TABLE people_counter_config ADD COLUMN IF NOT EXISTS rtsp_enabled TINYINT(1) NOT NULL DEFAULT 0`).catch(() => {});
-  await pool.execute(`ALTER TABLE people_counter_config ADD COLUMN IF NOT EXISTS rtsp_sensitivity INT NOT NULL DEFAULT 30`).catch(() => {});
   await pool.execute(
     `INSERT INTO people_counter_config (store_id, line_config, flip_direction, rtsp_url, rtsp_enabled, rtsp_sensitivity)
      VALUES (?, '{}', 0, ?, ?, ?)
@@ -5682,16 +5689,16 @@ export async function savePeopleCounterRTSP(storeId, rtspUrl, enabled, sensitivi
 
 export async function getPeopleCounterRTSP(storeId) {
   await ensurePeopleCounterTables();
-  const [rows] = await pool.execute('SELECT rtsp_url, rtsp_enabled, rtsp_sensitivity FROM people_counter_config WHERE store_id = ?', [storeId]);
+  const [rows] = await pool.execute(
+    'SELECT rtsp_url, rtsp_enabled, rtsp_sensitivity FROM people_counter_config WHERE store_id = ?',
+    [storeId]
+  );
   if (!rows[0]) return { rtsp_url: null, rtsp_enabled: false, rtsp_sensitivity: 30 };
   return { rtsp_url: rows[0].rtsp_url || null, rtsp_enabled: !!rows[0].rtsp_enabled, rtsp_sensitivity: rows[0].rtsp_sensitivity || 30 };
 }
 
 export async function getStoresWithRTSP() {
   await ensurePeopleCounterTables();
-  await pool.execute(`ALTER TABLE people_counter_config ADD COLUMN IF NOT EXISTS rtsp_url VARCHAR(500) DEFAULT NULL`).catch(() => {});
-  await pool.execute(`ALTER TABLE people_counter_config ADD COLUMN IF NOT EXISTS rtsp_enabled TINYINT(1) NOT NULL DEFAULT 0`).catch(() => {});
-  await pool.execute(`ALTER TABLE people_counter_config ADD COLUMN IF NOT EXISTS rtsp_sensitivity INT NOT NULL DEFAULT 30`).catch(() => {});
   const [rows] = await pool.execute(
     `SELECT store_id, rtsp_url, rtsp_enabled, rtsp_sensitivity, line_config, flip_direction
      FROM people_counter_config WHERE rtsp_enabled = 1 AND rtsp_url IS NOT NULL`
