@@ -2149,9 +2149,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .store-header-logo {
-  max-height: 30px;
-  max-width: 80px;
-  object-fit: contain;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
   flex-shrink: 0;
 }
 
@@ -2183,8 +2184,9 @@ h1, h2, h3, h4, h5, h6 {
     padding: 11px 18px;
   }
   .store-header-logo {
-    max-height: 36px;
-    max-width: 96px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
   }
   .store-header-name {
     font-size: 17px;
@@ -2213,8 +2215,9 @@ h1, h2, h3, h4, h5, h6 {
     padding: 16px 32px;
   }
   .store-header-logo {
-    max-height: 52px;
-    max-width: 130px;
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
   }
   .store-header-name {
     font-size: 22px;
@@ -2236,8 +2239,9 @@ h1, h2, h3, h4, h5, h6 {
     padding: 22px 52px;
   }
   .store-header-logo {
-    max-height: 68px;
-    max-width: 170px;
+    width: 68px;
+    height: 68px;
+    border-radius: 16px;
   }
   .store-header-name {
     font-size: 30px;
