@@ -2,6 +2,33 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCamera, faTimes, faCheck, faSpinner, faStar, faUserPlus } from '@fortawesome/free-solid-svg-icons';
 
+const COUNTRY_CODES = [
+  { code: '+56', flag: '🇨🇱', name: 'Chile' },
+  { code: '+54', flag: '🇦🇷', name: 'Argentina' },
+  { code: '+55', flag: '🇧🇷', name: 'Brasil' },
+  { code: '+57', flag: '🇨🇴', name: 'Colombia' },
+  { code: '+51', flag: '🇵🇪', name: 'Perú' },
+  { code: '+52', flag: '🇲🇽', name: 'México' },
+  { code: '+58', flag: '🇻🇪', name: 'Venezuela' },
+  { code: '+593', flag: '🇪🇨', name: 'Ecuador' },
+  { code: '+591', flag: '🇧🇴', name: 'Bolivia' },
+  { code: '+595', flag: '🇵🇾', name: 'Paraguay' },
+  { code: '+598', flag: '🇺🇾', name: 'Uruguay' },
+  { code: '+507', flag: '🇵🇦', name: 'Panamá' },
+  { code: '+506', flag: '🇨🇷', name: 'Costa Rica' },
+  { code: '+502', flag: '🇬🇹', name: 'Guatemala' },
+  { code: '+503', flag: '🇸🇻', name: 'El Salvador' },
+  { code: '+504', flag: '🇭🇳', name: 'Honduras' },
+  { code: '+505', flag: '🇳🇮', name: 'Nicaragua' },
+  { code: '+1',   flag: '🇺🇸', name: 'EE.UU. / Canadá' },
+  { code: '+34',  flag: '🇪🇸', name: 'España' },
+  { code: '+44',  flag: '🇬🇧', name: 'Reino Unido' },
+  { code: '+49',  flag: '🇩🇪', name: 'Alemania' },
+  { code: '+33',  flag: '🇫🇷', name: 'Francia' },
+  { code: '+39',  flag: '🇮🇹', name: 'Italia' },
+  { code: '+351', flag: '🇵🇹', name: 'Portugal' },
+];
+
 const MODELS_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 const MATCH_THRESHOLD = 0.5;
 const STABLE_FRAMES = 4;
@@ -53,6 +80,7 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
   const [currentPhoto, setCurrentPhoto] = useState(null);
   const [nameInput, setNameInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
+  const [countryCode, setCountryCode] = useState('+56');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -206,12 +234,14 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
 
   async function handleRegister() {
     if (!nameInput.trim()) { setError('Ingresa tu nombre'); return; }
+    if (!phoneInput.trim()) { setError('Ingresa tu número de teléfono'); return; }
+    const fullPhone = `${countryCode} ${phoneInput.trim()}`;
     setSaving(true); setError('');
     try {
       const res = await fetch(`${API}/api/public/${storeCode}/loyalty/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: nameInput.trim(), phone: phoneInput.trim() || null, face_descriptor: currentDescriptor, face_photo: currentPhoto }),
+        body: JSON.stringify({ name: nameInput.trim(), phone: fullPhone, face_descriptor: currentDescriptor, face_photo: currentPhoto }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al registrar');
@@ -361,7 +391,24 @@ export default function LoyaltyCheckModal({ storeCode, onClose, onResult, primar
             <div style={s.title}>Registrarme</div>
             <div style={s.sub}>Tu rostro quedará guardado para futuras compras.</div>
             <input style={s.input} placeholder="Tu nombre *" value={nameInput} onChange={e => setNameInput(e.target.value)} />
-            <input style={s.input} placeholder="Teléfono (opcional)" value={phoneInput} onChange={e => setPhoneInput(e.target.value)} />
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+              <select
+                value={countryCode}
+                onChange={e => setCountryCode(e.target.value)}
+                style={{ padding: '11px 8px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, background: '#fff', flexShrink: 0, cursor: 'pointer' }}
+              >
+                {COUNTRY_CODES.map(c => (
+                  <option key={c.code + c.name} value={c.code}>{c.flag} {c.code} {c.name}</option>
+                ))}
+              </select>
+              <input
+                style={{ ...s.input, marginBottom: 0, flex: 1 }}
+                placeholder="Número de teléfono *"
+                type="tel"
+                value={phoneInput}
+                onChange={e => setPhoneInput(e.target.value.replace(/[^0-9\s\-]/g, ''))}
+              />
+            </div>
             {error && <div style={s.err}>{error}</div>}
             <button style={s.btn} onClick={handleRegister} disabled={saving}>
               {saving ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando…</> : <><FontAwesomeIcon icon={faCheck} /> Registrarme</>}
