@@ -7319,7 +7319,7 @@ function Store() {
 
       {/* POS selection modal - from within the totem */}
       {posSelectModalOpen && (
-        <div className="store-modal-overlay" onClick={() => setPosSelectModalOpen(false)}>
+        <div className="store-modal-overlay" onClick={() => setPosSelectModalOpen(false)} style={ticketMode ? { zIndex: 10001 } : undefined}>
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px' }}>
             <div style={{ textAlign: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, color: 'var(--store-primary)' }}>Seleccionar POS</h3>
