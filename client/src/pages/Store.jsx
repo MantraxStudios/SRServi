@@ -605,7 +605,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
               </div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: 14 }}>
               {events.map(ev => {
                 const evDate = ev.event_date ? new Date(String(ev.event_date).slice(0,10) + 'T12:00:00') : null;
                 const dayNum  = evDate ? evDate.toLocaleDateString('es-CL', { day: '2-digit' }) : '';
@@ -1023,7 +1023,7 @@ function Store() {
   });
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [posSelectModalOpen, setPosSelectModalOpen] = useState(false);
-  const [ticketMode, setTicketMode] = useState(false);
+  const [ticketMode, setTicketMode] = useState(() => localStorage.getItem('srservi_ticket_mode') === '1');
   const [posSelectList, setPosSelectList] = useState([]);
   const [posSelectLoading, setPosSelectLoading] = useState(false);
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
@@ -3981,7 +3981,7 @@ function Store() {
         terminalId={selectedTerminalId}
         terminalProvider={selectedTerminalProvider}
         terminalName={localStorage.getItem('srservi_last_terminal_name') || ''}
-        onClose={() => setTicketMode(false)}
+        onClose={() => { setTicketMode(false); localStorage.removeItem('srservi_ticket_mode'); }}
       />
     )}
     <div
@@ -7220,7 +7220,7 @@ function Store() {
               <button
                 onClick={() => {
                   setPinOptionsModalOpen(false);
-                  setTicketMode(true);
+                  setTicketMode(true); localStorage.setItem('srservi_ticket_mode', '1');
                 }}
                 style={{ padding: '14px', borderRadius: '10px', border: '2px solid #C8A415', background: '#fffbeb', color: '#92760a', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
