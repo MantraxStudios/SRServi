@@ -2363,7 +2363,25 @@ function Store() {
     const configTip = parseFloat(selectedConfiguration?.tip_percentage) || 0;
     setTipPercent(configTip);
     setTipEnabled(configTip > 0);
-    // Show loyalty check if enabled and not already checked
+
+    // Si solo hay un método de pago activo y no hay propina configurada, ir directo
+    if (!deliveryMode && configTip === 0) {
+      const methodCount = [localAcceptCard, localAcceptCash, !!qrProvider, !!haulmerNative].filter(Boolean).length;
+      if (methodCount === 1) {
+        const singleMethod = localAcceptCard ? 'card' : localAcceptCash ? 'cash' : qrProvider ? 'qr' : 'haulmer_native';
+        // Verificar loyalty antes de pagar
+        if (loyaltyConfig?.enabled && !loyaltyCustomer && loyaltyDiscount === 0) {
+          setLoyaltyModalOpen(true);
+          // Guardar método para usarlo después del loyalty check
+          setPendingPaymentMethod(singleMethod);
+        } else {
+          handlePaymentMethodSelect(singleMethod);
+        }
+        return;
+      }
+    }
+
+    // Más de un método o hay propina → mostrar modal normal
     if (!deliveryMode && loyaltyConfig?.enabled && !loyaltyCustomer && loyaltyDiscount === 0) {
       setLoyaltyModalOpen(true);
     } else {
@@ -5460,13 +5478,25 @@ function Store() {
             accentColor={colors.accent}
             onClose={() => {
               setLoyaltyModalOpen(false);
-              setPaymentModalOpen(true);
+              if (pendingPaymentMethod) {
+                const m = pendingPaymentMethod;
+                setPendingPaymentMethod(null);
+                handlePaymentMethodSelect(m);
+              } else {
+                setPaymentModalOpen(true);
+              }
             }}
             onResult={({ customer, discountPercent }) => {
               setLoyaltyModalOpen(false);
               setLoyaltyCustomer(customer || null);
               setLoyaltyDiscount(discountPercent || 0);
-              setPaymentModalOpen(true);
+              if (pendingPaymentMethod) {
+                const m = pendingPaymentMethod;
+                setPendingPaymentMethod(null);
+                handlePaymentMethodSelect(m);
+              } else {
+                setPaymentModalOpen(true);
+              }
             }}
           />
         </Suspense>
