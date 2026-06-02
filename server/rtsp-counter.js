@@ -238,35 +238,45 @@ class RTSPCounterService {
     return this.streams.get(storeId)?.snapshot || null;
   }
 
+  // Registrar cliente MJPEG — recibe frames en tiempo real
+  addMjpegClient(storeId, sendFn) {
+    const s = this.streams.get(storeId);
+    if (s) s.mjpegClients.add(sendFn);
+  }
+
+  removeMjpegClient(storeId, sendFn) {
+    const s = this.streams.get(storeId);
+    if (s) s.mjpegClients.delete(sendFn);
+  }
+
   async _startStore(storeId, rtspUrl, lineConfig, flip, sensitivity = 30) {
     this.stopStore(storeId);
-
-    const snapPath = join(tmpdir(), `srservi_snap_${storeId}.jpg`);
 
     const state = {
       rtspUrl, lineConfig, flip, sensitivity,
       tracks: [], prevFrame: null,
       countIn: 0, countOut: 0,
-      error: null, snapshot: null, snapError: null,
-      ffmpegCount: null, ffmpegSnap: null,
-      snapInterval: null,
+      error: null, snapshot: null,
+      ffmpegCount: null,
       bufferCount: Buffer.alloc(0),
+      bufferSnap: Buffer.alloc(0),
+      mjpegClients: new Set(),         // clientes HTTP conectados al stream MJPEG
     };
 
-    // ── UN solo proceso FFmpeg: una conexión RTSP, dos salidas ───────────────
-    // split → [cnt] raw 80×60 a 2fps para conteo │ [snp] JPEG 640×360 a 1fps para preview
+    // ── Un solo proceso FFmpeg: una conexión RTSP, dos salidas por pipe ──────
+    // pipe:1 → raw 80×60 RGB para conteo
+    // pipe:3 → JPEG 640×360 a 5fps para preview MJPEG (sin pasar por disco)
     const ff = spawn(ffmpegBin, [
       '-rtsp_transport', 'tcp',
       '-fflags', '+genpts+discardcorrupt',
       '-i', rtspUrl,
       '-filter_complex',
       `[0:v]split=2[cnt][snp];[cnt]fps=2,scale=${W}:${H}[co];[snp]fps=5,scale=640:360[so]`,
-      // Salida 1: raw RGB → stdout para conteo
       '-map', '[co]', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-loglevel', 'error', 'pipe:1',
-      // Salida 2: JPEG sobreescrito en archivo temporal para preview
-      '-map', '[so]', '-f', 'image2', '-vcodec', 'mjpeg', '-q:v', '5', '-update', '1', '-y', snapPath,
-    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+      '-map', '[so]', '-f', 'image2pipe', '-vcodec', 'mjpeg', '-q:v', '5', 'pipe:3',
+    ], { stdio: ['ignore', 'pipe', 'pipe', 'pipe'] });
 
+    // Pipe 1: frames raw para conteo
     ff.stdout.on('data', chunk => {
       state.bufferCount = Buffer.concat([state.bufferCount, chunk]);
       while (state.bufferCount.length >= FRAME_SIZE) {
@@ -274,6 +284,26 @@ class RTSPCounterService {
         state.bufferCount = state.bufferCount.slice(FRAME_SIZE);
         this._processFrame(storeId, frame, state);
       }
+    });
+
+    // Pipe 3: JPEG stream → guardar último frame Y enviar a clientes MJPEG
+    ff.stdio[3].on('data', chunk => {
+      state.bufferSnap = Buffer.concat([state.bufferSnap, chunk]);
+      let i = 0;
+      while (i < state.bufferSnap.length - 1) {
+        if (state.bufferSnap[i] === 0xFF && state.bufferSnap[i + 1] === 0xD8) {
+          const end = state.bufferSnap.indexOf(Buffer.from([0xFF, 0xD9]), i + 2);
+          if (end === -1) break;
+          const jpeg = state.bufferSnap.slice(i, end + 2);
+          state.snapshot = jpeg;
+          // Enviar a todos los clientes MJPEG conectados
+          state.mjpegClients.forEach(send => {
+            try { send(jpeg); } catch { state.mjpegClients.delete(send); }
+          });
+          i = end + 2;
+        } else { i++; }
+      }
+      state.bufferSnap = state.bufferSnap.slice(i);
     });
 
     let stderrBuf = '';
@@ -289,22 +319,11 @@ class RTSPCounterService {
     });
 
     ff.on('exit', code => {
-      clearInterval(state.snapInterval);
       if (this.streams.has(storeId))
         state.error = state.error || `Stream terminó (código ${code})`;
     });
 
     state.ffmpegCount = ff;
-
-    // Leer el JPEG cada segundo y guardarlo en memoria para el endpoint /snapshot
-    const { readFile } = await import('fs/promises');
-    state.snapInterval = setInterval(async () => {
-      try {
-        const data = await readFile(snapPath);
-        if (data?.length > 100) state.snapshot = data;
-      } catch {}
-    }, 200);
-
     this.streams.set(storeId, state);
     console.log(`[RTSP:${storeId}] Iniciado → ${rtspUrl.replace(/:([^@]+)@/, ':***@')}`);
   }
@@ -312,7 +331,7 @@ class RTSPCounterService {
   stopStore(storeId) {
     const state = this.streams.get(storeId);
     if (!state) return;
-    clearInterval(state.snapInterval);
+    state.mjpegClients.clear();
     try { state.ffmpegCount?.kill('SIGKILL'); } catch {}
     this.streams.delete(storeId);
     console.log(`[RTSP:${storeId}] Detenido`);

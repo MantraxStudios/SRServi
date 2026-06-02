@@ -13375,7 +13375,7 @@ app.get('/api/stores/:id/people-counter/agent-status', authenticateToken, async 
   res.json({ active: !!active, hasSnapshot: localSnapshots.has(storeId), lastPing: lastPing || null });
 });
 
-// GET stream MJPEG — una conexión, frames continuos, browser lo maneja nativo
+// GET stream MJPEG — pipe:3 directo de FFmpeg sin pasar por disco
 app.get('/api/stores/:id/people-counter/mjpeg', async (req, res) => {
   try {
     const storeId = parseInt(req.params.id);
@@ -13391,22 +13391,24 @@ app.get('/api/stores/:id/people-counter/mjpeg', async (req, res) => {
     res.setHeader('Connection', 'close');
     res.flushHeaders();
 
-    let lastSnap = null;
-    const interval = setInterval(() => {
-      if (res.destroyed) { clearInterval(interval); return; }
-      const snap = localSnapshots.get(storeId) || getRTSP()?.getSnapshot(storeId);
-      if (!snap || snap === lastSnap) return;
-      lastSnap = snap;
-      try {
-        res.write('--mjpegframe\r\n');
-        res.write('Content-Type: image/jpeg\r\n');
-        res.write(`Content-Length: ${snap.length}\r\n\r\n`);
-        res.write(snap);
-        res.write('\r\n');
-      } catch { clearInterval(interval); }
-    }, 100); // 10fps máximo
+    // Enviar el último snapshot inmediatamente si ya hay uno
+    const firstSnap = getRTSP()?.getSnapshot(storeId) || localSnapshots.get(storeId);
+    if (firstSnap) {
+      res.write('--mjpegframe\r\nContent-Type: image/jpeg\r\n\r\n');
+      res.write(firstSnap);
+      res.write('\r\n');
+    }
 
-    req.on('close', () => clearInterval(interval));
+    // Recibir frames directamente desde pipe:3 de FFmpeg
+    const sendFrame = (jpeg) => {
+      if (res.destroyed) return;
+      res.write('--mjpegframe\r\nContent-Type: image/jpeg\r\n\r\n');
+      res.write(jpeg);
+      res.write('\r\n');
+    };
+
+    getRTSP()?.addMjpegClient(storeId, sendFrame);
+    req.on('close', () => getRTSP()?.removeMjpegClient(storeId, sendFrame));
   } catch (e) { res.status(500).send(e.message); }
 });
 
