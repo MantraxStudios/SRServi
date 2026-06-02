@@ -220,16 +220,16 @@ export default function PeopleCounter() {
     return () => clearInterval(rtspPollRef.current);
   }, [tab, storeId, token]);
 
-  // Refrescar snapshot cuando hay imagen (del agente local o del servidor)
-  const hasSnap = agentStatus.hasSnapshot || rtspStatus.hasSnapshot;
+  // Refrescar snapshot siempre que el stream esté activo (intenta cargar aunque aún no haya frame)
+  const hasSnap = agentStatus.hasSnapshot || rtspStatus.hasSnapshot || rtspStatus.running;
   useEffect(() => {
     clearInterval(snapIntervalRef.current);
-    if (tab === 'rtsp' && hasSnap) {
+    if (tab === 'rtsp' && rtspStatus.running) {
       setSnapTs(Date.now());
-      snapIntervalRef.current = setInterval(() => setSnapTs(Date.now()), 1000);
+      snapIntervalRef.current = setInterval(() => setSnapTs(Date.now()), 1500);
     }
     return () => clearInterval(snapIntervalRef.current);
-  }, [tab, hasSnap]);
+  }, [tab, rtspStatus.running]);
 
   async function saveRTSP() {
     if (!storeId || !token) return;
@@ -616,44 +616,42 @@ export default function PeopleCounter() {
       {tab === 'rtsp' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Estado agente local */}
-          <div style={{ padding: '16px 18px', borderRadius: 12, background: agentStatus.active ? '#f0fdf4' : '#fafafa', border: `1.5px solid ${agentStatus.active ? '#86efac' : '#e5e7eb'}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <div style={{ width: 11, height: 11, borderRadius: '50%', flexShrink: 0, background: agentStatus.active ? '#22c55e' : '#9ca3af', boxShadow: agentStatus.active ? '0 0 0 3px #bbf7d0' : 'none' }} />
               <div style={{ fontWeight: 700, color: '#111', fontSize: 14, flex: 1 }}>
                 {agentStatus.active ? '🟢 Agente local conectado' : '⚪ Agente local no detectado'}
               </div>
             </div>
-
-            {!agentStatus.active && (
-              <>
-                <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 12px', lineHeight: 1.5 }}>
-                  La cámara RTSP está en tu red local — el servidor remoto no puede alcanzarla.<br/>
-                  Descarga el <strong>agente local</strong>, ejecútalo en el computador del local y conecta automáticamente.
-                </p>
-                <div style={{ background: '#1e293b', borderRadius: 10, padding: '12px 16px', marginBottom: 12, fontFamily: 'monospace', fontSize: 12, color: '#94a3b8' }}>
-                  <div style={{ color: '#64748b', marginBottom: 6 }}># 1. Descarga el agente y guárdalo en tu PC</div>
-                  <div style={{ color: '#e2e8f0' }}>node srservi-agente-local.js \</div>
-                  <div style={{ color: '#e2e8f0', paddingLeft: 16 }}>--server {API} \</div>
-                  <div style={{ color: '#e2e8f0', paddingLeft: 16 }}>--store {storeId} \</div>
-                  <div style={{ color: '#e2e8f0', paddingLeft: 16 }}>--token TU_TOKEN</div>
+                  <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 0 3px #bbf7d0', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#15803d', fontSize: 14 }}>🔴 Conectado — grabando en tiempo real</div>
+                    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+                      Entradas: {rtspStatus.in ?? 0} · Salidas: {rtspStatus.out ?? 0} · La vista previa aparece abajo ↓
+                    </div>
+                  </div>
                 </div>
-                <a
-                  href={`${API}/api/people-counter/download-agent`}
-                  download="srservi-agente-local.js"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: '#111', color: '#fff', borderRadius: 9, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}
-                >
-                  ⬇ Descargar agente local (.js)
-                </a>
-              </>
-            )}
+              );
+            }
 
-            {agentStatus.active && (
-              <div style={{ fontSize: 13, color: '#16a34a' }}>
-                📡 Recibiendo stream — la vista previa se actualiza cada segundo
-              </div>
-            )}
-          </div>
+            if (connecting) {
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderRadius: 12, background: '#fffbeb', border: '1.5px solid #fde68a' }}>
+                  <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#f59e0b', flexShrink: 0, animation: 'pulse 1s infinite' }} />
+                  <div style={{ fontWeight: 600, color: '#92400e', fontSize: 14 }}>⏳ Conectado — esperando primer frame…</div>
+                </div>
+              );
+            }
+
+            if (!rtspEnabled) {
+              return (
+                <div style={{ padding: '14px 18px', borderRadius: 12, background: '#f9fafb', border: '1.5px solid #e5e7eb', fontSize: 13, color: '#6b7280' }}>
+                  Stream inactivo. Completa los datos y activa el toggle para iniciar.
+                </div>
+              );
+            }
+
+            return null;
+          })()}
 
           {/* Error del stream con diagnóstico específico */}
           {rtspStatus.error && (
@@ -661,28 +659,35 @@ export default function PeopleCounter() {
               <div style={{ background: '#fef2f2', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 16 }}>⚠️</span>
                 <span style={{ fontWeight: 700, color: '#dc2626', fontSize: 14 }}>
-                  {rtspStatus.error.includes('401') ? 'Credenciales incorrectas' :
-                   rtspStatus.error.includes('Connection refused') || rtspStatus.error.includes('refused') ? 'Cámara no encontrada en esa IP/puerto' :
-                   rtspStatus.error.includes('timeout') ? 'Tiempo de espera agotado — verifica la IP' :
+                  {rtspStatus.error.includes('401') ? 'Credenciales incorrectas (usuario/contraseña)' :
+                   rtspStatus.error.includes('406') ? 'Canal de stream incorrecto' :
+                   rtspStatus.error.includes('refused') ? 'Cámara no responde en esa IP/puerto' :
+                   rtspStatus.error.includes('timeout') ? 'Tiempo agotado — verifica la IP' :
                    'Error de conexión'}
                 </span>
               </div>
               <div style={{ background: '#fff', padding: '12px 16px', fontSize: 13 }}>
                 {rtspStatus.error.includes('401') ? (
                   <div>
-                    <p style={{ margin: '0 0 8px', color: '#374151' }}>
-                      El usuario/contraseña son incorrectos. Para la <strong>Tapo C210</strong>:
-                    </p>
+                    <p style={{ margin: '0 0 8px', color: '#374151' }}>El usuario/contraseña RTSP son distintos a tu cuenta TP-Link:</p>
                     <ol style={{ margin: 0, paddingLeft: 20, color: '#6b7280', lineHeight: 1.8 }}>
-                      <li>Abre la <strong>app Tapo</strong> en tu celular</li>
-                      <li>Selecciona la cámara → ⚙️ Ajustes</li>
-                      <li>Ve a <strong>"Cuenta de cámara"</strong> o "Advanced Settings"</li>
-                      <li>Activa RTSP y <strong>crea un usuario y contraseña nuevos</strong></li>
-                      <li>Usa <em>esos datos</em> aquí — <strong>no</strong> tu cuenta TP-Link</li>
+                      <li>App Tapo → selecciona la cámara → ⚙️ Ajustes</li>
+                      <li><strong>"Cuenta de cámara"</strong> → Activar RTSP → crear usuario y contraseña</li>
+                      <li>Usa <em>esos datos</em> en el formulario, no tu email TP-Link</li>
                     </ol>
-                    <p style={{ margin: '8px 0 0', color: '#6b7280', fontSize: 12 }}>
-                      También prueba el canal <code style={{ background: '#f3f4f6', padding: '1px 5px', borderRadius: 4 }}>stream1</code> en vez de <code style={{ background: '#f3f4f6', padding: '1px 5px', borderRadius: 4 }}>stream</code>
-                    </p>
+                  </div>
+                ) : rtspStatus.error.includes('406') ? (
+                  <div>
+                    <p style={{ margin: '0 0 8px', color: '#374151' }}>El canal indicado no existe en esta cámara. Prueba:</p>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {['stream1', 'stream2', 'h264Preview_01_main', 'Streaming/Channels/101'].map(s => (
+                        <button key={s} onClick={() => setRtspPath(s)}
+                          style={{ padding: '5px 12px', background: rtspPath === s ? '#111' : '#f3f4f6', color: rtspPath === s ? '#fff' : '#374151', border: 'none', borderRadius: 6, fontFamily: 'monospace', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                    <p style={{ margin: '8px 0 0', fontSize: 12, color: '#9ca3af' }}>Toca una opción y vuelve a guardar</p>
                   </div>
                 ) : (
                   <code style={{ fontSize: 11, color: '#6b7280', wordBreak: 'break-all' }}>{rtspStatus.error}</code>
@@ -767,22 +772,27 @@ export default function PeopleCounter() {
             </button>
           </div>
 
-          {/* Preview snapshot — cuando el agente local tiene imagen */}
-          {hasSnap && (
+          {/* Preview snapshot */}
+          {rtspStatus.running && (
             <div style={{ background: '#fff', borderRadius: 14, padding: 18, border: '1px solid #e5e7eb' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#374151' }}>Vista previa en vivo</h3>
                 <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>● 1fps</span>
               </div>
-              <div style={{ borderRadius: 10, overflow: 'hidden', background: '#111', aspectRatio: '16/9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {snapTs > 0
-                  ? <img
-                      src={`${API}/api/stores/${storeId}/people-counter/snapshot?token=${encodeURIComponent(token)}&t=${snapTs}`}
-                      style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-                      alt="preview"
-                    />
-                  : <span style={{ color: '#555', fontSize: 13 }}>Esperando primer frame...</span>
-                }
+              <div style={{ borderRadius: 10, overflow: 'hidden', background: '#111', aspectRatio: '16/9', position: 'relative' }}>
+                <img
+                  src={`${API}/api/stores/${storeId}/people-counter/snapshot?token=${encodeURIComponent(token)}&t=${snapTs || Date.now()}`}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                  alt="preview"
+                  onError={e => { e.target.style.opacity = '0'; }}
+                  onLoad={e => { e.target.style.opacity = '1'; }}
+                />
+                {!rtspStatus.hasSnapshot && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                    <div style={{ width: 28, height: 28, border: '3px solid #D4AF37', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    <span style={{ color: '#aaa', fontSize: 13 }}>Cargando video…</span>
+                  </div>
+                )}
               </div>
             </div>
           )}

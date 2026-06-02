@@ -251,9 +251,17 @@ class RTSPCounterService {
       bufferSnap: Buffer.alloc(0),
     };
 
+    // Flags de compatibilidad para cámaras como Tapo que usan RTSP estricto
+    const rtspFlags = [
+      '-rtsp_transport', 'tcp',
+      '-allowed_media_types', 'video',
+      '-stimeout', '10000000',   // timeout de conexión 10s
+      '-fflags', '+genpts+discardcorrupt',
+    ];
+
     // ── Proceso 1: frames raw 80×60 para conteo ────────────────────────────
     const ffCount = spawn(ffmpegBin, [
-      '-rtsp_transport', 'tcp',
+      ...rtspFlags,
       '-i', rtspUrl,
       '-vf', `fps=2,scale=${W}:${H}`,
       '-f', 'rawvideo', '-pix_fmt', 'rgb24',
@@ -286,11 +294,11 @@ class RTSPCounterService {
 
     // ── Proceso 2: JPEG 640×360 a 1fps → snapshot en memoria ──────────────
     const ffSnap = spawn(ffmpegBin, [
-      '-rtsp_transport', 'tcp',
+      ...rtspFlags,
       '-i', rtspUrl,
       '-vf', 'fps=1,scale=640:360',
       '-f', 'image2pipe', '-vcodec', 'mjpeg', '-q:v', '5',
-      '-loglevel', 'info', 'pipe:1',
+      '-loglevel', 'error', 'pipe:1',
     ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
     ffSnap.stdout.on('data', chunk => {
