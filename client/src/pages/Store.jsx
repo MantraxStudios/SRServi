@@ -474,11 +474,6 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
               </div>
             )}
           </div>
-          {terminalId && (
-            <span style={{ fontSize: 11, color: 'var(--store-accent, #D4AF37)', fontWeight: 700, background: 'rgba(212,175,55,0.12)', padding: '4px 10px', borderRadius: 20, border: '1px solid rgba(212,175,55,0.25)' }}>
-              {terminalName || terminalProvider?.toUpperCase()}
-            </span>
-          )}
         </div>
         {/* Breadcrumb strip */}
         {(phase === 'select' || phase === 'confirm') && (
@@ -892,9 +887,7 @@ function TicketPanel({ storeId, storeCode, terminalId, terminalProvider, termina
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button onClick={() => handlePay('terminal')} style={{ ...btn('var(--store-accent, #D4AF37)', '#000'), fontSize: 15 }}>
-                {terminalId && total > 0
-                  ? `Cobrar en ${terminalName || terminalProvider?.toUpperCase() || 'Terminal'} · $${total.toLocaleString('es-CL')}`
-                  : total === 0 ? '✓ Confirmar (Gratis)' : `Pagar · $${total.toLocaleString('es-CL')}`}
+                {total === 0 ? '✓ Confirmar (Gratis)' : `Pagar $${total.toLocaleString('es-CL')}`}
               </button>
               <button onClick={() => setPhase('select')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 13, cursor: 'pointer', padding: '8px', textAlign: 'center', width: '100%' }}>
                 <FontAwesomeIcon icon={faArrowLeft} style={{ marginRight: 5 }} />Volver
