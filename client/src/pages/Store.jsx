@@ -2365,10 +2365,12 @@ function Store() {
     setTipEnabled(configTip > 0);
 
     // Si solo hay un método de pago activo y no hay propina configurada, ir directo
+    // (solo contar tarjeta y efectivo — qrProvider/haulmerNative son variantes de tarjeta)
+    console.log('[checkout] card:', localAcceptCard, 'cash:', localAcceptCash, 'tip:', configTip, 'delivery:', deliveryMode);
     if (!deliveryMode && configTip === 0) {
-      const methodCount = [localAcceptCard, localAcceptCash, !!qrProvider, !!haulmerNative].filter(Boolean).length;
+      const methodCount = [localAcceptCard, localAcceptCash].filter(Boolean).length;
       if (methodCount === 1) {
-        const singleMethod = localAcceptCard ? 'card' : localAcceptCash ? 'cash' : qrProvider ? 'qr' : 'haulmer_native';
+        const singleMethod = localAcceptCard ? 'card' : 'cash';
         // Verificar loyalty antes de pagar
         if (loyaltyConfig?.enabled && !loyaltyCustomer && loyaltyDiscount === 0) {
           setLoyaltyModalOpen(true);
