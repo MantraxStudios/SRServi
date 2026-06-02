@@ -80,13 +80,12 @@ export default function PeopleCounter() {
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // RTSP — campos separados, se ensamblan en URL automáticamente
+  // RTSP state
   const [rtspIp, setRtspIp] = useState('');
   const [rtspPort, setRtspPort] = useState('554');
   const [rtspUser, setRtspUser] = useState('');
   const [rtspPass, setRtspPass] = useState('');
-  const [rtspPath, setRtspPath] = useState('');
-  const [rtspPreset, setRtspPreset] = useState('hikvision');
+  const [rtspPath, setRtspPath] = useState('stream1');
   const [rtspEnabled, setRtspEnabled] = useState(false);
   const [rtspSensitivity, setRtspSensitivity] = useState(30);
   const [rtspStatus, setRtspStatus] = useState({ running: false });
@@ -96,21 +95,9 @@ export default function PeopleCounter() {
   const hlsRef = useRef(null);
   const rtspVideoRef = useRef(null);
 
-  const RTSP_PRESETS = [
-    { label: 'Hikvision',  value: 'hikvision',  path: 'Streaming/Channels/101' },
-    { label: 'Dahua',      value: 'dahua',      path: 'cam/realmonitor?channel=1&subtype=0' },
-    { label: 'Reolink',    value: 'reolink',    path: 'h264Preview_01_main' },
-    { label: 'TP-Link',    value: 'tplink',     path: 'stream1' },
-    { label: 'Genérica',   value: 'generic',    path: 'stream' },
-    { label: 'Personalizado', value: 'custom',  path: '' },
-  ];
-
-  const rtspUrl = (() => {
-    const auth = rtspUser ? `${encodeURIComponent(rtspUser)}${rtspPass ? ':' + encodeURIComponent(rtspPass) : ''}@` : '';
-    const port = rtspPort && rtspPort !== '554' ? `:${rtspPort}` : '';
-    const path = rtspPath || '';
-    return rtspIp ? `rtsp://${auth}${rtspIp}${port}/${path}` : '';
-  })();
+  const rtspUrl = rtspIp
+    ? `rtsp://${rtspUser ? encodeURIComponent(rtspUser) + (rtspPass ? ':' + encodeURIComponent(rtspPass) : '') + '@' : ''}${rtspIp}${rtspPort && rtspPort !== '554' ? ':' + rtspPort : ''}/${rtspPath}`
+    : '';
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -205,8 +192,7 @@ export default function PeopleCounter() {
             const p = u.pathname.replace(/^\//, '') + (u.search || '');
             setRtspPath(p);
             // detectar preset
-            const found = RTSP_PRESETS.find(pr => pr.path && p.startsWith(pr.path.split('?')[0]));
-            setRtspPreset(found ? found.value : 'custom');
+            setRtspPath(p || 'stream1');
           } catch { /* URL inválida, dejar vacío */ }
         }
       }).catch(() => {});
@@ -229,22 +215,33 @@ export default function PeopleCounter() {
     return () => clearInterval(rtspPollRef.current);
   }, [tab, storeId, token]);
 
-  // Inicializar HLS player cuando la pestaña RTSP está activa y el stream corre
+  // Inicializar HLS player — token en query param para que los segmentos .ts también se autentiquen
   useEffect(() => {
     if (tab !== 'rtsp' || !rtspStatus.running || !rtspVideoRef.current) return;
-    const hlsUrl = `${API}/api/stores/${storeId}/people-counter/hls/stream.m3u8`;
+    const hlsUrl = `${API}/api/stores/${storeId}/people-counter/hls/stream.m3u8?token=${encodeURIComponent(token)}`;
+    const video = rtspVideoRef.current;
+
+    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+
     import('https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js').then(mod => {
       const HLS = mod.default || mod;
-      if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
-      if (HLS.isSupported()) {
-        const hls = new HLS({ xhrSetup: xhr => xhr.setRequestHeader('Authorization', `Bearer ${token}`) });
+      if (HLS && HLS.isSupported()) {
+        const hls = new HLS({
+          // Añadir token a cada segmento .ts
+          xhrSetup: (xhr, url) => {
+            const sep = url.includes('?') ? '&' : '?';
+            xhr.open('GET', url + sep + 'token=' + encodeURIComponent(token));
+          }
+        });
         hls.loadSource(hlsUrl);
-        hls.attachMedia(rtspVideoRef.current);
+        hls.attachMedia(video);
         hlsRef.current = hls;
-      } else if (rtspVideoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-        rtspVideoRef.current.src = hlsUrl;
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari nativo
+        video.src = hlsUrl;
       }
     }).catch(() => {});
+
     return () => { if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
   }, [tab, rtspStatus.running, storeId, token]);
 
@@ -645,85 +642,67 @@ export default function PeopleCounter() {
             </div>
           </div>
 
-          {/* Formulario por campos */}
+          {/* Formulario */}
           <div style={{ background: '#fff', borderRadius: 14, padding: 22, border: '1px solid #e5e7eb' }}>
             <h3 style={{ margin: '0 0 18px', fontSize: 15, fontWeight: 700, color: '#374151' }}>📡 Datos de la cámara</h3>
 
-            {/* Marca / preset */}
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Marca de cámara</label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 18 }}>
-              {RTSP_PRESETS.map(p => (
-                <button key={p.value} onClick={() => { setRtspPreset(p.value); if (p.value !== 'custom') setRtspPath(p.path); }}
-                  style={{ padding: '10px 6px', borderRadius: 9, border: `2px solid ${rtspPreset === p.value ? '#D4AF37' : '#e5e7eb'}`, background: rtspPreset === p.value ? '#fffbeb' : '#f9fafb', fontWeight: 700, fontSize: 13, cursor: 'pointer', color: rtspPreset === p.value ? '#92400e' : '#374151', transition: 'all 0.15s' }}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            {/* IP + Puerto en una fila */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, marginBottom: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 10, marginBottom: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 5 }}>IP de la cámara</label>
                 <input value={rtspIp} onChange={e => setRtspIp(e.target.value)} placeholder="192.168.1.10"
-                  style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #d1d5db', borderRadius: 9, fontSize: 15, boxSizing: 'border-box' }} />
+                  style={{ width: '100%', padding: '11px 12px', border: '1.5px solid #d1d5db', borderRadius: 9, fontSize: 15, boxSizing: 'border-box' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Puerto</label>
                 <input value={rtspPort} onChange={e => setRtspPort(e.target.value)} placeholder="554"
-                  style={{ width: 80, padding: '10px 12px', border: '1.5px solid #d1d5db', borderRadius: 9, fontSize: 15, boxSizing: 'border-box' }} />
+                  style={{ width: '100%', padding: '11px 10px', border: '1.5px solid #d1d5db', borderRadius: 9, fontSize: 15, boxSizing: 'border-box' }} />
               </div>
             </div>
 
-            {/* Usuario + Contraseña en una fila */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Usuario</label>
                 <input value={rtspUser} onChange={e => setRtspUser(e.target.value)} placeholder="admin"
-                  style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #d1d5db', borderRadius: 9, fontSize: 15, boxSizing: 'border-box' }} />
+                  style={{ width: '100%', padding: '11px 12px', border: '1.5px solid #d1d5db', borderRadius: 9, fontSize: 15, boxSizing: 'border-box' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Contraseña</label>
                 <input type="password" value={rtspPass} onChange={e => setRtspPass(e.target.value)} placeholder="••••••"
-                  style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #d1d5db', borderRadius: 9, fontSize: 15, boxSizing: 'border-box' }} />
+                  style={{ width: '100%', padding: '11px 12px', border: '1.5px solid #d1d5db', borderRadius: 9, fontSize: 15, boxSizing: 'border-box' }} />
               </div>
             </div>
 
-            {/* Path solo si es personalizado */}
-            {rtspPreset === 'custom' && (
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 5 }}>Ruta del stream</label>
-                <input value={rtspPath} onChange={e => setRtspPath(e.target.value)} placeholder="stream1"
-                  style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #d1d5db', borderRadius: 9, fontSize: 14, boxSizing: 'border-box', fontFamily: 'monospace' }} />
-              </div>
-            )}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
+                Canal / Stream <span style={{ fontWeight: 400, color: '#9ca3af' }}>(ej: stream1, stream2, Streaming/Channels/101)</span>
+              </label>
+              <input value={rtspPath} onChange={e => setRtspPath(e.target.value)} placeholder="stream1"
+                style={{ width: '100%', padding: '11px 12px', border: '1.5px solid #d1d5db', borderRadius: 9, fontSize: 15, boxSizing: 'border-box', fontFamily: 'monospace' }} />
+            </div>
 
-            {/* Preview URL generada */}
             {rtspUrl && (
-              <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 9, border: '1px solid #e2e8f0', marginBottom: 16, fontSize: 12, color: '#64748b', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+              <div style={{ padding: '9px 13px', background: '#f1f5f9', borderRadius: 8, marginBottom: 16, fontSize: 12, color: '#64748b', fontFamily: 'monospace', wordBreak: 'break-all' }}>
                 {rtspUrl.replace(/:([^@]+)@/, ':••••@')}
               </div>
             )}
 
-            {/* Sensibilidad */}
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 5 }}>
-              Sensibilidad al movimiento: <strong>{rtspSensitivity}</strong>
+              Sensibilidad: <strong>{rtspSensitivity}</strong>
             </label>
-            <input type="range" min={10} max={80} value={rtspSensitivity}
-              onChange={e => setRtspSensitivity(Number(e.target.value))}
+            <input type="range" min={10} max={80} value={rtspSensitivity} onChange={e => setRtspSensitivity(Number(e.target.value))}
               style={{ width: '100%', marginBottom: 4 }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9ca3af', marginBottom: 18 }}>
               <span>Menos sensible</span><span>Más sensible</span>
             </div>
 
-            {/* Toggle activar */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', background: '#f9fafb', borderRadius: 10, border: '1px solid #e5e7eb', marginBottom: 14 }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>Activar conteo automático</div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Conteo automático en segundo plano</div>
                 <div style={{ fontSize: 12, color: '#6b7280' }}>Sigue contando aunque cierres esta página</div>
               </div>
               <button onClick={() => setRtspEnabled(p => !p)}
                 style={{ width: 52, height: 28, borderRadius: 99, border: 'none', cursor: 'pointer', padding: 0, background: rtspEnabled ? '#22c55e' : '#d1d5db', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                <div style={{ position: 'absolute', top: 3, left: rtspEnabled ? 27 : 3, width: 22, height: 22, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.2)', transition: 'left 0.2s' }} />
+                <div style={{ position: 'absolute', top: 3, left: rtspEnabled ? 27 : 3, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
               </button>
             </div>
 
@@ -734,7 +713,7 @@ export default function PeopleCounter() {
             )}
 
             <button onClick={saveRTSP} disabled={rtspSaving || !rtspIp.trim()}
-              style={{ width: '100%', padding: '13px', background: rtspSaving ? '#9ca3af' : rtspEnabled ? '#16a34a' : '#374151', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: rtspSaving || !rtspIp.trim() ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}>
+              style={{ width: '100%', padding: '13px', background: rtspSaving || !rtspIp.trim() ? '#9ca3af' : rtspEnabled ? '#16a34a' : '#374151', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: rtspSaving || !rtspIp.trim() ? 'not-allowed' : 'pointer' }}>
               {rtspSaving ? 'Guardando...' : rtspEnabled ? '▶ Activar cámara' : '⏹ Guardar y desactivar'}
             </button>
           </div>

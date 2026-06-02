@@ -13352,10 +13352,15 @@ import { createReadStream, existsSync as fsExistsSync } from 'fs';
 import { join as pathJoin } from 'path';
 import { tmpdir as osTmpdir } from 'os';
 
-app.get('/api/stores/:id/people-counter/hls/:file', authenticateToken, async (req, res) => {
+app.get('/api/stores/:id/people-counter/hls/:file', async (req, res) => {
   try {
     const storeId = parseInt(req.params.id);
-    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
+    // Acepta token en header O en query param (necesario para segmentos .ts de HLS.js)
+    const rawToken = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+    if (!rawToken) return res.status(401).send('Sin token');
+    let userId;
+    try { userId = jwt.verify(rawToken, process.env.JWT_SECRET || 'srservi_secret_key_2024').id; } catch { return res.status(401).send('Token inválido'); }
+    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, userId]);
     if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
 
     const hlsDir = pathJoin(osTmpdir(), 'srservi-hls', String(storeId));
