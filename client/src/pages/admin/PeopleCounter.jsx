@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../components/Layout';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faVideo, faSatelliteDish, faChartColumn, faDownload, faArrowUp, faArrowDown,
+  faCircle, faStop, faPlay, faCircleCheck, faRulerHorizontal, faRotate,
+  faHourglassHalf, faTriangleExclamation, faGear, faLightbulb, faInbox, faCheck,
+} from '@fortawesome/free-solid-svg-icons';
+import { faWindows, faAndroid } from '@fortawesome/free-brands-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
 const getToday = () => new Date().toISOString().slice(0, 10);
@@ -252,7 +259,7 @@ export default function PeopleCounter() {
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || 'Error');
-      setRtspMsg(rtspEnabled ? '✓ Stream iniciado en segundo plano' : '✓ Stream detenido');
+      setRtspMsg(rtspEnabled ? 'Stream iniciado en segundo plano' : 'Stream detenido');
       setTimeout(() => setRtspMsg(''), 3000);
     } catch (e) {
       setRtspMsg('Error: ' + e.message);
@@ -513,11 +520,11 @@ export default function PeopleCounter() {
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>Detección por movimiento en tiempo real — sin descarga de modelos</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {[['live', '📷 En Vivo'], ['rtsp', '📡 Cámara RTSP'], ['stats', '📊 Estadísticas']].map(([t, lbl]) => (
+          {[['live', faVideo, 'En Vivo'], ['rtsp', faSatelliteDish, 'Cámara RTSP'], ['stats', faChartColumn, 'Estadísticas']].map(([t, icon, lbl]) => (
             <button key={t} onClick={() => setTab(t)}
-              style={{ padding: '9px 18px', borderRadius: 8, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 8, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer',
                 background: tab === t ? '#D4AF37' : '#f3f4f6', color: tab === t ? '#000' : '#374151' }}>
-              {lbl}
+              <FontAwesomeIcon icon={icon} /> {lbl}
             </button>
           ))}
         </div>
@@ -526,18 +533,18 @@ export default function PeopleCounter() {
       {/* ── Descargas de las apps AforoBridge ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: '#111', borderRadius: 12, padding: '14px 18px', marginBottom: 20 }}>
         <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-          <div style={{ color: '#D4AF37', fontWeight: 800, fontSize: 14 }}>📥 App AforoBridge</div>
+          <div style={{ color: '#D4AF37', fontWeight: 800, fontSize: 14 }}><FontAwesomeIcon icon={faDownload} /> App AforoBridge</div>
           <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 2 }}>
             Instálala en el PC o celular del local para conectar tu cámara IP y contar en segundo plano.
           </div>
         </div>
         <a href={`${API}/downloads/AforoBridge-Windows.zip`} download
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#D4AF37', color: '#000', fontWeight: 800, fontSize: 13, padding: '10px 16px', borderRadius: 9, textDecoration: 'none' }}>
-          🪟 Windows (.zip)
+          <FontAwesomeIcon icon={faWindows} /> Windows (.zip)
         </a>
         <a href={`${API}/downloads/AforoBridge-Android.apk`} download
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#111', fontWeight: 800, fontSize: 13, padding: '10px 16px', borderRadius: 9, textDecoration: 'none' }}>
-          🤖 Android (.apk)
+          <FontAwesomeIcon icon={faAndroid} /> Android (.apk)
         </a>
       </div>
 
@@ -564,8 +571,8 @@ export default function PeopleCounter() {
               <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
 
                 {/* Badge fuente de video */}
-                <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 10, background: rtspActive ? 'rgba(34,197,94,0.9)' : 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, pointerEvents: 'none' }}>
-                  {rtspActive ? '📡 RTSP' : '📷 Webcam'}
+                <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 10, display: 'inline-flex', alignItems: 'center', gap: 6, background: rtspActive ? 'rgba(34,197,94,0.9)' : 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, pointerEvents: 'none' }}>
+                  <FontAwesomeIcon icon={rtspActive ? faSatelliteDish : faVideo} /> {rtspActive ? 'RTSP' : 'Webcam'}
                 </div>
 
                 {/* Video RTSP (MJPEG) */}
@@ -593,8 +600,8 @@ export default function PeopleCounter() {
                 {/* Contadores en vivo */}
                 {(isRunning || rtspActive) && (
                   <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 8, pointerEvents: 'none' }}>
-                    <span style={{ background: 'rgba(34,197,94,0.9)', color: '#fff', fontSize: 14, fontWeight: 800, padding: '5px 12px', borderRadius: 20 }}>↑ {counter.in}</span>
-                    <span style={{ background: 'rgba(239,68,68,0.9)', color: '#fff', fontSize: 14, fontWeight: 800, padding: '5px 12px', borderRadius: 20 }}>↓ {counter.out}</span>
+                    <span style={{ background: 'rgba(34,197,94,0.9)', color: '#fff', fontSize: 14, fontWeight: 800, padding: '5px 12px', borderRadius: 20 }}><FontAwesomeIcon icon={faArrowUp} /> {counter.in}</span>
+                    <span style={{ background: 'rgba(239,68,68,0.9)', color: '#fff', fontSize: 14, fontWeight: 800, padding: '5px 12px', borderRadius: 20 }}><FontAwesomeIcon icon={faArrowDown} /> {counter.out}</span>
                   </div>
                 )}
 
@@ -613,7 +620,7 @@ export default function PeopleCounter() {
               {/* Fuente de video activa */}
               {rtspActive ? (
                 <div style={{ padding: '12px 14px', borderRadius: 10, background: '#f0fdf4', border: '1.5px solid #86efac', fontSize: 13 }}>
-                  <div style={{ fontWeight: 700, color: '#15803d', marginBottom: 2 }}>🔴 Cámara RTSP activa</div>
+                  <div style={{ fontWeight: 700, color: '#15803d', marginBottom: 2 }}><FontAwesomeIcon icon={faCircle} style={{ color: '#ef4444', fontSize: 10 }} /> Cámara RTSP activa</div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>El conteo lo hace el servidor. Ajusta la línea abajo y se aplica automáticamente.</div>
                 </div>
               ) : (
@@ -630,7 +637,7 @@ export default function PeopleCounter() {
                   <button onClick={isRunning ? stopCamera : startCamera}
                     style={{ padding: '13px', borderRadius: 10, border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer',
                       background: isRunning ? '#fee2e2' : '#D4AF37', color: isRunning ? '#dc2626' : '#000' }}>
-                    {isRunning ? '⏹ Detener' : '▶ Iniciar detección (webcam)'}
+                    {isRunning ? <><FontAwesomeIcon icon={faStop} /> Detener</> : <><FontAwesomeIcon icon={faPlay} /> Iniciar detección (webcam)</>}
                   </button>
                 </>
               )}
@@ -657,7 +664,7 @@ export default function PeopleCounter() {
                     background: isEditingLine ? '#fffbeb' : '#fff',
                     border: `1.5px solid ${isEditingLine ? '#D4AF37' : '#d1d5db'}`,
                     color: isEditingLine ? '#92400e' : '#374151' }}>
-                  {isEditingLine ? '✅ Listo (guardado automático)' : '📏 Ajustar línea'}
+                  {isEditingLine ? <><FontAwesomeIcon icon={faCircleCheck} /> Listo (guardado automático)</> : <><FontAwesomeIcon icon={faRulerHorizontal} /> Ajustar línea</>}
                 </button>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                   <input type="checkbox" checked={flipDir}
@@ -669,7 +676,7 @@ export default function PeopleCounter() {
 
               <button onClick={() => setCounter({ in: 0, out: 0 })}
                 style={{ padding: '9px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                🔄 Reiniciar conteo
+                <FontAwesomeIcon icon={faRotate} /> Reiniciar conteo
               </button>
 
               <div style={{ background: '#fffbeb', borderRadius: 10, padding: '12px 14px', border: '1px solid #fde68a', fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
@@ -699,9 +706,9 @@ export default function PeopleCounter() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderRadius: 12, background: '#f0fdf4', border: '1.5px solid #86efac' }}>
                   <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 0 3px #bbf7d0', flexShrink: 0 }} />
                   <div>
-                    <div style={{ fontWeight: 700, color: '#15803d', fontSize: 14 }}>🔴 Conectado — grabando en tiempo real</div>
+                    <div style={{ fontWeight: 700, color: '#15803d', fontSize: 14 }}><FontAwesomeIcon icon={faCircle} style={{ color: '#ef4444', fontSize: 10 }} /> Conectado — grabando en tiempo real</div>
                     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-                      Entradas: {rtspStatus.in ?? 0} · Salidas: {rtspStatus.out ?? 0} · La vista previa aparece abajo ↓
+                      Entradas: {rtspStatus.in ?? 0} · Salidas: {rtspStatus.out ?? 0} · La vista previa aparece abajo <FontAwesomeIcon icon={faArrowDown} />
                     </div>
                   </div>
                 </div>
@@ -712,7 +719,7 @@ export default function PeopleCounter() {
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderRadius: 12, background: '#fffbeb', border: '1.5px solid #fde68a' }}>
                   <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#f59e0b', flexShrink: 0, animation: 'pulse 1s infinite' }} />
-                  <div style={{ fontWeight: 600, color: '#92400e', fontSize: 14 }}>⏳ Conectado — esperando primer frame…</div>
+                  <div style={{ fontWeight: 600, color: '#92400e', fontSize: 14 }}><FontAwesomeIcon icon={faHourglassHalf} /> Conectado — esperando primer frame…</div>
                 </div>
               );
             }
@@ -732,7 +739,7 @@ export default function PeopleCounter() {
           {rtspStatus.error && (
             <div style={{ borderRadius: 12, overflow: 'hidden', border: '1.5px solid #fca5a5' }}>
               <div style={{ background: '#fef2f2', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16 }}>⚠️</span>
+                <FontAwesomeIcon icon={faTriangleExclamation} style={{ fontSize: 16, color: '#dc2626' }} />
                 <span style={{ fontWeight: 700, color: '#dc2626', fontSize: 14 }}>
                   {rtspStatus.error.includes('401') ? 'Credenciales incorrectas (usuario/contraseña)' :
                    rtspStatus.error.includes('406') ? 'Canal de stream incorrecto' :
@@ -746,7 +753,7 @@ export default function PeopleCounter() {
                   <div>
                     <p style={{ margin: '0 0 8px', color: '#374151' }}>El usuario/contraseña RTSP son distintos a tu cuenta TP-Link:</p>
                     <ol style={{ margin: 0, paddingLeft: 20, color: '#6b7280', lineHeight: 1.8 }}>
-                      <li>App Tapo → selecciona la cámara → ⚙️ Ajustes</li>
+                      <li>App Tapo → selecciona la cámara → <FontAwesomeIcon icon={faGear} /> Ajustes</li>
                       <li><strong>"Cuenta de cámara"</strong> → Activar RTSP → crear usuario y contraseña</li>
                       <li>Usa <em>esos datos</em> en el formulario, no tu email TP-Link</li>
                     </ol>
@@ -773,7 +780,7 @@ export default function PeopleCounter() {
 
           {/* Formulario */}
           <div style={{ background: '#fff', borderRadius: 14, padding: 22, border: '1px solid #e5e7eb' }}>
-            <h3 style={{ margin: '0 0 18px', fontSize: 15, fontWeight: 700, color: '#374151' }}>📡 Datos de la cámara</h3>
+            <h3 style={{ margin: '0 0 18px', fontSize: 15, fontWeight: 700, color: '#374151' }}><FontAwesomeIcon icon={faSatelliteDish} /> Datos de la cámara</h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 10, marginBottom: 14 }}>
               <div>
@@ -836,14 +843,15 @@ export default function PeopleCounter() {
             </div>
 
             {rtspMsg && (
-              <div style={{ padding: '10px 14px', borderRadius: 9, background: rtspMsg.startsWith('Error') ? '#fef2f2' : '#f0fdf4', color: rtspMsg.startsWith('Error') ? '#ef4444' : '#16a34a', fontSize: 13, marginBottom: 12, fontWeight: 600 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 9, background: rtspMsg.startsWith('Error') ? '#fef2f2' : '#f0fdf4', color: rtspMsg.startsWith('Error') ? '#ef4444' : '#16a34a', fontSize: 13, marginBottom: 12, fontWeight: 600 }}>
+                <FontAwesomeIcon icon={rtspMsg.startsWith('Error') ? faTriangleExclamation : faCheck} />
                 {rtspMsg}
               </div>
             )}
 
             <button onClick={saveRTSP} disabled={rtspSaving || !rtspIp.trim()}
               style={{ width: '100%', padding: '13px', background: rtspSaving || !rtspIp.trim() ? '#9ca3af' : rtspEnabled ? '#16a34a' : '#374151', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: rtspSaving || !rtspIp.trim() ? 'not-allowed' : 'pointer' }}>
-              {rtspSaving ? 'Guardando...' : rtspEnabled ? '▶ Activar cámara' : '⏹ Guardar y desactivar'}
+              {rtspSaving ? 'Guardando...' : rtspEnabled ? <><FontAwesomeIcon icon={faPlay} /> Activar cámara</> : <><FontAwesomeIcon icon={faStop} /> Guardar y desactivar</>}
             </button>
           </div>
 
@@ -852,7 +860,7 @@ export default function PeopleCounter() {
             <div style={{ background: '#fff', borderRadius: 14, padding: 18, border: '1px solid #e5e7eb' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#374151' }}>Vista previa en vivo</h3>
-                <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}>● en vivo</span>
+                <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 600 }}><FontAwesomeIcon icon={faCircle} style={{ fontSize: 8 }} /> en vivo</span>
               </div>
               <div style={{ borderRadius: 10, overflow: 'hidden', background: '#111', aspectRatio: '16/9' }}>
                 <img
@@ -863,13 +871,13 @@ export default function PeopleCounter() {
                 />
               </div>
               <p style={{ fontSize: 11, color: '#9ca3af', margin: '8px 0 0' }}>
-                Stream MJPEG directo — hasta 5fps según la cámara
+                Stream MJPEG directo — hasta 15fps según la cámara
               </p>
             </div>
           )}
 
           <div style={{ padding: '12px 16px', borderRadius: 10, background: '#fffbeb', border: '1px solid #fde68a', fontSize: 13, color: '#92400e' }}>
-            💡 La línea de detección configurada en <em>En Vivo</em> también aplica al conteo RTSP.
+            <FontAwesomeIcon icon={faLightbulb} /> La línea de detección configurada en <em>En Vivo</em> también aplica al conteo RTSP.
           </div>
         </div>
       )}
@@ -947,7 +955,7 @@ export default function PeopleCounter() {
 
               {stats.hourly?.filter(h => h.in + h.out > 0).length === 0 && (
                 <div style={{ textAlign: 'center', padding: 48, color: '#9ca3af', background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb' }}>
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}><FontAwesomeIcon icon={faInbox} /></div>
                   <div style={{ fontWeight: 700, color: '#374151', marginBottom: 4 }}>Sin registros para esta fecha</div>
                   <div style={{ fontSize: 13 }}>No se detectaron cruces el {statsDate}</div>
                 </div>
@@ -957,7 +965,7 @@ export default function PeopleCounter() {
 
           {!stats && !statsLoading && (
             <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af', background: '#fff', borderRadius: 14, border: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: 44, marginBottom: 14 }}>📊</div>
+              <div style={{ fontSize: 44, marginBottom: 14 }}><FontAwesomeIcon icon={faChartColumn} /></div>
               <div>Selecciona una fecha y presiona <strong>Ver datos</strong></div>
             </div>
           )}
