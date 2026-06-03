@@ -116,7 +116,11 @@
       "Bash(dir -Recurse -Name \"*server*\" -Type f)",
       "Bash(Select-Object Name, Mode)",
       "Bash(Select-Object Name, PSIsContainer)",
-      "Bash(PowerShell *)"
+      "Bash(PowerShell *)",
+      "Bash(dotnet --list-sdks)",
+      "Bash(dotnet --list-runtimes)",
+      "Bash(findstr WindowsDesktop)",
+      "Bash(dotnet build *)"
     ]
   }
 }
