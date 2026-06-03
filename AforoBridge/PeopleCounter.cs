@@ -114,15 +114,18 @@ namespace AforoBridge
             }) psi.ArgumentList.Add(a);
 
             _ffCount = new Process { StartInfo = psi, EnableRaisingEvents = true };
+            var stderr = new System.Text.StringBuilder();
             _ffCount.ErrorDataReceived += (_, e) =>
             {
                 if (string.IsNullOrWhiteSpace(e.Data)) return;
+                stderr.AppendLine(e.Data);
                 var l = e.Data.ToLowerInvariant();
-                if (l.Contains("error") || l.Contains("refused") || l.Contains("timeout") ||
-                    l.Contains("invalid") || l.Contains("401") || l.Contains("406"))
+                if (l.Contains("server returned") || l.Contains("unauthorized") || l.Contains("refused") ||
+                    l.Contains("timed out") || l.Contains("timeout") || l.Contains("not found") ||
+                    l.Contains("401") || l.Contains("404") || l.Contains("406") || l.Contains("no route"))
                 {
-                    LastError = e.Data.Trim();
-                    OnStatus?.Invoke("Error de cámara: " + LastError);
+                    LastError = CameraTest.Interpret(stderr.ToString());
+                    OnStatus?.Invoke("⚠ " + LastError);
                 }
             };
             _ffCount.Start();

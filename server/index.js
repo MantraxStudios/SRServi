@@ -13351,6 +13351,7 @@ app.get('/api/stores/:id/people-counter/rtsp/status', authenticateToken, async (
 // Snapshots en memoria subidos por el agente local
 const localSnapshots = new Map(); // storeId → Buffer JPEG
 const localAgentPing = new Map(); // storeId → timestamp último ping
+const localMjpegClients = new Map(); // storeId → Set(sendFn) — clientes viendo la vista previa
 
 // POST: agente local sube snapshot JPEG
 app.post('/api/stores/:id/people-counter/snapshot-upload', authenticateToken, async (req, res) => {
@@ -13361,8 +13362,12 @@ app.post('/api/stores/:id/people-counter/snapshot-upload', authenticateToken, as
     const chunks = [];
     req.on('data', c => chunks.push(c));
     req.on('end', () => {
-      localSnapshots.set(storeId, Buffer.concat(chunks));
+      const buf = Buffer.concat(chunks);
+      localSnapshots.set(storeId, buf);
       localAgentPing.set(storeId, Date.now());
+      // Reenviar el frame en vivo a los clientes MJPEG conectados (vista previa)
+      const clients = localMjpegClients.get(storeId);
+      if (clients) for (const send of clients) { try { send(buf); } catch {} }
       res.json({ ok: true });
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -13409,7 +13414,16 @@ app.get('/api/stores/:id/people-counter/mjpeg', async (req, res) => {
     };
 
     getRTSP()?.addMjpegClient(storeId, sendFrame);
-    req.on('close', () => getRTSP()?.removeMjpegClient(storeId, sendFrame));
+
+    // También recibir frames del agente local (AforoBridge) en vivo
+    let lset = localMjpegClients.get(storeId);
+    if (!lset) { lset = new Set(); localMjpegClients.set(storeId, lset); }
+    lset.add(sendFrame);
+
+    req.on('close', () => {
+      getRTSP()?.removeMjpegClient(storeId, sendFrame);
+      localMjpegClients.get(storeId)?.delete(sendFrame);
+    });
   } catch (e) { res.status(500).send(e.message); }
 });
 

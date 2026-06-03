@@ -120,7 +120,8 @@
       "Bash(dotnet --list-sdks)",
       "Bash(dotnet --list-runtimes)",
       "Bash(findstr WindowsDesktop)",
-      "Bash(dotnet build *)"
+      "Bash(dotnet build *)",
+      "Bash(./bin/Release/net9.0-windows/AforoBridge.exe --selftest-config)"
     ]
   }
 }
