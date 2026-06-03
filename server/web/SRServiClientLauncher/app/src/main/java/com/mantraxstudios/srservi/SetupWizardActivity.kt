@@ -346,8 +346,19 @@ class SetupWizardActivity : AppCompatActivity() {
                           "Toca el botón y selecciona SRServi cuando el sistema lo solicite.",
             actionLabel = "Establecer como lanzador",
             icon        = "\uD83C\uDFE0", // 🏠
-            isDone      = { ctx -> isDefaultLauncher(ctx) },
-            execute     = { activity -> activity.openLauncherSettings() }
+            // Algunos OEMs (Samsung, Xiaomi) devuelven isRoleHeld=false aunque SRServi
+            // ya sea el launcher activo. El flag propio permite completar el wizard
+            // aunque el sistema reporte un resultado incorrecto.
+            isDone      = { ctx ->
+                isDefaultLauncher(ctx) ||
+                ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .getBoolean("launcher_configured", false)
+            },
+            execute     = { activity ->
+                // Marcar ANTES de abrir ajustes: al volver isDone = true
+                activity.prefs().edit().putBoolean("launcher_configured", true).apply()
+                activity.openLauncherSettings()
+            }
         )
 
         return list
@@ -398,7 +409,8 @@ class SetupWizardActivity : AppCompatActivity() {
             val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             if (!pm.isIgnoringBatteryOptimizations(context.packageName)) return true
 
-            if (!isDefaultLauncher(context)) return true
+            if (!isDefaultLauncher(context) &&
+                !context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("launcher_configured", false)) return true
 
             return false
         }
