@@ -199,9 +199,9 @@ export default function PeopleCounter() {
       }).catch(() => {});
   }, [storeId, token]);
 
-  // Polling de estado RTSP + agente local cuando la pestaña está activa
+  // Polling de estado RTSP + agente local (en pestañas En Vivo y RTSP)
   useEffect(() => {
-    if (tab !== 'rtsp' || !storeId || !token) {
+    if ((tab !== 'rtsp' && tab !== 'live') || !storeId || !token) {
       clearInterval(rtspPollRef.current);
       return;
     }
@@ -312,6 +312,17 @@ export default function PeopleCounter() {
       return () => clearTimeout(t);
     }
   }, [lineConfig, isRunning, flipDir, drawStaticLine, rtspActive]);
+
+  // Mantener la línea visible sobre el stream RTSP (el <img> MJPEG cambia de tamaño
+  // al cargar y al llegar frames; sin esto la línea solo se dibujaría una vez y no
+  // aparecería). Redibuja periódicamente mientras RTSP está activo en En Vivo.
+  useEffect(() => {
+    if (!(rtspActive && tab === 'live')) return;
+    const iv = setInterval(() => drawStaticLine(), 700);
+    const onResize = () => drawStaticLine();
+    window.addEventListener('resize', onResize);
+    return () => { clearInterval(iv); window.removeEventListener('resize', onResize); };
+  }, [rtspActive, tab, drawStaticLine]);
 
   // ── Camera ───────────────────────────────────────────────────────────────────
 
@@ -544,6 +555,7 @@ export default function PeopleCounter() {
                   <img
                     key={mjpegUrl}
                     src={mjpegUrl}
+                    onLoad={() => drawStaticLine()}
                     style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }}
                     alt="rtsp"
                   />
