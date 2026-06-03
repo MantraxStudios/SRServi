@@ -294,7 +294,7 @@ namespace AforoBridge
             foreach (var a in new[] {
                 "-rtsp_transport", "tcp",
                 "-i", rtspUrl,
-                "-vf", "fps=1,scale=640:360",
+                "-vf", "fps=10,scale=640:360",
                 "-f", "image2pipe", "-vcodec", "mjpeg", "-q:v", "5",
                 "-loglevel", "error", "pipe:1"
             }) psi.ArgumentList.Add(a);

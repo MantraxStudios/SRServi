@@ -394,6 +394,15 @@ const excelUpload = multer({
 // Archivos públicos (verificación de dominio, etc.)
 app.use(express.static(path.join(__serverDir, 'public')));
 
+// Descargas de las apps AforoBridge (Windows .zip / Android .apk)
+app.use('/downloads', express.static(path.join(__serverDir, 'public', 'downloads'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.apk'))
+      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', `attachment; filename="${path.basename(filePath)}"`);
+  }
+}));
+
 app.use('/uploads', express.static('uploads', {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.apk')) {

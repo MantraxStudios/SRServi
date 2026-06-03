@@ -143,7 +143,7 @@ class CountingService : Service() {
             try {
                 detector?.process(YuvUtils.luminance80x60(img))
                 val now = System.currentTimeMillis()
-                if (now - lastSnap > 1000) {
+                if (now - lastSnap > 100) { // ~10 fps para una vista previa fluida
                     lastSnap = now
                     val jpeg = YuvUtils.toJpeg(img)
                     scope.launch { api.uploadSnapshot(settings.storeId, jpeg) }

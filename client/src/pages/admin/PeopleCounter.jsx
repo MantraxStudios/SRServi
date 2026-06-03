@@ -523,6 +523,24 @@ export default function PeopleCounter() {
         </div>
       </div>
 
+      {/* ── Descargas de las apps AforoBridge ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: '#111', borderRadius: 12, padding: '14px 18px', marginBottom: 20 }}>
+        <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+          <div style={{ color: '#D4AF37', fontWeight: 800, fontSize: 14 }}>📥 App AforoBridge</div>
+          <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 2 }}>
+            Instálala en el PC o celular del local para conectar tu cámara IP y contar en segundo plano.
+          </div>
+        </div>
+        <a href={`${API}/downloads/AforoBridge-Windows.zip`} download
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#D4AF37', color: '#000', fontWeight: 800, fontSize: 13, padding: '10px 16px', borderRadius: 9, textDecoration: 'none' }}>
+          🪟 Windows (.zip)
+        </a>
+        <a href={`${API}/downloads/AforoBridge-Android.apk`} download
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#111', fontWeight: 800, fontSize: 13, padding: '10px 16px', borderRadius: 9, textDecoration: 'none' }}>
+          🤖 Android (.apk)
+        </a>
+      </div>
+
       {/* ── LIVE TAB ── */}
       {tab === 'live' && (
         <>

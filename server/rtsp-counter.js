@@ -271,7 +271,7 @@ class RTSPCounterService {
       '-fflags', '+genpts+discardcorrupt',
       '-i', rtspUrl,
       '-filter_complex',
-      `[0:v]split=2[cnt][snp];[cnt]fps=2,scale=${W}:${H}[co];[snp]fps=5,scale=640:360[so]`,
+      `[0:v]split=2[cnt][snp];[cnt]fps=2,scale=${W}:${H}[co];[snp]fps=15,scale=640:360[so]`,
       '-map', '[co]', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-loglevel', 'error', 'pipe:1',
       '-map', '[so]', '-f', 'image2pipe', '-vcodec', 'mjpeg', '-q:v', '5', 'pipe:3',
     ], { stdio: ['ignore', 'pipe', 'pipe', 'pipe'] });
