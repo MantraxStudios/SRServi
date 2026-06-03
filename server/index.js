@@ -570,8 +570,9 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, password, business_name, country } = req.body;
     const email = (req.body.email || '').toLowerCase().trim();
+    const phone = (req.body.phone || '').trim();
 
-    if (!username || !email || !password || !country) {
+    if (!username || !email || !password || !country || !phone) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
 
@@ -589,7 +590,7 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Ese nombre de usuario ya está en uso' });
     }
 
-    const user = await createUser(username, email, password, business_name, country);
+    const user = await createUser(username, email, password, business_name, country, phone);
 
     const storeName = business_name || username;
     const newStore = await createStore(user.id, {

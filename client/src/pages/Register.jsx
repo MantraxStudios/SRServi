@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faEnvelope, faLock, faStore, faDownload, faUserCog, faGlobe, faDesktop, faVideo } from '@fortawesome/free-solid-svg-icons';
+import { faUser, faEnvelope, faLock, faStore, faDownload, faUserCog, faGlobe, faDesktop, faVideo, faPhone } from '@fortawesome/free-solid-svg-icons';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -15,13 +15,39 @@ function Register() {
     'Uruguay','Venezuela','Otro'
   ];
 
+  // Códigos de país (de marcación telefónica)
+  const DIAL_CODES = [
+    { code: '+54', label: 'Argentina (+54)' },
+    { code: '+591', label: 'Bolivia (+591)' },
+    { code: '+55', label: 'Brasil (+55)' },
+    { code: '+56', label: 'Chile (+56)' },
+    { code: '+57', label: 'Colombia (+57)' },
+    { code: '+506', label: 'Costa Rica (+506)' },
+    { code: '+53', label: 'Cuba (+53)' },
+    { code: '+593', label: 'Ecuador (+593)' },
+    { code: '+503', label: 'El Salvador (+503)' },
+    { code: '+34', label: 'España (+34)' },
+    { code: '+502', label: 'Guatemala (+502)' },
+    { code: '+504', label: 'Honduras (+504)' },
+    { code: '+52', label: 'México (+52)' },
+    { code: '+505', label: 'Nicaragua (+505)' },
+    { code: '+507', label: 'Panamá (+507)' },
+    { code: '+595', label: 'Paraguay (+595)' },
+    { code: '+51', label: 'Perú (+51)' },
+    { code: '+1', label: 'Puerto Rico / R. Dominicana / EE.UU. (+1)' },
+    { code: '+598', label: 'Uruguay (+598)' },
+    { code: '+58', label: 'Venezuela (+58)' },
+  ];
+
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
     confirmPassword: '',
     business_name: '',
-    country: ''
+    country: '',
+    phoneCountryCode: '',
+    phoneNumber: ''
   });
   const [verifyEmail, setVerifyEmail] = useState('');
   const [verifyCode, setVerifyCode] = useState('');
@@ -142,6 +168,15 @@ function Register() {
       setError('Por favor selecciona tu país');
       return;
     }
+    if (!formData.phoneCountryCode) {
+      setError('Por favor selecciona el código de país de tu teléfono');
+      return;
+    }
+    const phoneDigits = formData.phoneNumber.replace(/\D/g, '');
+    if (phoneDigits.length < 6) {
+      setError('Por favor ingresa un número de teléfono válido');
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       setError('Las contraseñas no coinciden');
       return;
@@ -161,7 +196,8 @@ function Register() {
           email: formData.email,
           password: formData.password,
           business_name: formData.business_name,
-          country: formData.country
+          country: formData.country,
+          phone: `${formData.phoneCountryCode} ${phoneDigits}`
         })
       });
       const data = await res.json();
@@ -368,6 +404,38 @@ function Register() {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Teléfono <span style={{ color: '#e53e3e' }}>*</span></label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="input-icon-wrapper" style={{ flex: '0 0 42%' }}>
+                <FontAwesomeIcon icon={faGlobe} className="input-icon" />
+                <select
+                  name="phoneCountryCode"
+                  value={formData.phoneCountryCode}
+                  onChange={handleChange}
+                  required
+                  style={{ width: '100%', appearance: 'none' }}
+                >
+                  <option value="">Código...</option>
+                  {DIAL_CODES.map(d => (
+                    <option key={d.label} value={d.code}>{d.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="input-icon-wrapper" style={{ flex: 1 }}>
+                <FontAwesomeIcon icon={faPhone} className="input-icon" />
+                <input
+                  type="tel"
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                  required
+                  placeholder="Número de teléfono"
+                />
+              </div>
             </div>
           </div>
 

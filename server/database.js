@@ -1093,6 +1093,10 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE users ADD COLUMN country VARCHAR(100) DEFAULT NULL');
         console.log('✅ Columna country agregada a users');
       }
+      if (!userColNames.includes('phone')) {
+        await pool.execute('ALTER TABLE users ADD COLUMN phone VARCHAR(30) DEFAULT NULL');
+        console.log('✅ Columna phone agregada a users');
+      }
       if (!userColNames.includes('chatgpt_api_key')) {
         await pool.execute('ALTER TABLE users ADD COLUMN chatgpt_api_key VARCHAR(255) DEFAULT NULL');
         console.log('✅ Columna chatgpt_api_key agregada a users');
@@ -1562,7 +1566,7 @@ function generateUniqueVendorUsername() {
   return `vendor_${suffix}`;
 }
 
-export async function createUser(username, email, password, business_name, country) {
+export async function createUser(username, email, password, business_name, country, phone) {
   const hashedPassword = await bcrypt.hash(password, 10);
   let code = generateCode();
   
@@ -1574,8 +1578,8 @@ export async function createUser(username, email, password, business_name, count
   }
 
   const [result] = await pool.execute(
-    'INSERT INTO users (username, email, password, code, business_name, country, email_verified) VALUES (?, ?, ?, ?, ?, ?, FALSE)',
-    [username, email, hashedPassword, code, business_name || null, country || null]
+    'INSERT INTO users (username, email, password, code, business_name, country, phone, email_verified) VALUES (?, ?, ?, ?, ?, ?, ?, FALSE)',
+    [username, email, hashedPassword, code, business_name || null, country || null, phone || null]
   );
 
   return {
