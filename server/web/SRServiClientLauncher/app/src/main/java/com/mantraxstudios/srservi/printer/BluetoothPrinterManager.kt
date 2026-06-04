@@ -268,7 +268,7 @@ class BluetoothPrinterManager(private val context: Context) {
         builder.alignCenter()
         builder.setBold(true)
         builder.setDoubleSize(true)
-        val serviceLabel = if (order.tableNumber != null) "PARA SERVIR" else "PARA LLEVAR"
+        val serviceLabel = if (order.serviceType == "llevar") "PARA LLEVAR" else "PARA SERVIR"
         builder.addText(serviceLabel)
         builder.setDoubleSize(false)
         builder.setBold(false)
