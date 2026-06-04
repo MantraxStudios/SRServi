@@ -228,9 +228,15 @@ export default function TableMap() {
     setSaving(true);
     try {
       const t = tables.find(t => t.id === selectedId);
+      const cleanForm = {
+        ...editForm,
+        capacity: editForm.capacity || 1,
+        w: editForm.w || (editForm.shape === 'circle' ? 100 : 120),
+        h: editForm.h || 80,
+      };
       const res = await fetch(`${API}/api/restaurant-tables/${selectedId}`, {
         method: 'PUT', headers: authHeaders,
-        body: JSON.stringify({ store_id: selectedStore.id, ...editForm, x: t.x, y: t.y, sort_order: t.sort_order || 0 })
+        body: JSON.stringify({ store_id: selectedStore.id, ...cleanForm, x: t.x, y: t.y, sort_order: t.sort_order || 0 })
       });
       if (res.ok) {
         const updated = await res.json();
@@ -417,7 +423,7 @@ export default function TableMap() {
               </div>
               <div style={{ marginBottom: 10 }}>
                 <label style={labelStyle}>Capacidad</label>
-                <input style={inputStyle} type="number" min="1" value={editForm.capacity} onChange={e => setEditForm(f => ({ ...f, capacity: parseInt(e.target.value) || 1 }))} />
+                <input style={inputStyle} type="number" min="1" value={editForm.capacity} onChange={e => setEditForm(f => ({ ...f, capacity: e.target.value === '' ? '' : parseInt(e.target.value) }))} />
               </div>
               <div style={{ marginBottom: 10 }}>
                 <label style={labelStyle}>Forma</label>
@@ -437,18 +443,18 @@ export default function TableMap() {
                 <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>Ancho</label>
-                    <input style={inputStyle} type="number" min="60" max="300" value={editForm.w} onChange={e => setEditForm(f => ({ ...f, w: parseInt(e.target.value) || 120 }))} />
+                    <input style={inputStyle} type="number" min="60" max="300" value={editForm.w} onChange={e => setEditForm(f => ({ ...f, w: e.target.value === '' ? '' : parseInt(e.target.value) }))} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>Alto</label>
-                    <input style={inputStyle} type="number" min="40" max="200" value={editForm.h} onChange={e => setEditForm(f => ({ ...f, h: parseInt(e.target.value) || 80 }))} />
+                    <input style={inputStyle} type="number" min="40" max="200" value={editForm.h} onChange={e => setEditForm(f => ({ ...f, h: e.target.value === '' ? '' : parseInt(e.target.value) }))} />
                   </div>
                 </div>
               )}
               {editForm.shape === 'circle' && (
                 <div style={{ marginBottom: 10 }}>
                   <label style={labelStyle}>Diámetro</label>
-                  <input style={inputStyle} type="number" min="60" max="250" value={editForm.w} onChange={e => setEditForm(f => ({ ...f, w: parseInt(e.target.value) || 100 }))} />
+                  <input style={inputStyle} type="number" min="60" max="250" value={editForm.w} onChange={e => setEditForm(f => ({ ...f, w: e.target.value === '' ? '' : parseInt(e.target.value) }))} />
                 </div>
               )}
 
