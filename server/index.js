@@ -50,10 +50,12 @@ import {
   getIngredients,
   createIngredient,
   updateIngredient,
+  setIngredientActive,
   deleteIngredient,
   getExtras,
   createExtra,
   updateExtra,
+  setExtraActive,
   deleteExtra,
   getStoreConfigurations,
   getStoreConfigurationById,
@@ -2080,7 +2082,8 @@ app.put('/api/public/:code/products/:id/complements', async (req, res) => {
     const auth = await verifyStoreAccess(req.params.code, req.body);
     if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
     const productId = parseInt(req.params.id);
-    const { ingredient_ids = [], extra_ids = [] } = req.body;
+    const { ingredient_ids = [], extra_ids = [], default_ingredient_ids = [] } = req.body;
+    const defaultSet = new Set((default_ingredient_ids || []).map(id => parseInt(id)));
 
     // Mark that this product has explicit complement configuration
     await pool.execute('UPDATE products SET complements_configured = TRUE WHERE id = ?', [productId]);
@@ -2088,7 +2091,8 @@ app.put('/api/public/:code/products/:id/complements', async (req, res) => {
     // Sync ingredients
     await pool.execute('DELETE FROM product_ingredients WHERE product_id = ?', [productId]);
     for (const ingId of ingredient_ids) {
-      await pool.execute('INSERT INTO product_ingredients (product_id, ingredient_id) VALUES (?, ?)', [productId, parseInt(ingId)]);
+      const iid = parseInt(ingId);
+      await pool.execute('INSERT INTO product_ingredients (product_id, ingredient_id, included_by_default) VALUES (?, ?, ?)', [productId, iid, defaultSet.has(iid)]);
     }
 
     // Sync extras
@@ -2112,9 +2116,13 @@ app.get('/api/public/:code/products/:id/complements', async (req, res) => {
     const { store_id, complements_configured } = prodRows[0];
 
     if (complements_configured) {
-      const [ings] = await pool.execute('SELECT ingredient_id FROM product_ingredients WHERE product_id = ?', [productId]);
+      const [ings] = await pool.execute('SELECT ingredient_id, included_by_default FROM product_ingredients WHERE product_id = ?', [productId]);
       const [exts] = await pool.execute('SELECT extra_id FROM product_extras WHERE product_id = ?', [productId]);
-      return res.json({ ingredient_ids: ings.map(r => r.ingredient_id), extra_ids: exts.map(r => r.extra_id) });
+      return res.json({
+        ingredient_ids: ings.map(r => r.ingredient_id),
+        default_ingredient_ids: ings.filter(r => r.included_by_default).map(r => r.ingredient_id),
+        extra_ids: exts.map(r => r.extra_id)
+      });
     }
 
     // Not yet configured — return all store ingredients/extras so editor shows all selected
@@ -4340,6 +4348,21 @@ app.delete('/api/ingredients/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Activar / desactivar implemento (visibilidad en store y worker panel)
+app.patch('/api/ingredients/:id/active', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, is_active } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const result = await setIngredientActive(parseInt(req.params.id), parseInt(store_id), !!is_active);
+    emitProductUpdate(parseInt(store_id), 'ingredient_updated', result);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/extras', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id;
@@ -4443,6 +4466,21 @@ app.delete('/api/extras/:id', authenticateToken, async (req, res) => {
     await deleteExtra(parseInt(extraId), parseInt(store_id));
     emitProductUpdate(parseInt(store_id), 'extra_deleted', { id: extraId });
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Activar / desactivar extra (visibilidad en store y worker panel)
+app.patch('/api/extras/:id/active', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, is_active } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const result = await setExtraActive(parseInt(req.params.id), parseInt(store_id), !!is_active);
+    emitProductUpdate(parseInt(store_id), 'extra_updated', result);
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { getImageUrl } from '../config.js';
+import { getImageUrl, getProductImageUrl } from '../config.js';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -331,7 +331,7 @@ function Minimarket() {
                 {cart.map(item => (
                   <div key={item.id} className="minimarket-cart-item">
                     <div className="minimarket-cart-item-image">
-                      {item.image && <img src={getImageUrl(item.image)} alt={item.name} />}
+                      <img src={getProductImageUrl(item.image)} alt={item.name} />
                     </div>
                     <div className="minimarket-cart-item-info">
                       <div className="minimarket-cart-item-name">{item.name}</div>

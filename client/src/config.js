@@ -8,3 +8,9 @@ export const getImageUrl = (imagePath) => {
   if (imagePath.startsWith('http')) return imagePath;
   return UPLOAD_URL + imagePath;
 };
+
+// Imagen obligatoria por defecto para productos, extras y complementos sin imagen propia.
+export const DEFAULT_PRODUCT_IMAGE = '/iconolbigatorio.png';
+
+// Igual que getImageUrl, pero nunca devuelve null: si no hay imagen usa la obligatoria.
+export const getProductImageUrl = (imagePath) => getImageUrl(imagePath) || DEFAULT_PRODUCT_IMAGE;

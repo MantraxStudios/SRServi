@@ -23,7 +23,7 @@ import {
   faBuilding,
   faPen
 } from '@fortawesome/free-solid-svg-icons';
-import { getImageUrl } from '../config.js';
+import { getImageUrl, getProductImageUrl } from '../config.js';
 
 const API = 'https://srservi2.srautomatic.com';
 
@@ -294,7 +294,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
     }
 
     setSelectedProduct(product);
-    setProductConfig({ selectedIngredients: [], selectedExtras: [], quantity: 1 });
+    setProductConfig({ selectedIngredients: (product.ingredients || []).filter(i => i.included_by_default), selectedExtras: [], quantity: 1 });
     setModalStep(hasIngredients ? 'ingredients' : 'extras');
   };
 
@@ -328,7 +328,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const calculateProductPrice = () => {
     if (!selectedProduct) return 0;
     let price = selectedProduct.price;
-    productConfig.selectedIngredients.forEach(ing => { price += ing.price || 0; });
+    productConfig.selectedIngredients.forEach(ing => { if (!ing.included_by_default) price += ing.price || 0; });
     productConfig.selectedExtras.forEach(ext => { price += ext.price || 0; });
     return price;
   };
@@ -353,6 +353,10 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const addToCart = () => {
     if (!selectedProduct) return;
     const unitPrice = calculateProductPrice();
+    const baseIngredients = (selectedProduct.ingredients || []).filter(i => i.included_by_default);
+    const selIds = new Set(productConfig.selectedIngredients.map(i => i.id));
+    const removed = baseIngredients.filter(i => !selIds.has(i.id)).map(i => `Sin ${i.name}`);
+    const added = productConfig.selectedIngredients.filter(i => !i.included_by_default).map(i => i.name);
     const cartItem = {
       id: Date.now(),
       product_id: selectedProduct.id,
@@ -361,7 +365,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       unit_price: unitPrice,
       quantity: productConfig.quantity,
       total: unitPrice * productConfig.quantity,
-      selected_ingredients: productConfig.selectedIngredients.map(i => i.name),
+      selected_ingredients: [...removed, ...added],
       selected_extras: productConfig.selectedExtras.map(e => e.name)
     };
     setCart(prev => [...prev, cartItem]);
@@ -756,11 +760,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                     onClick={() => !outOfStock && openProductModal(product)}
                   >
                     <div className="worker-pos-product-card">
-                      {product.image ? (
-                        <img src={getImageUrl(product.image)} alt={product.name} />
-                      ) : (
-                        <FontAwesomeIcon icon={faUtensils} />
-                      )}
+                      <img src={getProductImageUrl(product.image)} alt={product.name} />
                       {outOfStock && (
                         <span className="worker-pos-out-of-stock-badge">Agotado</span>
                       )}
@@ -1007,7 +1007,11 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                               {ing.is_required && <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>}
                             </span>
                           </div>
-                          {ing.price > 0 && (
+                          {ing.included_by_default ? (
+                            <span style={{ color: isSelected ? '#22c55e' : '#ef4444', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.3px' }}>
+                              {isSelected ? 'INCLUIDO' : `SIN ${ing.name.toUpperCase()}`}
+                            </span>
+                          ) : ing.price > 0 && (
                             <span style={{ color: '#D4AF37', fontSize: '0.8rem', fontWeight: 600 }}>
                               +{currencySymbol}{formatPrice(ing.price)}
                             </span>

@@ -240,6 +240,37 @@ function Complements() {
     }
   };
 
+  const toggleActive = async (item) => {
+    const token = localStorage.getItem('token');
+    const path = item._type === 'extra' ? 'extras' : 'ingredients';
+    const newVal = !item.is_active;
+    setItems(prev => prev.map(i => i.id === item.id && i._type === item._type ? { ...i, is_active: newVal } : i));
+    try {
+      const res = await fetch(`/api/${path}/${item.id}/active`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: selectedStore.id, is_active: newVal })
+      });
+      if (!res.ok) throw new Error('fail');
+    } catch {
+      setItems(prev => prev.map(i => i.id === item.id && i._type === item._type ? { ...i, is_active: !newVal } : i));
+      setError('No se pudo cambiar el estado');
+    }
+  };
+
+  function ActiveToggle({ item }) {
+    const on = !!item.is_active;
+    return (
+      <button
+        onClick={() => toggleActive(item)}
+        title={on ? 'Activado — visible en store y worker panel' : 'Desactivado — oculto'}
+        style={{ width: 44, height: 24, borderRadius: 999, border: 'none', cursor: 'pointer', position: 'relative', background: on ? '#16a34a' : '#cbd5e1', transition: 'background 0.15s', flexShrink: 0, padding: 0 }}
+      >
+        <span style={{ position: 'absolute', top: 2, left: on ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+      </button>
+    );
+  }
+
   function SortableRow({ item }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
@@ -262,6 +293,7 @@ function Complements() {
             </span>
           )}
         </td>
+        <td><ActiveToggle item={item} /></td>
         <td>
           <div className="action-buttons">
             <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(item)}>
@@ -336,6 +368,7 @@ function Complements() {
                         <th>Categoría</th>
                         <th>{activeTab === 'extra' ? 'Precio' : 'Precio Adicional'}</th>
                         <th>Stock</th>
+                        <th>Estado</th>
                         <th>Acciones</th>
                       </tr>
                     </thead>

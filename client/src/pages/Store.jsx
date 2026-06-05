@@ -52,7 +52,7 @@ import {
   faStar,
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
-import { SOCKET_URL, getImageUrl } from '../config.js';
+import { SOCKET_URL, getImageUrl, getProductImageUrl } from '../config.js';
 import CameraModal from '../components/CameraModal';
 const LoyaltyCheckModal = lazy(() => import('../components/LoyaltyCheckModal'));
 import RecipeEditor from '../components/RecipeEditor';
@@ -176,15 +176,11 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
             </div>
           )}
           <div className="store-product-image">
-            {product.image ? (
-              <img
-                src={getImageUrl(product.image)}
-                alt={product.name}
-                className={isOutOfStock ? 'grayscale' : ''}
-              />
-            ) : (
-              <FontAwesomeIcon icon={faBox} className="placeholder-icon" />
-            )}
+            <img
+              src={getProductImageUrl(product.image)}
+              alt={product.name}
+              className={isOutOfStock ? 'grayscale' : ''}
+            />
           </div>
         </div>
 
@@ -241,7 +237,7 @@ function SortableProductCard({ product, onEdit, onDelete, onRecipe, currencySymb
   );
 }
 
-function SortableComplementRow({ item, active, onToggle, onEdit, onDelete }) {
+function SortableComplementRow({ item, active, onToggle, onEdit, onDelete, showDefault, isDefault, onToggleDefault }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
   return (
@@ -251,7 +247,7 @@ function SortableComplementRow({ item, active, onToggle, onEdit, onDelete }) {
       </div>
       <div onClick={onToggle} style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, cursor: 'pointer' }}>
         <div style={{ width: '36px', height: '36px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {item.image ? <img src={getImageUrl(item.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FontAwesomeIcon icon={faBox} style={{ color: '#ccc' }} />}
+          <img src={getProductImageUrl(item.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '14px', fontWeight: '600' }}>{item.name}</div>
@@ -259,7 +255,16 @@ function SortableComplementRow({ item, active, onToggle, onEdit, onDelete }) {
         </div>
         <FontAwesomeIcon icon={active ? faCheckCircle : faTimesCircle} style={{ fontSize: '20px', color: active ? '#2ecc71' : '#ddd' }} />
       </div>
-      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
+        {showDefault && active && (
+          <button
+            onClick={(ev) => { ev.stopPropagation(); onToggleDefault(); }}
+            title={isDefault ? 'Incluido por defecto (se puede quitar) — clic para quitar' : 'Marcar como incluido por defecto'}
+            style={{ background: isDefault ? 'rgba(212,175,55,0.18)' : 'none', border: isDefault ? '1px solid #D4AF37' : '1px solid #ddd', color: isDefault ? '#b8860b' : '#bbb', cursor: 'pointer', padding: '3px 7px', fontSize: '11px', fontWeight: 700, borderRadius: '6px', whiteSpace: 'nowrap' }}
+          >
+            <FontAwesomeIcon icon={faStar} /> Base
+          </button>
+        )}
         <button onClick={(ev) => { ev.stopPropagation(); onEdit(); }} style={{ background: 'none', border: 'none', color: 'var(--store-primary)', cursor: 'pointer', padding: '4px', fontSize: '13px' }}><FontAwesomeIcon icon={faEdit} /></button>
         <button onClick={(ev) => { ev.stopPropagation(); onDelete(); }} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer', padding: '4px', fontSize: '13px' }}><FontAwesomeIcon icon={faTrash} /></button>
       </div>
@@ -1038,6 +1043,7 @@ function Store() {
   const [showComplementsModal, setShowComplementsModal] = useState(false);
   const [editCatFilter, setEditCatFilter] = useState('all');
   const [selectedIngredientIds, setSelectedIngredientIds] = useState([]);
+  const [selectedDefaultIngredientIds, setSelectedDefaultIngredientIds] = useState([]);
   const [selectedExtraIds, setSelectedExtraIds] = useState([]);
   const [complementsTab, setComplementsTab] = useState('complements');
   const [editingComplement, setEditingComplement] = useState(null);
@@ -2000,7 +2006,8 @@ function Store() {
     selectedProductRef.current = product;
     setSelectedProduct(product);
     setProductConfig({
-      selectedIngredients: [],
+      // Ingredientes base (incluidos por defecto) parten seleccionados; quitarlos = "Sin X"
+      selectedIngredients: (product.ingredients || []).filter(i => i.included_by_default),
       selectedExtras: [],
       quantity: 1,
       notes: ''
@@ -2187,7 +2194,8 @@ function Store() {
     let price = selectedProduct.price;
 
     productConfig.selectedIngredients.forEach(ing => {
-      price += ing.price || 0;
+      // Los ingredientes base (incluidos por defecto) no se cobran
+      if (!ing.included_by_default) price += ing.price || 0;
     });
 
     productConfig.selectedExtras.forEach(extra => {
@@ -2204,6 +2212,10 @@ function Store() {
     setExtrasModalOpen(false);
 
     const unitPrice = calculateProductPrice();
+    const baseIngredients = (selectedProduct.ingredients || []).filter(i => i.included_by_default);
+    const selectedIds = new Set(productConfig.selectedIngredients.map(i => i.id));
+    const removed = baseIngredients.filter(i => !selectedIds.has(i.id)).map(i => `Sin ${i.name}`);
+    const added = productConfig.selectedIngredients.filter(i => !i.included_by_default).map(i => i.name);
     const cartItem = {
       id: Date.now(),
       product_id: selectedProduct.id,
@@ -2212,7 +2224,7 @@ function Store() {
       unit_price: unitPrice,
       quantity: productConfig.quantity,
       total: unitPrice * productConfig.quantity,
-      selected_ingredients: productConfig.selectedIngredients.map(i => i.name),
+      selected_ingredients: [...removed, ...added],
       selected_extras: productConfig.selectedExtras.map(e => e.name)
     };
 
@@ -3654,15 +3666,18 @@ function Store() {
           .then(r => r.json())
           .then(data => {
             setSelectedIngredientIds(data.ingredient_ids || []);
+            setSelectedDefaultIngredientIds(data.default_ingredient_ids || []);
             setSelectedExtraIds(data.extra_ids || []);
           })
           .catch(() => {
             setSelectedIngredientIds(ingredients.map(i => i.id));
+            setSelectedDefaultIngredientIds([]);
             setSelectedExtraIds(extras.map(e => e.id));
           });
       } else {
         // New product: all enabled by default
         setSelectedIngredientIds(ingredients.map(i => i.id));
+        setSelectedDefaultIngredientIds([]);
         setSelectedExtraIds(extras.map(e => e.id));
       }
     }
@@ -3757,7 +3772,7 @@ function Store() {
           await fetch(`/api/public/${code}/products/${targetProd.id}/complements`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...getAuthBody(), ingredient_ids: allIngIds, extra_ids: allExtIds })
+            body: JSON.stringify({ ...getAuthBody(), ingredient_ids: allIngIds, extra_ids: allExtIds, default_ingredient_ids: selectedDefaultIngredientIds })
           });
         }
       }
@@ -3930,15 +3945,11 @@ function Store() {
             </div>
           )}
           <div className="store-product-image">
-            {product.image ? (
-              <img
-                src={getImageUrl(product.image)}
-                alt={product.name}
-                className={isOutOfStock ? 'grayscale' : ''}
-              />
-            ) : (
-              <FontAwesomeIcon icon={faBox} className="placeholder-icon" />
-            )}
+            <img
+              src={getProductImageUrl(product.image)}
+              alt={product.name}
+              className={isOutOfStock ? 'grayscale' : ''}
+            />
           </div>
         </div>
         <div className="store-product-info">
@@ -4156,7 +4167,7 @@ function Store() {
           <div className="store-editor-comp-list">
             {extras.map(e => (
               <div key={e.id} className="store-editor-comp-item">
-                {e.image && <img src={getImageUrl(e.image)} alt="" className="store-editor-comp-img" />}
+                <img src={getProductImageUrl(e.image)} alt="" className="store-editor-comp-img" />
                 <div className="store-editor-comp-info">
                   <strong>{e.name}</strong>
                   {Number(e.price) > 0 && <span className="store-editor-comp-price">+${Number(e.price).toFixed(0)}</span>}
@@ -4183,7 +4194,7 @@ function Store() {
           <div className="store-editor-comp-list">
             {ingredients.map(i => (
               <div key={i.id} className="store-editor-comp-item">
-                {i.image && <img src={getImageUrl(i.image)} alt="" className="store-editor-comp-img" />}
+                <img src={getProductImageUrl(i.image)} alt="" className="store-editor-comp-img" />
                 <div className="store-editor-comp-info">
                   <strong>{i.name}</strong>
                   {Number(i.price) > 0 && <span className="store-editor-comp-price">+${Number(i.price).toFixed(0)}</span>}
@@ -4363,11 +4374,7 @@ function Store() {
                 <div className="store-product-wrapper" style={{ opacity: 0.8 }}>
                   <div className="store-product-card">
                     <div className="store-product-image">
-                      {product.image ? (
-                        <img src={getImageUrl(product.image)} alt={product.name} />
-                      ) : (
-                        <FontAwesomeIcon icon={faBox} className="placeholder-icon" />
-                      )}
+                      <img src={getProductImageUrl(product.image)} alt={product.name} />
                     </div>
                   </div>
                 </div>
@@ -4708,17 +4715,11 @@ function Store() {
 
       {notification && (
         <div className="toast">
-          {notification.image ? (
-            <img
-              src={getImageUrl(notification.image)}
-              alt={notification.name}
-              className="toast-image"
-            />
-          ) : (
-            <div className="toast-placeholder">
-              <FontAwesomeIcon icon={faBox} />
-            </div>
-          )}
+          <img
+            src={getProductImageUrl(notification.image)}
+            alt={notification.name}
+            className="toast-image"
+          />
           <div>
             <div className="toast-name">{notification.name}</div>
             {notification.agotado ? (
@@ -4839,30 +4840,27 @@ function Store() {
                         {t('soldOut', lang)}
                       </div>
                     )}
-                    {ingredient.image ? (
-                      <img
-                        src={ingredient.image}
-                        alt={ingredient.name}
-                        style={{
-                          width: '100%',
-                          height: '110px',
-                          objectFit: 'cover',
-                          borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
-                        }}
-                      />
-                    ) : (
+                    {ingredient.included_by_default && (
                       <div style={{
-                        width: '100%',
-                        height: '110px',
-                        backgroundColor: 'var(--store-primary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
+                        position: 'absolute', top: '6px', right: '6px', zIndex: 2,
+                        backgroundColor: isSelected ? '#16a34a' : '#dc3545',
+                        color: '#fff', padding: '2px 8px', borderRadius: '6px',
+                        fontSize: '10px', fontWeight: 800, letterSpacing: '0.3px',
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.25)'
                       }}>
-                        <FontAwesomeIcon icon={faUtensils} style={{ fontSize: '48px', color: 'var(--store-accent)' }} />
+                        {isSelected ? 'INCLUIDO' : `SIN ${ingredient.name.toUpperCase()}`}
                       </div>
                     )}
+                    <img
+                      src={getProductImageUrl(ingredient.image)}
+                      alt={ingredient.name}
+                      style={{
+                        width: '100%',
+                        height: '110px',
+                        objectFit: 'cover',
+                        borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
+                      }}
+                    />
                     <div className="text-center" style={{ padding: '8px' }}>
                       <div style={{
                         fontWeight: '600',
@@ -4877,7 +4875,7 @@ function Store() {
                       }}>
                         {ingredient.name}
                       </div>
-                      {Number(ingredient.price) > 0 && (
+                      {Number(ingredient.price) > 0 && !ingredient.included_by_default && (
                         <div style={{
                           fontSize: '12px',
                           fontWeight: '600',
@@ -5042,30 +5040,16 @@ function Store() {
                         {t('soldOut', lang)}
                       </div>
                     )}
-                    {extra.image ? (
-                      <img
-                        src={extra.image}
-                        alt={extra.name}
-                        style={{
-                          width: '100%',
-                          height: '110px',
-                          objectFit: 'cover',
-                          borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
-                        }}
-                      />
-                    ) : (
-                      <div style={{
+                    <img
+                      src={getProductImageUrl(extra.image)}
+                      alt={extra.name}
+                      style={{
                         width: '100%',
                         height: '110px',
-                        backgroundColor: 'var(--store-primary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        objectFit: 'cover',
                         borderBottom: `1px solid ${isSelected ? 'var(--store-accent)' : '#e0e0e0'}`
-                      }}>
-                        <FontAwesomeIcon icon={faUtensils} style={{ fontSize: '48px', color: 'var(--store-accent)' }} />
-                      </div>
-                    )}
+                      }}
+                    />
                     <div className="text-center" style={{ padding: '8px' }}>
                       <div style={{
                         fontWeight: '600',
@@ -5176,11 +5160,7 @@ function Store() {
               {cart.map(item => (
                 <div className="store-cart-item" key={item.id}>
                   <div className="store-cart-item-thumb">
-                    {item.product_image ? (
-                      <img src={getImageUrl(item.product_image)} alt={item.product_name} />
-                    ) : (
-                      <FontAwesomeIcon icon={faBox} className="store-cart-item-thumb-icon" />
-                    )}
+                    <img src={getProductImageUrl(item.product_image)} alt={item.product_name} />
                   </div>
                   <div className="store-cart-item-content">
                     <div className="store-cart-item-top">
@@ -6190,12 +6170,8 @@ function Store() {
                 <img src={URL.createObjectURL(prodImageFile)} alt="Preview" className="store-prod-modal-preview" />
               ) : prodForm.image_url ? (
                 <img src={prodForm.image_url} alt="Preview URL" className="store-prod-modal-preview" />
-              ) : editingProd?.image ? (
-                <img src={getImageUrl(editingProd.image)} alt="Actual" className="store-prod-modal-preview" />
               ) : (
-                <div className="store-prod-modal-no-image">
-                  <FontAwesomeIcon icon={faBox} />
-                </div>
+                <img src={getProductImageUrl(editingProd?.image)} alt="Actual" className="store-prod-modal-preview" />
               )}
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <label className="store-prod-modal-image-btn">
@@ -6449,6 +6425,9 @@ function Store() {
                             item={ing}
                             active={active}
                             onToggle={() => setSelectedIngredientIds(active ? selectedIngredientIds.filter(id => id !== ing.id) : [...selectedIngredientIds, ing.id])}
+                            showDefault
+                            isDefault={selectedDefaultIngredientIds.includes(ing.id)}
+                            onToggleDefault={() => setSelectedDefaultIngredientIds(prev => prev.includes(ing.id) ? prev.filter(id => id !== ing.id) : [...prev, ing.id])}
                             onEdit={() => setEditComplementModal({ id: ing.id, type: 'ingredient', name: ing.name, price: ing.price?.toString() || '', stock: String(ing.stock ?? 0), unlimited_stock: !!(ing.unlimited_stock === true || ing.unlimited_stock === 1 || ing.unlimited_stock === '1'), imageFile: null })}
                             onDelete={() => deleteComplementFromModal('ingredient', ing.id)}
                           />
