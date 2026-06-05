@@ -1437,7 +1437,7 @@ function Store() {
       setOrderRating(null);
       setOrderComment('');
       setShowRatingStep(true);
-    }, 10000);
+    }, 15000);
     return () => clearTimeout(toRatingTimer);
   }, [paymentConfirmed]);
 
@@ -1461,7 +1461,7 @@ function Store() {
       setOrderRating(null);
       setOrderComment('');
       setShowRatingStep(true);
-    }, 3000);
+    }, 15000);
     return () => clearTimeout(toRatingTimer);
   }, [cashPaymentSuccess]);
 
@@ -5915,10 +5915,14 @@ function Store() {
               style={{
                 marginTop: '25px',
                 backgroundColor: 'var(--store-accent)',
-                color: 'var(--store-primary)'
+                color: 'var(--store-primary)',
+                position: 'relative',
+                overflow: 'hidden'
               }}
             >
-              {t('confirm', lang)}
+              <style>{`@keyframes continue-fill { from { width: 0%; } to { width: 100%; } }`}</style>
+              <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, background: 'rgba(0,0,0,0.18)', animation: 'continue-fill 15s linear forwards', zIndex: 0 }} />
+              <span style={{ position: 'relative', zIndex: 1 }}>{t('confirm', lang)}</span>
             </button>
           </div>
         </div>
@@ -6162,10 +6166,14 @@ function Store() {
               style={{
                 marginTop: '25px',
                 backgroundColor: 'var(--store-accent)',
-                color: 'var(--store-primary)'
+                color: 'var(--store-primary)',
+                position: 'relative',
+                overflow: 'hidden'
               }}
             >
-              {t('confirm', lang)}
+              <style>{`@keyframes continue-fill { from { width: 0%; } to { width: 100%; } }`}</style>
+              <span style={{ position: 'absolute', left: 0, top: 0, bottom: 0, background: 'rgba(0,0,0,0.18)', animation: 'continue-fill 15s linear forwards', zIndex: 0 }} />
+              <span style={{ position: 'relative', zIndex: 1 }}>{t('confirm', lang)}</span>
             </button>
           </div>
         </div>
