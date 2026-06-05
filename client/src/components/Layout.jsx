@@ -909,24 +909,32 @@ function Layout() {
 
         <main className={isEditorMode ? 'admin-content admin-content--editor-desktop' : 'admin-content admin-content--no-sidebar'}>
           {isEditorMode && !menuOpen && (
-            <div style={{ position: 'fixed', top: '12px', right: '12px', zIndex: 99999 }}>
+            <div style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 99999 }}>
               <button
                 onClick={() => setMenuOpen(true)}
                 title="Abrir menú"
                 style={{
-                  background: 'rgba(0,0,0,0.75)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  background: 'rgba(10,10,10,0.85)',
                   color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                  fontSize: '16px',
+                  border: '1.5px solid rgba(212,175,55,0.6)',
+                  borderRadius: '14px',
+                  padding: '14px 20px',
+                  fontSize: '17px',
+                  fontWeight: 700,
                   cursor: 'pointer',
-                  backdropFilter: 'blur(4px)',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
-                  lineHeight: 1
+                  backdropFilter: 'blur(6px)',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                  lineHeight: 1,
+                  transition: 'all 0.15s'
                 }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(30,30,30,0.92)'; e.currentTarget.style.borderColor = '#D4AF37'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(10,10,10,0.85)'; e.currentTarget.style.borderColor = 'rgba(212,175,55,0.6)'; e.currentTarget.style.transform = 'none'; }}
               >
-                ☰
+                <FontAwesomeIcon icon={faBars} style={{ fontSize: '20px', color: '#D4AF37' }} />
+                <span>Menú</span>
               </button>
             </div>
           )}

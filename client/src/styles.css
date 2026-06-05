@@ -4055,26 +4055,92 @@ html body .store-container .store-product-card * {
 }
 
 .worker-header-right {
+  --wh-btn-h: 38px;
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
   flex-shrink: 0;
 }
 
+/* Acciones principales (Nuevo / Cobrar) dentro del header */
 .worker-header-right .worker-action-primary {
-  padding: 9px 12px;
-  font-size: 12px;
-  gap: 5px;
-  border-radius: 10px;
+  height: var(--wh-btn-h);
+  padding: 0 15px;
+  font-size: 13px;
+  gap: 7px;
+  border-radius: 11px;
+  box-sizing: border-box;
 }
 
 .worker-btn-label {
   display: inline;
 }
 
+/* ── Botón de caja (estado) ── */
+.worker-cash-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--wh-btn-h);
+  padding: 0 14px;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s, background 0.15s;
+  flex-shrink: 0;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+.worker-cash-btn .worker-cash-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.worker-cash-btn.open {
+  background: rgba(34,197,94,0.13);
+  color: #22c55e;
+  border-color: rgba(34,197,94,0.28);
+}
+.worker-cash-btn.open .worker-cash-dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34,197,94,0.6);
+  animation: worker-cash-pulse 2s infinite;
+}
+.worker-cash-btn.closed {
+  background: rgba(239,68,68,0.12);
+  color: #ef4444;
+  border-color: rgba(239,68,68,0.26);
+}
+.worker-cash-btn.closed .worker-cash-dot { background: #ef4444; }
+.worker-cash-btn:hover { filter: brightness(1.12); }
+.worker-cash-btn:active { transform: scale(0.97); }
+
+@keyframes worker-cash-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0.55); }
+  70%  { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+  100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+}
+
+/* ── Cluster segmentado de utilidades (PDF, tienda, usuario, salir) ── */
+.worker-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--wh-btn-h);
+  padding: 0 3px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
 .worker-header-icon-btn {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   background: rgba(255,255,255,0.07);
   color: rgba(255,255,255,0.6);
   border: 1px solid rgba(255,255,255,0.1);
@@ -4090,39 +4156,40 @@ html body .store-container .store-product-card * {
 .worker-header-icon-btn:hover { background: rgba(255,255,255,0.13); color: #fff; }
 .worker-header-icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-.worker-switch-btn {
-  width: 36px;
-  height: 36px;
-  background: rgba(255,255,255,0.07);
-  color: rgba(255,255,255,0.65);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  flex-shrink: 0;
+/* Iconos dentro del cluster: sin borde/fondo propio, separados por divisor sutil */
+.worker-header-tools .worker-header-icon-btn {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255,255,255,0.55);
 }
-.worker-switch-btn:hover { background: rgba(255,255,255,0.13); color: #fff; }
+.worker-header-tools .worker-header-icon-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+.worker-header-tools .worker-header-icon-btn + .worker-header-icon-btn {
+  position: relative;
+}
+.worker-header-tools .worker-header-icon-btn + .worker-header-icon-btn::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 16px;
+  background: rgba(255,255,255,0.09);
+}
 
-.worker-logout-btn {
-  width: 36px;
-  height: 36px;
-  background: rgba(212,175,55,0.1);
-  color: #D4AF37;
-  border: 1px solid rgba(212,175,55,0.22);
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  flex-shrink: 0;
+/* Botón de salir destacado en dorado dentro del cluster */
+.worker-logout-btn { color: #D4AF37; }
+.worker-header-tools .worker-logout-btn { color: #D4AF37; }
+.worker-header-tools .worker-logout-btn:hover:not(:disabled) {
+  background: rgba(212,175,55,0.18);
+  color: #e9c349;
 }
-.worker-logout-btn:hover { background: rgba(212,175,55,0.2); }
 
 /* ── Stats — 2 columnas ── */
 .worker-stats-row {
@@ -4202,24 +4269,27 @@ html body .store-container .store-product-card * {
   justify-content: center;
   gap: 7px;
   padding: 11px 10px;
-  background: linear-gradient(135deg, #D4AF37, #b8960c);
+  background: linear-gradient(135deg, #e3c356, #b8960c);
   color: #000;
   border: none;
   border-radius: 11px;
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
+  transition: filter 0.15s, transform 0.12s, box-shadow 0.15s, opacity 0.15s;
   white-space: nowrap;
   letter-spacing: -0.01em;
+  box-shadow: 0 2px 10px rgba(212,175,55,0.28);
 }
 
 .worker-action-primary.green {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
+  background: linear-gradient(135deg, #2fd06a, #16a34a);
   color: #fff;
+  box-shadow: 0 2px 10px rgba(34,197,94,0.28);
 }
 
-.worker-action-primary:active { opacity: 0.82; transform: scale(0.98); }
+.worker-header-right .worker-action-primary:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.worker-action-primary:active { opacity: 0.88; transform: scale(0.98); box-shadow: none; }
 
 .worker-action-secondary {
   display: flex;
@@ -10468,11 +10538,11 @@ html body .store-container .store-product-card * {
   .worker-header-top     { padding: 10px 10px 8px; }
   .worker-header-title   { font-size: 13px; max-width: 35vw; }
   .worker-header-subtitle { font-size: 9px; }
+  .worker-header-right   { --wh-btn-h: 34px; gap: 6px; }
   .worker-btn-label      { display: none; }
-  .worker-header-right .worker-action-primary { padding: 9px 10px; }
-  .worker-switch-btn,
-  .worker-logout-btn,
-  .worker-header-icon-btn { width: 30px; height: 30px; font-size: 12px; }
+  .worker-header-right .worker-action-primary { padding: 0 11px; }
+  .worker-cash-btn       { padding: 0 11px; gap: 6px; }
+  .worker-header-tools .worker-header-icon-btn { width: 30px; height: 30px; font-size: 12px; }
 
   .worker-stat-num       { font-size: 22px; }
   .worker-stat           { padding: 10px 6px 8px; }
@@ -10488,11 +10558,11 @@ html body .store-container .store-product-card * {
 @media (max-width: 480px) {
   .worker-header-top     { padding: 10px 12px 8px; }
   .worker-header-title   { font-size: 14px; max-width: 38vw; }
+  .worker-header-right   { --wh-btn-h: 36px; }
   .worker-btn-label      { display: none; }
-  .worker-header-right .worker-action-primary { padding: 9px 11px; }
-  .worker-switch-btn,
-  .worker-logout-btn,
-  .worker-header-icon-btn { width: 34px; height: 34px; }
+  .worker-header-right .worker-action-primary { padding: 0 12px; }
+  .worker-cash-btn       { padding: 0 12px; }
+  .worker-header-tools .worker-header-icon-btn { width: 32px; height: 32px; }
 
   .worker-orders-list    { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .worker-order-card     { padding: 12px 14px; }
@@ -10507,13 +10577,14 @@ html body .store-container .store-product-card * {
   .worker-header-top     { padding: 12px 18px 10px; }
   .worker-header-title   { font-size: 16px; max-width: 56vw; }
   .worker-header-subtitle { font-size: 11px; }
-  .worker-switch-btn,
-  .worker-logout-btn     { width: 38px; height: 38px; font-size: 14px; }
+  .worker-header-right   { --wh-btn-h: 40px; gap: 9px; }
+  .worker-header-tools .worker-header-icon-btn { width: 34px; height: 34px; font-size: 14px; }
 
   .worker-stat           { padding: 12px 8px 10px; }
   .worker-stat-num       { font-size: 26px; }
 
-  .worker-header-right .worker-action-primary { font-size: 13px; padding: 9px 13px; }
+  .worker-header-right .worker-action-primary { font-size: 13px; padding: 0 16px; }
+  .worker-cash-btn       { font-size: 13px; padding: 0 15px; }
   .worker-btn-label      { display: inline; }
 
   .worker-orders-list    { grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -10526,15 +10597,15 @@ html body .store-container .store-product-card * {
   .worker-header-top     { padding: 14px 22px 12px; }
   .worker-header-title   { font-size: 19px; max-width: 60vw; }
   .worker-header-subtitle { font-size: 12px; }
-  .worker-switch-btn,
-  .worker-logout-btn     { width: 40px; height: 40px; font-size: 15px; }
+  .worker-header-right   { --wh-btn-h: 42px; gap: 10px; }
 
   .worker-stat           { padding: 16px 12px 14px; }
   .worker-stat-num       { font-size: 32px; }
   .worker-stat-label     { font-size: 10px; }
 
-  .worker-header-right .worker-action-primary { font-size: 14px; padding: 10px 16px; }
-  .worker-header-icon-btn { width: 40px; height: 40px; font-size: 15px; }
+  .worker-header-right .worker-action-primary { font-size: 14px; padding: 0 18px; }
+  .worker-cash-btn       { font-size: 14px; padding: 0 16px; }
+  .worker-header-tools .worker-header-icon-btn { width: 36px; height: 36px; font-size: 15px; }
 
   .worker-orders-list    { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
   .worker-orders-list.tasks-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }

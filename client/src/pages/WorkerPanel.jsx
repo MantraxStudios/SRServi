@@ -418,6 +418,13 @@ function WorkerPanel() {
   const [showCashModal, setShowCashModal] = useState(false);
   const [cashOpeningAmount, setCashOpeningAmount] = useState('');
   const [showCloseCashModal, setShowCloseCashModal] = useState(false);
+  const [cashSummary, setCashSummary] = useState(null);
+  const [cashSummaryLoading, setCashSummaryLoading] = useState(false);
+  const [showEgresoForm, setShowEgresoForm] = useState(false);
+  const [egresoAmount, setEgresoAmount] = useState('');
+  const [egresoDesc, setEgresoDesc] = useState('');
+  const [egresoCategory, setEgresoCategory] = useState('Gasto');
+  const [egresoSaving, setEgresoSaving] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [completingTask, setCompletingTask] = useState(null);
@@ -624,6 +631,61 @@ function WorkerPanel() {
     }
   };
 
+  const fetchCashSummary = async () => {
+    const token = localStorage.getItem('workerToken');
+    setCashSummaryLoading(true);
+    try {
+      const res = await fetch('/api/cash-register/summary', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setCashSummary(await res.json());
+      } else {
+        setCashSummary(null);
+      }
+    } catch (e) {
+      setCashSummary(null);
+    } finally {
+      setCashSummaryLoading(false);
+    }
+  };
+
+  const addEgreso = async () => {
+    const amount = parseFloat(egresoAmount);
+    if (!amount || amount <= 0) { alert('Ingresa un monto válido'); return; }
+    const token = localStorage.getItem('workerToken');
+    setEgresoSaving(true);
+    try {
+      const res = await fetch('/api/cash-register/movement', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, description: egresoDesc.trim() || null, category: egresoCategory })
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Error al registrar egreso'); return; }
+      setEgresoAmount('');
+      setEgresoDesc('');
+      setEgresoCategory('Gasto');
+      setShowEgresoForm(false);
+      await fetchCashSummary();
+    } catch (e) {
+      alert('Error de conexión');
+    } finally {
+      setEgresoSaving(false);
+    }
+  };
+
+  const deleteEgreso = async (id) => {
+    const token = localStorage.getItem('workerToken');
+    try {
+      const res = await fetch(`/api/cash-register/movement/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) await fetchCashSummary();
+    } catch (e) { /* silent */ }
+  };
+
   const closeCashRegisterFn = async () => {
     const token = localStorage.getItem('workerToken');
     setCashLoading(true);
@@ -637,12 +699,20 @@ function WorkerPanel() {
       setCashRegister(null);
       setShowCloseCashModal(false);
       setShowCashModal(false);
+      setCashSummary(null);
     } catch (e) {
       alert('Error de conexión');
     } finally {
       setCashLoading(false);
     }
   };
+
+  useEffect(() => {
+    if ((showCashModal && cashRegister) || showCloseCashModal) {
+      fetchCashSummary();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCashModal, showCloseCashModal, cashRegister]);
 
   const fetchStoreColors = async (storeId) => {
     try {
@@ -1207,17 +1277,11 @@ function WorkerPanel() {
           </div>
           <div className="worker-header-right">
             <button
+              className={`worker-cash-btn ${cashRegister ? 'open' : 'closed'}`}
               onClick={() => setShowCashModal(true)}
               title={cashRegister ? 'Caja abierta — click para cerrar' : 'Abrir caja'}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '8px 14px', borderRadius: '10px', border: 'none',
-                background: cashRegister ? 'rgba(22,163,74,0.15)' : 'rgba(239,68,68,0.15)',
-                color: cashRegister ? '#16a34a' : '#ef4444',
-                cursor: 'pointer', fontWeight: 700, fontSize: '13px',
-                transition: 'all 0.15s', flexShrink: 0
-              }}
             >
+              <span className="worker-cash-dot" />
               <FontAwesomeIcon icon={faCashRegister} />
               <span className="worker-btn-label">{cashRegister ? 'Caja' : 'Sin caja'}</span>
             </button>
@@ -1239,25 +1303,27 @@ function WorkerPanel() {
               <FontAwesomeIcon icon={cashRegister ? faMoneyBillWave : faLock} />
               <span className="worker-btn-label">Cobrar</span>
             </button>
-            <button
-              className="worker-header-icon-btn"
-              onClick={downloadTodayPDF}
-              disabled={!(orders.length || completedOrders.length || pendingCashOrders.length)}
-              title="Generar PDF"
-            >
-              <FontAwesomeIcon icon={faPrint} />
-            </button>
-            {storeCode && (
-              <button className="worker-header-icon-btn" onClick={() => window.open(`/store/${storeCode}`, '_blank')} title="Ver tienda">
-                <FontAwesomeIcon icon={faExternalLinkAlt} />
+            <div className="worker-header-tools">
+              <button
+                className="worker-header-icon-btn"
+                onClick={downloadTodayPDF}
+                disabled={!(orders.length || completedOrders.length || pendingCashOrders.length)}
+                title="Generar PDF"
+              >
+                <FontAwesomeIcon icon={faPrint} />
               </button>
-            )}
-            <button className="worker-switch-btn" onClick={() => setShowWorkerSwitch(true)} title="Cambiar usuario">
-              <FontAwesomeIcon icon={faUserCog} />
-            </button>
-            <button className="worker-logout-btn" onClick={handleLogout} title="Cerrar sesión">
-              <FontAwesomeIcon icon={faSignOutAlt} />
-            </button>
+              {storeCode && (
+                <button className="worker-header-icon-btn" onClick={() => window.open(`/store/${storeCode}`, '_blank')} title="Ver tienda">
+                  <FontAwesomeIcon icon={faExternalLinkAlt} />
+                </button>
+              )}
+              <button className="worker-header-icon-btn" onClick={() => setShowWorkerSwitch(true)} title="Cambiar usuario">
+                <FontAwesomeIcon icon={faUserCog} />
+              </button>
+              <button className="worker-header-icon-btn worker-logout-btn" onClick={handleLogout} title="Cerrar sesión">
+                <FontAwesomeIcon icon={faSignOutAlt} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -2219,6 +2285,89 @@ function WorkerPanel() {
                       </p>
                     )}
                   </div>
+
+                  {/* ── Egresos / gastos de la caja ── */}
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>
+                        <FontAwesomeIcon icon={faMoneyBillWave} style={{ color: '#ef4444', marginRight: 6 }} />
+                        Egresos {cashSummary?.movements?.length ? `(${cashSummary.movements.length})` : ''}
+                      </span>
+                      {!showEgresoForm && (
+                        <button
+                          onClick={() => setShowEgresoForm(true)}
+                          style={{ background: 'rgba(212,175,55,0.15)', color: '#D4AF37', border: '1px solid rgba(212,175,55,0.3)', borderRadius: '8px', padding: '5px 10px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+                        >
+                          <FontAwesomeIcon icon={faPlus} /> Agregar
+                        </button>
+                      )}
+                    </div>
+
+                    {showEgresoForm && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
+                        <input
+                          type="number" min="0" step="0.01" placeholder="Monto" value={egresoAmount}
+                          onChange={e => setEgresoAmount(e.target.value)} autoFocus
+                          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #333', background: '#111', color: '#fff', fontSize: '16px', fontWeight: 700, outline: 'none', boxSizing: 'border-box' }}
+                        />
+                        <input
+                          type="text" placeholder="Descripción (ej. insumos, proveedor)" value={egresoDesc}
+                          onChange={e => setEgresoDesc(e.target.value)}
+                          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #333', background: '#111', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                        />
+                        <select
+                          value={egresoCategory} onChange={e => setEgresoCategory(e.target.value)}
+                          style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #333', background: '#111', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                        >
+                          <option value="Gasto">Gasto</option>
+                          <option value="Retiro">Retiro</option>
+                          <option value="Proveedor">Proveedor</option>
+                          <option value="Insumos">Insumos</option>
+                          <option value="Otro">Otro</option>
+                        </select>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={addEgreso} disabled={egresoSaving}
+                            style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: '#D4AF37', color: '#000', fontWeight: 800, fontSize: '13px', cursor: 'pointer' }}
+                          >
+                            {egresoSaving ? 'Guardando...' : 'Guardar'}
+                          </button>
+                          <button
+                            onClick={() => { setShowEgresoForm(false); setEgresoAmount(''); setEgresoDesc(''); }}
+                            style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: 'rgba(255,255,255,0.6)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {cashSummary?.movements?.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {cashSummary.movements.map(m => (
+                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0,0,0,0.25)', borderRadius: '8px', padding: '8px 10px' }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ color: '#fff', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.description || m.category}</div>
+                              <div style={{ color: '#777', fontSize: '11px' }}>{m.category}</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                              <span style={{ color: '#ef4444', fontSize: '13px', fontWeight: 700 }}>-${formatPrice(m.amount)}</span>
+                              <button onClick={() => deleteEgreso(m.id)} style={{ background: 'transparent', border: 'none', color: '#666', cursor: 'pointer', fontSize: '12px' }} title="Eliminar">
+                                <FontAwesomeIcon icon={faTimes} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '8px', marginTop: '2px' }}>
+                          <span style={{ color: '#aaa', fontSize: '12px', fontWeight: 700 }}>Total egresos</span>
+                          <span style={{ color: '#ef4444', fontSize: '14px', fontWeight: 800 }}>-${formatPrice(cashSummary.total_egresos)}</span>
+                        </div>
+                      </div>
+                    ) : (!showEgresoForm && (
+                      <p style={{ color: '#666', fontSize: '12px', margin: 0, textAlign: 'center' }}>Sin egresos registrados</p>
+                    ))}
+                  </div>
+
                   <button
                     onClick={() => setShowCloseCashModal(true)}
                     disabled={cashLoading}
@@ -2299,15 +2448,54 @@ function WorkerPanel() {
               <button className="worker-modal-close" onClick={() => setShowCloseCashModal(false)}>x</button>
             </div>
             <div style={{ padding: '16px 0', textAlign: 'center' }}>
-              <p style={{ color: '#ccc', fontSize: '14px', margin: '0 0 12px' }}>
-                ¿Seguro que deseas cerrar la caja?
+              <p style={{ color: '#ccc', fontSize: '14px', margin: '0 0 14px' }}>
+                Estado de resultados del turno
               </p>
-              <div style={{ background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: 10, padding: '12px 20px', margin: '0 0 12px' }}>
-                <p style={{ color: '#888', fontSize: '11px', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 1 }}>Efectivo a cerrar</p>
-                <p style={{ color: '#D4AF37', fontSize: '28px', fontWeight: 900, margin: 0 }}>
-                  ${stats.total}
-                </p>
-              </div>
+
+              {cashSummaryLoading ? (
+                <p style={{ color: '#888', fontSize: '13px', padding: '16px 0' }}>Calculando...</p>
+              ) : cashSummary ? (
+                <div style={{ textAlign: 'left', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '14px 16px', margin: '0 0 12px' }}>
+                  {/* Ingresos */}
+                  <div style={{ color: '#16a34a', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Ingresos</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px', color: '#ccc' }}>
+                    <span>Apertura (inicial)</span><span style={{ color: '#fff', fontWeight: 600 }}>${formatPrice(cashSummary.opening)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px', color: '#ccc' }}>
+                    <span>Ventas en efectivo</span><span style={{ color: '#fff', fontWeight: 600 }}>${formatPrice(cashSummary.ventas_efectivo)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px', color: '#ccc' }}>
+                    <span>Ventas con tarjeta</span><span style={{ color: '#fff', fontWeight: 600 }}>${formatPrice(cashSummary.ventas_tarjeta)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '14px', borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 4 }}>
+                    <span style={{ color: '#aaa', fontWeight: 700 }}>Total vendido</span>
+                    <span style={{ color: '#16a34a', fontWeight: 800 }}>${formatPrice(cashSummary.total_ventas)}</span>
+                  </div>
+
+                  {/* Egresos */}
+                  <div style={{ color: '#ef4444', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, margin: '12px 0 6px' }}>Egresos</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '13px', color: '#ccc' }}>
+                    <span>Total egresos {cashSummary.movements?.length ? `(${cashSummary.movements.length})` : ''}</span>
+                    <span style={{ color: '#ef4444', fontWeight: 700 }}>-${formatPrice(cashSummary.total_egresos)}</span>
+                  </div>
+
+                  {/* Resultado */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px', fontSize: '14px', borderTop: '1px solid rgba(255,255,255,0.12)', marginTop: 8 }}>
+                    <span style={{ color: '#fff', fontWeight: 800 }}>Resultado neto</span>
+                    <span style={{ color: cashSummary.resultado_neto >= 0 ? '#16a34a' : '#ef4444', fontWeight: 900 }}>${formatPrice(cashSummary.resultado_neto)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: 10, padding: '10px 12px', marginTop: 10 }}>
+                    <span style={{ color: '#D4AF37', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Efectivo esperado en caja</span>
+                    <span style={{ color: '#D4AF37', fontSize: '20px', fontWeight: 900 }}>${formatPrice(cashSummary.efectivo_esperado)}</span>
+                  </div>
+                  <p style={{ color: '#555', fontSize: '10px', margin: '6px 0 0', textAlign: 'center' }}>= apertura + ventas efectivo − egresos</p>
+                </div>
+              ) : (
+                <div style={{ background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.3)', borderRadius: 10, padding: '12px 20px', margin: '0 0 12px' }}>
+                  <p style={{ color: '#888', fontSize: '11px', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 1 }}>Total vendido</p>
+                  <p style={{ color: '#D4AF37', fontSize: '28px', fontWeight: 900, margin: 0 }}>${stats.total}</p>
+                </div>
+              )}
               <p style={{ color: '#666', fontSize: '12px', margin: 0 }}>
                 Se enviará el informe del día por correo al dueño de la tienda.
               </p>

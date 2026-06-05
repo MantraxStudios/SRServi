@@ -157,6 +157,10 @@ import {
   getAllOpenCashRegisters,
   getTodayOrdersForStore,
   getCashRegisterHistory,
+  addCashMovement,
+  getCashMovements,
+  deleteCashMovement,
+  getCashRegisterFinancials,
   generateUniqueOrderNumber,
   getAiConfig,
   saveAiConfig,
@@ -458,6 +462,17 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual', register = n
     const openingAmount = register ? Number(register.opening_amount || 0) : 0;
     const diferencia = totalVendido - openingAmount;
 
+    // Estado de resultados (ingresos / egresos) de esta caja
+    const fin = register ? await getCashRegisterFinancials(storeId, register) : null;
+    const ventasEfectivo = fin ? fin.ventas_efectivo : 0;
+    const ventasTarjeta = fin ? fin.ventas_tarjeta : 0;
+    const totalIngresos = fin ? fin.total_ventas : totalVendido;
+    const totalEgresos = fin ? fin.total_egresos : 0;
+    const resultadoNeto = fin ? fin.resultado_neto : totalVendido;
+    const efectivoEsperado = fin ? fin.efectivo_esperado : openingAmount;
+    const movements = fin ? fin.movements : [];
+    const f$ = n => `${currSym}${Number(n || 0).toFixed(2)}`;
+
     // Sheet 1: Resumen de caja
     const resumenData = [
       ['INFORME DE APERTURA Y CIERRE DE CAJA'],
@@ -475,11 +490,39 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual', register = n
       ['Total vendido', `${currSym}${totalVendido.toFixed(2)}`],
       ['Diferencia (vendido - apertura)', `${currSym}${diferencia.toFixed(2)}`],
       [],
+      ['ESTADO DE RESULTADOS'],
+      ['Apertura (efectivo inicial)', f$(openingAmount)],
+      ['Ventas en efectivo', f$(ventasEfectivo)],
+      ['Ventas con tarjeta', f$(ventasTarjeta)],
+      ['Total ventas (ingresos)', f$(totalIngresos)],
+      ['Total egresos', `- ${f$(totalEgresos)}`],
+      ['Resultado neto (ventas - egresos)', f$(resultadoNeto)],
+      ['Efectivo esperado en caja', f$(efectivoEsperado)],
+      [],
       ['Total pedidos del día', orders.length],
       ['Pedidos completados', orders.filter(o => o.status === 'completed').length],
     ];
     const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
     wsResumen['!cols'] = [{ wch: 35 }, { wch: 22 }];
+
+    // Hoja de egresos (se adjunta más abajo, tras crear el workbook)
+    let wsEgresos = null;
+    if (movements.length) {
+      const egresosData = [['Hora', 'Categoría', 'Descripción', 'Registrado por', 'Monto']];
+      for (const m of movements) {
+        egresosData.push([
+          fmt(m.created_at),
+          m.category || 'gasto',
+          m.description || '—',
+          m.worker_name || '—',
+          f$(m.amount)
+        ]);
+      }
+      egresosData.push([]);
+      egresosData.push(['', '', '', 'Total egresos', f$(totalEgresos)]);
+      wsEgresos = XLSX.utils.aoa_to_sheet(egresosData);
+      wsEgresos['!cols'] = [{ wch: 10 }, { wch: 16 }, { wch: 40 }, { wch: 18 }, { wch: 14 }];
+    }
 
     // Sheet 2: Detalle de pedidos
     const wsData = [
@@ -506,6 +549,7 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual', register = n
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen de Caja');
+    if (wsEgresos) XLSX.utils.book_append_sheet(wb, wsEgresos, 'Egresos');
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!cols'] = [{ wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 18 }, { wch: 50 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
@@ -540,6 +584,16 @@ async function sendCashRegisterReport(storeId, closedBy = 'manual', register = n
               <tr style="background:#f0f0f0"><td style="padding:8px">Completados</td><td style="padding:8px;text-align:right">${completados}</td></tr>
               <tr style="background:#fff"><td style="padding:8px;font-weight:700">Total vendido</td><td style="padding:8px;text-align:right;font-weight:700;color:#16a34a">${currSym}${totalVendido.toFixed(2)}</td></tr>
               <tr style="background:#f0f0f0"><td style="padding:8px">Diferencia</td><td style="padding:8px;text-align:right;color:${diferencia >= 0 ? '#16a34a' : '#dc2626'}">${diferencia >= 0 ? '+' : ''}${currSym}${diferencia.toFixed(2)}</td></tr>
+            </table>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0">
+              <tr style="background:#222;color:#D4AF37"><td colspan="2" style="padding:8px;font-weight:700;font-size:13px">ESTADO DE RESULTADOS</td></tr>
+              <tr style="background:#f9f9f9"><td style="padding:8px">Apertura (efectivo inicial)</td><td style="padding:8px;text-align:right">${f$(openingAmount)}</td></tr>
+              <tr style="background:#f0f0f0"><td style="padding:8px">Ventas en efectivo</td><td style="padding:8px;text-align:right">${f$(ventasEfectivo)}</td></tr>
+              <tr style="background:#f9f9f9"><td style="padding:8px">Ventas con tarjeta</td><td style="padding:8px;text-align:right">${f$(ventasTarjeta)}</td></tr>
+              <tr style="background:#fff"><td style="padding:8px;font-weight:700">Total ventas (ingresos)</td><td style="padding:8px;text-align:right;font-weight:700;color:#16a34a">${f$(totalIngresos)}</td></tr>
+              <tr style="background:#f0f0f0"><td style="padding:8px">Total egresos</td><td style="padding:8px;text-align:right;color:#dc2626">- ${f$(totalEgresos)}</td></tr>
+              <tr style="background:#fff"><td style="padding:8px;font-weight:700">Resultado neto</td><td style="padding:8px;text-align:right;font-weight:700;color:${resultadoNeto >= 0 ? '#16a34a' : '#dc2626'}">${f$(resultadoNeto)}</td></tr>
+              <tr style="background:#D4AF37"><td style="padding:8px;font-weight:700">Efectivo esperado en caja</td><td style="padding:8px;text-align:right;font-weight:700">${f$(efectivoEsperado)}</td></tr>
             </table>
             <p style="color:#666;font-size:13px">Encontrarás el detalle completo en el archivo Excel adjunto.</p>
           </div>
@@ -10212,6 +10266,49 @@ async function startServer() {
         io.to(`store_${storeId}`).emit('cash_register_changed', { open: false });
         await sendCashRegisterReport(storeId, 'manual', open);
         res.json({ success: true });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // Worker: registrar un egreso (gasto/retiro) en la caja abierta
+    app.post('/api/cash-register/movement', authenticateToken, async (req, res) => {
+      try {
+        if (req.user.type !== 'worker') return res.status(403).json({ error: 'Solo trabajadores' });
+        const storeId = req.user.store_id;
+        const { amount, description, category } = req.body;
+        const open = await getOpenCashRegister(storeId);
+        if (!open) return res.status(400).json({ error: 'No hay caja abierta' });
+        const [workerRows] = await pool.execute('SELECT name, username FROM workers WHERE id = ?', [req.user.id]);
+        const worker = workerRows[0];
+        const workerName = worker ? (worker.name || worker.username) : null;
+        const movement = await addCashMovement(open.id, storeId, amount, description, category, workerName);
+        res.json(movement);
+      } catch (err) {
+        res.status(400).json({ error: err.message });
+      }
+    });
+
+    // Worker: eliminar un egreso de la caja abierta
+    app.delete('/api/cash-register/movement/:id', authenticateToken, async (req, res) => {
+      try {
+        if (req.user.type !== 'worker') return res.status(403).json({ error: 'Solo trabajadores' });
+        await deleteCashMovement(req.params.id, req.user.store_id);
+        res.json({ success: true });
+      } catch (err) {
+        res.status(400).json({ error: err.message });
+      }
+    });
+
+    // Worker: estado de resultados de la caja abierta (ingresos/egresos)
+    app.get('/api/cash-register/summary', authenticateToken, async (req, res) => {
+      try {
+        if (req.user.type !== 'worker') return res.status(403).json({ error: 'Solo trabajadores' });
+        const storeId = req.user.store_id;
+        const open = await getOpenCashRegister(storeId);
+        if (!open) return res.status(400).json({ error: 'No hay caja abierta' });
+        const financials = await getCashRegisterFinancials(storeId, open);
+        res.json({ register: open, ...financials });
       } catch (err) {
         res.status(500).json({ error: err.message });
       }

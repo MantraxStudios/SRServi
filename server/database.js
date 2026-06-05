@@ -567,6 +567,22 @@ async function createTables() {
     )
   `);
 
+  // Egresos / movimientos de caja (gastos, retiros) — para el estado de resultados
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS cash_movements (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      cash_register_id INT NOT NULL,
+      store_id INT NOT NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      description VARCHAR(255) DEFAULT NULL,
+      category VARCHAR(80) DEFAULT 'gasto',
+      worker_name VARCHAR(255) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (cash_register_id) REFERENCES cash_registers(id) ON DELETE CASCADE,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
   // Tabla de control de migraciones — evita que corran más de una vez
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS _migrations (
@@ -4519,6 +4535,78 @@ export async function getCashRegisterHistory(storeId, dateFrom, dateTo) {
     ORDER BY cr.opened_at DESC
   `, [storeId, dateFrom, dateTo]);
   return rows;
+}
+
+// ─── Egresos de caja ─────────────────────────────────────────────────────────
+
+export async function addCashMovement(cashRegisterId, storeId, amount, description, category, workerName) {
+  const amt = parseFloat(amount);
+  if (!amt || amt <= 0) throw new Error('Monto inválido');
+  const [result] = await pool.execute(
+    `INSERT INTO cash_movements (cash_register_id, store_id, amount, description, category, worker_name)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [cashRegisterId, storeId, amt, description || null, category || 'gasto', workerName || null]
+  );
+  const [rows] = await pool.execute('SELECT * FROM cash_movements WHERE id = ?', [result.insertId]);
+  return rows[0];
+}
+
+export async function getCashMovements(cashRegisterId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM cash_movements WHERE cash_register_id = ? ORDER BY created_at ASC',
+    [cashRegisterId]
+  );
+  return rows;
+}
+
+export async function deleteCashMovement(id, storeId) {
+  await pool.execute('DELETE FROM cash_movements WHERE id = ? AND store_id = ?', [id, storeId]);
+  return { success: true };
+}
+
+/**
+ * Estado de resultados de una caja: ingresos (efectivo/tarjeta), egresos y efectivo esperado.
+ * Considera los pedidos creados dentro de la ventana de la caja (apertura → cierre/now).
+ */
+export async function getCashRegisterFinancials(storeId, register) {
+  if (!register) return null;
+  const closedClause = register.closed_at ? 'AND o.created_at <= ?' : '';
+  const params = register.closed_at
+    ? [storeId, register.opened_at, register.closed_at]
+    : [storeId, register.opened_at];
+
+  const [salesRows] = await pool.execute(`
+    SELECT
+      COALESCE(SUM(o.total), 0) AS total_ventas,
+      COALESCE(SUM(CASE WHEN o.payment_method = 'cash' THEN o.total ELSE 0 END), 0) AS ventas_efectivo,
+      COALESCE(SUM(CASE WHEN o.payment_method <> 'cash' OR o.payment_method IS NULL THEN o.total ELSE 0 END), 0) AS ventas_tarjeta,
+      COUNT(o.id) AS total_pedidos
+    FROM orders o
+    WHERE o.store_id = ? AND o.created_at >= ? ${closedClause}
+  `, params);
+
+  const sales = salesRows[0] || {};
+  const movements = await getCashMovements(register.id);
+  const totalEgresos = movements.reduce((s, m) => s + Number(m.amount || 0), 0);
+
+  const opening = Number(register.opening_amount || 0);
+  const ventasEfectivo = Number(sales.ventas_efectivo || 0);
+  const ventasTarjeta = Number(sales.ventas_tarjeta || 0);
+  const totalVentas = Number(sales.total_ventas || 0);
+
+  return {
+    opening,
+    ventas_efectivo: ventasEfectivo,
+    ventas_tarjeta: ventasTarjeta,
+    total_ventas: totalVentas,
+    total_pedidos: Number(sales.total_pedidos || 0),
+    total_egresos: totalEgresos,
+    // Resultado neto del turno (ventas - egresos)
+    resultado_neto: totalVentas - totalEgresos,
+    // Efectivo que debería haber físicamente en caja
+    efectivo_esperado: opening + ventasEfectivo - totalEgresos,
+    movements
+  };
 }
 
 // ─── SRBrain ─────────────────────────────────────────────────────────────────
