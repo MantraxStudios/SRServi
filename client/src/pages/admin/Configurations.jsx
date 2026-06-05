@@ -4,7 +4,7 @@ import {
   faMoneyBillWave, faCreditCard, faUtensils, faShoppingBag,
   faHashtag, faPercent, faTruck, faTabletAlt, faClock,
   faCheck, faExclamationTriangle, faSave, faSync, faPlus,
-  faChevronDown, faChevronUp, faTableCells
+  faChevronDown, faChevronUp, faTableCells, faFlask, faCubes
 } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
@@ -296,6 +296,9 @@ export default function Configurations() {
   const { selectedStore } = useStore();
   const [configs, setConfigs] = useState([]);
   const [devices, setDevices] = useState([]);
+  const [ingredients, setIngredients] = useState([]);
+  const [extras, setExtras] = useState([]);
+  const [compTab, setCompTab] = useState('ingredient');
   const [loading, setLoading] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
   const [savingDevice, setSavingDevice] = useState(null);
@@ -310,15 +313,39 @@ export default function Configurations() {
   const loadAll = async () => {
     setLoading(true);
     const token = localStorage.getItem('token');
-    const [cfgRes, devRes] = await Promise.all([
+    const [cfgRes, devRes, ingRes, extRes] = await Promise.all([
       fetch(`/api/store-configurations?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(API + `/api/store-devices?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } })
+      fetch(API + `/api/store-devices?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`/api/ingredients?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`/api/extras?store_id=${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } })
     ]);
     const cfgData = await cfgRes.json();
     const devData = devRes.ok ? await devRes.json() : [];
+    const ingData = ingRes.ok ? await ingRes.json() : [];
+    const extData = extRes.ok ? await extRes.json() : [];
     setConfigs(Array.isArray(cfgData) ? cfgData : []);
     setDevices(Array.isArray(devData) ? devData : []);
+    setIngredients(Array.isArray(ingData) ? ingData : []);
+    setExtras(Array.isArray(extData) ? extData : []);
     setLoading(false);
+  };
+
+  const toggleComplementActive = async (type, item) => {
+    const token = localStorage.getItem('token');
+    const path = type === 'extra' ? 'extras' : 'ingredients';
+    const newVal = !item.is_active;
+    const setter = type === 'extra' ? setExtras : setIngredients;
+    setter(prev => prev.map(i => i.id === item.id ? { ...i, is_active: newVal } : i));
+    try {
+      const res = await fetch(`/api/${path}/${item.id}/active`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ store_id: selectedStore.id, is_active: newVal })
+      });
+      if (!res.ok) throw new Error('fail');
+    } catch {
+      setter(prev => prev.map(i => i.id === item.id ? { ...i, is_active: !newVal } : i));
+    }
   };
 
   const saveConfig = async (form) => {
@@ -428,6 +455,66 @@ export default function Configurations() {
               )}
             </>
           )}
+        </div>
+
+        {/* Implementos y Extras — activar/desactivar */}
+        <div style={{ marginBottom: 36 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 4 }}>
+            Implementos y Extras
+          </div>
+          <p style={{ fontSize: 12, color: '#bbb', margin: '0 0 12px' }}>
+            Activa los que deben aparecer en el tótem y el panel del trabajador. Los nuevos quedan desactivados.
+          </p>
+
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            <button
+              onClick={() => setCompTab('ingredient')}
+              style={{ flex: 1, padding: '9px 12px', borderRadius: 9, border: '1.5px solid ' + (compTab === 'ingredient' ? '#111' : '#e2e2e2'), background: compTab === 'ingredient' ? '#111' : '#fff', color: compTab === 'ingredient' ? '#fff' : '#666', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+            >
+              <FontAwesomeIcon icon={faFlask} /> Implementos
+              <span style={{ fontSize: 11, opacity: 0.7 }}>({ingredients.filter(i => i.is_active).length}/{ingredients.length})</span>
+            </button>
+            <button
+              onClick={() => setCompTab('extra')}
+              style={{ flex: 1, padding: '9px 12px', borderRadius: 9, border: '1.5px solid ' + (compTab === 'extra' ? '#111' : '#e2e2e2'), background: compTab === 'extra' ? '#111' : '#fff', color: compTab === 'extra' ? '#fff' : '#666', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+            >
+              <FontAwesomeIcon icon={faCubes} /> Extras
+              <span style={{ fontSize: 11, opacity: 0.7 }}>({extras.filter(e => e.is_active).length}/{extras.length})</span>
+            </button>
+          </div>
+
+          {(() => {
+            const list = compTab === 'extra' ? extras : ingredients;
+            if (list.length === 0) {
+              return (
+                <div style={{ background: '#fafafa', border: '1.5px dashed #e0e0e0', borderRadius: 14, padding: '24px', textAlign: 'center', color: '#bbb', fontSize: 13 }}>
+                  No hay {compTab === 'extra' ? 'extras' : 'implementos'} creados.
+                </div>
+              );
+            }
+            return (
+              <div style={{ display: 'grid', gap: 8 }}>
+                {list.map(item => (
+                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '10px 14px' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                      <div style={{ fontSize: 12, color: '#999' }}>
+                        {Number(item.price) > 0 ? `+$${Number(item.price).toFixed(0)}` : 'Sin costo'}
+                        {' · '}{item.is_active ? 'Visible' : 'Oculto'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => toggleComplementActive(compTab, item)}
+                      title={item.is_active ? 'Activado — visible' : 'Desactivado — oculto'}
+                      style={{ width: 46, height: 26, borderRadius: 999, border: 'none', cursor: 'pointer', position: 'relative', background: item.is_active ? '#16a34a' : '#cbd5e1', transition: 'background 0.15s', flexShrink: 0, padding: 0 }}
+                    >
+                      <span style={{ position: 'absolute', top: 3, left: item.is_active ? 23 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Tótems */}
