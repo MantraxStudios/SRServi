@@ -54,6 +54,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const [modalStep, setModalStep] = useState('ingredients'); // 'ingredients' | 'extras'
 
   const [selectedTerminalId, setSelectedTerminalId] = useState('');
+  const [posLinkModalOpen, setPosLinkModalOpen] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [tuuAvailable, setTuuAvailable] = useState(false);
   const [tuuDeviceName, setTuuDeviceName] = useState('');
@@ -77,6 +78,18 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
 
   const categoryScrollRef = useRef(null);
   const payEditInputRef = useRef(null);
+  const posLongPressRef = useRef(null);
+
+  const startPosLongPress = () => {
+    cancelPosLongPress();
+    posLongPressRef.current = setTimeout(() => setPosLinkModalOpen(true), 800);
+  };
+  const cancelPosLongPress = () => {
+    if (posLongPressRef.current) {
+      clearTimeout(posLongPressRef.current);
+      posLongPressRef.current = null;
+    }
+  };
 
   const token = localStorage.getItem('workerToken');
   const authHeaders = {
@@ -143,7 +156,12 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       setTerminals(safeTerminals);
 
       if (safeTerminals.length > 0) {
-        setSelectedTerminalId(String(safeTerminals[0].id));
+        const savedId = localStorage.getItem('srservi_worker_terminal_id');
+        if (savedId && safeTerminals.some(term => String(term.id) === String(savedId))) {
+          setSelectedTerminalId(String(savedId));
+        } else {
+          setSelectedTerminalId(String(safeTerminals[0].id));
+        }
       }
 
       setPaymentMethods(Array.isArray(payMethodsData) ? payMethodsData : []);
@@ -628,7 +646,16 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       <div className="worker-pos-container">
         {/* Header */}
         <div className="worker-pos-header">
-          <h2 style={{ margin: 0, color: '#fff', fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h2
+            style={{ margin: 0, color: '#fff', fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', userSelect: 'none' }}
+            title="Mantén presionado para vincular un POS"
+            onMouseDown={startPosLongPress}
+            onMouseUp={cancelPosLongPress}
+            onMouseLeave={cancelPosLongPress}
+            onTouchStart={startPosLongPress}
+            onTouchEnd={cancelPosLongPress}
+            onTouchCancel={cancelPosLongPress}
+          >
             <FontAwesomeIcon icon={faShoppingCart} style={{ color: '#D4AF37' }} />
             Nuevo Pedido
           </h2>
@@ -1155,7 +1182,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                         </div>
                         <div className="worker-pos-pay-modal-option-info">
                           <span className="worker-pos-pay-modal-option-title">Mercado Pago Point</span>
-                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{terminals[0]?.name || 'Terminal'}</span>
+                          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{(terminals.find(term => String(term.id) === String(selectedTerminalId)) || terminals[0])?.name || 'Terminal'}</span>
                         </div>
                         <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
                       </button>
@@ -1207,6 +1234,65 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                   style={{ width: '100%', marginTop: '12px', padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer' }}
                 >
                   Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* POS link modal (long-press on header title) */}
+        {posLinkModalOpen && (
+          <div className="worker-pos-modal" onClick={(e) => { if (e.target === e.currentTarget) setPosLinkModalOpen(false); }}>
+            <div className="worker-pos-pay-modal">
+              <div className="worker-pos-pay-modal-header">
+                <h3>Vincular POS</h3>
+                <button className="worker-pos-pay-modal-close" onClick={() => setPosLinkModalOpen(false)}>
+                  <FontAwesomeIcon icon={faTimes} />
+                </button>
+              </div>
+              <div style={{ padding: '0 4px 4px' }}>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', margin: '0 0 14px' }}>
+                  Elige el terminal Point que cobrará en este dispositivo. La selección se recuerda.
+                </p>
+                {terminals.length === 0 ? (
+                  <p style={{ color: '#f59e0b', textAlign: 'center', padding: '1.5rem 0', fontSize: '0.9rem' }}>
+                    No hay terminales Point disponibles
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {terminals.map(term => {
+                      const active = String(selectedTerminalId) === String(term.id);
+                      return (
+                        <button
+                          key={term.id}
+                          onClick={() => {
+                            setSelectedTerminalId(String(term.id));
+                            localStorage.setItem('srservi_worker_terminal_id', String(term.id));
+                            setPosLinkModalOpen(false);
+                          }}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '14px 16px', borderRadius: '12px',
+                            border: `2px solid ${active ? '#D4AF37' : 'rgba(255,255,255,0.12)'}`,
+                            background: active ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)',
+                            color: '#fff', fontSize: '0.95rem', fontWeight: 600, cursor: 'pointer', textAlign: 'left'
+                          }}
+                        >
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <FontAwesomeIcon icon={faCreditCard} style={{ color: '#009EE3' }} />
+                            {term.name || 'Terminal'}
+                          </span>
+                          {active && <FontAwesomeIcon icon={faCheckCircle} style={{ color: '#D4AF37' }} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <button
+                  onClick={() => setPosLinkModalOpen(false)}
+                  style={{ width: '100%', marginTop: '14px', padding: '12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '10px', color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer' }}
+                >
+                  Cerrar
                 </button>
               </div>
             </div>
