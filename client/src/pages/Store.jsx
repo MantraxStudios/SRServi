@@ -1528,8 +1528,8 @@ function Store() {
     ctx.fillText('PAGO CONFIRMADO', 300, 700);
 
     const link = document.createElement('a');
-    link.download = `pedido-${orderNum}.png`;
-    link.href = canvas.toDataURL('image/png');
+    link.download = `pedido-${orderNum}.jpg`;
+    link.href = canvas.toDataURL('image/jpeg', 0.95);
     link.click();
   }, [store]);
 
@@ -5693,13 +5693,15 @@ function Store() {
                 <p className="text-muted" style={{ marginBottom: '15px', fontSize: '14px' }}>
                   {t('scanQRDesc', lang)}
                 </p>
-                <div style={{ margin: '0 auto 15px', display: 'flex', justifyContent: 'center' }}>
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrPaymentUrl)}`}
-                    alt="QR"
-                    style={{ width: '200px', height: '200px', borderRadius: '12px', border: '2px solid #e0e0e0' }}
-                  />
-                </div>
+                {!deliveryMode && (
+                  <div style={{ margin: '0 auto 15px', display: 'flex', justifyContent: 'center' }}>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrPaymentUrl)}`}
+                      alt="QR"
+                      style={{ width: '200px', height: '200px', borderRadius: '12px', border: '2px solid #e0e0e0' }}
+                    />
+                  </div>
+                )}
                 <a
                   href={qrPaymentUrl}
                   target="_blank"
@@ -5823,64 +5825,7 @@ function Store() {
 
                 {qrPaymentResult.order?.order_number && (
                   <button
-                    onClick={() => {
-                      const orderNum = qrPaymentResult.order.order_number;
-                      const storeName = store?.store?.name || 'Tienda';
-                      const canvas = document.createElement('canvas');
-                      canvas.width = 600;
-                      canvas.height = 800;
-                      const ctx = canvas.getContext('2d');
-
-                      // Background
-                      ctx.fillStyle = '#000000';
-                      ctx.fillRect(0, 0, 600, 800);
-
-                      // Border
-                      ctx.strokeStyle = '#D4AF37';
-                      ctx.lineWidth = 12;
-                      ctx.strokeRect(20, 20, 560, 760);
-
-                      // Title
-                      ctx.fillStyle = '#FFFFFF';
-                      ctx.font = 'bold 28px Arial';
-                      ctx.textAlign = 'center';
-                      ctx.fillText('TU PEDIDO', 300, 130);
-
-                      // Big order number (auto-fit)
-                      ctx.fillStyle = '#D4AF37';
-                      const orderText = '#' + orderNum;
-                      let fontSize = 220;
-                      ctx.font = `bold ${fontSize}px Arial`;
-                      while (ctx.measureText(orderText).width > 480 && fontSize > 60) {
-                        fontSize -= 10;
-                        ctx.font = `bold ${fontSize}px Arial`;
-                      }
-                      ctx.fillText(orderText, 300, 420);
-
-                      // Store name
-                      ctx.fillStyle = '#FFFFFF';
-                      ctx.font = '24px Arial';
-                      ctx.fillText(storeName, 300, 580);
-
-                      // Amount
-                      ctx.font = 'bold 32px Arial';
-                      ctx.fillText('$' + qrPaymentResult.amount, 300, 640);
-
-                      // Pago confirmado
-                      ctx.fillStyle = '#22c55e';
-                      ctx.font = 'bold 22px Arial';
-                      ctx.fillText('PAGO CONFIRMADO', 300, 700);
-
-                      // Reference small
-                      ctx.fillStyle = '#888';
-                      ctx.font = '12px monospace';
-                      ctx.fillText(qrPaymentResult.reference, 300, 740);
-
-                      const link = document.createElement('a');
-                      link.download = `pedido-${orderNum}.png`;
-                      link.href = canvas.toDataURL('image/png');
-                      link.click();
-                    }}
+                    onClick={() => downloadReceiptPng(qrPaymentResult.order.order_number, qrPaymentResult.amount)}
                     className="btn"
                     style={{ background: 'var(--store-accent)', color: 'var(--store-primary)', border: 'none', borderRadius: '10px', padding: '12px 20px', fontWeight: '700', marginBottom: '10px', width: '100%' }}
                   >
@@ -5935,6 +5880,15 @@ function Store() {
                 <p className="font-bold" style={{ fontSize: '48px', margin: 0 }}>{lastOrderNumber}</p>
               </div>
             )}
+            {deliveryMode && lastOrderNumber && (
+              <button
+                onClick={() => downloadReceiptPng(lastOrderNumber, pendingOrderData?.order?.total)}
+                className="btn btn-full"
+                style={{ marginBottom: '12px', background: 'var(--store-primary)', color: 'var(--store-secondary)', border: 'none', borderRadius: '12px', padding: '12px', fontWeight: '700' }}
+              >
+                <FontAwesomeIcon icon={faDownload} /> {t('downloadReceipt', lang)}
+              </button>
+            )}
             <button
               onClick={() => {
                 setPaymentConfirmed(false);
@@ -5944,7 +5898,7 @@ function Store() {
               }}
               className="btn btn-lg btn-full"
               style={{
-                marginTop: '25px',
+                marginTop: '4px',
                 backgroundColor: 'var(--store-accent)',
                 color: 'var(--store-primary)',
                 position: 'relative',
