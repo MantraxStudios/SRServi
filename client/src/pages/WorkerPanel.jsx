@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -407,6 +407,8 @@ function WorkerPanel() {
   const [lightboxImg, setLightboxImg] = useState(null);
   const [addonImages, setAddonImages] = useState({}); // { 'nombre en minúscula': 'url imagen' }
   const [showNewOrder, setShowNewOrder] = useState(false);
+  // Abrir automáticamente la pantalla de venta al entrar (una sola vez por sesión)
+  const autoOpenedNewOrderRef = useRef(false);
   const [storeCode, setStoreCode] = useState(() => {
     try { return JSON.parse(localStorage.getItem('worker') || '{}').store_code || ''; } catch { return ''; }
   });
@@ -609,6 +611,15 @@ function WorkerPanel() {
       console.error('Error fetching cash register:', e);
     }
   };
+
+  // Al cargar el panel, si hay caja abierta, mostrar la venta de inmediato
+  // (una sola vez) para agilizar el cobro en vez de la lista de pedidos.
+  useEffect(() => {
+    if (cashRegister && !autoOpenedNewOrderRef.current) {
+      autoOpenedNewOrderRef.current = true;
+      setShowNewOrder(true);
+    }
+  }, [cashRegister]);
 
   const openCashRegisterFn = async () => {
     const token = localStorage.getItem('workerToken');
