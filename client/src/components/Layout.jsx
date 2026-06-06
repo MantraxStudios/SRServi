@@ -9,6 +9,7 @@ const API = 'https://srservi2.srautomatic.com';
 import {
   faList,
   faBox,
+  faLayerGroup,
   faFlask,
   faPlus,
   faShoppingBag,
@@ -614,6 +615,10 @@ function Layout() {
                   {can('products', 'view') && <NavLink to="/admin/products" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faBox} />
                     <span>Productos</span>
+                  </NavLink>}
+                  {can('products', 'view') && <NavLink to="/admin/combos" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faLayerGroup} />
+                    <span>Combos</span>
                   </NavLink>}
                   {can('ventas_mes', 'view') && <NavLink to="/admin/ventas-mes" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faMoneyBill} />

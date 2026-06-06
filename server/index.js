@@ -76,6 +76,11 @@ import {
   getProductByBarcode,
   searchProducts,
   getPublicProducts,
+  getCombos,
+  getPublicCombos,
+  createCombo,
+  updateCombo,
+  deleteCombo,
   getInventory,
   updateInventory,
   setInventoryStock,
@@ -1181,6 +1186,8 @@ app.get('/api/public/:code', async (req, res) => {
     const products = await getPublicProducts(store.id);
     const categories = await getCategories(store.id);
     const openRegister = await getOpenCashRegister(store.id);
+    let combos = [];
+    try { combos = await getPublicCombos(store.id); } catch (e) { console.warn('getPublicCombos:', e.message); }
 
     // Premium check — logo and custom styles only for active paid plans
     const userPlan = await getUserPlan(store.user_id);
@@ -1222,6 +1229,7 @@ app.get('/api/public/:code', async (req, res) => {
       },
       products,
       categories,
+      combos,
       cash_register_open: !!openRegister,
       top_selling: (store.smart_mode !== false && store.smart_mode !== 0) && (store.show_top_selling !== false && store.show_top_selling !== 0) ? topSellingIds : []
     });
@@ -5490,6 +5498,91 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
     await deleteProduct(parseInt(productId), parseInt(store_id));
     emitProductUpdate(parseInt(store_id), 'product_deleted', { id: productId });
     if (pluginManager) pluginManager.hooks.emit('product_deleted', { store_id: parseInt(store_id), product_id: parseInt(productId) });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ COMBOS (admin) ============
+function parseComboItems(raw) {
+  if (raw === undefined || raw === null) return undefined;
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try { const parsed = JSON.parse(raw); return Array.isArray(parsed) ? parsed : []; }
+    catch { return []; }
+  }
+  return [];
+}
+
+app.get('/api/combos', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const combos = await getCombos(parseInt(store_id));
+    res.json(combos);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/combos', authenticateToken, upload.single('image'), async (req, res) => {
+  try {
+    const { store_id, name, description, is_active } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    if (!name) return res.status(400).json({ error: 'El nombre es requerido' });
+
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : (req.body.image_url || null);
+    const combo = await createCombo(parseInt(store_id), {
+      name,
+      description,
+      image: imageUrl,
+      is_active: is_active === undefined ? true : (is_active === 'true' || is_active === true),
+      items: parseComboItems(req.body.items) || []
+    });
+    res.json(combo);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/combos/:id', authenticateToken, upload.single('image'), async (req, res) => {
+  try {
+    const { store_id, name, description, is_active } = req.body;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    if (!name) return res.status(400).json({ error: 'El nombre es requerido' });
+
+    let imageUrl;
+    if (req.file) imageUrl = `/uploads/${req.file.filename}`;
+    else if (req.body.image_url) imageUrl = req.body.image_url;
+    else imageUrl = req.body.existing_image || null;
+
+    const combo = await updateCombo(parseInt(req.params.id), parseInt(store_id), {
+      name,
+      description,
+      image: imageUrl,
+      is_active: is_active === undefined ? true : (is_active === 'true' || is_active === true),
+      items: parseComboItems(req.body.items)
+    });
+    res.json(combo);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/combos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    await deleteCombo(parseInt(req.params.id), parseInt(store_id));
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

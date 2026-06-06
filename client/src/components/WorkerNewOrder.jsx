@@ -21,7 +21,8 @@ import {
   faMotorcycle,
   faConciergeBell,
   faBuilding,
-  faPen
+  faPen,
+  faLayerGroup
 } from '@fortawesome/free-solid-svg-icons';
 import { getImageUrl, getProductImageUrl } from '../config.js';
 
@@ -30,6 +31,7 @@ const API = 'https://srservi2.srautomatic.com';
 function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [combos, setCombos] = useState([]);
   const [ingredients, setIngredients] = useState([]);
   const [extras, setExtras] = useState([]);
   const [terminals, setTerminals] = useState([]);
@@ -79,6 +81,9 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const categoryScrollRef = useRef(null);
   const payEditInputRef = useRef(null);
   const posLongPressRef = useRef(null);
+  // Combo personalization flow: { name, queue: [{product, quantity}] }
+  const comboFlowRef = useRef({ name: null, queue: [] });
+  const cartIdRef = useRef(0);
 
   const startPosLongPress = () => {
     cancelPosLongPress();
@@ -153,6 +158,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
 
       setProducts(rawProducts);
       setCategories(safeCategories);
+      setCombos(Array.isArray(storeData.combos) ? storeData.combos : []);
       setTerminals(safeTerminals);
 
       if (safeTerminals.length > 0) {
@@ -269,6 +275,11 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
     return matchesCategory && matchesSearch;
   });
 
+  // Filter combos (by name)
+  const filteredCombos = combos.filter(c =>
+    !searchTerm || c.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   // Product modal logic
   const openProductModal = (product) => {
     if (!product.unlimited_stock && product.stock === 0) return;
@@ -299,6 +310,8 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   };
 
   const closeProductModal = () => {
+    // Cancelling the modal aborts any remaining combo items
+    comboFlowRef.current = { name: null, queue: [] };
     setSelectedProduct(null);
     setProductConfig({ selectedIngredients: [], selectedExtras: [], quantity: 1 });
   };
@@ -357,8 +370,9 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
     const selIds = new Set(productConfig.selectedIngredients.map(i => i.id));
     const removed = baseIngredients.filter(i => !selIds.has(i.id)).map(i => `Sin ${i.name}`);
     const added = productConfig.selectedIngredients.filter(i => !i.included_by_default).map(i => i.name);
+    const comboName = comboFlowRef.current.name;
     const cartItem = {
-      id: Date.now(),
+      id: Date.now() + (cartIdRef.current++),
       product_id: selectedProduct.id,
       product_name: selectedProduct.name,
       product_image: selectedProduct.image,
@@ -366,10 +380,83 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       quantity: productConfig.quantity,
       total: unitPrice * productConfig.quantity,
       selected_ingredients: [...removed, ...added],
-      selected_extras: productConfig.selectedExtras.map(e => e.name)
+      selected_extras: productConfig.selectedExtras.map(e => e.name),
+      combo_name: comboName || null
     };
     setCart(prev => [...prev, cartItem]);
-    closeProductModal();
+    if (comboName) {
+      // Continue with the next product of the combo (or finish)
+      processNextComboItem();
+    } else {
+      closeProductModal();
+    }
+  };
+
+  // ===== Combos (quick order) =====
+  const addDirectToCart = (product, quantity, comboName) => {
+    const cartItem = {
+      id: Date.now() + (cartIdRef.current++),
+      product_id: product.id,
+      product_name: product.name,
+      product_image: product.image,
+      unit_price: product.price,
+      quantity,
+      total: product.price * quantity,
+      selected_ingredients: [],
+      selected_extras: [],
+      combo_name: comboName || null
+    };
+    setCart(prev => [...prev, cartItem]);
+  };
+
+  // Advance the combo queue: open the config modal for products with
+  // ingredients/extras, add the rest directly. Finishes when empty.
+  const processNextComboItem = () => {
+    const flow = comboFlowRef.current;
+    while (flow.queue.length > 0) {
+      const { product, quantity } = flow.queue.shift();
+      const hasIngredients = product.has_ingredients && product.ingredients && product.ingredients.length > 0;
+      const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
+
+      if (hasIngredients || hasExtras) {
+        // Open the personalization modal for this product
+        setSelectedProduct(product);
+        setProductConfig({
+          selectedIngredients: (product.ingredients || []).filter(i => i.included_by_default),
+          selectedExtras: [],
+          quantity: quantity || 1
+        });
+        setModalStep(hasIngredients ? 'ingredients' : 'extras');
+        return; // wait for the worker to confirm (addToCart resumes the loop)
+      }
+
+      // No options → add directly and keep going
+      addDirectToCart(product, quantity || 1, flow.name);
+    }
+
+    // Queue drained → close modal and clear flow
+    flow.name = null;
+    setSelectedProduct(null);
+    setProductConfig({ selectedIngredients: [], selectedExtras: [], quantity: 1 });
+  };
+
+  const startCombo = (combo) => {
+    const items = (combo.items || [])
+      .map(ci => {
+        const product = products.find(p => String(p.id) === String(ci.product_id));
+        if (!product) return null;
+        if (!product.unlimited_stock && product.stock === 0) return null; // skip out of stock
+        return { product, quantity: ci.quantity || 1 };
+      })
+      .filter(Boolean);
+
+    if (items.length === 0) {
+      alert('Este combo no tiene productos disponibles en este momento.');
+      return;
+    }
+
+    comboFlowRef.current = { name: combo.name, queue: items };
+    processNextComboItem();
   };
 
   // Cart helpers
@@ -727,6 +814,16 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
 
             {/* Categories */}
             <div className="worker-pos-categories" ref={categoryScrollRef}>
+              {combos.length > 0 && (
+                <button
+                  className={`worker-pos-category-btn ${activeCategory === 'combos' ? 'active' : ''}`}
+                  onClick={() => setActiveCategory('combos')}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <FontAwesomeIcon icon={faLayerGroup} />
+                  Combos
+                </button>
+              )}
               <button
                 className={`worker-pos-category-btn ${activeCategory === 'all' ? 'active' : ''}`}
                 onClick={() => setActiveCategory('all')}
@@ -744,7 +841,41 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
               ))}
             </div>
 
-            {/* Products grid */}
+            {/* Combos grid */}
+            {activeCategory === 'combos' ? (
+              <div className="worker-pos-products">
+                {filteredCombos.length === 0 && (
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem 1rem', color: 'rgba(255,255,255,0.4)' }}>
+                    No hay combos disponibles
+                  </div>
+                )}
+                {filteredCombos.map(combo => (
+                  <div
+                    key={`combo-${combo.id}`}
+                    className="worker-pos-product-wrapper"
+                    onClick={() => startCombo(combo)}
+                  >
+                    <div className="worker-pos-product-card">
+                      {combo.image ? (
+                        <img src={getProductImageUrl(combo.image)} alt={combo.name} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(212,175,55,0.08)' }}>
+                          <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: '2rem', color: 'rgba(212,175,55,0.5)' }} />
+                        </div>
+                      )}
+                      <span className="worker-pos-out-of-stock-badge" style={{ background: 'rgba(212,175,55,0.9)', color: '#000', left: '6px', right: 'auto' }}>
+                        {(combo.items || []).reduce((n, it) => n + (it.quantity || 1), 0)} items
+                      </span>
+                    </div>
+                    <div className="worker-pos-product-info">
+                      <div className="worker-pos-product-name">{combo.name}</div>
+                      <div className="worker-pos-product-price">{currencySymbol}{formatPrice(combo.price)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+            /* Products grid */
             <div className="worker-pos-products">
               {filteredProducts.length === 0 && (
                 <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem 1rem', color: 'rgba(255,255,255,0.4)' }}>
@@ -773,6 +904,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 );
               })}
             </div>
+            )}
 
             {/* Floating cart button - mobile only */}
             {cart.length > 0 && (
@@ -798,6 +930,12 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
               {cart.map(item => (
                 <div key={item.id} className="worker-pos-cart-item">
                   <div style={{ flex: 1, minWidth: 0 }}>
+                    {item.combo_name && (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.62rem', fontWeight: 700, color: '#D4AF37', background: 'rgba(212,175,55,0.12)', borderRadius: '4px', padding: '1px 5px', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                        <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: '0.6rem' }} />
+                        {item.combo_name}
+                      </div>
+                    )}
                     <div style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {item.product_name}
                     </div>

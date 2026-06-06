@@ -249,9 +249,34 @@ async function createTables() {
   await pool.execute(createProductsTable);
   await pool.execute(createProductIngredientsTable);
   await pool.execute(createProductExtrasTable);
+  const createCombosTable = `
+    CREATE TABLE IF NOT EXISTS combos (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      image TEXT,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      sort_order INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )`;
+
+  const createComboItemsTable = `
+    CREATE TABLE IF NOT EXISTS combo_items (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      combo_id INT NOT NULL,
+      product_id INT NOT NULL,
+      quantity INT NOT NULL DEFAULT 1,
+      FOREIGN KEY (combo_id) REFERENCES combos(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    )`;
+
   await pool.execute(createOrdersTable);
   await pool.execute(createOrderItemsTable);
   await pool.execute(createWorkersTable);
+  await pool.execute(createCombosTable);
+  await pool.execute(createComboItemsTable);
 
   // Initialize delivery tables early so columns exist before createOrder is called
   try { await ensureDeliveryTables(); } catch (e) { console.warn('Delivery tables init:', e.message); }
@@ -2844,6 +2869,110 @@ export async function getPublicProducts(storeId) {
     products.push(prod);
   }
   return products;
+}
+
+// ============ COMBOS ============
+
+// Fetch combos for a store with their items. Each item carries the linked
+// product's basic data (name/price/image) so the combo price can be summed.
+// Combo price is always the automatic sum of product price * quantity.
+async function getCombosForStore(storeId, { activeOnly = false } = {}) {
+  let sql = 'SELECT * FROM combos WHERE store_id = ?';
+  const params = [storeId];
+  if (activeOnly) sql += ' AND is_active = TRUE';
+  sql += ' ORDER BY sort_order ASC, id ASC';
+  const [combos] = await pool.execute(sql, params);
+
+  const result = [];
+  for (const combo of combos) {
+    const [items] = await pool.execute(`
+      SELECT ci.id, ci.product_id, ci.quantity,
+             p.name AS product_name, p.price AS product_price, p.image AS product_image,
+             p.has_ingredients, p.has_extras
+      FROM combo_items ci
+      JOIN products p ON p.id = ci.product_id
+      WHERE ci.combo_id = ?
+      ORDER BY ci.id ASC
+    `, [combo.id]);
+
+    const mappedItems = items.map(it => ({
+      id: it.id,
+      product_id: it.product_id,
+      quantity: parseInt(it.quantity) || 1,
+      product_name: it.product_name,
+      product_price: parseFloat(it.product_price) || 0,
+      product_image: it.product_image,
+      has_ingredients: !!it.has_ingredients,
+      has_extras: !!it.has_extras
+    }));
+
+    const price = mappedItems.reduce((sum, it) => sum + it.product_price * it.quantity, 0);
+
+    result.push({
+      id: combo.id,
+      store_id: combo.store_id,
+      name: combo.name,
+      description: combo.description,
+      image: combo.image,
+      is_active: !!combo.is_active,
+      sort_order: parseInt(combo.sort_order) || 0,
+      price,
+      items: mappedItems
+    });
+  }
+  return result;
+}
+
+export async function getCombos(storeId) {
+  return getCombosForStore(storeId, { activeOnly: false });
+}
+
+export async function getPublicCombos(storeId) {
+  // Only active combos that still have at least one item
+  const combos = await getCombosForStore(storeId, { activeOnly: true });
+  return combos.filter(c => c.items.length > 0);
+}
+
+async function replaceComboItems(comboId, items) {
+  await pool.execute('DELETE FROM combo_items WHERE combo_id = ?', [comboId]);
+  const list = Array.isArray(items) ? items : [];
+  for (const item of list) {
+    const productId = parseInt(item.product_id);
+    const quantity = parseInt(item.quantity) || 1;
+    if (!productId || quantity < 1) continue;
+    await pool.execute(
+      'INSERT INTO combo_items (combo_id, product_id, quantity) VALUES (?, ?, ?)',
+      [comboId, productId, quantity]
+    );
+  }
+}
+
+export async function createCombo(storeId, data) {
+  const { name, description, image, is_active, items } = data;
+  const [result] = await pool.execute(
+    'INSERT INTO combos (store_id, name, description, image, is_active) VALUES (?, ?, ?, ?, ?)',
+    [storeId, name, description || null, image || null, is_active === false ? 0 : 1]
+  );
+  const comboId = result.insertId;
+  await replaceComboItems(comboId, items);
+  const combos = await getCombosForStore(storeId);
+  return combos.find(c => c.id === comboId);
+}
+
+export async function updateCombo(comboId, storeId, data) {
+  const { name, description, image, is_active, items } = data;
+  await pool.execute(
+    'UPDATE combos SET name = ?, description = ?, image = ?, is_active = ? WHERE id = ? AND store_id = ?',
+    [name, description || null, image || null, is_active === false ? 0 : 1, comboId, storeId]
+  );
+  if (items !== undefined) await replaceComboItems(comboId, items);
+  const combos = await getCombosForStore(storeId);
+  return combos.find(c => c.id === comboId);
+}
+
+export async function deleteCombo(comboId, storeId) {
+  await pool.execute('DELETE FROM combos WHERE id = ? AND store_id = ?', [comboId, storeId]);
+  return true;
 }
 
 function calculateDiscountAmount(total, discountType, discountValue) {
