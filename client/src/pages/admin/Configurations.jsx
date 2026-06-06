@@ -4,7 +4,7 @@ import {
   faMoneyBillWave, faCreditCard, faUtensils, faShoppingBag,
   faHashtag, faPercent, faTruck, faTabletAlt, faClock,
   faCheck, faExclamationTriangle, faSave, faSync, faPlus,
-  faChevronDown, faChevronUp, faTableCells, faFlask, faCubes
+  faChevronDown, faChevronUp, faTableCells, faFlask, faCubes, faQrcode
 } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
@@ -124,6 +124,30 @@ function ConfigCard({ config, isDefault, onSave, saving }) {
           <Row icon={faShoppingBag} label="Para llevar" active={form.allow_takeout} onToggle={() => set('allow_takeout', !form.allow_takeout)} />
           <Row icon={faTableCells} label="Pedir número de mesa" sub="Al confirmar pago" active={form.allow_table_service} onToggle={() => set('allow_table_service', !form.allow_table_service)} />
           <Row icon={faTruck} label="Pedidos por QR" sub="Cliente escanea desde su teléfono" active={form.delivery_enabled} onToggle={() => set('delivery_enabled', !form.delivery_enabled)} />
+
+          {form.delivery_enabled && (() => {
+            const methods = (form.delivery_payment_methods || '').split(',').map(m => m.trim()).filter(Boolean);
+            const has = (m) => methods.includes(m);
+            const toggle = (m) => {
+              const next = has(m) ? methods.filter(x => x !== m) : [...methods, m];
+              set('delivery_payment_methods', next.join(','));
+            };
+            return (
+              <div style={{ marginLeft: 18, paddingLeft: 14, borderLeft: `2px solid ${GOLD}33`, marginTop: 2 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '6px 0 2px' }}>
+                  Métodos de pago del delivery
+                </div>
+                <Row icon={faCreditCard} label="TUU" sub="Pago con tarjeta TUU" active={has('tuu')} onToggle={() => toggle('tuu')} />
+                <Row icon={faMoneyBillWave} label="Efectivo" sub="Paga al recibir el pedido" active={has('efectivo')} onToggle={() => toggle('efectivo')} />
+                <Row icon={faQrcode} label="MercadoPago" sub="Pago online por QR" active={has('mercadopago')} onToggle={() => toggle('mercadopago')} />
+                {methods.length === 0 && (
+                  <p style={{ margin: '6px 0 0', fontSize: 12, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <FontAwesomeIcon icon={faExclamationTriangle} /> Activa al menos un método para el delivery
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           <SectionLabel>Extras</SectionLabel>
           <Row icon={faHashtag} label="Ocultar decimales" sub="Los precios enteros no muestran .00" active={form.hide_decimals} onToggle={() => set('hide_decimals', !form.hide_decimals)} />

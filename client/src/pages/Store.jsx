@@ -5499,6 +5499,7 @@ function Store() {
                     const delivMethods = (selectedConfiguration?.delivery_payment_methods || 'tuu,mercadopago').split(',').map(m => m.trim());
                     const delivAllowsTuu = delivMethods.includes('tuu');
                     const delivAllowsMP = delivMethods.includes('mercadopago');
+                    const delivAllowsCash = delivMethods.includes('efectivo');
 
                     if (deliveryMode) {
                       return (
@@ -5513,6 +5514,16 @@ function Store() {
                               <span className="font-bold" style={{ fontSize: '18px' }}>{t('payWithTuu', lang)}</span>
                             </button>
                           )}
+                          {delivAllowsCash && (
+                            <button
+                              onClick={() => processPayment('cash')}
+                              className="btn btn-lg btn-full store-glow-pulse"
+                              style={{ backgroundColor: 'var(--store-secondary)', color: 'var(--store-primary)', border: '3px solid #16a34a', borderRadius: '15px' }}
+                            >
+                              <FontAwesomeIcon icon={faMoneyBillWave} style={{ fontSize: '28px' }} />
+                              <span className="font-bold" style={{ fontSize: '18px' }}>{t('cash', lang)}</span>
+                            </button>
+                          )}
                           {delivAllowsMP && (
                             <button
                               onClick={() => processPayment('mp_checkout')}
@@ -5523,7 +5534,7 @@ function Store() {
                               <span className="font-bold" style={{ fontSize: '18px' }}>{t('payWithMercadopago', lang)}</span>
                             </button>
                           )}
-                          {!delivAllowsTuu && !delivAllowsMP && (
+                          {!delivAllowsTuu && !delivAllowsMP && !delivAllowsCash && (
                             <p className="text-muted">{t('noPaymentMethods', lang)}</p>
                           )}
                         </>
