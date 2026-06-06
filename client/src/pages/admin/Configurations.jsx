@@ -4,12 +4,23 @@ import {
   faMoneyBillWave, faCreditCard, faUtensils, faShoppingBag,
   faHashtag, faPercent, faTruck, faTabletAlt, faClock,
   faCheck, faExclamationTriangle, faSave, faSync, faPlus,
-  faChevronDown, faChevronUp, faTableCells, faFlask, faCubes, faQrcode
+  faChevronDown, faChevronUp, faTableCells, faFlask, faCubes, faQrcode,
+  faTrash, faCheckCircle, faCircle, faXmark
 } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 
 const API = 'https://srservi2.srautomatic.com';
 const GOLD = '#D4AF37';
+
+function useIsMobile(bp = 900) {
+  const [m, setM] = useState(typeof window !== 'undefined' ? window.innerWidth < bp : false);
+  useEffect(() => {
+    const onR = () => setM(window.innerWidth < bp);
+    window.addEventListener('resize', onR);
+    return () => window.removeEventListener('resize', onR);
+  }, [bp]);
+  return m;
+}
 
 const DEFAULT_FORM = {
   name: 'Principal',
@@ -189,7 +200,7 @@ function ConfigCard({ config, isDefault, onSave, saving }) {
   );
 }
 
-function DeviceCard({ device, configs, onSave, saving }) {
+function DeviceCard({ device, configs, onSave, saving, selectMode, selected, onSelectToggle }) {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState(device.label || '');
   const [configId, setConfigId] = useState(device.config_id || '');
@@ -217,21 +228,26 @@ function DeviceCard({ device, configs, onSave, saving }) {
   return (
     <div style={{
       background: '#fff',
-      border: '1.5px solid #e8e8e8',
-      borderLeft: `4px solid ${online ? '#22c55e' : '#d1d5db'}`,
+      border: selected ? `1.5px solid ${GOLD}` : '1.5px solid #e8e8e8',
+      borderLeft: selected ? `4px solid ${GOLD}` : `4px solid ${online ? '#22c55e' : '#d1d5db'}`,
       borderRadius: 12,
-      overflow: 'hidden'
+      overflow: 'hidden',
+      boxShadow: selected ? `0 0 0 3px ${GOLD}22` : 'none',
+      transition: 'box-shadow 0.15s, border-color 0.15s'
     }}>
       {/* Header row — siempre visible */}
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => selectMode ? onSelectToggle(device.id) : setOpen(o => !o)}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: 12,
           padding: '13px 16px', background: 'none', border: 'none', cursor: 'pointer',
-          borderBottom: open ? '1px solid #f0f0f0' : 'none'
+          borderBottom: (open && !selectMode) ? '1px solid #f0f0f0' : 'none'
         }}
       >
+        {selectMode && (
+          <FontAwesomeIcon icon={selected ? faCheckCircle : faCircle} style={{ fontSize: 20, color: selected ? GOLD : '#d1d5db', flexShrink: 0 }} />
+        )}
         <FontAwesomeIcon icon={faTabletAlt} style={{ fontSize: 16, color: online ? '#22c55e' : '#ccc', flexShrink: 0 }} />
         <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: '#111', lineHeight: 1.2 }}>
@@ -244,11 +260,11 @@ function DeviceCard({ device, configs, onSave, saving }) {
             {' · '}{configName}
           </div>
         </div>
-        <FontAwesomeIcon icon={open ? faChevronUp : faChevronDown} style={{ color: '#ccc', fontSize: 11, flexShrink: 0 }} />
+        {!selectMode && <FontAwesomeIcon icon={open ? faChevronUp : faChevronDown} style={{ color: '#ccc', fontSize: 11, flexShrink: 0 }} />}
       </button>
 
       {/* Cuerpo expandible */}
-      {open && (
+      {open && !selectMode && (
         <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           <div>
@@ -328,6 +344,10 @@ export default function Configurations() {
   const [savingDevice, setSavingDevice] = useState(null);
   const [showAddConfig, setShowAddConfig] = useState(false);
   const [newConfigName, setNewConfigName] = useState('');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedDevices, setSelectedDevices] = useState(new Set());
+  const [deletingDevices, setDeletingDevices] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (selectedStore) loadAll();
@@ -404,6 +424,30 @@ export default function Configurations() {
     setNewConfigName('');
   };
 
+  const toggleDeviceSelect = (id) => {
+    setSelectedDevices(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+
+  const exitSelectMode = () => { setSelectMode(false); setSelectedDevices(new Set()); };
+
+  const deleteSelectedDevices = async () => {
+    if (selectedDevices.size === 0) return;
+    if (!window.confirm(`¿Eliminar ${selectedDevices.size} tótem(s)? Volverán a registrarse si se vuelve a abrir la tienda en ese dispositivo.`)) return;
+    setDeletingDevices(true);
+    const token = localStorage.getItem('token');
+    try {
+      await Promise.all([...selectedDevices].map(id =>
+        fetch(API + `/api/store-devices/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      ));
+      exitSelectMode();
+      await loadAll();
+    } finally { setDeletingDevices(false); }
+  };
+
   if (!selectedStore) return (
     <div className="empty-state">
       <p className="empty-state-text">Selecciona una tienda</p>
@@ -424,7 +468,10 @@ export default function Configurations() {
         </div>
       </header>
 
-      <div className="admin-main" style={{ maxWidth: 560 }}>
+      <div className="admin-main" style={{ maxWidth: isMobile ? 600 : 1080 }}>
+       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)', gap: isMobile ? 0 : 28, alignItems: 'start' }}>
+        {/* ── Columna izquierda: pagos + complementos ── */}
+        <div>
 
         {/* Configuraciones */}
         <div style={{ marginBottom: 36 }}>
@@ -541,14 +588,41 @@ export default function Configurations() {
           })()}
         </div>
 
-        {/* Tótems */}
+        </div>{/* ── fin columna izquierda ── */}
+
+        {/* ── Columna derecha: Tótems ── */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 4 }}>
-            Tótems registrados
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
+              Tótems registrados {devices.length > 0 && <span style={{ color: '#c4c4c4' }}>({devices.length})</span>}
+            </div>
+            {devices.length > 0 && (
+              selectMode ? (
+                <button onClick={exitSelectMode} style={{ background: 'none', border: 'none', color: '#888', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <FontAwesomeIcon icon={faXmark} /> Cancelar
+                </button>
+              ) : (
+                <button onClick={() => setSelectMode(true)} style={{ background: '#fff', border: '1px solid #e2e2e2', borderRadius: 8, color: '#555', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '5px 12px' }}>
+                  Seleccionar
+                </button>
+              )
+            )}
           </div>
           <p style={{ fontSize: 12, color: '#bbb', margin: '0 0 12px' }}>
             Se registran automáticamente al abrir la tienda desde un dispositivo
           </p>
+
+          {selectMode && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: '#fff7f7', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 12px', marginBottom: 10 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{selectedDevices.size} seleccionado(s)</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setSelectedDevices(new Set(devices.map(d => d.id)))} style={{ background: '#fff', border: '1px solid #e2e2e2', borderRadius: 8, color: '#555', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '6px 10px' }}>Todos</button>
+                <button onClick={deleteSelectedDevices} disabled={selectedDevices.size === 0 || deletingDevices} style={{ background: selectedDevices.size === 0 ? '#f3f3f3' : '#ef4444', border: 'none', borderRadius: 8, color: selectedDevices.size === 0 ? '#bbb' : '#fff', fontSize: 12, fontWeight: 800, cursor: selectedDevices.size === 0 ? 'default' : 'pointer', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FontAwesomeIcon icon={faTrash} /> {deletingDevices ? 'Eliminando...' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {devices.length === 0 ? (
             <div style={{ background: '#fafafa', border: '1.5px dashed #e0e0e0', borderRadius: 14, padding: '28px 24px', textAlign: 'center' }}>
@@ -558,11 +632,13 @@ export default function Configurations() {
           ) : (
             <div style={{ display: 'grid', gap: 10 }}>
               {devices.map(device => (
-                <DeviceCard key={device.id} device={device} configs={configs} onSave={saveDevice} saving={savingDevice === device.id} />
+                <DeviceCard key={device.id} device={device} configs={configs} onSave={saveDevice} saving={savingDevice === device.id} selectMode={selectMode} selected={selectedDevices.has(device.id)} onSelectToggle={toggleDeviceSelect} />
               ))}
             </div>
           )}
         </div>
+
+       </div>{/* ── fin grid ── */}
       </div>
     </>
   );

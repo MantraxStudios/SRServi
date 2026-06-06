@@ -1638,6 +1638,20 @@ app.put('/api/store-devices/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete device (tótem)
+app.delete('/api/store-devices/:id', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT store_id FROM store_devices WHERE id = ?', [parseInt(req.params.id)]);
+    if (!rows.length) return res.json({ success: true });
+    const isOwner = await verifyStoreOwnership(rows[0].store_id, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso' });
+    await pool.execute('DELETE FROM store_devices WHERE id = ?', [parseInt(req.params.id)]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Legacy label endpoint
 app.put('/api/store-devices/:id/label', authenticateToken, async (req, res) => {
   try {
