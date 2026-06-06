@@ -57,6 +57,7 @@ import {
   updateExtra,
   setExtraActive,
   deleteExtra,
+  setProductComplementsPrivate,
   getStoreConfigurations,
   getStoreConfigurationById,
   createStoreConfiguration,
@@ -1701,7 +1702,7 @@ app.get('/api/public/:code/extras', async (req, res) => {
     const store = await getStoreByCode(req.params.code.toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
     const [rows] = await pool.execute(
-      `SELECT e.*, c.name as category_name FROM extras e LEFT JOIN categories c ON e.category_id = c.id WHERE e.store_id = ? ORDER BY e.sort_order, e.name`,
+      `SELECT e.*, c.name as category_name FROM extras e LEFT JOIN categories c ON e.category_id = c.id WHERE e.store_id = ? AND e.owner_product_id IS NULL ORDER BY e.sort_order, e.name`,
       [store.id]
     );
     res.json(rows);
@@ -1713,10 +1714,27 @@ app.get('/api/public/:code/ingredients', async (req, res) => {
     const store = await getStoreByCode(req.params.code.toUpperCase());
     if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
     const [rows] = await pool.execute(
-      `SELECT i.*, c.name as category_name FROM ingredients i LEFT JOIN categories c ON i.category_id = c.id WHERE i.store_id = ? ORDER BY i.sort_order, i.name`,
+      `SELECT i.*, c.name as category_name FROM ingredients i LEFT JOIN categories c ON i.category_id = c.id WHERE i.store_id = ? AND i.owner_product_id IS NULL ORDER BY i.sort_order, i.name`,
       [store.id]
     );
     res.json(rows);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Complementos PRIVADOS de un producto (lista única) — incluye su included_by_default
+app.get('/api/public/:code/products/:id/own-complements', async (req, res) => {
+  try {
+    const productId = parseInt(req.params.id);
+    const [ings] = await pool.execute(
+      `SELECT i.*, pi.included_by_default AS included_by_default
+       FROM ingredients i INNER JOIN product_ingredients pi ON pi.ingredient_id = i.id AND pi.product_id = ?
+       ORDER BY i.sort_order, i.name`, [productId]
+    );
+    const [exts] = await pool.execute(
+      `SELECT e.* FROM extras e INNER JOIN product_extras pe ON pe.extra_id = e.id AND pe.product_id = ?
+       ORDER BY e.sort_order, e.name`, [productId]
+    );
+    res.json({ ingredients: ings, extras: exts });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
@@ -1728,9 +1746,14 @@ app.post('/api/public/:code/extras', upload.single('image'), async (req, res) =>
     if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
     const image = req.file ? `/uploads/${req.file.filename}` : null;
     const catId = req.body.category_id && req.body.category_id !== '' && req.body.category_id !== 'null' ? parseInt(req.body.category_id) : null;
+    const ownerProductId = req.body.owner_product_id ? parseInt(req.body.owner_product_id) : null;
+    // is_active explícito si viene; si no, privados activos y compartidos nuevos desactivados.
+    const isActive = req.body.is_active !== undefined
+      ? (req.body.is_active === 'true' || req.body.is_active === true ? 1 : 0)
+      : (ownerProductId ? 1 : 0);
     const [result] = await pool.execute(
-      'INSERT INTO extras (store_id, user_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?, ?)',
-      [store.id, store.user_id, req.body.name, parseFloat(req.body.price) || 0, catId, image]
+      'INSERT INTO extras (store_id, user_id, name, price, category_id, image, is_active, owner_product_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [store.id, store.user_id, req.body.name, parseFloat(req.body.price) || 0, catId, image, isActive, ownerProductId]
     );
     try {
       await pool.execute('UPDATE extras SET stock = ?, unlimited_stock = ? WHERE id = ?',
@@ -1749,9 +1772,14 @@ app.post('/api/public/:code/ingredients', upload.single('image'), async (req, re
     if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
     const image = req.file ? `/uploads/${req.file.filename}` : null;
     const catId = req.body.category_id && req.body.category_id !== '' && req.body.category_id !== 'null' ? parseInt(req.body.category_id) : null;
+    const ownerProductId = req.body.owner_product_id ? parseInt(req.body.owner_product_id) : null;
+    // is_active explícito si viene; si no, privados activos y compartidos nuevos desactivados.
+    const isActive = req.body.is_active !== undefined
+      ? (req.body.is_active === 'true' || req.body.is_active === true ? 1 : 0)
+      : (ownerProductId ? 1 : 0);
     const [result] = await pool.execute(
-      'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image) VALUES (?, ?, ?, ?, ?, ?)',
-      [store.id, store.user_id, req.body.name, parseFloat(req.body.price) || 0, catId, image]
+      'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image, is_active, owner_product_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [store.id, store.user_id, req.body.name, parseFloat(req.body.price) || 0, catId, image, isActive, ownerProductId]
     );
     try {
       await pool.execute('UPDATE ingredients SET stock = ?, unlimited_stock = ? WHERE id = ?',
@@ -2103,6 +2131,17 @@ app.put('/api/public/:code/products/:id/complements', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) { console.error('Error syncing complements:', error); res.status(500).json({ error: error.message }); }
+});
+
+// Activar / desactivar "lista única" (complementos privados de este producto)
+app.put('/api/public/:code/products/:id/complements-private', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    const result = await setProductComplementsPrivate(parseInt(req.params.id), auth.store.id, !!req.body.private);
+    emitProductUpdate(auth.store.id, 'product_updated', { id: parseInt(req.params.id) });
+    res.json(result);
+  } catch (error) { console.error('Error lista única:', error); res.status(500).json({ error: error.message }); }
 });
 
 // Get product complement associations

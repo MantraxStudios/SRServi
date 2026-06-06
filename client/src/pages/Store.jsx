@@ -1026,7 +1026,7 @@ function Store() {
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
-  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '', image_url: '' });
+  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '', image_url: '', complements_private: false });
   const [prodImageFile, setProdImageFile] = useState(null);
   const [prodCameraOpen, setProdCameraOpen] = useState(false);
   const [prodSaving, setProdSaving] = useState(false);
@@ -3654,31 +3654,48 @@ function Store() {
       has_ingredients: product?.has_ingredients || false,
       max_extras: product?.max_extras?.toString() || '',
       max_ingredients: product?.max_ingredients?.toString() || '',
-      image_url: (product?.image?.startsWith('http') ? product.image : '') || ''
+      image_url: (product?.image?.startsWith('http') ? product.image : '') || '',
+      complements_private: !!product?.complements_private
     });
     setProdImageFile(null);
     setProdNewExtras([]);
     setProdNewComplements([]);
     if (adminToken) {
-      fetchComplements();
-      if (product) {
-        fetch(`/api/public/${code}/products/${product.id}/complements`, { cache: 'no-store' })
+      if (product && product.complements_private) {
+        // Lista única: el producto tiene sus propios complementos privados → editar aquí solo lo afecta a él
+        fetch(`/api/public/${code}/products/${product.id}/own-complements`, { cache: 'no-store' })
           .then(r => r.json())
           .then(data => {
-            setSelectedIngredientIds(data.ingredient_ids || []);
-            setSelectedDefaultIngredientIds(data.default_ingredient_ids || []);
-            setSelectedExtraIds(data.extra_ids || []);
+            const ings = data.ingredients || [];
+            const exts = data.extras || [];
+            setIngredients(ings);
+            setExtras(exts);
+            setSelectedIngredientIds(ings.map(i => i.id));
+            setSelectedDefaultIngredientIds(ings.filter(i => i.included_by_default).map(i => i.id));
+            setSelectedExtraIds(exts.map(e => e.id));
           })
-          .catch(() => {
-            setSelectedIngredientIds(ingredients.map(i => i.id));
-            setSelectedDefaultIngredientIds([]);
-            setSelectedExtraIds(extras.map(e => e.id));
-          });
+          .catch(() => {});
       } else {
-        // New product: all enabled by default
-        setSelectedIngredientIds(ingredients.map(i => i.id));
-        setSelectedDefaultIngredientIds([]);
-        setSelectedExtraIds(extras.map(e => e.id));
+        fetchComplements();
+        if (product) {
+          fetch(`/api/public/${code}/products/${product.id}/complements`, { cache: 'no-store' })
+            .then(r => r.json())
+            .then(data => {
+              setSelectedIngredientIds(data.ingredient_ids || []);
+              setSelectedDefaultIngredientIds(data.default_ingredient_ids || []);
+              setSelectedExtraIds(data.extra_ids || []);
+            })
+            .catch(() => {
+              setSelectedIngredientIds(ingredients.map(i => i.id));
+              setSelectedDefaultIngredientIds([]);
+              setSelectedExtraIds(extras.map(e => e.id));
+            });
+        } else {
+          // New product: all enabled by default
+          setSelectedIngredientIds(ingredients.map(i => i.id));
+          setSelectedDefaultIngredientIds([]);
+          setSelectedExtraIds(extras.map(e => e.id));
+        }
       }
     }
     setProdModalOpen(true);
@@ -3729,6 +3746,14 @@ function Store() {
       // Create new complements & extras, then sync associations
       if (adminToken) {
         const categoryId = prodForm.category_id || '';
+        const isPrivate = !!prodForm.complements_private;
+        const wasPrivate = !!editingProd?.complements_private;
+
+        // Resolver el producto destino primero (necesario para complementos privados)
+        const prodData2 = await (await fetch(`/api/public/${code}`, { cache: 'no-store' })).json();
+        const targetProd = editingProd ? editingProd : prodData2.products?.[prodData2.products.length - 1];
+        const targetId = targetProd?.id;
+
         const newIngIds = [];
         const newExtIds = [];
 
@@ -3741,6 +3766,8 @@ function Store() {
           compData.append('category_id', categoryId);
           compData.append('stock', 0);
           compData.append('unlimited_stock', 'true');
+          compData.append('is_active', 'true');
+          if (isPrivate && targetId) compData.append('owner_product_id', targetId);
           if (comp.imageFile) compData.append('image', comp.imageFile);
           const res = await fetch(`/api/public/${code}/ingredients`, { method: 'POST', body: compData });
           if (res.ok) { const d = await res.json(); newIngIds.push(d.id); }
@@ -3754,27 +3781,40 @@ function Store() {
           extData.append('category_id', categoryId);
           extData.append('stock', 0);
           extData.append('unlimited_stock', 'true');
+          extData.append('is_active', 'true');
+          if (isPrivate && targetId) extData.append('owner_product_id', targetId);
           if (ext.imageFile) extData.append('image', ext.imageFile);
           const res = await fetch(`/api/public/${code}/extras`, { method: 'POST', body: extData });
           if (res.ok) { const d = await res.json(); newExtIds.push(d.id); }
         }
 
-        if (prodNewComplements.length > 0 || prodNewExtras.length > 0) {
-          fetchComplements();
+        if (targetId) {
+          if (!isPrivate && wasPrivate) {
+            // Se desactivó lista única → limpiar copias privadas y volver a la biblioteca compartida
+            await fetch(`/api/public/${code}/products/${targetId}/complements-private`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...getAuthBody(), private: false })
+            });
+          } else {
+            // Sincronizar asociaciones (selección + nuevos)
+            const allIngIds = [...selectedIngredientIds, ...newIngIds];
+            const allExtIds = [...selectedExtraIds, ...newExtIds];
+            await fetch(`/api/public/${code}/products/${targetId}/complements`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...getAuthBody(), ingredient_ids: allIngIds, extra_ids: allExtIds, default_ingredient_ids: selectedDefaultIngredientIds })
+            });
+            // Lista única activada → clonar los vinculados a copias privadas
+            if (isPrivate) {
+              await fetch(`/api/public/${code}/products/${targetId}/complements-private`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...getAuthBody(), private: true })
+              });
+            }
+          }
         }
 
-        // Sync complement associations for this product
-        const prodData2 = await (await fetch(`/api/public/${code}`, { cache: 'no-store' })).json();
-        const targetProd = editingProd ? editingProd : prodData2.products?.[prodData2.products.length - 1];
-        if (targetProd?.id) {
-          const allIngIds = [...selectedIngredientIds, ...newIngIds];
-          const allExtIds = [...selectedExtraIds, ...newExtIds];
-          await fetch(`/api/public/${code}/products/${targetProd.id}/complements`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...getAuthBody(), ingredient_ids: allIngIds, extra_ids: allExtIds, default_ingredient_ids: selectedDefaultIngredientIds })
-          });
-        }
+        fetchComplements();
       }
 
       setProdModalOpen(false);
@@ -6290,6 +6330,17 @@ function Store() {
                         <input type="number" min="0" value={prodForm.max_ingredients} onChange={(e) => setProdForm({ ...prodForm, max_ingredients: e.target.value })} placeholder="Max (0=ilim)" className="store-prod-modal-input" style={{ width: '100px', padding: '5px 8px', fontSize: '13px' }} />
                       )}
                     </div>
+                    {(prodForm.has_ingredients || prodForm.has_extras) && (
+                      <div style={{ padding: '8px 10px', borderRadius: '8px', border: '2px solid', borderColor: prodForm.complements_private ? '#D4AF37' : '#e0e0e0', background: prodForm.complements_private ? '#fffbeb' : '#fafafa' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', margin: 0 }}>
+                          <input type="checkbox" checked={prodForm.complements_private} onChange={(e) => setProdForm({ ...prodForm, complements_private: e.target.checked })} style={{ width: '18px', height: '18px' }} />
+                          <FontAwesomeIcon icon={faStar} style={{ color: '#D4AF37' }} /> Lista única (complementos solo de este producto)
+                        </label>
+                        <p style={{ margin: '6px 0 0 26px', fontSize: '11px', color: '#92760a', lineHeight: 1.4 }}>
+                          Al activarla, los complementos se vuelven exclusivos de este producto: editarlos no afecta a los demás. Se aplica al guardar.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button
@@ -6319,7 +6370,7 @@ function Store() {
             )}
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
               <button
-                onClick={() => { setProdModalOpen(false); setProdImageFile(null); setProdNewExtras([]); setProdNewComplements([]); }}
+                onClick={() => { setProdModalOpen(false); setProdImageFile(null); setProdNewExtras([]); setProdNewComplements([]); if (adminToken) fetchComplements(); }}
                 className="store-prod-modal-btn cancel"
               >
                 Cancelar

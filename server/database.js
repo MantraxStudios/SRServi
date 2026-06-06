@@ -975,6 +975,27 @@ async function migrateTables() {
       console.error('❌ Error migrando included_by_default:', err.message);
     }
 
+    // Lista única: complementos privados de un producto (owner_product_id) + flag en products
+    try {
+      const [ingCols5] = await pool.execute('SHOW COLUMNS FROM ingredients');
+      if (!ingCols5.map(c => c.Field).includes('owner_product_id')) {
+        await pool.execute('ALTER TABLE ingredients ADD COLUMN owner_product_id INT DEFAULT NULL');
+        console.log('✅ Columna owner_product_id agregada a ingredients');
+      }
+      const [extCols5] = await pool.execute('SHOW COLUMNS FROM extras');
+      if (!extCols5.map(c => c.Field).includes('owner_product_id')) {
+        await pool.execute('ALTER TABLE extras ADD COLUMN owner_product_id INT DEFAULT NULL');
+        console.log('✅ Columna owner_product_id agregada a extras');
+      }
+      const [prodCols] = await pool.execute('SHOW COLUMNS FROM products');
+      if (!prodCols.map(c => c.Field).includes('complements_private')) {
+        await pool.execute('ALTER TABLE products ADD COLUMN complements_private BOOLEAN NOT NULL DEFAULT FALSE');
+        console.log('✅ Columna complements_private agregada a products');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando lista única (owner_product_id):', err.message);
+    }
+
     // Materias primas (raw materials)
     try {
       await pool.execute(`
@@ -2149,7 +2170,7 @@ export async function getIngredients(storeId) {
   const [rows] = await pool.execute(
     `SELECT i.*, c.name AS category_name FROM ingredients i
      LEFT JOIN categories c ON i.category_id = c.id
-     WHERE i.store_id = ? ORDER BY i.sort_order, i.name`,
+     WHERE i.store_id = ? AND i.owner_product_id IS NULL ORDER BY i.sort_order, i.name`,
     [storeId]
   );
   return rows.map(ing => ({
@@ -2163,13 +2184,13 @@ export async function getIngredients(storeId) {
 }
 
 export async function createIngredient(storeId, data) {
-  const { name, price, category_id, image, stock, unlimited_stock, stock_unit, is_active } = data;
+  const { name, price, category_id, image, stock, unlimited_stock, stock_unit, is_active, owner_product_id } = data;
   const store = await getStoreById(storeId);
-  // Nuevos implementos quedan desactivados por defecto; el admin los activa.
-  const active = is_active === undefined ? false : !!is_active;
+  // Nuevos implementos quedan desactivados por defecto; salvo los privados de un producto (lista única), que nacen activos.
+  const active = is_active === undefined ? (owner_product_id ? true : false) : !!is_active;
   const [result] = await pool.execute(
-    'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image, stock, unlimited_stock, stock_unit, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false, stock_unit || 'unidades', active]
+    'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image, stock, unlimited_stock, stock_unit, is_active, owner_product_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false, stock_unit || 'unidades', active, owner_product_id || null]
   );
   return { id: result.insertId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false, stock_unit: stock_unit || 'unidades' };
 }
@@ -2204,7 +2225,7 @@ export async function getExtras(storeId) {
   const [rows] = await pool.execute(
     `SELECT e.*, c.name AS category_name FROM extras e
      LEFT JOIN categories c ON e.category_id = c.id
-     WHERE e.store_id = ? ORDER BY e.sort_order, e.name`,
+     WHERE e.store_id = ? AND e.owner_product_id IS NULL ORDER BY e.sort_order, e.name`,
     [storeId]
   );
   return rows.map(ext => ({
@@ -2218,13 +2239,13 @@ export async function getExtras(storeId) {
 }
 
 export async function createExtra(storeId, data) {
-  const { name, price, category_id, image, stock, unlimited_stock, stock_unit, is_active } = data;
+  const { name, price, category_id, image, stock, unlimited_stock, stock_unit, is_active, owner_product_id } = data;
   const store = await getStoreById(storeId);
-  // Nuevos extras quedan desactivados por defecto; el admin los activa.
-  const active = is_active === undefined ? false : !!is_active;
+  // Nuevos extras quedan desactivados por defecto; salvo los privados de un producto (lista única), que nacen activos.
+  const active = is_active === undefined ? (owner_product_id ? true : false) : !!is_active;
   const [result] = await pool.execute(
-    'INSERT INTO extras (store_id, user_id, name, price, category_id, image, stock, unlimited_stock, stock_unit, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false, stock_unit || 'unidades', active]
+    'INSERT INTO extras (store_id, user_id, name, price, category_id, image, stock, unlimited_stock, stock_unit, is_active, owner_product_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, name, price || 0, category_id || null, image || null, stock || 0, unlimited_stock || false, stock_unit || 'unidades', active, owner_product_id || null]
   );
   return { id: result.insertId, store_id: storeId, name, price: price || 0, category_id: category_id || null, image: image || null, stock: stock || 0, unlimited_stock: unlimited_stock || false, stock_unit: stock_unit || 'unidades' };
 }
@@ -2253,6 +2274,61 @@ export async function deleteExtra(extraId, storeId) {
     [extraId, storeId]
   );
   return true;
+}
+
+/**
+ * Lista única: al activar, clona los complementos vinculados del producto en copias
+ * privadas (owner_product_id), para que editarlos solo afecte a ese producto.
+ * Al desactivar, borra las copias privadas y vuelve a la biblioteca compartida.
+ */
+export async function setProductComplementsPrivate(productId, storeId, isPrivate) {
+  const [prodRows] = await pool.execute('SELECT id FROM products WHERE id = ? AND store_id = ?', [productId, storeId]);
+  if (!prodRows.length) throw new Error('Producto no encontrado');
+
+  if (isPrivate) {
+    // Ingredientes
+    const [pings] = await pool.execute(
+      `SELECT pi.included_by_default, i.* FROM product_ingredients pi JOIN ingredients i ON i.id = pi.ingredient_id WHERE pi.product_id = ?`,
+      [productId]
+    );
+    await pool.execute('DELETE FROM product_ingredients WHERE product_id = ?', [productId]);
+    for (const ing of pings) {
+      let id = ing.id;
+      if (ing.owner_product_id !== productId) {
+        const [r] = await pool.execute(
+          'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image, stock, unlimited_stock, stock_unit, is_active, owner_product_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [storeId, ing.user_id || null, ing.name, ing.price || 0, ing.category_id || null, ing.image || null, ing.stock || 0, ing.unlimited_stock || 0, ing.stock_unit || 'unidades', ing.is_active == null ? 1 : ing.is_active, productId]
+        );
+        id = r.insertId;
+      }
+      await pool.execute('INSERT INTO product_ingredients (product_id, ingredient_id, included_by_default) VALUES (?, ?, ?)', [productId, id, ing.included_by_default ? 1 : 0]);
+    }
+    // Extras
+    const [pexts] = await pool.execute(
+      `SELECT e.* FROM product_extras pe JOIN extras e ON e.id = pe.extra_id WHERE pe.product_id = ?`,
+      [productId]
+    );
+    await pool.execute('DELETE FROM product_extras WHERE product_id = ?', [productId]);
+    for (const ext of pexts) {
+      let id = ext.id;
+      if (ext.owner_product_id !== productId) {
+        const [r] = await pool.execute(
+          'INSERT INTO extras (store_id, user_id, name, price, category_id, image, stock, unlimited_stock, stock_unit, is_active, owner_product_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [storeId, ext.user_id || null, ext.name, ext.price || 0, ext.category_id || null, ext.image || null, ext.stock || 0, ext.unlimited_stock || 0, ext.stock_unit || 'unidades', ext.is_active == null ? 1 : ext.is_active, productId]
+        );
+        id = r.insertId;
+      }
+      await pool.execute('INSERT INTO product_extras (product_id, extra_id) VALUES (?, ?)', [productId, id]);
+    }
+    await pool.execute('UPDATE products SET complements_private = TRUE, complements_configured = TRUE WHERE id = ?', [productId]);
+  } else {
+    await pool.execute('DELETE FROM product_ingredients WHERE product_id = ?', [productId]);
+    await pool.execute('DELETE FROM product_extras WHERE product_id = ?', [productId]);
+    await pool.execute('DELETE FROM ingredients WHERE owner_product_id = ? AND store_id = ?', [productId, storeId]);
+    await pool.execute('DELETE FROM extras WHERE owner_product_id = ? AND store_id = ?', [productId, storeId]);
+    await pool.execute('UPDATE products SET complements_private = FALSE, complements_configured = FALSE WHERE id = ?', [productId]);
+  }
+  return { success: true, private: !!isPrivate };
 }
 
 export async function getStoreConfigurations(storeId) {
