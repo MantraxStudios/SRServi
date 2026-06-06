@@ -5685,14 +5685,16 @@ function Store() {
         <div className="modal-overlay">
           <div className="modal text-center" style={{ maxWidth: '400px', padding: '40px' }}>
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '10px', fontSize: '24px' }}>
-              {qrPaymentUrl ? t('scanQRToPay', lang) : t('waitingPayment', lang)}
+              {qrPaymentUrl && !deliveryMode ? t('scanQRToPay', lang) : t('waitingPayment', lang)}
             </h2>
 
             {qrPaymentUrl ? (
               <>
-                <p className="text-muted" style={{ marginBottom: '15px', fontSize: '14px' }}>
-                  {t('scanQRDesc', lang)}
-                </p>
+                {!deliveryMode && (
+                  <p className="text-muted" style={{ marginBottom: '15px', fontSize: '14px' }}>
+                    {t('scanQRDesc', lang)}
+                  </p>
+                )}
                 {!deliveryMode && (
                   <div style={{ margin: '0 auto 15px', display: 'flex', justifyContent: 'center' }}>
                     <img
