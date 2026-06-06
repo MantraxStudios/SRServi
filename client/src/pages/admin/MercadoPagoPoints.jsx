@@ -9,7 +9,8 @@ import {
   faExclamationTriangle, faSearch, faLink, faGlobe, faCashRegister,
   faPuzzlePiece, faDownload, faCodeBranch, faChevronDown, faChevronUp,
   faSpinner, faCheck, faUser, faCog, faToggleOn, faToggleOff, faSave,
-  faExternalLinkAlt
+  faExternalLinkAlt, faMobile, faTabletAlt, faMoneyBill, faPlug, faCopy,
+  faTimes, faLightbulb, faArrowLeft, faUndo, faQrcode
 } from '@fortawesome/free-solid-svg-icons';
 import {
   COUNTRIES, DEFAULT_COUNTRY, getCountry, loadCountry, saveCountry, loadPluginCountries
@@ -213,7 +214,7 @@ function MercadoPagoPoints() {
       });
       const data = await res.json();
       if (res.ok) {
-        setMpSaveMsg('✔ Guardado');
+        setMpSaveMsg('Guardado');
         setMpNewName(''); setMpNewToken(''); setMpNewTerminalId('');
         refreshAll();
         setTimeout(() => setShowPosModal(false), 1200);
@@ -233,7 +234,7 @@ function MercadoPagoPoints() {
       });
       const data = await res.json();
       if (res.ok) {
-        setTuuSaveMsg2('✔ Guardado');
+        setTuuSaveMsg2('Guardado');
         setTuuNewName(''); setTuuNewSerial(''); setTuuNewDeviceId(''); setTuuNewApiKey('');
         refreshAll();
         setTimeout(() => setShowPosModal(false), 1200);
@@ -253,7 +254,7 @@ function MercadoPagoPoints() {
       });
       const data = await res.json();
       if (res.ok) {
-        setSumupSaveMsg('✔ Terminal SumUp guardada');
+        setSumupSaveMsg('Terminal SumUp guardada');
         setSumupNewName(''); setSumupNewApiKey(''); setSumupNewMerchantCode('');
         refreshAll();
         setTimeout(() => setShowPosModal(false), 1200);
@@ -304,7 +305,7 @@ function MercadoPagoPoints() {
         body: JSON.stringify({ mp_access_token: mpQrToken.trim() })
       });
       if (res.ok) {
-        setMpQrMsg('✔ Guardado correctamente');
+        setMpQrMsg('Guardado correctamente');
         setMpQrToken('');
         setMpQrConfigured(true);
         fetchMpQrConfig();
@@ -407,7 +408,7 @@ function MercadoPagoPoints() {
         })
       });
       if (res.ok) {
-        setHaulmerMsg('✔ Guardado correctamente');
+        setHaulmerMsg('Guardado correctamente');
         setHaulmerSecretKey('');
         setHaulmerLoaded(true);
         setTimeout(() => setHaulmerMsg(''), 3000);
@@ -489,7 +490,7 @@ function MercadoPagoPoints() {
         setSquareCodeStatus(data.status || '');
         if (data.status === 'PAIRED' && data.device_id) {
           clearInterval(intervalId); setSquarePolling(false);
-          setSquarePollMsg('✔ Terminal emparejado. Device ID: ' + data.device_id);
+          setSquarePollMsg('Terminal emparejado. Device ID: ' + data.device_id);
           setSquareStep('paired');
           // Auto-save device to unified pos_terminals
           await fetch(API + '/api/pos-terminals', {
@@ -989,11 +990,11 @@ function MercadoPagoPoints() {
   const sectionTitle = { fontSize: '11px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '0.8px', margin: '0 0 14px' };
   const card = { background: '#fff', border: '1px solid #ebebeb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' };
   const providerMeta = (p) => ({
-    mercadopago: { color: '#009EE3', bg: '#e8f6fd', emoji: '💳', name: 'Mercado Pago Point' },
-    tuu:         { color: '#7c3aed', bg: '#f5f0ff', emoji: '📱', name: 'Tuu POS' },
-    square:      { color: '#3b82f6', bg: '#eff6ff', emoji: '📟', name: 'Square Terminal' },
-    sumup:       { color: '#f59e0b', bg: '#fef3c7', emoji: '💰', name: 'SumUp' },
-  }[p] || { color: '#888', bg: '#f5f5f5', emoji: '💳', name: p });
+    mercadopago: { color: '#009EE3', bg: '#e8f6fd', icon: faCreditCard, name: 'Mercado Pago Point' },
+    tuu:         { color: '#7c3aed', bg: '#f5f0ff', icon: faMobile, name: 'Tuu POS' },
+    square:      { color: '#3b82f6', bg: '#eff6ff', icon: faTabletAlt, name: 'Square Terminal' },
+    sumup:       { color: '#f59e0b', bg: '#fef3c7', icon: faMoneyBill, name: 'SumUp' },
+  }[p] || { color: '#888', bg: '#f5f5f5', icon: faCreditCard, name: p });
 
   return (
     <>
@@ -1039,7 +1040,7 @@ function MercadoPagoPoints() {
 
           {posList.length === 0 ? (
             <div style={{ padding: '40px 24px', textAlign: 'center', border: '2px dashed #e5e7eb', borderRadius: '14px', background: '#fafafa' }}>
-              <div style={{ fontSize: '36px', marginBottom: '10px' }}>🔌</div>
+              <FontAwesomeIcon icon={faPlug} style={{ fontSize: '34px', marginBottom: '12px', color: '#d1d5db' }} />
               <p style={{ color: '#555', margin: '0 0 4px', fontSize: '14px', fontWeight: '700' }}>Sin terminales configuradas</p>
               <p style={{ color: '#aaa', margin: 0, fontSize: '12px' }}>Presiona "Agregar Terminal" para vincular tu primera terminal de pago</p>
             </div>
@@ -1059,8 +1060,8 @@ function MercadoPagoPoints() {
                       title="Eliminar terminal">
                       <FontAwesomeIcon icon={faTrash} style={{ fontSize: '11px' }} />
                     </button>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', background: meta.bg, flexShrink: 0 }}>
-                      {meta.emoji}
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', background: meta.bg, color: meta.color, flexShrink: 0 }}>
+                      <FontAwesomeIcon icon={meta.icon} />
                     </div>
                     <div style={{ fontSize: '14px', fontWeight: '700', color: '#111', marginBottom: '4px', paddingRight: '22px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pos.name}</div>
                     <span style={{ display: 'inline-block', fontSize: '10px', fontWeight: '700', color: meta.color, background: meta.bg, padding: '2px 8px', borderRadius: '20px', marginBottom: '10px' }}>
@@ -1078,7 +1079,7 @@ function MercadoPagoPoints() {
                             onClick={() => { navigator.clipboard.writeText(pos.pos_pin); }}
                             title="Copiar PIN"
                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9a8000', padding: '2px 4px', fontSize: '13px', lineHeight: 1 }}
-                          >📋</button>
+                          ><FontAwesomeIcon icon={faCopy} /></button>
                         </div>
                         <div style={{ fontSize: '10px', color: '#aaa', marginTop: '3px' }}>Usa este PIN en la app Android para ver pedidos en efectivo</div>
                       </div>
@@ -1105,7 +1106,7 @@ function MercadoPagoPoints() {
             {/* MercadoPago QR */}
             <div style={{ ...card }}>
               <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #f3f3f3' }}>
-                <div style={{ width: '38px', height: '38px', background: '#e8f6fd', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>💳</div>
+                <div style={{ width: '38px', height: '38px', background: '#e8f6fd', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: '#009EE3', flexShrink: 0 }}><FontAwesomeIcon icon={faQrcode} /></div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                     <span style={{ fontSize: '14px', fontWeight: '700', color: '#111' }}>MercadoPago QR</span>
@@ -1139,7 +1140,7 @@ function MercadoPagoPoints() {
             {/* Haulmer QR */}
             <div style={{ ...card }}>
               <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid #f3f3f3' }}>
-                <div style={{ width: '38px', height: '38px', background: '#f0fdf4', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>🌐</div>
+                <div style={{ width: '38px', height: '38px', background: '#f0fdf4', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: '#16a34a', flexShrink: 0 }}><FontAwesomeIcon icon={faGlobe} /></div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                     <span style={{ fontSize: '14px', fontWeight: '700', color: '#111' }}>Haulmer QR</span>
@@ -1236,7 +1237,7 @@ function MercadoPagoPoints() {
                   <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#111' }}>Agregar Terminal POS</h3>
                   <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#aaa' }}>Selecciona tu proveedor y configura la terminal</p>
                 </div>
-                <button onClick={() => setShowPosModal(false)} style={{ background: '#f5f5f5', border: 'none', cursor: 'pointer', width: '30px', height: '30px', borderRadius: '50%', fontSize: '16px', color: '#777', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                <button onClick={() => setShowPosModal(false)} style={{ background: '#f5f5f5', border: 'none', cursor: 'pointer', width: '30px', height: '30px', borderRadius: '50%', fontSize: '14px', color: '#777', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FontAwesomeIcon icon={faTimes} /></button>
               </div>
 
               {/* Provider selector */}
@@ -1244,14 +1245,14 @@ function MercadoPagoPoints() {
                 <p style={{ ...sectionTitle, margin: '0 0 10px' }}>Proveedor</p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
                   {[
-                    { label: 'Mercado Pago', emoji: '💳', color: '#009EE3', bg: '#e8f6fd' },
-                    { label: 'Tuu POS',      emoji: '📱', color: '#7c3aed', bg: '#f5f0ff' },
-                    { label: 'Square',       emoji: '📟', color: '#3b82f6', bg: '#eff6ff' },
-                    { label: 'Sumup',        emoji: '💰', color: '#f59e0b', bg: '#fef3c7' },
+                    { label: 'Mercado Pago', icon: faCreditCard, color: '#009EE3', bg: '#e8f6fd' },
+                    { label: 'Tuu POS',      icon: faMobile,     color: '#7c3aed', bg: '#f5f0ff' },
+                    { label: 'Square',       icon: faTabletAlt,  color: '#3b82f6', bg: '#eff6ff' },
+                    { label: 'Sumup',        icon: faMoneyBill,  color: '#f59e0b', bg: '#fef3c7' },
                   ].map((p, i) => (
                     <button key={i} onClick={() => { setPosTab(i); setMpModalStep('token'); setMpModalDetected([]); setMpModalError(''); }}
-                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: '10px 4px', background: posTab === i ? p.bg : '#fafafa', border: posTab === i ? `2px solid ${p.color}` : '2px solid transparent', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s', outline: 'none' }}>
-                      <span style={{ fontSize: '20px' }}>{p.emoji}</span>
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '10px 4px', background: posTab === i ? p.bg : '#fafafa', border: posTab === i ? `2px solid ${p.color}` : '2px solid transparent', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s', outline: 'none' }}>
+                      <FontAwesomeIcon icon={p.icon} style={{ fontSize: '18px', color: posTab === i ? p.color : '#999' }} />
                       <span style={{ fontSize: '10px', fontWeight: '700', color: posTab === i ? p.color : '#888', textAlign: 'center', lineHeight: '1.2' }}>{p.label}</span>
                     </button>
                   ))}
@@ -1264,12 +1265,13 @@ function MercadoPagoPoints() {
                   <div>
                     {mpModalStep === 'token' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        <div style={{ padding: '12px 14px', background: '#e8f6fd', borderRadius: '10px', fontSize: '12px', color: '#0369a1' }}>
-                          💡 Necesitas el <strong>Access Token de producción</strong> de tu app en MercadoPago Developers
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '12px 14px', background: '#e8f6fd', borderRadius: '10px', fontSize: '12px', color: '#0369a1' }}>
+                          <FontAwesomeIcon icon={faLightbulb} style={{ marginTop: '2px' }} />
+                          <span>Necesitas el <strong>Access Token de producción</strong> de tu app en MercadoPago Developers</span>
                         </div>
                         <a href="https://www.youtube.com/watch?v=KC9NjZ2OMP0" target="_blank" rel="noreferrer"
                           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: '#e8f6fd', border: '1px solid #bae6fd', borderRadius: '10px', textDecoration: 'none', color: '#0369a1', fontSize: '12px', fontWeight: '600' }}>
-                          ▶ Ver tutorial: Cómo vincular Mercado Pago Point
+                          <FontAwesomeIcon icon={faExternalLinkAlt} /> Ver tutorial: Cómo vincular Mercado Pago Point
                         </a>
                         <div>
                           <label style={labelStyle}>Access Token *</label>
@@ -1304,7 +1306,7 @@ function MercadoPagoPoints() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#111' }}>{mpModalDetected.length} dispositivo{mpModalDetected.length !== 1 ? 's' : ''} encontrado{mpModalDetected.length !== 1 ? 's' : ''}</p>
-                          <button onClick={() => { setMpModalStep('token'); setMpModalDetected([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#009EE3', fontWeight: '600' }}>← Cambiar token</button>
+                          <button onClick={() => { setMpModalStep('token'); setMpModalDetected([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#009EE3', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '5px' }}><FontAwesomeIcon icon={faArrowLeft} /> Cambiar token</button>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '260px', overflowY: 'auto' }}>
                           {mpModalDetected.map(d => (
@@ -1348,13 +1350,14 @@ function MercadoPagoPoints() {
 
                 {posTab === 1 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ padding: '11px 14px', background: '#f5f0ff', borderRadius: '10px', fontSize: '12px', color: '#7c3aed' }}>
-                      💡 Necesitas las credenciales de tu cuenta en{' '}
-                      <a href="https://espacio.haulmer.com" target="_blank" rel="noreferrer" style={{ color: '#7c3aed', fontWeight: '700' }}>espacio.haulmer.com</a>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '11px 14px', background: '#f5f0ff', borderRadius: '10px', fontSize: '12px', color: '#7c3aed' }}>
+                      <FontAwesomeIcon icon={faLightbulb} style={{ marginTop: '2px' }} />
+                      <span>Necesitas las credenciales de tu cuenta en{' '}
+                      <a href="https://espacio.haulmer.com" target="_blank" rel="noreferrer" style={{ color: '#7c3aed', fontWeight: '700' }}>espacio.haulmer.com</a></span>
                     </div>
                     <a href="https://www.youtube.com/watch?v=mO2LgD1uoBs" target="_blank" rel="noreferrer"
                       style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', background: '#fff0ff', border: '1px solid #e9d5ff', borderRadius: '10px', textDecoration: 'none', color: '#7c3aed', fontSize: '12px', fontWeight: '600' }}>
-                      ▶ Ver tutorial: Cómo vincular Tuu POS
+                      <FontAwesomeIcon icon={faExternalLinkAlt} /> Ver tutorial: Cómo vincular Tuu POS
                     </a>
                     <div>
                       <label style={labelStyle}>API Key de Tuu *</label>
@@ -1404,7 +1407,7 @@ function MercadoPagoPoints() {
                           <span style={{ fontSize: '13px', fontWeight: '700', color: '#1d4ed8' }}>
                             {squareCode ? '② Ingresa el código en el terminal' : '① Credenciales y terminal'}
                           </span>
-                          {squareCfgSaved && !squareCode && <span style={{ fontSize: '10px', color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '20px', fontWeight: '700' }}>✔ Configurado</span>}
+                          {squareCfgSaved && !squareCode && <span style={{ fontSize: '10px', color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '20px', fontWeight: '700' }}><FontAwesomeIcon icon={faCheck} /> Configurado</span>}
                         </div>
                         <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #e5e7eb' }}>
 
@@ -1427,7 +1430,7 @@ function MercadoPagoPoints() {
                                   <label style={{ ...labelStyle, margin: 0 }}>Location ID</label>
                                   <button onClick={squareFetchLocations} disabled={squareLoadingLocs || !squareAccessToken.trim()}
                                     style={{ fontSize: '11px', color: '#3b82f6', background: 'none', border: 'none', cursor: squareLoadingLocs || !squareAccessToken.trim() ? 'not-allowed' : 'pointer', padding: 0, fontWeight: '600', opacity: !squareAccessToken.trim() ? 0.4 : 1 }}>
-                                    {squareLoadingLocs ? '⏳ Cargando…' : '🔍 Buscar ubicaciones'}
+                                    {squareLoadingLocs ? <><FontAwesomeIcon icon={faSpinner} spin /> Cargando…</> : <><FontAwesomeIcon icon={faSearch} /> Buscar ubicaciones</>}
                                   </button>
                                 </div>
                                 {squareLocations.length > 0 ? (
@@ -1460,7 +1463,7 @@ function MercadoPagoPoints() {
                                   color: squareGenerating || squarePolling || !squareAccessToken.trim() || !squareLocationId.trim() ? '#bbb' : '#fff',
                                   border: 'none', borderRadius: '9px', fontWeight: '700', fontSize: '13px', cursor: 'pointer'
                                 }}>
-                                {squareGenerating ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando y generando…</> : '🔲 Guardar y generar código de inicio de sesión'}
+                                {squareGenerating ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando y generando…</> : <><FontAwesomeIcon icon={faQrcode} /> Guardar y generar código de inicio de sesión</>}
                               </button>
                             </>
                           )}
@@ -1486,7 +1489,7 @@ function MercadoPagoPoints() {
                           {squareCode && !squarePolling && squareStep !== 'paired' && (
                             <button onClick={() => { setSquareCode(''); setSquareCodeId(''); setSquarePollMsg(''); setSquareStep('config'); }}
                               style={{ fontSize: '12px', color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: '7px', padding: '7px 12px', cursor: 'pointer', fontWeight: '600' }}>
-                              ↩ Volver a configurar / generar nuevo código
+<FontAwesomeIcon icon={faUndo} /> Volver a configurar / generar nuevo código
                             </button>
                           )}
                         </div>
@@ -1496,7 +1499,7 @@ function MercadoPagoPoints() {
                     {/* Éxito de emparejamiento */}
                     {squareStep === 'paired' && (
                       <div style={{ padding: '14px 16px', background: '#dcfce7', border: '1.5px solid #86efac', borderRadius: '10px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '22px', marginBottom: '6px' }}>✅</div>
+                        <FontAwesomeIcon icon={faCheckCircle} style={{ fontSize: '24px', marginBottom: '8px', color: '#16a34a' }} />
                         <p style={{ margin: '0 0 4px', fontSize: '14px', color: '#15803d', fontWeight: '700' }}>Terminal vinculado exitosamente</p>
                         <p style={{ margin: '0 0 10px', fontSize: '11px', color: '#166534' }}>{squarePollMsg}</p>
                         <button onClick={() => { setSquareStep('config'); setSquareCode(''); setSquareCodeId(''); setSquarePollMsg(''); setSquareDeviceName(''); }}
@@ -1527,7 +1530,7 @@ function MercadoPagoPoints() {
                       </div>
                     )}
 
-                    {squareError && <p style={{ margin: 0, fontSize: '12px', color: '#dc3545', background: '#fff5f5', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fecaca' }}>⚠ {squareError}</p>}
+                    {squareError && <p style={{ margin: 0, fontSize: '12px', color: '#dc3545', background: '#fff5f5', padding: '8px 12px', borderRadius: '8px', border: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: '6px' }}><FontAwesomeIcon icon={faExclamationTriangle} /> {squareError}</p>}
                   </div>
                 )}
 
@@ -1598,7 +1601,7 @@ function MercadoPagoPoints() {
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                       }}
                     >
-                      {savingSumup ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando…</> : '💰 Guardar SumUp'}
+                      {savingSumup ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando…</> : <><FontAwesomeIcon icon={faMoneyBill} /> Guardar SumUp</>}
                     </button>
                     {sumupSaveMsg && (
                       <p style={{ margin: 0, fontSize: '12px', color: sumupSaveMsg.includes('Error') ? '#dc3545' : '#155724', background: sumupSaveMsg.includes('Error') ? '#fff5f5' : '#f0fff4', padding: '8px 12px', borderRadius: '8px', border: `1px solid ${sumupSaveMsg.includes('Error') ? '#fecaca' : '#bbf7d0'}` }}>
@@ -1714,7 +1717,7 @@ function MercadoPagoPoints() {
             {mpBannerMode === null ? (
               /* Estado: cargando */
               <>
-                <div style={{ fontSize: '44px', marginBottom: '16px' }}>⚙️</div>
+                <FontAwesomeIcon icon={faCog} spin style={{ fontSize: '40px', marginBottom: '18px', color: '#D4AF37' }} />
                 <div style={{ fontSize: '20px', fontWeight: '900', color: '#D4AF37', marginBottom: '8px' }}>
                   Estamos trabajando
                 </div>
@@ -1734,8 +1737,8 @@ function MercadoPagoPoints() {
             ) : (
               /* Estado: resultado */
               <>
-                <div style={{ fontSize: '48px', marginBottom: '14px' }}>
-                  {mpBannerMode === 'PDV' ? '✅' : mpBannerMode === 'STANDALONE' ? '📟' : '⚠️'}
+                <div style={{ fontSize: '44px', marginBottom: '16px', color: mpBannerMode === 'PDV' ? '#22c55e' : mpBannerMode === 'STANDALONE' ? '#3b82f6' : '#f59e0b' }}>
+                  <FontAwesomeIcon icon={mpBannerMode === 'PDV' ? faCheckCircle : mpBannerMode === 'STANDALONE' ? faTabletAlt : faExclamationTriangle} />
                 </div>
                 <div style={{ fontSize: '20px', fontWeight: '900', color: '#D4AF37', marginBottom: '10px' }}>
                   Terminal configurado
