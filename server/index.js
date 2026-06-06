@@ -1225,7 +1225,9 @@ app.get('/api/public/:code', async (req, res) => {
         smart_mode: store.smart_mode ?? true,
         inactivity_timeout: store.inactivity_timeout ?? 120,
         hide_decimals: store.hide_decimals ?? false,
-        show_top_selling: store.show_top_selling ?? true
+        show_top_selling: store.show_top_selling ?? true,
+        complements_label: store.complements_label || null,
+        extras_label: store.extras_label || null
       },
       products,
       categories,
@@ -1451,7 +1453,7 @@ app.post('/api/stores', authenticateToken, upload.single('logo'), async (req, re
 
 app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
-    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status } = req.body;
+    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
@@ -1477,7 +1479,9 @@ app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req,
       inactivity_timeout,
       hide_decimals,
       show_top_selling,
-      paid_order_status
+      paid_order_status,
+      complements_label,
+      extras_label
     });
     res.json(store);
   } catch (error) {

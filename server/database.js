@@ -1865,7 +1865,7 @@ export async function createStore(userId, data) {
 }
 
 export async function updateStore(storeId, userId, data) {
-  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status } = data;
+  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label } = data;
 
   // Ensure columns exist
   try {
@@ -1876,6 +1876,8 @@ export async function updateStore(storeId, userId, data) {
     if (!names.includes('hide_decimals')) await pool.execute('ALTER TABLE stores ADD COLUMN hide_decimals BOOLEAN DEFAULT FALSE');
     if (!names.includes('show_top_selling')) await pool.execute('ALTER TABLE stores ADD COLUMN show_top_selling BOOLEAN DEFAULT TRUE');
     if (!names.includes('paid_order_status')) await pool.execute("ALTER TABLE stores ADD COLUMN paid_order_status VARCHAR(20) DEFAULT 'pending'");
+    if (!names.includes('complements_label')) await pool.execute("ALTER TABLE stores ADD COLUMN complements_label VARCHAR(100) DEFAULT NULL");
+    if (!names.includes('extras_label')) await pool.execute("ALTER TABLE stores ADD COLUMN extras_label VARCHAR(100) DEFAULT NULL");
   } catch { /* ignore */ }
 
   let query = `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ?`;
@@ -1919,6 +1921,18 @@ export async function updateStore(storeId, userId, data) {
   if (paid_order_status !== undefined) {
     query += `, paid_order_status = ?`;
     params.push(['pending', 'completed'].includes(paid_order_status) ? paid_order_status : 'pending');
+  }
+
+  if (complements_label !== undefined) {
+    query += `, complements_label = ?`;
+    const v = (complements_label || '').toString().trim();
+    params.push(v ? v.slice(0, 100) : null);
+  }
+
+  if (extras_label !== undefined) {
+    query += `, extras_label = ?`;
+    const v = (extras_label || '').toString().trim();
+    params.push(v ? v.slice(0, 100) : null);
   }
 
   query += ` WHERE id = ? AND user_id = ?`;

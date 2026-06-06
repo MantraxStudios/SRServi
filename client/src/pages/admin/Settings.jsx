@@ -139,6 +139,8 @@ function Settings() {
     inactivity_timeout: 120,
     show_top_selling: true,
     paid_order_status: 'pending',
+    complements_label: '',
+    extras_label: '',
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -175,6 +177,8 @@ function Settings() {
         inactivity_timeout: selectedStore.inactivity_timeout ?? 120,
         show_top_selling:  selectedStore.show_top_selling  ?? true,
         paid_order_status: selectedStore.paid_order_status ?? 'pending',
+        complements_label: selectedStore.complements_label ?? '',
+        extras_label:      selectedStore.extras_label      ?? '',
       });
     }
   }, [selectedStore]);
@@ -517,6 +521,44 @@ function Settings() {
                       </div>
                     </label>
                   ))}
+                </div>
+              </div>
+
+              {/* Textos personalizables de personalización */}
+              <div style={{ paddingTop: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 4 }}>Textos al personalizar un producto</div>
+                <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 14 }}>
+                  Cómo se titulan los dos pasos al elegir un producto (en el tótem y el panel del trabajador). Déjalo vacío para usar los valores por defecto.
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                      Paso 1 — Complementos
+                    </label>
+                    <input
+                      type="text"
+                      name="complements_label"
+                      value={formData.complements_label}
+                      onChange={handleChange}
+                      maxLength={100}
+                      placeholder="Complementos"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '2px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                      Paso 2 — Extras
+                    </label>
+                    <input
+                      type="text"
+                      name="extras_label"
+                      value={formData.extras_label}
+                      onChange={handleChange}
+                      maxLength={100}
+                      placeholder="Extras"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '2px solid #e5e7eb', fontSize: 14, boxSizing: 'border-box' }}
+                    />
+                  </div>
                 </div>
               </div>
 

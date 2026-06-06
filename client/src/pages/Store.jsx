@@ -1997,6 +1997,10 @@ function Store() {
     }
   };
 
+  // Custom labels for the product personalization steps (admin-configurable)
+  const complementsLabel = (store?.store?.complements_label || '').trim() || t('complements', lang);
+  const extrasLabel = (store?.store?.extras_label || '').trim() || t('extras', lang);
+
   const openProductModal = (product) => {
     if (!product.unlimited_stock && product.stock === 0) {
       setNotification({ name: product.name, agotado: true });
@@ -4809,7 +4813,7 @@ function Store() {
                 <FontAwesomeIcon icon={faTimes} />
               </button>
               <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>
-                {productModalStep === 'main' ? t('complements', lang) : '1. ' + t('complements', lang)}
+                {productModalStep === 'main' ? complementsLabel : '1. ' + complementsLabel}
               </h2>
             </div>
 
@@ -5009,7 +5013,7 @@ function Store() {
                 <FontAwesomeIcon icon={faTimes} />
               </button>
               <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>
-                {productModalStep === 'main' ? t('extras', lang) : '2. ' + t('extras', lang)}
+                {productModalStep === 'main' ? extrasLabel : '2. ' + extrasLabel}
               </h2>
             </div>
 

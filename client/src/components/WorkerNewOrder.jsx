@@ -36,6 +36,8 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   const [extras, setExtras] = useState([]);
   const [terminals, setTerminals] = useState([]);
   const [currencySymbol, setCurrencySymbol] = useState('$');
+  const [complementsLabel, setComplementsLabel] = useState('Complementos');
+  const [extrasLabel, setExtrasLabel] = useState('Extras');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -175,6 +177,12 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
       const store = storeData.store || storeData;
       if (store.currency_symbol) {
         setCurrencySymbol(store.currency_symbol);
+      }
+      if (store.complements_label && store.complements_label.trim()) {
+        setComplementsLabel(store.complements_label.trim());
+      }
+      if (store.extras_label && store.extras_label.trim()) {
+        setExtrasLabel(store.extras_label.trim());
       }
     } catch (err) {
       setError(err.message);
@@ -1114,7 +1122,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 {modalStep === 'ingredients' && selectedProduct.ingredients && selectedProduct.ingredients.length > 0 && (
                   <>
                     <h4 style={{ color: 'rgba(255,255,255,0.7)', margin: '0 0 0.75rem', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Ingredientes
+                      {complementsLabel}
                     </h4>
                     {selectedProduct.ingredients.map(ing => {
                       const isSelected = productConfig.selectedIngredients.some(s => s.id === ing.id);
@@ -1163,7 +1171,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 {modalStep === 'extras' && selectedProduct.extras && selectedProduct.extras.length > 0 && (
                   <>
                     <h4 style={{ color: 'rgba(255,255,255,0.7)', margin: '0 0 0.75rem', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Extras
+                      {extrasLabel}
                     </h4>
                     {selectedProduct.extras.map(ext => {
                       const isSelected = productConfig.selectedExtras.some(s => s.id === ext.id);
@@ -1231,7 +1239,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                     style={{ padding: '0.65rem 1rem', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                   >
                     <FontAwesomeIcon icon={faArrowLeft} />
-                    Ingredientes
+                    {complementsLabel}
                   </button>
                 )}
                 <button
@@ -1246,7 +1254,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
                 >
                   {modalStep === 'ingredients' && selectedProduct.has_extras && selectedProduct.extras && selectedProduct.extras.length > 0 ? (
                     <>
-                      Extras
+                      {extrasLabel}
                       <FontAwesomeIcon icon={faArrowRight} />
                     </>
                   ) : (
