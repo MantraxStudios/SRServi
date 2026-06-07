@@ -70,6 +70,8 @@ export default function KitchenBoard({ orders = [], onAdvance, addonImages = {},
   const [, setTick] = useState(0);
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem('kitchenSound') !== 'off');
   const [flashing, setFlashing] = useState(() => new Set());
+  const [isNarrow, setIsNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 760);
+  const [mobileStage, setMobileStage] = useState('pending');
   const seenRef = useRef(null);
   const audioRef = useRef(null);
 
@@ -77,6 +79,13 @@ export default function KitchenBoard({ orders = [], onAdvance, addonImages = {},
   useEffect(() => {
     const i = setInterval(() => setTick(t => t + 1), 10000);
     return () => clearInterval(i);
+  }, []);
+
+  // Track viewport width for mobile layout
+  useEffect(() => {
+    const onResize = () => setIsNarrow(window.innerWidth <= 760);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   // Detect newly arrived orders → beep + flash
@@ -229,6 +238,30 @@ export default function KitchenBoard({ orders = [], onAdvance, addonImages = {},
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#666', padding: '60px 0' }}>
           <FontAwesomeIcon icon={faFire} style={{ fontSize: 46, marginBottom: 14, opacity: 0.4 }} />
           <p style={{ fontSize: 18, fontWeight: 700 }}>No hay nada por preparar</p>
+        </div>
+      ) : isNarrow ? (
+        /* ── Móvil: selector de etapa + una columna a lo ancho ── */
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            {COLUMNS.map(col => {
+              const sel = mobileStage === col.key;
+              return (
+                <button
+                  key={col.key}
+                  onClick={() => setMobileStage(col.key)}
+                  style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '9px 4px', borderRadius: 10, cursor: 'pointer', border: `1.5px solid ${sel ? col.color : 'rgba(255,255,255,0.12)'}`, background: sel ? `${col.color}22` : 'rgba(255,255,255,0.03)' }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 800, color: sel ? col.color : '#999', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{col.title}</span>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: '#fff', background: col.color, minWidth: 22, textAlign: 'center', padding: '1px 7px', borderRadius: 20 }}>{grouped[col.key].length}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="kb-col" style={{ display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', flex: 1, minHeight: 0 }}>
+            {grouped[mobileStage].length === 0
+              ? <div style={{ color: '#555', fontSize: 14, textAlign: 'center', padding: '40px 0' }}>Nada en esta etapa</div>
+              : grouped[mobileStage].map(o => renderCard(o, COLUMNS.find(c => c.key === mobileStage)))}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, flex: 1, minHeight: 0 }}>
