@@ -1369,7 +1369,6 @@ function WorkerPanel() {
                 className="worker-tab-btn"
                 onClick={() => cashRegister ? setShowNewOrder(true) : setShowCashModal(true)}
                 title={cashRegister ? 'Abrir menú de venta' : 'Abre la caja para vender'}
-                style={{ background: 'linear-gradient(135deg,#D4AF37,#b8860b)', color: '#111', fontWeight: 800 }}
               >
                 <FontAwesomeIcon icon={cashRegister ? faPlus : faLock} />
                 <span>Venta rápida</span>
