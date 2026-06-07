@@ -2581,7 +2581,11 @@ async function getProductIngredients(productId, categoryId = null) {
     included_by_default: !!row.included_by_default
   });
 
-  if (complements_configured) {
+  // ¿El producto tiene alguna asociación explícita guardada?
+  const [piCount] = await pool.execute('SELECT COUNT(*) AS c FROM product_ingredients WHERE product_id = ?', [productId]);
+  const hasExplicitLinks = (piCount[0]?.c || 0) > 0;
+
+  if (complements_configured || hasExplicitLinks) {
     const [rows] = await pool.execute(`
       SELECT i.*, COALESCE(i.stock, 0) as stock, COALESCE(i.unlimited_stock, FALSE) as unlimited_stock,
              pi.included_by_default as included_by_default
@@ -2590,9 +2594,9 @@ async function getProductIngredients(productId, categoryId = null) {
       WHERE COALESCE(i.is_active, 1) = 1
       ORDER BY i.sort_order, i.name
     `, [productId]);
-    // If specifically configured but no links exist and product still expects ingredients,
-    // fall back to all store-level ingredients so the step is not silently skipped
-    if (rows.length > 0 || !has_ingredients) return rows.map(mapRow);
+    // Configuración explícita por producto: respetar exactamente la selección
+    // (aunque quede vacía). El admin decide qué complementos usa cada producto.
+    return rows.map(mapRow);
   }
 
   const [rows] = await pool.execute(`
@@ -2616,7 +2620,11 @@ async function getProductExtras(productId, categoryId = null) {
     stock: parseInt(row.stock) || 0, unlimited_stock: row.unlimited_stock || false
   });
 
-  if (complements_configured) {
+  // ¿El producto tiene alguna asociación explícita guardada?
+  const [peCount] = await pool.execute('SELECT COUNT(*) AS c FROM product_extras WHERE product_id = ?', [productId]);
+  const hasExplicitLinks = (peCount[0]?.c || 0) > 0;
+
+  if (complements_configured || hasExplicitLinks) {
     const [rows] = await pool.execute(`
       SELECT e.*, COALESCE(e.stock, 0) as stock, COALESCE(e.unlimited_stock, FALSE) as unlimited_stock
       FROM extras e
@@ -2624,9 +2632,9 @@ async function getProductExtras(productId, categoryId = null) {
       WHERE COALESCE(e.is_active, 1) = 1
       ORDER BY e.sort_order, e.name
     `, [productId]);
-    // If specifically configured but no links exist and product still expects extras,
-    // fall back to all store-level extras so the step is not silently skipped
-    if (rows.length > 0 || !has_extras) return rows.map(mapRow);
+    // Configuración explícita por producto: respetar exactamente la selección
+    // (aunque quede vacía). El admin decide qué extras usa cada producto.
+    return rows.map(mapRow);
   }
 
   const [rows] = await pool.execute(`
