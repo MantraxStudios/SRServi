@@ -6319,7 +6319,7 @@ function Store() {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '8px', border: '2px solid', borderColor: prodForm.has_extras ? '#22c55e' : '#e0e0e0', background: prodForm.has_extras ? '#dcfce7' : '#fafafa' }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', margin: 0 }}>
                         <input type="checkbox" checked={prodForm.has_extras} onChange={(e) => setProdForm({ ...prodForm, has_extras: e.target.checked })} style={{ width: '18px', height: '18px' }} />
-                        Lleva Extras
+                        Lleva {extrasLabel}
                       </label>
                       {prodForm.has_extras && (
                         <input type="number" min="0" value={prodForm.max_extras} onChange={(e) => setProdForm({ ...prodForm, max_extras: e.target.value })} placeholder="Max (0=ilim)" className="store-prod-modal-input" style={{ width: '100px', padding: '5px 8px', fontSize: '13px' }} />
@@ -6328,7 +6328,7 @@ function Store() {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '8px', border: '2px solid', borderColor: prodForm.has_ingredients ? '#22c55e' : '#e0e0e0', background: prodForm.has_ingredients ? '#dcfce7' : '#fafafa' }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', margin: 0 }}>
                         <input type="checkbox" checked={prodForm.has_ingredients} onChange={(e) => setProdForm({ ...prodForm, has_ingredients: e.target.checked })} style={{ width: '18px', height: '18px' }} />
-                        Lleva Complementos
+                        Lleva {complementsLabel}
                       </label>
                       {prodForm.has_ingredients && (
                         <input type="number" min="0" value={prodForm.max_ingredients} onChange={(e) => setProdForm({ ...prodForm, max_ingredients: e.target.value })} placeholder="Max (0=ilim)" className="store-prod-modal-input" style={{ width: '100px', padding: '5px 8px', fontSize: '13px' }} />
@@ -6347,18 +6347,36 @@ function Store() {
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    <button
-                      onClick={() => { setComplementsTab('complements'); setShowComplementsModal(true); }}
-                      style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: '600', borderRadius: '8px', border: '2px solid var(--store-primary)', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
-                    >
-                      Complementos {selectedIngredientIds.length > 0 && <span style={{ fontSize: '11px', opacity: 0.7 }}>({selectedIngredientIds.length})</span>}
-                    </button>
-                    <button
-                      onClick={() => { setComplementsTab('extras'); setShowComplementsModal(true); }}
-                      style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: '600', borderRadius: '8px', border: '2px solid var(--store-primary)', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
-                    >
-                      Extras {selectedExtraIds.length > 0 && <span style={{ fontSize: '11px', opacity: 0.7 }}>({selectedExtraIds.length})</span>}
-                    </button>
+                    <div style={{ flex: 1, display: 'flex' }}>
+                      <button
+                        onClick={() => { setComplementsTab('complements'); setShowComplementsModal(true); }}
+                        style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: '600', borderRadius: '8px 0 0 8px', border: '2px solid var(--store-primary)', borderRight: 'none', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
+                      >
+                        {complementsLabel} {selectedIngredientIds.length > 0 && <span style={{ fontSize: '11px', opacity: 0.7 }}>({selectedIngredientIds.length})</span>}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setLabelEditModal({ type: 'complements', value: (store?.store?.complements_label || '').trim() }); }}
+                        title="Editar el texto que ven los clientes"
+                        style={{ padding: '10px 11px', borderRadius: '0 8px 8px 0', border: '2px solid var(--store-primary)', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
+                      >
+                        <FontAwesomeIcon icon={faEdit} />
+                      </button>
+                    </div>
+                    <div style={{ flex: 1, display: 'flex' }}>
+                      <button
+                        onClick={() => { setComplementsTab('extras'); setShowComplementsModal(true); }}
+                        style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: '600', borderRadius: '8px 0 0 8px', border: '2px solid var(--store-primary)', borderRight: 'none', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
+                      >
+                        {extrasLabel} {selectedExtraIds.length > 0 && <span style={{ fontSize: '11px', opacity: 0.7 }}>({selectedExtraIds.length})</span>}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setLabelEditModal({ type: 'extras', value: (store?.store?.extras_label || '').trim() }); }}
+                        title="Editar el texto que ven los clientes"
+                        style={{ padding: '10px 11px', borderRadius: '0 8px 8px 0', border: '2px solid var(--store-primary)', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
+                      >
+                        <FontAwesomeIcon icon={faEdit} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
