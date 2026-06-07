@@ -7395,6 +7395,18 @@ html body .store-container .store-product-card * {
   height: 100%;
 }
 
+/* Venta rápida embebida como pestaña (no overlay a pantalla completa) */
+.worker-pos-embedded {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 230px);
+  min-height: 480px;
+  background: #0a0a0a;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
 .worker-pos-header {
   display: flex;
   justify-content: space-between;

@@ -28,7 +28,7 @@ import { getImageUrl, getProductImageUrl } from '../config.js';
 
 const API = 'https://srservi2.srautomatic.com';
 
-function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated }) {
+function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, embedded = false }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [combos, setCombos] = useState([]);
@@ -630,7 +630,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   // Render loading
   if (loading) {
     return (
-      <div className="worker-pos-overlay">
+      <div className={embedded ? 'worker-pos-embedded' : 'worker-pos-overlay'}>
         <div className="worker-pos-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: '2rem', color: '#D4AF37' }} />
           <span style={{ marginLeft: '1rem', color: '#fff', fontSize: '1.1rem' }}>Cargando productos...</span>
@@ -642,7 +642,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   // Render error
   if (error) {
     return (
-      <div className="worker-pos-overlay">
+      <div className={embedded ? 'worker-pos-embedded' : 'worker-pos-overlay'}>
         <div className="worker-pos-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
           <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '2rem', color: '#ef4444' }} />
           <span style={{ color: '#fff' }}>{error}</span>
@@ -655,7 +655,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   // Success overlay with animation
   if (cashPaymentSuccess || paymentConfirmed) {
     return (
-      <div className="worker-pos-overlay">
+      <div className={embedded ? 'worker-pos-embedded' : 'worker-pos-overlay'}>
         <div className="worker-pos-success-overlay">
           <div className="worker-pos-success-check">
             <FontAwesomeIcon icon={faCheckCircle} />
@@ -677,7 +677,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   // Waiting for terminal overlay
   if (paymentWaiting) {
     return (
-      <div className="worker-pos-overlay">
+      <div className={embedded ? 'worker-pos-embedded' : 'worker-pos-overlay'}>
         <div className="worker-pos-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem' }}>
           <div style={{ animation: 'pulse 2s infinite' }}>
             <svg viewBox="0 0 100 130" width="70" height="91" xmlns="http://www.w3.org/2000/svg" fill="none">
@@ -713,7 +713,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   // Payment cancelled overlay
   if (paymentCancelled) {
     return (
-      <div className="worker-pos-overlay">
+      <div className={embedded ? 'worker-pos-embedded' : 'worker-pos-overlay'}>
         <div className="worker-pos-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem' }}>
           <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(239,68,68,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <FontAwesomeIcon icon={faTimesCircle} style={{ fontSize: '3rem', color: '#ef4444' }} />
@@ -741,7 +741,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
   }
 
   return (
-    <div className="worker-pos-overlay">
+    <div className={embedded ? 'worker-pos-embedded' : 'worker-pos-overlay'}>
       <div className="worker-pos-container">
         {/* Header */}
         <div className="worker-pos-header">
@@ -762,12 +762,14 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated })
             <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem' }}>
               {getCartCount()} items
             </span>
-            <button
-              onClick={onClose}
-              style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: 'rgba(255,255,255,0.7)', width: '36px', height: '36px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}
-            >
-              <FontAwesomeIcon icon={faTimes} />
-            </button>
+            {!embedded && (
+              <button
+                onClick={onClose}
+                style={{ background: 'rgba(255,255,255,0.08)', border: 'none', color: 'rgba(255,255,255,0.7)', width: '36px', height: '36px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            )}
           </div>
         </div>
 

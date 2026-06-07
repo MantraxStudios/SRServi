@@ -408,6 +408,7 @@ function WorkerPanel() {
   const [lightboxImg, setLightboxImg] = useState(null);
   const [addonImages, setAddonImages] = useState({}); // { 'nombre en minúscula': 'url imagen' }
   const [showNewOrder, setShowNewOrder] = useState(false);
+  const [sellResetKey, setSellResetKey] = useState(0); // remonta la venta rápida embebida tras cada pedido
   // Abrir automáticamente la pantalla de venta al entrar (una sola vez por sesión)
   const autoOpenedNewOrderRef = useRef(false);
   const [storeCode, setStoreCode] = useState(() => {
@@ -1366,11 +1367,11 @@ function WorkerPanel() {
           <div className="worker-main-top">
             <div className="worker-tab-bar">
               <button
-                className="worker-tab-btn"
-                onClick={() => cashRegister ? setShowNewOrder(true) : setShowCashModal(true)}
-                title={cashRegister ? 'Abrir menú de venta' : 'Abre la caja para vender'}
+                className={`worker-tab-btn ${activeTab === 'ventarapida' ? 'active' : ''}`}
+                onClick={() => setActiveTab('ventarapida')}
+                title="Menú de venta"
               >
-                <FontAwesomeIcon icon={cashRegister ? faPlus : faLock} />
+                <FontAwesomeIcon icon={faPlus} />
                 <span>Venta rápida</span>
               </button>
               <button
@@ -1440,7 +1441,7 @@ function WorkerPanel() {
             </div>
           </div>
 
-      <div className="worker-orders" style={activeTab === 'tasks' || activeTab === 'mesas' ? { padding: 0 } : undefined}>
+      <div className="worker-orders" style={activeTab === 'tasks' || activeTab === 'mesas' || activeTab === 'ventarapida' ? { padding: 0 } : undefined}>
         {activeTab === 'active' ? (
           (filteredOrders.length === 0 && deliveryOrders.length === 0) ? (
             <div className="empty-state">
@@ -1825,6 +1826,31 @@ function WorkerPanel() {
             </div>
           )
         ) : null}
+        {activeTab === 'ventarapida' && worker && (
+          cashRegister ? (
+            <WorkerNewOrder
+              key={sellResetKey}
+              embedded
+              worker={worker}
+              storeId={worker.store_id}
+              storeCode={storeCode}
+              onClose={() => setSellResetKey(k => k + 1)}
+              onOrderCreated={() => fetchOrders(worker.store_id)}
+            />
+          ) : (
+            <div className="empty-state" style={{ textAlign: 'center' }}>
+              <FontAwesomeIcon icon={faLock} style={{ fontSize: 34, color: '#D4AF37', marginBottom: 14 }} />
+              <p style={{ marginBottom: 16 }}>Abre la caja para empezar a vender</p>
+              <button
+                onClick={() => setShowCashModal(true)}
+                style={{ background: 'linear-gradient(135deg,#D4AF37,#b8860b)', color: '#111', border: 'none', padding: '11px 22px', borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}
+              >
+                <FontAwesomeIcon icon={faCashRegister} style={{ marginRight: 8 }} /> Abrir caja
+              </button>
+            </div>
+          )
+        )}
+
         {activeTab === 'whatsapp' && (
           whatsappOrders.length === 0 ? (
             <div className="empty-state">
