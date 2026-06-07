@@ -1081,6 +1081,8 @@ function Store() {
   });
   const [customCss, setCustomCss] = useState('');
   const [styleSaving, setStyleSaving] = useState(false);
+  const [labelEditModal, setLabelEditModal] = useState(null); // { type: 'extras'|'complements', value }
+  const [labelSaving, setLabelSaving] = useState(false);
   const [topSellingIds, setTopSellingIds] = useState([]);
   const [lang, setLang] = useState(detectLanguage);
   const [showLangPicker, setShowLangPicker] = useState(false);
@@ -2041,7 +2043,7 @@ function Store() {
     setExtrasModalOpen(false);
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || loyaltyModalOpen;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || loyaltyModalOpen;
 
   useEffect(() => {
     anyModalOpenRef.current = anyModalOpen;
@@ -3094,6 +3096,27 @@ function Store() {
       el.textContent = parts.join('\n');
       document.head.appendChild(el);
     }
+  };
+
+  const saveStoreLabels = async () => {
+    if (!labelEditModal) return;
+    setLabelSaving(true);
+    try {
+      const body = { ...getAuthBody() };
+      const v = (labelEditModal.value || '').trim();
+      if (labelEditModal.type === 'extras') body.extras_label = v;
+      else body.complements_label = v;
+      const res = await fetch(`/api/public/${code}/labels`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res.ok) {
+        setStore(prev => prev ? { ...prev, store: { ...prev.store, [labelEditModal.type === 'extras' ? 'extras_label' : 'complements_label']: v } } : prev);
+        setLabelEditModal(null);
+      }
+    } catch (err) { console.error('Error saving labels:', err); }
+    finally { setLabelSaving(false); }
   };
 
   const saveStoreStyles = async () => {
@@ -4203,7 +4226,12 @@ function Store() {
       {editMode && !previewMode && editorTab === 'complements' && (
         <div className="store-editor-complements">
           <div className="store-editor-comp-header">
-            <span>Extras ({extras.length})</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              {extrasLabel} ({extras.length})
+              <button onClick={() => setLabelEditModal({ type: 'extras', value: (store?.store?.extras_label || '').trim() })} title="Cambiar nombre" style={{ background: 'none', border: 'none', color: 'var(--store-primary)', cursor: 'pointer', padding: '2px', fontSize: '13px' }}>
+                <FontAwesomeIcon icon={faEdit} />
+              </button>
+            </span>
             <button className="store-edit-cat-add-btn" onClick={() => { setComplementForm({ ...complementForm, type: 'extra' }); setComplementModal('extra'); }}>
               <FontAwesomeIcon icon={faPlus} /> Nuevo
             </button>
@@ -4230,7 +4258,12 @@ function Store() {
           </div>
 
           <div className="store-editor-comp-header" style={{ marginTop: '12px' }}>
-            <span>Complementos ({ingredients.length})</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              {complementsLabel} ({ingredients.length})
+              <button onClick={() => setLabelEditModal({ type: 'complements', value: (store?.store?.complements_label || '').trim() })} title="Cambiar nombre" style={{ background: 'none', border: 'none', color: 'var(--store-primary)', cursor: 'pointer', padding: '2px', fontSize: '13px' }}>
+                <FontAwesomeIcon icon={faEdit} />
+              </button>
+            </span>
             <button className="store-edit-cat-add-btn" onClick={() => { setComplementForm({ ...complementForm, type: 'ingredient' }); setComplementModal('ingredient'); }}>
               <FontAwesomeIcon icon={faPlus} /> Nuevo
             </button>
@@ -6911,6 +6944,35 @@ function Store() {
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
               <button onClick={() => setEditComplementModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
               <button onClick={saveEditComplementModal} disabled={!editComplementModal.name.trim()} className={`store-prod-modal-btn confirm${!editComplementModal.name.trim() ? ' disabled' : ''}`}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {labelEditModal && (
+        <div className="store-modal-overlay" onClick={() => setLabelEditModal(null)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+          <div className="store-prod-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h3 style={{ margin: '0 0 6px', color: 'var(--store-primary)', textAlign: 'center' }}>
+              Cambiar nombre
+            </h3>
+            <p style={{ margin: '0 0 14px', fontSize: 13, color: '#888', textAlign: 'center' }}>
+              Texto que ven los clientes en el paso de {labelEditModal.type === 'extras' ? '"Extras"' : '"Complementos"'} al pedir.
+            </p>
+            <input
+              type="text"
+              value={labelEditModal.value}
+              onChange={(e) => setLabelEditModal({ ...labelEditModal, value: e.target.value })}
+              maxLength={100}
+              placeholder={labelEditModal.type === 'extras' ? 'Extras' : 'Complementos'}
+              className="store-prod-modal-input"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') saveStoreLabels(); }}
+              style={{ width: '100%', boxSizing: 'border-box' }}
+            />
+            <p style={{ margin: '8px 0 0', fontSize: 12, color: '#aaa' }}>Déjalo vacío para usar el nombre por defecto.</p>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+              <button onClick={() => setLabelEditModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
+              <button onClick={saveStoreLabels} disabled={labelSaving} className="store-prod-modal-btn confirm">{labelSaving ? 'Guardando…' : 'Guardar'}</button>
             </div>
           </div>
         </div>

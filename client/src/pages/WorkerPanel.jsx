@@ -6,6 +6,7 @@ import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, fa
 import { SOCKET_URL } from '../config.js';
 import WorkerNewOrder from '../components/WorkerNewOrder';
 import WorkerTableMap from '../components/WorkerTableMap';
+import KitchenBoard from '../components/KitchenBoard';
 
 const DAY_NAMES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const DAY_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
@@ -1118,9 +1119,9 @@ function WorkerPanel() {
     return matchesSearch;
   });
 
-  // Cocina (KDS): solo pedidos que falta preparar, los más antiguos primero
+  // Cocina (KDS): pedidos en curso (pendiente / preparando / listo), los más antiguos primero
   const kitchenOrders = (orders || [])
-    .filter(o => o.status !== 'completed' && o.status !== 'ready' && Array.isArray(o.items) && o.items.length > 0)
+    .filter(o => o.status !== 'completed' && Array.isArray(o.items) && o.items.length > 0)
     .slice()
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
@@ -1364,6 +1365,15 @@ function WorkerPanel() {
         <div className="worker-main">
           <div className="worker-main-top">
             <div className="worker-tab-bar">
+              <button
+                className="worker-tab-btn"
+                onClick={() => cashRegister ? setShowNewOrder(true) : setShowCashModal(true)}
+                title={cashRegister ? 'Abrir menú de venta' : 'Abre la caja para vender'}
+                style={{ background: 'linear-gradient(135deg,#D4AF37,#b8860b)', color: '#111', fontWeight: 800 }}
+              >
+                <FontAwesomeIcon icon={cashRegister ? faPlus : faLock} />
+                <span>Venta rápida</span>
+              </button>
               <button
                 className={`worker-tab-btn ${activeTab === 'active' ? 'active' : ''}`}
                 onClick={() => setActiveTab('active')}
@@ -1667,81 +1677,22 @@ function WorkerPanel() {
             </div>
           )
         ) : activeTab === 'cocina' ? (
-          kitchenOrders.length === 0 ? (
-            <div className="empty-state">
-              <p>🍳 No hay nada por preparar</p>
+          <>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button
+                onClick={() => window.open('/cocina', '_blank')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.35)', color: '#D4AF37', padding: '7px 14px', borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: 'pointer' }}
+              >
+                <FontAwesomeIcon icon={faExternalLinkAlt} /> Abrir pantalla de cocina
+              </button>
             </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 12, alignItems: 'start' }}>
-              {kitchenOrders.map(order => {
-                const mins = Math.max(0, Math.floor((Date.now() - new Date(order.created_at)) / 60000));
-                const urg = mins >= 15 ? '#ef4444' : mins >= 8 ? '#f59e0b' : '#22c55e';
-                const ti = getOrderTypeInfo(order.order_type);
-                return (
-                  <div key={order.id} style={{ background: '#0f0f0f', border: `2px solid ${urg}`, borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                    {/* Cabecera: número + tiempo */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                      <span style={{ fontSize: 24, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>{getOrderDisplayNumber(order)}</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 800, color: urg, background: `${urg}1f`, padding: '4px 10px', borderRadius: 20 }}>
-                        <FontAwesomeIcon icon={faClock} /> {mins}m
-                      </span>
-                    </div>
-
-                    {/* Tipo + mesa */}
-                    <div style={{ display: 'flex', gap: 8, padding: '10px 14px 2px', flexWrap: 'wrap' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 800, color: '#D4AF37', background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.3)', padding: '3px 10px', borderRadius: 8 }}>
-                        <FontAwesomeIcon icon={ti.icon} /> {ti.label}
-                      </span>
-                      {order.table_number != null && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,0.08)', padding: '3px 10px', borderRadius: 8 }}>
-                          <FontAwesomeIcon icon={faChair} /> Mesa {order.table_number}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Items a preparar (grande y claro) */}
-                    <div style={{ padding: '6px 14px 12px', flex: 1 }}>
-                      {order.items.map((item, idx) => (
-                        <div key={idx} style={{ display: 'flex', gap: 12, padding: '9px 0', borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
-                          <span style={{ fontSize: 22, fontWeight: 900, color: '#D4AF37', minWidth: 38, lineHeight: 1.2 }}>{item.quantity}×</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', lineHeight: 1.25 }}>{item.product_name || item.name || 'Producto'}</div>
-                            {Array.isArray(item.selected_ingredients) && item.selected_ingredients.length > 0 && (
-                              <div className="worker-order-item-addons" style={{ marginTop: 4 }}>
-                                {item.selected_ingredients.map((ing, i) => {
-                                  const name = typeof ing === 'object' ? (ing.name || '') : (ing || '');
-                                  return <AddonChip key={i} name={name} img={addonImages[name.toLowerCase()]} />;
-                                })}
-                              </div>
-                            )}
-                            {Array.isArray(item.selected_extras) && item.selected_extras.length > 0 && (
-                              <div className="worker-order-item-addons" style={{ marginTop: 4 }}>
-                                {item.selected_extras.map((ext, i) => {
-                                  const name = typeof ext === 'object' ? (ext.name || '') : (ext || '');
-                                  return <AddonChip key={i} name={name} img={addonImages[name.toLowerCase()]} prefix="+" />;
-                                })}
-                              </div>
-                            )}
-                            {item.notes && (
-                              <div style={{ marginTop: 4, fontSize: 12, color: '#f59e0b', fontStyle: 'italic' }}>📝 {item.notes}</div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Botón Listo */}
-                    <button
-                      onClick={() => updateOrderStatus(order.id, 'completed')}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px', background: 'linear-gradient(135deg,#22c55e,#16a34a)', border: 'none', color: '#fff', fontWeight: 900, fontSize: 16, cursor: 'pointer', letterSpacing: '0.02em' }}
-                    >
-                      <FontAwesomeIcon icon={faCheck} /> Listo
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )
+            <KitchenBoard
+              orders={kitchenOrders}
+              onAdvance={(order, next) => updateOrderStatus(order.id, next)}
+              addonImages={addonImages}
+              variant="tab"
+            />
+          </>
         ) : activeTab === 'completed' ? (
           filteredCompletedOrders.length === 0 ? (
             <div className="empty-state">

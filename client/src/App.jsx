@@ -11,6 +11,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import WorkerLogin from './pages/WorkerLogin';
 import WorkerPanel from './pages/WorkerPanel';
+import KitchenDisplay from './pages/KitchenDisplay';
 import Dashboard from './pages/admin/Dashboard';
 import Stores from './pages/admin/Stores';
 import Categories from './pages/admin/Categories';
@@ -328,6 +329,7 @@ function App() {
           <Route path="/attendance/:storeCode" element={<Attendance />} />
           <Route path="/worker-login" element={<WorkerLogin />} />
           <Route path="/worker-panel" element={<WorkerPanel />} />
+          <Route path="/cocina" element={<KitchenDisplay />} />
           <Route path="/superadmin/login" element={<SuperadminLogin />} />
           <Route path="/superadmin/dashboard" element={<SuperadminDashboard />} />
         </Routes>

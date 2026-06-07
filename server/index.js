@@ -1919,6 +1919,40 @@ app.put('/api/public/:code/styles', async (req, res) => {
   } catch (error) { console.error('Error saving styles:', error); res.status(500).json({ error: error.message }); }
 });
 
+// Update the customizable "Complementos"/"Extras" labels from the totem editor
+app.put('/api/public/:code/labels', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+
+    // Ensure columns exist
+    try {
+      const [cols] = await pool.execute('SHOW COLUMNS FROM stores');
+      const names = cols.map(c => c.Field);
+      if (!names.includes('complements_label')) await pool.execute("ALTER TABLE stores ADD COLUMN complements_label VARCHAR(100) DEFAULT NULL");
+      if (!names.includes('extras_label')) await pool.execute("ALTER TABLE stores ADD COLUMN extras_label VARCHAR(100) DEFAULT NULL");
+    } catch { /* ignore */ }
+
+    const sets = [];
+    const params = [];
+    if (req.body.complements_label !== undefined) {
+      const v = (req.body.complements_label || '').toString().trim();
+      sets.push('complements_label = ?');
+      params.push(v ? v.slice(0, 100) : null);
+    }
+    if (req.body.extras_label !== undefined) {
+      const v = (req.body.extras_label || '').toString().trim();
+      sets.push('extras_label = ?');
+      params.push(v ? v.slice(0, 100) : null);
+    }
+    if (sets.length === 0) return res.json({ success: true });
+
+    params.push(auth.store.id);
+    await pool.execute(`UPDATE stores SET ${sets.join(', ')} WHERE id = ?`, params);
+    res.json({ success: true });
+  } catch (error) { console.error('Error saving labels:', error); res.status(500).json({ error: error.message }); }
+});
+
 // ── Clasificación QR settings ──
 app.get('/api/store-clasificacion', authenticateToken, async (req, res) => {
   try {
