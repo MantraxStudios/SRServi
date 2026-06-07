@@ -5989,10 +5989,6 @@ html body .store-container .store-product-card * {
   .worker-order-number {
     font-size: 14px;
   }
-
-  .worker-order-items-preview {
-    display: none;
-  }
 }
 
 /* ============================================

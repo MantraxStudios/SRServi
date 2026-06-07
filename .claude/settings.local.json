@@ -123,7 +123,8 @@
       "Bash(dotnet build *)",
       "Bash(./bin/Release/net9.0-windows/AforoBridge.exe --selftest-config)",
       "PowerShell(cd \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\BridgeApps\"; $env:JAVA_HOME; \\(Get-Command java -ErrorAction SilentlyContinue\\).Source; .\\\\gradlew.bat :app:assembleDebug --console=plain 2>&1 | Select-Object -Last 60)",
-      "Bash(npx esbuild *)"
+      "Bash(npx esbuild *)",
+      "Bash(awk -F: '$1 < 5993')"
     ]
   }
 }
