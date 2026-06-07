@@ -515,7 +515,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
     const orderData = {
       store_id: storeId,
       order_type: orderType,
-      payment_method: 'card',
+      payment_method: method === 'cash' ? 'cash' : 'card',
       items: cart.map(item => ({
         product_id: item.product_id,
         quantity: item.quantity,
@@ -1320,7 +1320,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
               </div>
 
               <div className="worker-pos-pay-modal-options">
-                {(paymentMethods.length > 0 || tuuAvailable || terminals.length > 0) ? (
+                {(
                   <div>
                     {terminals.length > 0 && (
                       <button
@@ -1373,12 +1373,26 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
                         <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
                       </button>
                     ))}
-                  </div>
-                ) : (
-                  <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'rgba(255,255,255,0.6)' }}>
-                    <FontAwesomeIcon icon={faExclamationTriangle} style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: '#f59e0b' }} />
-                    <p style={{ margin: 0, fontSize: '0.9rem' }}>No hay métodos de pago disponibles</p>
-                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', opacity: 0.7 }}>Configúralos en Pago manual desde el panel admin</p>
+                    {/* Opción de Efectivo por defecto (si la tienda no configuró un método de efectivo propio) */}
+                    {!paymentMethods.some(m => {
+                      const n = (m.name || '').toLowerCase();
+                      return n.includes('efectivo') || n.includes('cash');
+                    }) && (
+                      <button
+                        className="worker-pos-pay-modal-option"
+                        style={{ animationDelay: `${0.26 + paymentMethods.length * 0.08}s` }}
+                        disabled={processingPayment}
+                        onClick={() => { setShowPayModal(false); processPayment('cash'); }}
+                      >
+                        <div className="worker-pos-pay-modal-option-icon" style={{ backgroundColor: '#10b98120', color: '#10b981' }}>
+                          <FontAwesomeIcon icon={faMoneyBillWave} />
+                        </div>
+                        <div className="worker-pos-pay-modal-option-info">
+                          <span className="worker-pos-pay-modal-option-title">Efectivo</span>
+                        </div>
+                        <FontAwesomeIcon icon={faArrowRight} className="worker-pos-pay-modal-option-arrow" />
+                      </button>
+                    )}
                   </div>
                 )}
                 <button

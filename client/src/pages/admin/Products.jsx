@@ -27,7 +27,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 function Products() {
-  const { selectedStore } = useStore();
+  const { selectedStore, fetchStores } = useStore();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [extras, setExtras] = useState([]);
@@ -51,6 +51,10 @@ function Products() {
     max_ingredients: ''
   });
   const [error, setError] = useState('');
+  // Edición inline de los textos personalizables (igual que en Settings)
+  const [labelEdit, setLabelEdit] = useState(null); // 'complements' | 'extras' | null
+  const [labelValue, setLabelValue] = useState('');
+  const [labelSaving, setLabelSaving] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [showExcelModal, setShowExcelModal] = useState(false);
@@ -368,6 +372,57 @@ function Products() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  const openLabelEdit = (which) => {
+    setError('');
+    setLabelEdit(which);
+    setLabelValue(
+      which === 'extras'
+        ? (selectedStore?.extras_label || '')
+        : (selectedStore?.complements_label || '')
+    );
+  };
+
+  const saveLabel = async () => {
+    if (!selectedStore) return;
+    setLabelSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      // Enviamos todos los campos del store para no sobreescribir el resto
+      const body = {
+        name: selectedStore.name,
+        primary_color: selectedStore.primary_color,
+        secondary_color: selectedStore.secondary_color,
+        accent_color: selectedStore.accent_color,
+        header_color: selectedStore.header_color,
+        currency_code: selectedStore.currency_code,
+        currency_symbol: selectedStore.currency_symbol,
+        currency_name: selectedStore.currency_name,
+        smart_mode: selectedStore.smart_mode,
+        inactivity_timeout: selectedStore.inactivity_timeout,
+        hide_decimals: selectedStore.hide_decimals,
+        show_top_selling: selectedStore.show_top_selling,
+        paid_order_status: selectedStore.paid_order_status,
+        complements_label: selectedStore.complements_label || '',
+        extras_label: selectedStore.extras_label || '',
+      };
+      if (labelEdit === 'extras') body.extras_label = labelValue;
+      else body.complements_label = labelValue;
+
+      const res = await fetch(`/api/stores/${selectedStore.id}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error('Error al guardar el texto');
+      await fetchStores();
+      setLabelEdit(null);
+    } catch (err) {
+      setError(err.message || 'Error al guardar el texto');
+    } finally {
+      setLabelSaving(false);
+    }
+  };
 
   const handleExtrasDragEnd = async (event) => {
     const { active, over } = event;
@@ -818,16 +873,46 @@ function Products() {
                 <div className="product-form-section">
                   <h3 className="form-section-title">Complementos</h3>
 
-                  <div className="form-toggle-card">
-                    <label>
+                  <div className="form-toggle-card" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label style={{ flex: 1, margin: 0 }}>
                       <input
                         type="checkbox"
                         checked={formData.has_extras}
                         onChange={(e) => setFormData({ ...formData, has_extras: e.target.checked })}
                       />
-                      <span className="toggle-card-title">Este producto lleva Extras</span>
+                      <span className="toggle-card-title">Este producto lleva {selectedStore?.extras_label || 'Extras'}</span>
                     </label>
+                    <button
+                      type="button"
+                      title="Editar el texto que ven los clientes (aplica a toda la tienda)"
+                      onClick={() => openLabelEdit('extras')}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 6, flexShrink: 0 }}
+                    >
+                      <FontAwesomeIcon icon={faEdit} />
+                    </button>
                   </div>
+
+                  {labelEdit === 'extras' && (
+                    <div className="form-group" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        autoFocus
+                        maxLength={100}
+                        value={labelValue}
+                        onChange={(e) => setLabelValue(e.target.value)}
+                        placeholder="Extras"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); saveLabel(); }
+                          if (e.key === 'Escape') setLabelEdit(null);
+                        }}
+                        style={{ flex: 1 }}
+                      />
+                      <button type="button" className="btn btn-primary" disabled={labelSaving} onClick={saveLabel}>
+                        {labelSaving ? 'Guardando…' : 'Guardar'}
+                      </button>
+                      <button type="button" className="btn btn-secondary" onClick={() => setLabelEdit(null)}>Cancelar</button>
+                    </div>
+                  )}
 
                   {formData.has_extras && (
                     <>
@@ -856,16 +941,46 @@ function Products() {
                     </>
                   )}
 
-                  <div className="form-toggle-card">
-                    <label>
+                  <div className="form-toggle-card" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <label style={{ flex: 1, margin: 0 }}>
                       <input
                         type="checkbox"
                         checked={formData.has_ingredients}
                         onChange={(e) => setFormData({ ...formData, has_ingredients: e.target.checked })}
                       />
-                      <span className="toggle-card-title">Este producto lleva Complementos</span>
+                      <span className="toggle-card-title">Este producto lleva {selectedStore?.complements_label || 'Complementos'}</span>
                     </label>
+                    <button
+                      type="button"
+                      title="Editar el texto que ven los clientes (aplica a toda la tienda)"
+                      onClick={() => openLabelEdit('complements')}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 6, flexShrink: 0 }}
+                    >
+                      <FontAwesomeIcon icon={faEdit} />
+                    </button>
                   </div>
+
+                  {labelEdit === 'complements' && (
+                    <div className="form-group" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        autoFocus
+                        maxLength={100}
+                        value={labelValue}
+                        onChange={(e) => setLabelValue(e.target.value)}
+                        placeholder="Complementos"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); saveLabel(); }
+                          if (e.key === 'Escape') setLabelEdit(null);
+                        }}
+                        style={{ flex: 1 }}
+                      />
+                      <button type="button" className="btn btn-primary" disabled={labelSaving} onClick={saveLabel}>
+                        {labelSaving ? 'Guardando…' : 'Guardar'}
+                      </button>
+                      <button type="button" className="btn btn-secondary" onClick={() => setLabelEdit(null)}>Cancelar</button>
+                    </div>
+                  )}
 
                   {formData.has_ingredients && (
                     <>
