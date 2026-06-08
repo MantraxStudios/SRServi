@@ -32,6 +32,7 @@ function Products() {
   const [categories, setCategories] = useState([]);
   const [extras, setExtras] = useState([]);
   const [ingredients, setIngredients] = useState([]);
+  const [complementGroups, setComplementGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -48,7 +49,8 @@ function Products() {
     has_extras: false,
     has_ingredients: false,
     max_extras: '',
-    max_ingredients: ''
+    max_ingredients: '',
+    complement_group_ids: []
   });
   const [error, setError] = useState('');
   // Edición inline de los textos personalizables (igual que en Settings)
@@ -96,7 +98,7 @@ function Products() {
 
     try {
       const token = localStorage.getItem('token');
-      const [productsRes, categoriesRes, extrasRes, ingredientsRes] = await Promise.all([
+      const [productsRes, categoriesRes, extrasRes, ingredientsRes, groupsRes] = await Promise.all([
         fetch(`/api/products?store_id=${selectedStore.id}`, {
           headers: { 'Authorization': `Bearer ${token}` },
           signal: abortController.signal
@@ -112,14 +114,19 @@ function Products() {
         fetch(`/api/ingredients?store_id=${selectedStore.id}`, {
           headers: { 'Authorization': `Bearer ${token}` },
           signal: abortController.signal
+        }),
+        fetch(`/api/complement-groups?store_id=${selectedStore.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: abortController.signal
         })
       ]);
 
-      const [productsData, categoriesData, extrasData, ingredientsData] = await Promise.all([
+      const [productsData, categoriesData, extrasData, ingredientsData, groupsData] = await Promise.all([
         productsRes.json(),
         categoriesRes.json(),
         extrasRes.json(),
-        ingredientsRes.json()
+        ingredientsRes.json(),
+        groupsRes.json()
       ]);
 
       const uniqueProducts = productsData.filter((product, index, self) =>
@@ -130,6 +137,7 @@ function Products() {
       setCategories(categoriesData);
       setExtras(Array.isArray(extrasData) ? extrasData : []);
       setIngredients(Array.isArray(ingredientsData) ? ingredientsData : []);
+      setComplementGroups(Array.isArray(groupsData) ? groupsData : []);
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error('Error fetching data:', error);
@@ -162,6 +170,7 @@ function Products() {
       formDataToSend.append('has_ingredients', formData.has_ingredients);
       formDataToSend.append('max_extras', formData.has_extras ? (parseInt(formData.max_extras) || 0) : 0);
       formDataToSend.append('max_ingredients', formData.has_ingredients ? (parseInt(formData.max_ingredients) || 0) : 0);
+      formDataToSend.append('complement_group_ids', JSON.stringify(formData.complement_group_ids || []));
 
       if (formData.imageFile) {
         formDataToSend.append('image', formData.imageFile);
@@ -243,7 +252,10 @@ function Products() {
       has_extras: product.has_extras || false,
       has_ingredients: product.has_ingredients || false,
       max_extras: product.max_extras?.toString() || '',
-      max_ingredients: product.max_ingredients?.toString() || ''
+      max_ingredients: product.max_ingredients?.toString() || '',
+      complement_group_ids: Array.isArray(product.complement_groups)
+        ? product.complement_groups.map(g => g.id)
+        : (Array.isArray(product.complement_group_ids) ? product.complement_group_ids : [])
     });
     setShowModal(true);
   };
@@ -282,7 +294,8 @@ function Products() {
       has_extras: false,
       has_ingredients: false,
       max_extras: '',
-      max_ingredients: ''
+      max_ingredients: '',
+      complement_group_ids: []
     });
   };
 
@@ -1006,6 +1019,42 @@ function Products() {
                           </div>
                         </div>
                       )}
+                    </>
+                  )}
+                </div>
+
+                {/* Secciones personalizadas */}
+                <div className="product-form-section">
+                  <h3 className="form-section-title">Secciones personalizadas</h3>
+                  {complementGroups.length === 0 ? (
+                    <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>
+                      No hay secciones creadas. Creá secciones (ej: Salsas, Bebidas) desde el menú <strong>Secciones</strong>.
+                    </p>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: 13, color: '#6b7280', marginTop: 0 }}>Elegí qué secciones aparecen en este producto:</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {complementGroups.map(g => {
+                          const checked = (formData.complement_group_ids || []).includes(g.id);
+                          return (
+                            <label key={g.id} className="form-toggle-card" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  const cur = formData.complement_group_ids || [];
+                                  setFormData({
+                                    ...formData,
+                                    complement_group_ids: e.target.checked ? [...cur, g.id] : cur.filter(id => id !== g.id)
+                                  });
+                                }}
+                              />
+                              <span className="toggle-card-title">{g.name}</span>
+                              <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 'auto' }}>{g.options.length} opciones</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </>
                   )}
                 </div>

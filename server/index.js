@@ -72,6 +72,17 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  getComplementGroups,
+  createComplementGroup,
+  updateComplementGroup,
+  deleteComplementGroup,
+  reorderComplementGroups,
+  createComplementOption,
+  updateComplementOption,
+  deleteComplementOption,
+  reorderComplementOptions,
+  setProductComplementGroups,
+  getProductComplementGroupIds,
   getProductById,
   getProductByBarcode,
   searchProducts,
@@ -1951,6 +1962,106 @@ app.put('/api/public/:code/labels', async (req, res) => {
     await pool.execute(`UPDATE stores SET ${sets.join(', ')} WHERE id = ?`, params);
     res.json({ success: true });
   } catch (error) { console.error('Error saving labels:', error); res.status(500).json({ error: error.message }); }
+});
+
+// ── Secciones dinámicas (grupos de complementos) — endpoints públicos (editor del tótem) ──
+app.get('/api/public/:code/complement-groups', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const groups = await getComplementGroups(store.id);
+    res.json(groups);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/public/:code/complement-groups', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    if (!req.body.name || !req.body.name.trim()) return res.status(400).json({ error: 'Nombre requerido' });
+    const r = await createComplementGroup(auth.store.id, req.body);
+    emitProductUpdate(auth.store.id, 'complement_group_created', { id: r.id });
+    res.json(r);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.put('/api/public/:code/complement-groups/reorder', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    await reorderComplementGroups(auth.store.id, req.body.ids || []);
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.put('/api/public/:code/complement-groups/:id', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    await updateComplementGroup(parseInt(req.params.id), auth.store.id, req.body);
+    emitProductUpdate(auth.store.id, 'complement_group_updated', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.delete('/api/public/:code/complement-groups/:id', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    await deleteComplementGroup(parseInt(req.params.id), auth.store.id);
+    emitProductUpdate(auth.store.id, 'complement_group_deleted', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/public/:code/complement-options', upload.single('image'), async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    const image = req.file ? `/uploads/${req.file.filename}` : null;
+    const r = await createComplementOption(auth.store.id, parseInt(req.body.group_id), {
+      name: req.body.name, price: req.body.price, image,
+      stock: req.body.stock, unlimited_stock: req.body.unlimited_stock === 'true' || req.body.unlimited_stock === true
+    });
+    emitProductUpdate(auth.store.id, 'complement_option_created', { id: r.id });
+    res.json(r);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.put('/api/public/:code/complement-options/:id', upload.single('image'), async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    const data = {
+      name: req.body.name, price: req.body.price,
+      stock: req.body.stock, unlimited_stock: req.body.unlimited_stock === 'true' || req.body.unlimited_stock === true
+    };
+    if (req.file) data.image = `/uploads/${req.file.filename}`;
+    await updateComplementOption(parseInt(req.params.id), auth.store.id, data);
+    emitProductUpdate(auth.store.id, 'complement_option_updated', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.delete('/api/public/:code/complement-options/:id', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    await deleteComplementOption(parseInt(req.params.id), auth.store.id);
+    emitProductUpdate(auth.store.id, 'complement_option_deleted', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Asignar secciones dinámicas a un producto (desde el tótem)
+app.put('/api/public/:code/products/:id/complement-groups', async (req, res) => {
+  try {
+    const auth = await verifyStoreAccess(req.params.code, req.body);
+    if (!auth.authorized) return res.status(auth.status || 403).json({ error: auth.error });
+    await setProductComplementGroups(parseInt(req.params.id), req.body.group_ids || []);
+    emitProductUpdate(auth.store.id, 'product_updated', { id: parseInt(req.params.id) });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // ── Clasificación QR settings ──
@@ -5468,6 +5579,14 @@ app.post('/api/products', authenticateToken, upload.single('image'), async (req,
       max_ingredients: parseInt(max_ingredients) || 0
     });
 
+    // Secciones dinámicas asignadas
+    if (req.body.complement_group_ids !== undefined) {
+      let gids = req.body.complement_group_ids;
+      if (typeof gids === 'string') { try { gids = JSON.parse(gids); } catch { gids = []; } }
+      await setProductComplementGroups(product.id, Array.isArray(gids) ? gids : []);
+      product.complement_group_ids = await getProductComplementGroupIds(product.id);
+    }
+
     emitProductUpdate(parseInt(store_id), 'product_created', product);
     if (pluginManager) pluginManager.hooks.emit('product_created', { store_id: parseInt(store_id), product });
     res.json(product);
@@ -5514,6 +5633,14 @@ app.put('/api/products/:id', authenticateToken, upload.single('image'), async (r
       max_ingredients: parseInt(max_ingredients) || 0
     });
 
+    // Secciones dinámicas asignadas
+    if (req.body.complement_group_ids !== undefined) {
+      let gids = req.body.complement_group_ids;
+      if (typeof gids === 'string') { try { gids = JSON.parse(gids); } catch { gids = []; } }
+      await setProductComplementGroups(parseInt(req.params.id), Array.isArray(gids) ? gids : []);
+      product.complement_group_ids = await getProductComplementGroupIds(parseInt(req.params.id));
+    }
+
     emitProductUpdate(parseInt(store_id), 'product_updated', product);
     if (pluginManager) pluginManager.hooks.emit('product_updated', { store_id: parseInt(store_id), product });
     res.json(product);
@@ -5540,6 +5667,110 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// ============ SECCIONES DINÁMICAS (admin) ============
+async function requireStoreOwner(req, res, storeId) {
+  if (!storeId) { res.status(400).json({ error: 'store_id es requerido' }); return false; }
+  const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+  if (!isOwner) { res.status(403).json({ error: 'No tienes acceso a esta tienda' }); return false; }
+  return true;
+}
+
+app.get('/api/complement-groups', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    if (!(await requireStoreOwner(req, res, storeId))) return;
+    res.json(await getComplementGroups(parseInt(storeId)));
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/complement-groups', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.body;
+    if (!(await requireStoreOwner(req, res, store_id))) return;
+    if (!req.body.name || !req.body.name.trim()) return res.status(400).json({ error: 'Nombre requerido' });
+    const r = await createComplementGroup(parseInt(store_id), req.body);
+    emitProductUpdate(parseInt(store_id), 'complement_group_created', { id: r.id });
+    res.json(r);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.put('/api/complement-groups/reorder', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, ids } = req.body;
+    if (!(await requireStoreOwner(req, res, store_id))) return;
+    await reorderComplementGroups(parseInt(store_id), ids || []);
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.put('/api/complement-groups/:id', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.body;
+    if (!(await requireStoreOwner(req, res, store_id))) return;
+    await updateComplementGroup(parseInt(req.params.id), parseInt(store_id), req.body);
+    emitProductUpdate(parseInt(store_id), 'complement_group_updated', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.delete('/api/complement-groups/:id', authenticateToken, async (req, res) => {
+  try {
+    const store_id = req.query.store_id || req.body.store_id;
+    if (!(await requireStoreOwner(req, res, store_id))) return;
+    await deleteComplementGroup(parseInt(req.params.id), parseInt(store_id));
+    emitProductUpdate(parseInt(store_id), 'complement_group_deleted', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/complement-options', authenticateToken, upload.single('image'), async (req, res) => {
+  try {
+    const { store_id, group_id } = req.body;
+    if (!(await requireStoreOwner(req, res, store_id))) return;
+    const image = req.file ? `/uploads/${req.file.filename}` : null;
+    const r = await createComplementOption(parseInt(store_id), parseInt(group_id), {
+      name: req.body.name, price: req.body.price, image,
+      stock: req.body.stock, unlimited_stock: req.body.unlimited_stock === 'true' || req.body.unlimited_stock === true
+    });
+    emitProductUpdate(parseInt(store_id), 'complement_option_created', { id: r.id });
+    res.json(r);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.put('/api/complement-options/reorder', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, ids } = req.body;
+    if (!(await requireStoreOwner(req, res, store_id))) return;
+    await reorderComplementOptions(parseInt(store_id), ids || []);
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.put('/api/complement-options/:id', authenticateToken, upload.single('image'), async (req, res) => {
+  try {
+    const { store_id } = req.body;
+    if (!(await requireStoreOwner(req, res, store_id))) return;
+    const data = {
+      name: req.body.name, price: req.body.price,
+      stock: req.body.stock, unlimited_stock: req.body.unlimited_stock === 'true' || req.body.unlimited_stock === true
+    };
+    if (req.file) data.image = `/uploads/${req.file.filename}`;
+    await updateComplementOption(parseInt(req.params.id), parseInt(store_id), data);
+    emitProductUpdate(parseInt(store_id), 'complement_option_updated', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.delete('/api/complement-options/:id', authenticateToken, async (req, res) => {
+  try {
+    const store_id = req.query.store_id || req.body.store_id;
+    if (!(await requireStoreOwner(req, res, store_id))) return;
+    await deleteComplementOption(parseInt(req.params.id), parseInt(store_id));
+    emitProductUpdate(parseInt(store_id), 'complement_option_deleted', { id: req.params.id });
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // ============ COMBOS (admin) ============

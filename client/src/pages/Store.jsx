@@ -937,6 +937,7 @@ function Store() {
   });
   const [ingredientsModalOpen, setIngredientsModalOpen] = useState(false);
   const [extrasModalOpen, setExtrasModalOpen] = useState(false);
+  const [complementGroupsModalOpen, setComplementGroupsModalOpen] = useState(false);
   const [productModalStep, setProductModalStep] = useState('main');
   const [addingToCart, setAddingToCart] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -1026,7 +1027,8 @@ function Store() {
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
   const [prodModalOpen, setProdModalOpen] = useState(false);
   const [editingProd, setEditingProd] = useState(null);
-  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '', image_url: '', complements_private: false });
+  const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '', image_url: '', complements_private: false, complement_group_ids: [] });
+  const [storeComplementGroups, setStoreComplementGroups] = useState([]);
   const [prodImageFile, setProdImageFile] = useState(null);
   const [prodCameraOpen, setProdCameraOpen] = useState(false);
   const [prodSaving, setProdSaving] = useState(false);
@@ -2015,12 +2017,14 @@ function Store() {
       // Ingredientes base (incluidos por defecto) parten seleccionados; quitarlos = "Sin X"
       selectedIngredients: (product.ingredients || []).filter(i => i.included_by_default),
       selectedExtras: [],
+      selectedComplements: [],
       quantity: 1,
       notes: ''
     });
 
     const hasIngredients = product.has_ingredients && product.ingredients && product.ingredients.length > 0;
     const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
+    const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
 
     if (hasIngredients) {
       setProductModalStep('complements');
@@ -2028,6 +2032,9 @@ function Store() {
     } else if (hasExtras) {
       setProductModalStep('extras');
       setTimeout(() => setExtrasModalOpen(true), 100);
+    } else if (hasGroups) {
+      setProductModalStep('groups');
+      setTimeout(() => setComplementGroupsModalOpen(true), 100);
     } else {
       setProductModalStep('main');
       setTimeout(() => addToCartRef(), 100);
@@ -2041,9 +2048,10 @@ function Store() {
     setAddingToCart(false);
     setIngredientsModalOpen(false);
     setExtrasModalOpen(false);
+    setComplementGroupsModalOpen(false);
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || loyaltyModalOpen;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || complementGroupsModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || loyaltyModalOpen;
 
   useEffect(() => {
     anyModalOpenRef.current = anyModalOpen;
@@ -2208,6 +2216,10 @@ function Store() {
       price += extra.price || 0;
     });
 
+    (productConfig.selectedComplements || []).forEach(sel => {
+      price += sel.price || 0;
+    });
+
     return price;
   };
 
@@ -2216,6 +2228,7 @@ function Store() {
 
     setIngredientsModalOpen(false);
     setExtrasModalOpen(false);
+    setComplementGroupsModalOpen(false);
 
     const unitPrice = calculateProductPrice();
     const baseIngredients = (selectedProduct.ingredients || []).filter(i => i.included_by_default);
@@ -2231,7 +2244,8 @@ function Store() {
       quantity: productConfig.quantity,
       total: unitPrice * productConfig.quantity,
       selected_ingredients: [...removed, ...added],
-      selected_extras: productConfig.selectedExtras.map(e => e.name)
+      selected_extras: productConfig.selectedExtras.map(e => e.name),
+      selected_complements: productConfig.selectedComplements || []
     };
 
     setCart([...cart, cartItem]);
@@ -2259,7 +2273,8 @@ function Store() {
       quantity: 1,
       total: unitPrice,
       selected_ingredients: [],
-      selected_extras: []
+      selected_extras: [],
+      selected_complements: []
     };
 
     setCart(prev => [...prev, cartItem]);
@@ -2287,8 +2302,57 @@ function Store() {
       setProductModalStep('extras');
       setTimeout(() => setExtrasModalOpen(true), 100);
     } else {
+      proceedAfterExtras();
+    }
+  };
+
+  // Después de Extras: si el producto tiene secciones personalizadas, mostrarlas; si no, al carrito
+  const proceedAfterExtras = () => {
+    setExtrasModalOpen(false);
+    const hasGroups = Array.isArray(selectedProduct?.complement_groups) && selectedProduct.complement_groups.length > 0;
+    if (hasGroups) {
+      setProductModalStep('groups');
+      setTimeout(() => setComplementGroupsModalOpen(true), 100);
+    } else {
       setTimeout(() => addToCart(), 100);
     }
+  };
+
+  // Validación de reglas (mín/obligatorio) de las secciones personalizadas antes de agregar
+  const finishGroupsStep = () => {
+    const groups = selectedProduct?.complement_groups || [];
+    for (const g of groups) {
+      const count = (productConfig.selectedComplements || []).filter(s => s.group_id === g.id).length;
+      const min = g.required ? Math.max(1, g.min_select || 0) : (g.min_select || 0);
+      if (count < min) {
+        alert(`Elegí al menos ${min} en "${g.name}".`);
+        return;
+      }
+    }
+    setComplementGroupsModalOpen(false);
+    setTimeout(() => addToCart(), 100);
+  };
+
+  // Alterna una opción de una sección respetando el máximo del grupo
+  const toggleComplementOption = (group, option) => {
+    setProductConfig(prev => {
+      const list = prev.selectedComplements || [];
+      const exists = list.some(s => s.option_id === option.id);
+      if (exists) {
+        return { ...prev, selectedComplements: list.filter(s => s.option_id !== option.id) };
+      }
+      const inGroup = list.filter(s => s.group_id === group.id);
+      // max_select 0 = sin límite
+      if (group.max_select > 0 && inGroup.length >= group.max_select) {
+        if (group.max_select === 1) {
+          // reemplazar la selección previa del grupo
+          const without = list.filter(s => s.group_id !== group.id);
+          return { ...prev, selectedComplements: [...without, { group_id: group.id, group_name: group.name, option_id: option.id, name: option.name, price: Number(option.price) || 0 }] };
+        }
+        return prev; // alcanzó el máximo
+      }
+      return { ...prev, selectedComplements: [...list, { group_id: group.id, group_name: group.name, option_id: option.id, name: option.name, price: Number(option.price) || 0 }] };
+    });
   };
 
   const handleBackToMain = () => {
@@ -2467,7 +2531,8 @@ function Store() {
       quantity: item.quantity,
       unit_price: item.unit_price,
       selected_ingredients: item.selected_ingredients,
-      selected_extras: item.selected_extras
+      selected_extras: item.selected_extras,
+      selected_complements: item.selected_complements || []
     }));
 
     try {
@@ -2816,7 +2881,8 @@ function Store() {
       quantity: item.quantity,
       unit_price: item.unit_price,
       selected_ingredients: item.selected_ingredients,
-      selected_extras: item.selected_extras
+      selected_extras: item.selected_extras,
+      selected_complements: item.selected_complements || []
     }));
     try {
       const orderRes = await fetch(API + '/api/orders', {
@@ -3004,12 +3070,14 @@ function Store() {
 
   const fetchComplements = async () => {
     try {
-      const [exRes, inRes] = await Promise.all([
+      const [exRes, inRes, grRes] = await Promise.all([
         fetch(`/api/public/${code}/extras`, { cache: 'no-store' }),
-        fetch(`/api/public/${code}/ingredients`, { cache: 'no-store' })
+        fetch(`/api/public/${code}/ingredients`, { cache: 'no-store' }),
+        fetch(`/api/public/${code}/complement-groups`, { cache: 'no-store' })
       ]);
       if (exRes.ok) setExtras(await exRes.json());
       if (inRes.ok) setIngredients(await inRes.json());
+      if (grRes.ok) setStoreComplementGroups(await grRes.json());
     } catch { /* ignore */ }
   };
 
@@ -3682,7 +3750,8 @@ function Store() {
       max_extras: product?.max_extras?.toString() || '',
       max_ingredients: product?.max_ingredients?.toString() || '',
       image_url: (product?.image?.startsWith('http') ? product.image : '') || '',
-      complements_private: !!product?.complements_private
+      complements_private: !!product?.complements_private,
+      complement_group_ids: Array.isArray(product?.complement_groups) ? product.complement_groups.map(g => g.id) : []
     });
     setProdImageFile(null);
     setProdNewExtras([]);
@@ -3843,6 +3912,21 @@ function Store() {
 
         fetchComplements();
       }
+
+      // Asignar secciones dinámicas al producto (funciona con token o pin)
+      try {
+        let pid = editingProd?.id;
+        if (!pid) {
+          const pd = await (await fetch(`/api/public/${code}`, { cache: 'no-store' })).json();
+          pid = pd.products?.[pd.products.length - 1]?.id;
+        }
+        if (pid) {
+          await fetch(`/api/public/${code}/products/${pid}/complement-groups`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...getAuthBody(), group_ids: prodForm.complement_group_ids || [] })
+          });
+        }
+      } catch (e) { console.error('Error asignando secciones:', e); }
 
       setProdModalOpen(false);
       setEditingProd(null);
@@ -5009,7 +5093,7 @@ function Store() {
                 </button>
               ) : (
                 <button
-                  onClick={selectedProduct.extras?.length > 0 ? handleNextToExtras : addToCart}
+                  onClick={handleNextToExtras}
                   disabled={addingToCart}
                   className="btn btn-lg btn-full store-glow-pulse"
                   style={{
@@ -5018,7 +5102,7 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  {selectedProduct.extras?.length > 0 ? <>{t('next', lang)} <FontAwesomeIcon icon={faChevronRight} /></> : (addingToCart ? t('addedExclaim', lang) : `${t('addBtn', lang)} - ${colors.currency.symbol}${formatPrice(calculateProductPrice() * productConfig.quantity)}`)}
+                  {((selectedProduct.extras?.length > 0) || (selectedProduct.complement_groups?.length > 0)) ? <>{t('next', lang)} <FontAwesomeIcon icon={faChevronRight} /></> : (addingToCart ? t('addedExclaim', lang) : `${t('addBtn', lang)} - ${colors.currency.symbol}${formatPrice(calculateProductPrice() * productConfig.quantity)}`)}
                 </button>
               )}
             </div>
@@ -5188,7 +5272,7 @@ function Store() {
                 </button>
               ) : (
                 <button
-                  onClick={addToCart}
+                  onClick={proceedAfterExtras}
                   disabled={addingToCart}
                   className="btn btn-lg btn-full store-glow-pulse"
                   style={{
@@ -5197,9 +5281,92 @@ function Store() {
                     fontWeight: '700'
                   }}
                 >
-                  {addingToCart ? t('addedExclaim', lang) : `${t('addBtn', lang)} - ${colors.currency.symbol}${formatPrice(calculateProductPrice() * productConfig.quantity)}`}
+                  {(selectedProduct.complement_groups?.length > 0)
+                    ? <>{t('next', lang)} <FontAwesomeIcon icon={faChevronRight} /></>
+                    : (addingToCart ? t('addedExclaim', lang) : `${t('addBtn', lang)} - ${colors.currency.symbol}${formatPrice(calculateProductPrice() * productConfig.quantity)}`)}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal de Secciones personalizadas (cliente) ── */}
+      {complementGroupsModalOpen && selectedProduct && (
+        <div className="store-modal-overlay" onClick={() => setComplementGroupsModalOpen(false)}>
+          <div className="store-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="store-modal-header">
+              <button onClick={() => setComplementGroupsModalOpen(false)} className="store-modal-close">
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+              <h2 style={{ margin: 0, padding: '10px 40px 0 40px' }}>Personalizá tu pedido</h2>
+            </div>
+
+            <div className="store-modal-body">
+              {(selectedProduct.complement_groups || []).map(group => {
+                const selInGroup = (productConfig.selectedComplements || []).filter(s => s.group_id === group.id);
+                return (
+                  <div key={group.id} style={{ marginBottom: 20 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', borderBottom: '2px solid var(--store-primary)', paddingBottom: 6, marginBottom: 10 }}>
+                      <span className="font-bold" style={{ fontSize: 17, color: 'var(--store-primary)' }}>
+                        {group.name} {group.required && <span style={{ color: '#dc3545', fontSize: 13 }}>*</span>}
+                      </span>
+                      <span style={{ fontSize: 12, color: '#888' }}>
+                        {selInGroup.length}{group.max_select > 0 ? `/${group.max_select}` : ''} elegido(s)
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                      {group.options.map(opt => {
+                        const outOfStock = !opt.unlimited_stock && opt.stock === 0;
+                        const isSel = selInGroup.some(s => s.option_id === opt.id);
+                        return (
+                          <div
+                            key={opt.id}
+                            className={`option-item${isSel ? ' selected' : ''}`}
+                            onClick={() => { if (!outOfStock) toggleComplementOption(group, opt); }}
+                            style={{
+                              flexDirection: 'column', padding: 0,
+                              backgroundColor: outOfStock ? '#f8f9fa' : (isSel ? 'var(--store-accent)' : '#fff'),
+                              borderColor: isSel ? 'var(--store-accent)' : outOfStock ? '#dc3545' : '#e0e0e0',
+                              borderWidth: '2px', cursor: outOfStock ? 'not-allowed' : 'pointer',
+                              overflow: 'hidden', position: 'relative', opacity: outOfStock ? 0.6 : 1, borderStyle: 'solid', borderRadius: 12
+                            }}
+                          >
+                            {opt.image && (
+                              <img src={getProductImageUrl(opt.image)} alt={opt.name} style={{ width: '100%', height: 70, objectFit: 'cover' }} />
+                            )}
+                            <div style={{ padding: '8px 6px', textAlign: 'center', width: '100%' }}>
+                              <div className="font-bold" style={{ fontSize: 13, color: isSel ? 'var(--store-primary)' : '#333' }}>{opt.name}</div>
+                              {Number(opt.price) > 0 && (
+                                <div style={{ fontSize: 12, color: isSel ? 'var(--store-primary)' : 'var(--store-accent)', fontWeight: 700 }}>
+                                  +{colors.currency.symbol}{formatPrice(opt.price)}
+                                </div>
+                              )}
+                              {outOfStock && <div style={{ fontSize: 10, color: '#dc3545' }}>Agotado</div>}
+                            </div>
+                            {isSel && (
+                              <div style={{ position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: '50%', backgroundColor: 'var(--store-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <FontAwesomeIcon icon={faCheck} style={{ fontSize: 12, color: 'var(--store-accent)' }} />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="store-modal-footer">
+              <button
+                onClick={finishGroupsStep}
+                disabled={addingToCart}
+                className="btn btn-lg btn-full store-glow-pulse"
+                style={{ backgroundColor: addingToCart ? '#28a745' : 'var(--store-accent)', color: 'var(--store-primary)', fontWeight: '700' }}
+              >
+                {addingToCart ? t('addedExclaim', lang) : `${t('addBtn', lang)} - ${colors.currency.symbol}${formatPrice(calculateProductPrice() * productConfig.quantity)}`}
+              </button>
             </div>
           </div>
         </div>
@@ -5252,6 +5419,9 @@ function Store() {
                     )}
                     {item.selected_extras && item.selected_extras.length > 0 && (
                       <div className="store-cart-item-extras">+ {item.selected_extras.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ')}</div>
+                    )}
+                    {item.selected_complements && item.selected_complements.length > 0 && (
+                      <div className="store-cart-item-extras">+ {item.selected_complements.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ')}</div>
                     )}
 
                     <div className="store-cart-item-bottom">
@@ -6378,6 +6548,37 @@ function Store() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Secciones personalizadas asignadas a este producto */}
+                  {storeComplementGroups.length > 0 && (
+                    <div style={{ marginTop: 12, borderTop: '1px solid #eee', paddingTop: 10 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: '#333' }}>Secciones personalizadas</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {storeComplementGroups.map(g => {
+                          const checked = (prodForm.complement_group_ids || []).includes(g.id);
+                          return (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={() => {
+                                const cur = prodForm.complement_group_ids || [];
+                                setProdForm({ ...prodForm, complement_group_ids: checked ? cur.filter(id => id !== g.id) : [...cur, g.id] });
+                              }}
+                              style={{
+                                padding: '6px 12px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                                border: `2px solid ${checked ? 'var(--store-primary)' : '#ddd'}`,
+                                background: checked ? 'var(--store-primary)' : '#fff',
+                                color: checked ? 'var(--store-secondary)' : '#666'
+                              }}
+                            >
+                              {checked ? '✓ ' : '+ '}{g.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#999', marginTop: 6 }}>Creá o editá secciones desde el panel admin → Secciones.</div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

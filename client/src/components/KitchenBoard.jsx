@@ -195,6 +195,14 @@ export default function KitchenBoard({ orders = [], onAdvance, addonImages = {},
                     })}
                   </div>
                 )}
+                {Array.isArray(item.selected_complements) && item.selected_complements.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                    {item.selected_complements.map((c, i) => {
+                      const name = typeof c === 'object' ? (c.name || '') : (c || '');
+                      return <AddonChip key={i} name={name} img={addonImages[name.toLowerCase()]} prefix="+" />;
+                    })}
+                  </div>
+                )}
                 {item.notes && (
                   <div style={{ marginTop: 4, fontSize: 12, color: '#f59e0b', fontStyle: 'italic' }}>📝 {item.notes}</div>
                 )}

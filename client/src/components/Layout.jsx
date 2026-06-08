@@ -616,6 +616,10 @@ function Layout() {
                     <FontAwesomeIcon icon={faBox} />
                     <span>Productos</span>
                   </NavLink>}
+                  {can('products', 'view') && <NavLink to="/admin/sections" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faLayerGroup} />
+                    <span>Secciones</span>
+                  </NavLink>}
                   {/* Combos desactivado por ahora */}
                   {false && can('products', 'view') && <NavLink to="/admin/combos" className="dropdown-item" onClick={() => setMenuOpen(false)}>
                     <FontAwesomeIcon icon={faLayerGroup} />

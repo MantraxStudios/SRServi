@@ -278,6 +278,57 @@ async function createTables() {
   await pool.execute(createCombosTable);
   await pool.execute(createComboItemsTable);
 
+  // ── Secciones personalizadas (grupos dinámicos de complementos) ──
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS complement_groups (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      name VARCHAR(120) NOT NULL,
+      min_select INT NOT NULL DEFAULT 0,
+      max_select INT NOT NULL DEFAULT 0,
+      required BOOLEAN NOT NULL DEFAULT FALSE,
+      sort_order INT NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS complement_options (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      group_id INT NOT NULL,
+      store_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      price DECIMAL(10, 2) NOT NULL DEFAULT 0,
+      image TEXT DEFAULT NULL,
+      stock INT NOT NULL DEFAULT 0,
+      unlimited_stock BOOLEAN NOT NULL DEFAULT TRUE,
+      sort_order INT NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (group_id) REFERENCES complement_groups(id) ON DELETE CASCADE,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS product_complement_groups (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      product_id INT NOT NULL,
+      group_id INT NOT NULL,
+      sort_order INT NOT NULL DEFAULT 0,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+      FOREIGN KEY (group_id) REFERENCES complement_groups(id) ON DELETE CASCADE
+    )
+  `);
+  // Nueva columna para guardar las selecciones de secciones dinámicas en cada item del pedido
+  try {
+    const [oiCols] = await pool.execute('SHOW COLUMNS FROM order_items');
+    if (!oiCols.map(c => c.Field).includes('selected_complements')) {
+      await pool.execute('ALTER TABLE order_items ADD COLUMN selected_complements TEXT');
+      console.log('✅ Columna selected_complements agregada a order_items');
+    }
+  } catch (e) { console.warn('Migration selected_complements:', e.message); }
+
   // Initialize delivery tables early so columns exist before createOrder is called
   try { await ensureDeliveryTables(); } catch (e) { console.warn('Delivery tables init:', e.message); }
 
@@ -2646,6 +2697,183 @@ async function getProductExtras(productId, categoryId = null) {
   return rows.map(mapRow);
 }
 
+// Secciones dinámicas (grupos personalizados) asignadas a un producto, con sus opciones
+async function getProductComplementGroups(productId) {
+  let links;
+  try {
+    [links] = await pool.execute(
+      `SELECT g.* FROM product_complement_groups pg
+       JOIN complement_groups g ON g.id = pg.group_id
+       WHERE pg.product_id = ? AND COALESCE(g.is_active, 1) = 1
+       ORDER BY pg.sort_order, g.sort_order, g.id`,
+      [productId]
+    );
+  } catch { return []; }
+  if (!links || links.length === 0) return [];
+
+  const groups = [];
+  for (const g of links) {
+    const [opts] = await pool.execute(
+      `SELECT * FROM complement_options
+       WHERE group_id = ? AND COALESCE(is_active, 1) = 1
+       ORDER BY sort_order, id`,
+      [g.id]
+    );
+    groups.push({
+      id: g.id,
+      name: g.name,
+      min_select: parseInt(g.min_select) || 0,
+      max_select: parseInt(g.max_select) || 0,
+      required: !!g.required,
+      sort_order: parseInt(g.sort_order) || 0,
+      options: opts.map(o => ({
+        id: o.id,
+        name: o.name,
+        price: parseFloat(o.price) || 0,
+        image: o.image,
+        stock: parseInt(o.stock) || 0,
+        unlimited_stock: o.unlimited_stock === null ? true : !!o.unlimited_stock
+      }))
+    });
+  }
+  return groups;
+}
+
+// ===== CRUD de secciones dinámicas (grupos y opciones) =====
+export async function getComplementGroups(storeId) {
+  const [groups] = await pool.execute(
+    'SELECT * FROM complement_groups WHERE store_id = ? ORDER BY sort_order, id',
+    [storeId]
+  );
+  const out = [];
+  for (const g of groups) {
+    const [opts] = await pool.execute(
+      'SELECT * FROM complement_options WHERE group_id = ? ORDER BY sort_order, id',
+      [g.id]
+    );
+    out.push({
+      id: g.id,
+      store_id: g.store_id,
+      name: g.name,
+      min_select: parseInt(g.min_select) || 0,
+      max_select: parseInt(g.max_select) || 0,
+      required: !!g.required,
+      sort_order: parseInt(g.sort_order) || 0,
+      is_active: g.is_active === null ? true : !!g.is_active,
+      options: opts.map(o => ({
+        id: o.id, group_id: o.group_id, name: o.name,
+        price: parseFloat(o.price) || 0, image: o.image,
+        stock: parseInt(o.stock) || 0,
+        unlimited_stock: o.unlimited_stock === null ? true : !!o.unlimited_stock,
+        sort_order: parseInt(o.sort_order) || 0,
+        is_active: o.is_active === null ? true : !!o.is_active
+      }))
+    });
+  }
+  return out;
+}
+
+export async function createComplementGroup(storeId, data) {
+  const { name, min_select, max_select, required, is_active } = data;
+  const [[{ maxOrder }]] = await pool.execute(
+    'SELECT COALESCE(MAX(sort_order), -1) + 1 AS maxOrder FROM complement_groups WHERE store_id = ?',
+    [storeId]
+  );
+  const [result] = await pool.execute(
+    'INSERT INTO complement_groups (store_id, name, min_select, max_select, required, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [storeId, name, parseInt(min_select) || 0, parseInt(max_select) || 0, required ? 1 : 0, maxOrder, is_active === false ? 0 : 1]
+  );
+  return { id: result.insertId };
+}
+
+export async function updateComplementGroup(id, storeId, data) {
+  const { name, min_select, max_select, required, is_active } = data;
+  await pool.execute(
+    'UPDATE complement_groups SET name = ?, min_select = ?, max_select = ?, required = ?, is_active = ? WHERE id = ? AND store_id = ?',
+    [name, parseInt(min_select) || 0, parseInt(max_select) || 0, required ? 1 : 0, is_active === false ? 0 : 1, id, storeId]
+  );
+  return { id };
+}
+
+export async function deleteComplementGroup(id, storeId) {
+  await pool.execute('DELETE FROM complement_groups WHERE id = ? AND store_id = ?', [id, storeId]);
+  return { id };
+}
+
+export async function reorderComplementGroups(storeId, ids) {
+  for (let i = 0; i < ids.length; i++) {
+    await pool.execute('UPDATE complement_groups SET sort_order = ? WHERE id = ? AND store_id = ?', [i, ids[i], storeId]);
+  }
+  return true;
+}
+
+export async function createComplementOption(storeId, groupId, data) {
+  // Verificar que el grupo pertenece a la tienda
+  const [g] = await pool.execute('SELECT id FROM complement_groups WHERE id = ? AND store_id = ?', [groupId, storeId]);
+  if (!g.length) throw new Error('Grupo no encontrado');
+  const { name, price, image, stock, unlimited_stock, is_active } = data;
+  const [[{ maxOrder }]] = await pool.execute(
+    'SELECT COALESCE(MAX(sort_order), -1) + 1 AS maxOrder FROM complement_options WHERE group_id = ?',
+    [groupId]
+  );
+  const [result] = await pool.execute(
+    'INSERT INTO complement_options (group_id, store_id, name, price, image, stock, unlimited_stock, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [groupId, storeId, name, parseFloat(price) || 0, image || null, parseInt(stock) || 0, unlimited_stock === false ? 0 : 1, maxOrder, is_active === false ? 0 : 1]
+  );
+  return { id: result.insertId };
+}
+
+export async function updateComplementOption(id, storeId, data) {
+  const { name, price, image, stock, unlimited_stock, is_active } = data;
+  if (image === undefined) {
+    await pool.execute(
+      'UPDATE complement_options SET name = ?, price = ?, stock = ?, unlimited_stock = ?, is_active = ? WHERE id = ? AND store_id = ?',
+      [name, parseFloat(price) || 0, parseInt(stock) || 0, unlimited_stock === false ? 0 : 1, is_active === false ? 0 : 1, id, storeId]
+    );
+  } else {
+    await pool.execute(
+      'UPDATE complement_options SET name = ?, price = ?, image = ?, stock = ?, unlimited_stock = ?, is_active = ? WHERE id = ? AND store_id = ?',
+      [name, parseFloat(price) || 0, image || null, parseInt(stock) || 0, unlimited_stock === false ? 0 : 1, is_active === false ? 0 : 1, id, storeId]
+    );
+  }
+  return { id };
+}
+
+export async function deleteComplementOption(id, storeId) {
+  await pool.execute('DELETE FROM complement_options WHERE id = ? AND store_id = ?', [id, storeId]);
+  return { id };
+}
+
+export async function reorderComplementOptions(storeId, ids) {
+  for (let i = 0; i < ids.length; i++) {
+    await pool.execute('UPDATE complement_options SET sort_order = ? WHERE id = ? AND store_id = ?', [i, ids[i], storeId]);
+  }
+  return true;
+}
+
+// Reemplaza las secciones asignadas a un producto
+export async function setProductComplementGroups(productId, groupIds) {
+  await pool.execute('DELETE FROM product_complement_groups WHERE product_id = ?', [productId]);
+  const ids = Array.isArray(groupIds) ? groupIds : [];
+  for (let i = 0; i < ids.length; i++) {
+    const gid = parseInt(ids[i]);
+    if (!gid) continue;
+    await pool.execute(
+      'INSERT INTO product_complement_groups (product_id, group_id, sort_order) VALUES (?, ?, ?)',
+      [productId, gid, i]
+    );
+  }
+  return true;
+}
+
+export async function getProductComplementGroupIds(productId) {
+  const [rows] = await pool.execute(
+    'SELECT group_id FROM product_complement_groups WHERE product_id = ? ORDER BY sort_order',
+    [productId]
+  );
+  return rows.map(r => r.group_id);
+}
+
 export async function getProducts(storeId) {
   const [rows] = await pool.execute(`
     SELECT p.*, c.name as category_name,
@@ -2672,7 +2900,8 @@ export async function getProducts(storeId) {
       max_extras: parseInt(product.max_extras) || 0,
       max_ingredients: parseInt(product.max_ingredients) || 0,
       ingredients: await getProductIngredients(product.id, product.category_id),
-      extras: await getProductExtras(product.id, product.category_id)
+      extras: await getProductExtras(product.id, product.category_id),
+      complement_groups: await getProductComplementGroups(product.id)
     };
     products.push(prod);
   }
@@ -2705,7 +2934,8 @@ export async function createProduct(storeId, data) {
     stock: 0,
     unlimited_stock: true,
     ingredients: await getProductIngredients(productId, category_id),
-    extras: await getProductExtras(productId, category_id)
+    extras: await getProductExtras(productId, category_id),
+    complement_groups: await getProductComplementGroups(productId)
   };
 }
 
@@ -2740,7 +2970,8 @@ export async function updateProduct(productId, storeId, data) {
     stock: parseInt(stock) || 0,
     unlimited_stock: !!unlimited_stock,
     ingredients: await getProductIngredients(productId, category_id),
-    extras: await getProductExtras(productId, category_id)
+    extras: await getProductExtras(productId, category_id),
+    complement_groups: await getProductComplementGroups(productId)
   };
 }
 
@@ -2855,7 +3086,8 @@ export async function getProductById(productId) {
     max_extras: parseInt(rows[0].max_extras) || 0,
     max_ingredients: parseInt(rows[0].max_ingredients) || 0,
     ingredients: await getProductIngredients(productId, rows[0].category_id),
-    extras: await getProductExtras(productId, rows[0].category_id)
+    extras: await getProductExtras(productId, rows[0].category_id),
+    complement_groups: await getProductComplementGroups(productId)
   };
   return product;
 }
@@ -2886,7 +3118,8 @@ export async function getPublicProducts(storeId) {
       max_extras: parseInt(product.max_extras) || 0,
       max_ingredients: parseInt(product.max_ingredients) || 0,
       ingredients: await getProductIngredients(product.id, product.category_id),
-      extras: await getProductExtras(product.id, product.category_id)
+      extras: await getProductExtras(product.id, product.category_id),
+      complement_groups: await getProductComplementGroups(product.id)
     };
     products.push(prod);
   }
@@ -3170,17 +3403,37 @@ export async function createOrder(storeId, orderData) {
   };
 
   for (const item of items) {
-    await pool.execute(
-      'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras) VALUES (?, ?, ?, ?, ?, ?)',
-      [
-        orderId,
-        item.product_id,
-        item.quantity,
-        item.unit_price,
-        JSON.stringify(item.selected_ingredients || []),
-        JSON.stringify(item.selected_extras || [])
-      ]
-    );
+    let selectedComplementsCol = null;
+    try {
+      selectedComplementsCol = JSON.stringify(item.selected_complements || []);
+    } catch { selectedComplementsCol = '[]'; }
+    try {
+      await pool.execute(
+        'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras, selected_complements) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          orderId,
+          item.product_id,
+          item.quantity,
+          item.unit_price,
+          JSON.stringify(item.selected_ingredients || []),
+          JSON.stringify(item.selected_extras || []),
+          selectedComplementsCol
+        ]
+      );
+    } catch (e) {
+      // Compatibilidad si la columna aún no existe
+      await pool.execute(
+        'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras) VALUES (?, ?, ?, ?, ?, ?)',
+        [
+          orderId,
+          item.product_id,
+          item.quantity,
+          item.unit_price,
+          JSON.stringify(item.selected_ingredients || []),
+          JSON.stringify(item.selected_extras || [])
+        ]
+      );
+    }
 
     // Deduct product stock
     const [invRows] = await pool.execute(
@@ -3250,6 +3503,24 @@ export async function createOrder(storeId, orderData) {
           );
         }
       }
+    }
+
+    // Deduct stock of dynamic complement options (secciones personalizadas)
+    for (const sel of (item.selected_complements || [])) {
+      const optId = sel?.option_id ?? sel?.id;
+      if (!optId) continue;
+      try {
+        const [optRows] = await pool.execute(
+          'SELECT id, unlimited_stock FROM complement_options WHERE id = ? AND store_id = ? LIMIT 1',
+          [optId, storeId]
+        );
+        if (optRows.length > 0 && !optRows[0].unlimited_stock) {
+          await pool.execute(
+            'UPDATE complement_options SET stock = GREATEST(0, stock - ?) WHERE id = ?',
+            [item.quantity, optRows[0].id]
+          );
+        }
+      } catch { /* ignore */ }
     }
 
     // Deduct raw materials for product (recipe) — multiplied by order quantity
@@ -3408,7 +3679,8 @@ export async function getOrderItems(orderId) {
     ...row,
     unit_price: parseFloat(row.unit_price),
     selected_ingredients: JSON.parse(row.selected_ingredients || '[]'),
-    selected_extras: JSON.parse(row.selected_extras || '[]')
+    selected_extras: JSON.parse(row.selected_extras || '[]'),
+    selected_complements: JSON.parse(row.selected_complements || '[]')
   }));
 }
 

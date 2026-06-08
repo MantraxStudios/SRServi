@@ -20,6 +20,7 @@ import Combos from './pages/admin/Combos';
 import Ingredients from './pages/admin/Ingredients';
 import Extras from './pages/admin/Extras';
 import Complements from './pages/admin/Complements';
+import Sections from './pages/admin/Sections';
 import Orders from './pages/admin/Orders';
 import Workers from './pages/admin/Workers';
 import Settings from './pages/admin/Settings';
@@ -278,6 +279,7 @@ function App() {
             <Route path="ingredients" element={<PermissionGate section="categories"><Complements /></PermissionGate>} />
             <Route path="extras" element={<PermissionGate section="categories"><Complements /></PermissionGate>} />
             <Route path="complements" element={<PermissionGate section="categories"><Complements /></PermissionGate>} />
+            <Route path="sections" element={<PermissionGate section="products"><Sections /></PermissionGate>} />
             <Route path="orders" element={<PermissionGate section="orders"><Orders /></PermissionGate>} />
             <Route path="workers" element={<PermissionGate section="workers"><Workers /></PermissionGate>} />
             <Route path="mercado-pago-points" element={<MercadoPagoPoints />} />
