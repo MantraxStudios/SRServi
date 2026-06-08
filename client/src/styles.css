@@ -11754,6 +11754,15 @@ html body .store-container .store-product-card * {
 }
 .isb-fp-link:hover > span:not([style]) { background: rgba(212,175,55,0.14); }
 
+/* WhatsApp: mismo tamaño, fondo verde */
+.isb-fp-link--wa > svg {
+  fill: #25d366 !important;
+  background: rgba(37,211,102,0.15) !important;
+}
+.isb-fp-link--wa:hover > svg {
+  background: rgba(37,211,102,0.25) !important;
+}
+
 /* Sin flecha */
 .isb-fp-link::after { display: none; }
 
