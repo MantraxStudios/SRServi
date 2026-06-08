@@ -11663,72 +11663,96 @@ html body .store-container .store-product-card * {
 }
 .isb-fp-store-btn:hover { background: rgba(212,175,55,0.06); color: #fff; }
 
-/* ── Panel cuerpo: grid cuadritos estilo iPhone ── */
+/* ── Panel cuerpo: grid estilo iPhone home ── */
 .isb-fp-body {
   flex: 1; overflow-y: auto;
-  padding: 16px 16px 32px;
-  display: flex; flex-direction: column; gap: 20px;
+  padding: 16px 20px 36px;
+  display: flex; flex-direction: column; gap: 24px;
   scrollbar-color: rgba(212,175,55,0.12) transparent;
 }
 .isb-fp-body::-webkit-scrollbar { width: 3px; }
 .isb-fp-body::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.15); border-radius: 3px; }
 
-/* Sección = título + grid de cuadritos */
+/* Sección: título + grid 4 columnas */
 .isb-fp-sec {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 14px 10px;
+  align-items: start;
 }
 .isb-fp-sec--apps {
   display: flex; flex-direction: column; gap: 8px;
 }
 
-/* Cabecera ocupa todo el ancho */
+/* Título de sección: ocupa todo el ancho */
 .isb-fp-sec-title {
   grid-column: 1 / -1;
   font-size: 10px; font-weight: 700;
-  color: rgba(212,175,55,0.6);
-  text-transform: uppercase; letter-spacing: 1px;
-  padding: 0 2px;
+  color: rgba(212,175,55,0.55);
+  text-transform: uppercase; letter-spacing: 1.1px;
+  margin-bottom: -4px;
   display: flex; align-items: center; gap: 6px;
 }
 
-/* Cuadrito individual — estilo app icon iPhone */
+/* ── App icon: contenedor externo (sin fondo) ── */
 .isb-fp-link {
-  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-  gap: 6px;
-  padding: 13px 6px 10px;
-  border-radius: 16px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.06);
-  color: #aaa; font-size: 11px; font-weight: 500;
-  text-decoration: none; text-align: center; line-height: 1.3;
-  transition: background 0.12s, transform 0.1s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  background: none;
+  border: none;
+  padding: 2px 2px 4px;
+  text-decoration: none;
+  color: #aaa;
+  font-size: 10.5px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.35;
+  transition: transform 0.1s;
   -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  word-break: break-word;
 }
-.isb-fp-link:hover, .isb-fp-link:active {
-  background: rgba(212,175,55,0.1);
-  color: #fff;
-  transform: scale(0.95);
-}
-.isb-fp-link.active {
-  background: rgba(212,175,55,0.14);
-  color: var(--isb-gold);
-  border-color: rgba(212,175,55,0.3);
-}
+.isb-fp-link:hover  { color: #fff; transform: scale(0.96); }
+.isb-fp-link:active { transform: scale(0.88); }
+.isb-fp-link.active { color: var(--isb-gold); }
 
-/* Icono dentro del cuadrito */
-.isb-fp-link svg,
-.isb-fp-link .svg-inline--fa {
-  width: 22px; font-size: 20px;
-  color: var(--isb-gold);
+/* ── Cuadro de ícono iPhone: se aplica al SVG/FA directo hijo ── */
+.isb-fp-link > .svg-inline--fa,
+.isb-fp-link > svg {
+  width: 52px !important;
+  height: 52px !important;
+  padding: 13px;
+  box-sizing: border-box;
+  background: rgba(255,255,255,0.07);
+  border-radius: 14px;
+  display: block;
   flex-shrink: 0;
-  transition: color 0.12s;
+  color: var(--isb-gold);
+  transition: background 0.14s;
 }
-.isb-fp-link.active svg,
-.isb-fp-link.active .svg-inline--fa { color: var(--isb-gold); }
+.isb-fp-link:hover > .svg-inline--fa,
+.isb-fp-link:hover > svg {
+  background: rgba(212,175,55,0.14);
+}
+.isb-fp-link.active > .svg-inline--fa,
+.isb-fp-link.active > svg {
+  background: rgba(212,175,55,0.2);
+}
 
-/* Sin chevron en modo cuadritos */
+/* Íconos emoji (span primer hijo sin style) */
+.isb-fp-link > span:not([style]):not(.svg-inline--fa) {
+  width: 52px; height: 52px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0;
+  transition: background 0.14s;
+}
+.isb-fp-link:hover > span:not([style]) { background: rgba(212,175,55,0.14); }
+
+/* Sin flecha */
 .isb-fp-link::after { display: none; }
 
 .isb-fp-apps-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
@@ -11855,10 +11879,12 @@ html body .store-container .store-product-card * {
   .isb-fullpanel--account { width: 100%; box-shadow: none; border-right: none; }
   @keyframes isbUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
-  .isb-fp-body { padding: 14px 12px 28px; gap: 16px; }
-  .isb-fp-sec { grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .isb-fp-link { padding: 12px 4px 9px; border-radius: 14px; font-size: 10px; }
-  .isb-fp-link svg, .isb-fp-link .svg-inline--fa { font-size: 18px; width: 18px; }
+  .isb-fp-body { padding: 14px 14px 28px; gap: 18px; }
+  .isb-fp-sec { gap: 12px 8px; }
+  .isb-fp-link > .svg-inline--fa, .isb-fp-link > svg {
+    width: 48px !important; height: 48px !important; padding: 12px; border-radius: 13px;
+  }
+  .isb-fp-link > span:not([style]) { width: 48px; height: 48px; border-radius: 13px; font-size: 20px; }
   .isb-fp-apps-grid { grid-template-columns: 1fr 1fr; }
 
   .isb-mobile-header { display: flex; }
