@@ -11516,7 +11516,7 @@ html body .store-container .store-product-card * {
   --isb-w: 56px;
   --isb-bg: #fff;
   --isb-gold: #D4AF37;
-  --isb-bottom-h: 54px;
+  --isb-bottom-h: 62px;
 }
 
 .isb-layout { display: flex; min-height: 100vh; }
