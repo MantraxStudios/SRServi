@@ -11754,13 +11754,29 @@ html body .store-container .store-product-card * {
 }
 .isb-fp-link:hover > span:not([style]) { background: rgba(212,175,55,0.14); }
 
-/* WhatsApp: mismo tamaño, fondo verde */
-.isb-fp-link--wa > svg {
-  fill: #25d366 !important;
-  background: rgba(37,211,102,0.15) !important;
+/* Span-box para SVGs inline (WhatsApp, Instagram, TikTok) */
+.isb-fp-wabox,
+.isb-fp-iconbox {
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.14s;
 }
-.isb-fp-link--wa:hover > svg {
-  background: rgba(37,211,102,0.25) !important;
+.isb-fp-wabox  { background: rgba(37,211,102,0.12); }
+.isb-fp-iconbox { background: rgba(255,255,255,0.09); }
+
+.isb-fp-link:hover .isb-fp-wabox  { background: rgba(37,211,102,0.22); }
+.isb-fp-link:hover .isb-fp-iconbox { background: rgba(255,255,255,0.16); }
+
+.isb-fp-wabox svg,
+.isb-fp-iconbox svg {
+  width: 24px; height: 24px;
+}
+
+@media (max-width: 768px) {
+  .isb-fp-wabox, .isb-fp-iconbox { width: 48px; height: 48px; border-radius: 13px; }
+  .isb-fp-wabox svg, .isb-fp-iconbox svg { width: 22px; height: 22px; }
 }
 
 /* Sin flecha */
