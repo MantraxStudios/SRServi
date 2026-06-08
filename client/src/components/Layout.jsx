@@ -138,6 +138,7 @@ function Layout() {
   const [androidBuilds, setAndroidBuilds] = useState({}); // { launcher: {status,jobId,progress}, ... }
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [fpStoreOpen, setFpStoreOpen] = useState(false);
   const [canInstall, setCanInstall] = useState(() => !!window.__pwaInstallPrompt);
   const [isInstalled, setIsInstalled] = useState(() =>
     window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
@@ -153,6 +154,7 @@ function Layout() {
   useEffect(() => {
     setSettingsOpen(false);
     setAccountOpen(false);
+    setFpStoreOpen(false);
   }, [location.pathname]);
 
   // PWA install availability
@@ -626,11 +628,39 @@ function Layout() {
             </div>
 
             <div className="isb-fp-store">
-              <button className="isb-fp-store-btn" onClick={() => { setSettingsOpen(false); setStoreDropdownOpen(true); }}>
+              <button className="isb-fp-store-btn" onClick={() => setFpStoreOpen(p => !p)}>
                 <FontAwesomeIcon icon={faStore} />
                 <span>{selectedStore?.name || 'Seleccionar tienda'}</span>
-                <FontAwesomeIcon icon={faChevronDown} style={{ marginLeft: 'auto', fontSize: 11 }} />
+                <FontAwesomeIcon icon={faChevronDown} style={{ marginLeft: 'auto', fontSize: 11, transform: fpStoreOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
               </button>
+              {fpStoreOpen && (
+                <div style={{ marginTop: 6, background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                  {stores.map(store => (
+                    <div
+                      key={store.id}
+                      onClick={() => { selectStore(store); setSettingsOpen(false); setFpStoreOpen(false); }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                        cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                        background: selectedStore?.id === store.id ? 'rgba(212,175,55,0.08)' : 'transparent',
+                        transition: 'background 0.15s'
+                      }}
+                    >
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: selectedStore?.id === store.id ? '#D4AF37' : '#444', flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: selectedStore?.id === store.id ? '#D4AF37' : '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{store.name}</div>
+                        <div style={{ fontSize: 11, color: '#555' }}>{store.code}</div>
+                      </div>
+                    </div>
+                  ))}
+                  <div
+                    onClick={() => { setSettingsOpen(false); setFpStoreOpen(false); navigate('/admin/stores'); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', cursor: 'pointer', color: '#D4AF37', fontSize: 13, fontWeight: 600 }}
+                  >
+                    <FontAwesomeIcon icon={faPlus} /> Gestionar tiendas
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="isb-fp-body">
