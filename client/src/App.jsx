@@ -5,6 +5,7 @@ import { RoleProvider, PermissionGate } from './context/RoleContext';
 import { useStore } from './components/Layout';
 import { PluginProvider } from './context/PluginContext';
 import Layout from './components/Layout';
+import InstallPrompt from './components/InstallPrompt';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
@@ -250,6 +251,7 @@ function App() {
 
   return (
     <AuthProvider>
+      <InstallPrompt />
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<Index />} />
