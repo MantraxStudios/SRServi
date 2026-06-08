@@ -11995,10 +11995,9 @@ html body .store-container .store-product-card * {
     top: auto; left: 0; right: 0; bottom: 0;
     width: 100%; height: var(--isb-bottom-h);
     flex-direction: row; padding: 0;
-    border-right: none; border-top: none;
-    border-radius: 18px 18px 0 0;
+    border-right: none; border-top: none; border-radius: 0;
     background: #fff;
-    box-shadow: 0 -1px 0 rgba(0,0,0,0.08), 0 -4px 20px rgba(0,0,0,0.08);
+    box-shadow: 0 -1px 0 rgba(0,0,0,0.10);
     justify-content: space-around;
   }
   .isb-logo, .isb-store-wrap, .isb-divider, .isb-spacer { display: none; }
@@ -12015,7 +12014,9 @@ html body .store-container .store-product-card * {
     flex-direction: column; gap: 2px; padding: 6px 2px 5px; font-size: 16px;
   }
   .isb-btn-icon { font-size: 17px; }
-  .isb-btn-label { display: block; font-size: 9px; font-weight: 600; line-height: 1; white-space: nowrap; color: inherit; }
+  .isb-btn-label { display: block; font-size: 9px; font-weight: 600; line-height: 1; white-space: nowrap; color: #333; }
+  .isb-btn.active .isb-btn-label,
+  .isb-btn:hover .isb-btn-label { color: #111; }
 
   .isb-btn.active::before {
     left: 50%; top: 0; bottom: auto; transform: translateX(-50%);
