@@ -23,7 +23,8 @@ const BUILTIN_MP_POINT_COUNTRIES = ['CL', 'AR', 'BR', 'MX', 'PE', 'CO', 'UY'];
 const API = 'https://srservi2.srautomatic.com';
 const GOLD = '#D4AF37';
 
-function MercadoPagoPoints() {
+function MercadoPagoPoints({ view = 'pos' }) {
+  // view: 'pos' (Vincular POS) | 'qr' (Pagos con QR) | 'storeqr' (QR de la tienda)
   const navigate = useNavigate();
   const { token } = useAuth();
   const {
@@ -1000,7 +1001,10 @@ function MercadoPagoPoints() {
     <>
       <header className="admin-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0 }}><FontAwesomeIcon icon={faCashRegister} style={{ marginRight: '10px' }} />Vincular POS</h1>
+          <h1 style={{ margin: 0 }}>
+            <FontAwesomeIcon icon={view === 'qr' || view === 'storeqr' ? faQrcode : faCashRegister} style={{ marginRight: '10px' }} />
+            {view === 'qr' ? 'Pagos con QR' : view === 'storeqr' ? 'QR de la tienda' : 'Vincular POS'}
+          </h1>
           {selectedStore && (
             <span style={{ fontSize: '12px', color: '#888', fontWeight: '500', background: '#f5f5f5', padding: '4px 10px', borderRadius: '20px' }}>
               {selectedStore.name}
@@ -1027,6 +1031,7 @@ function MercadoPagoPoints() {
         )}
 
         {/* ── TERMINALES VINCULADAS ── */}
+        {view === 'pos' && (
         <div style={{ marginBottom: '36px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <p style={sectionTitle}>Terminales vinculadas</p>
@@ -1096,8 +1101,10 @@ function MercadoPagoPoints() {
             </div>
           )}
         </div>
+        )}
 
         {/* ── PAGOS CON QR ── */}
+        {view === 'qr' && (
         <div style={{ marginBottom: '36px' }}>
           <p style={sectionTitle}>Pagos con QR</p>
           <p style={{ margin: '-8px 0 16px', fontSize: '12px', color: '#aaa' }}>El cliente escanea un QR en pantalla y paga desde su celular.</p>
@@ -1188,9 +1195,10 @@ function MercadoPagoPoints() {
             </div>
           </div>
         </div>
+        )}
 
         {/* ── QR DE LA TIENDA ── */}
-        {selectedStore && (
+        {view === 'storeqr' && selectedStore && (
           <div style={{ marginBottom: '36px' }}>
             <p style={sectionTitle}>QR de la tienda</p>
             <div style={{ ...card, display: 'flex', alignItems: 'center', gap: '32px', padding: '24px 28px', flexWrap: 'wrap' }}>

@@ -659,6 +659,20 @@ async function createTables() {
     )
   `);
 
+  // Gastos generales (egresos) para el estado de resultados — independientes de las cajas
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS store_expenses (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      store_id INT NOT NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      description VARCHAR(255) DEFAULT NULL,
+      category VARCHAR(80) DEFAULT 'Otros',
+      expense_date DATE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    )
+  `);
+
   // Tabla de control de migraciones — evita que corran más de una vez
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS _migrations (
@@ -5162,6 +5176,78 @@ export async function getCashRegisterFinancials(storeId, register) {
     // Efectivo que debería haber físicamente en caja
     efectivo_esperado: opening + ventasEfectivo - totalEgresos,
     movements
+  };
+}
+
+// ─── Gastos generales y Estado de resultados ────────────────────────────────
+
+export async function getStoreExpenses(storeId, from, to) {
+  let sql = 'SELECT * FROM store_expenses WHERE store_id = ?';
+  const params = [storeId];
+  if (from) { sql += ' AND expense_date >= ?'; params.push(from); }
+  if (to) { sql += ' AND expense_date <= ?'; params.push(to); }
+  sql += ' ORDER BY expense_date DESC, id DESC';
+  const [rows] = await pool.execute(sql, params);
+  return rows.map(r => ({ ...r, amount: Number(r.amount) }));
+}
+
+export async function addStoreExpense(storeId, { amount, description, category, expense_date }) {
+  const amt = parseFloat(amount);
+  if (!amt || amt <= 0) throw new Error('Monto inválido');
+  const date = expense_date || new Date().toISOString().slice(0, 10);
+  const [result] = await pool.execute(
+    'INSERT INTO store_expenses (store_id, amount, description, category, expense_date) VALUES (?, ?, ?, ?, ?)',
+    [storeId, amt, description || null, category || 'Otros', date]
+  );
+  const [rows] = await pool.execute('SELECT * FROM store_expenses WHERE id = ?', [result.insertId]);
+  return { ...rows[0], amount: Number(rows[0].amount) };
+}
+
+export async function deleteStoreExpense(id, storeId) {
+  await pool.execute('DELETE FROM store_expenses WHERE id = ? AND store_id = ?', [id, storeId]);
+  return { success: true };
+}
+
+/**
+ * Estado de resultados de la tienda en un rango de fechas:
+ * ingresos (ventas por método de pago) − egresos (gastos por categoría).
+ */
+export async function getIncomeStatement(storeId, from, to) {
+  // Ingresos desde pedidos. Rango sobre created_at (incluye todo el día "to").
+  let salesSql = `
+    SELECT
+      COALESCE(SUM(o.total), 0) AS total_ingresos,
+      COALESCE(SUM(CASE WHEN o.payment_method = 'cash' THEN o.total ELSE 0 END), 0) AS ingresos_efectivo,
+      COALESCE(SUM(CASE WHEN o.payment_method <> 'cash' OR o.payment_method IS NULL THEN o.total ELSE 0 END), 0) AS ingresos_tarjeta,
+      COUNT(o.id) AS total_pedidos
+    FROM orders o
+    WHERE o.store_id = ?`;
+  const salesParams = [storeId];
+  if (from) { salesSql += ' AND o.created_at >= ?'; salesParams.push(from + ' 00:00:00'); }
+  if (to) { salesSql += ' AND o.created_at <= ?'; salesParams.push(to + ' 23:59:59'); }
+  const [salesRows] = await pool.execute(salesSql, salesParams);
+  const s = salesRows[0] || {};
+
+  // Egresos por categoría
+  const expenses = await getStoreExpenses(storeId, from, to);
+  const byCategory = {};
+  let totalEgresos = 0;
+  for (const e of expenses) {
+    const cat = e.category || 'Otros';
+    byCategory[cat] = (byCategory[cat] || 0) + Number(e.amount);
+    totalEgresos += Number(e.amount);
+  }
+
+  const totalIngresos = Number(s.total_ingresos || 0);
+  return {
+    total_ingresos: totalIngresos,
+    ingresos_efectivo: Number(s.ingresos_efectivo || 0),
+    ingresos_tarjeta: Number(s.ingresos_tarjeta || 0),
+    total_pedidos: Number(s.total_pedidos || 0),
+    total_egresos: totalEgresos,
+    egresos_por_categoria: Object.entries(byCategory).map(([category, amount]) => ({ category, amount })),
+    resultado_neto: totalIngresos - totalEgresos,
+    expenses
   };
 }
 

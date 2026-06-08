@@ -83,6 +83,10 @@ import {
   reorderComplementOptions,
   setProductComplementGroups,
   getProductComplementGroupIds,
+  getStoreExpenses,
+  addStoreExpense,
+  deleteStoreExpense,
+  getIncomeStatement,
   getProductById,
   getProductByBarcode,
   searchProducts,
@@ -5667,6 +5671,41 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// ============ ESTADO DE RESULTADOS / GASTOS (admin) ============
+app.get('/api/income-statement', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, from, to } = req.query;
+    if (!(await requireStoreOwner(req, res, store_id))) return;
+    res.json(await getIncomeStatement(parseInt(store_id), from || null, to || null));
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.get('/api/expenses', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, from, to } = req.query;
+    if (!(await requireStoreOwner(req, res, store_id))) return;
+    res.json(await getStoreExpenses(parseInt(store_id), from || null, to || null));
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/expenses', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.body;
+    if (!(await requireStoreOwner(req, res, store_id))) return;
+    const r = await addStoreExpense(parseInt(store_id), req.body);
+    res.json(r);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.delete('/api/expenses/:id', authenticateToken, async (req, res) => {
+  try {
+    const store_id = req.query.store_id || req.body.store_id;
+    if (!(await requireStoreOwner(req, res, store_id))) return;
+    await deleteStoreExpense(parseInt(req.params.id), parseInt(store_id));
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // ============ SECCIONES DINÁMICAS (admin) ============

@@ -26,6 +26,7 @@ import {
   faBarcode,
   faCrown,
   faChartLine,
+  faQrcode,
   faLock,
   faPuzzlePiece,
   faGlobe,
@@ -580,11 +581,33 @@ function Layout() {
                 </span>
               )}
             </li>
-            <li>
-              <NavLink to="/admin/mercado-pago-points" className="quick-nav-link" onClick={() => setMenuOpen(false)}>
+            {/* ── PAGOS ── */}
+            <li className="dropdown-container">
+              <button className={`dropdown-header${openDropdowns['pagos'] ? ' open' : ''}`} onClick={() => toggleDropdown('pagos')}>
                 <FontAwesomeIcon icon={faCreditCard} />
-                <span>Vincular POS</span>
-              </NavLink>
+                <span>Pagos</span>
+                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['pagos'] ? 180 : 0} />
+              </button>
+              {openDropdowns['pagos'] && (
+                <div className="dropdown-content">
+                  <NavLink to="/admin/mercado-pago-points" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faCreditCard} />
+                    <span>Vincular POS</span>
+                  </NavLink>
+                  <NavLink to="/admin/payments-qr" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faQrcode} />
+                    <span>Pagos con QR</span>
+                  </NavLink>
+                  <NavLink to="/admin/store-qr" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faQrcode} />
+                    <span>QR de la tienda</span>
+                  </NavLink>
+                  {can('analytics', 'view') && <NavLink to="/admin/income-statement" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                    <FontAwesomeIcon icon={faChartLine} />
+                    <span>Estado de Resultados</span>
+                  </NavLink>}
+                </div>
+              )}
             </li>
 
             {/* ── OPERACIONES ── */}

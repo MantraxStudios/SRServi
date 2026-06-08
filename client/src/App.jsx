@@ -25,6 +25,7 @@ import Orders from './pages/admin/Orders';
 import Workers from './pages/admin/Workers';
 import Settings from './pages/admin/Settings';
 import MercadoPagoPoints from './pages/admin/MercadoPagoPoints';
+import IncomeStatement from './pages/admin/IncomeStatement';
 import Coupons from './pages/admin/Coupons';
 import Configurations from './pages/admin/Configurations';
 import Market from './pages/admin/Market';
@@ -282,7 +283,10 @@ function App() {
             <Route path="sections" element={<PermissionGate section="products"><Sections /></PermissionGate>} />
             <Route path="orders" element={<PermissionGate section="orders"><Orders /></PermissionGate>} />
             <Route path="workers" element={<PermissionGate section="workers"><Workers /></PermissionGate>} />
-            <Route path="mercado-pago-points" element={<MercadoPagoPoints />} />
+            <Route path="mercado-pago-points" element={<MercadoPagoPoints view="pos" />} />
+            <Route path="payments-qr" element={<MercadoPagoPoints view="qr" />} />
+            <Route path="store-qr" element={<MercadoPagoPoints view="storeqr" />} />
+            <Route path="income-statement" element={<PermissionGate section="analytics"><IncomeStatement /></PermissionGate>} />
             <Route path="coupons" element={<PermissionGate section="coupons"><Coupons /></PermissionGate>} />
             <Route path="configurations" element={<PermissionGate section="configurations"><Configurations /></PermissionGate>} />
             <Route path="market" element={<Market />} />

@@ -1458,7 +1458,7 @@ function Store() {
   useEffect(() => {
     if (!cashPaymentSuccess) return;
     if (deliveryMode && lastOrderNumber) {
-      downloadReceiptPng(lastOrderNumber, pendingOrderData?.order?.total);
+      downloadReceiptPng(lastOrderNumber, pendingOrderData?.order?.total, true);
     }
     // Record loyalty purchase
     if (loyaltyCustomer?.id) {
@@ -1493,7 +1493,7 @@ function Store() {
     return () => clearTimeout(timer);
   }, [showRatingStep]);
 
-  const downloadReceiptPng = useCallback((orderNum, total) => {
+  const downloadReceiptPng = useCallback((orderNum, total, isCash = false) => {
     const storeName = store?.store?.name || 'Tienda';
     const canvas = document.createElement('canvas');
     canvas.width = 600;
@@ -1531,9 +1531,20 @@ function Store() {
       ctx.fillText('$' + total, 300, 640);
     }
 
-    ctx.fillStyle = '#22c55e';
-    ctx.font = 'bold 22px Arial';
-    ctx.fillText('PAGO CONFIRMADO', 300, 700);
+    if (isCash) {
+      // Pago en efectivo: aún no está pago, debe pagar en caja
+      ctx.fillStyle = '#D4AF37';
+      ctx.font = 'bold 24px Arial';
+      ctx.fillText('PAGO EN EFECTIVO', 300, 695);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '20px Arial';
+      ctx.fillText('Por favor pague con efectivo', 300, 730);
+      ctx.fillText('justo en caja', 300, 758);
+    } else {
+      ctx.fillStyle = '#22c55e';
+      ctx.font = 'bold 22px Arial';
+      ctx.fillText('PAGO CONFIRMADO', 300, 700);
+    }
 
     const link = document.createElement('a');
     link.download = `pedido-${orderNum}.jpg`;
@@ -6471,6 +6482,15 @@ function Store() {
                 <p style={{ fontSize: '14px', marginBottom: '5px', opacity: 0.8 }}>{t('orderNumberLabel', lang)}</p>
                 <p className="font-bold" style={{ fontSize: '48px', margin: 0 }}>{lastOrderNumber}</p>
               </div>
+            )}
+            {deliveryMode && lastOrderNumber && (
+              <button
+                onClick={() => downloadReceiptPng(lastOrderNumber, pendingOrderData?.order?.total, true)}
+                className="btn btn-full"
+                style={{ marginBottom: '12px', background: 'var(--store-primary)', color: 'var(--store-secondary)', border: 'none', borderRadius: '12px', padding: '12px', fontWeight: '700' }}
+              >
+                <FontAwesomeIcon icon={faDownload} /> {t('downloadReceipt', lang)}
+              </button>
             )}
             <p style={{
               color: '#999',
