@@ -473,7 +473,7 @@ function Layout() {
         {/* ═══════════════════════════════════════
             ICON SIDEBAR
         ═══════════════════════════════════════ */}
-        <nav className={`isb-sidebar${(isEditorMode || isLeonIA) ? ' isb-sidebar--hidden' : ''}`}>
+        <nav className="isb-sidebar">
 
           {/* Logo */}
           <div className="isb-logo">
@@ -825,33 +825,10 @@ function Layout() {
         {/* ═══════════════════════════════════════
             CONTENIDO PRINCIPAL
         ═══════════════════════════════════════ */}
-        <main className={`isb-content${(isEditorMode || isLeonIA) ? ' isb-content--editor' : ''}`}>
+        <main className="isb-content">
 
-          {/* Botón menú en editor mode */}
-          {(isEditorMode || isLeonIA) && (
-            <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 99999 }}>
-              <button
-                onClick={() => setSettingsOpen(p => !p)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  background: 'rgba(10,10,10,0.88)', color: '#fff',
-                  border: '1.5px solid rgba(212,175,55,0.6)',
-                  borderRadius: 14, padding: '12px 18px',
-                  fontSize: 15, fontWeight: 700, cursor: 'pointer',
-                  backdropFilter: 'blur(6px)', boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-                  lineHeight: 1, transition: 'all 0.15s'
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(30,30,30,0.95)'; e.currentTarget.style.borderColor = '#D4AF37'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(10,10,10,0.88)'; e.currentTarget.style.borderColor = 'rgba(212,175,55,0.6)'; }}
-              >
-                <FontAwesomeIcon icon={faBars} style={{ fontSize: 18, color: '#D4AF37' }} />
-                <span>Menú</span>
-              </button>
-            </div>
-          )}
-
-          {/* Header móvil */}
-          <div className="isb-mobile-header" style={(isEditorMode || isLeonIA) ? { display: 'none' } : {}}>
+          {/* Header móvil (siempre visible, oculto en desktop por CSS) */}
+          <div className="isb-mobile-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <img src="/iconweb.png" alt="SRServi" style={{ width: 28, height: 28, borderRadius: 6 }} />
               <span style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>SRServi</span>
