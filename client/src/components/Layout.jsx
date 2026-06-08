@@ -575,9 +575,64 @@ function Layout() {
 
           {/* Botones inferiores */}
           <div className="isb-bottom">
+            {/* WhatsApp */}
+            <div className="isb-wa-wrap">
+              <button
+                className={`isb-btn${whatsappOpen ? ' active' : ''}`}
+                onClick={() => { setWhatsappOpen(p => !p); setAccountOpen(false); setSettingsOpen(false); }}
+                title="WhatsApp"
+              >
+                <span className="isb-btn-icon">
+                  <svg viewBox="0 0 24 24" style={{ width: '1em', height: '1em', fill: whatsappOpen ? '#25d366' : 'currentColor' }}>
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  </svg>
+                </span>
+                <span className="isb-btn-label">Ayuda</span>
+                <span className="isb-tooltip">Contactar por WhatsApp</span>
+              </button>
+
+              {whatsappOpen && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 598 }} onClick={() => setWhatsappOpen(false)} />
+                  <div className="isb-wa-popup">
+                    <div className="isb-wa-popup-hdr">Contactar por WhatsApp</div>
+                    <a
+                      href={`https://wa.me/56996876043?text=${encodeURIComponent('Hola, me contacto desde SRServi 👋')}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="isb-wa-item"
+                      onClick={() => setWhatsappOpen(false)}
+                    >
+                      <div className="isb-wa-icon">
+                        <svg viewBox="0 0 24 24" fill="#25d366" width="20" height="20"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                      </div>
+                      <div>
+                        <div className="isb-wa-name">Ventas</div>
+                        <div className="isb-wa-num">+56 9 9687 6043</div>
+                      </div>
+                    </a>
+                    <a
+                      href={`https://wa.me/56953509018?text=${encodeURIComponent('Hola, necesito soporte técnico de SRServi 👋')}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="isb-wa-item"
+                      onClick={() => setWhatsappOpen(false)}
+                    >
+                      <div className="isb-wa-icon">
+                        <svg viewBox="0 0 24 24" fill="#25d366" width="20" height="20"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                      </div>
+                      <div>
+                        <div className="isb-wa-name">Soporte</div>
+                        <div className="isb-wa-num">+56 9 5350 9018</div>
+                      </div>
+                    </a>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Cuenta */}
             <button
               className={`isb-btn${accountOpen ? ' active' : ''}`}
-              onClick={() => { setAccountOpen(p => !p); setSettingsOpen(false); }}
+              onClick={() => { setAccountOpen(p => !p); setSettingsOpen(false); setWhatsappOpen(false); }}
               title="Mi Cuenta"
             >
               <span className="isb-btn-icon">
@@ -588,9 +643,10 @@ function Layout() {
               <span className="isb-tooltip">Mi Cuenta</span>
             </button>
 
+            {/* Menú */}
             <button
               className={`isb-btn${settingsOpen ? ' active' : ''}`}
-              onClick={() => { setSettingsOpen(p => !p); setAccountOpen(false); }}
+              onClick={() => { setSettingsOpen(p => !p); setAccountOpen(false); setWhatsappOpen(false); }}
               title="Menú"
             >
               <span className="isb-btn-icon"><FontAwesomeIcon icon={faCog} /></span>
@@ -844,63 +900,6 @@ function Layout() {
         </main>
       </div>
 
-      {/* WhatsApp floating button */}
-      {!isLeonIA && <div style={{ position: 'fixed', bottom: isMobile ? '76px' : '24px', right: isMobile ? '16px' : '24px', zIndex: 99999 }}>
-        {whatsappOpen && (
-          <>
-            <div style={{ position: 'fixed', inset: 0 }} onClick={() => setWhatsappOpen(false)} />
-            <div style={{ position: 'absolute', bottom: '68px', right: 0, background: '#fff', borderRadius: '14px', boxShadow: '0 8px 32px rgba(0,0,0,0.22)', padding: '8px', width: isMobile ? `calc(100vw - 32px)` : '240px', maxWidth: '320px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ padding: '6px 10px 8px', fontSize: '11px', fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Contactar por WhatsApp</div>
-              <a
-                href={`https://wa.me/56996876043?text=${encodeURIComponent('Hola, me contacto desde SRServi 👋')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setWhatsappOpen(false)}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: isMobile ? '14px 12px' : '10px 12px', borderRadius: '10px', textDecoration: 'none', background: '#f0fdf4', color: '#166534', fontWeight: '600', fontSize: '14px', transition: 'background 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#dcfce7'}
-                onMouseLeave={e => e.currentTarget.style.background = '#f0fdf4'}
-              >
-                <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px', fill: '#25d366', flexShrink: 0 }}>
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                </svg>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: '700' }}>Ventas</div>
-                  <div style={{ fontSize: '12px', color: '#555', fontWeight: '400' }}>+56 9 9687 6043</div>
-                </div>
-              </a>
-              <a
-                href={`https://wa.me/56953509018?text=${encodeURIComponent('Hola, necesito soporte técnico de SRServi 👋')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setWhatsappOpen(false)}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: isMobile ? '14px 12px' : '10px 12px', borderRadius: '10px', textDecoration: 'none', background: '#f0fdf4', color: '#166534', fontWeight: '600', fontSize: '14px', transition: 'background 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#dcfce7'}
-                onMouseLeave={e => e.currentTarget.style.background = '#f0fdf4'}
-              >
-                <svg viewBox="0 0 24 24" style={{ width: '22px', height: '22px', fill: '#25d366', flexShrink: 0 }}>
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                </svg>
-                <div>
-                  <div style={{ fontSize: '14px', fontWeight: '700' }}>Soporte</div>
-                  <div style={{ fontSize: '12px', color: '#555', fontWeight: '400' }}>+56 9 5350 9018</div>
-                </div>
-              </a>
-            </div>
-          </>
-        )}
-        <button
-          onClick={() => setWhatsappOpen(prev => !prev)}
-          style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#25d366', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(37,211,102,0.45)', transition: 'transform 0.15s', position: 'relative' }}
-          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
-          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-          title="Contactar por WhatsApp"
-        >
-          <svg viewBox="0 0 24 24" style={{ width: '30px', height: '30px', fill: '#fff' }}>
-            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-          </svg>
-          <span style={{ position: 'absolute', top: '-2px', right: '-2px', background: '#D4AF37', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: '700', color: '#000', border: '2px solid #fff' }}>2</span>
-        </button>
-      </div>}
 
       {/* Duplicate store modal */}
       {duplicateModal && (

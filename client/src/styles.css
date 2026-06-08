@@ -11815,6 +11815,61 @@ html body .store-container .store-product-card * {
 }
 .isb-mobile-menu-btn { background: none; border: none; color: var(--store-secondary, #fff); font-size: 20px; cursor: pointer; padding: 6px; }
 
+/* ─── WhatsApp en sidebar ─── */
+.isb-wa-wrap {
+  position: relative;
+  display: contents; /* participa igual que los otros botones en el flex */
+}
+
+/* Popup de WhatsApp */
+.isb-wa-popup {
+  position: fixed;
+  left: calc(var(--isb-w) + 10px);
+  bottom: 80px;
+  z-index: 599;
+  background: #fff;
+  border-radius: 16px;
+  padding: 6px;
+  width: 240px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.06);
+  animation: isbPop 0.16s ease-out;
+}
+
+.isb-wa-popup-hdr {
+  padding: 8px 12px 6px;
+  font-size: 10px; font-weight: 700; color: #999;
+  text-transform: uppercase; letter-spacing: 0.8px;
+}
+
+.isb-wa-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.12s;
+}
+.isb-wa-item:hover { background: #f0fdf4; }
+
+.isb-wa-icon {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: #dcfce7;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.isb-wa-name { font-size: 14px; font-weight: 700; color: #111; }
+.isb-wa-num  { font-size: 12px; color: #666; margin-top: 1px; }
+
+/* Mobile: popup sobre la barra inferior */
+@media (max-width: 768px) {
+  .isb-wa-popup {
+    left: 12px;
+    bottom: calc(var(--isb-bottom-h) + 12px);
+    width: calc(100vw - 24px);
+    max-width: 340px;
+  }
+}
+
 /* ─── Franja de atribución (solo mobile) ─── */
 .isb-attribution {
   display: none;
