@@ -805,26 +805,40 @@ function Layout() {
               </div>
 
               {/* Mis Apps */}
-              <div className="isb-fp-sec isb-fp-sec--apps">
+              <div className="isb-fp-sec">
                 <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faLaptop} /> Mis Apps</div>
-                <div className="isb-fp-apps-grid">
-                  <AppDownloadCard icon="📱" title="Totem Android"
-                    description={<>Android · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                    buildState={androidBuilds['launcher']} disabled={!selectedStore}
-                    onDownload={() => handleAndroidBuild('launcher', 'Totem Android')} fileType=".apk" />
-                  <AppDownloadCard icon="💻" title="Tótem Windows"
-                    description={<>Windows · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                    loading={appDownloading} disabled={!selectedStore}
-                    onDownload={() => handleDownloadWindowsApp()} fileType=".exe" />
-                  <AppDownloadCard icon="📺" title="TV Órdenes"
-                    description={<>Cocina · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                    buildState={androidBuilds['tvordenes']} disabled={!selectedStore}
-                    onDownload={() => handleAndroidBuild('tvordenes', 'TV Órdenes')} fileType=".apk" />
-                  <AppDownloadCard icon="🎬" title="Cartelería Digital"
-                    description={<>TV · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                    buildState={androidBuilds['cctv']} disabled={!selectedStore}
-                    onDownload={() => handleAndroidBuild('cctv', 'CCTV')} fileType=".apk" />
-                </div>
+                {[
+                  { key: 'launcher', emoji: '📱', label: 'Totem\nAndroid',   action: () => handleAndroidBuild('launcher', 'Totem Android') },
+                  { key: 'windows',  emoji: '💻', label: 'Tótem\nWindows',   action: () => handleDownloadWindowsApp() },
+                  { key: 'tvordenes',emoji: '📺', label: 'TV\nÓrdenes',       action: () => handleAndroidBuild('tvordenes', 'TV Órdenes') },
+                  { key: 'cctv',     emoji: '🎬', label: 'Cartelería\nDigital', action: () => handleAndroidBuild('cctv', 'CCTV') },
+                ].map(({ key, emoji, label, action }) => {
+                  const state = key === 'windows' ? (appDownloading ? 'building' : null) : androidBuilds[key]?.status;
+                  const isBuilding = state === 'building';
+                  const isError = state === 'error';
+                  return (
+                    <button
+                      key={key}
+                      className="isb-fp-link"
+                      disabled={!selectedStore || isBuilding}
+                      onClick={action}
+                      style={{ opacity: !selectedStore ? 0.4 : 1 }}
+                    >
+                      <span className="isb-app-icon-box">
+                        {isBuilding ? (
+                          <div className="isb-app-spin" />
+                        ) : isError ? (
+                          <span style={{ fontSize: 20 }}>⚠️</span>
+                        ) : (
+                          <span style={{ fontSize: 22 }}>{emoji}</span>
+                        )}
+                      </span>
+                      {label.split('\n').map((line, i) => (
+                        <span key={i} style={{ display: 'block', lineHeight: 1.2 }}>{line}</span>
+                      ))}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Instalar / Desinstalar app */}
