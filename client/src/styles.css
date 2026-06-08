@@ -11752,8 +11752,30 @@ html body .store-container .store-product-card * {
 }
 .isb-mobile-menu-btn { background: none; border: none; color: var(--store-secondary, #fff); font-size: 20px; cursor: pointer; padding: 6px; }
 
+/* ─── Franja de atribución (solo mobile) ─── */
+.isb-attribution {
+  display: none;
+  position: fixed;
+  bottom: var(--isb-bottom-h);
+  left: 0; right: 0;
+  height: 22px;
+  background: linear-gradient(to bottom, transparent 0%, rgba(10,10,10,0.82) 100%);
+  z-index: 198;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.isb-attribution span {
+  font-size: 9px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.4px;
+  text-align: center;
+}
+
 /* ─── MOBILE ─── */
 @media (max-width: 768px) {
+  .isb-attribution { display: flex; }
   .isb-sidebar {
     top: auto; left: 0; right: 0; bottom: 0;
     width: 100%; height: var(--isb-bottom-h);

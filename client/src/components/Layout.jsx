@@ -473,6 +473,10 @@ function Layout() {
         {/* ═══════════════════════════════════════
             ICON SIDEBAR
         ═══════════════════════════════════════ */}
+        <div className="isb-attribution">
+          <span>Auto Servicio · Creado por SRAutomatic CL</span>
+        </div>
+
         <nav className="isb-sidebar">
 
           {/* Logo */}
@@ -835,23 +839,6 @@ function Layout() {
             CONTENIDO PRINCIPAL
         ═══════════════════════════════════════ */}
         <main className="isb-content">
-
-          {/* Header móvil (siempre visible, oculto en desktop por CSS) */}
-          <div className="isb-mobile-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <img src="/iconweb.png" alt="SRServi" style={{ width: 28, height: 28, borderRadius: 6 }} />
-              <span style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>SRServi</span>
-            </div>
-            {user?.support_pin && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 8, fontSize: 11, color: '#fff' }}>
-                <FontAwesomeIcon icon={faLock} style={{ color: '#D4AF37' }} />
-                PIN: <strong style={{ letterSpacing: '2px' }}>{user.support_pin}</strong>
-              </div>
-            )}
-            <button className="isb-mobile-menu-btn" onClick={() => setSettingsOpen(p => !p)}>
-              <FontAwesomeIcon icon={faBars} />
-            </button>
-          </div>
 
           <Outlet />
         </main>
