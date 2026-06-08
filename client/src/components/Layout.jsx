@@ -476,7 +476,7 @@ function Layout() {
       {(settingsOpen || accountOpen || storeDropdownOpen) && (
         <div
           onClick={() => { setSettingsOpen(false); setAccountOpen(false); setStoreDropdownOpen(false); }}
-          style={{ position: 'fixed', inset: 0, zIndex: 498, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 498, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)' }}
         />
       )}
 
@@ -634,22 +634,22 @@ function Layout() {
                 <FontAwesomeIcon icon={faChevronDown} style={{ marginLeft: 'auto', fontSize: 11, transform: fpStoreOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
               </button>
               {fpStoreOpen && (
-                <div style={{ marginTop: 6, background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                <div style={{ marginTop: 6, background: 'rgba(0,0,0,0.04)', borderRadius: 10, border: '1px solid rgba(0,0,0,0.10)', overflow: 'hidden' }}>
                   {stores.map(store => (
                     <div
                       key={store.id}
                       onClick={() => { selectStore(store); setSettingsOpen(false); setFpStoreOpen(false); }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-                        cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                        cursor: 'pointer', borderBottom: '1px solid rgba(0,0,0,0.07)',
                         background: selectedStore?.id === store.id ? 'rgba(212,175,55,0.08)' : 'transparent',
                         transition: 'background 0.15s'
                       }}
                     >
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: selectedStore?.id === store.id ? '#D4AF37' : '#444', flexShrink: 0 }} />
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: selectedStore?.id === store.id ? '#D4AF37' : '#ccc', flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: selectedStore?.id === store.id ? '#D4AF37' : '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{store.name}</div>
-                        <div style={{ fontSize: 11, color: '#555' }}>{store.code}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: selectedStore?.id === store.id ? '#D4AF37' : '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{store.name}</div>
+                        <div style={{ fontSize: 11, color: '#888' }}>{store.code}</div>
                       </div>
                     </div>
                   ))}
