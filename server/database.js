@@ -3381,8 +3381,10 @@ export async function createOrder(storeId, orderData) {
     );
   }
   
+  // Genera número de orden para todos los flujos EXCEPTO la app de delivery
+  // (el tótem en modo delivery sí necesita su número para mostrarlo/recibo).
   let orderNumber = null;
-  if (!orderData.delivery) {
+  if (orderData.source !== 'delivery_app') {
     orderNumber = await generateUniqueOrderNumber(storeId);
     await pool.execute('UPDATE orders SET order_number = ? WHERE id = ?', [orderNumber, orderId]);
   }
