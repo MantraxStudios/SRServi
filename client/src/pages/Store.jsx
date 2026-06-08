@@ -1029,6 +1029,10 @@ function Store() {
   const [editingProd, setEditingProd] = useState(null);
   const [prodForm, setProdForm] = useState({ name: '', price: '', category_id: '', description: '', barcode: '', stock: '0', unlimited_stock: true, has_extras: false, has_ingredients: false, max_extras: '', max_ingredients: '', image_url: '', complements_private: false, complement_group_ids: [] });
   const [storeComplementGroups, setStoreComplementGroups] = useState([]);
+  // Edición de secciones dinámicas desde el editor del tótem
+  const [sectionGroupModal, setSectionGroupModal] = useState(null); // { id?, name, min_select, max_select, required }
+  const [sectionOptionModal, setSectionOptionModal] = useState(null); // { id?, group_id, name, price, stock, unlimited_stock, imageFile }
+  const [sectionSaving, setSectionSaving] = useState(false);
   const [prodImageFile, setProdImageFile] = useState(null);
   const [prodCameraOpen, setProdCameraOpen] = useState(false);
   const [prodSaving, setProdSaving] = useState(false);
@@ -2051,7 +2055,7 @@ function Store() {
     setComplementGroupsModalOpen(false);
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || complementGroupsModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || loyaltyModalOpen;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || complementGroupsModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || !!sectionGroupModal || !!sectionOptionModal || loyaltyModalOpen;
 
   useEffect(() => {
     anyModalOpenRef.current = anyModalOpen;
@@ -3084,6 +3088,73 @@ function Store() {
   useEffect(() => {
     if (editMode) fetchComplements();
   }, [editMode, adminToken]);
+
+  // ===== Secciones dinámicas (editor del tótem) =====
+  const saveSectionGroup = async () => {
+    const g = sectionGroupModal;
+    if (!g || !g.name.trim()) return;
+    setSectionSaving(true);
+    try {
+      const url = g.id ? `/api/public/${code}/complement-groups/${g.id}` : `/api/public/${code}/complement-groups`;
+      await fetch(url, {
+        method: g.id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...getAuthBody(),
+          name: g.name.trim(),
+          min_select: parseInt(g.min_select) || 0,
+          max_select: parseInt(g.max_select) || 0,
+          required: !!g.required
+        })
+      });
+      setSectionGroupModal(null);
+      await fetchComplements();
+    } catch (e) { console.error('Error guardando sección:', e); }
+    finally { setSectionSaving(false); }
+  };
+
+  const deleteSectionGroup = async (id) => {
+    if (!confirm('¿Eliminar esta sección y todas sus opciones?')) return;
+    try {
+      await fetch(`/api/public/${code}/complement-groups/${id}`, {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getAuthBody())
+      });
+      await fetchComplements();
+    } catch (e) { console.error(e); }
+  };
+
+  const saveSectionOption = async () => {
+    const o = sectionOptionModal;
+    if (!o || !o.name.trim()) return;
+    setSectionSaving(true);
+    try {
+      const url = o.id ? `/api/public/${code}/complement-options/${o.id}` : `/api/public/${code}/complement-options`;
+      const fd = new FormData();
+      fd.append(adminToken ? 'token' : 'pin', adminToken || sessionPin);
+      fd.append('group_id', o.group_id);
+      fd.append('name', o.name.trim());
+      fd.append('price', parseFloat(o.price) || 0);
+      fd.append('stock', parseInt(o.stock) || 0);
+      fd.append('unlimited_stock', o.unlimited_stock ? 'true' : 'false');
+      if (o.imageFile) fd.append('image', o.imageFile);
+      await fetch(url, { method: o.id ? 'PUT' : 'POST', body: fd });
+      setSectionOptionModal(null);
+      await fetchComplements();
+    } catch (e) { console.error('Error guardando opción:', e); }
+    finally { setSectionSaving(false); }
+  };
+
+  const deleteSectionOption = async (id) => {
+    if (!confirm('¿Eliminar esta opción?')) return;
+    try {
+      await fetch(`/api/public/${code}/complement-options/${id}`, {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getAuthBody())
+      });
+      await fetchComplements();
+    } catch (e) { console.error(e); }
+  };
 
   const saveComplement = async () => {
     if (!complementForm.name.trim()) return;
@@ -4372,6 +4443,64 @@ function Store() {
             ))}
             {ingredients.length === 0 && <span style={{ color: '#999', fontSize: '13px', padding: '8px' }}>Sin complementos</span>}
           </div>
+
+          {/* ── Secciones personalizadas ── */}
+          <div className="store-editor-comp-header" style={{ marginTop: '18px' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+              Mis secciones ({storeComplementGroups.length})
+            </span>
+            <button className="store-edit-cat-add-btn" onClick={() => setSectionGroupModal({ name: '', min_select: '0', max_select: '0', required: false })}>
+              <FontAwesomeIcon icon={faPlus} /> Nueva sección
+            </button>
+          </div>
+          {storeComplementGroups.length === 0 && (
+            <span style={{ color: '#999', fontSize: '13px', padding: '8px', display: 'block' }}>
+              Creá tus propias secciones (ej: Salsas, Bebidas) y luego asignalas a cada producto.
+            </span>
+          )}
+          {storeComplementGroups.map(group => (
+            <div key={group.id} style={{ border: '1px solid #eee', borderRadius: 10, padding: 10, marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
+                <div>
+                  <strong style={{ color: 'var(--store-primary)' }}>{group.name}</strong>
+                  <span style={{ fontSize: 11, color: '#999', marginLeft: 6 }}>
+                    {group.required ? 'Obligatorio · ' : ''}{group.min_select > 0 ? `mín ${group.min_select} · ` : ''}{group.max_select > 0 ? `máx ${group.max_select}` : 'sin límite'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button onClick={() => setSectionOptionModal({ group_id: group.id, name: '', price: '', stock: '', unlimited_stock: true, imageFile: null })} className="store-edit-cat-add-btn" style={{ fontSize: 12 }}>
+                    <FontAwesomeIcon icon={faPlus} /> Opción
+                  </button>
+                  <button onClick={() => setSectionGroupModal({ id: group.id, name: group.name, min_select: String(group.min_select ?? 0), max_select: String(group.max_select ?? 0), required: !!group.required })} className="store-prod-edit-btn" style={{ width: 28, height: 28, fontSize: 12 }}>
+                    <FontAwesomeIcon icon={faEdit} />
+                  </button>
+                  <button onClick={() => deleteSectionGroup(group.id)} className="store-prod-edit-btn danger" style={{ width: 28, height: 28, fontSize: 12 }}>
+                    <FontAwesomeIcon icon={faTrash} />
+                  </button>
+                </div>
+              </div>
+              <div className="store-editor-comp-list">
+                {group.options.map(opt => (
+                  <div key={opt.id} className="store-editor-comp-item">
+                    {opt.image && <img src={getProductImageUrl(opt.image)} alt="" className="store-editor-comp-img" />}
+                    <div className="store-editor-comp-info">
+                      <strong>{opt.name}</strong>
+                      {Number(opt.price) > 0 && <span className="store-editor-comp-price">+${Number(opt.price).toFixed(0)}</span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button onClick={() => setSectionOptionModal({ id: opt.id, group_id: group.id, name: opt.name, price: opt.price?.toString() || '', stock: String(opt.stock ?? 0), unlimited_stock: !!opt.unlimited_stock, imageFile: null })} className="store-prod-edit-btn" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                        <FontAwesomeIcon icon={faEdit} />
+                      </button>
+                      <button onClick={() => deleteSectionOption(opt.id)} className="store-prod-edit-btn danger" style={{ width: '24px', height: '24px', fontSize: '11px' }}>
+                        <FontAwesomeIcon icon={faTrash} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {group.options.length === 0 && <span style={{ color: '#999', fontSize: '12px', padding: '6px' }}>Sin opciones</span>}
+              </div>
+            </div>
+          ))}
 
         </div>
       )}
@@ -7192,6 +7321,87 @@ function Store() {
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
               <button onClick={() => setLabelEditModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
               <button onClick={saveStoreLabels} disabled={labelSaving} className="store-prod-modal-btn confirm">{labelSaving ? 'Guardando…' : 'Guardar'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal crear/editar sección (tótem) */}
+      {sectionGroupModal && (
+        <div className="store-modal-overlay" onClick={() => setSectionGroupModal(null)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+          <div className="store-prod-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+            <h3 style={{ margin: '0 0 12px', color: 'var(--store-primary)', textAlign: 'center' }}>
+              {sectionGroupModal.id ? 'Editar sección' : 'Nueva sección'}
+            </h3>
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>Nombre</label>
+            <input type="text" value={sectionGroupModal.name} autoFocus placeholder="Ej: Salsas"
+              className="store-prod-modal-input" style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10 }}
+              onChange={(e) => setSectionGroupModal({ ...sectionGroupModal, name: e.target.value })} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>Mínimo</label>
+                <input type="number" min="0" value={sectionGroupModal.min_select}
+                  className="store-prod-modal-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                  onChange={(e) => setSectionGroupModal({ ...sectionGroupModal, min_select: e.target.value })} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>Máximo (0=∞)</label>
+                <input type="number" min="0" value={sectionGroupModal.max_select}
+                  className="store-prod-modal-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                  onChange={(e) => setSectionGroupModal({ ...sectionGroupModal, max_select: e.target.value })} />
+              </div>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, cursor: 'pointer', fontSize: 14 }}>
+              <input type="checkbox" checked={sectionGroupModal.required}
+                onChange={(e) => setSectionGroupModal({ ...sectionGroupModal, required: e.target.checked })} />
+              Obligatorio (el cliente debe elegir)
+            </label>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              <button onClick={() => setSectionGroupModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
+              <button onClick={saveSectionGroup} disabled={sectionSaving || !sectionGroupModal.name.trim()} className="store-prod-modal-btn confirm">
+                {sectionSaving ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal crear/editar opción de sección (tótem) */}
+      {sectionOptionModal && (
+        <div className="store-modal-overlay" onClick={() => setSectionOptionModal(null)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+          <div className="store-prod-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+            <h3 style={{ margin: '0 0 12px', color: 'var(--store-primary)', textAlign: 'center' }}>
+              {sectionOptionModal.id ? 'Editar opción' : 'Nueva opción'}
+            </h3>
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>Nombre</label>
+            <input type="text" value={sectionOptionModal.name} autoFocus placeholder="Ej: Ketchup"
+              className="store-prod-modal-input" style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10 }}
+              onChange={(e) => setSectionOptionModal({ ...sectionOptionModal, name: e.target.value })} />
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>Precio extra</label>
+            <input type="number" step="0.01" value={sectionOptionModal.price} placeholder="0.00"
+              className="store-prod-modal-input" style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10 }}
+              onChange={(e) => setSectionOptionModal({ ...sectionOptionModal, price: e.target.value })} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, cursor: 'pointer', fontSize: 14 }}>
+              <input type="checkbox" checked={sectionOptionModal.unlimited_stock}
+                onChange={(e) => setSectionOptionModal({ ...sectionOptionModal, unlimited_stock: e.target.checked })} />
+              Stock ilimitado
+            </label>
+            {!sectionOptionModal.unlimited_stock && (
+              <>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>Stock</label>
+                <input type="number" min="0" value={sectionOptionModal.stock} placeholder="0"
+                  className="store-prod-modal-input" style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10 }}
+                  onChange={(e) => setSectionOptionModal({ ...sectionOptionModal, stock: e.target.value })} />
+              </>
+            )}
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>Imagen (opcional)</label>
+            <input type="file" accept="image/*" style={{ width: '100%', marginBottom: 10 }}
+              onChange={(e) => { const f = e.target.files[0]; if (f) setSectionOptionModal({ ...sectionOptionModal, imageFile: f }); }} />
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <button onClick={() => setSectionOptionModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
+              <button onClick={saveSectionOption} disabled={sectionSaving || !sectionOptionModal.name.trim()} className="store-prod-modal-btn confirm">
+                {sectionSaving ? 'Guardando…' : 'Guardar'}
+              </button>
             </div>
           </div>
         </div>
