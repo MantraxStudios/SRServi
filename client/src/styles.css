@@ -12038,7 +12038,7 @@ html body .store-container .store-product-card * {
   .isb-fp-apps-grid { grid-template-columns: 1fr 1fr; }
 
   .isb-mobile-header { display: flex; }
-  .isb-content { margin-left: 0; padding-bottom: var(--isb-bottom-h); min-height: 100vh; }
+  .isb-content { margin-left: 0; margin-right: 0; padding-bottom: var(--isb-bottom-h); min-height: 100vh; }
 }
 
 @media (max-width: 480px) {
