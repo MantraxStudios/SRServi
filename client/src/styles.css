@@ -11764,8 +11764,9 @@ html body .store-container .store-product-card * {
 .isb-fp-iconbox {
   width: 52px; height: 52px;
   border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
+  display: block;
   flex-shrink: 0;
+  padding: 13px; box-sizing: border-box;
   transition: background 0.14s;
 }
 .isb-fp-wabox  { background: rgba(37,211,102,0.12); }
@@ -11776,12 +11777,11 @@ html body .store-container .store-product-card * {
 
 .isb-fp-wabox svg,
 .isb-fp-iconbox svg {
-  width: 24px; height: 24px;
+  width: 100%; height: 100%; display: block;
 }
 
 @media (max-width: 768px) {
-  .isb-fp-wabox, .isb-fp-iconbox { width: 48px; height: 48px; border-radius: 13px; }
-  .isb-fp-wabox svg, .isb-fp-iconbox svg { width: 22px; height: 22px; }
+  .isb-fp-wabox, .isb-fp-iconbox { width: 48px; height: 48px; border-radius: 13px; padding: 12px; }
 }
 
 /* Sin flecha */
