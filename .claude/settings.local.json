@@ -126,7 +126,12 @@
       "Bash(npx esbuild *)",
       "Bash(awk -F: '$1 < 5993')",
       "Read(//usr/**)",
-      "Read(//usr/local/**)"
+      "Read(//usr/local/**)",
+      "Bash(identify \"/c/Users/tupap/OneDrive/Desktop/SRServi/client/public/iconweb.png\")",
+      "Bash(convert \"/c/Users/tupap/OneDrive/Desktop/SRServi/client/public/iconweb.png\" -resize 512x512 \"/c/Users/tupap/OneDrive/Desktop/SRServi/client/public/icon-512.png\")",
+      "Bash(convert \"/c/Users/tupap/OneDrive/Desktop/SRServi/client/public/iconweb.png\" -resize 192x192 \"/c/Users/tupap/OneDrive/Desktop/SRServi/client/public/icon-192.png\")",
+      "Bash(convert iconweb.png -resize 512x512 icon-512.png)",
+      "Bash(convert iconweb.png -resize 192x192 icon-192.png)"
     ]
   }
 }
