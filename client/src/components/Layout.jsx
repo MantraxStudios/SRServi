@@ -53,6 +53,7 @@ import {
   faCamera,
   faCalendarDay,
   faCalendarAlt,
+  faUser,
 } from '@fortawesome/free-solid-svg-icons';
 
 export const StoreContext = createContext();
@@ -135,10 +136,18 @@ function Layout() {
   const [duplicateError, setDuplicateError] = useState('');
   const [appDownloading, setAppDownloading] = useState(false);
   const [androidBuilds, setAndroidBuilds] = useState({}); // { launcher: {status,jobId,progress}, ... }
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
 
   useEffect(() => {
     if (isEditorMode) setMenuOpen(prev => prev === false ? true : prev);
   }, []);  // Solo al montar — no re-abrir si el usuario lo cerró manualmente
+
+  // Cierra paneles al navegar
+  useEffect(() => {
+    setSettingsOpen(false);
+    setAccountOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const check = async () => {
@@ -433,562 +442,437 @@ function Layout() {
   }
 
   return (
-    <StoreContext.Provider value={{ selectedStore, stores, selectStore, fetchStores, colors, menuOpen, setMenuOpen, storeLoading: loading }}>
-      {menuOpen && (
-        <div className="mobile-overlay" onClick={() => setMenuOpen(false)} />
+    <StoreContext.Provider value={{ selectedStore, stores, selectStore, fetchStores, colors, menuOpen: settingsOpen, setMenuOpen: setSettingsOpen, storeLoading: loading }}>
+
+      {/* Backdrop para paneles y store dropdown */}
+      {(settingsOpen || accountOpen || storeDropdownOpen) && (
+        <div
+          onClick={() => { setSettingsOpen(false); setAccountOpen(false); setStoreDropdownOpen(false); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 498, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(3px)' }}
+        />
       )}
+
       {serverDown && (
         <div style={{
           position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 99999,
-          background: '#1a1a1a',
-          border: '1px solid #D4AF3766',
-          borderRadius: '14px',
-          padding: '10px 18px',
+          zIndex: 99999, background: '#1a1a1a', border: '1px solid #D4AF3766',
+          borderRadius: '14px', padding: '10px 18px',
           display: 'flex', alignItems: 'center', gap: '10px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
-          animation: 'slideUp 0.25s ease',
-          maxWidth: 'calc(100vw - 40px)',
-          whiteSpace: 'nowrap',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.45)', animation: 'slideUp 0.25s ease',
+          maxWidth: 'calc(100vw - 40px)', whiteSpace: 'nowrap',
         }}>
-          <div style={{
-            width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
-            border: '2.5px solid transparent',
-            borderTopColor: '#D4AF37',
-            animation: 'spin 0.9s linear infinite',
-          }} />
-          <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff', fontFamily: 'sans-serif' }}>
-            Sin conexión con el servidor
-          </span>
-          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', fontFamily: 'sans-serif' }}>
-            · Reconectando...
-          </span>
-          <style>{`
-            @keyframes spin { to { transform: rotate(360deg); } }
-            @keyframes slideUp { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-          `}</style>
+          <div style={{ width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0, border: '2.5px solid transparent', borderTopColor: '#D4AF37', animation: 'spin 0.9s linear infinite' }} />
+          <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff', fontFamily: 'sans-serif' }}>Sin conexión con el servidor</span>
+          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', fontFamily: 'sans-serif' }}>· Reconectando...</span>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`}</style>
         </div>
       )}
-      <div className="layout-wrapper" style={{
-        '--store-primary': colors.primary,
-        '--store-secondary': colors.secondary,
-        '--store-accent': colors.accent,
-        '--sidebar-w': (isEditorMode && menuOpen && !isMobile) ? '270px' : '0px'
-      }}>
-        <nav className={`admin-sidebar ${(isEditorMode || isLeonIA) ? (menuOpen ? 'editor-sidebar-open' : 'editor-hidden') : (menuOpen ? 'mobile-open' : 'mobile-closed')}${(!isEditorMode && !isLeonIA) && menuOpen && !isMobile ? ' desktop-sidebar-open' : ''}`}>
-          <div className="sidebar-header">
-            <div className="sidebar-brand">
-              <div className="sidebar-brand-logo" style={{ overflow: 'hidden', padding: 0 }}>
-                <img src="/iconweb.png" alt="SRServi" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-              <div className="sidebar-brand-text">
-                <h1>SRServi</h1>
-                <small>Panel de Administración</small>
-              </div>
-            </div>
-            <button className="sidebar-close-btn" onClick={() => setMenuOpen(false)}>
-              <FontAwesomeIcon icon={faTimes} />
-            </button>
+
+      <div className="isb-layout" style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent }}>
+
+        {/* ═══════════════════════════════════════
+            ICON SIDEBAR
+        ═══════════════════════════════════════ */}
+        <nav className={`isb-sidebar${(isEditorMode || isLeonIA) ? ' isb-sidebar--hidden' : ''}`}>
+
+          {/* Logo */}
+          <div className="isb-logo">
+            <img src="/iconweb.png" alt="SRServi" />
           </div>
 
-          {user?.support_pin && (
-            <div className="sidebar-pin-badge">
-              <FontAwesomeIcon icon={faLock} />
-              <span>PIN Soporte</span>
-              <strong>{user.support_pin}</strong>
-            </div>
-          )}
-
-          <div className="store-selector-row">
-            <div className="store-selector">
-            <div className="relative">
-              <button
-                className="store-selector-btn"
-                onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
-              >
-                <span className="store-selector-label">
+          {/* Selector de tienda */}
+          <div className="isb-store-wrap">
+            <button
+              className={`isb-btn${storeDropdownOpen ? ' active' : ''}`}
+              onClick={() => setStoreDropdownOpen(p => !p)}
+              title={selectedStore?.name || 'Seleccionar tienda'}
+            >
+              <FontAwesomeIcon icon={faStore} />
+              <span className="isb-tooltip">{selectedStore?.name || 'Tiendas'}</span>
+            </button>
+            {storeDropdownOpen && (
+              <div className="isb-store-popup" onClick={e => e.stopPropagation()}>
+                <div className="isb-store-popup-hdr">
                   <FontAwesomeIcon icon={faStore} />
-                  <span className="store-selector-name">
-                    {selectedStore?.name || 'Seleccionar Tienda'}
-                  </span>
-                </span>
-                <FontAwesomeIcon icon={faChevronDown} rotation={storeDropdownOpen ? 180 : 0} />
-              </button>
-
-              {storeDropdownOpen && (
-                <div className="store-dropdown">
-                  {stores.map(store => (
-                    <div
-                      key={store.id}
-                      className={`store-dropdown-item ${selectedStore?.id === store.id ? 'active' : ''}`}
-                      onClick={() => selectStore(store)}
-                    >
-                      <div className="store-dropdown-dot" />
-                      <div className="store-dropdown-info">
-                        <div className="store-dropdown-name">{store.name}</div>
-                        <div className="store-dropdown-code">Código: {store.code}</div>
-                      </div>
-                      <button
-                        className="store-dropdown-duplicate-btn"
-                        title="Duplicar tienda"
-                        onClick={(e) => openDuplicateModal(e, store)}
-                      >
-                        <FontAwesomeIcon icon={faCopy} />
-                      </button>
-                    </div>
-                  ))}
+                  Mis Tiendas
+                </div>
+                {stores.map(store => (
                   <div
-                    className="store-dropdown-manage"
-                    onClick={() => { setStoreDropdownOpen(false); navigate('/admin/stores'); }}
+                    key={store.id}
+                    className={`isb-store-item${selectedStore?.id === store.id ? ' active' : ''}`}
+                    onClick={() => selectStore(store)}
                   >
-                    <FontAwesomeIcon icon={faPlus} />
-                    Gestionar Tiendas
+                    <div className="isb-store-dot" />
+                    <div className="isb-store-info">
+                      <div className="isb-store-name">{store.name}</div>
+                      <div className="isb-store-code">{store.code}</div>
+                    </div>
+                    <button className="isb-store-dup" title="Duplicar" onClick={e => openDuplicateModal(e, store)}>
+                      <FontAwesomeIcon icon={faCopy} />
+                    </button>
                   </div>
+                ))}
+                <div className="isb-store-manage" onClick={() => { setStoreDropdownOpen(false); navigate('/admin/stores'); }}>
+                  <FontAwesomeIcon icon={faPlus} /> Gestionar tiendas
                 </div>
-              )}
-            </div>
-            </div>
-            <button onClick={handleLogout} className="sidebar-logout-top" title="Cerrar Sesión">
-              <FontAwesomeIcon icon={faSignOutAlt} />
-            </button>
+              </div>
+            )}
           </div>
 
-          <ul className="sidebar-nav" onClick={(e) => { if (!e.target.closest('.dropdown-item') && !e.target.closest('.dropdown-header') && !e.target.closest('.dropdown-container')) setMenuOpen(false); }}>
+          <div className="isb-divider" />
 
-            {/* ── Accesos directos destacados ── */}
-            <li>
-              {selectedStore ? (
-                <NavLink
-                  to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`}
-                  className="quick-nav-link"
-                  onClick={(e) => {
-                    if (isEditorMode) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      window.location.href = `/admin/editor/${selectedStore.code}?admin_edit=${token}`;
-                    } else {
-                      setMenuOpen(false);
-                    }
-                  }}
-                >
-                  <FontAwesomeIcon icon={faTabletAlt} />
-                  <span>Editor Tótem</span>
-                </NavLink>
-              ) : (
-                <span className="quick-nav-link quick-nav-link--disabled">
-                  <FontAwesomeIcon icon={faTabletAlt} />
-                  <span>Editor Tótem</span>
-                </span>
-              )}
-            </li>
-            {/* ── PAGOS ── */}
-            <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['pagos'] ? ' open' : ''}`} onClick={() => toggleDropdown('pagos')}>
-                <FontAwesomeIcon icon={faCreditCard} />
-                <span>Pagos</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['pagos'] ? 180 : 0} />
+          {/* Navegación principal */}
+          <div className="isb-nav">
+            {selectedStore ? (
+              <NavLink
+                to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`}
+                className={({ isActive }) => `isb-btn${isActive ? ' active' : ''}`}
+                title="Editor Tótem"
+                onClick={e => { if (isEditorMode) { e.preventDefault(); window.location.href = `/admin/editor/${selectedStore.code}?admin_edit=${token}`; } }}
+              >
+                <FontAwesomeIcon icon={faTabletAlt} />
+                <span className="isb-tooltip">Editor Tótem</span>
+              </NavLink>
+            ) : (
+              <button className="isb-btn" disabled style={{ opacity: 0.35, cursor: 'not-allowed' }} title="Editor Tótem">
+                <FontAwesomeIcon icon={faTabletAlt} />
+                <span className="isb-tooltip">Editor Tótem</span>
               </button>
-              {openDropdowns['pagos'] && (
-                <div className="dropdown-content">
-                  <NavLink to="/admin/mercado-pago-points" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faCreditCard} />
-                    <span>Vincular POS</span>
-                  </NavLink>
-                  <NavLink to="/admin/payments-qr" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faQrcode} />
-                    <span>Pagos con QR</span>
-                  </NavLink>
-                  <NavLink to="/admin/store-qr" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faQrcode} />
-                    <span>QR de la tienda</span>
-                  </NavLink>
-                  {can('analytics', 'view') && <NavLink to="/admin/income-statement" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faChartLine} />
-                    <span>Estado de Resultados</span>
-                  </NavLink>}
-                </div>
-              )}
-            </li>
+            )}
 
-            {/* ── OPERACIONES ── */}
-            <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['operaciones'] ? ' open' : ''}`} onClick={() => toggleDropdown('operaciones')}>
+            {can('orders', 'view') && (
+              <NavLink to="/admin/orders" className={({ isActive }) => `isb-btn${isActive ? ' active' : ''}`} title="Pedidos">
                 <FontAwesomeIcon icon={faShoppingBag} />
-                <span>Operaciones</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['operaciones'] ? 180 : 0} />
-              </button>
-              {openDropdowns['operaciones'] && (
-                <div className="dropdown-content">
-                  {can('orders', 'view') && <NavLink to="/admin/orders" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faShoppingBag} />
-                    <span>Pedidos</span>
-                  </NavLink>}
-                  {can('tables', 'view') && <NavLink to="/admin/tables" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faChair} />
-                    <span>Mesas</span>
-                  </NavLink>}
-                  {can('delivery', 'view') && <NavLink to="/admin/delivery" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faMotorcycle} />
-                    <span>Delivery</span>
-                  </NavLink>}
-                  {!isSubAccount && <NavLink to="/admin/subdomain" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <span>🌐</span>
-                    <span>Subdominio</span>
-                  </NavLink>}
-                  {can('products', 'view') && <NavLink to="/admin/products" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faBox} />
-                    <span>Productos</span>
-                  </NavLink>}
-                  {can('products', 'view') && <NavLink to="/admin/sections" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faLayerGroup} />
-                    <span>Secciones</span>
-                  </NavLink>}
-                  {/* Combos desactivado por ahora */}
-                  {false && can('products', 'view') && <NavLink to="/admin/combos" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faLayerGroup} />
-                    <span>Combos</span>
-                  </NavLink>}
-                  {can('ventas_mes', 'view') && <NavLink to="/admin/ventas-mes" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faMoneyBill} />
-                    <span>Ventas del Mes</span>
-                  </NavLink>}
-                  {can('analytics', 'view') && <NavLink to="/admin/ventas-dia" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faCalendarDay} />
-                    <span>Ventas del Día</span>
-                  </NavLink>}
-                  {can('analytics', 'view') && <NavLink to="/admin/analytics" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faChartLine} />
-                    <span>Análisis</span>
-                  </NavLink>}
-                  {can('cash_registers', 'view') && <NavLink to="/admin/cash-registers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faCashRegister} />
-                    <span>Historial de Caja</span>
-                  </NavLink>}
-                  {can('ratings', 'view') && <NavLink to="/admin/ratings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faStar} />
-                    <span>Calificaciones</span>
-                  </NavLink>}
-                  {can('people_counter', 'view') && <NavLink to="/admin/people-counter" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faCamera} />
-                    <span>Contador de Aforo</span>
-                  </NavLink>}
-                  <NavLink to="/admin/ticketeria" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faTicketAlt} />
-                    <span>Ticketería</span>
-                  </NavLink>
-                </div>
-              )}
-            </li>
-
-            {/* ── GESTIÓN ── */}
-            <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['gestion'] ? ' open' : ''}`} onClick={() => toggleDropdown('gestion')}>
-                <FontAwesomeIcon icon={faUsers} />
-                <span>Gestión</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['gestion'] ? 180 : 0} />
-              </button>
-              {openDropdowns['gestion'] && (
-                <div className="dropdown-content">
-                  {can('workers', 'view') && <NavLink to="/admin/workers" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faUsers} />
-                    <span>Vendedores</span>
-                  </NavLink>}
-                  {can('tasks', 'view') && <NavLink to="/admin/tasks" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faClipboardList} />
-                    <span>Tareas</span>
-                  </NavLink>}
-                  {can('inventory', 'view') && <NavLink to="/admin/inventory" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faWarehouse} />
-                    <span>Inventario</span>
-                  </NavLink>}
-                  {can('procedures', 'view') && <NavLink to="/admin/procedures" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faList} />
-                    <span>Procedimientos</span>
-                  </NavLink>}
-                  {can('attendance', 'view') && <NavLink to="/admin/attendance" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faUserClock} />
-                    <span>Asistencia</span>
-                  </NavLink>}
-                  {can('loyalty', 'view') && <NavLink to="/admin/loyalty" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faStar} />
-                    <span>Cliente Habitual</span>
-                  </NavLink>}
-                  {can('coupons', 'view') && <NavLink to="/admin/coupons" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faPercent} />
-                    <span>Cupones</span>
-                  </NavLink>}
-                </div>
-              )}
-            </li>
-
-            {/* ── EQUIPO (solo cuenta principal) ── */}
-            {!isSubAccount && (
-              <li className="dropdown-container">
-                <button className={`dropdown-header${openDropdowns['equipo'] ? ' open' : ''}`} onClick={() => toggleDropdown('equipo')}>
-                  <FontAwesomeIcon icon={faLock} />
-                  <span>Equipo</span>
-                  <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['equipo'] ? 180 : 0} />
-                </button>
-                {openDropdowns['equipo'] && (
-                  <div className="dropdown-content">
-                    <NavLink to="/admin/roles" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                      <span style={{ fontSize: 13 }}>🔐</span>
-                      <span>Roles</span>
-                    </NavLink>
-                    <NavLink to="/admin/sub-accounts" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                      <span style={{ fontSize: 13 }}>👤</span>
-                      <span>Cuentas</span>
-                    </NavLink>
-                  </div>
-                )}
-              </li>
+                <span className="isb-tooltip">Pedidos</span>
+              </NavLink>
             )}
 
-            {/* ── CANALES ── */}
-            <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['canales'] ? ' open' : ''}`} onClick={() => toggleDropdown('canales')}>
-                <FontAwesomeIcon icon={faGlobe} />
-                <span>Canales</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['canales'] ? 180 : 0} />
-              </button>
-              {openDropdowns['canales'] && (
-                <div className="dropdown-content">
-                  {can('whatsapp', 'view') && <NavLink to="/admin/whatsapp" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="#25D366" style={{ flexShrink: 0 }}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                    <span>WhatsApp</span>
-                  </NavLink>}
-                  {can('canales', 'view') && <NavLink to="/admin/rappi" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faMotorcycle} />
-                    <span>Rappi</span>
-                  </NavLink>}
-                  {can('canales', 'view') && <NavLink to="/admin/pedidosya" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faMotorcycle} />
-                    <span>PedidosYa</span>
-                  </NavLink>}
-                  {can('canales', 'view') && <NavLink to="/admin/ubereats" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faMotorcycle} />
-                    <span>Uber Eats</span>
-                  </NavLink>}
-                  {can('canales', 'view') && <NavLink to="/admin/instagram" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                    <span>Instagram</span>
-                  </NavLink>}
-                  {can('canales', 'view') && <NavLink to="/admin/tiktok" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V9.05a8.16 8.16 0 0 0 4.77 1.53V7.15a4.85 4.85 0 0 1-1-.46z"/></svg>
-                    <span>TikTok</span>
-                  </NavLink>}
-                </div>
-              )}
-            </li>
-
-            {/* ── MI TIENDA (solo cuenta principal) ── */}
-            {!isSubAccount && (
-              <li className="dropdown-container">
-                <button className={`dropdown-header${openDropdowns['tienda'] ? ' open' : ''}`} onClick={() => toggleDropdown('tienda')}>
-                  <FontAwesomeIcon icon={faStore} />
-                  <span>Mi Tienda</span>
-                  <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['tienda'] ? 180 : 0} />
-                </button>
-                {openDropdowns['tienda'] && (
-                  <div className="dropdown-content">
-                    <NavLink to="/admin/leon-ia" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                      <FontAwesomeIcon icon={faRobot} />
-                      <span>León IA</span>
-                      <span style={{ marginLeft: 'auto', background: '#D4AF37', color: '#000', fontSize: 9, fontWeight: 800, padding: '2px 5px', borderRadius: 6, letterSpacing: '0.5px', flexShrink: 0 }}>IA</span>
-                    </NavLink>
-                    <NavLink to="/admin/market" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                      <FontAwesomeIcon icon={faBarcode} />
-                      <span>Market</span>
-                    </NavLink>
-                    <NavLink to="/admin/workshop" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                      <FontAwesomeIcon icon={faFlask} />
-                      <span>Workshop</span>
-                    </NavLink>
-                  </div>
-                )}
-              </li>
+            {can('products', 'view') && (
+              <NavLink to="/admin/products" className={({ isActive }) => `isb-btn${isActive ? ' active' : ''}`} title="Productos">
+                <FontAwesomeIcon icon={faBox} />
+                <span className="isb-tooltip">Productos</span>
+              </NavLink>
             )}
 
-            {/* ── CONFIGURACIÓN ── */}
-            <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['config'] ? ' open' : ''}`} onClick={() => toggleDropdown('config')}>
-                <FontAwesomeIcon icon={faCog} />
-                <span>Configuración</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['config'] ? 180 : 0} />
-              </button>
-              {openDropdowns['config'] && (
-                <div className="dropdown-content">
-                  {can('settings', 'view') && <NavLink to="/admin/settings" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faPalette} />
-                    <span>Colores y QR</span>
-                  </NavLink>}
-                  {can('configurations', 'view') && <NavLink to="/admin/configurations" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faTabletAlt} />
-                    <span>Tótems y Pagos</span>
-                  </NavLink>}
-                  {!isSubAccount && <NavLink to="/admin/worker-config" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faCreditCard} />
-                    <span>Pago Manual</span>
-                  </NavLink>}
-                  {!isSubAccount && <NavLink to="/admin/store-pin" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faLock} />
-                    <span>PIN Tienda</span>
-                  </NavLink>}
-                  {!isSubAccount && <NavLink to="/admin/screensaver" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faTv} />
-                    <span>Salva Pantallas</span>
-                  </NavLink>}
-                  {!isSubAccount && <NavLink to="/admin/cctv" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faVideo} />
-                    <span>Cartelería Digital</span>
-                  </NavLink>}
-                </div>
-              )}
-            </li>
+            {can('analytics', 'view') && (
+              <NavLink to="/admin/analytics" className={({ isActive }) => `isb-btn${isActive ? ' active' : ''}`} title="Análisis">
+                <FontAwesomeIcon icon={faChartLine} />
+                <span className="isb-tooltip">Análisis</span>
+              </NavLink>
+            )}
+          </div>
 
-            {/* ── MIS APPS ── */}
-            <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['misapps'] ? ' open' : ''}`} onClick={() => toggleDropdown('misapps')}>
-                <FontAwesomeIcon icon={faLaptop} />
-                <span>Mis Apps</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['misapps'] ? 180 : 0} />
-              </button>
-              {openDropdowns['misapps'] && (
-                <div className="dropdown-content" style={{ padding: '8px 4px' }}>
-                  <AppDownloadCard
-                    icon="📱"
-                    title="Totem Android"
-                    description={<>Punto de venta Android · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                    buildState={androidBuilds['launcher']}
-                    disabled={!selectedStore}
-                    onDownload={() => handleAndroidBuild('launcher', 'Totem Android')}
-                    fileType=".apk"
-                  />
-                  <div style={{ height: '8px' }} />
-                  <AppDownloadCard
-                    icon="💻"
-                    title="Tótem Windows"
-                    description={<>App kiosk para PC · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                    loading={appDownloading}
-                    disabled={!selectedStore}
-                    onDownload={() => handleDownloadWindowsApp()}
-                    fileType=".exe"
-                  />
-                  <div style={{ height: '8px' }} />
-                  <AppDownloadCard
-                    icon="📺"
-                    title="TV Órdenes"
-                    description={<>Pantalla de cocina · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                    buildState={androidBuilds['tvordenes']}
-                    disabled={!selectedStore}
-                    onDownload={() => handleAndroidBuild('tvordenes', 'TV Órdenes')}
-                    fileType=".apk"
-                  />
-                  <div style={{ height: '8px' }} />
-                  <AppDownloadCard
-                    icon="🎬"
-                    title="Cartelería Digital"
-                    description={<>Pantalla digital para TV · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
-                    buildState={androidBuilds['cctv']}
-                    disabled={!selectedStore}
-                    onDownload={() => handleAndroidBuild('cctv', 'CCTV')}
-                    fileType=".apk"
-                  />
-                </div>
-              )}
-            </li>
+          <div style={{ flex: 1 }} />
 
-            {/* ── CUENTA ── */}
-            <li className="dropdown-container">
-              <button className={`dropdown-header${openDropdowns['cuenta'] ? ' open' : ''}`} onClick={() => toggleDropdown('cuenta')}>
-                <FontAwesomeIcon icon={faCrown} />
-                <span>Cuenta</span>
-                <FontAwesomeIcon icon={faChevronDown} className="dropdown-chevron" rotation={openDropdowns['cuenta'] ? 180 : 0} />
-              </button>
-              {openDropdowns['cuenta'] && (
-                <div className="dropdown-content">
-                  <NavLink to="/admin/plans" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faCrown} />
-                    <span>Planes</span>
-                  </NavLink>
-                  <NavLink to="/admin/plugins" end className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faPuzzlePiece} />
-                    <span>Plugins</span>
-                  </NavLink>
-                  <NavLink to="/admin/tickets" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faTicketAlt} />
-                    <span>Soporte</span>
-                  </NavLink>
-                  <NavLink to="/admin/novedades" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faBell} />
-                    <span>Novedades</span>
-                    {unreadUpdates > 0 && (
-                      <span style={{ marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 9, background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', flexShrink: 0 }}>
-                        {unreadUpdates}
-                      </span>
-                    )}
-                  </NavLink>
-                  <NavLink to="/admin/tutoriales" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                    <FontAwesomeIcon icon={faBookOpen} />
-                    <span>Tutoriales</span>
-                  </NavLink>
-                </div>
-              )}
-            </li>
+          {/* Botones inferiores */}
+          <div className="isb-bottom">
+            <button
+              className={`isb-btn${accountOpen ? ' active' : ''}`}
+              onClick={() => { setAccountOpen(p => !p); setSettingsOpen(false); }}
+              title="Centro de Cuentas"
+            >
+              <FontAwesomeIcon icon={faUser} />
+              {unreadUpdates > 0 && <span className="isb-badge">{unreadUpdates > 9 ? '9+' : unreadUpdates}</span>}
+              <span className="isb-tooltip">Mi Cuenta</span>
+            </button>
 
-          </ul>
-
+            <button
+              className={`isb-btn${settingsOpen ? ' active' : ''}`}
+              onClick={() => { setSettingsOpen(p => !p); setAccountOpen(false); }}
+              title="Menú completo"
+            >
+              <FontAwesomeIcon icon={faCog} />
+              <span className="isb-tooltip">Menú</span>
+            </button>
+          </div>
         </nav>
 
-        <main className={isEditorMode ? 'admin-content admin-content--editor-desktop' : 'admin-content admin-content--no-sidebar'}>
-          {isEditorMode && !menuOpen && (
-            <div style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 99999 }}>
+        {/* ═══════════════════════════════════════
+            PANEL CONFIGURACIONES (pantalla completa)
+        ═══════════════════════════════════════ */}
+        {settingsOpen && (
+          <div className="isb-fullpanel" onClick={e => e.stopPropagation()}>
+            <div className="isb-fp-header">
+              <div className="isb-fp-brand">
+                <img src="/iconweb.png" alt="SRServi" style={{ width: 28, height: 28, borderRadius: 8 }} />
+                <span>Menú</span>
+              </div>
+              <button className="isb-fp-close" onClick={() => setSettingsOpen(false)}>
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+
+            <div className="isb-fp-store">
+              <button className="isb-fp-store-btn" onClick={() => { setSettingsOpen(false); setStoreDropdownOpen(true); }}>
+                <FontAwesomeIcon icon={faStore} />
+                <span>{selectedStore?.name || 'Seleccionar tienda'}</span>
+                <FontAwesomeIcon icon={faChevronDown} style={{ marginLeft: 'auto', fontSize: 11 }} />
+              </button>
+            </div>
+
+            <div className="isb-fp-body">
+              {/* Pagos */}
+              <div className="isb-fp-sec">
+                <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faCreditCard} /> Pagos</div>
+                <NavLink to="/admin/mercado-pago-points" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faCreditCard} /> Vincular POS</NavLink>
+                <NavLink to="/admin/payments-qr" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faQrcode} /> Pagos con QR</NavLink>
+                <NavLink to="/admin/store-qr" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faQrcode} /> QR de la Tienda</NavLink>
+                {can('analytics', 'view') && <NavLink to="/admin/income-statement" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faChartLine} /> Estado de Resultados</NavLink>}
+              </div>
+
+              {/* Operaciones */}
+              <div className="isb-fp-sec">
+                <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faShoppingBag} /> Operaciones</div>
+                {can('orders', 'view') && <NavLink to="/admin/orders" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faShoppingBag} /> Pedidos</NavLink>}
+                {can('tables', 'view') && <NavLink to="/admin/tables" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faChair} /> Mesas</NavLink>}
+                {can('delivery', 'view') && <NavLink to="/admin/delivery" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faMotorcycle} /> Delivery</NavLink>}
+                {!isSubAccount && <NavLink to="/admin/subdomain" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><span>🌐</span> Subdominio</NavLink>}
+                {can('products', 'view') && <NavLink to="/admin/products" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faBox} /> Productos</NavLink>}
+                {can('products', 'view') && <NavLink to="/admin/sections" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faLayerGroup} /> Secciones</NavLink>}
+                {can('ventas_mes', 'view') && <NavLink to="/admin/ventas-mes" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faMoneyBill} /> Ventas del Mes</NavLink>}
+                {can('analytics', 'view') && <NavLink to="/admin/ventas-dia" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faCalendarDay} /> Ventas del Día</NavLink>}
+                {can('analytics', 'view') && <NavLink to="/admin/analytics" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faChartLine} /> Análisis</NavLink>}
+                {can('cash_registers', 'view') && <NavLink to="/admin/cash-registers" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faCashRegister} /> Historial de Caja</NavLink>}
+                {can('ratings', 'view') && <NavLink to="/admin/ratings" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faStar} /> Calificaciones</NavLink>}
+                {can('people_counter', 'view') && <NavLink to="/admin/people-counter" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faCamera} /> Contador de Aforo</NavLink>}
+                <NavLink to="/admin/ticketeria" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faTicketAlt} /> Ticketería</NavLink>
+              </div>
+
+              {/* Gestión */}
+              <div className="isb-fp-sec">
+                <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faUsers} /> Gestión</div>
+                {can('workers', 'view') && <NavLink to="/admin/workers" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faUsers} /> Vendedores</NavLink>}
+                {can('tasks', 'view') && <NavLink to="/admin/tasks" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faClipboardList} /> Tareas</NavLink>}
+                {can('inventory', 'view') && <NavLink to="/admin/inventory" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faWarehouse} /> Inventario</NavLink>}
+                {can('procedures', 'view') && <NavLink to="/admin/procedures" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faList} /> Procedimientos</NavLink>}
+                {can('attendance', 'view') && <NavLink to="/admin/attendance" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faUserClock} /> Asistencia</NavLink>}
+                {can('loyalty', 'view') && <NavLink to="/admin/loyalty" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faStar} /> Cliente Habitual</NavLink>}
+                {can('coupons', 'view') && <NavLink to="/admin/coupons" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faPercent} /> Cupones</NavLink>}
+              </div>
+
+              {/* Equipo */}
+              {!isSubAccount && (
+                <div className="isb-fp-sec">
+                  <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faLock} /> Equipo</div>
+                  <NavLink to="/admin/roles" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><span>🔐</span> Roles</NavLink>
+                  <NavLink to="/admin/sub-accounts" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><span>👤</span> Cuentas</NavLink>
+                </div>
+              )}
+
+              {/* Canales */}
+              <div className="isb-fp-sec">
+                <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faGlobe} /> Canales</div>
+                {can('whatsapp', 'view') && (
+                  <NavLink to="/admin/whatsapp" className="isb-fp-link" onClick={() => setSettingsOpen(false)}>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="#25D366" style={{ flexShrink: 0 }}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    WhatsApp
+                  </NavLink>
+                )}
+                {can('canales', 'view') && <NavLink to="/admin/rappi" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faMotorcycle} /> Rappi</NavLink>}
+                {can('canales', 'view') && <NavLink to="/admin/pedidosya" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faMotorcycle} /> PedidosYa</NavLink>}
+                {can('canales', 'view') && <NavLink to="/admin/ubereats" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faMotorcycle} /> Uber Eats</NavLink>}
+                {can('canales', 'view') && (
+                  <NavLink to="/admin/instagram" className="isb-fp-link" onClick={() => setSettingsOpen(false)}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                    Instagram
+                  </NavLink>
+                )}
+                {can('canales', 'view') && (
+                  <NavLink to="/admin/tiktok" className="isb-fp-link" onClick={() => setSettingsOpen(false)}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V9.05a8.16 8.16 0 0 0 4.77 1.53V7.15a4.85 4.85 0 0 1-1-.46z"/></svg>
+                    TikTok
+                  </NavLink>
+                )}
+              </div>
+
+              {/* Mi Tienda */}
+              {!isSubAccount && (
+                <div className="isb-fp-sec">
+                  <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faStore} /> Mi Tienda</div>
+                  <NavLink to="/admin/leon-ia" className="isb-fp-link" onClick={() => setSettingsOpen(false)}>
+                    <FontAwesomeIcon icon={faRobot} /> León IA
+                    <span style={{ marginLeft: 6, background: '#D4AF37', color: '#000', fontSize: 9, fontWeight: 800, padding: '1px 4px', borderRadius: 4, flexShrink: 0 }}>IA</span>
+                  </NavLink>
+                  <NavLink to="/admin/market" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faBarcode} /> Market</NavLink>
+                  <NavLink to="/admin/workshop" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faFlask} /> Workshop</NavLink>
+                </div>
+              )}
+
+              {/* Configuración */}
+              <div className="isb-fp-sec">
+                <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faCog} /> Configuración</div>
+                {can('settings', 'view') && <NavLink to="/admin/settings" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faPalette} /> Colores y QR</NavLink>}
+                {can('configurations', 'view') && <NavLink to="/admin/configurations" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faTabletAlt} /> Tótems y Pagos</NavLink>}
+                {!isSubAccount && <NavLink to="/admin/worker-config" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faCreditCard} /> Pago Manual</NavLink>}
+                {!isSubAccount && <NavLink to="/admin/store-pin" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faLock} /> PIN Tienda</NavLink>}
+                {!isSubAccount && <NavLink to="/admin/screensaver" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faTv} /> Salva Pantallas</NavLink>}
+                {!isSubAccount && <NavLink to="/admin/cctv" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faVideo} /> Cartelería Digital</NavLink>}
+              </div>
+
+              {/* Mis Apps */}
+              <div className="isb-fp-sec isb-fp-sec--apps">
+                <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faLaptop} /> Mis Apps</div>
+                <div className="isb-fp-apps-grid">
+                  <AppDownloadCard icon="📱" title="Totem Android"
+                    description={<>Android · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
+                    buildState={androidBuilds['launcher']} disabled={!selectedStore}
+                    onDownload={() => handleAndroidBuild('launcher', 'Totem Android')} fileType=".apk" />
+                  <AppDownloadCard icon="💻" title="Tótem Windows"
+                    description={<>Windows · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
+                    loading={appDownloading} disabled={!selectedStore}
+                    onDownload={() => handleDownloadWindowsApp()} fileType=".exe" />
+                  <AppDownloadCard icon="📺" title="TV Órdenes"
+                    description={<>Cocina · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
+                    buildState={androidBuilds['tvordenes']} disabled={!selectedStore}
+                    onDownload={() => handleAndroidBuild('tvordenes', 'TV Órdenes')} fileType=".apk" />
+                  <AppDownloadCard icon="🎬" title="Cartelería Digital"
+                    description={<>TV · <strong style={{ color: '#D4AF37' }}>{selectedStore?.code}</strong></>}
+                    buildState={androidBuilds['cctv']} disabled={!selectedStore}
+                    onDownload={() => handleAndroidBuild('cctv', 'CCTV')} fileType=".apk" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════
+            PANEL CUENTA
+        ═══════════════════════════════════════ */}
+        {accountOpen && (
+          <div className="isb-fullpanel isb-fullpanel--account" onClick={e => e.stopPropagation()}>
+            <div className="isb-fp-header">
+              <div className="isb-fp-brand">
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D4AF37', fontSize: 16 }}>
+                  <FontAwesomeIcon icon={faUser} />
+                </div>
+                <span>Mi Cuenta</span>
+              </div>
+              <button className="isb-fp-close" onClick={() => setAccountOpen(false)}>
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+
+            <div className="isb-fp-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Tarjeta usuario */}
+              <div className="isb-account-card">
+                <div className="isb-account-avatar">
+                  <FontAwesomeIcon icon={faUser} />
+                </div>
+                <div className="isb-account-info">
+                  <div className="isb-account-name">{user?.business_name || user?.username || 'Mi Cuenta'}</div>
+                  <div className="isb-account-email">{user?.email || ''}</div>
+                  {isPremiumUser && (
+                    <div className="isb-account-plan">
+                      <FontAwesomeIcon icon={faCrown} /> Plan Premium
+                    </div>
+                  )}
+                </div>
+                {user?.support_pin && (
+                  <div className="isb-account-pin">
+                    <FontAwesomeIcon icon={faLock} />
+                    <span>{user.support_pin}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Grid de opciones */}
+              <div className="isb-account-grid">
+                <NavLink to="/admin/plans" className="isb-account-item" onClick={() => setAccountOpen(false)}>
+                  <FontAwesomeIcon icon={faCrown} className="isb-account-item-icon" />
+                  <span>Planes</span>
+                </NavLink>
+                <NavLink to="/admin/plugins" className="isb-account-item" onClick={() => setAccountOpen(false)}>
+                  <FontAwesomeIcon icon={faPuzzlePiece} className="isb-account-item-icon" />
+                  <span>Plugins</span>
+                </NavLink>
+                <NavLink to="/admin/tickets" className="isb-account-item" onClick={() => setAccountOpen(false)}>
+                  <FontAwesomeIcon icon={faTicketAlt} className="isb-account-item-icon" />
+                  <span>Soporte</span>
+                </NavLink>
+                <NavLink to="/admin/novedades" className="isb-account-item" onClick={() => setAccountOpen(false)}>
+                  <FontAwesomeIcon icon={faBell} className="isb-account-item-icon" />
+                  <span>Novedades</span>
+                  {unreadUpdates > 0 && <span className="isb-account-item-badge">{unreadUpdates}</span>}
+                </NavLink>
+                <NavLink to="/admin/tutoriales" className="isb-account-item" onClick={() => setAccountOpen(false)}>
+                  <FontAwesomeIcon icon={faBookOpen} className="isb-account-item-icon" />
+                  <span>Tutoriales</span>
+                </NavLink>
+                {selectedStore && (
+                  <NavLink
+                    to={`/admin/editor/${selectedStore.code}?admin_edit=${token}`}
+                    className="isb-account-item"
+                    onClick={e => {
+                      setAccountOpen(false);
+                      if (isEditorMode) { e.preventDefault(); window.location.href = `/admin/editor/${selectedStore.code}?admin_edit=${token}`; }
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faTabletAlt} className="isb-account-item-icon" />
+                    <span>Editor Tótem</span>
+                  </NavLink>
+                )}
+              </div>
+
+              {/* Cerrar sesión */}
+              <button className="isb-logout-btn" onClick={handleLogout}>
+                <FontAwesomeIcon icon={faSignOutAlt} />
+                Cerrar Sesión
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════
+            CONTENIDO PRINCIPAL
+        ═══════════════════════════════════════ */}
+        <main className={`isb-content${(isEditorMode || isLeonIA) ? ' isb-content--editor' : ''}`}>
+
+          {/* Botón menú en editor mode */}
+          {(isEditorMode || isLeonIA) && (
+            <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 99999 }}>
               <button
-                onClick={() => setMenuOpen(true)}
-                title="Abrir menú"
+                onClick={() => setSettingsOpen(p => !p)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  background: 'rgba(10,10,10,0.85)',
-                  color: '#fff',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  background: 'rgba(10,10,10,0.88)', color: '#fff',
                   border: '1.5px solid rgba(212,175,55,0.6)',
-                  borderRadius: '14px',
-                  padding: '14px 20px',
-                  fontSize: '17px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  backdropFilter: 'blur(6px)',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-                  lineHeight: 1,
-                  transition: 'all 0.15s'
+                  borderRadius: 14, padding: '12px 18px',
+                  fontSize: 15, fontWeight: 700, cursor: 'pointer',
+                  backdropFilter: 'blur(6px)', boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                  lineHeight: 1, transition: 'all 0.15s'
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(30,30,30,0.92)'; e.currentTarget.style.borderColor = '#D4AF37'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(10,10,10,0.85)'; e.currentTarget.style.borderColor = 'rgba(212,175,55,0.6)'; e.currentTarget.style.transform = 'none'; }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(30,30,30,0.95)'; e.currentTarget.style.borderColor = '#D4AF37'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(10,10,10,0.88)'; e.currentTarget.style.borderColor = 'rgba(212,175,55,0.6)'; }}
               >
-                <FontAwesomeIcon icon={faBars} style={{ fontSize: '20px', color: '#D4AF37' }} />
+                <FontAwesomeIcon icon={faBars} style={{ fontSize: 18, color: '#D4AF37' }} />
                 <span>Menú</span>
               </button>
             </div>
           )}
-          <div className="mobile-header" style={(isEditorMode || isLeonIA) ? { display: 'none' } : {}}>
-            {isMobile && <h1>SRServi</h1>}
+
+          {/* Header móvil */}
+          <div className="isb-mobile-header" style={(isEditorMode || isLeonIA) ? { display: 'none' } : {}}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <img src="/iconweb.png" alt="SRServi" style={{ width: 28, height: 28, borderRadius: 6 }} />
+              <span style={{ fontWeight: 700, fontSize: 16, color: '#fff' }}>SRServi</span>
+            </div>
             {user?.support_pin && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f0f0f0', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', color: '#666' }}>
-                <FontAwesomeIcon icon={faLock} style={{ color: '#9b59b6' }} />
-                <span>PIN: <strong style={{ letterSpacing: '2px', color: '#333' }}>{user.support_pin}</strong></span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: 8, fontSize: 11, color: '#fff' }}>
+                <FontAwesomeIcon icon={faLock} style={{ color: '#D4AF37' }} />
+                PIN: <strong style={{ letterSpacing: '2px' }}>{user.support_pin}</strong>
               </div>
             )}
-            <button className="mobile-header-btn" onClick={() => setMenuOpen(true)}>
+            <button className="isb-mobile-menu-btn" onClick={() => setSettingsOpen(p => !p)}>
               <FontAwesomeIcon icon={faBars} />
             </button>
           </div>
+
           <Outlet />
         </main>
       </div>
 
       {/* WhatsApp floating button */}
-      {!isLeonIA && <div style={{ position: 'fixed', bottom: isMobile ? '16px' : '24px', right: isMobile ? '16px' : '24px', zIndex: 99999 }}>
+      {!isLeonIA && <div style={{ position: 'fixed', bottom: isMobile ? '76px' : '24px', right: isMobile ? '16px' : '24px', zIndex: 99999 }}>
         {whatsappOpen && (
           <>
             <div style={{ position: 'fixed', inset: 0 }} onClick={() => setWhatsappOpen(false)} />
