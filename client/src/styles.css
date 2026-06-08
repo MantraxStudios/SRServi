@@ -11765,12 +11765,17 @@ html body .store-container .store-product-card * {
     justify-content: space-around;
   }
   .isb-logo, .isb-store-wrap, .isb-divider, .isb-spacer { display: none; }
-  .isb-nav { flex-direction: row; gap: 0; flex: 1; justify-content: space-around; align-items: stretch; width: auto; padding: 0; height: 100%; }
-  .isb-bottom { flex-direction: row; gap: 0; padding: 0; border-top: none; align-items: stretch; height: 100%; }
+
+  /* display:contents hace que nav y bottom "desaparezcan" como contenedores
+     y sus botones hijos queden directamente en el sidebar flex,
+     así justify-content:space-evenly los reparte iguales */
+  .isb-nav, .isb-bottom {
+    display: contents;
+  }
 
   .isb-btn {
-    flex: 1; width: auto; height: 100%; border-radius: 0;
-    flex-direction: column; gap: 2px; padding: 6px 4px 5px; font-size: 16px;
+    flex: 1; width: 0; min-width: 0; height: 100%; border-radius: 0;
+    flex-direction: column; gap: 2px; padding: 6px 2px 5px; font-size: 16px;
   }
   .isb-btn-icon { font-size: 17px; }
   .isb-btn-label { display: block; font-size: 9px; font-weight: 600; line-height: 1; white-space: nowrap; color: inherit; }
