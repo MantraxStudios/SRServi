@@ -138,6 +138,12 @@ function Layout() {
   const [androidBuilds, setAndroidBuilds] = useState({}); // { launcher: {status,jobId,progress}, ... }
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [canInstall, setCanInstall] = useState(() => !!window.__pwaInstallPrompt);
+  const [isInstalled, setIsInstalled] = useState(() =>
+    window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+  );
+  const [installing, setInstalling] = useState(false);
+  const [showUninstallHelp, setShowUninstallHelp] = useState(false);
 
   useEffect(() => {
     if (isEditorMode) setMenuOpen(prev => prev === false ? true : prev);
@@ -148,6 +154,14 @@ function Layout() {
     setSettingsOpen(false);
     setAccountOpen(false);
   }, [location.pathname]);
+
+  // PWA install availability
+  useEffect(() => {
+    const onReady = () => setCanInstall(!!window.__pwaInstallPrompt);
+    window.addEventListener('pwaInstallReady', onReady);
+    window.addEventListener('appinstalled', () => { setIsInstalled(true); setCanInstall(false); });
+    return () => window.removeEventListener('pwaInstallReady', onReady);
+  }, []);
 
   useEffect(() => {
     const check = async () => {
@@ -312,6 +326,18 @@ function Layout() {
 
   const toggleDropdown = (key) => {
     setOpenDropdowns(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handlePwaInstall = async () => {
+    const p = window.__pwaInstallPrompt;
+    if (!p) return;
+    setInstalling(true);
+    try {
+      await p.prompt();
+      const { outcome } = await p.userChoice;
+      if (outcome === 'accepted') { window.__pwaInstallPrompt = null; setCanInstall(false); }
+    } catch {}
+    setInstalling(false);
   };
 
   const handleAndroidBuild = async (appName, label, explicitStoreCode) => {
@@ -695,7 +721,7 @@ function Layout() {
                 {can('orders', 'view') && <NavLink to="/admin/orders" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faShoppingBag} /> Pedidos</NavLink>}
                 {can('tables', 'view') && <NavLink to="/admin/tables" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faChair} /> Mesas</NavLink>}
                 {can('delivery', 'view') && <NavLink to="/admin/delivery" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faMotorcycle} /> Delivery</NavLink>}
-                {!isSubAccount && <NavLink to="/admin/subdomain" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><span>🌐</span> Subdominio</NavLink>}
+                {!isSubAccount && <NavLink to="/admin/subdomain" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faGlobe} /> Subdominio</NavLink>}
                 {can('products', 'view') && <NavLink to="/admin/products" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faBox} /> Productos</NavLink>}
                 {can('products', 'view') && <NavLink to="/admin/sections" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faLayerGroup} /> Secciones</NavLink>}
                 {can('ventas_mes', 'view') && <NavLink to="/admin/ventas-mes" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faMoneyBill} /> Ventas del Mes</NavLink>}
@@ -723,8 +749,8 @@ function Layout() {
               {!isSubAccount && (
                 <div className="isb-fp-sec">
                   <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faLock} /> Equipo</div>
-                  <NavLink to="/admin/roles" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><span>🔐</span> Roles</NavLink>
-                  <NavLink to="/admin/sub-accounts" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><span>👤</span> Cuentas</NavLink>
+                  <NavLink to="/admin/roles" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faLock} /> Roles</NavLink>
+                  <NavLink to="/admin/sub-accounts" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faUsers} /> Cuentas</NavLink>
                 </div>
               )}
 
@@ -800,6 +826,53 @@ function Layout() {
                     onDownload={() => handleAndroidBuild('cctv', 'CCTV')} fileType=".apk" />
                 </div>
               </div>
+
+              {/* Instalar / Desinstalar app */}
+              <div className="isb-fp-sec isb-fp-sec--apps" style={{ marginTop: 4 }}>
+                <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faDownload} /> Esta App</div>
+
+                {!isInstalled && canInstall && (
+                  <button
+                    className="isb-pwa-btn isb-pwa-btn--install"
+                    onClick={handlePwaInstall}
+                    disabled={installing}
+                  >
+                    {installing ? (
+                      <><div className="isb-pwa-spin" /> Instalando...</>
+                    ) : (
+                      <><FontAwesomeIcon icon={faDownload} /> Instalar App</>
+                    )}
+                  </button>
+                )}
+
+                {isInstalled && (
+                  <div style={{ color: '#22c55e', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0' }}>
+                    <span>✓</span> App instalada en tu dispositivo
+                  </div>
+                )}
+
+                {!isInstalled && !canInstall && (
+                  <div style={{ color: '#888', fontSize: 12, lineHeight: 1.5, padding: '4px 0' }}>
+                    Para instalar: abre este sitio en Chrome y espera el aviso de instalación.
+                  </div>
+                )}
+
+                <button
+                  className="isb-pwa-btn isb-pwa-btn--uninstall"
+                  onClick={() => setShowUninstallHelp(p => !p)}
+                >
+                  <FontAwesomeIcon icon={faTimes} /> Desinstalar App
+                </button>
+
+                {showUninstallHelp && (
+                  <div className="isb-pwa-help">
+                    <strong>Android:</strong> Mantén presionado el ícono → Desinstalar<br />
+                    <strong>iPhone:</strong> Mantén presionado el ícono → Eliminar app<br />
+                    <strong>PC/Mac:</strong> En Chrome, abre el sitio → icono ⋮ → Desinstalar SRServi
+                  </div>
+                )}
+              </div>
+
             </div>
           </div>
         )}

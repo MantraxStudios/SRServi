@@ -11815,6 +11815,52 @@ html body .store-container .store-product-card * {
 }
 .isb-mobile-menu-btn { background: none; border: none; color: var(--store-secondary, #fff); font-size: 20px; cursor: pointer; padding: 6px; }
 
+/* ─── Botones PWA (instalar/desinstalar) en el panel ─── */
+.isb-pwa-btn {
+  width: 100%; padding: 12px 16px;
+  border-radius: 12px; border: none;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  transition: background 0.14s, transform 0.1s;
+  margin-top: 6px;
+}
+.isb-pwa-btn:active { transform: scale(0.97); }
+
+.isb-pwa-btn--install {
+  background: #D4AF37;
+  color: #000;
+}
+.isb-pwa-btn--install:hover { background: #c9a22e; }
+.isb-pwa-btn--install:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.isb-pwa-btn--uninstall {
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2) !important;
+  color: #f87171;
+}
+.isb-pwa-btn--uninstall:hover { background: rgba(239,68,68,0.14); }
+
+.isb-pwa-spin {
+  width: 15px; height: 15px;
+  border: 2.5px solid rgba(0,0,0,0.2);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: isbSp 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes isbSp { to { transform: rotate(360deg); } }
+
+.isb-pwa-help {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12px; line-height: 1.7;
+  color: #aaa; margin-top: 6px;
+}
+.isb-pwa-help strong { color: #ccc; }
+
 /* ─── WhatsApp en sidebar ─── */
 .isb-wa-wrap {
   position: relative;
