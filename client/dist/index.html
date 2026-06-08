@@ -15,15 +15,24 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#D4AF37" />
     <meta name="description" content="Panel de administración SRServi" />
-    <script type="module" crossorigin src="/assets/index-Bu45bOrF.js"></script>
+    <script type="module" crossorigin src="/assets/index-Gr8JUxQq.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-CN3GEsDd.css">
   </head>
   <body>
     <div id="root"></div>
     <script>
+      // Capturar el evento de instalación antes de que React cargue
+      window.__pwaInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.__pwaInstallPrompt = e;
+        window.dispatchEvent(new Event('pwaInstallReady'));
+      });
+
+      // Registrar service worker
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').catch(function() {});
         });
       }
     </script>
