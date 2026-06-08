@@ -4991,7 +4991,7 @@ function Store() {
 
       <PluginSlot name="store-footer" context={{ storeId: store?.store?.id, code }} />
 
-      {hasProducts && (
+      {hasProducts && !adminEditToken && (
       <div className="cart-bar">
         <div className="cart-bar-left" onClick={() => setCartOpen(true)}>
           <div className="cart-bar-icon">
