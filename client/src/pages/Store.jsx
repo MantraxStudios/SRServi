@@ -1021,7 +1021,7 @@ function Store() {
   });
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [posSelectModalOpen, setPosSelectModalOpen] = useState(false);
-  const [ticketMode, setTicketMode] = useState(() => localStorage.getItem('srservi_ticket_mode') === '1');
+  const [ticketMode, setTicketMode] = useState(() => !searchParams.get('admin_edit') && localStorage.getItem('srservi_ticket_mode') === '1');
   const [posSelectList, setPosSelectList] = useState([]);
   const [posSelectLoading, setPosSelectLoading] = useState(false);
   const [complementForm, setComplementForm] = useState({ name: '', price: '', type: 'extra', category_id: '', stock: '', unlimited_stock: true, imageFile: null });
