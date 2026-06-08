@@ -11512,10 +11512,10 @@ html body .store-container .store-product-card * {
    ============================================ */
 
 :root {
-  --isb-w: 58px;
+  --isb-w: 56px;
   --isb-bg: #111;
   --isb-gold: #D4AF37;
-  --isb-bottom-h: 58px;
+  --isb-bottom-h: 54px;
 }
 
 .isb-layout { display: flex; min-height: 100vh; }
@@ -11758,8 +11758,11 @@ html body .store-container .store-product-card * {
     top: auto; left: 0; right: 0; bottom: 0;
     width: 100%; height: var(--isb-bottom-h);
     flex-direction: row; padding: 0;
-    border-right: none; border-top: 1px solid rgba(255,255,255,0.07);
-    background: #0d0d0d; justify-content: space-around;
+    border-right: none; border-top: none;
+    border-radius: 18px 18px 0 0;
+    background: #111;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+    justify-content: space-around;
   }
   .isb-logo, .isb-store-wrap, .isb-divider, .isb-spacer { display: none; }
   .isb-nav { flex-direction: row; gap: 0; flex: 1; justify-content: space-around; align-items: stretch; width: auto; padding: 0; height: 100%; }
@@ -11767,17 +11770,17 @@ html body .store-container .store-product-card * {
 
   .isb-btn {
     flex: 1; width: auto; height: 100%; border-radius: 0;
-    flex-direction: column; gap: 3px; padding: 7px 4px 5px; font-size: 17px;
+    flex-direction: column; gap: 2px; padding: 6px 4px 5px; font-size: 16px;
   }
-  .isb-btn-icon { font-size: 19px; }
+  .isb-btn-icon { font-size: 17px; }
   .isb-btn-label { display: block; font-size: 9px; font-weight: 600; line-height: 1; white-space: nowrap; color: inherit; }
 
   .isb-btn.active::before {
     left: 50%; top: 0; bottom: auto; transform: translateX(-50%);
-    width: 24px; height: 2px; border-radius: 0 0 2px 2px; box-shadow: none;
+    width: 22px; height: 2px; border-radius: 0 0 3px 3px; box-shadow: none;
   }
   .isb-tooltip { display: none; }
-  .isb-badge { top: 0px; right: calc(50% - 18px); border-color: #0d0d0d; }
+  .isb-badge { top: 0px; right: calc(50% - 17px); border-color: #111; }
 
   .isb-store-popup { left: 4px; top: auto; bottom: calc(100% + 6px); width: calc(100vw - 8px); animation-name: isbPopUp; }
   @keyframes isbPopUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
