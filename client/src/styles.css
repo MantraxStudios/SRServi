@@ -11514,7 +11514,7 @@ html body .store-container .store-product-card * {
 
 :root {
   --isb-w: 56px;
-  --isb-bg: #111;
+  --isb-bg: #fff;
   --isb-gold: #D4AF37;
   --isb-bottom-h: 54px;
 }
@@ -11529,28 +11529,29 @@ html body .store-container .store-product-card * {
   display: flex; flex-direction: column; align-items: center;
   padding: 12px 0 10px;
   z-index: 600;
-  border-left: 1px solid rgba(255,255,255,0.06);
+  border-left: 1px solid rgba(0,0,0,0.08);
   border-right: none;
+  box-shadow: -2px 0 12px rgba(0,0,0,0.06);
 }
 
 .isb-logo { width: 34px; height: 34px; border-radius: 9px; overflow: hidden; margin-bottom: 6px; flex-shrink: 0; }
 .isb-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .isb-store-wrap { position: relative; width: var(--isb-w); display: flex; justify-content: center; }
-.isb-divider { width: 24px; height: 1px; background: rgba(255,255,255,0.07); margin: 6px 0; flex-shrink: 0; }
+.isb-divider { width: 24px; height: 1px; background: rgba(0,0,0,0.08); margin: 6px 0; flex-shrink: 0; }
 .isb-spacer { flex: 1; }
 
 .isb-nav, .isb-bottom {
   display: flex; flex-direction: column; align-items: center;
   gap: 1px; width: var(--isb-w); padding: 0 9px; box-sizing: border-box;
 }
-.isb-bottom { padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; }
+.isb-bottom { padding-top: 6px; border-top: 1px solid rgba(0,0,0,0.08); padding-bottom: 8px; }
 
 /* ─── BOTÓN ─── */
 .isb-btn {
   position: relative; width: 100%; height: 40px;
   border-radius: 10px; border: none; background: transparent;
-  color: #4e4e4e; font-size: 15px; cursor: pointer;
+  color: var(--isb-gold); font-size: 15px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: background 0.14s, color 0.14s;
   text-decoration: none; outline: none;
@@ -11572,16 +11573,16 @@ html body .store-container .store-product-card * {
 .isb-tooltip {
   position: absolute; right: calc(100% + 12px); left: auto; top: 50%;
   transform: translateY(-50%) translateX(6px);
-  background: #1e1e1e; color: #eee;
+  background: #222; color: #eee;
   font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 7px;
   white-space: nowrap; pointer-events: none; opacity: 0;
   transition: opacity 0.14s, transform 0.14s;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-  border: 1px solid rgba(255,255,255,0.07); z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  border: 1px solid rgba(0,0,0,0.12); z-index: 9999;
 }
 .isb-tooltip::before {
   content: ''; position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
-  border: 4px solid transparent; border-left-color: #1e1e1e;
+  border: 4px solid transparent; border-left-color: #222;
 }
 .isb-btn:hover .isb-tooltip { opacity: 1; transform: translateY(-50%) translateX(0); }
 
@@ -11597,32 +11598,32 @@ html body .store-container .store-product-card * {
 /* ─── STORE POPUP ─── */
 .isb-store-popup {
   position: absolute; right: calc(100% + 8px); left: auto; top: 0;
-  background: #181818; border: 1px solid rgba(212,175,55,0.15);
+  background: #fff; border: 1px solid rgba(0,0,0,0.10);
   border-radius: 12px; width: 240px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
   z-index: 600; overflow: hidden;
   animation: isbPop 0.14s ease-out;
 }
 @keyframes isbPop { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
 
 .isb-store-popup-hdr {
-  padding: 11px 14px 9px; font-size: 10px; font-weight: 700; color: #555;
+  padding: 11px 14px 9px; font-size: 10px; font-weight: 700; color: #888;
   text-transform: uppercase; letter-spacing: 0.8px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(0,0,0,0.07);
   display: flex; align-items: center; gap: 7px;
 }
 .isb-store-item { display: flex; align-items: center; gap: 10px; padding: 9px 14px; cursor: pointer; transition: background 0.1s; }
-.isb-store-item:hover { background: rgba(255,255,255,0.04); }
-.isb-store-item.active { background: rgba(212,175,55,0.06); }
-.isb-store-dot { width: 7px; height: 7px; border-radius: 50%; background: #333; flex-shrink: 0; }
+.isb-store-item:hover { background: rgba(0,0,0,0.04); }
+.isb-store-item.active { background: rgba(212,175,55,0.08); }
+.isb-store-dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
 .isb-store-item.active .isb-store-dot { background: var(--isb-gold); }
 .isb-store-info { flex: 1; min-width: 0; }
-.isb-store-name { color: #ddd; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.isb-store-code { color: #555; font-size: 11px; }
-.isb-store-dup { background: none; border: none; color: #444; cursor: pointer; padding: 4px 5px; border-radius: 5px; font-size: 11px; }
+.isb-store-name { color: #111; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.isb-store-code { color: #888; font-size: 11px; }
+.isb-store-dup { background: none; border: none; color: #bbb; cursor: pointer; padding: 4px 5px; border-radius: 5px; font-size: 11px; }
 .isb-store-dup:hover { color: var(--isb-gold); }
 .isb-store-manage {
-  padding: 10px 14px; border-top: 1px solid rgba(255,255,255,0.05);
+  padding: 10px 14px; border-top: 1px solid rgba(0,0,0,0.07);
   color: var(--isb-gold); font-size: 13px; font-weight: 600;
   cursor: pointer; display: flex; align-items: center; gap: 7px;
 }
@@ -11631,7 +11632,7 @@ html body .store-container .store-product-card * {
 /* ─── PANEL COMPLETO (menú / cuenta) ─── */
 .isb-fullpanel {
   position: fixed; left: 0; right: var(--isb-w); top: 0; bottom: 0;
-  z-index: 500; background: #111;
+  z-index: 500; background: #fff;
   display: flex; flex-direction: column; overflow: hidden;
   animation: isbIn 0.2s ease-out;
 }
@@ -11640,31 +11641,32 @@ html body .store-container .store-product-card * {
 .isb-fullpanel--account {
   width: min(360px, calc(100vw - var(--isb-w)));
   left: auto; right: var(--isb-w);
-  border-left: 1px solid rgba(255,255,255,0.06);
+  border-left: 1px solid rgba(0,0,0,0.08);
   border-right: none;
-  box-shadow: -4px 0 24px rgba(0,0,0,0.4);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.1);
 }
 
 .isb-fp-header {
   display: flex; align-items: center; gap: 10px;
-  padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
+  padding: 14px 18px; border-bottom: 1px solid rgba(0,0,0,0.08); flex-shrink: 0;
 }
-.isb-fp-brand { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: #fff; }
+.isb-fp-brand { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: #111; }
 .isb-fp-close {
-  margin-left: auto; background: rgba(255,255,255,0.06); border: none; color: #888;
+  margin-left: auto; background: rgba(0,0,0,0.06); border: none; color: #888;
   width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
   display: flex; align-items: center; justify-content: center; font-size: 13px;
 }
-.isb-fp-close:hover { background: rgba(255,255,255,0.11); color: #fff; }
+.isb-fp-close:hover { background: rgba(0,0,0,0.1); color: #111; }
 
-.isb-fp-store { padding: 10px 18px; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+.isb-fp-store { padding: 10px 18px; border-bottom: 1px solid rgba(0,0,0,0.07); flex-shrink: 0; }
 .isb-fp-store-btn {
   width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 12px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(212,175,55,0.12);
-  border-radius: 9px; color: #ccc; font-size: 13px; font-weight: 600;
-  cursor: pointer; transition: background 0.12s; text-align: left;
+  background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 9px; color: #111; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background 0.12s, border-color 0.12s; text-align: left;
 }
-.isb-fp-store-btn:hover { background: rgba(212,175,55,0.06); color: #fff; }
+.isb-fp-store-btn > .svg-inline--fa { color: var(--isb-gold); flex-shrink: 0; }
+.isb-fp-store-btn:hover { background: rgba(212,175,55,0.08); border-color: rgba(212,175,55,0.3); }
 
 /* ── Panel cuerpo: grid estilo iPhone home ── */
 .isb-fp-body {
@@ -11691,7 +11693,7 @@ html body .store-container .store-product-card * {
 .isb-fp-sec-title {
   grid-column: 1 / -1;
   font-size: 10px; font-weight: 700;
-  color: rgba(212,175,55,0.55);
+  color: #999;
   text-transform: uppercase; letter-spacing: 1.1px;
   margin-bottom: -4px;
   display: flex; align-items: center; gap: 6px;
@@ -11707,7 +11709,7 @@ html body .store-container .store-product-card * {
   border: none;
   padding: 2px 2px 4px;
   text-decoration: none;
-  color: #aaa;
+  color: #333;
   font-size: 10.5px;
   font-weight: 500;
   text-align: center;
@@ -11717,39 +11719,39 @@ html body .store-container .store-product-card * {
   cursor: pointer;
   word-break: break-word;
 }
-.isb-fp-link:hover  { color: #fff; transform: scale(0.96); }
+.isb-fp-link:hover  { color: #111; transform: scale(0.96); }
 .isb-fp-link:active { transform: scale(0.88); }
 .isb-fp-link.active { color: var(--isb-gold); }
 
-/* ── Cuadro de ícono iPhone: blanco, activo = dorado ── */
+/* ── Cuadro de ícono iPhone: dorado sobre fondo claro ── */
 .isb-fp-link > .svg-inline--fa,
 .isb-fp-link > svg {
   width: 52px !important;
   height: 52px !important;
   padding: 13px;
   box-sizing: border-box;
-  background: rgba(255,255,255,0.09);
+  background: rgba(212,175,55,0.10);
   border-radius: 14px;
   display: block;
   flex-shrink: 0;
-  color: #fff;
+  color: var(--isb-gold);
   transition: background 0.14s;
 }
 .isb-fp-link:hover > .svg-inline--fa,
 .isb-fp-link:hover > svg {
-  background: rgba(255,255,255,0.15);
-  color: #fff;
+  background: rgba(212,175,55,0.18);
+  color: var(--isb-gold);
 }
 .isb-fp-link.active > .svg-inline--fa,
 .isb-fp-link.active > svg {
-  background: rgba(212,175,55,0.22);
+  background: rgba(212,175,55,0.25);
   color: var(--isb-gold);
 }
 
 /* Íconos emoji (span primer hijo sin style) */
 .isb-fp-link > span:not([style]):not(.svg-inline--fa) {
   width: 52px; height: 52px;
-  background: rgba(255,255,255,0.09);
+  background: rgba(0,0,0,0.05);
   border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
   font-size: 22px; flex-shrink: 0;
@@ -11767,10 +11769,10 @@ html body .store-container .store-product-card * {
   transition: background 0.14s;
 }
 .isb-fp-wabox  { background: rgba(37,211,102,0.12); }
-.isb-fp-iconbox { background: rgba(255,255,255,0.09); }
+.isb-fp-iconbox { background: rgba(0,0,0,0.05); }
 
 .isb-fp-link:hover .isb-fp-wabox  { background: rgba(37,211,102,0.22); }
-.isb-fp-link:hover .isb-fp-iconbox { background: rgba(255,255,255,0.16); }
+.isb-fp-link:hover .isb-fp-iconbox { background: rgba(0,0,0,0.09); }
 
 .isb-fp-wabox svg,
 .isb-fp-iconbox svg {
@@ -11799,7 +11801,7 @@ html body .store-container .store-product-card * {
   color: var(--isb-gold); font-size: 18px; flex-shrink: 0;
 }
 .isb-account-info { flex: 1; min-width: 0; }
-.isb-account-name { color: #fff; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.isb-account-name { color: #111; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .isb-account-email { color: #666; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 .isb-account-plan { color: var(--isb-gold); font-size: 11px; font-weight: 600; margin-top: 3px; display: flex; align-items: center; gap: 3px; }
 .isb-account-pin { display: flex; flex-direction: column; align-items: center; gap: 2px; color: #777; font-size: 10px; font-weight: 700; flex-shrink: 0; text-align: center; }
@@ -11807,14 +11809,14 @@ html body .store-container .store-product-card * {
 
 .isb-account-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .isb-account-item {
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.08);
   border-radius: 11px; padding: 14px 6px 11px;
   display: flex; flex-direction: column; align-items: center; gap: 7px;
-  color: #777; font-size: 11px; font-weight: 600;
+  color: #555; font-size: 11px; font-weight: 600;
   text-decoration: none; cursor: pointer; text-align: center; position: relative;
   transition: background 0.13s, color 0.13s;
 }
-.isb-account-item:hover { background: rgba(212,175,55,0.07); color: #ddd; }
+.isb-account-item:hover { background: rgba(212,175,55,0.07); color: #111; }
 .isb-account-item.active { background: rgba(212,175,55,0.11); color: var(--isb-gold); }
 .isb-account-item-icon { font-size: 20px; color: var(--isb-gold); }
 .isb-account-item-badge {
@@ -11848,13 +11850,13 @@ html body .store-container .store-product-card * {
 /* ─── App icon box (Mis Apps en el menú) ─── */
 .isb-app-icon-box {
   width: 52px; height: 52px;
-  background: rgba(255,255,255,0.09);
+  background: rgba(0,0,0,0.05);
   border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   transition: background 0.14s;
 }
-.isb-fp-link:hover .isb-app-icon-box { background: rgba(255,255,255,0.15); }
+.isb-fp-link:hover .isb-app-icon-box { background: rgba(212,175,55,0.14); }
 
 .isb-app-spin {
   width: 22px; height: 22px;
@@ -11905,14 +11907,14 @@ html body .store-container .store-product-card * {
 @keyframes isbSp { to { transform: rotate(360deg); } }
 
 .isb-pwa-help {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.08);
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 12px; line-height: 1.7;
-  color: #aaa; margin-top: 6px;
+  color: #666; margin-top: 6px;
 }
-.isb-pwa-help strong { color: #ccc; }
+.isb-pwa-help strong { color: #333; }
 
 /* ─── WhatsApp popup (desde menú) ─── */
 
@@ -11995,8 +11997,8 @@ html body .store-container .store-product-card * {
     flex-direction: row; padding: 0;
     border-right: none; border-top: none;
     border-radius: 18px 18px 0 0;
-    background: #111;
-    box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+    background: #fff;
+    box-shadow: 0 -1px 0 rgba(0,0,0,0.08), 0 -4px 20px rgba(0,0,0,0.08);
     justify-content: space-around;
   }
   .isb-logo, .isb-store-wrap, .isb-divider, .isb-spacer { display: none; }
