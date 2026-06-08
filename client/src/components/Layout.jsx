@@ -487,7 +487,8 @@ function Layout() {
               onClick={() => setStoreDropdownOpen(p => !p)}
               title={selectedStore?.name || 'Seleccionar tienda'}
             >
-              <FontAwesomeIcon icon={faStore} />
+              <span className="isb-btn-icon"><FontAwesomeIcon icon={faStore} /></span>
+              <span className="isb-btn-label">Tienda</span>
               <span className="isb-tooltip">{selectedStore?.name || 'Tiendas'}</span>
             </button>
             {storeDropdownOpen && (
@@ -530,59 +531,67 @@ function Layout() {
                 title="Editor Tótem"
                 onClick={e => { if (isEditorMode) { e.preventDefault(); window.location.href = `/admin/editor/${selectedStore.code}?admin_edit=${token}`; } }}
               >
-                <FontAwesomeIcon icon={faTabletAlt} />
+                <span className="isb-btn-icon"><FontAwesomeIcon icon={faTabletAlt} /></span>
+                <span className="isb-btn-label">Editor</span>
                 <span className="isb-tooltip">Editor Tótem</span>
               </NavLink>
             ) : (
-              <button className="isb-btn" disabled style={{ opacity: 0.35, cursor: 'not-allowed' }} title="Editor Tótem">
-                <FontAwesomeIcon icon={faTabletAlt} />
-                <span className="isb-tooltip">Editor Tótem</span>
+              <button className="isb-btn" disabled style={{ opacity: 0.3, cursor: 'not-allowed' }}>
+                <span className="isb-btn-icon"><FontAwesomeIcon icon={faTabletAlt} /></span>
+                <span className="isb-btn-label">Editor</span>
               </button>
             )}
 
             {can('orders', 'view') && (
               <NavLink to="/admin/orders" className={({ isActive }) => `isb-btn${isActive ? ' active' : ''}`} title="Pedidos">
-                <FontAwesomeIcon icon={faShoppingBag} />
+                <span className="isb-btn-icon"><FontAwesomeIcon icon={faShoppingBag} /></span>
+                <span className="isb-btn-label">Pedidos</span>
                 <span className="isb-tooltip">Pedidos</span>
               </NavLink>
             )}
 
             {can('products', 'view') && (
               <NavLink to="/admin/products" className={({ isActive }) => `isb-btn${isActive ? ' active' : ''}`} title="Productos">
-                <FontAwesomeIcon icon={faBox} />
+                <span className="isb-btn-icon"><FontAwesomeIcon icon={faBox} /></span>
+                <span className="isb-btn-label">Productos</span>
                 <span className="isb-tooltip">Productos</span>
               </NavLink>
             )}
 
             {can('analytics', 'view') && (
               <NavLink to="/admin/analytics" className={({ isActive }) => `isb-btn${isActive ? ' active' : ''}`} title="Análisis">
-                <FontAwesomeIcon icon={faChartLine} />
+                <span className="isb-btn-icon"><FontAwesomeIcon icon={faChartLine} /></span>
+                <span className="isb-btn-label">Análisis</span>
                 <span className="isb-tooltip">Análisis</span>
               </NavLink>
             )}
           </div>
 
-          <div style={{ flex: 1 }} />
+          <div className="isb-spacer" />
 
           {/* Botones inferiores */}
           <div className="isb-bottom">
             <button
               className={`isb-btn${accountOpen ? ' active' : ''}`}
               onClick={() => { setAccountOpen(p => !p); setSettingsOpen(false); }}
-              title="Centro de Cuentas"
+              title="Mi Cuenta"
             >
-              <FontAwesomeIcon icon={faUser} />
-              {unreadUpdates > 0 && <span className="isb-badge">{unreadUpdates > 9 ? '9+' : unreadUpdates}</span>}
+              <span className="isb-btn-icon">
+                <FontAwesomeIcon icon={faUser} />
+                {unreadUpdates > 0 && <span className="isb-badge">{unreadUpdates > 9 ? '9+' : unreadUpdates}</span>}
+              </span>
+              <span className="isb-btn-label">Cuenta</span>
               <span className="isb-tooltip">Mi Cuenta</span>
             </button>
 
             <button
               className={`isb-btn${settingsOpen ? ' active' : ''}`}
               onClick={() => { setSettingsOpen(p => !p); setAccountOpen(false); }}
-              title="Menú completo"
+              title="Menú"
             >
-              <FontAwesomeIcon icon={faCog} />
-              <span className="isb-tooltip">Menú</span>
+              <span className="isb-btn-icon"><FontAwesomeIcon icon={faCog} /></span>
+              <span className="isb-btn-label">Menú</span>
+              <span className="isb-tooltip">Menú completo</span>
             </button>
           </div>
         </nav>
