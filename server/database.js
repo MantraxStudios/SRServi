@@ -2335,15 +2335,17 @@ export async function deleteAllIngredients(storeId) {
 }
 
 export async function getDuplicateComplementInfo(storeId) {
-  const [rows] = await pool.execute(
-    `SELECT name, 'ingredient' AS type, COUNT(*) AS count
-     FROM ingredients WHERE store_id = ? GROUP BY LOWER(name) HAVING COUNT(*) > 1
-     UNION ALL
-     SELECT name, 'extra' AS type, COUNT(*) AS count
-     FROM extras WHERE store_id = ? GROUP BY LOWER(name) HAVING COUNT(*) > 1`,
-    [storeId, storeId]
+  const [ingRows] = await pool.execute(
+    `SELECT name, 'ingredient' AS type, COUNT(*) AS cnt
+     FROM ingredients WHERE store_id = ? GROUP BY LOWER(name) HAVING COUNT(*) > 1`,
+    [storeId]
   );
-  return rows;
+  const [extRows] = await pool.execute(
+    `SELECT name, 'extra' AS type, COUNT(*) AS cnt
+     FROM extras WHERE store_id = ? GROUP BY LOWER(name) HAVING COUNT(*) > 1`,
+    [storeId]
+  );
+  return [...ingRows, ...extRows].map(r => ({ name: r.name, type: r.type, count: r.cnt }));
 }
 
 export async function deduplicateIngredients(storeId) {
