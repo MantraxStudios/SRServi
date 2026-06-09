@@ -11971,19 +11971,17 @@ html body .store-container .store-product-card * {
 .isb-attribution {
   display: none;
   position: fixed;
-  bottom: var(--isb-bottom-h);
-  left: 0; right: 0;
-  height: 22px;
-  background: linear-gradient(to bottom, transparent 0%, rgba(10,10,10,0.82) 100%);
-  z-index: 198;
+  bottom: 0; left: 0; right: 0;
+  height: 14px;
+  z-index: 601;
   align-items: center;
   justify-content: center;
   pointer-events: none;
 }
 .isb-attribution span {
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 500;
-  color: rgba(255,255,255,0.3);
+  color: rgba(0,0,0,0.22);
   letter-spacing: 0.4px;
   text-align: center;
 }
