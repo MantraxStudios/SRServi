@@ -3086,18 +3086,19 @@ function Store() {
     setCouponCodeInput('');
   }, [cart]);
 
-  const checkComplementDuplicates = (extrasData, ingredientsData) => {
-    const groups = {};
-    [...extrasData.map(e => ({ ...e, _type: 'extra' })), ...ingredientsData.map(i => ({ ...i, _type: 'ingredient' }))].forEach(item => {
-      const key = `${item._type}:${item.name.toLowerCase().trim()}`;
-      if (!groups[key]) groups[key] = { name: item.name, type: item._type, count: 0 };
-      groups[key].count++;
-    });
-    const dups = Object.values(groups).filter(g => g.count > 1);
-    if (dups.length > 0) {
-      setStoreDuplicateInfo(dups);
-      setShowStoreDuplicatesModal(true);
-    }
+  const checkComplementDuplicates = async () => {
+    if (!adminToken || !store?.store?.id) return;
+    try {
+      const res = await fetch(`/api/complements/duplicate-info?store_id=${store.store.id}`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (!res.ok) return;
+      const dups = await res.json();
+      if (Array.isArray(dups) && dups.length > 0) {
+        setStoreDuplicateInfo(dups);
+        setShowStoreDuplicatesModal(true);
+      }
+    } catch { /* ignore */ }
   };
 
   const handleStoreDeduplication = async () => {
@@ -4390,7 +4391,7 @@ function Store() {
             <button className={`store-editor-tab${editorTab === 'products' ? ' active' : ''}`} onClick={() => setEditorTab('products')}>
               <FontAwesomeIcon icon={faBox} /><span className="editor-tab-label">Productos</span>
             </button>
-            <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => { setEditorTab('complements'); checkComplementDuplicates(extras, ingredients); }}>
+            <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => { setEditorTab('complements'); checkComplementDuplicates(); }}>
               <FontAwesomeIcon icon={faPlus} /><span className="editor-tab-label">Complementos</span>
             </button>
             <button className={`store-editor-tab${editorTab === 'inventory' ? ' active' : ''}`} onClick={() => { setEditorTab('inventory'); setInvEditingId(null); }}>

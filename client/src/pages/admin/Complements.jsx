@@ -81,16 +81,16 @@ function Complements() {
       setItems(allItems);
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
 
-      const groups = {};
-      allItems.forEach(item => {
-        const key = `${item._type}:${item.name.toLowerCase().trim()}`;
-        if (!groups[key]) groups[key] = { name: item.name, type: item._type, count: 0 };
-        groups[key].count++;
+      const token2 = localStorage.getItem('token');
+      const dupRes = await fetch(`/api/complements/duplicate-info?store_id=${selectedStore.id}`, {
+        headers: { 'Authorization': `Bearer ${token2}` }
       });
-      const dups = Object.values(groups).filter(g => g.count > 1);
-      if (dups.length > 0) {
-        setDuplicateInfo(dups);
-        setShowDuplicatesModal(true);
+      if (dupRes.ok) {
+        const dups = await dupRes.json();
+        if (Array.isArray(dups) && dups.length > 0) {
+          setDuplicateInfo(dups);
+          setShowDuplicatesModal(true);
+        }
       }
     } catch (error) {
       console.error('Error fetching complements:', error);

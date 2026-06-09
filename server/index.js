@@ -51,6 +51,7 @@ import {
   createIngredient,
   updateIngredient,
   setIngredientActive,
+  getDuplicateComplementInfo,
   deleteIngredient,
   deleteAllIngredients,
   deduplicateIngredients,
@@ -4542,6 +4543,19 @@ app.put('/api/ingredients/:id', authenticateToken, upload.single('image'), async
     req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { product_id: parseInt(req.params.id), stock: ingredient.stock, unlimited_stock: ingredient.unlimited_stock });
     emitProductUpdate(parseInt(store_id), 'ingredient_updated', ingredient);
     res.json(ingredient);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/complements/duplicate-info', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const duplicates = await getDuplicateComplementInfo(parseInt(store_id));
+    res.json(duplicates);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

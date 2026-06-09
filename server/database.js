@@ -2334,8 +2334,21 @@ export async function deleteAllIngredients(storeId) {
   return result.affectedRows;
 }
 
+export async function getDuplicateComplementInfo(storeId) {
+  const [rows] = await pool.execute(
+    `SELECT name, 'ingredient' AS type, COUNT(*) AS count
+     FROM ingredients WHERE store_id = ? GROUP BY LOWER(name) HAVING COUNT(*) > 1
+     UNION ALL
+     SELECT name, 'extra' AS type, COUNT(*) AS count
+     FROM extras WHERE store_id = ? GROUP BY LOWER(name) HAVING COUNT(*) > 1`,
+    [storeId, storeId]
+  );
+  return rows;
+}
+
 export async function deduplicateIngredients(storeId) {
-  const [result] = await pool.execute(
+  // Shared duplicates (owner_product_id IS NULL)
+  await pool.execute(
     `DELETE FROM ingredients
      WHERE store_id = ? AND owner_product_id IS NULL
      AND id NOT IN (
@@ -2343,6 +2356,19 @@ export async function deduplicateIngredients(storeId) {
          SELECT MIN(id) AS min_id FROM ingredients
          WHERE store_id = ? AND owner_product_id IS NULL
          GROUP BY LOWER(name)
+       ) AS t
+     )`,
+    [storeId, storeId]
+  );
+  // Private duplicates (same product + same name, keep oldest)
+  const [result] = await pool.execute(
+    `DELETE FROM ingredients
+     WHERE store_id = ? AND owner_product_id IS NOT NULL
+     AND id NOT IN (
+       SELECT min_id FROM (
+         SELECT MIN(id) AS min_id FROM ingredients
+         WHERE store_id = ? AND owner_product_id IS NOT NULL
+         GROUP BY owner_product_id, LOWER(name)
        ) AS t
      )`,
     [storeId, storeId]
@@ -2415,7 +2441,8 @@ export async function deleteAllExtras(storeId) {
 }
 
 export async function deduplicateExtras(storeId) {
-  const [result] = await pool.execute(
+  // Shared duplicates
+  await pool.execute(
     `DELETE FROM extras
      WHERE store_id = ? AND owner_product_id IS NULL
      AND id NOT IN (
@@ -2423,6 +2450,19 @@ export async function deduplicateExtras(storeId) {
          SELECT MIN(id) AS min_id FROM extras
          WHERE store_id = ? AND owner_product_id IS NULL
          GROUP BY LOWER(name)
+       ) AS t
+     )`,
+    [storeId, storeId]
+  );
+  // Private duplicates
+  const [result] = await pool.execute(
+    `DELETE FROM extras
+     WHERE store_id = ? AND owner_product_id IS NOT NULL
+     AND id NOT IN (
+       SELECT min_id FROM (
+         SELECT MIN(id) AS min_id FROM extras
+         WHERE store_id = ? AND owner_product_id IS NOT NULL
+         GROUP BY owner_product_id, LOWER(name)
        ) AS t
      )`,
     [storeId, storeId]
