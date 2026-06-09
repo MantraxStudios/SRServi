@@ -554,7 +554,7 @@ function Layout() {
 
           <div className="isb-divider" />
 
-          {/* Navegación principal — solo 2 ítems para tener 4 en total con Cuenta y Menú */}
+          {/* Navegación principal: Editor + Vincular POS + Trabajadores */}
           <div className="isb-nav">
             {selectedStore ? (
               <NavLink
@@ -574,32 +574,25 @@ function Layout() {
               </button>
             )}
 
-            {can('orders', 'view') && (
-              <NavLink to="/admin/orders" className={({ isActive }) => `isb-btn${isActive ? ' active' : ''}`} title="Pedidos">
-                <span className="isb-btn-icon"><FontAwesomeIcon icon={faShoppingBag} /></span>
-                <span className="isb-btn-label">Pedidos</span>
-                <span className="isb-tooltip">Pedidos</span>
+            <NavLink to="/admin/mercado-pago-points" className={({ isActive }) => `isb-btn${isActive ? ' active' : ''}`} title="Vincular POS">
+              <span className="isb-btn-icon"><FontAwesomeIcon icon={faCreditCard} /></span>
+              <span className="isb-btn-label">Vincular POS</span>
+              <span className="isb-tooltip">Vincular POS</span>
+            </NavLink>
+
+            {can('workers', 'view') && (
+              <NavLink to="/admin/workers" className={({ isActive }) => `isb-btn${isActive ? ' active' : ''}`} title="Trabajadores">
+                <span className="isb-btn-icon"><FontAwesomeIcon icon={faUsers} /></span>
+                <span className="isb-btn-label">Trabajadores</span>
+                <span className="isb-tooltip">Trabajadores</span>
               </NavLink>
             )}
           </div>
 
           <div className="isb-spacer" />
 
-          {/* Botones inferiores: solo Cuenta y Menú */}
+          {/* Botón inferior: solo Menú */}
           <div className="isb-bottom">
-            <button
-              className={`isb-btn${accountOpen ? ' active' : ''}`}
-              onClick={() => { setAccountOpen(p => !p); setSettingsOpen(false); setWhatsappOpen(false); }}
-              title="Mi Cuenta"
-            >
-              <span className="isb-btn-icon">
-                <FontAwesomeIcon icon={faUser} />
-                {unreadUpdates > 0 && <span className="isb-badge">{unreadUpdates > 9 ? '9+' : unreadUpdates}</span>}
-              </span>
-              <span className="isb-btn-label">Cuenta</span>
-              <span className="isb-tooltip">Mi Cuenta</span>
-            </button>
-
             <button
               className={`isb-btn${settingsOpen ? ' active' : ''}`}
               onClick={() => { setSettingsOpen(p => !p); setAccountOpen(false); setWhatsappOpen(false); }}
@@ -664,6 +657,19 @@ function Layout() {
             </div>
 
             <div className="isb-fp-body">
+
+              {/* Cuenta y Pedidos */}
+              <div className="isb-fp-sec">
+                <button className="isb-fp-link" onClick={() => { setAccountOpen(true); setSettingsOpen(false); }}>
+                  <FontAwesomeIcon icon={faUser} /> Mi Cuenta
+                  {unreadUpdates > 0 && <span style={{ marginLeft: 6, background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 8 }}>{unreadUpdates}</span>}
+                </button>
+                {can('orders', 'view') && (
+                  <NavLink to="/admin/orders" className="isb-fp-link" onClick={() => setSettingsOpen(false)}>
+                    <FontAwesomeIcon icon={faShoppingBag} /> Pedidos
+                  </NavLink>
+                )}
+              </div>
 
               {/* Accesos rápidos */}
               <div className="isb-fp-sec">
