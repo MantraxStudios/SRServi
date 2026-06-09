@@ -3974,9 +3974,9 @@ function Store() {
               body: JSON.stringify({ ...getAuthBody(), private: false })
             });
           } else {
-            // Sincronizar asociaciones (selección + nuevos)
-            const allIngIds = [...selectedIngredientIds, ...newIngIds];
-            const allExtIds = [...selectedExtraIds, ...newExtIds];
+            // Sincronizar asociaciones (selección + nuevos), deduplicando IDs
+            const allIngIds = [...new Set([...selectedIngredientIds, ...newIngIds].map(Number))];
+            const allExtIds = [...new Set([...selectedExtraIds, ...newExtIds].map(Number))];
             await fetch(`/api/public/${code}/products/${targetId}/complements`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },

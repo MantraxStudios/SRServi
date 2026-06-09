@@ -2398,12 +2398,18 @@ export async function setProductComplementsPrivate(productId, storeId, isPrivate
     await pool.execute('DELETE FROM product_ingredients WHERE product_id = ?', [productId]);
     for (const ing of pings) {
       let id = ing.id;
-      if (ing.owner_product_id !== productId) {
+      if (ing.owner_product_id === productId) {
+        // Already this product's private copy — use as-is
+      } else if (ing.owner_product_id === null || ing.owner_product_id === undefined) {
+        // Shared ingredient — create a private copy
         const [r] = await pool.execute(
           'INSERT INTO ingredients (store_id, user_id, name, price, category_id, image, stock, unlimited_stock, stock_unit, is_active, owner_product_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [storeId, ing.user_id || null, ing.name, ing.price || 0, ing.category_id || null, ing.image || null, ing.stock || 0, ing.unlimited_stock || 0, ing.stock_unit || 'unidades', ing.is_active == null ? 1 : ing.is_active, productId]
         );
         id = r.insertId;
+      } else {
+        // Belongs to another product's private list — skip, don't copy
+        continue;
       }
       await pool.execute('INSERT INTO product_ingredients (product_id, ingredient_id, included_by_default) VALUES (?, ?, ?)', [productId, id, ing.included_by_default ? 1 : 0]);
     }
@@ -2415,12 +2421,18 @@ export async function setProductComplementsPrivate(productId, storeId, isPrivate
     await pool.execute('DELETE FROM product_extras WHERE product_id = ?', [productId]);
     for (const ext of pexts) {
       let id = ext.id;
-      if (ext.owner_product_id !== productId) {
+      if (ext.owner_product_id === productId) {
+        // Already this product's private copy — use as-is
+      } else if (ext.owner_product_id === null || ext.owner_product_id === undefined) {
+        // Shared extra — create a private copy
         const [r] = await pool.execute(
           'INSERT INTO extras (store_id, user_id, name, price, category_id, image, stock, unlimited_stock, stock_unit, is_active, owner_product_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [storeId, ext.user_id || null, ext.name, ext.price || 0, ext.category_id || null, ext.image || null, ext.stock || 0, ext.unlimited_stock || 0, ext.stock_unit || 'unidades', ext.is_active == null ? 1 : ext.is_active, productId]
         );
         id = r.insertId;
+      } else {
+        // Belongs to another product's private list — skip, don't copy
+        continue;
       }
       await pool.execute('INSERT INTO product_extras (product_id, extra_id) VALUES (?, ?)', [productId, id]);
     }

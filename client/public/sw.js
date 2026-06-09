@@ -14,7 +14,7 @@ self.addEventListener('fetch', e => {
     caches.open(CACHE).then(cache =>
       cache.match(e.request).then(cached => {
         const fresh = fetch(e.request).then(res => {
-          if (res.ok) cache.put(e.request, res.clone());
+          if (res.ok && res.status !== 206) cache.put(e.request, res.clone());
           return res;
         }).catch(() => cached);
         return cached || fresh;

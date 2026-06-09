@@ -2339,9 +2339,9 @@ app.get('/api/public/:code/products/:id/complements', async (req, res) => {
       });
     }
 
-    // Not yet configured — return all store ingredients/extras so editor shows all selected
-    const [ings] = await pool.execute('SELECT id FROM ingredients WHERE store_id = ?', [store_id]);
-    const [exts] = await pool.execute('SELECT id FROM extras WHERE store_id = ?', [store_id]);
+    // Not yet configured — return only shared (non-private) ingredients/extras so editor shows all selected
+    const [ings] = await pool.execute('SELECT id FROM ingredients WHERE store_id = ? AND (owner_product_id IS NULL)', [store_id]);
+    const [exts] = await pool.execute('SELECT id FROM extras WHERE store_id = ? AND (owner_product_id IS NULL)', [store_id]);
     res.json({ ingredient_ids: ings.map(r => r.id), extra_ids: exts.map(r => r.id) });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
