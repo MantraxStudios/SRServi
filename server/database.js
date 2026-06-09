@@ -2335,17 +2335,43 @@ export async function deleteAllIngredients(storeId) {
 }
 
 export async function getDuplicateComplementInfo(storeId) {
-  const [ingRows] = await pool.execute(
+  // Compartidos duplicados (owner IS NULL, mismo nombre, más de uno)
+  const [ingShared] = await pool.execute(
     `SELECT MIN(name) AS name, 'ingredient' AS type, COUNT(*) AS cnt
-     FROM ingredients WHERE store_id = ? GROUP BY LOWER(name) HAVING COUNT(*) > 1`,
+     FROM ingredients WHERE store_id = ? AND owner_product_id IS NULL
+     GROUP BY LOWER(name) HAVING COUNT(*) > 1`,
     [storeId]
   );
-  const [extRows] = await pool.execute(
+  const [extShared] = await pool.execute(
     `SELECT MIN(name) AS name, 'extra' AS type, COUNT(*) AS cnt
-     FROM extras WHERE store_id = ? GROUP BY LOWER(name) HAVING COUNT(*) > 1`,
+     FROM extras WHERE store_id = ? AND owner_product_id IS NULL
+     GROUP BY LOWER(name) HAVING COUNT(*) > 1`,
     [storeId]
   );
-  return [...ingRows, ...extRows].map(r => ({ name: r.name, type: r.type, count: Number(r.cnt) }));
+  // Privados duplicados (mismo producto + mismo nombre, más de uno)
+  const [ingPrivate] = await pool.execute(
+    `SELECT MIN(name) AS name, 'ingredient' AS type, COUNT(*) AS cnt
+     FROM ingredients WHERE store_id = ? AND owner_product_id IS NOT NULL
+     GROUP BY owner_product_id, LOWER(name) HAVING COUNT(*) > 1`,
+    [storeId]
+  );
+  const [extPrivate] = await pool.execute(
+    `SELECT MIN(name) AS name, 'extra' AS type, COUNT(*) AS cnt
+     FROM extras WHERE store_id = ? AND owner_product_id IS NOT NULL
+     GROUP BY owner_product_id, LOWER(name) HAVING COUNT(*) > 1`,
+    [storeId]
+  );
+  // Combinar, sin repetir mismo nombre+tipo
+  const seen = new Set();
+  const result = [];
+  for (const r of [...ingShared, ...extShared, ...ingPrivate, ...extPrivate]) {
+    const key = `${r.type}:${r.name.toLowerCase()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push({ name: r.name, type: r.type, count: Number(r.cnt) });
+    }
+  }
+  return result;
 }
 
 export async function deduplicateIngredients(storeId) {
