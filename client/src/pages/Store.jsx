@@ -6711,7 +6711,7 @@ function Store() {
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <div style={{ flex: 1, display: 'flex' }}>
                       <button
-                        onClick={() => { setComplementsTab('complements'); setShowComplementsModal(true); }}
+                        onClick={() => { setComplementsTab('complements'); setShowComplementsModal(true); checkComplementDuplicates(); }}
                         style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: '600', borderRadius: '8px 0 0 8px', border: '2px solid var(--store-primary)', borderRight: 'none', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
                       >
                         {complementsLabel} {selectedIngredientIds.length > 0 && <span style={{ fontSize: '11px', opacity: 0.7 }}>({selectedIngredientIds.length})</span>}
@@ -6726,7 +6726,7 @@ function Store() {
                     </div>
                     <div style={{ flex: 1, display: 'flex' }}>
                       <button
-                        onClick={() => { setComplementsTab('extras'); setShowComplementsModal(true); }}
+                        onClick={() => { setComplementsTab('extras'); setShowComplementsModal(true); checkComplementDuplicates(); }}
                         style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: '600', borderRadius: '8px 0 0 8px', border: '2px solid var(--store-primary)', borderRight: 'none', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
                       >
                         {extrasLabel} {selectedExtraIds.length > 0 && <span style={{ fontSize: '11px', opacity: 0.7 }}>({selectedExtraIds.length})</span>}
