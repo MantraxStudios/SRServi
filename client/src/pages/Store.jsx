@@ -1006,6 +1006,9 @@ function Store() {
   const [newOrderCount, setNewOrderCount] = useState(0);
   const [extras, setExtras] = useState([]);
   const [ingredients, setIngredients] = useState([]);
+  const [showStoreDuplicatesModal, setShowStoreDuplicatesModal] = useState(false);
+  const [storeDuplicateInfo, setStoreDuplicateInfo] = useState([]);
+  const [storeDeduplicating, setStoreDeduplicating] = useState(false);
   const [complementModal, setComplementModal] = useState(null);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [restartingSending, setRestartingSending] = useState(false);
@@ -3083,6 +3086,45 @@ function Store() {
     setCouponCodeInput('');
   }, [cart]);
 
+  const checkComplementDuplicates = (extrasData, ingredientsData) => {
+    const groups = {};
+    [...extrasData.map(e => ({ ...e, _type: 'extra' })), ...ingredientsData.map(i => ({ ...i, _type: 'ingredient' }))].forEach(item => {
+      const key = `${item._type}:${item.name.toLowerCase().trim()}`;
+      if (!groups[key]) groups[key] = { name: item.name, type: item._type, count: 0 };
+      groups[key].count++;
+    });
+    const dups = Object.values(groups).filter(g => g.count > 1);
+    if (dups.length > 0) {
+      setStoreDuplicateInfo(dups);
+      setShowStoreDuplicatesModal(true);
+    }
+  };
+
+  const handleStoreDeduplication = async () => {
+    if (!adminToken || !store?.store?.id) return;
+    setStoreDeduplicating(true);
+    try {
+      const storeId = store.store.id;
+      await Promise.all([
+        fetch(`/api/ingredients/duplicates?store_id=${storeId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        }),
+        fetch(`/api/extras/duplicates?store_id=${storeId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        })
+      ]);
+      setShowStoreDuplicatesModal(false);
+      setStoreDuplicateInfo([]);
+      await fetchComplements();
+    } catch (err) {
+      alert('Error al eliminar duplicados: ' + err.message);
+    } finally {
+      setStoreDeduplicating(false);
+    }
+  };
+
   const fetchComplements = async () => {
     try {
       const [exRes, inRes, grRes] = await Promise.all([
@@ -4348,7 +4390,7 @@ function Store() {
             <button className={`store-editor-tab${editorTab === 'products' ? ' active' : ''}`} onClick={() => setEditorTab('products')}>
               <FontAwesomeIcon icon={faBox} /><span className="editor-tab-label">Productos</span>
             </button>
-            <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => setEditorTab('complements')}>
+            <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => { setEditorTab('complements'); checkComplementDuplicates(extras, ingredients); }}>
               <FontAwesomeIcon icon={faPlus} /><span className="editor-tab-label">Complementos</span>
             </button>
             <button className={`store-editor-tab${editorTab === 'inventory' ? ' active' : ''}`} onClick={() => { setEditorTab('inventory'); setInvEditingId(null); }}>
@@ -8276,6 +8318,63 @@ function Store() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showStoreDuplicatesModal && (
+        <div className="store-modal-overlay" onClick={() => setShowStoreDuplicatesModal(false)}>
+          <div className="store-prod-modal" style={{ maxWidth: 460, padding: 0, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, color: 'var(--store-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 20 }}>⚠️</span> Duplicados detectados
+              </h3>
+              <button onClick={() => setShowStoreDuplicatesModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
+            </div>
+            <div style={{ padding: '16px 20px' }}>
+              <p style={{ marginBottom: 12, color: '#374151', fontSize: 14 }}>
+                Detectamos <strong>{storeDuplicateInfo.reduce((s, d) => s + d.count - 1, 0)}</strong> elemento(s) duplicado(s) en tu tienda. ¿Deseas eliminar los duplicados?
+              </p>
+              <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 6, marginBottom: 14 }}>
+                <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                      <th style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 600 }}>Nombre</th>
+                      <th style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 600 }}>Tipo</th>
+                      <th style={{ padding: '6px 12px', textAlign: 'center', fontWeight: 600 }}>Copias</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {storeDuplicateInfo.map((d, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '5px 12px' }}>{d.name}</td>
+                        <td style={{ padding: '5px 12px', color: '#6b7280' }}>{d.type === 'extra' ? 'Extra' : 'Ingrediente'}</td>
+                        <td style={{ padding: '5px 12px', textAlign: 'center', color: '#ef4444', fontWeight: 700 }}>{d.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>
+                Se conservará una copia de cada nombre y se eliminarán las demás.
+              </p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setShowStoreDuplicatesModal(false)}
+                  disabled={storeDeduplicating}
+                  style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
+                >
+                  Ignorar
+                </button>
+                <button
+                  onClick={handleStoreDeduplication}
+                  disabled={storeDeduplicating}
+                  style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}
+                >
+                  {storeDeduplicating ? 'Eliminando...' : 'Eliminar duplicados'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
