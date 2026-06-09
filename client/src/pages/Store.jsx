@@ -3092,13 +3092,14 @@ function Store() {
       const res = await fetch(`/api/complements/duplicate-info?store_id=${store.store.id}`, {
         headers: { 'Authorization': `Bearer ${adminToken}` }
       });
+      const data = await res.json();
+      console.log('[duplicates] status:', res.status, 'data:', data);
       if (!res.ok) return;
-      const dups = await res.json();
-      if (Array.isArray(dups) && dups.length > 0) {
-        setStoreDuplicateInfo(dups);
+      if (Array.isArray(data) && data.length > 0) {
+        setStoreDuplicateInfo(data);
         setShowStoreDuplicatesModal(true);
       }
-    } catch { /* ignore */ }
+    } catch (e) { console.error('[duplicates] fetch error:', e); }
   };
 
   const handleStoreDeduplication = async () => {

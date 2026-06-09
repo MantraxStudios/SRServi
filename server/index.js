@@ -4555,8 +4555,10 @@ app.get('/api/complements/duplicate-info', authenticateToken, async (req, res) =
     const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
     if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     const duplicates = await getDuplicateComplementInfo(parseInt(store_id));
+    console.log(`[duplicate-info] store=${store_id} found=${duplicates.length}`, duplicates);
     res.json(duplicates);
   } catch (error) {
+    console.error('[duplicate-info] error:', error);
     res.status(500).json({ error: error.message });
   }
 });
