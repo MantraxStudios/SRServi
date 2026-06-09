@@ -52,11 +52,15 @@ import {
   updateIngredient,
   setIngredientActive,
   deleteIngredient,
+  deleteAllIngredients,
+  deduplicateIngredients,
   getExtras,
   createExtra,
   updateExtra,
   setExtraActive,
   deleteExtra,
+  deleteAllExtras,
+  deduplicateExtras,
   setProductComplementsPrivate,
   getStoreConfigurations,
   getStoreConfigurationById,
@@ -4543,6 +4547,34 @@ app.put('/api/ingredients/:id', authenticateToken, upload.single('image'), async
   }
 });
 
+app.delete('/api/ingredients/all', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const deleted = await deleteAllIngredients(parseInt(store_id));
+    emitProductUpdate(parseInt(store_id), 'ingredients_deleted_all', {});
+    res.json({ success: true, deleted });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/ingredients/duplicates', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const deleted = await deduplicateIngredients(parseInt(store_id));
+    emitProductUpdate(parseInt(store_id), 'ingredients_deduplicated', {});
+    res.json({ success: true, deleted });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.delete('/api/ingredients/:id', authenticateToken, async (req, res) => {
   try {
     const { store_id } = req.query;
@@ -4661,6 +4693,34 @@ app.put('/api/extras/:id', authenticateToken, upload.single('image'), async (req
     req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { product_id: parseInt(req.params.id), stock: extra.stock, unlimited_stock: extra.unlimited_stock });
     emitProductUpdate(parseInt(store_id), 'extra_updated', extra);
     res.json(extra);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/extras/all', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const deleted = await deleteAllExtras(parseInt(store_id));
+    emitProductUpdate(parseInt(store_id), 'extras_deleted_all', {});
+    res.json({ success: true, deleted });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/extras/duplicates', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.query;
+    if (!store_id) return res.status(400).json({ error: 'store_id es requerido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const deleted = await deduplicateExtras(parseInt(store_id));
+    emitProductUpdate(parseInt(store_id), 'extras_deduplicated', {});
+    res.json({ success: true, deleted });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

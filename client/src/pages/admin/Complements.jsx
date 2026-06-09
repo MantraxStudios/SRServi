@@ -37,6 +37,9 @@ function Complements() {
     type: 'ingredient'
   });
   const [error, setError] = useState('');
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState([]);
+  const [deduplicating, setDeduplicating] = useState(false);
   const recipeEditorRef = useRef(null);
 
   useEffect(() => {
@@ -73,9 +76,22 @@ function Complements() {
 
       const ingredients = (Array.isArray(ingredientsData) ? ingredientsData : []).map(i => ({ ...i, _type: 'ingredient' }));
       const extras = (Array.isArray(extrasData) ? extrasData : []).map(e => ({ ...e, _type: 'extra' }));
+      const allItems = [...ingredients, ...extras];
 
-      setItems([...ingredients, ...extras]);
+      setItems(allItems);
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+
+      const groups = {};
+      allItems.forEach(item => {
+        const key = `${item._type}:${item.name.toLowerCase().trim()}`;
+        if (!groups[key]) groups[key] = { name: item.name, type: item._type, count: 0 };
+        groups[key].count++;
+      });
+      const dups = Object.values(groups).filter(g => g.count > 1);
+      if (dups.length > 0) {
+        setDuplicateInfo(dups);
+        setShowDuplicatesModal(true);
+      }
     } catch (error) {
       console.error('Error fetching complements:', error);
     }
@@ -184,6 +200,49 @@ function Complements() {
       fetchAll();
     } catch (error) {
       alert(error.message);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    const label = activeTab === 'extra' ? 'extras' : 'ingredientes';
+    const count = filteredItems.length;
+    if (!confirm(`¿Seguro que quieres eliminar TODOS los ${label} (${count} en total)? Esta acción no se puede deshacer.`)) return;
+
+    const apiBase = activeTab === 'extra' ? '/api/extras' : '/api/ingredients';
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiBase}/all?store_id=${selectedStore.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Error al eliminar');
+      setItems(prev => prev.filter(i => i._type !== activeTab));
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  const handleDeduplication = async () => {
+    setDeduplicating(true);
+    try {
+      const token = localStorage.getItem('token');
+      await Promise.all([
+        fetch(`/api/ingredients/duplicates?store_id=${selectedStore.id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`/api/extras/duplicates?store_id=${selectedStore.id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      ]);
+      setShowDuplicatesModal(false);
+      setDuplicateInfo([]);
+      await fetchAll();
+    } catch (err) {
+      alert('Error al eliminar duplicados: ' + err.message);
+    } finally {
+      setDeduplicating(false);
     }
   };
 
@@ -316,10 +375,18 @@ function Complements() {
     <>
       <header className="admin-header">
         <h1>Complementos</h1>
-        <button className="btn btn-primary" onClick={openModal}>
-          <FontAwesomeIcon icon={faPlus} />
-          Nuevo
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {filteredItems.length > 0 && (
+            <button className="btn btn-danger" onClick={handleDeleteAll}>
+              <FontAwesomeIcon icon={faTrash} />
+              Borrar todos
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={openModal}>
+            <FontAwesomeIcon icon={faPlus} />
+            Nuevo
+          </button>
+        </div>
       </header>
       <div className="admin-main">
         {error && <div className="error">{error}</div>}
@@ -550,6 +617,64 @@ function Complements() {
                 {editingItem ? 'Actualizar' : 'Crear'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDuplicatesModal && (
+        <div className="modal-overlay" onClick={() => setShowDuplicatesModal(false)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 20 }}>⚠️</span>
+                Duplicados detectados
+              </h2>
+              <button className="modal-close" onClick={() => setShowDuplicatesModal(false)}>&times;</button>
+            </div>
+            <div style={{ padding: '16px 20px' }}>
+              <p style={{ marginBottom: 12, color: '#374151' }}>
+                Detectamos <strong>{duplicateInfo.reduce((s, d) => s + d.count - 1, 0)}</strong> elemento(s) duplicado(s) en tu tienda. ¿Deseas eliminar los duplicados?
+              </p>
+              <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 6, marginBottom: 16 }}>
+                <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                      <th style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 600 }}>Nombre</th>
+                      <th style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 600 }}>Tipo</th>
+                      <th style={{ padding: '6px 12px', textAlign: 'center', fontWeight: 600 }}>Copias</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {duplicateInfo.map((d, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '5px 12px' }}>{d.name}</td>
+                        <td style={{ padding: '5px 12px', color: '#6b7280' }}>{d.type === 'extra' ? 'Extra' : 'Ingrediente'}</td>
+                        <td style={{ padding: '5px 12px', textAlign: 'center', color: '#ef4444', fontWeight: 700 }}>{d.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>
+                Se conservará una copia de cada nombre y se eliminarán las demás.
+              </p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowDuplicatesModal(false)}
+                  disabled={deduplicating}
+                >
+                  Ignorar
+                </button>
+                <button
+                  className="btn btn-danger"
+                  onClick={handleDeduplication}
+                  disabled={deduplicating}
+                >
+                  {deduplicating ? 'Eliminando...' : 'Eliminar duplicados'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

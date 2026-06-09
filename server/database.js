@@ -2325,6 +2325,31 @@ export async function deleteIngredient(ingredientId, storeId) {
   return true;
 }
 
+export async function deleteAllIngredients(storeId) {
+  await pool.execute(
+    'DELETE FROM product_ingredients WHERE ingredient_id IN (SELECT id FROM ingredients WHERE store_id = ?)',
+    [storeId]
+  );
+  const [result] = await pool.execute('DELETE FROM ingredients WHERE store_id = ?', [storeId]);
+  return result.affectedRows;
+}
+
+export async function deduplicateIngredients(storeId) {
+  const [result] = await pool.execute(
+    `DELETE FROM ingredients
+     WHERE store_id = ? AND owner_product_id IS NULL
+     AND id NOT IN (
+       SELECT min_id FROM (
+         SELECT MIN(id) AS min_id FROM ingredients
+         WHERE store_id = ? AND owner_product_id IS NULL
+         GROUP BY LOWER(name)
+       ) AS t
+     )`,
+    [storeId, storeId]
+  );
+  return result.affectedRows;
+}
+
 export async function getExtras(storeId) {
   const [rows] = await pool.execute(
     `SELECT e.*, c.name AS category_name FROM extras e
@@ -2378,6 +2403,32 @@ export async function deleteExtra(extraId, storeId) {
     [extraId, storeId]
   );
   return true;
+}
+
+export async function deleteAllExtras(storeId) {
+  await pool.execute(
+    'DELETE FROM product_extras WHERE extra_id IN (SELECT id FROM extras WHERE store_id = ?)',
+    [storeId]
+  );
+  const [result] = await pool.execute('DELETE FROM extras WHERE store_id = ?', [storeId]);
+  return result.affectedRows;
+}
+
+export async function deduplicateExtras(storeId) {
+  const [result] = await pool.execute(
+    `DELETE FROM extras
+     WHERE store_id = ? AND owner_product_id IS NULL
+     AND id NOT IN (
+       SELECT min_id FROM (
+         SELECT MIN(id) AS min_id FROM extras
+         WHERE store_id = ? AND owner_product_id IS NULL
+         GROUP BY LOWER(name)
+       ) AS t
+     )`,
+    [storeId, storeId]
+  );
+  return result.affectedRows;
+}
 }
 
 /**
