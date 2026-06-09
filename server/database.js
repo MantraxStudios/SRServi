@@ -2429,7 +2429,6 @@ export async function deduplicateExtras(storeId) {
   );
   return result.affectedRows;
 }
-}
 
 /**
  * Lista única: al activar, clona los complementos vinculados del producto en copias
