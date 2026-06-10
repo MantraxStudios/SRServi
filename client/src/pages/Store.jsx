@@ -4315,16 +4315,16 @@ function Store() {
             <button className={`store-editor-tab${editorTab === 'products' ? ' active' : ''}`} onClick={() => setEditorTab('products')}>
               <FontAwesomeIcon icon={faBox} /><span className="editor-tab-label">Productos</span>
             </button>
-            <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => { setEditorTab('complements'); checkComplementDuplicates(); }}>
+            <button className={`store-editor-tab${editorTab === 'complements' ? ' active' : ''}`} onClick={() => { setEditorTab('complements'); checkComplementDuplicates(); }} style={{ display: 'none' }}>
               <FontAwesomeIcon icon={faPlus} /><span className="editor-tab-label">Complementos</span>
             </button>
-            <button className={`store-editor-tab${editorTab === 'inventory' ? ' active' : ''}`} onClick={() => { setEditorTab('inventory'); setInvEditingId(null); }}>
+            <button className={`store-editor-tab${editorTab === 'inventory' ? ' active' : ''}`} onClick={() => { setEditorTab('inventory'); setInvEditingId(null); }} style={{ display: 'none' }}>
               <FontAwesomeIcon icon={faInfinity} /><span className="editor-tab-label">Inventario</span>
             </button>
             <button
               className={`store-editor-tab${editorTab === 'orders' ? ' active' : ''}`}
               onClick={() => { setEditorTab('orders'); setNewOrderCount(0); }}
-              style={{ position: 'relative' }}
+              style={{ position: 'relative', display: 'none' }}
             >
               <FontAwesomeIcon icon={faShoppingCart} /><span className="editor-tab-label">Pedidos</span>
               {newOrderCount > 0 && (
