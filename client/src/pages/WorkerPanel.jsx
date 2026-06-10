@@ -1638,38 +1638,35 @@ function WorkerPanel() {
                   </div>
                   {/* ── Botones de acción ── */}
                   <div
+                    className="worker-order-actions"
                     onPointerDown={e => e.stopPropagation()}
                     onClick={e => e.stopPropagation()}
-                    style={{ display: 'flex', gap: 6, marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}
                   >
-                    {/* Reimprimir — icono cuadrado */}
+                    {/* Reimprimir — icono cuadrado (con etiqueta en móvil) */}
                     <button
                       onClick={() => reprintOrder(order.id)}
                       disabled={reprintingIds.has(order.id)}
                       title="Reimprimir"
+                      className="woa-btn woa-reprint"
                       style={{
-                        width: 40, height: 40, borderRadius: 10, flexShrink: 0,
                         background: reprintedIds.has(order.id) ? 'rgba(34,197,94,0.15)' : '#1c1c1c',
                         border: `1px solid ${reprintedIds.has(order.id) ? 'rgba(34,197,94,0.5)' : '#2e2e2e'}`,
                         color: reprintedIds.has(order.id) ? '#22c55e' : '#777',
                         cursor: reprintingIds.has(order.id) ? 'not-allowed' : 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 15, touchAction: 'manipulation', transition: 'all 0.18s'
                       }}
                     >
                       <FontAwesomeIcon icon={reprintedIds.has(order.id) ? faCheck : faPrint} spin={reprintingIds.has(order.id)} />
+                      <span className="woa-reprint-label">{reprintedIds.has(order.id) ? 'Enviado' : 'Reimprimir'}</span>
                     </button>
 
                     {/* Pedido Tomado — solo cuando está pendiente */}
                     {order.status === 'pending' && (
                       <button
                         onClick={() => updateOrderStatus(order.id, 'preparing')}
+                        className="woa-btn woa-take"
                         style={{
-                          flex: 1, height: 40, borderRadius: 10,
                           background: 'rgba(245,158,11,0.13)', border: '1px solid rgba(245,158,11,0.3)',
-                          color: '#f59e0b', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                          touchAction: 'manipulation'
+                          color: '#f59e0b',
                         }}
                       >
                         <FontAwesomeIcon icon={faBox} /> Pedido Tomado
@@ -1680,12 +1677,10 @@ function WorkerPanel() {
                     {(order.status === 'preparing' || order.status === 'ready') && (
                       <button
                         onClick={() => updateOrderStatus(order.id, 'pending')}
+                        className="woa-btn woa-take"
                         style={{
-                          flex: 1, height: 40, borderRadius: 10,
                           background: '#1c1c1c', border: '1px solid #2e2e2e',
-                          color: '#888', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                          touchAction: 'manipulation'
+                          color: '#888',
                         }}
                       >
                         <FontAwesomeIcon icon={faClock} /> Pendiente
@@ -1695,13 +1690,10 @@ function WorkerPanel() {
                     {/* Completado — botón principal sólido */}
                     <button
                       onClick={() => updateOrderStatus(order.id, 'completed')}
+                      className="woa-btn woa-complete"
                       style={{
-                        flex: 2, height: 40, borderRadius: 10,
                         background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
-                        border: 'none', color: '#fff',
-                        fontSize: 13, fontWeight: 800, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                        boxShadow: '0 2px 8px rgba(22,163,74,0.25)', touchAction: 'manipulation'
+                        boxShadow: '0 2px 8px rgba(22,163,74,0.25)',
                       }}
                     >
                       <FontAwesomeIcon icon={faCheck} /> Completado

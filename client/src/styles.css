@@ -4548,12 +4548,61 @@ html body .store-container .store-product-card * {
   transition: all var(--transition);
   border: 1px solid rgba(0,0,0,0.08);
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .worker-order-card:hover {
   border-color: rgba(212,175,55,0.3);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+/* ── Fila de acciones de la tarjeta de pedido ── */
+.worker-order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0,0,0,0.08);
+}
+
+.woa-btn {
+  height: 40px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition: all 0.18s;
+}
+
+.woa-reprint {
+  flex: 0 0 40px;
+  width: 40px;
+  font-size: 15px;
+}
+
+.woa-reprint-label { display: none; }
+
+.woa-take {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.woa-complete {
+  flex: 2 1 auto;
+  min-width: 0;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .worker-order-header {
@@ -5974,7 +6023,7 @@ html body .store-container .store-product-card * {
   }
 
   .worker-orders-list:not(.tasks-list) {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-2);
   }
 
@@ -5988,6 +6037,28 @@ html body .store-container .store-product-card * {
 
   .worker-order-number {
     font-size: 14px;
+  }
+
+  /* En móvil las tarjetas son angostas (2 por fila): apilamos los botones
+     a todo el ancho para que no se aprieten ni se salgan de la tarjeta. */
+  .worker-order-actions {
+    flex-direction: column;
+  }
+
+  .worker-order-actions .woa-btn {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
+  .woa-reprint {
+    height: 38px;
+    font-size: 13px;
+  }
+
+  .woa-reprint-label {
+    display: inline;
+    font-size: 12px;
+    font-weight: 700;
   }
 }
 
@@ -10595,7 +10666,7 @@ html body .store-container .store-product-card * {
   .worker-cash-btn       { padding: 0 12px; }
   .worker-header-tools .worker-header-icon-btn { width: 32px; height: 32px; }
 
-  .worker-orders-list    { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .worker-orders-list    { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .worker-order-card     { padding: 12px 14px; }
   .worker-order-number   { font-size: 15px; }
   .worker-order-total    { font-size: 18px; }
@@ -10618,7 +10689,7 @@ html body .store-container .store-product-card * {
   .worker-cash-btn       { font-size: 13px; padding: 0 15px; }
   .worker-btn-label      { display: inline; }
 
-  .worker-orders-list    { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .worker-orders-list    { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .worker-orders-list.tasks-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .worker-tab            { font-size: 13px; padding: 10px 8px; }
 }
