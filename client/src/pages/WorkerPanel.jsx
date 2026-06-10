@@ -1631,68 +1631,77 @@ function WorkerPanel() {
                       ))}
                     </div>
                   )}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
                     <div className="worker-order-total" style={{ margin: 0 }}>
                       ${ formatPrice(order.total) }
                     </div>
                   </div>
+                  {/* ── Botones de acción ── */}
                   <div
                     onPointerDown={e => e.stopPropagation()}
                     onClick={e => e.stopPropagation()}
-                    style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}
+                    style={{ display: 'flex', gap: 6, marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}
                   >
+                    {/* Reimprimir — icono cuadrado */}
                     <button
                       onClick={() => reprintOrder(order.id)}
                       disabled={reprintingIds.has(order.id)}
+                      title="Reimprimir"
                       style={{
-                        flex: 1, minWidth: 80, padding: '8px 10px', borderRadius: '8px',
-                        background: reprintedIds.has(order.id) ? 'rgba(34,197,94,0.15)' : 'rgba(212,175,55,0.12)',
-                        border: `1.5px solid ${reprintedIds.has(order.id) ? '#22c55e' : '#D4AF37'}`,
-                        color: reprintedIds.has(order.id) ? '#22c55e' : '#D4AF37',
+                        width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                        background: reprintedIds.has(order.id) ? 'rgba(34,197,94,0.15)' : '#1c1c1c',
+                        border: `1px solid ${reprintedIds.has(order.id) ? 'rgba(34,197,94,0.5)' : '#2e2e2e'}`,
+                        color: reprintedIds.has(order.id) ? '#22c55e' : '#777',
                         cursor: reprintingIds.has(order.id) ? 'not-allowed' : 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                        fontSize: '12px', fontWeight: 700, touchAction: 'manipulation', transition: 'all 0.2s'
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 15, touchAction: 'manipulation', transition: 'all 0.18s'
                       }}
                     >
                       <FontAwesomeIcon icon={reprintedIds.has(order.id) ? faCheck : faPrint} spin={reprintingIds.has(order.id)} />
-                      {reprintedIds.has(order.id) ? 'Enviado' : 'Reimprimir'}
                     </button>
+
+                    {/* Pedido Tomado — solo cuando está pendiente */}
                     {order.status === 'pending' && (
                       <button
                         onClick={() => updateOrderStatus(order.id, 'preparing')}
                         style={{
-                          flex: 1, minWidth: 80, padding: '8px 10px', borderRadius: '8px',
-                          background: 'rgba(245,158,11,0.12)', border: '1.5px solid #f59e0b',
-                          color: '#f59e0b', cursor: 'pointer',
+                          flex: 1, height: 40, borderRadius: 10,
+                          background: 'rgba(245,158,11,0.13)', border: '1px solid rgba(245,158,11,0.3)',
+                          color: '#f59e0b', fontSize: 12, fontWeight: 700, cursor: 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                          fontSize: '12px', fontWeight: 700, touchAction: 'manipulation'
+                          touchAction: 'manipulation'
                         }}
                       >
                         <FontAwesomeIcon icon={faBox} /> Pedido Tomado
                       </button>
                     )}
+
+                    {/* Volver a Pendiente — solo cuando está en preparación */}
                     {(order.status === 'preparing' || order.status === 'ready') && (
                       <button
                         onClick={() => updateOrderStatus(order.id, 'pending')}
                         style={{
-                          flex: 1, minWidth: 80, padding: '8px 10px', borderRadius: '8px',
-                          background: 'rgba(212,175,55,0.08)', border: '1.5px solid rgba(212,175,55,0.5)',
-                          color: '#D4AF37', cursor: 'pointer',
+                          flex: 1, height: 40, borderRadius: 10,
+                          background: '#1c1c1c', border: '1px solid #2e2e2e',
+                          color: '#888', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                          fontSize: '12px', fontWeight: 700, touchAction: 'manipulation'
+                          touchAction: 'manipulation'
                         }}
                       >
                         <FontAwesomeIcon icon={faClock} /> Pendiente
                       </button>
                     )}
+
+                    {/* Completado — botón principal sólido */}
                     <button
                       onClick={() => updateOrderStatus(order.id, 'completed')}
                       style={{
-                        flex: 1, minWidth: 80, padding: '8px 10px', borderRadius: '8px',
-                        background: 'rgba(34,197,94,0.12)', border: '1.5px solid #22c55e',
-                        color: '#22c55e', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                        fontSize: '12px', fontWeight: 700, touchAction: 'manipulation'
+                        flex: 2, height: 40, borderRadius: 10,
+                        background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                        border: 'none', color: '#fff',
+                        fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        boxShadow: '0 2px 8px rgba(22,163,74,0.25)', touchAction: 'manipulation'
                       }}
                     >
                       <FontAwesomeIcon icon={faCheck} /> Completado
@@ -1824,28 +1833,28 @@ function WorkerPanel() {
                       ))}
                     </div>
                   )}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
                     <div className="worker-order-total" style={{ margin: 0 }}>
                       ${ formatPrice(order.total) }
                     </div>
+                    <button
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); reprintOrder(order.id); }}
+                      disabled={reprintingIds.has(order.id)}
+                      style={{
+                        height: 34, paddingInline: 14, borderRadius: 8, flexShrink: 0,
+                        background: reprintedIds.has(order.id) ? 'rgba(34,197,94,0.12)' : '#1c1c1c',
+                        border: `1px solid ${reprintedIds.has(order.id) ? 'rgba(34,197,94,0.4)' : '#2e2e2e'}`,
+                        color: reprintedIds.has(order.id) ? '#22c55e' : '#777',
+                        cursor: reprintingIds.has(order.id) ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        fontSize: 12, fontWeight: 700, touchAction: 'manipulation', transition: 'all 0.18s'
+                      }}
+                    >
+                      <FontAwesomeIcon icon={reprintedIds.has(order.id) ? faCheck : faPrint} spin={reprintingIds.has(order.id)} />
+                      {reprintedIds.has(order.id) ? 'Enviado' : 'Reimprimir'}
+                    </button>
                   </div>
-                  <button
-                    onPointerDown={e => e.stopPropagation()}
-                    onClick={e => { e.stopPropagation(); reprintOrder(order.id); }}
-                    disabled={reprintingIds.has(order.id)}
-                    style={{
-                      width: '100%', padding: '8px 12px', borderRadius: '8px',
-                      background: reprintedIds.has(order.id) ? 'rgba(34,197,94,0.12)' : 'rgba(212,175,55,0.12)',
-                      border: `1.5px solid ${reprintedIds.has(order.id) ? '#22c55e' : '#D4AF37'}`,
-                      color: reprintedIds.has(order.id) ? '#22c55e' : '#D4AF37',
-                      cursor: reprintingIds.has(order.id) ? 'not-allowed' : 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      fontSize: '13px', fontWeight: 700, touchAction: 'manipulation', transition: 'all 0.2s'
-                    }}
-                  >
-                    <FontAwesomeIcon icon={reprintedIds.has(order.id) ? faCheck : faPrint} spin={reprintingIds.has(order.id)} />
-                    {reprintedIds.has(order.id) ? 'Enviado a impresora' : 'Reimprimir'}
-                  </button>
                   {order.completed_by_name && (
                     <p className="worker-order-completed-by">
                       Atendido por: <strong>{order.completed_by_name}</strong>
@@ -2339,56 +2348,68 @@ function WorkerPanel() {
               </div>
             )}
 
-            <div className="worker-modal-actions" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
-              <button
-                className="worker-action-btn"
-                onClick={() => reprintOrder(selectedOrder.id)}
-                disabled={reprintingIds.has(selectedOrder.id)}
-                style={{
-                  background: reprintedIds.has(selectedOrder.id) ? 'rgba(34,197,94,0.12)' : 'rgba(212,175,55,0.12)',
-                  border: `1.5px solid ${reprintedIds.has(selectedOrder.id) ? '#22c55e' : '#D4AF37'}`,
-                  color: reprintedIds.has(selectedOrder.id) ? '#22c55e' : '#D4AF37',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                  fontWeight: 700, borderRadius: 10, padding: '11px', fontSize: 14,
-                  cursor: reprintingIds.has(selectedOrder.id) ? 'not-allowed' : 'pointer'
-                }}
-              >
-                <FontAwesomeIcon icon={reprintedIds.has(selectedOrder.id) ? faCheck : faPrint} spin={reprintingIds.has(selectedOrder.id)} />
-                {reprintedIds.has(selectedOrder.id) ? 'Enviado a impresora' : 'Reimprimir'}
-              </button>
-
-              {selectedOrder.status === 'pending' && (
+            {/* ── Acciones del modal ── */}
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Fila superior: Reimprimir + estado contextual */}
+              <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  className="worker-action-btn"
-                  onClick={() => updateOrderStatus(selectedOrder.id, 'preparing')}
+                  onClick={() => reprintOrder(selectedOrder.id)}
+                  disabled={reprintingIds.has(selectedOrder.id)}
                   style={{
-                    background: 'rgba(245,158,11,0.12)', border: '1.5px solid #f59e0b',
-                    color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                    fontWeight: 700, borderRadius: 10, padding: '11px', fontSize: 14, cursor: 'pointer'
+                    flex: 1, height: 44, borderRadius: 10,
+                    background: reprintedIds.has(selectedOrder.id) ? 'rgba(34,197,94,0.1)' : '#f5f5f5',
+                    border: `1px solid ${reprintedIds.has(selectedOrder.id) ? 'rgba(34,197,94,0.3)' : '#e0e0e0'}`,
+                    color: reprintedIds.has(selectedOrder.id) ? '#16a34a' : '#555',
+                    fontSize: 13, fontWeight: 700, cursor: reprintingIds.has(selectedOrder.id) ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    transition: 'all 0.18s'
                   }}
                 >
-                  <FontAwesomeIcon icon={faBox} /> Pedido Tomado
+                  <FontAwesomeIcon icon={reprintedIds.has(selectedOrder.id) ? faCheck : faPrint} spin={reprintingIds.has(selectedOrder.id)} />
+                  {reprintedIds.has(selectedOrder.id) ? 'Enviado' : 'Reimprimir'}
                 </button>
-              )}
 
-              {(selectedOrder.status === 'preparing' || selectedOrder.status === 'ready') && (
-                <button
-                  className="worker-action-btn"
-                  onClick={() => updateOrderStatus(selectedOrder.id, 'pending')}
-                  style={{
-                    background: 'rgba(212,175,55,0.08)', border: '1.5px solid rgba(212,175,55,0.5)',
-                    color: '#D4AF37', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                    fontWeight: 700, borderRadius: 10, padding: '11px', fontSize: 14, cursor: 'pointer'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faClock} /> Marcar Pendiente
-                </button>
-              )}
+                {selectedOrder.status === 'pending' && (
+                  <button
+                    onClick={() => updateOrderStatus(selectedOrder.id, 'preparing')}
+                    style={{
+                      flex: 1, height: 44, borderRadius: 10,
+                      background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+                      color: '#d97706', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faBox} /> Pedido Tomado
+                  </button>
+                )}
 
+                {(selectedOrder.status === 'preparing' || selectedOrder.status === 'ready') && (
+                  <button
+                    onClick={() => updateOrderStatus(selectedOrder.id, 'pending')}
+                    style={{
+                      flex: 1, height: 44, borderRadius: 10,
+                      background: '#f5f5f5', border: '1px solid #e0e0e0',
+                      color: '#666', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faClock} /> Pendiente
+                  </button>
+                )}
+              </div>
+
+              {/* Completado — botón principal grande */}
               {selectedOrder.status !== 'completed' && (
                 <button
-                  className="worker-action-btn complete"
                   onClick={() => updateOrderStatus(selectedOrder.id, 'completed')}
+                  style={{
+                    width: '100%', height: 48, borderRadius: 10,
+                    background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                    border: 'none', color: '#fff',
+                    fontSize: 15, fontWeight: 800, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    boxShadow: '0 3px 12px rgba(22,163,74,0.3)'
+                  }}
                 >
                   <FontAwesomeIcon icon={faCheck} /> Completado
                 </button>
