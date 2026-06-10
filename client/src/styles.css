@@ -4561,8 +4561,9 @@ html body .store-container .store-product-card * {
 /* ── Fila de acciones de la tarjeta de pedido ── */
 .worker-order-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-wrap: nowrap;
+  gap: 8px;
+  justify-content: center;
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid rgba(0,0,0,0.08);
@@ -4591,17 +4592,17 @@ html body .store-container .store-product-card * {
 .woa-reprint-label { display: none; }
 
 .woa-take {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: 12px;
+  flex: 0 0 40px;
+  width: 40px;
+  font-size: 15px;
 }
 
 .woa-complete {
-  flex: 2 1 auto;
-  min-width: 0;
+  flex: 0 0 40px;
+  width: 40px;
   border: none;
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
 }
 
@@ -6039,26 +6040,20 @@ html body .store-container .store-product-card * {
     font-size: 14px;
   }
 
-  /* En móvil las tarjetas son angostas (2 por fila): apilamos los botones
-     a todo el ancho para que no se aprieten ni se salgan de la tarjeta. */
+  /* En móvil mantenemos los 3 botones de íconos en una sola fila centrada. */
   .worker-order-actions {
-    flex-direction: column;
+    flex-direction: row;
+    justify-content: center;
   }
 
   .worker-order-actions .woa-btn {
-    width: 100%;
-    flex: 0 0 auto;
-  }
-
-  .woa-reprint {
+    width: 40px;
+    flex: 0 0 40px;
     height: 38px;
-    font-size: 13px;
   }
 
   .woa-reprint-label {
-    display: inline;
-    font-size: 12px;
-    font-weight: 700;
+    display: none;
   }
 }
 

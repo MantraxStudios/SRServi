@@ -1656,20 +1656,20 @@ function WorkerPanel() {
                       }}
                     >
                       <FontAwesomeIcon icon={reprintedIds.has(order.id) ? faCheck : faPrint} spin={reprintingIds.has(order.id)} />
-                      <span className="woa-reprint-label">{reprintedIds.has(order.id) ? 'Enviado' : 'Reimprimir'}</span>
                     </button>
 
                     {/* Pedido Tomado — solo cuando está pendiente */}
                     {order.status === 'pending' && (
                       <button
                         onClick={() => updateOrderStatus(order.id, 'preparing')}
+                        title="Pedido Tomado"
                         className="woa-btn woa-take"
                         style={{
                           background: 'rgba(245,158,11,0.13)', border: '1px solid rgba(245,158,11,0.3)',
                           color: '#f59e0b',
                         }}
                       >
-                        <FontAwesomeIcon icon={faBox} /> Pedido Tomado
+                        <FontAwesomeIcon icon={faBox} />
                       </button>
                     )}
 
@@ -1677,26 +1677,28 @@ function WorkerPanel() {
                     {(order.status === 'preparing' || order.status === 'ready') && (
                       <button
                         onClick={() => updateOrderStatus(order.id, 'pending')}
+                        title="Volver a Pendiente"
                         className="woa-btn woa-take"
                         style={{
                           background: '#1c1c1c', border: '1px solid #2e2e2e',
                           color: '#888',
                         }}
                       >
-                        <FontAwesomeIcon icon={faClock} /> Pendiente
+                        <FontAwesomeIcon icon={faClock} />
                       </button>
                     )}
 
                     {/* Completado — botón principal sólido */}
                     <button
                       onClick={() => updateOrderStatus(order.id, 'completed')}
+                      title="Completado"
                       className="woa-btn woa-complete"
                       style={{
                         background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
                         boxShadow: '0 2px 8px rgba(22,163,74,0.25)',
                       }}
                     >
-                      <FontAwesomeIcon icon={faCheck} /> Completado
+                      <FontAwesomeIcon icon={faCheck} />
                     </button>
                   </div>
                 </div>
