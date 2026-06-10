@@ -6034,6 +6034,62 @@ app.post('/api/orders', async (req, res) => {
       }
     }
 
+    // Imprimir comprobante en terminal MercadoPago para pedidos de efectivo
+    if (payment_method === 'cash' && terminal_id) {
+      (async () => {
+        try {
+          let apiKey, mpDeviceId;
+          const posTerminal = await getPosTerminalForStore(parseInt(store_id), parseInt(terminal_id));
+          if (posTerminal && posTerminal.provider === 'mercadopago') {
+            apiKey = posTerminal.api_key;
+            mpDeviceId = posTerminal.device_id;
+          } else {
+            const legacyTerminal = await getMercadoPagoTerminalForStore(parseInt(store_id), parseInt(terminal_id));
+            if (legacyTerminal) {
+              apiKey = legacyTerminal.mercadopago_access_token;
+              mpDeviceId = legacyTerminal.mercadopago_terminal_id;
+            }
+          }
+          if (!apiKey || !mpDeviceId) return;
+
+          const cashItems = await getOrderItems(order.id);
+          const now = new Date();
+          const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+
+          let itemsContent = '';
+          for (const item of cashItems) {
+            const name = (item.product_name || item.name || `Producto ${item.product_id}`).substring(0, 28);
+            const price = Number((item.unit_price || 0) * (item.quantity || 1)).toFixed(0);
+            itemsContent += `{br}${item.quantity}x ${name}{br}{s}  $${price}{/s}`;
+          }
+
+          const total = Number(order.total || 0).toFixed(0);
+          const content = `{br}{center}{w}Pedido #${order.order_number}{/w}{br}{center}${timeStr}{br}{br}--------------------------------${itemsContent}{br}--------------------------------{br}{center}{w}TOTAL: $${total}{/w}{br}{br}{center}Por favor pagar{br}{center}{w}con efectivo en caja{/w}{br}{br}`;
+
+          const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/actions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Idempotency-Key': `print-cash-${order.id}-${Date.now()}`,
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              type: 'print',
+              external_reference: `order-cash-${order.id}-${Date.now()}`,
+              config: { point: { terminal_id: mpDeviceId, subtype: 'custom' } },
+              content
+            })
+          });
+          if (!mpRes.ok) {
+            const errData = await mpRes.json().catch(() => ({}));
+            console.error('[MP Print] Error al imprimir comprobante efectivo:', errData);
+          }
+        } catch (printErr) {
+          console.error('[MP Print] Error al imprimir comprobante efectivo:', printErr.message);
+        }
+      })();
+    }
+
     res.json(order);
   } catch (error) {
     console.error('❌ Error creando orden:', error);
@@ -6361,14 +6417,76 @@ app.post('/api/orders/:orderId/confirm-payment', async (req, res) => {
 
     const updatedOrder = await confirmCardPayment(parseInt(orderId), parseInt(storeId));
 
+    let orderItems = null;
+    if (updatedOrder) {
+      orderItems = await getOrderItems(parseInt(orderId));
+    }
+
     const socketId = userSockets.get(parseInt(storeId));
     if (socketId && updatedOrder) {
-      const items = await getOrderItems(parseInt(orderId));
-      io.to(socketId).emit('payment_confirmed', { ...updatedOrder, items });
+      io.to(socketId).emit('payment_confirmed', { ...updatedOrder, items: orderItems });
     }
 
     if (pluginManager && updatedOrder) {
       pluginManager.hooks.emit('payment_completed', { store_id: parseInt(storeId), order: updatedOrder, payment_method: 'card' });
+    }
+
+    // Imprimir comprobante en terminal MercadoPago si corresponde
+    if (updatedOrder?.terminal_id) {
+      (async () => {
+        try {
+          let apiKey, mpDeviceId;
+          const posTerminal = await getPosTerminalForStore(parseInt(storeId), updatedOrder.terminal_id);
+          if (posTerminal && posTerminal.provider === 'mercadopago') {
+            apiKey = posTerminal.api_key;
+            mpDeviceId = posTerminal.device_id;
+          } else {
+            const legacyTerminal = await getMercadoPagoTerminalForStore(parseInt(storeId), updatedOrder.terminal_id);
+            if (legacyTerminal) {
+              apiKey = legacyTerminal.mercadopago_access_token;
+              mpDeviceId = legacyTerminal.mercadopago_terminal_id;
+            }
+          }
+          if (!apiKey || !mpDeviceId) return;
+
+          const items = orderItems || await getOrderItems(parseInt(orderId));
+          const now = new Date();
+          const timeStr = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+
+          let itemsContent = '';
+          for (const item of items) {
+            const name = (item.product_name || item.name || `Producto ${item.product_id}`).substring(0, 28);
+            const price = Number((item.unit_price || 0) * (item.quantity || 1)).toFixed(0);
+            itemsContent += `{br}${item.quantity}x ${name}{br}{s}  $${price}{/s}`;
+          }
+
+          const total = Number(updatedOrder.total || 0).toFixed(0);
+          const content = `{br}{center}{w}Pedido #${updatedOrder.order_number}{/w}{br}{center}${timeStr}{br}{br}--------------------------------${itemsContent}{br}--------------------------------{br}{center}{w}TOTAL: $${total}{/w}{br}{br}{center}Pago con tarjeta{br}{br}`;
+
+          const payload = {
+            type: 'print',
+            external_reference: `order-${orderId}-${Date.now()}`,
+            config: { point: { terminal_id: mpDeviceId, subtype: 'custom' } },
+            content
+          };
+
+          const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/actions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Idempotency-Key': `print-${orderId}-${Date.now()}`,
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(payload)
+          });
+          if (!mpRes.ok) {
+            const errData = await mpRes.json().catch(() => ({}));
+            console.error('[MP Print] Error al imprimir comprobante:', errData);
+          }
+        } catch (printErr) {
+          console.error('[MP Print] Error al imprimir comprobante:', printErr.message);
+        }
+      })();
     }
 
     res.json({ success: true, order: updatedOrder });
