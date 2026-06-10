@@ -4239,12 +4239,12 @@ function Store() {
         <div className="store-product-info">
           {prepTimes[product.id] > 0 && (
             <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
-              marginBottom: 2,
-              fontSize: '9px', fontWeight: 700, letterSpacing: '0.3px',
-              color: 'var(--store-primary)', opacity: 0.55
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+              marginBottom: 3,
+              fontSize: '11px', fontWeight: 800, letterSpacing: '0.2px',
+              color: 'var(--store-primary)', opacity: 0.75
             }}>
-              <FontAwesomeIcon icon={faClock} style={{ fontSize: 8 }} />
+              <FontAwesomeIcon icon={faClock} style={{ fontSize: 10 }} />
               ~{prepTimes[product.id]} min
             </div>
           )}
