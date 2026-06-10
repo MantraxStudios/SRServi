@@ -11521,70 +11521,55 @@ html body .store-container .store-product-card * {
 
 .isb-layout { display: flex; min-height: 100vh; }
 
-/* ─── SIDEBAR DESKTOP (derecha) ─── */
+/* ─── SIDEBAR (siempre abajo) ─── */
 .isb-sidebar {
-  position: fixed; right: 0; left: auto; top: 0; bottom: 0;
-  width: var(--isb-w);
-  background: var(--isb-bg);
-  display: flex; flex-direction: column; align-items: center;
-  padding: 12px 0 10px;
+  position: fixed; top: auto; left: 0; right: 0; bottom: 0;
+  width: 100%; height: var(--isb-bottom-h);
+  background: #fff;
+  display: flex; flex-direction: row; align-items: center;
+  padding: 0;
   z-index: 600;
-  border-left: 1px solid rgba(0,0,0,0.08);
-  border-right: none;
-  box-shadow: -2px 0 12px rgba(0,0,0,0.06);
+  border-left: none; border-right: none; border-top: none;
+  box-shadow: 0 -1px 0 rgba(0,0,0,0.10);
+  justify-content: space-around;
 }
 
-.isb-logo { width: 34px; height: 34px; border-radius: 9px; overflow: hidden; margin-bottom: 6px; flex-shrink: 0; }
+.isb-logo { display: none; }
 .isb-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-.isb-store-wrap { position: relative; width: var(--isb-w); display: flex; justify-content: center; }
-.isb-divider { width: 24px; height: 1px; background: rgba(0,0,0,0.08); margin: 6px 0; flex-shrink: 0; }
-.isb-spacer { flex: 1; }
+.isb-store-wrap { display: none; }
+.isb-divider { display: none; }
+.isb-spacer { display: none; }
 
-.isb-nav, .isb-bottom {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 1px; width: var(--isb-w); padding: 0 9px; box-sizing: border-box;
-}
-.isb-bottom { padding-top: 6px; border-top: 1px solid rgba(0,0,0,0.08); padding-bottom: 8px; }
+.isb-nav, .isb-bottom { display: contents; }
 
 /* ─── BOTÓN ─── */
 .isb-btn {
-  position: relative; width: 100%; height: 40px;
-  border-radius: 10px; border: none; background: transparent;
-  color: var(--isb-gold); font-size: 15px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+  position: relative; flex: 1; width: 0; min-width: 0; height: 100%;
+  border-radius: 0; border: none; background: transparent;
+  color: var(--isb-gold); font-size: 16px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; padding: 6px 2px 5px;
   transition: background 0.14s, color 0.14s;
   text-decoration: none; outline: none;
   -webkit-tap-highlight-color: transparent;
 }
-.isb-btn-icon { display: flex; align-items: center; justify-content: center; position: relative; }
-.isb-btn-label { display: none; }
+.isb-btn-icon { display: flex; align-items: center; justify-content: center; position: relative; font-size: 17px; }
+.isb-btn-label { display: block; font-size: 9px; font-weight: 600; line-height: 1; white-space: nowrap; color: #333; }
 
 .isb-btn:hover { background: rgba(212,175,55,0.08); color: var(--isb-gold); }
+.isb-btn:hover .isb-btn-label { color: #111; }
 .isb-btn.active { background: rgba(212,175,55,0.12); color: var(--isb-gold); }
+.isb-btn.active .isb-btn-label { color: #111; }
 .isb-btn.active::before {
   content: ''; position: absolute;
-  right: -9px; left: auto; top: 50%; transform: translateY(-50%);
-  width: 3px; height: 18px;
-  background: var(--isb-gold); border-radius: 0 3px 3px 0;
+  left: 50%; right: auto; top: 0; bottom: auto; transform: translateX(-50%);
+  width: 22px; height: 2px;
+  background: var(--isb-gold); border-radius: 0 0 3px 3px;
 }
 
-/* tooltip */
-.isb-tooltip {
-  position: absolute; right: calc(100% + 12px); left: auto; top: 50%;
-  transform: translateY(-50%) translateX(6px);
-  background: #222; color: #eee;
-  font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 7px;
-  white-space: nowrap; pointer-events: none; opacity: 0;
-  transition: opacity 0.14s, transform 0.14s;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-  border: 1px solid rgba(0,0,0,0.12); z-index: 9999;
-}
-.isb-tooltip::before {
-  content: ''; position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
-  border: 4px solid transparent; border-left-color: #222;
-}
-.isb-btn:hover .isb-tooltip { opacity: 1; transform: translateY(-50%) translateX(0); }
+/* tooltip — oculto en barra inferior */
+.isb-tooltip { display: none; }
 
 /* badge */
 .isb-badge {
@@ -11597,14 +11582,14 @@ html body .store-container .store-product-card * {
 
 /* ─── STORE POPUP ─── */
 .isb-store-popup {
-  position: absolute; right: calc(100% + 8px); left: auto; top: 0;
+  position: absolute; left: 4px; right: 4px; top: auto; bottom: calc(100% + 6px);
   background: #fff; border: 1px solid rgba(0,0,0,0.10);
-  border-radius: 12px; width: 240px;
+  border-radius: 12px; width: auto;
   box-shadow: 0 8px 24px rgba(0,0,0,0.12);
   z-index: 600; overflow: hidden;
   animation: isbPop 0.14s ease-out;
 }
-@keyframes isbPop { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+@keyframes isbPop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 .isb-store-popup-hdr {
   padding: 11px 14px 9px; font-size: 10px; font-weight: 700; color: #888;
@@ -11631,16 +11616,16 @@ html body .store-container .store-product-card * {
 
 /* ─── PANEL COMPLETO (menú / cuenta) ─── */
 .isb-fullpanel {
-  position: fixed; left: 0; right: var(--isb-w); top: 0; bottom: 0;
+  position: fixed; left: 0; right: 0; top: 0; bottom: var(--isb-bottom-h);
   z-index: 500; background: #fff;
   display: flex; flex-direction: column; overflow: hidden;
   animation: isbIn 0.2s ease-out;
 }
-@keyframes isbIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@keyframes isbIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
 .isb-fullpanel--account {
-  width: min(360px, calc(100vw - var(--isb-w)));
-  left: auto; right: var(--isb-w);
+  width: min(360px, 100vw);
+  left: auto; right: 0;
   border-left: 1px solid rgba(0,0,0,0.08);
   border-right: none;
   box-shadow: -4px 0 24px rgba(0,0,0,0.1);
@@ -11836,7 +11821,7 @@ html body .store-container .store-product-card * {
 .isb-logout-btn:hover { background: rgba(239,68,68,0.13); }
 
 /* ─── CONTENT ─── */
-.isb-content { margin-right: var(--isb-w); margin-left: 0; flex: 1; min-height: 100vh; overflow-y: auto; background: var(--background, #f5f5f5); }
+.isb-content { margin-right: 0; margin-left: 0; flex: 1; min-height: 100vh; overflow-y: auto; background: var(--background, #f5f5f5); padding-bottom: var(--isb-bottom-h); }
 
 /* ─── MOBILE HEADER ─── */
 .isb-mobile-header {
@@ -11921,8 +11906,8 @@ html body .store-container .store-product-card * {
 /* Popup de WhatsApp */
 .isb-wa-popup {
   position: fixed;
-  left: calc(var(--isb-w) + 10px);
-  bottom: 80px;
+  left: 12px;
+  bottom: calc(var(--isb-bottom-h) + 12px);
   z-index: 599;
   background: #fff;
   border-radius: 16px;
@@ -11957,15 +11942,6 @@ html body .store-container .store-product-card * {
 .isb-wa-name { font-size: 14px; font-weight: 700; color: #111; }
 .isb-wa-num  { font-size: 12px; color: #666; margin-top: 1px; }
 
-/* Mobile: popup sobre la barra inferior */
-@media (max-width: 768px) {
-  .isb-wa-popup {
-    left: 12px;
-    bottom: calc(var(--isb-bottom-h) + 12px);
-    width: calc(100vw - 24px);
-    max-width: 340px;
-  }
-}
 
 /* ─── Franja de atribución (solo mobile) ─── */
 .isb-attribution {
@@ -11986,50 +11962,16 @@ html body .store-container .store-product-card * {
   text-align: center;
 }
 
+/* badge posición para barra inferior */
+.isb-badge { top: 0px; right: calc(50% - 17px); border-color: #111; }
+
+/* leon-page siempre respeta la barra inferior */
+.leon-page { height: calc(100dvh - var(--isb-bottom-h)); max-height: calc(100dvh - var(--isb-bottom-h)); }
+
 /* ─── MOBILE ─── */
 @media (max-width: 768px) {
   .isb-attribution { display: flex; }
-  .isb-sidebar {
-    top: auto; left: 0; right: 0; bottom: 0;
-    width: 100%; height: var(--isb-bottom-h);
-    flex-direction: row; padding: 0;
-    border-right: none; border-top: none; border-radius: 0;
-    background: #fff;
-    box-shadow: 0 -1px 0 rgba(0,0,0,0.10);
-    justify-content: space-around;
-  }
-  .isb-logo, .isb-store-wrap, .isb-divider, .isb-spacer { display: none; }
-
-  /* display:contents hace que nav y bottom "desaparezcan" como contenedores
-     y sus botones hijos queden directamente en el sidebar flex,
-     así justify-content:space-evenly los reparte iguales */
-  .isb-nav, .isb-bottom {
-    display: contents;
-  }
-
-  .isb-btn {
-    flex: 1; width: 0; min-width: 0; height: 100%; border-radius: 0;
-    flex-direction: column; gap: 2px; padding: 6px 2px 5px; font-size: 16px;
-  }
-  .isb-btn-icon { font-size: 17px; }
-  .isb-btn-label { display: block; font-size: 9px; font-weight: 600; line-height: 1; white-space: nowrap; color: #333; }
-  .isb-btn.active .isb-btn-label,
-  .isb-btn:hover .isb-btn-label { color: #111; }
-
-  .isb-btn.active::before {
-    left: 50%; top: 0; bottom: auto; transform: translateX(-50%);
-    width: 22px; height: 2px; border-radius: 0 0 3px 3px; box-shadow: none;
-  }
-  .isb-tooltip { display: none; }
-  .isb-badge { top: 0px; right: calc(50% - 17px); border-color: #111; }
-
-  .isb-store-popup { left: 4px; right: 4px; top: auto; bottom: calc(100% + 6px); width: auto; animation-name: isbPopUp; }
-  @keyframes isbPopUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-
-  .isb-fullpanel { left: 0; right: 0; bottom: var(--isb-bottom-h); animation-name: isbUp; }
   .isb-fullpanel--account { width: 100%; box-shadow: none; border-left: none; border-right: none; left: 0; right: 0; }
-  @keyframes isbUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-
   .isb-fp-body { padding: 14px 14px 28px; gap: 18px; }
   .isb-fp-sec { gap: 12px 8px; }
   .isb-fp-link > .svg-inline--fa, .isb-fp-link > svg {
@@ -12037,21 +11979,12 @@ html body .store-container .store-product-card * {
   }
   .isb-fp-link > span:not([style]) { width: 48px; height: 48px; border-radius: 13px; font-size: 20px; }
   .isb-fp-apps-grid { grid-template-columns: 1fr 1fr; }
-
   .isb-mobile-header { display: flex; }
-  .isb-content { margin-left: 0; margin-right: 0; padding-bottom: var(--isb-bottom-h); min-height: 100vh; }
 }
 
 @media (max-width: 480px) {
   .isb-fp-apps-grid { grid-template-columns: 1fr; }
   .isb-account-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 768px) {
-  .leon-page { height: calc(100dvh - var(--isb-bottom-h)); max-height: calc(100dvh - var(--isb-bottom-h)); }
-}
-@media (min-width: 769px) {
-  .isb-content { margin-right: var(--isb-w); margin-left: 0; }
 }
 
 /* ── People Counter responsive ── */
