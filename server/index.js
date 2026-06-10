@@ -1901,6 +1901,31 @@ app.delete('/api/public/:code/ingredients/:id', async (req, res) => {
 });
 
 // Store custom styles (premium)
+app.get('/api/public/:code/prep-times', async (req, res) => {
+  try {
+    const store = await getStoreByCode(req.params.code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const [rows] = await pool.execute(`
+      SELECT oi.product_id,
+             ROUND(AVG(TIMESTAMPDIFF(MINUTE, o.created_at, o.completed_at))) AS avg_minutes,
+             COUNT(*) AS total_orders
+      FROM order_items oi
+      JOIN orders o ON oi.order_id = o.id
+      WHERE o.store_id = ?
+        AND o.status = 'completed'
+        AND o.completed_at IS NOT NULL
+        AND o.created_at IS NOT NULL
+        AND TIMESTAMPDIFF(MINUTE, o.created_at, o.completed_at) > 0
+        AND TIMESTAMPDIFF(MINUTE, o.created_at, o.completed_at) < 180
+      GROUP BY oi.product_id
+      HAVING total_orders >= 2
+    `, [store.id]);
+    const result = {};
+    rows.forEach(r => { result[r.product_id] = Number(r.avg_minutes); });
+    res.json(result);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 app.get('/api/public/:code/styles', async (req, res) => {
   try {
     const store = await getStoreByCode(req.params.code.toUpperCase());

@@ -1093,6 +1093,7 @@ function Store() {
   const [labelEditModal, setLabelEditModal] = useState(null); // { type: 'extras'|'complements', value }
   const [labelSaving, setLabelSaving] = useState(false);
   const [topSellingIds, setTopSellingIds] = useState([]);
+  const [prepTimes, setPrepTimes] = useState({});
   const [lang, setLang] = useState(detectLanguage);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [welcomeModalOpen, setWelcomeModalOpen] = useState(false);
@@ -1860,6 +1861,12 @@ function Store() {
       setStore(deduplicatedData);
       setCashRegisterOpen(data.cash_register_open !== false);
       if (data.top_selling) setTopSellingIds(data.top_selling);
+
+      // Tiempo promedio de preparación por producto
+      fetch(`/api/public/${code}/prep-times`)
+        .then(r => r.ok ? r.json() : {})
+        .then(d => setPrepTimes(d || {}))
+        .catch(() => {});
 
       // Fetch loyalty config (solo config, sin descargar modelos)
       fetch(`/api/public/${code}/loyalty`)
@@ -4230,6 +4237,17 @@ function Store() {
           </div>
         </div>
         <div className="store-product-info">
+          {prepTimes[product.id] > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
+              marginBottom: 2,
+              fontSize: '9px', fontWeight: 700, letterSpacing: '0.3px',
+              color: 'var(--store-primary)', opacity: 0.55
+            }}>
+              <FontAwesomeIcon icon={faClock} style={{ fontSize: 8 }} />
+              ~{prepTimes[product.id]} min
+            </div>
+          )}
           {product.description && (
             <p style={{ margin: '0 0 2px', fontSize: '10px', color: 'var(--store-primary)', opacity: 0.5, lineHeight: 1.3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{product.description}</p>
           )}
