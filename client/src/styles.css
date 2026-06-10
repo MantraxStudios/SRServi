@@ -4591,10 +4591,21 @@ html body .store-container .store-product-card * {
 
 .woa-reprint-label { display: none; }
 
-.woa-take {
+.woa-take,
+.woa-start,
+.woa-cooking {
   flex: 0 0 40px;
   width: 40px;
   font-size: 15px;
+}
+
+.woa-cooking.active {
+  animation: woaCookingPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes woaCookingPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.0); }
+  50%      { box-shadow: 0 0 0 4px rgba(245,158,11,0.18); }
 }
 
 .woa-complete {

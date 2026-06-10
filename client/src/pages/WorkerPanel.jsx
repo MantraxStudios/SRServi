@@ -1658,35 +1658,42 @@ function WorkerPanel() {
                       <FontAwesomeIcon icon={reprintedIds.has(order.id) ? faCheck : faPrint} spin={reprintingIds.has(order.id)} />
                     </button>
 
-                    {/* Pedido Tomado — solo cuando está pendiente */}
-                    {order.status === 'pending' && (
-                      <button
-                        onClick={() => updateOrderStatus(order.id, 'preparing')}
-                        title="Pedido Tomado"
-                        className="woa-btn woa-take"
-                        style={{
-                          background: 'rgba(245,158,11,0.13)', border: '1px solid rgba(245,158,11,0.3)',
-                          color: '#f59e0b',
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faBox} />
-                      </button>
-                    )}
+                    {(() => {
+                      const started = order.status === 'preparing' || order.status === 'ready';
+                      return (
+                        <>
+                          {/* Iniciar preparación */}
+                          <button
+                            onClick={() => updateOrderStatus(order.id, 'preparing')}
+                            disabled={started}
+                            title="Iniciar preparación"
+                            className="woa-btn woa-start"
+                            style={{
+                              background: started ? '#1c1c1c' : 'rgba(245,158,11,0.13)',
+                              border: `1px solid ${started ? '#2e2e2e' : 'rgba(245,158,11,0.35)'}`,
+                              color: started ? '#555' : '#f59e0b',
+                              cursor: started ? 'default' : 'pointer',
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faFire} />
+                          </button>
 
-                    {/* Volver a Pendiente — solo cuando está en preparación */}
-                    {(order.status === 'preparing' || order.status === 'ready') && (
-                      <button
-                        onClick={() => updateOrderStatus(order.id, 'pending')}
-                        title="Volver a Pendiente"
-                        className="woa-btn woa-take"
-                        style={{
-                          background: '#1c1c1c', border: '1px solid #2e2e2e',
-                          color: '#888',
-                        }}
-                      >
-                        <FontAwesomeIcon icon={faClock} />
-                      </button>
-                    )}
+                          {/* En preparación — se enciende al iniciar (clic para volver a pendiente) */}
+                          <button
+                            onClick={() => updateOrderStatus(order.id, started ? 'pending' : 'preparing')}
+                            title={started ? 'En preparación' : 'Aún sin iniciar'}
+                            className={`woa-btn woa-cooking${started ? ' active' : ''}`}
+                            style={{
+                              background: started ? 'rgba(245,158,11,0.22)' : '#1c1c1c',
+                              border: `1px solid ${started ? '#f59e0b' : '#2e2e2e'}`,
+                              color: started ? '#f59e0b' : '#555',
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faUtensils} />
+                          </button>
+                        </>
+                      );
+                    })()}
 
                     {/* Completado — botón principal sólido */}
                     <button
