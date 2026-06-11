@@ -360,7 +360,7 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
 
       <div className="worker-orders-list tasks-list" style={{
         flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '12px',
-        alignContent: 'start', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch'
+        alignContent: 'start', gridAutoRows: 'max-content', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch'
       }}>
         {todayTasks.length === 0 ? (
           <div className="empty-state"><p>No hay tareas para hoy</p></div>
