@@ -12,8 +12,46 @@ import {
   faStore,
   faCalendarAlt,
   faSpinner,
-  faCreditCard
+  faCreditCard,
+  faBuilding,
+  faStar,
 } from '@fortawesome/free-solid-svg-icons';
+
+const PLAN_META = {
+  Gratis: {
+    icon: faStore,
+    gradient: 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)',
+    color: '#6b7280',
+    badge: null,
+  },
+  Premium: {
+    icon: faCrown,
+    gradient: 'linear-gradient(135deg, #1d4ed8 0%, #60a5fa 100%)',
+    color: '#3b82f6',
+    badge: null,
+  },
+  Empresas: {
+    icon: faBuilding,
+    gradient: 'linear-gradient(135deg, #92400e 0%, #D4AF37 100%)',
+    color: '#D4AF37',
+    badge: 'Más popular',
+  },
+  Personalizado: {
+    icon: faStar,
+    gradient: 'linear-gradient(135deg, #5b21b6 0%, #c026d3 100%)',
+    color: '#7c3aed',
+    badge: 'Exclusivo',
+  },
+};
+
+function getPlanMeta(name) {
+  return PLAN_META[name] || {
+    icon: faCrown,
+    gradient: 'linear-gradient(135deg, #374151 0%, #6b7280 100%)',
+    color: '#374151',
+    badge: null,
+  };
+}
 
 function Plans() {
   const { token } = useAuth();
@@ -64,14 +102,10 @@ function Plans() {
 
   const loadMercadoPagoScript = () => {
     if (scriptLoaded.current) return;
-
     const script = document.createElement('script');
     script.src = 'https://sdk.mercadopago.com/js/v2';
     script.async = true;
-    script.onload = () => {
-      scriptLoaded.current = true;
-      console.log('MercadoPago SDK loaded');
-    };
+    script.onload = () => { scriptLoaded.current = true; };
     document.body.appendChild(script);
   };
 
@@ -84,21 +118,16 @@ function Plans() {
       try {
         const response = await fetch(API + '/api/verify-payment', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
           body: JSON.stringify({ payment_id: paymentId })
         });
-
         const data = await response.json();
-
         if (data.success && data.activated) {
           setMessage({ type: 'success', text: '¡Pago exitoso! Tu suscripción ha sido activada.' });
         } else if (data.success) {
           setMessage({ type: 'info', text: 'Pago recibido. Procesando tu suscripción...' });
         }
-      } catch (err) {
+      } catch {
         setMessage({ type: 'success', text: '¡Pago exitoso! Tu suscripción ha sido activada.' });
       }
       fetchMyPlan();
@@ -116,37 +145,28 @@ function Plans() {
     setSubscribing(planId);
     setMessage(null);
     setMpLoading(true);
-
     try {
       const response = await fetch(API + '/api/create-subscription-preference', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + token
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify({ planId, billingCycle })
       });
-
       const data = await response.json();
-
       if (!response.ok) {
         setMessage({ type: 'error', text: data.error || 'Error al procesar la solicitud' });
         return;
       }
-
       if (data.isFree) {
         setMessage({ type: 'success', text: data.message });
         fetchMyPlan();
         return;
       }
-
       if (data.init_point) {
         window.location.href = data.init_point;
       } else {
         setMessage({ type: 'error', text: 'No se pudo obtener el enlace de pago' });
       }
-    } catch (err) {
-      console.error('Error:', err);
+    } catch {
       setMessage({ type: 'error', text: 'Error al procesar la solicitud' });
     } finally {
       setSubscribing(null);
@@ -155,178 +175,176 @@ function Plans() {
   };
 
   const formatPrice = (price) => {
-    if (price === 0) return 'Gratis';
-    return `$${parseFloat(price).toFixed(2)}`;
+    if (price === 0) return '0';
+    const n = parseFloat(price);
+    return n % 1 === 0 ? String(Math.round(n)) : n.toFixed(2);
   };
 
   const parseFeatures = (features) => {
     if (!features) return [];
     if (typeof features === 'string') {
-      try {
-        return JSON.parse(features);
-      } catch {
-        return [features];
-      }
+      try { return JSON.parse(features); } catch { return [features]; }
     }
     return features;
   };
 
-  const getCurrentPlanName = () => {
-    if (!myPlan?.plan) return 'Gratis';
-    return myPlan.plan.plan_name || 'Gratis';
-  };
-
-  const isCurrentPlan = (planName) => {
-    return getCurrentPlanName() === planName;
-  };
+  const getCurrentPlanName = () => myPlan?.plan?.plan_name || 'Gratis';
+  const isCurrentPlan = (planName) => getCurrentPlanName() === planName;
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center" style={{ height: '50vh' }}>
-        <FontAwesomeIcon icon={faSpinner} spin style={{ color: colors.accent }} />
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: 28, color: colors.accent }} />
       </div>
     );
   }
 
+  const currentMeta = getPlanMeta(getCurrentPlanName());
+  const usagePercent = Math.min(((myPlan?.storeCount || 0) / (myPlan?.maxStores || 2)) * 100, 100);
+
   return (
     <div className="plans-page">
+
+      {/* Header */}
       <div className="plans-header">
-        <h1>
-          <FontAwesomeIcon icon={faCrown} style={{ color: colors.accent }} />
-          {' '}Planes y Suscripciones
-        </h1>
-        <p>
-          Gestiona tu plan y desbloquea m&aacute;s funcionalidades
-        </p>
+        <div className="plans-header-icon">
+          <FontAwesomeIcon icon={faCrown} />
+        </div>
+        <h1>Planes y Suscripciones</h1>
+        <p>Elige el plan que mejor se adapte a tu negocio</p>
       </div>
 
+      {/* Message */}
       {message && (
-        <div className={message.type === 'success' ? 'success' : message.type === 'warning' ? 'badge-warning' : 'error'}>
+        <div className={`plans-message plans-message-${message.type}`}>
           {message.text}
         </div>
       )}
 
+      {/* Current plan status */}
       <div className="plans-current-box">
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="plans-current-badge" style={{ backgroundColor: colors.accent, color: colors.primary }}>
-            <FontAwesomeIcon icon={faCrown} />
-            {' '}{getCurrentPlanName()}
+        <div className="plans-current-left">
+          <span className="plans-current-label">Tu plan actual</span>
+          <div className="plans-current-badge" style={{ background: currentMeta.gradient }}>
+            <FontAwesomeIcon icon={currentMeta.icon} />
+            {getCurrentPlanName()}
           </div>
-          <div className="plans-current-info">
+        </div>
+        <div className="plans-current-right">
+          <div className="plans-current-info-item">
             <FontAwesomeIcon icon={faStore} />
-            <span>{myPlan?.storeCount || 0} / {myPlan?.maxStores || 2} tiendas</span>
+            <span><strong>{myPlan?.storeCount || 0}</strong> / {myPlan?.maxStores || 2} tiendas</span>
           </div>
           {myPlan?.plan?.ends_at && (
-            <div className="plans-current-info">
+            <div className="plans-current-info-item">
               <FontAwesomeIcon icon={faCalendarAlt} />
               <span>Vence: {new Date(myPlan.plan.ends_at).toLocaleDateString('es-ES')}</span>
             </div>
           )}
         </div>
         <div className="plans-progress-bar">
-          <div className="plans-progress-fill" style={{
-            width: `${Math.min(((myPlan?.storeCount || 0) / (myPlan?.maxStores || 2)) * 100, 100)}%`,
-            backgroundColor: colors.accent
-          }} />
+          <div
+            className="plans-progress-fill"
+            style={{ width: `${usagePercent}%`, background: currentMeta.gradient }}
+          />
         </div>
       </div>
 
-      <div className="hidden">
-        <button onClick={() => setBillingCycle('monthly')}>Mensual</button>
-        <button onClick={() => setBillingCycle('yearly')}>Anual</button>
-      </div>
-
+      {/* Plans grid */}
       <div className="plans-grid">
         {plans.map((plan) => {
+          const meta = getPlanMeta(plan.name);
           const features = parseFeatures(plan.features);
           const price = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
           const currentPlan = isCurrentPlan(plan.name);
-          const isFree = plan.price_monthly === 0 && plan.price_yearly === 0;
+          const isFree = plan.price_monthly === 0;
 
           return (
             <div
               key={plan.id}
-              className={`plan-card ${currentPlan ? 'current' : ''}`}
+              className={`plan-card${currentPlan ? ' current' : ''}`}
+              style={{ '--plan-color': meta.color }}
             >
-              {currentPlan && (
-                <div className="plan-card-badge" style={{ backgroundColor: colors.accent, color: colors.primary }}>
-                  PLAN ACTUAL
-                </div>
-              )}
-
-              <div className="text-center">
-                <h3 className="plan-card-title">
-                  {plan.name}
-                </h3>
-                <p className="plan-card-desc">
-                  {plan.description}
-                </p>
-              </div>
-
-              <div className="text-center">
-                <span className="plan-card-price">
-                  {formatPrice(price)}
-                </span>
-                {price > 0 && (
-                  <span className="plan-card-period">
-                    /{billingCycle === 'yearly' ? 'año' : 'mes'}
+              {/* Colored top section */}
+              <div className="plan-card-top" style={{ background: meta.gradient }}>
+                {meta.badge && !currentPlan && (
+                  <span className="plan-card-badge">{meta.badge}</span>
+                )}
+                {currentPlan && (
+                  <span className="plan-card-badge plan-card-badge-current">
+                    <FontAwesomeIcon icon={faCheck} style={{ marginRight: 4 }} />
+                    Activo
                   </span>
                 )}
-                {plan.price_yearly > 0 && billingCycle === 'yearly' && (
-                  <div className="plan-card-savings">
-                    Ahorra ${(plan.price_monthly * 12 - plan.price_yearly).toFixed(2)}/año
-                  </div>
-                )}
+                <div className="plan-card-icon">
+                  <FontAwesomeIcon icon={meta.icon} />
+                </div>
+                <h3 className="plan-card-title">{plan.name}</h3>
+                <p className="plan-card-desc">{plan.description}</p>
               </div>
 
-              <ul className="plan-features">
-                <li className="plan-feature-item">
-                  <FontAwesomeIcon icon={faStore} style={{ color: colors.accent, width: '16px' }} />
-                  <strong>{plan.max_stores}</strong> tiendas m&aacute;ximo
-                </li>
-                {features.map((feature, index) => (
-                  <li key={index} className="plan-feature-item">
-                    <FontAwesomeIcon icon={faCheck} className="icon-success" style={{ width: '16px' }} />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
+              {/* Body */}
+              <div className="plan-card-body">
+                {/* Price */}
+                <div className="plan-card-price-area">
+                  {isFree ? (
+                    <div className="plan-card-price-free">Gratis</div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 2 }}>
+                      <span className="plan-card-currency">$</span>
+                      <span className="plan-card-price">{formatPrice(price)}</span>
+                      <span className="plan-card-period">/{billingCycle === 'yearly' ? 'año' : 'mes'}</span>
+                    </div>
+                  )}
+                </div>
 
-              <button
-                onClick={() => !currentPlan && !isFree && handleSubscribe(plan.id)}
-                disabled={currentPlan || subscribing === plan.id}
-                className={`plan-subscribe-btn ${currentPlan ? 'btn-accent' : isFree ? 'btn-secondary' : 'btn-primary'}`}
-                style={{ opacity: subscribing === plan.id ? 0.7 : 1 }}
-              >
-                {subscribing === plan.id ? (
-                  <>
-                    <FontAwesomeIcon icon={faSpinner} spin />
-                    {' '}Procesando...
-                  </>
-                ) : currentPlan ? (
-                  <>
-                    <FontAwesomeIcon icon={faCheck} />
-                    {' '}Plan Actual
-                  </>
-                ) : isFree ? (
-                  <>
-                    <FontAwesomeIcon icon={faCheck} />
-                    {' '}Incluido
-                  </>
-                ) : (
-                  <>
-                    <FontAwesomeIcon icon={faCreditCard} />
-                    {' '}Suscribirse
-                  </>
-                )}
-              </button>
+                {/* Features */}
+                <ul className="plan-features">
+                  <li className="plan-feature-item">
+                    <span className="plan-feature-check" style={{ color: meta.color }}>
+                      <FontAwesomeIcon icon={faStore} />
+                    </span>
+                    <span><strong>{plan.max_stores}</strong> tiendas máximo</span>
+                  </li>
+                  {features.map((feature, i) => (
+                    <li key={i} className="plan-feature-item">
+                      <span className="plan-feature-check" style={{ color: meta.color }}>
+                        <FontAwesomeIcon icon={faCheck} />
+                      </span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {/* CTA */}
+                <button
+                  onClick={() => !currentPlan && !isFree && handleSubscribe(plan.id)}
+                  disabled={currentPlan || subscribing === plan.id || isFree}
+                  className="plan-subscribe-btn"
+                  style={{
+                    background: currentPlan || isFree ? '#f3f4f6' : meta.gradient,
+                    color: currentPlan || isFree ? '#9ca3af' : '#fff',
+                    cursor: currentPlan || isFree || subscribing === plan.id ? 'default' : 'pointer',
+                  }}
+                >
+                  {subscribing === plan.id ? (
+                    <><FontAwesomeIcon icon={faSpinner} spin /> Procesando...</>
+                  ) : currentPlan ? (
+                    <><FontAwesomeIcon icon={faCheck} /> Plan Actual</>
+                  ) : isFree ? (
+                    <><FontAwesomeIcon icon={faCheck} /> Incluido</>
+                  ) : (
+                    <><FontAwesomeIcon icon={faCreditCard} /> Suscribirse</>
+                  )}
+                </button>
+              </div>
             </div>
           );
         })}
       </div>
 
       <div className="plans-footer">
-        <p>{'?'}Preguntas? Contacta a <strong>soporte@srautomatic.com</strong></p>
+        <p>¿Preguntas? Contacta a <strong>soporte@srautomatic.com</strong></p>
       </div>
     </div>
   );
