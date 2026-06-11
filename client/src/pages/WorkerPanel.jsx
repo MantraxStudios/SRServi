@@ -1662,9 +1662,9 @@ function WorkerPanel() {
                             title="Iniciar preparación"
                             className="woa-btn woa-start"
                             style={{
-                              background: started ? '#1c1c1c' : 'rgba(245,158,11,0.13)',
-                              border: `1px solid ${started ? '#2e2e2e' : 'rgba(245,158,11,0.35)'}`,
-                              color: started ? '#555' : '#f59e0b',
+                              background: started ? '#1c1c1c' : 'rgba(59,130,246,0.13)',
+                              border: `1px solid ${started ? '#2e2e2e' : 'rgba(59,130,246,0.35)'}`,
+                              color: started ? '#555' : '#3b82f6',
                               cursor: started ? 'default' : 'pointer',
                             }}
                           >
