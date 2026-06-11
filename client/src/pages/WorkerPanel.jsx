@@ -204,7 +204,7 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown, completeTask, complet
   const isCompleting = completingTask === task.id;
 
   const statusCfg = {
-    active:    { label: 'Activa',     bg: 'rgba(212,175,55,0.12)',  color: '#D4AF37',  border: 'rgba(212,175,55,0.3)' },
+    active:    { label: 'Activa',     bg: 'rgba(22,163,74,0.12)',   color: '#16a34a',  border: 'rgba(22,163,74,0.3)' },
     completed: { label: 'Completada', bg: 'rgba(22,163,74,0.10)',   color: '#16a34a',  border: 'rgba(22,163,74,0.25)' },
     expired:   { label: 'Vencida',    bg: 'rgba(239,68,68,0.10)',   color: '#ef4444',  border: 'rgba(239,68,68,0.25)' },
     upcoming:  { label: 'Próxima',    bg: 'rgba(255,255,255,0.06)', color: '#999',     border: 'rgba(255,255,255,0.1)' },
@@ -214,8 +214,8 @@ function MiniTaskCard({ task, getTaskStatus, getCountdown, completeTask, complet
     <div
       className="worker-order-card"
       style={{
-        border: status === 'active' ? '2px solid #D4AF37' : '1px solid rgba(0,0,0,0.08)',
-        boxShadow: status === 'active' ? '0 0 0 3px rgba(212,175,55,0.15), 0 2px 8px rgba(0,0,0,0.06)' : '0 2px 8px rgba(0,0,0,0.06)',
+        border: status === 'active' ? '2px solid #16a34a' : '1px solid rgba(0,0,0,0.08)',
+        boxShadow: status === 'active' ? '0 0 0 3px rgba(22,163,74,0.2), 0 2px 8px rgba(0,0,0,0.06)' : '0 2px 8px rgba(0,0,0,0.06)',
         opacity: status === 'completed' ? 0.7 : 1,
         cursor: 'default',
       }}
@@ -359,8 +359,8 @@ function TasksTab({ tasks, completeTask, completingTask, taskError, setTaskError
       </div>
 
       <div className="worker-orders-list tasks-list" style={{
-        flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '12px',
-        alignContent: 'start', scrollbarWidth: 'none'
+        flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', padding: '12px',
+        alignContent: 'start', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch'
       }}>
         {todayTasks.length === 0 ? (
           <div className="empty-state"><p>No hay tareas para hoy</p></div>
