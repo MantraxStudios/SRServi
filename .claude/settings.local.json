@@ -138,7 +138,8 @@
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Desktop\\\\SRServi\\\\server\\\\public\\\\downloads\\\\\" | Select-Object Name, @{N='Size_MB';E={[math]::Round\\($_.Length/1MB, 2\\)}}, LastWriteTime)",
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Desktop\\\\SRServi\\\\AforoBridge\" -Recurse -Depth 1 | Where-Object {!$_.PSIsContainer} | Select-Object Name, @{N='Size_KB';E={[math]::Round\\($_.Length/1KB,1\\)}})",
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Desktop\\\\SRServi\\\\BridgeApps\\\\app\\\\release\\\\\" -ErrorAction SilentlyContinue | Select-Object Name, @{N='Size_MB';E={[math]::Round\\($_.Length/1MB,2\\)}})",
-      "PowerShell(\\(Get-Content \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Desktop\\\\SRServi\\\\server\\\\index.js\"\\).Count)"
+      "PowerShell(\\(Get-Content \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Desktop\\\\SRServi\\\\server\\\\index.js\"\\).Count)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Desktop\\\\SRServi\" -Directory | Select-Object -First 20 | ForEach-Object { $_.FullName })"
     ]
   }
 }
