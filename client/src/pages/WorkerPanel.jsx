@@ -1385,14 +1385,6 @@ function WorkerPanel() {
                 {(orders.length + deliveryOrders.length) > 0 && <span className="worker-tab-badge">{orders.length + deliveryOrders.length}</span>}
               </button>
               <button
-                className={`worker-tab-btn ${activeTab === 'cocina' ? 'active' : ''}`}
-                onClick={() => setActiveTab('cocina')}
-              >
-                <FontAwesomeIcon icon={faFire} />
-                <span>Cocina</span>
-                {kitchenOrders.length > 0 && <span className="worker-tab-badge">{kitchenOrders.length}</span>}
-              </button>
-              <button
                 className={`worker-tab-btn ${activeTab === 'completed' ? 'active' : ''}`}
                 onClick={() => setActiveTab('completed')}
               >
