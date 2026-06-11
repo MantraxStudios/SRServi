@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock, faBook, faChair, faFire } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock, faBook, faChair, faFire, faPlay } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
 import WorkerNewOrder from '../components/WorkerNewOrder';
 import WorkerTableMap from '../components/WorkerTableMap';
@@ -395,6 +395,7 @@ function WorkerPanel() {
   const [searchTerm, setSearchTerm] = useState('');
   const [storeColors, setStoreColors] = useState(null);
   const [hideDecimals, setHideDecimals] = useState(false);
+  const [showPrices, setShowPrices] = useState(true);
   const [showWorkerSwitch, setShowWorkerSwitch] = useState(false);
   const [switchingWorker, setSwitchingWorker] = useState(null);
   const [activeTab, setActiveTab] = useState('active');
@@ -741,6 +742,7 @@ function WorkerPanel() {
         accent: data.accent_color || '#D4AF37'
       });
       if (data.code) setStoreCode(data.code);
+      setShowPrices(data.worker_show_prices === undefined ? true : !!data.worker_show_prices);
     } catch (error) {
       console.error('Error fetching store colors:', error);
     }
@@ -1540,10 +1542,19 @@ function WorkerPanel() {
                 >
                   <div className="worker-order-header">
                     <h3 className="worker-order-number">{getOrderDisplayNumber(order)}</h3>
-                    <div className={`worker-order-type ${getOrderTypeInfo(order.order_type).cls}`}>
-                      <FontAwesomeIcon icon={getOrderTypeInfo(order.order_type).icon} />
-                      {getOrderTypeInfo(order.order_type).label}
-                    </div>
+                    {(() => {
+                      const mins = Math.max(0, Math.floor((Date.now() - new Date(order.created_at)) / 60000));
+                      const urg = mins >= 15 ? '#ef4444' : mins >= 8 ? '#f59e0b' : '#22c55e';
+                      return (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 800, color: urg, background: `${urg}1f`, padding: '4px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+                          <FontAwesomeIcon icon={faClock} /> {mins} min
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div className={`worker-order-type ${getOrderTypeInfo(order.order_type).cls}`} style={{ marginBottom: 6 }}>
+                    <FontAwesomeIcon icon={getOrderTypeInfo(order.order_type).icon} />
+                    {getOrderTypeInfo(order.order_type).label}
                   </div>
                   {['rappi','pedidosya','ubereats'].includes(order.order_type) && (() => {
                     const cfg = {
@@ -1631,11 +1642,13 @@ function WorkerPanel() {
                       ))}
                     </div>
                   )}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
-                    <div className="worker-order-total" style={{ margin: 0 }}>
-                      ${ formatPrice(order.total) }
+                  {showPrices && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+                      <div className="worker-order-total" style={{ margin: 0 }}>
+                        ${ formatPrice(order.total) }
+                      </div>
                     </div>
-                  </div>
+                  )}
                   {/* ── Botones de acción ── */}
                   <div
                     className="worker-order-actions"
@@ -1675,7 +1688,7 @@ function WorkerPanel() {
                               cursor: started ? 'default' : 'pointer',
                             }}
                           >
-                            <FontAwesomeIcon icon={faFire} />
+                            <FontAwesomeIcon icon={faPlay} />
                           </button>
 
                           {/* En preparación — se enciende al iniciar (clic para volver a pendiente) */}
@@ -1835,9 +1848,11 @@ function WorkerPanel() {
                     </div>
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
-                    <div className="worker-order-total" style={{ margin: 0 }}>
-                      ${ formatPrice(order.total) }
-                    </div>
+                    {showPrices ? (
+                      <div className="worker-order-total" style={{ margin: 0 }}>
+                        ${ formatPrice(order.total) }
+                      </div>
+                    ) : <div />}
                     <button
                       onPointerDown={e => e.stopPropagation()}
                       onClick={e => { e.stopPropagation(); reprintOrder(order.id); }}
@@ -1946,9 +1961,11 @@ function WorkerPanel() {
                       </div>
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
-                      <div className="worker-order-total" style={{ margin: 0 }}>
-                        ${isNaN(order.total) ? '0' : Number(order.total).toLocaleString('es-CL')}
-                      </div>
+                      {showPrices ? (
+                        <div className="worker-order-total" style={{ margin: 0 }}>
+                          ${isNaN(order.total) ? '0' : Number(order.total).toLocaleString('es-CL')}
+                        </div>
+                      ) : <div />}
                       {waLink && (
                         <a
                           href={waLink}

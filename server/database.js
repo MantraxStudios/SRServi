@@ -1930,7 +1930,7 @@ export async function createStore(userId, data) {
 }
 
 export async function updateStore(storeId, userId, data) {
-  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label } = data;
+  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label, worker_show_prices } = data;
 
   // Ensure columns exist
   try {
@@ -1943,6 +1943,7 @@ export async function updateStore(storeId, userId, data) {
     if (!names.includes('paid_order_status')) await pool.execute("ALTER TABLE stores ADD COLUMN paid_order_status VARCHAR(20) DEFAULT 'pending'");
     if (!names.includes('complements_label')) await pool.execute("ALTER TABLE stores ADD COLUMN complements_label VARCHAR(100) DEFAULT NULL");
     if (!names.includes('extras_label')) await pool.execute("ALTER TABLE stores ADD COLUMN extras_label VARCHAR(100) DEFAULT NULL");
+    if (!names.includes('worker_show_prices')) await pool.execute('ALTER TABLE stores ADD COLUMN worker_show_prices BOOLEAN DEFAULT TRUE');
   } catch { /* ignore */ }
 
   let query = `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ?`;
@@ -1998,6 +1999,11 @@ export async function updateStore(storeId, userId, data) {
     query += `, extras_label = ?`;
     const v = (extras_label || '').toString().trim();
     params.push(v ? v.slice(0, 100) : null);
+  }
+
+  if (worker_show_prices !== undefined) {
+    query += `, worker_show_prices = ?`;
+    params.push(worker_show_prices === true || worker_show_prices === 'true' || worker_show_prices === 1 || worker_show_prices === '1' ? 1 : 0);
   }
 
   query += ` WHERE id = ? AND user_id = ?`;

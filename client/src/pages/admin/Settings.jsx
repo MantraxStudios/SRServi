@@ -141,6 +141,7 @@ function Settings() {
     paid_order_status: 'pending',
     complements_label: '',
     extras_label: '',
+    worker_show_prices: true,
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -179,6 +180,7 @@ function Settings() {
         paid_order_status: selectedStore.paid_order_status ?? 'pending',
         complements_label: selectedStore.complements_label ?? '',
         extras_label:      selectedStore.extras_label      ?? '',
+        worker_show_prices: selectedStore.worker_show_prices ?? true,
       });
     }
   }, [selectedStore]);
@@ -562,6 +564,29 @@ function Settings() {
                 </div>
               </div>
 
+            </div>
+          </div>
+
+          {/* ══ PANEL DE TRABAJADOR ═══════════════════════════════════ */}
+          <div style={card}>
+            <div style={cardHeader}>
+              <div style={{ width: 34, height: 34, borderRadius: 9, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <FontAwesomeIcon icon={faCoins} style={{ color: '#16a34a', fontSize: 15 }} />
+              </div>
+              <div>
+                <div style={cardTitle}>Panel de trabajador</div>
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>Ajustá qué ven los trabajadores</div>
+              </div>
+            </div>
+            <div style={cardBody}>
+              {/* Mostrar precios */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '14px 0' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 3 }}>Mostrar precios de los pedidos</div>
+                  <div style={{ fontSize: 13, color: '#6b7280' }}>Si lo desactivás, los totales de cada pedido no se muestran en las tarjetas del panel del trabajador</div>
+                </div>
+                <Toggle checked={!!formData.worker_show_prices} onChange={v => setFormData(p => ({ ...p, worker_show_prices: v }))} />
+              </div>
             </div>
           </div>
 

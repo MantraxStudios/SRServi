@@ -1473,7 +1473,7 @@ app.post('/api/stores', authenticateToken, upload.single('logo'), async (req, re
 
 app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
-    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label } = req.body;
+    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label, worker_show_prices } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
@@ -1501,7 +1501,8 @@ app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req,
       show_top_selling,
       paid_order_status,
       complements_label,
-      extras_label
+      extras_label,
+      worker_show_prices
     });
     res.json(store);
   } catch (error) {
