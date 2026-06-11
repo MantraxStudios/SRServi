@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -143,10 +143,11 @@ function Settings() {
     extras_label: '',
     worker_show_prices: true,
   });
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [saveState, setSaveState] = useState('idle'); // idle | saving | saved | error
   const [error, setError] = useState('');
   const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
+  const loadedStoreId = useRef(null);
+  const lastSavedRef = useRef(null); // JSON snapshot of the last persisted formData
 
   const [totpEnabled, setTotpEnabled] = useState(false);
   const [totpSetup, setTotpSetup] = useState(null);
@@ -165,8 +166,9 @@ function Settings() {
   const [showChatgptKey, setShowChatgptKey] = useState(false);
 
   useEffect(() => {
-    if (selectedStore) {
-      setFormData({
+    if (selectedStore && selectedStore.id !== loadedStoreId.current) {
+      loadedStoreId.current = selectedStore.id;
+      const loaded = {
         primary_color:     selectedStore.primary_color     || '#000000',
         secondary_color:   selectedStore.secondary_color   || '#FFFFFF',
         accent_color:      selectedStore.accent_color      || '#D4AF37',
@@ -181,7 +183,9 @@ function Settings() {
         complements_label: selectedStore.complements_label ?? '',
         extras_label:      selectedStore.extras_label      ?? '',
         worker_show_prices: selectedStore.worker_show_prices ?? true,
-      });
+      };
+      lastSavedRef.current = JSON.stringify(loaded); // baseline so loading doesn't trigger a save
+      setFormData(loaded);
     }
   }, [selectedStore]);
 
@@ -285,9 +289,10 @@ function Settings() {
     setCurrencyDropdownOpen(false);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(''); setSuccess(false); setLoading(true);
+  const saveSettings = async () => {
+    if (!selectedStore) return;
+    const snapshot = JSON.stringify(formData);
+    setError(''); setSaveState('saving');
     try {
       const res = await fetch(`/api/stores/${selectedStore.id}`, {
         method: 'PUT',
@@ -295,10 +300,21 @@ function Settings() {
         body: JSON.stringify({ ...formData, name: selectedStore.name }),
       });
       if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).error) || 'Error al guardar');
-      setSuccess(true); fetchStores(); setTimeout(() => setSuccess(false), 3000);
-    } catch (err) { setError(err.message); }
-    finally { setLoading(false); }
+      lastSavedRef.current = snapshot;
+      setSaveState('saved');
+      fetchStores();
+      setTimeout(() => setSaveState(s => (s === 'saved' ? 'idle' : s)), 2000);
+    } catch (err) { setError(err.message); setSaveState('error'); }
   };
+
+  // Auto-guardado con debounce: cualquier cambio se guarda solo
+  useEffect(() => {
+    if (!selectedStore || lastSavedRef.current === null) return;
+    if (JSON.stringify(formData) === lastSavedRef.current) return; // sin cambios reales
+    const t = setTimeout(() => { saveSettings(); }, 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData]);
 
   if (!selectedStore) {
     return (
@@ -318,29 +334,32 @@ function Settings() {
     <>
       {/* ── Page header ── */}
       <header className="admin-header">
-        <div className="admin-header-row">
+        <div className="admin-header-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div className="admin-header-info">
             <h1>Configuración</h1>
             <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>{selectedStore.name}</p>
           </div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 700, padding: '7px 14px', borderRadius: 20,
+            background: saveState === 'error' ? '#fef2f2' : saveState === 'saved' ? '#f0fdf4' : '#f3f4f6',
+            color: saveState === 'error' ? '#dc2626' : saveState === 'saved' ? '#16a34a' : '#6b7280' }}>
+            {saveState === 'saving' && <><FontAwesomeIcon icon={faSpinner} spin /> Guardando…</>}
+            {saveState === 'saved'  && <><FontAwesomeIcon icon={faCheck} /> Guardado</>}
+            {saveState === 'error'  && <>✕ Error al guardar</>}
+            {saveState === 'idle'   && <><FontAwesomeIcon icon={faCheck} style={{ color: '#9ca3af' }} /> Se guarda automáticamente</>}
+          </div>
         </div>
       </header>
 
-      <div className="admin-main" style={{ maxWidth: 760 }}>
+      <div className="admin-main" style={{ maxWidth: 1180 }}>
 
-        {/* ── Global alerts ── */}
-        {error   && (
+        {/* ── Global alert ── */}
+        {error && (
           <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 8 }}>
             ✕ {error}
           </div>
         )}
-        {success && (
-          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <FontAwesomeIcon icon={faCheck} /> Configuración guardada correctamente
-          </div>
-        )}
 
-        <form onSubmit={handleSubmit}>
+        <div className="settings-grid">
 
           {/* ══ COLORES ══════════════════════════════════════════════ */}
           <div style={card}>
@@ -385,7 +404,7 @@ function Settings() {
           </div>
 
           {/* ══ MONEDA ═══════════════════════════════════════════════ */}
-          <div style={card}>
+          <div style={{ ...card, overflow: 'visible' }}>
             <div style={cardHeader}>
               <div style={{ width: 34, height: 34, borderRadius: 9, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <FontAwesomeIcon icon={faCoins} style={{ color: '#16a34a', fontSize: 15 }} />
@@ -590,22 +609,7 @@ function Settings() {
             </div>
           </div>
 
-          {/* ── Save button ── */}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              ...btnGold, width: '100%', justifyContent: 'center',
-              padding: '14px', fontSize: 15, borderRadius: 12,
-              marginBottom: 24,
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading ? <><FontAwesomeIcon icon={faSpinner} spin /> Guardando…</> : <><FontAwesomeIcon icon={faCheck} /> Guardar configuración</>}
-          </button>
-        </form>
-
-        {/* ══ SEGURIDAD 2FA ═════════════════════════════════════════ */}
+          {/* ══ SEGURIDAD 2FA ═════════════════════════════════════════ */}
         <div style={card}>
           <div style={cardHeader}>
             <div style={{ width: 34, height: 34, borderRadius: 9, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -761,6 +765,9 @@ function Settings() {
             </div>
           </div>
         </div>
+
+        </div>
+        {/* /settings-grid */}
 
       </div>
     </>

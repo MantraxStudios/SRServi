@@ -1617,6 +1617,20 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
 }
 
+/* Settings page — responsive masonry: 1 col on mobile, 2 cols on desktop */
+.settings-grid {
+  column-gap: 20px;
+}
+.settings-grid > * {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+}
+@media (min-width: 1000px) {
+  .settings-grid {
+    column-count: 2;
+  }
+}
+
 /* Top header bar (hamburger + title) */
 .mobile-header {
   display: flex;
