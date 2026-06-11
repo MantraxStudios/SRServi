@@ -37,6 +37,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var etStoreCode: TextInputEditText
     private lateinit var spinnerPaperSize: Spinner
     private lateinit var switchKiosk: SwitchMaterial
+    private lateinit var switchRotation: SwitchMaterial
     private lateinit var tvPrinterStatus: TextView
     private lateinit var printerManager: BluetoothPrinterManager
 
@@ -71,6 +72,7 @@ class SettingsActivity : AppCompatActivity() {
         etStoreCode = findViewById(R.id.etStoreCode)
         spinnerPaperSize = findViewById(R.id.spinnerPaperSize)
         switchKiosk = findViewById(R.id.switchKiosk)
+        switchRotation = findViewById(R.id.switchRotation)
         tvPrinterStatus = findViewById(R.id.tvPrinterStatus)
 
         val adapter = ArrayAdapter(
@@ -85,6 +87,9 @@ class SettingsActivity : AppCompatActivity() {
 
         findViewById<MaterialButton>(R.id.btnConfigPrinter).setOnClickListener {
             requestBluetoothPermissions()
+        }
+        findViewById<MaterialButton>(R.id.btnMultiplePrinters).setOnClickListener {
+            startActivity(Intent(this, MultiplePrintersActivity::class.java))
         }
         findViewById<MaterialButton>(R.id.btnBluetooth).setOnClickListener {
             startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
@@ -124,6 +129,9 @@ class SettingsActivity : AppCompatActivity() {
         val index = paperSizeOptions.indexOfFirst { it.second == paperWidth }.takeIf { it >= 0 } ?: 3
         spinnerPaperSize.setSelection(index)
 
+        val allowRotation = prefs.getBoolean("allow_rotation", false)
+        switchRotation.isChecked = allowRotation
+
         val kioskMode = prefs.getBoolean("kiosk_mode", false)
         switchKiosk.isChecked = kioskMode
 
@@ -142,6 +150,8 @@ class SettingsActivity : AppCompatActivity() {
 
         val paperWidth = paperSizeOptions[spinnerPaperSize.selectedItemPosition].second
         editor.putInt("paper_width", paperWidth)
+
+        editor.putBoolean("allow_rotation", switchRotation.isChecked)
 
         val kioskMode = switchKiosk.isChecked
         editor.putBoolean("kiosk_mode", kioskMode)

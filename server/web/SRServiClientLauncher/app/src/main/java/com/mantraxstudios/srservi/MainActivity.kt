@@ -3,6 +3,7 @@ package com.mantraxstudios.srservi
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
@@ -27,6 +28,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyRotationPreference()
         setContentView(R.layout.activity_main)
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -66,6 +68,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        applyRotationPreference()
 
         // El servicio se inicia SIEMPRE para que onTaskRemoved pueda relanzar
         // la app aunque el wizard todavía no esté completo.
@@ -109,6 +112,15 @@ class MainActivity : AppCompatActivity() {
         //   - onBackPressed bloqueado (arriba)
         //   - excludeFromRecents en el manifest
         //   - PrinterForegroundService.onTaskRemoved relanza la app si la cierran
+    }
+
+    private fun applyRotationPreference() {
+        val prefs = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
+        val allowRotation = prefs.getBoolean("allow_rotation", false)
+        requestedOrientation = if (allowRotation)
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        else
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
 
     private fun updatePrinterStatus() {

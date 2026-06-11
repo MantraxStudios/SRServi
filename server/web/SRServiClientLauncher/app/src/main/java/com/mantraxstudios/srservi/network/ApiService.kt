@@ -8,10 +8,13 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
+data class PlanInfo(val planName: String, val maxPrinters: Int)
+
 object ApiService {
 
     private val gson = Gson()
     private const val BASE_URL = "https://srservi2.srautomatic.com/api/store"
+    private const val PUBLIC_URL = "https://srservi2.srautomatic.com/api/public"
 
     fun fetchOrders(storeCode: String): OrdersResponse? {
         val url = "$BASE_URL/$storeCode/orders"
@@ -23,6 +26,14 @@ object ApiService {
         val url = "$BASE_URL/$storeCode/ticket-purchases"
         val response = httpGet(url)
         return if (response != null) gson.fromJson(response, TicketPurchasesResponse::class.java) else null
+    }
+
+    fun fetchPlanInfo(storeCode: String): PlanInfo? {
+        val url = "$PUBLIC_URL/$storeCode/plan-info"
+        val response = httpGet(url)
+        return if (response != null) {
+            try { gson.fromJson(response, PlanInfo::class.java) } catch (_: Exception) { null }
+        } else null
     }
 
     private fun httpGet(urlString: String): String? {

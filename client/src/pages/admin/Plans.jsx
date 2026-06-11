@@ -24,7 +24,7 @@ const PLAN_META = {
     color: '#6b7280',
     badge: null,
   },
-  Premium: {
+  SOLO: {
     icon: faCrown,
     gradient: 'linear-gradient(135deg, #1d4ed8 0%, #60a5fa 100%)',
     color: '#3b82f6',

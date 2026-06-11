@@ -36,6 +36,7 @@ class PrinterForegroundService : Service() {
         const val KEY_PRINTED_IDS = "printed_order_ids"
         const val KEY_REPRINT_COUNTS = "reprint_counts"
         const val KEY_PRINTER_ADDRESS = "printer_mac_address"
+        const val KEY_EXTRA_PRINTER_MACS = "extra_printer_macs"
         const val KEY_PRINTED_TICKET_IDS = "printed_ticket_purchase_ids"
         const val KEY_INITIALIZED = "printer_initialized"
         const val KEY_HISTORY_ORDER_IDS = "pending_history_order_ids"
@@ -169,22 +170,38 @@ class PrinterForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun autoConnect() {
-        // Evitar multiples intentos de conexion al mismo tiempo
-        if (isConnecting || printerManager.isConnected()) return
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val address = prefs.getString(KEY_PRINTER_ADDRESS, null) ?: return
 
-        isConnecting = true
-        Thread {
-            try {
-                val device = printerManager.getPairedDevices().find { it.address == address }
-                if (device != null) {
-                    printerManager.connect(device)
-                }
-            } finally {
-                isConnecting = false
+        // Impresora principal
+        if (!isConnecting && !printerManager.isConnected()) {
+            val address = prefs.getString(KEY_PRINTER_ADDRESS, null)
+            if (address != null) {
+                isConnecting = true
+                Thread {
+                    try {
+                        val device = printerManager.getPairedDevices().find { it.address == address }
+                        device?.let { printerManager.connect(it) }
+                    } finally {
+                        isConnecting = false
+                    }
+                }.start()
             }
-        }.start()
+        }
+
+        // Impresoras adicionales (Plan Empresas)
+        val extraMacs = prefs.getString(KEY_EXTRA_PRINTER_MACS, "") ?: ""
+        if (extraMacs.isNotBlank()) {
+            val macList = extraMacs.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            val pairedDevices = printerManager.getPairedDevices()
+            for (mac in macList) {
+                if (!printerManager.isSecondaryConnected(mac)) {
+                    val device = pairedDevices.find { it.address == mac }
+                    if (device != null) {
+                        Thread { printerManager.connectSecondary(device) }.start()
+                    }
+                }
+            }
+        }
     }
 
     private fun fetchAndAutoPrint() {

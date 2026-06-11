@@ -1377,7 +1377,7 @@ async function migrateTables() {
         await pool.execute(`
           INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
           ('Gratis', 'Plan gratuito básico', 2, 0, 0, '["2 tiendas máximo", "Gestión de productos", "Punto de venta"]'),
-          ('Premium', 'Plan para negocios en crecimiento', 10, 11.00, 11.00, '["Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
+          ('SOLO', 'Plan para negocios en crecimiento', 10, 11.00, 11.00, '["Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
           ('Empresas', 'Plan para empresas con múltiples sucursales', 25, 25.00, 25.00, '["25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
           ('Personalizado', 'Plan con funciones a medida y soporte dedicado', 25, 99.00, 99.00, '["Funciones personalizadas a pedido", "Soporte prioritario dedicado", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Atención directa con el equipo de desarrollo"]')
         `);
@@ -1388,6 +1388,9 @@ async function migrateTables() {
           if (plan.name === 'Profesional' || plan.name === 'Empresarial') {
             await pool.execute('DELETE FROM plans WHERE id = ?', [plan.id]);
             console.log('⚠️ Eliminando plan obsoleto:', plan.name);
+          } else if (plan.name === 'Premium') {
+            await pool.execute('UPDATE plans SET name = ? WHERE id = ?', ['SOLO', plan.id]);
+            console.log('ℹ️ Plan Premium renombrado a SOLO');
           } else if (plan.name === 'Gratis') {
             await pool.execute(
               'UPDATE plans SET features = ? WHERE id = ?',
@@ -1396,19 +1399,19 @@ async function migrateTables() {
             console.log('ℹ️ Plan Gratis actualizado');
           }
         }
-        const [remainingPlans] = await pool.execute("SELECT COUNT(*) as count FROM plans WHERE name = 'Premium'");
+        const [remainingPlans] = await pool.execute("SELECT COUNT(*) as count FROM plans WHERE name = 'SOLO'");
         if (remainingPlans[0].count === 0) {
           await pool.execute(`
             INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
-            ('Premium', 'Plan para negocios en crecimiento', 10, 11.00, 11.00, '["Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
+            ('SOLO', 'Plan para negocios en crecimiento', 10, 11.00, 11.00, '["Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
           `);
-          console.log('✅ Plan Premium insertado');
+          console.log('✅ Plan SOLO insertado');
         } else {
           await pool.execute(
             'UPDATE plans SET price_monthly = 11.00, price_yearly = 11.00 WHERE name = ?',
-            ['Premium']
+            ['SOLO']
           );
-          console.log('ℹ️ Plan Premium actualizado a $11/$11');
+          console.log('ℹ️ Plan SOLO actualizado a $11/$11');
         }
 
         const [empresasPlans] = await pool.execute("SELECT COUNT(*) as count FROM plans WHERE name = 'Empresas'");

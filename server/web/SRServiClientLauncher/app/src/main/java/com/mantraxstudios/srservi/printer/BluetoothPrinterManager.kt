@@ -32,12 +32,22 @@ class BluetoothPrinterManager(private val context: Context) {
         const val PAPER_80MM = 48
         const val PAPER_110MM = 64
         const val PAPER_112MM = 66
+        const val MAX_EXTRA_PRINTERS = 4  // 1 primary + 4 extra = 5 total (plan Empresas)
+    }
+
+    data class SecondaryConnection(
+        val device: BluetoothDevice,
+        var socket: BluetoothSocket? = null,
+        var outputStream: OutputStream? = null
+    ) {
+        val address: String get() = device.address
     }
 
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var socket: BluetoothSocket? = null
     private var outputStream: OutputStream? = null
     private var connectedDevice: BluetoothDevice? = null
+    private val secondaryConnections = mutableListOf<SecondaryConnection>()
     private val printQueue: ConcurrentLinkedQueue<Order> = ConcurrentLinkedQueue()
     private val ticketQueue: ConcurrentLinkedQueue<TicketPurchase> = ConcurrentLinkedQueue()
     private var isPrinting = false
@@ -120,6 +130,39 @@ class BluetoothPrinterManager(private val context: Context) {
         listener?.onDisconnected()
     }
 
+    // ── Impresoras secundarias (Plan Empresas, máx 4 extra) ──
+
+    fun connectSecondary(device: BluetoothDevice): Boolean {
+        if (!hasBluetoothPermission()) return false
+        disconnectSecondary(device.address)
+        return try {
+            val sock = device.createRfcommSocketToServiceRecord(SPP_UUID)
+            sock.connect()
+            secondaryConnections.add(SecondaryConnection(device, sock, sock.outputStream))
+            true
+        } catch (_: IOException) {
+            false
+        }
+    }
+
+    fun disconnectSecondary(address: String) {
+        val conn = secondaryConnections.find { it.address == address } ?: return
+        try { conn.outputStream?.close(); conn.socket?.close() } catch (_: IOException) {}
+        secondaryConnections.removeAll { it.address == address }
+    }
+
+    fun getSecondaryConnections(): List<SecondaryConnection> = secondaryConnections.toList()
+
+    fun isSecondaryConnected(address: String): Boolean =
+        secondaryConnections.any { it.address == address && it.socket?.isConnected == true }
+
+    private fun getAllOutputStreams(): List<OutputStream> {
+        val streams = mutableListOf<OutputStream>()
+        outputStream?.let { streams.add(it) }
+        secondaryConnections.forEach { conn -> conn.outputStream?.let { streams.add(it) } }
+        return streams
+    }
+
     fun addToQueue(order: Order) {
         printQueue.add(order)
         processQueue()
@@ -155,9 +198,16 @@ class BluetoothPrinterManager(private val context: Context) {
             isPrinting = true
             Thread {
                 try {
-                    val os = outputStream ?: throw IOException("Impresora no conectada")
-                    os.write(buildTicketPurchaseReceipt(purchase))
-                    os.flush()
+                    val streams = getAllOutputStreams()
+                    if (streams.isEmpty()) throw IOException("Impresora no conectada")
+                    val receipt = buildTicketPurchaseReceipt(purchase)
+                    var lastError: Exception? = null
+                    var successCount = 0
+                    for (os in streams) {
+                        try { os.write(receipt); os.flush(); successCount++ }
+                        catch (e: Exception) { lastError = e }
+                    }
+                    if (successCount == 0) throw lastError ?: IOException("Error al imprimir")
                     listener?.onPrintSuccess(purchase.viewerCode)
                 } catch (e: Exception) {
                     listener?.onPrintError(purchase.viewerCode, e.message ?: "Error")
@@ -170,11 +220,16 @@ class BluetoothPrinterManager(private val context: Context) {
     }
 
     private fun printReceipt(order: Order) {
-        val os = outputStream ?: throw IOException("Impresora no conectada")
-
+        val streams = getAllOutputStreams()
+        if (streams.isEmpty()) throw IOException("Impresora no conectada")
         val receipt = buildReceipt(order)
-        os.write(receipt)
-        os.flush()
+        var lastError: Exception? = null
+        var successCount = 0
+        for (os in streams) {
+            try { os.write(receipt); os.flush(); successCount++ }
+            catch (e: Exception) { lastError = e }
+        }
+        if (successCount == 0) throw lastError ?: IOException("Error al imprimir")
     }
 
     private fun buildReceipt(order: Order): ByteArray {

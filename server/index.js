@@ -1188,6 +1188,20 @@ app.post('/api/auth/heartbeat', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/public/:code/plan-info', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const store = await getStoreByCode(code.toUpperCase());
+    if (!store) return res.status(404).json({ error: 'Tienda no encontrada' });
+    const userPlan = await getUserPlan(store.user_id);
+    const planName = userPlan?.plan_name || 'Gratis';
+    const maxPrinters = (planName === 'Empresas' || planName === 'Personalizado') ? 5 : 1;
+    res.json({ planName, maxPrinters });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/public/:code', async (req, res) => {
   try {
     const { code } = req.params;
