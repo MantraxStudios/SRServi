@@ -1601,10 +1601,6 @@ function WorkerPanel() {
                     </div>
                   )}
                   <div className="worker-order-info">
-                    <div className="worker-status-badge" style={{ backgroundColor: `${getStatusColor(order.status)}22`, color: getStatusColor(order.status) }}>
-                      <FontAwesomeIcon icon={getStatusIcon(order.status)} />
-                      {order.status}
-                    </div>
                     <p className="worker-order-time">
                       {new Date(order.created_at).toLocaleTimeString('es-ES', {
                         hour: '2-digit',
@@ -1655,22 +1651,6 @@ function WorkerPanel() {
                     onPointerDown={e => e.stopPropagation()}
                     onClick={e => e.stopPropagation()}
                   >
-                    {/* Reimprimir — icono cuadrado (con etiqueta en móvil) */}
-                    <button
-                      onClick={() => reprintOrder(order.id)}
-                      disabled={reprintingIds.has(order.id)}
-                      title="Reimprimir"
-                      className="woa-btn woa-reprint"
-                      style={{
-                        background: reprintedIds.has(order.id) ? 'rgba(34,197,94,0.15)' : '#1c1c1c',
-                        border: `1px solid ${reprintedIds.has(order.id) ? 'rgba(34,197,94,0.5)' : '#2e2e2e'}`,
-                        color: reprintedIds.has(order.id) ? '#22c55e' : '#777',
-                        cursor: reprintingIds.has(order.id) ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      <FontAwesomeIcon icon={reprintedIds.has(order.id) ? faCheck : faPrint} spin={reprintingIds.has(order.id)} />
-                    </button>
-
                     {(() => {
                       const started = order.status === 'preparing' || order.status === 'ready';
                       return (
@@ -1719,6 +1699,22 @@ function WorkerPanel() {
                       }}
                     >
                       <FontAwesomeIcon icon={faCheck} />
+                    </button>
+
+                    {/* Reimprimir — va de último */}
+                    <button
+                      onClick={() => reprintOrder(order.id)}
+                      disabled={reprintingIds.has(order.id)}
+                      title="Reimprimir"
+                      className="woa-btn woa-reprint"
+                      style={{
+                        background: reprintedIds.has(order.id) ? 'rgba(34,197,94,0.15)' : '#1c1c1c',
+                        border: `1px solid ${reprintedIds.has(order.id) ? 'rgba(34,197,94,0.5)' : '#2e2e2e'}`,
+                        color: reprintedIds.has(order.id) ? '#22c55e' : '#777',
+                        cursor: reprintingIds.has(order.id) ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      <FontAwesomeIcon icon={reprintedIds.has(order.id) ? faCheck : faPrint} spin={reprintingIds.has(order.id)} />
                     </button>
                   </div>
                 </div>
