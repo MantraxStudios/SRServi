@@ -32,7 +32,7 @@ class BluetoothPrinterManager(private val context: Context) {
         const val PAPER_80MM = 48
         const val PAPER_110MM = 64
         const val PAPER_112MM = 66
-        const val MAX_EXTRA_PRINTERS = 4  // 1 primary + 4 extra = 5 total (plan Empresas)
+        const val MAX_EXTRA_PRINTERS = 9  // 1 primary + 9 extra = 10 total máximo (plan Personalizado)
     }
 
     data class SecondaryConnection(

@@ -1377,9 +1377,9 @@ async function migrateTables() {
         await pool.execute(`
           INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
           ('Gratis', 'Plan gratuito básico', 2, 0, 0, '["2 tiendas máximo", "Gestión de productos", "Punto de venta"]'),
-          ('SOLO', 'Plan para negocios en crecimiento', 10, 11.00, 11.00, '["Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
-          ('Empresas', 'Plan para empresas con múltiples sucursales', 25, 25.00, 25.00, '["25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
-          ('Personalizado', 'Plan con funciones a medida y soporte dedicado', 25, 99.00, 99.00, '["Funciones personalizadas a pedido", "Soporte prioritario dedicado", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Atención directa con el equipo de desarrollo"]')
+          ('SOLO', 'Plan para negocios en crecimiento', 10, 11.00, 11.00, '["1 impresora Bluetooth en la app", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
+          ('Empresas', 'Plan para empresas con múltiples sucursales', 25, 25.00, 25.00, '["5 impresoras Bluetooth en la app", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]'),
+          ('Personalizado', 'Plan con funciones a medida y soporte dedicado', 25, 99.00, 99.00, '["10 impresoras Bluetooth en la app", "Funciones personalizadas a pedido", "Soporte prioritario dedicado", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Atención directa con el equipo de desarrollo"]')
         `);
         console.log('✅ Planes por defecto insertados');
       } else {
@@ -1403,7 +1403,7 @@ async function migrateTables() {
         if (remainingPlans[0].count === 0) {
           await pool.execute(`
             INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
-            ('SOLO', 'Plan para negocios en crecimiento', 10, 11.00, 11.00, '["Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
+            ('SOLO', 'Plan para negocios en crecimiento', 10, 11.00, 11.00, '["1 impresora Bluetooth en la app", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
           `);
           console.log('✅ Plan SOLO insertado');
         } else {
@@ -1418,27 +1418,27 @@ async function migrateTables() {
         if (empresasPlans[0].count === 0) {
           await pool.execute(`
             INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
-            ('Empresas', 'Plan para empresas con múltiples sucursales', 25, 25.00, 25.00, '["25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
+            ('Empresas', 'Plan para empresas con múltiples sucursales', 25, 25.00, 25.00, '["5 impresoras Bluetooth en la app", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Soporte prioritario"]')
           `);
           console.log('✅ Plan Empresas insertado');
         } else {
           await pool.execute(
-            'UPDATE plans SET max_stores = 25, price_monthly = 25.00, price_yearly = 25.00 WHERE name = ?',
+            "UPDATE plans SET max_stores = 25, price_monthly = 25.00, price_yearly = 25.00, features = '[\"5 impresoras Bluetooth en la app\", \"25 tiendas máximo\", \"Logo superior personalizado\", \"Cambio de colores\", \"Multi tiendas\", \"Soporte prioritario\"]' WHERE name = ?",
             ['Empresas']
           );
-          console.log('ℹ️ Plan Empresas actualizado a 25 tiendas / $25');
+          console.log('ℹ️ Plan Empresas actualizado');
         }
 
         const [personalPlans] = await pool.execute("SELECT COUNT(*) as count FROM plans WHERE name = 'Personalizado'");
         if (personalPlans[0].count === 0) {
           await pool.execute(`
             INSERT INTO plans (name, description, max_stores, price_monthly, price_yearly, features) VALUES
-            ('Personalizado', 'Plan con funciones a medida y soporte dedicado', 25, 99.00, 99.00, '["Funciones personalizadas a pedido", "Soporte prioritario dedicado", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Atención directa con el equipo de desarrollo"]')
+            ('Personalizado', 'Plan con funciones a medida y soporte dedicado', 25, 99.00, 99.00, '["10 impresoras Bluetooth en la app", "Funciones personalizadas a pedido", "Soporte prioritario dedicado", "25 tiendas máximo", "Logo superior personalizado", "Cambio de colores", "Multi tiendas", "Atención directa con el equipo de desarrollo"]')
           `);
           console.log('✅ Plan Personalizado insertado');
         } else {
           await pool.execute(
-            'UPDATE plans SET max_stores = 25, price_monthly = 99.00, price_yearly = 99.00 WHERE name = ?',
+            "UPDATE plans SET max_stores = 25, price_monthly = 99.00, price_yearly = 99.00, features = '[\"10 impresoras Bluetooth en la app\", \"Funciones personalizadas a pedido\", \"Soporte prioritario dedicado\", \"25 tiendas máximo\", \"Logo superior personalizado\", \"Cambio de colores\", \"Multi tiendas\", \"Atención directa con el equipo de desarrollo\"]' WHERE name = ?",
             ['Personalizado']
           );
           console.log('ℹ️ Plan Personalizado actualizado a $99');
