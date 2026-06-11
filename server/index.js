@@ -8452,6 +8452,20 @@ app.get('/api/download/cctv', (req, res) => {
   res.sendFile(apkPath);
 });
 
+app.get('/api/download/aforo-windows', (req, res) => {
+  const zipPath = path.join(__serverDir, 'public/downloads/AforoBridge-Windows.zip');
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', 'attachment; filename="AforoBridge-Windows.zip"');
+  res.sendFile(zipPath);
+});
+
+app.get('/api/download/aforo-android', (req, res) => {
+  const apkPath = path.join(__serverDir, 'public/downloads/AforoBridge-Android.apk');
+  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.setHeader('Content-Disposition', 'attachment; filename="AforoBridge-Android.apk"');
+  res.sendFile(apkPath);
+});
+
 // ==================== APK Releases ====================
 
 app.get('/api/superadmin/apks', authenticateSuperadminToken, async (req, res) => {

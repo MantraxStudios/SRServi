@@ -538,11 +538,11 @@ export default function PeopleCounter() {
             Instálala en el PC o celular del local para conectar tu cámara IP y contar en segundo plano.
           </div>
         </div>
-        <a href={`${API}/downloads/AforoBridge-Windows.zip`} download
+        <a href={`${API}/api/download/aforo-windows`} download="AforoBridge-Windows.zip"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#D4AF37', color: '#000', fontWeight: 800, fontSize: 13, padding: '10px 16px', borderRadius: 9, textDecoration: 'none' }}>
           <FontAwesomeIcon icon={faWindows} /> Windows (.zip)
         </a>
-        <a href={`${API}/downloads/AforoBridge-Android.apk`} download
+        <a href={`${API}/api/download/aforo-android`} download="AforoBridge-Android.apk"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#fff', color: '#111', fontWeight: 800, fontSize: 13, padding: '10px 16px', borderRadius: 9, textDecoration: 'none' }}>
           <FontAwesomeIcon icon={faAndroid} /> Android (.apk)
         </a>
