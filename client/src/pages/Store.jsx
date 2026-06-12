@@ -1023,6 +1023,7 @@ function Store() {
     return v === null ? null : v === 'true';
   });
   const [infoModalOpen, setInfoModalOpen] = useState(false);
+  const [productInfo, setProductInfo] = useState(null);
   const [posSelectModalOpen, setPosSelectModalOpen] = useState(false);
   const [ticketMode, setTicketMode] = useState(() => !searchParams.get('admin_edit') && localStorage.getItem('srservi_ticket_mode') === '1');
   const [posSelectList, setPosSelectList] = useState([]);
@@ -4139,6 +4140,16 @@ function Store() {
               alt={product.name}
               className={isOutOfStock ? 'grayscale' : ''}
             />
+            {product.description && (
+              <button
+                className="store-product-info-btn"
+                onClick={(e) => { e.stopPropagation(); setProductInfo(product); }}
+                aria-label={t('moreInfo', lang)}
+                title={t('moreInfo', lang)}
+              >
+                <FontAwesomeIcon icon={faInfoCircle} />
+              </button>
+            )}
           </div>
         </div>
         <div className="store-product-info">
@@ -7596,6 +7607,24 @@ function Store() {
               <div><strong>Socket:</strong> {socketRef.current?.connected ? '🟢 Conectado' : '🔴 Desconectado'}{socketRef.current?.id ? ` (${socketRef.current.id})` : ''}</div>
             </div>
             <p style={{ fontSize: '11px', color: '#bbb', textAlign: 'center', marginTop: '12px', marginBottom: 0 }}>Mantén presionado 2 segundos en cualquier parte de la pantalla para acceder al PIN de edición</p>
+          </div>
+        </div>
+      )}
+
+      {productInfo && (
+        <div className="store-modal-overlay" onClick={() => setProductInfo(null)}>
+          <div className="store-product-info-modal" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setProductInfo(null)} className="store-product-info-modal-close">&times;</button>
+            <div className="store-product-info-modal-img">
+              <img src={getProductImageUrl(productInfo.image)} alt={productInfo.name} />
+            </div>
+            <div className="store-product-info-modal-body">
+              <div className="store-product-info-modal-head">
+                <h3>{productInfo.name}</h3>
+                <span className="store-product-info-modal-price">{colors.currency.symbol}{formatPrice(productInfo.price)}</span>
+              </div>
+              <p className="store-product-info-modal-desc">{productInfo.description}</p>
+            </div>
           </div>
         </div>
       )}
