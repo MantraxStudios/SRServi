@@ -106,9 +106,11 @@ namespace AforoBridge
             };
             foreach (var a in new[] {
                 "-rtsp_transport", "tcp",
-                "-fflags", "+genpts+discardcorrupt",
+                "-fflags", "nobuffer+genpts+discardcorrupt",
+                "-flags", "low_delay",
+                "-an",
                 "-i", rtspUrl,
-                "-vf", $"fps=2,scale={W}:{H}",
+                "-vf", $"fps=5,scale={W}:{H}",
                 "-f", "rawvideo", "-pix_fmt", "rgb24",
                 "-loglevel", "error", "pipe:1"
             }) psi.ArgumentList.Add(a);
@@ -293,8 +295,11 @@ namespace AforoBridge
             };
             foreach (var a in new[] {
                 "-rtsp_transport", "tcp",
+                "-fflags", "nobuffer+discardcorrupt",
+                "-flags", "low_delay",
+                "-an",
                 "-i", rtspUrl,
-                "-vf", "fps=10,scale=640:360",
+                "-vf", "fps=15,scale=640:360",
                 "-f", "image2pipe", "-vcodec", "mjpeg", "-q:v", "5",
                 "-loglevel", "error", "pipe:1"
             }) psi.ArgumentList.Add(a);
@@ -310,7 +315,8 @@ namespace AforoBridge
         private void ReadSnapshots(Process proc, CancellationToken ct)
         {
             var stream = proc.StandardOutput.BaseStream;
-            var buf = new List<byte>(128 * 1024);
+            var buf = new byte[256 * 1024];
+            int len = 0;
             var chunk = new byte[64 * 1024];
             try
             {
@@ -318,34 +324,43 @@ namespace AforoBridge
                 {
                     int n = stream.Read(chunk, 0, chunk.Length);
                     if (n <= 0) break;
-                    for (int k = 0; k < n; k++) buf.Add(chunk[k]);
+                    if (len + n > buf.Length)
+                    {
+                        if (len + n > 4 * 1024 * 1024) { len = 0; continue; } // salvaguarda
+                        Array.Resize(ref buf, Math.Max(buf.Length * 2, len + n));
+                    }
+                    Array.Copy(chunk, 0, buf, len, n);
+                    len += n;
 
                     // Extraer JPEGs completos (SOI FFD8 … EOI FFD9)
                     int i = 0;
-                    while (i < buf.Count - 1)
+                    while (i < len - 1)
                     {
                         if (buf[i] == 0xFF && buf[i + 1] == 0xD8)
                         {
-                            int end = IndexOfEoi(buf, i + 2);
+                            int end = IndexOfEoi(buf, i + 2, len);
                             if (end == -1) break;
-                            int len = end + 2 - i;
-                            var jpeg = new byte[len];
-                            buf.CopyTo(i, jpeg, 0, len);
+                            int jlen = end + 2 - i;
+                            var jpeg = new byte[jlen];
+                            Array.Copy(buf, i, jpeg, 0, jlen);
                             OnSnapshot?.Invoke(jpeg);
                             i = end + 2;
                         }
                         else i++;
                     }
-                    if (i > 0) buf.RemoveRange(0, i);
-                    if (buf.Count > 4 * 1024 * 1024) buf.Clear(); // salvaguarda
+                    if (i > 0)
+                    {
+                        Array.Copy(buf, i, buf, 0, len - i);
+                        len -= i;
+                    }
                 }
             }
             catch { /* terminó el stream */ }
         }
 
-        private static int IndexOfEoi(List<byte> buf, int from)
+        private static int IndexOfEoi(byte[] buf, int from, int len)
         {
-            for (int i = from; i < buf.Count - 1; i++)
+            for (int i = from; i < len - 1; i++)
                 if (buf[i] == 0xFF && buf[i + 1] == 0xD9) return i;
             return -1;
         }

@@ -14198,13 +14198,23 @@ app.get('/api/stores/:id/people-counter/rtsp/status', authenticateToken, async (
 const localSnapshots = new Map(); // storeId → Buffer JPEG
 const localAgentPing = new Map(); // storeId → timestamp último ping
 const localMjpegClients = new Map(); // storeId → Set(sendFn) — clientes viendo la vista previa
+const snapOwnerCache = new Map(); // 'userId:storeId' → expiración (evita 1 query SQL por frame)
+
+async function checkSnapOwner(userId, storeId) {
+  const key = `${userId}:${storeId}`;
+  const exp = snapOwnerCache.get(key);
+  if (exp && exp > Date.now()) return true;
+  const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, userId]);
+  if (!owned[0]) return false;
+  snapOwnerCache.set(key, Date.now() + 60000);
+  return true;
+}
 
 // POST: agente local sube snapshot JPEG
 app.post('/api/stores/:id/people-counter/snapshot-upload', authenticateToken, async (req, res) => {
   try {
     const storeId = parseInt(req.params.id);
-    const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, req.user.id]);
-    if (!owned[0]) return res.status(403).json({ error: 'Sin permiso' });
+    if (!await checkSnapOwner(req.user.id, storeId)) return res.status(403).json({ error: 'Sin permiso' });
     const chunks = [];
     req.on('data', c => chunks.push(c));
     req.on('end', () => {
@@ -14251,9 +14261,11 @@ app.get('/api/stores/:id/people-counter/mjpeg', async (req, res) => {
       res.write('\r\n');
     }
 
-    // Recibir frames directamente desde pipe:3 de FFmpeg
+    // Recibir frames directamente desde pipe:3 de FFmpeg.
+    // Backpressure: si el viewer no consume a tiempo (>512KB en cola) se salta
+    // el frame en vez de acumular retraso — el video se mantiene en tiempo real.
     const sendFrame = (jpeg) => {
-      if (res.destroyed) return;
+      if (res.destroyed || res.writableLength > 512 * 1024) return;
       res.write('--mjpegframe\r\nContent-Type: image/jpeg\r\n\r\n');
       res.write(jpeg);
       res.write('\r\n');

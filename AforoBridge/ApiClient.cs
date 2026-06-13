@@ -110,16 +110,19 @@ namespace AforoBridge
             catch { /* reintentará en el próximo cruce */ }
         }
 
-        /// <summary>Sube un snapshot JPEG → activa el indicador "agente activo" y la vista previa en la web.</summary>
-        public async Task UploadSnapshotAsync(int storeId, byte[] jpeg)
+        /// <summary>Sube un snapshot JPEG → activa el indicador "agente activo" y la vista previa en la web.
+        /// Timeout corto: si un frame se atasca se descarta y se envía el siguiente (vista previa fluida).</summary>
+        public async Task UploadSnapshotAsync(int storeId, byte[] jpeg, System.Threading.CancellationToken ct = default)
         {
             try
             {
+                using var cts = System.Threading.CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(TimeSpan.FromSeconds(4));
                 var req = Req(HttpMethod.Post, $"/api/stores/{storeId}/people-counter/snapshot-upload");
                 var content = new ByteArrayContent(jpeg);
                 content.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
                 req.Content = content;
-                await _http.SendAsync(req);
+                await _http.SendAsync(req, cts.Token);
             }
             catch { /* silencioso */ }
         }

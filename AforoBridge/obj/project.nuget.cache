@@ -1,19 +1,19 @@
 {
   "version": 2,
-  "dgSpecHash": "3E/oTQnsdMg=",
+  "dgSpecHash": "BA3iu61nXI4=",
   "success": true,
   "projectFilePath": "C:\\Users\\tupap\\OneDrive\\Escritorio\\SRServi\\AforoBridge\\AforoBridge.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.net.illink.tasks\\9.0.16\\microsoft.net.illink.tasks.9.0.16.nupkg.sha512",
+    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.net.illink.tasks\\9.0.17\\microsoft.net.illink.tasks.9.0.17.nupkg.sha512",
     "C:\\Users\\tupap\\.nuget\\packages\\microsoft.web.webview2\\1.0.2365.46\\microsoft.web.webview2.1.0.2365.46.nupkg.sha512",
     "C:\\Users\\tupap\\.nuget\\packages\\system.security.cryptography.protecteddata\\9.0.0\\system.security.cryptography.protecteddata.9.0.0.nupkg.sha512",
-    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.16\\microsoft.netcore.app.ref.9.0.16.nupkg.sha512",
-    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\9.0.16\\microsoft.netcore.app.runtime.win-x64.9.0.16.nupkg.sha512",
-    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.16\\microsoft.windowsdesktop.app.ref.9.0.16.nupkg.sha512",
-    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\9.0.16\\microsoft.windowsdesktop.app.runtime.win-x64.9.0.16.nupkg.sha512",
-    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.16\\microsoft.aspnetcore.app.ref.9.0.16.nupkg.sha512",
-    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\9.0.16\\microsoft.aspnetcore.app.runtime.win-x64.9.0.16.nupkg.sha512",
-    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\9.0.16\\microsoft.netcore.app.host.win-x64.9.0.16.nupkg.sha512"
+    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.17\\microsoft.netcore.app.ref.9.0.17.nupkg.sha512",
+    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\9.0.17\\microsoft.netcore.app.runtime.win-x64.9.0.17.nupkg.sha512",
+    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.17\\microsoft.windowsdesktop.app.ref.9.0.17.nupkg.sha512",
+    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\9.0.17\\microsoft.windowsdesktop.app.runtime.win-x64.9.0.17.nupkg.sha512",
+    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.17\\microsoft.aspnetcore.app.ref.9.0.17.nupkg.sha512",
+    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\9.0.17\\microsoft.aspnetcore.app.runtime.win-x64.9.0.17.nupkg.sha512",
+    "C:\\Users\\tupap\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\9.0.17\\microsoft.netcore.app.host.win-x64.9.0.17.nupkg.sha512"
   ],
   "logs": []
 }

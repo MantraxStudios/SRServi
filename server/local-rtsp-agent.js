@@ -151,13 +151,30 @@ async function apiPost(path, body) {
   return r.json();
 }
 
-async function uploadSnapshot(jpegBuffer) {
-  const r = await fetch(`${SERVER}/api/stores/${STORE}/people-counter/snapshot-upload`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'image/jpeg', Authorization: `Bearer ${TOKEN}` },
-    body: jpegBuffer,
-  });
-  // silenciar errores de snapshot
+// Subida de snapshots: una sola petición en vuelo, siempre el frame más reciente.
+// Si la red no alcanza para todos los frames se descartan los viejos (no se acumula lag).
+let pendingSnap = null;
+let snapUploading = false;
+
+function uploadSnapshot(jpegBuffer) {
+  pendingSnap = jpegBuffer;
+  if (snapUploading) return;
+  snapUploading = true;
+  (async () => {
+    while (pendingSnap) {
+      const jpeg = pendingSnap;
+      pendingSnap = null;
+      try {
+        await fetch(`${SERVER}/api/stores/${STORE}/people-counter/snapshot-upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'image/jpeg', Authorization: `Bearer ${TOKEN}` },
+          body: jpeg,
+          signal: AbortSignal.timeout(4000),
+        });
+      } catch { /* silenciar errores de snapshot */ }
+    }
+    snapUploading = false;
+  })();
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -198,8 +215,10 @@ function startProcesses(cfg) {
 
   // Proceso 1: conteo (80×60 raw)
   ffCount = spawn(ffmpegBin, [
-    '-rtsp_transport','tcp','-i',url,
-    '-vf',`fps=2,scale=${W}:${H}`,
+    '-rtsp_transport','tcp',
+    '-fflags','nobuffer+discardcorrupt','-flags','low_delay','-an',
+    '-i',url,
+    '-vf',`fps=5,scale=${W}:${H}`,
     '-f','rawvideo','-pix_fmt','rgb24',
     '-loglevel','error','pipe:1',
   ], { stdio:['ignore','pipe','pipe'] });
@@ -223,10 +242,12 @@ function startProcesses(cfg) {
   ffCount.stderr.on('data', d => process.stderr.write(`[count] ${d}`));
   ffCount.on('exit', code => console.log(`[count] FFmpeg salió con código ${code}`));
 
-  // Proceso 2: snapshot JPEG 1fps
+  // Proceso 2: snapshot JPEG 12fps (la subida descarta frames si la red no alcanza)
   ffSnap = spawn(ffmpegBin, [
-    '-rtsp_transport','tcp','-i',url,
-    '-vf','fps=1,scale=640:360',
+    '-rtsp_transport','tcp',
+    '-fflags','nobuffer+discardcorrupt','-flags','low_delay','-an',
+    '-i',url,
+    '-vf','fps=12,scale=640:360',
     '-f','image2pipe','-vcodec','mjpeg','-q:v','5',
     '-loglevel','error','pipe:1',
   ], { stdio:['ignore','pipe','pipe'] });

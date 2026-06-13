@@ -27,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
@@ -69,6 +70,11 @@ class CountingService : Service() {
 
     private var started = false
     private var lastSnap = 0L
+
+    // Subida de snapshots: canal CONFLATED = siempre el frame más reciente, una
+    // sola subida en vuelo. Si la red no alcanza se descartan frames viejos
+    // en vez de acumular corrutinas (y lag) sin límite.
+    private val snapChannel = Channel<ByteArray>(Channel.CONFLATED)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -119,7 +125,14 @@ class CountingService : Service() {
             // 4) Arrancar captura + decodificación
             startCapture()
 
-            // 5) Refrescar la línea cada 60s
+            // 5) Bucle de subida de snapshots (frame más reciente, una subida a la vez)
+            scope.launch(Dispatchers.IO) {
+                for (jpeg in snapChannel) {
+                    runCatching { api.uploadSnapshot(settings.storeId, jpeg) }
+                }
+            }
+
+            // 6) Refrescar la línea cada 60s
             scope.launch {
                 while (isActive) {
                     delay(60_000)
@@ -143,10 +156,10 @@ class CountingService : Service() {
             try {
                 detector?.process(YuvUtils.luminance80x60(img))
                 val now = System.currentTimeMillis()
-                if (now - lastSnap > 100) { // ~10 fps para una vista previa fluida
+                if (now - lastSnap > 66) { // ~15 fps para una vista previa fluida
                     lastSnap = now
                     val jpeg = YuvUtils.toJpeg(img)
-                    scope.launch { api.uploadSnapshot(settings.storeId, jpeg) }
+                    snapChannel.trySend(jpeg)
                 }
             } catch (_: Exception) {
             } finally {

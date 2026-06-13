@@ -268,10 +268,12 @@ class RTSPCounterService {
     // pipe:3 → JPEG 640×360 a 5fps para preview MJPEG (sin pasar por disco)
     const ff = spawn(ffmpegBin, [
       '-rtsp_transport', 'tcp',
-      '-fflags', '+genpts+discardcorrupt',
+      '-fflags', 'nobuffer+genpts+discardcorrupt',
+      '-flags', 'low_delay',
+      '-an',
       '-i', rtspUrl,
       '-filter_complex',
-      `[0:v]split=2[cnt][snp];[cnt]fps=2,scale=${W}:${H}[co];[snp]fps=15,scale=640:360[so]`,
+      `[0:v]split=2[cnt][snp];[cnt]fps=5,scale=${W}:${H}[co];[snp]fps=15,scale=640:360[so]`,
       '-map', '[co]', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-loglevel', 'error', 'pipe:1',
       '-map', '[so]', '-f', 'image2pipe', '-vcodec', 'mjpeg', '-q:v', '5', 'pipe:3',
     ], { stdio: ['ignore', 'pipe', 'pipe', 'pipe'] });

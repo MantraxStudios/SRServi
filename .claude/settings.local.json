@@ -140,7 +140,13 @@
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Desktop\\\\SRServi\\\\BridgeApps\\\\app\\\\release\\\\\" -ErrorAction SilentlyContinue | Select-Object Name, @{N='Size_MB';E={[math]::Round\\($_.Length/1MB,2\\)}})",
       "PowerShell(\\(Get-Content \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Desktop\\\\SRServi\\\\server\\\\index.js\"\\).Count)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Desktop\\\\SRServi\" -Directory | Select-Object -First 20 | ForEach-Object { $_.FullName })",
-      "Bash(Select-Object -First 100)"
+      "Bash(Select-Object -First 100)",
+      "PowerShell(dotnet build *)",
+      "PowerShell(node --check \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\index.js\"; node --check \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\rtsp-counter.js\"; node --check \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\local-rtsp-agent.js\")",
+      "PowerShell(Add-Type -AssemblyName System.IO.Compression.FileSystem; $z=[System.IO.Compression.ZipFile]::OpenRead\\(\"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\public\\\\downloads\\\\AforoBridge-Windows.zip\"\\); $z.Entries | Select-Object FullName, Length; $z.Dispose\\(\\))",
+      "PowerShell(dotnet publish *)",
+      "PowerShell(Compress-Archive *)",
+      "PowerShell(Copy-Item *)"
     ]
   }
 }

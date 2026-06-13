@@ -27,6 +27,12 @@ namespace AforoBridge
         private System.Threading.Timer? _configTimer;
         private readonly object _gate = new();
 
+        // Subida de snapshots: una sola petición en vuelo, siempre el frame más reciente.
+        // Si la red no alcanza para todos los frames se descartan los viejos (no se acumula lag).
+        private byte[]? _pendingSnap;
+        private readonly SemaphoreSlim _snapSignal = new(0, 1);
+        private CancellationTokenSource? _snapCts;
+
         // Línea actual (por defecto: horizontal en el centro)
         private double _x1 = 0.15, _y1 = 0.5, _x2 = 0.85, _y2 = 0.5;
         private bool _flip;
@@ -43,7 +49,9 @@ namespace AforoBridge
             };
             Counter.OnSnapshot += jpeg =>
             {
-                if (Settings.StoreId > 0) _ = Api.UploadSnapshotAsync(Settings.StoreId, jpeg);
+                Interlocked.Exchange(ref _pendingSnap, jpeg);
+                try { if (_snapSignal.CurrentCount == 0) _snapSignal.Release(); }
+                catch (SemaphoreFullException) { }
             };
             Counter.OnStatus += msg => Status?.Invoke(msg);
         }
@@ -89,6 +97,11 @@ namespace AforoBridge
             Counter.Start(FfmpegManager.Path ?? "ffmpeg", Settings.RtspUrl, Settings.Sensitivity,
                           _x1, _y1, _x2, _y2, _flip);
 
+            // Bucle de subida de snapshots (frame más reciente, una petición a la vez)
+            _snapCts?.Cancel();
+            _snapCts = new CancellationTokenSource();
+            _ = Task.Run(() => SnapshotUploadLoop(_snapCts.Token));
+
             // Refrescar línea/config cada 60s
             _configTimer?.Dispose();
             _configTimer = new System.Threading.Timer(async _ => await RefreshLineAsync(), null,
@@ -99,8 +112,23 @@ namespace AforoBridge
         {
             _configTimer?.Dispose();
             _configTimer = null;
+            _snapCts?.Cancel();
+            _snapCts = null;
             Counter.Stop();
             Log("Conteo detenido.");
+        }
+
+        private async Task SnapshotUploadLoop(CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try { await _snapSignal.WaitAsync(ct); }
+                catch (OperationCanceledException) { break; }
+
+                var jpeg = Interlocked.Exchange(ref _pendingSnap, null);
+                if (jpeg == null || Settings.StoreId <= 0) continue;
+                await Api.UploadSnapshotAsync(Settings.StoreId, jpeg, ct);
+            }
         }
 
         private async Task RefreshLineAsync()
