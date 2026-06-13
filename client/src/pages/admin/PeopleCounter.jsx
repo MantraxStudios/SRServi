@@ -86,7 +86,6 @@ export default function PeopleCounter() {
   const [statsDate, setStatsDate] = useState(getToday);
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
-  const [overlay, setOverlay] = useState({ w: 0, h: 0 }); // tamaño en px del contenedor de video (para la línea SVG)
 
   // RTSP state
   const [rtspIp, setRtspIp] = useState('');
@@ -270,35 +269,10 @@ export default function PeopleCounter() {
   }
 
   // ── Línea de conteo (overlay SVG) ────────────────────────────────────────────
-  // La línea se dibuja como un <svg> declarativo superpuesto al video. Antes se
-  // pintaba en un <canvas> cuyo tamaño se reseteaba en cada frame; sobre el stream
-  // MJPEG (que se repinta a alta frecuencia y cambia de tamaño al cargar) la línea
-  // desaparecía. El SVG escala solo con el contenedor y siempre queda visible.
-  const measureOverlay = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    setOverlay(o => (o.w === r.width && o.h === r.height) ? o : { w: r.width, h: r.height });
-  }, []);
-
-  useEffect(() => {
-    if (tab !== 'live') return;
-    const el = containerRef.current;
-    if (!el) return;
-    measureOverlay();
-    const raf = requestAnimationFrame(measureOverlay); // re-medir tras asentar el layout
-    let ro;
-    if (typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(measureOverlay);
-      ro.observe(el);
-    }
-    window.addEventListener('resize', measureOverlay);
-    return () => {
-      cancelAnimationFrame(raf);
-      if (ro) ro.disconnect();
-      window.removeEventListener('resize', measureOverlay);
-    };
-  }, [tab, rtspActive, mjpegUrl, measureOverlay]);
+  // La línea se dibuja como un <svg> declarativo superpuesto al video usando
+  // coordenadas en % (independientes de cualquier medición en px), por lo que
+  // siempre queda visible y se puede arrastrar para ajustarla. Antes se pintaba en
+  // un <canvas> que se reseteaba en cada frame y desaparecía sobre el stream MJPEG.
 
   // ── Camera ───────────────────────────────────────────────────────────────────
 
@@ -531,7 +505,7 @@ export default function PeopleCounter() {
           <div className="pc-live-grid">
             {/* Camera view — RTSP o webcam */}
             <div style={{ background: '#111', borderRadius: 14, overflow: 'hidden' }}>
-              <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+              <div ref={containerRef} style={{ position: 'relative', width: '100%', minHeight: 340 }}>
 
                 {/* Badge fuente de video */}
                 <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 10, display: 'inline-flex', alignItems: 'center', gap: 6, background: rtspActive ? 'rgba(34,197,94,0.9)' : 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, pointerEvents: 'none' }}>
@@ -543,12 +517,11 @@ export default function PeopleCounter() {
                   <img
                     key={mjpegUrl}
                     src={mjpegUrl}
-                    onLoad={measureOverlay}
                     style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }}
                     alt="rtsp"
                   />
                 ) : (
-                  <video ref={videoRef} autoPlay playsInline muted onLoadedMetadata={measureOverlay}
+                  <video ref={videoRef} autoPlay playsInline muted
                     style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }} />
                 )}
 
@@ -557,31 +530,35 @@ export default function PeopleCounter() {
                   style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 4, pointerEvents: 'none' }}
                 />
 
-                {/* Línea de conteo (SVG) — siempre visible sobre cualquier fuente (webcam o RTSP) */}
+                {/* Línea de conteo (SVG) — siempre visible sobre cualquier fuente (webcam o RTSP).
+                    Todo en % / px / transform → no depende de ninguna medición, nunca se colapsa. */}
                 <svg ref={svgRef}
+                  preserveAspectRatio="none"
                   style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 5,
-                    cursor: isEditingLine ? 'crosshair' : 'default', touchAction: 'none' }}
+                    cursor: isEditingLine ? 'crosshair' : 'default', touchAction: 'none', overflow: 'visible' }}
                   onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
                   onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
                 >
-                  {/* Línea y puntos en % → siempre visibles, sin depender de ninguna medición en px */}
-                  <line x1={`${lineConfig.x1 * 100}%`} y1={`${lineConfig.y1 * 100}%`} x2={`${lineConfig.x2 * 100}%`} y2={`${lineConfig.y2 * 100}%`}
-                    stroke="#D4AF37" strokeWidth={3} strokeDasharray="12 5" />
-                  {[[lineConfig.x1, lineConfig.y1], [lineConfig.x2, lineConfig.y2]].map(([x, y], i) => (
-                    <circle key={i} cx={`${x * 100}%`} cy={`${y * 100}%`} r={isEditingLine ? 11 : 9} fill="#D4AF37" stroke="rgba(0,0,0,0.5)" strokeWidth={1.5} />
-                  ))}
-                  {/* Etiquetas ENTRADA/SALIDA: el desplazamiento perpendicular necesita el tamaño en px */}
-                  {overlay.w > 0 && overlay.h > 0 && (() => {
-                    const { w: OW, h: OH } = overlay;
-                    const lx1 = lineConfig.x1 * OW, ly1 = lineConfig.y1 * OH;
-                    const lx2 = lineConfig.x2 * OW, ly2 = lineConfig.y2 * OH;
-                    const mx = (lx1 + lx2) / 2, my = (ly1 + ly2) / 2;
-                    const dLen = Math.hypot(lx2 - lx1, ly2 - ly1) || 1;
-                    const nx = -(ly2 - ly1) / dLen * 38, ny = (lx2 - lx1) / dLen * 38;
+                  {(() => {
+                    const { x1, y1, x2, y2 } = lineConfig;
+                    const mx = (x1 + x2) / 2 * 100, my = (y1 + y2) / 2 * 100; // punto medio en %
+                    const dx = x2 - x1, dy = y2 - y1;
+                    const dl = Math.hypot(dx, dy) || 1;
+                    const off = 30; // desplazamiento perpendicular de las etiquetas (px)
+                    const tx = -dy / dl * off, ty = dx / dl * off; // perpendicular unitaria · off
+                    const labelStyle = { paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.55)', strokeWidth: 3 };
                     return (
                       <>
-                        <text x={mx + nx} y={my + ny + 5} textAnchor="middle" fontSize={13} fontWeight="bold" fill="#22c55e" style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.45)', strokeWidth: 3 }}>{flipDir ? 'SALIDA' : 'ENTRADA'}</text>
-                        <text x={mx - nx} y={my - ny + 5} textAnchor="middle" fontSize={13} fontWeight="bold" fill="#ef4444" style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.45)', strokeWidth: 3 }}>{flipDir ? 'ENTRADA' : 'SALIDA'}</text>
+                        <line x1={`${x1 * 100}%`} y1={`${y1 * 100}%`} x2={`${x2 * 100}%`} y2={`${y2 * 100}%`}
+                          stroke="#D4AF37" strokeWidth={3} strokeDasharray="12 5" />
+                        {[[x1, y1], [x2, y2]].map(([x, y], i) => (
+                          <circle key={i} cx={`${x * 100}%`} cy={`${y * 100}%`} r={isEditingLine ? 11 : 9}
+                            fill="#D4AF37" stroke="rgba(0,0,0,0.5)" strokeWidth={1.5} />
+                        ))}
+                        <text x={`${mx}%`} y={`${my}%`} transform={`translate(${tx}, ${ty + 5})`} textAnchor="middle"
+                          fontSize={13} fontWeight="bold" fill="#22c55e" style={labelStyle}>{flipDir ? 'SALIDA' : 'ENTRADA'}</text>
+                        <text x={`${mx}%`} y={`${my}%`} transform={`translate(${-tx}, ${-ty + 5})`} textAnchor="middle"
+                          fontSize={13} fontWeight="bold" fill="#ef4444" style={labelStyle}>{flipDir ? 'ENTRADA' : 'SALIDA'}</text>
                       </>
                     );
                   })()}
