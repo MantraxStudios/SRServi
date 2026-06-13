@@ -146,7 +146,11 @@
       "PowerShell(Add-Type -AssemblyName System.IO.Compression.FileSystem; $z=[System.IO.Compression.ZipFile]::OpenRead\\(\"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\public\\\\downloads\\\\AforoBridge-Windows.zip\"\\); $z.Entries | Select-Object FullName, Length; $z.Dispose\\(\\))",
       "PowerShell(dotnet publish *)",
       "PowerShell(Compress-Archive *)",
-      "PowerShell(Copy-Item *)"
+      "PowerShell(Copy-Item *)",
+      "Bash(npx eslint *)",
+      "Bash(./gradlew :app:compileDebugKotlin -q)",
+      "Bash(./gradlew :app:compileDebugKotlin)",
+      "Bash(./gradlew :app:assembleDebug)"
     ]
   }
 }

@@ -300,6 +300,7 @@ class MainActivity : AppCompatActivity() {
             it.addView(space(16))
             it.addView(primaryButton("Guardar y empezar") { saveAndStart() })
             it.addView(space(10)); it.addView(finishStatus); it.addView(space(8))
+            it.addView(primaryButton("Abrir panel de aforo") { openPanel() })
             it.addView(secondaryButton("Detener conteo") { CountingService.stop(this) })
             it.addView(secondaryButton("Editar configuración") { go(1) })
         }
@@ -312,6 +313,14 @@ class MainActivity : AppCompatActivity() {
         CountingService.start(this)
         finishStatus.setTextColor(gold)
         finishStatus.text = "Iniciando conteo en segundo plano…"
+    }
+
+    /** Abre el panel web auto-logueado, igual que el WebView de AforoBridge Windows. */
+    private fun openPanel() {
+        if (settings.email.isBlank() || settings.password.isBlank()) {
+            toast("Inicia sesión primero"); go(1); return
+        }
+        startActivity(android.content.Intent(this, PanelActivity::class.java))
     }
 
     private fun observeServiceState() {

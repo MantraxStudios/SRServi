@@ -86,6 +86,7 @@ export default function PeopleCounter() {
   const [statsDate, setStatsDate] = useState(getToday);
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [overlay, setOverlay] = useState({ w: 0, h: 0 }); // tamaño en px del contenedor de video (para la línea SVG)
 
   // RTSP state
   const [rtspIp, setRtspIp] = useState('');
@@ -109,6 +110,7 @@ export default function PeopleCounter() {
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const svgRef = useRef(null);
   const containerRef = useRef(null);
   const tracksRef = useRef([]);
   const lineRef = useRef(DEFAULT_LINE);
@@ -117,7 +119,6 @@ export default function PeopleCounter() {
   const animRef = useRef(null);
   const nextIdRef = useRef(0);
   const dragRef = useRef(null);
-  const dragAnimRef = useRef(null);
   const storeIdRef = useRef(storeId);
   const tokenRef = useRef(token);
   const prevFrameRef = useRef(null);
@@ -268,80 +269,34 @@ export default function PeopleCounter() {
     }
   }
 
-  // ── Drawing ──────────────────────────────────────────────────────────────────
-
-  const drawLine = useCallback((ctx, W, H) => {
-    const line = lineRef.current;
-    const lx1 = line.x1 * W, ly1 = line.y1 * H;
-    const lx2 = line.x2 * W, ly2 = line.y2 * H;
-
-    ctx.strokeStyle = '#D4AF37'; ctx.lineWidth = 3; ctx.setLineDash([12, 5]);
-    ctx.beginPath(); ctx.moveTo(lx1, ly1); ctx.lineTo(lx2, ly2); ctx.stroke();
-    ctx.setLineDash([]);
-
-    [[lx1, ly1], [lx2, ly2]].forEach(([x, y]) => {
-      ctx.fillStyle = '#D4AF37';
-      ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
-    });
-
-    const mx = (lx1 + lx2) / 2, my = (ly1 + ly2) / 2;
-    const dLen = Math.hypot(lx2 - lx1, ly2 - ly1) || 1;
-    const nx = -(ly2 - ly1) / dLen * 38, ny = (lx2 - lx1) / dLen * 38;
-    const flip = flipRef.current;
-
-    ctx.font = 'bold 13px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.fillText(flip ? 'SALIDA' : 'ENTRADA', mx + nx + 1, my + ny + 6);
-    ctx.fillText(flip ? 'ENTRADA' : 'SALIDA', mx - nx + 1, my - ny + 6);
-    ctx.fillStyle = '#22c55e'; ctx.fillText(flip ? 'SALIDA' : 'ENTRADA', mx + nx, my + ny + 5);
-    ctx.fillStyle = '#ef4444'; ctx.fillText(flip ? 'ENTRADA' : 'SALIDA', mx - nx, my - ny + 5);
-    ctx.textAlign = 'start';
+  // ── Línea de conteo (overlay SVG) ────────────────────────────────────────────
+  // La línea se dibuja como un <svg> declarativo superpuesto al video. Antes se
+  // pintaba en un <canvas> cuyo tamaño se reseteaba en cada frame; sobre el stream
+  // MJPEG (que se repinta a alta frecuencia y cambia de tamaño al cargar) la línea
+  // desaparecía. El SVG escala solo con el contenedor y siempre queda visible.
+  const measureOverlay = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setOverlay(o => (o.w === r.width && o.h === r.height) ? o : { w: r.width, h: r.height });
   }, []);
 
-  const drawStaticLine = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    if (!rect.width) return;
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawLine(ctx, canvas.width, canvas.height);
-  }, [drawLine]);
-
   useEffect(() => {
-    // Dibujar línea estática cuando no hay detección corriendo O cuando hay RTSP activo
-    if (!isRunning || rtspActive) {
-      const t = setTimeout(drawStaticLine, 50);
-      return () => clearTimeout(t);
-    }
-  }, [lineConfig, isRunning, flipDir, drawStaticLine, rtspActive]);
-
-  // Mantener la línea visible sobre el stream RTSP. El <img> MJPEG cambia de tamaño
-  // al cargar y al llegar frames y se repinta a alta frecuencia, lo que hacía que la
-  // línea desapareciera. Redibujamos en cada frame (requestAnimationFrame) y además
-  // ante cualquier cambio de tamaño del contenedor mientras RTSP está activo en En Vivo.
-  useEffect(() => {
-    if (!(rtspActive && tab === 'live')) return;
-    let raf;
-    const tick = () => { drawStaticLine(); raf = requestAnimationFrame(tick); };
-    raf = requestAnimationFrame(tick);
-    const onResize = () => drawStaticLine();
-    window.addEventListener('resize', onResize);
+    if (tab !== 'live') return;
+    const el = containerRef.current;
+    if (!el) return;
+    measureOverlay();
     let ro;
-    if (containerRef.current && typeof ResizeObserver !== 'undefined') {
-      ro = new ResizeObserver(() => drawStaticLine());
-      ro.observe(containerRef.current);
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(measureOverlay);
+      ro.observe(el);
     }
+    window.addEventListener('resize', measureOverlay);
     return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('resize', onResize);
       if (ro) ro.disconnect();
+      window.removeEventListener('resize', measureOverlay);
     };
-  }, [rtspActive, tab, drawStaticLine]);
+  }, [tab, rtspActive, mjpegUrl, measureOverlay]);
 
   // ── Camera ───────────────────────────────────────────────────────────────────
 
@@ -371,7 +326,9 @@ export default function PeopleCounter() {
     if (videoRef.current) videoRef.current.srcObject = null;
     tracksRef.current = [];
     prevFrameRef.current = null;
-    setTimeout(drawStaticLine, 80);
+    // limpiar las marcas de blobs del canvas al detener
+    const c = canvasRef.current;
+    if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
   };
 
   // ── Motion detection loop (pure pixel math, runs at full 30fps) ──────────────
@@ -446,7 +403,6 @@ export default function PeopleCounter() {
     }
 
     prevFrameRef.current = currFrame;
-    drawLine(ctx, W, H);
     animRef.current = requestAnimationFrame(detectLoop);
   };
 
@@ -476,9 +432,9 @@ export default function PeopleCounter() {
   // ── Line drag (zero React re-renders during drag) ────────────────────────────
 
   const getRelPos = (e) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const rect = svg.getBoundingClientRect();
     const src = e.touches ? e.touches[0] : e;
     return {
       x: Math.max(0, Math.min(1, (src.clientX - rect.left) / rect.width)),
@@ -499,24 +455,17 @@ export default function PeopleCounter() {
     if (!dragRef.current) return;
     e.preventDefault();
     const { x, y } = getRelPos(e);
-    lineRef.current = dragRef.current === 'p1'
+    const next = dragRef.current === 'p1'
       ? { ...lineRef.current, x1: x, y1: y }
       : { ...lineRef.current, x2: x, y2: y };
-    if (!dragAnimRef.current) {
-      dragAnimRef.current = requestAnimationFrame(() => {
-        if (!isRunning) drawStaticLine();
-        dragAnimRef.current = null;
-      });
-    }
+    lineRef.current = next;
+    setLineConfig(next); // el SVG es declarativo: re-render mueve la línea
   };
 
   const onUp = () => {
     if (!dragRef.current) return;
     dragRef.current = null;
-    if (dragAnimRef.current) { cancelAnimationFrame(dragAnimRef.current); dragAnimRef.current = null; }
-    const newLine = { ...lineRef.current };
-    setLineConfig(newLine);
-    autoSaveConfig(newLine, flipRef.current);
+    autoSaveConfig(lineRef.current, flipRef.current);
   };
 
   // ── Stats ────────────────────────────────────────────────────────────────────
@@ -592,22 +541,46 @@ export default function PeopleCounter() {
                   <img
                     key={mjpegUrl}
                     src={mjpegUrl}
-                    onLoad={() => drawStaticLine()}
+                    onLoad={measureOverlay}
                     style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }}
                     alt="rtsp"
                   />
                 ) : (
-                  <video ref={videoRef} autoPlay playsInline muted
+                  <video ref={videoRef} autoPlay playsInline muted onLoadedMetadata={measureOverlay}
                     style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }} />
                 )}
 
-                {/* Canvas para línea — siempre encima independiente de la fuente */}
+                {/* Canvas — marcas de blobs durante la detección por webcam */}
                 <canvas ref={canvasRef}
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 4, pointerEvents: 'none' }}
+                />
+
+                {/* Línea de conteo (SVG) — siempre visible sobre cualquier fuente (webcam o RTSP) */}
+                <svg ref={svgRef}
                   style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 5,
                     cursor: isEditingLine ? 'crosshair' : 'default', touchAction: 'none' }}
                   onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
                   onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
-                />
+                >
+                  {overlay.w > 0 && (() => {
+                    const { w: OW, h: OH } = overlay;
+                    const lx1 = lineConfig.x1 * OW, ly1 = lineConfig.y1 * OH;
+                    const lx2 = lineConfig.x2 * OW, ly2 = lineConfig.y2 * OH;
+                    const mx = (lx1 + lx2) / 2, my = (ly1 + ly2) / 2;
+                    const dLen = Math.hypot(lx2 - lx1, ly2 - ly1) || 1;
+                    const nx = -(ly2 - ly1) / dLen * 38, ny = (lx2 - lx1) / dLen * 38;
+                    return (
+                      <>
+                        <line x1={lx1} y1={ly1} x2={lx2} y2={ly2} stroke="#D4AF37" strokeWidth={3} strokeDasharray="12 5" />
+                        {[[lx1, ly1], [lx2, ly2]].map(([x, y], i) => (
+                          <circle key={i} cx={x} cy={y} r={isEditingLine ? 11 : 9} fill="#D4AF37" stroke="rgba(0,0,0,0.5)" strokeWidth={1.5} />
+                        ))}
+                        <text x={mx + nx} y={my + ny + 5} textAnchor="middle" fontSize={13} fontWeight="bold" fill="#22c55e" style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.45)', strokeWidth: 3 }}>{flipDir ? 'SALIDA' : 'ENTRADA'}</text>
+                        <text x={mx - nx} y={my - ny + 5} textAnchor="middle" fontSize={13} fontWeight="bold" fill="#ef4444" style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.45)', strokeWidth: 3 }}>{flipDir ? 'ENTRADA' : 'SALIDA'}</text>
+                      </>
+                    );
+                  })()}
+                </svg>
 
                 {/* Contadores en vivo */}
                 {(isRunning || rtspActive) && (
@@ -680,7 +653,7 @@ export default function PeopleCounter() {
                 </button>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                   <input type="checkbox" checked={flipDir}
-                    onChange={e => { const v = e.target.checked; setFlipDir(v); flipRef.current = v; setTimeout(drawStaticLine, 20); autoSaveConfig(lineRef.current, v); }}
+                    onChange={e => { const v = e.target.checked; setFlipDir(v); flipRef.current = v; autoSaveConfig(lineRef.current, v); }}
                     style={{ width: 15, height: 15 }} />
                   <span style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>Invertir entrada/salida</span>
                 </label>
