@@ -320,15 +320,27 @@ export default function PeopleCounter() {
     }
   }, [lineConfig, isRunning, flipDir, drawStaticLine, rtspActive]);
 
-  // Mantener la línea visible sobre el stream RTSP (el <img> MJPEG cambia de tamaño
-  // al cargar y al llegar frames; sin esto la línea solo se dibujaría una vez y no
-  // aparecería). Redibuja periódicamente mientras RTSP está activo en En Vivo.
+  // Mantener la línea visible sobre el stream RTSP. El <img> MJPEG cambia de tamaño
+  // al cargar y al llegar frames y se repinta a alta frecuencia, lo que hacía que la
+  // línea desapareciera. Redibujamos en cada frame (requestAnimationFrame) y además
+  // ante cualquier cambio de tamaño del contenedor mientras RTSP está activo en En Vivo.
   useEffect(() => {
     if (!(rtspActive && tab === 'live')) return;
-    const iv = setInterval(() => drawStaticLine(), 700);
+    let raf;
+    const tick = () => { drawStaticLine(); raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
     const onResize = () => drawStaticLine();
     window.addEventListener('resize', onResize);
-    return () => { clearInterval(iv); window.removeEventListener('resize', onResize); };
+    let ro;
+    if (containerRef.current && typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => drawStaticLine());
+      ro.observe(containerRef.current);
+    }
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', onResize);
+      if (ro) ro.disconnect();
+    };
   }, [rtspActive, tab, drawStaticLine]);
 
   // ── Camera ───────────────────────────────────────────────────────────────────
@@ -591,7 +603,7 @@ export default function PeopleCounter() {
 
                 {/* Canvas para línea — siempre encima independiente de la fuente */}
                 <canvas ref={canvasRef}
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%',
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 5,
                     cursor: isEditingLine ? 'crosshair' : 'default', touchAction: 'none' }}
                   onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
                   onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
@@ -599,14 +611,14 @@ export default function PeopleCounter() {
 
                 {/* Contadores en vivo */}
                 {(isRunning || rtspActive) && (
-                  <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 8, pointerEvents: 'none' }}>
+                  <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 6, display: 'flex', gap: 8, pointerEvents: 'none' }}>
                     <span style={{ background: 'rgba(34,197,94,0.9)', color: '#fff', fontSize: 14, fontWeight: 800, padding: '5px 12px', borderRadius: 20 }}><FontAwesomeIcon icon={faArrowUp} /> {counter.in}</span>
                     <span style={{ background: 'rgba(239,68,68,0.9)', color: '#fff', fontSize: 14, fontWeight: 800, padding: '5px 12px', borderRadius: 20 }}><FontAwesomeIcon icon={faArrowDown} /> {counter.out}</span>
                   </div>
                 )}
 
                 {isEditingLine && (
-                  <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+                  <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 6,
                     background: 'rgba(0,0,0,0.75)', color: '#D4AF37', fontSize: 12, fontWeight: 700,
                     padding: '7px 16px', borderRadius: 20, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
                     Arrastra los puntos dorados para posicionar la línea
