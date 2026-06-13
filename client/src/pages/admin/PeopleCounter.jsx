@@ -286,6 +286,7 @@ export default function PeopleCounter() {
     const el = containerRef.current;
     if (!el) return;
     measureOverlay();
+    const raf = requestAnimationFrame(measureOverlay); // re-medir tras asentar el layout
     let ro;
     if (typeof ResizeObserver !== 'undefined') {
       ro = new ResizeObserver(measureOverlay);
@@ -293,6 +294,7 @@ export default function PeopleCounter() {
     }
     window.addEventListener('resize', measureOverlay);
     return () => {
+      cancelAnimationFrame(raf);
       if (ro) ro.disconnect();
       window.removeEventListener('resize', measureOverlay);
     };
@@ -562,7 +564,14 @@ export default function PeopleCounter() {
                   onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
                   onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
                 >
-                  {overlay.w > 0 && (() => {
+                  {/* Línea y puntos en % → siempre visibles, sin depender de ninguna medición en px */}
+                  <line x1={`${lineConfig.x1 * 100}%`} y1={`${lineConfig.y1 * 100}%`} x2={`${lineConfig.x2 * 100}%`} y2={`${lineConfig.y2 * 100}%`}
+                    stroke="#D4AF37" strokeWidth={3} strokeDasharray="12 5" />
+                  {[[lineConfig.x1, lineConfig.y1], [lineConfig.x2, lineConfig.y2]].map(([x, y], i) => (
+                    <circle key={i} cx={`${x * 100}%`} cy={`${y * 100}%`} r={isEditingLine ? 11 : 9} fill="#D4AF37" stroke="rgba(0,0,0,0.5)" strokeWidth={1.5} />
+                  ))}
+                  {/* Etiquetas ENTRADA/SALIDA: el desplazamiento perpendicular necesita el tamaño en px */}
+                  {overlay.w > 0 && overlay.h > 0 && (() => {
                     const { w: OW, h: OH } = overlay;
                     const lx1 = lineConfig.x1 * OW, ly1 = lineConfig.y1 * OH;
                     const lx2 = lineConfig.x2 * OW, ly2 = lineConfig.y2 * OH;
@@ -571,10 +580,6 @@ export default function PeopleCounter() {
                     const nx = -(ly2 - ly1) / dLen * 38, ny = (lx2 - lx1) / dLen * 38;
                     return (
                       <>
-                        <line x1={lx1} y1={ly1} x2={lx2} y2={ly2} stroke="#D4AF37" strokeWidth={3} strokeDasharray="12 5" />
-                        {[[lx1, ly1], [lx2, ly2]].map(([x, y], i) => (
-                          <circle key={i} cx={x} cy={y} r={isEditingLine ? 11 : 9} fill="#D4AF37" stroke="rgba(0,0,0,0.5)" strokeWidth={1.5} />
-                        ))}
                         <text x={mx + nx} y={my + ny + 5} textAnchor="middle" fontSize={13} fontWeight="bold" fill="#22c55e" style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.45)', strokeWidth: 3 }}>{flipDir ? 'SALIDA' : 'ENTRADA'}</text>
                         <text x={mx - nx} y={my - ny + 5} textAnchor="middle" fontSize={13} fontWeight="bold" fill="#ef4444" style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.45)', strokeWidth: 3 }}>{flipDir ? 'ENTRADA' : 'SALIDA'}</text>
                       </>
