@@ -3,7 +3,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faWarehouse, faSearch, faSync, faInfinity, faExclamationTriangle,
   faPlus, faEdit, faTrash, faTimes, faCheck, faBoxOpen, faFlask,
-  faListUl, faSave, faArrowUp, faBox
+  faListUl, faSave, faArrowUp, faBox, faBell, faHistory, faChartBar,
+  faChevronLeft, faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
@@ -82,6 +83,24 @@ export default function Inventory() {
   const [newRmId, setNewRmId] = useState('');
   const [newRmQty, setNewRmQty] = useState('');
 
+  // Alerts
+  const [alerts, setAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+
+  // History
+  const [movements, setMovements] = useState([]);
+  const [movementsTotal, setMovementsTotal] = useState(0);
+  const [movPage, setMovPage] = useState(1);
+  const [movTotalPages, setMovTotalPages] = useState(1);
+  const [movFilter, setMovFilter] = useState({ item_type: '', reason: '', from: '', to: '' });
+  const [movLoading, setMovLoading] = useState(false);
+
+  // Reports
+  const [stats, setStats] = useState(null);
+  const [consumption, setConsumption] = useState([]);
+  const [reportRange, setReportRange] = useState({ from: '', to: '' });
+  const [reportLoading, setReportLoading] = useState(false);
+
   const fetchAll = useCallback(async () => {
     if (!selectedStore) return;
     setLoading(true);
@@ -101,6 +120,57 @@ export default function Inventory() {
   }, [selectedStore?.id, token]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const fetchAlerts = useCallback(async () => {
+    if (!selectedStore) return;
+    setAlertsLoading(true);
+    try {
+      const res = await fetch(`${API}/api/inventory/alerts/${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setAlerts(await res.json());
+    } finally { setAlertsLoading(false); }
+  }, [selectedStore?.id, token]);
+
+  const fetchMovements = useCallback(async (page = 1) => {
+    if (!selectedStore) return;
+    setMovLoading(true);
+    try {
+      const params = new URLSearchParams({ page, limit: 30 });
+      if (movFilter.item_type) params.append('item_type', movFilter.item_type);
+      if (movFilter.reason) params.append('reason', movFilter.reason);
+      if (movFilter.from) params.append('from', movFilter.from);
+      if (movFilter.to) params.append('to', movFilter.to);
+      const res = await fetch(`${API}/api/inventory/movements/${selectedStore.id}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setMovements(data.movements || []);
+        setMovementsTotal(data.total || 0);
+        setMovPage(data.page || 1);
+        setMovTotalPages(data.totalPages || 1);
+      }
+    } finally { setMovLoading(false); }
+  }, [selectedStore?.id, token, movFilter]);
+
+  const fetchStats = useCallback(async () => {
+    if (!selectedStore) return;
+    setReportLoading(true);
+    try {
+      const [statsRes, consRes] = await Promise.all([
+        fetch(`${API}/api/inventory/stats/${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/api/inventory/reports/consumption/${selectedStore.id}?from=${reportRange.from}&to=${reportRange.to}`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      if (statsRes.ok) setStats(await statsRes.json());
+      if (consRes.ok) setConsumption(await consRes.json());
+    } finally { setReportLoading(false); }
+  }, [selectedStore?.id, token, reportRange]);
+
+  useEffect(() => { if (tab === 'alerts') fetchAlerts(); }, [tab, fetchAlerts]);
+  useEffect(() => { if (tab === 'history') fetchMovements(1); }, [tab, fetchMovements]);
+  useEffect(() => { if (tab === 'reports') fetchStats(); }, [tab, fetchStats]);
+
+  const acknowledgeAlert = async (id) => {
+    await fetch(`${API}/api/inventory/alerts/${id}/acknowledge`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+    fetchAlerts();
+  };
 
   // ── Raw Materials CRUD ──────────────────────────────────────────────────────
 
@@ -252,6 +322,9 @@ export default function Inventory() {
     { key: 'raw',     label: 'Materias Primas', icon: faFlask },
     { key: 'recipes', label: 'Recetas',          icon: faListUl },
     { key: 'direct',  label: 'Stock Directo',    icon: faBox },
+    { key: 'alerts',  label: 'Alertas',          icon: faBell },
+    { key: 'history', label: 'Historial',        icon: faHistory },
+    { key: 'reports', label: 'Reportes',         icon: faChartBar },
   ];
 
   return (
@@ -553,6 +626,196 @@ export default function Inventory() {
             </div>
           )}
         </>
+      )}
+
+      {/* ──── TAB: ALERTAS ──── */}
+      {tab === 'alerts' && (
+        <div>
+          {alertsLoading ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando alertas...</div>
+          ) : alerts.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#22c55e' }}>
+              <FontAwesomeIcon icon={faCheck} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
+              No hay alertas activas. Todo el inventario está en orden.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {alerts.map(a => (
+                <div key={a.id} style={{
+                  background: a.alert_type === 'out_of_stock' ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)',
+                  border: `1px solid ${a.alert_type === 'out_of_stock' ? 'rgba(239,68,68,0.25)' : 'rgba(245,158,11,0.25)'}`,
+                  borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12
+                }}>
+                  <FontAwesomeIcon icon={faExclamationTriangle}
+                    style={{ color: a.alert_type === 'out_of_stock' ? '#ef4444' : '#f59e0b', fontSize: 16 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: '#111' }}>{a.item_name}</div>
+                    <div style={{ fontSize: 12, color: '#6b7280' }}>
+                      {a.item_type === 'raw_material' ? 'Materia prima' : a.item_type === 'product' ? 'Producto' : a.item_type === 'ingredient' ? 'Ingrediente' : 'Extra'}
+                      {' · '}Stock: <strong style={{ color: a.alert_type === 'out_of_stock' ? '#ef4444' : '#f59e0b' }}>{fmt(a.current_stock)}</strong>
+                      {a.threshold > 0 && <> · Mínimo: {fmt(a.threshold)}</>}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
+                    background: a.alert_type === 'out_of_stock' ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)',
+                    color: a.alert_type === 'out_of_stock' ? '#ef4444' : '#f59e0b',
+                    border: `1px solid ${a.alert_type === 'out_of_stock' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`
+                  }}>
+                    {a.alert_type === 'out_of_stock' ? 'Agotado' : 'Stock bajo'}
+                  </span>
+                  <button onClick={() => acknowledgeAlert(a.id)}
+                    style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: '#374151', fontWeight: 500 }}>
+                    Enterado
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ──── TAB: HISTORIAL ──── */}
+      {tab === 'history' && (
+        <div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+            <select value={movFilter.item_type} onChange={e => setMovFilter(f => ({ ...f, item_type: e.target.value }))} style={{ ...inputStyle, width: 'auto', minWidth: 130 }}>
+              <option value="">Todos los tipos</option>
+              <option value="product">Productos</option>
+              <option value="ingredient">Ingredientes</option>
+              <option value="extra">Extras</option>
+              <option value="raw_material">Materias primas</option>
+            </select>
+            <select value={movFilter.reason} onChange={e => setMovFilter(f => ({ ...f, reason: e.target.value }))} style={{ ...inputStyle, width: 'auto', minWidth: 130 }}>
+              <option value="">Todas las razones</option>
+              <option value="order">Orden</option>
+              <option value="manual">Manual</option>
+              <option value="restock">Restock</option>
+              <option value="recipe">Receta</option>
+            </select>
+            <input type="date" value={movFilter.from} onChange={e => setMovFilter(f => ({ ...f, from: e.target.value }))} style={{ ...inputStyle, width: 'auto' }} />
+            <input type="date" value={movFilter.to} onChange={e => setMovFilter(f => ({ ...f, to: e.target.value }))} style={{ ...inputStyle, width: 'auto' }} />
+          </div>
+
+          {movLoading ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando historial...</div>
+          ) : movements.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
+              <FontAwesomeIcon icon={faHistory} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
+              Sin movimientos registrados
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10 }}>{movementsTotal} movimiento(s) encontrado(s)</div>
+              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 90px 80px 80px 80px 90px 100px', padding: '10px 12px', borderBottom: '1px solid #f3f4f6', fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', gap: 4 }}>
+                  <span>Fecha</span><span>Item</span><span>Tipo</span><span style={{ textAlign: 'right' }}>Anterior</span><span style={{ textAlign: 'right' }}>Cambio</span><span style={{ textAlign: 'right' }}>Nuevo</span><span>Razón</span><span>Usuario</span>
+                </div>
+                {movements.map((m, idx) => (
+                  <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 90px 80px 80px 80px 90px 100px', padding: '9px 12px', borderBottom: idx < movements.length - 1 ? '1px solid #f3f4f6' : 'none', fontSize: 12, alignItems: 'center', gap: 4 }}>
+                    <span style={{ color: '#6b7280', fontSize: 11 }}>{new Date(m.created_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                    <span style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.item_name}</span>
+                    <span style={{ fontSize: 11, color: '#9ca3af' }}>
+                      {m.item_type === 'raw_material' ? 'Mat. prima' : m.item_type === 'product' ? 'Producto' : m.item_type === 'ingredient' ? 'Ingrediente' : 'Extra'}
+                    </span>
+                    <span style={{ textAlign: 'right', color: '#6b7280' }}>{fmt(m.previous_qty, 2)}</span>
+                    <span style={{ textAlign: 'right', fontWeight: 600, color: parseFloat(m.change_qty) >= 0 ? '#22c55e' : '#ef4444' }}>
+                      {parseFloat(m.change_qty) >= 0 ? '+' : ''}{fmt(m.change_qty, 2)}
+                    </span>
+                    <span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(m.new_qty, 2)}</span>
+                    <span style={{ fontSize: 11 }}>
+                      <span style={{
+                        padding: '2px 7px', borderRadius: 12, fontSize: 10, fontWeight: 600,
+                        background: m.reason === 'order' ? 'rgba(59,130,246,0.1)' : m.reason === 'restock' ? 'rgba(34,197,94,0.1)' : m.reason === 'recipe' ? 'rgba(168,85,247,0.1)' : 'rgba(107,114,128,0.1)',
+                        color: m.reason === 'order' ? '#3b82f6' : m.reason === 'restock' ? '#22c55e' : m.reason === 'recipe' ? '#a855f7' : '#6b7280'
+                      }}>
+                        {m.reason === 'order' ? 'Orden' : m.reason === 'restock' ? 'Restock' : m.reason === 'recipe' ? 'Receta' : m.reason === 'manual' ? 'Manual' : m.reason}
+                      </span>
+                    </span>
+                    <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.user_name || '—'}</span>
+                  </div>
+                ))}
+              </div>
+              {movTotalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 16 }}>
+                  <button disabled={movPage <= 1} onClick={() => fetchMovements(movPage - 1)}
+                    style={{ ...btnGhost, padding: '6px 12px', opacity: movPage <= 1 ? 0.4 : 1 }}>
+                    <FontAwesomeIcon icon={faChevronLeft} />
+                  </button>
+                  <span style={{ fontSize: 13, color: '#6b7280' }}>Página {movPage} de {movTotalPages}</span>
+                  <button disabled={movPage >= movTotalPages} onClick={() => fetchMovements(movPage + 1)}
+                    style={{ ...btnGhost, padding: '6px 12px', opacity: movPage >= movTotalPages ? 0.4 : 1 }}>
+                    <FontAwesomeIcon icon={faChevronRight} />
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ──── TAB: REPORTES ──── */}
+      {tab === 'reports' && (
+        <div>
+          {reportLoading ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando reportes...</div>
+          ) : (
+            <>
+              {stats && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
+                  {[
+                    { label: 'Total materias primas', value: stats.raw_materials?.total || 0, color: '#6366f1' },
+                    { label: 'Sin stock (MP)', value: stats.raw_materials?.out_of_stock || 0, color: '#ef4444' },
+                    { label: 'Stock bajo (MP)', value: stats.raw_materials?.low_stock || 0, color: '#f59e0b' },
+                    { label: 'Valor inventario (MP)', value: `$${(stats.raw_materials?.total_value || 0).toLocaleString()}`, color: '#22c55e' },
+                    { label: 'Total productos', value: stats.products?.total || 0, color: '#6366f1' },
+                    { label: 'Sin stock (Prod)', value: stats.products?.out_of_stock || 0, color: '#ef4444' },
+                  ].map((c, i) => (
+                    <div key={i} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 18px', borderLeft: `4px solid ${c.color}` }}>
+                      <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c.label}</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: '#111' }}>{c.value}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#111' }}>Top consumo de materias primas</h3>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input type="date" value={reportRange.from} onChange={e => setReportRange(r => ({ ...r, from: e.target.value }))} style={{ ...inputStyle, width: 'auto', padding: '6px 10px', fontSize: 12 }} />
+                    <span style={{ color: '#9ca3af', fontSize: 12 }}>a</span>
+                    <input type="date" value={reportRange.to} onChange={e => setReportRange(r => ({ ...r, to: e.target.value }))} style={{ ...inputStyle, width: 'auto', padding: '6px 10px', fontSize: 12 }} />
+                  </div>
+                </div>
+                {consumption.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 40, color: '#9ca3af', fontSize: 13 }}>Sin datos de consumo en este período</div>
+                ) : (
+                  <div>
+                    {(() => {
+                      const maxVal = Math.max(...consumption.map(c => parseFloat(c.total_consumed) || 0), 1);
+                      return consumption.map((c, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                          <span style={{ minWidth: 140, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.item_name}</span>
+                          <div style={{ flex: 1, height: 20, background: '#f3f4f6', borderRadius: 6, overflow: 'hidden' }}>
+                            <div style={{
+                              height: '100%', borderRadius: 6,
+                              width: `${(parseFloat(c.total_consumed) / maxVal * 100)}%`,
+                              background: 'linear-gradient(90deg, #D4AF37, #f59e0b)',
+                              transition: 'width 0.3s'
+                            }} />
+                          </div>
+                          <span style={{ minWidth: 70, textAlign: 'right', fontSize: 13, fontWeight: 600 }}>{fmt(c.total_consumed, 2)}</span>
+                          <span style={{ fontSize: 11, color: '#9ca3af', minWidth: 40 }}>{c.movement_count} mov</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {/* ──── MODAL: Nueva / Editar Materia Prima ──── */}

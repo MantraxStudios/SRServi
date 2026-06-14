@@ -16,6 +16,9 @@ class MotionDetector(
     var x1: Double = 0.15, var y1: Double = 0.5,
     var x2: Double = 0.85, var y2: Double = 0.5,
     var flip: Boolean = false,
+    initialIn: Int = 0,
+    initialOut: Int = 0,
+    private val onCountChanged: ((Int, Int) -> Unit)? = null,
     private val onCross: (String) -> Unit
 ) {
     companion object {
@@ -32,8 +35,8 @@ class MotionDetector(
     private val tracks = ArrayList<Track>()
     private var prev: ByteArray? = null
 
-    var countIn = 0; private set
-    var countOut = 0; private set
+    var countIn = initialIn; private set
+    var countOut = initialOut; private set
 
     fun resetCounts() { countIn = 0; countOut = 0 }
 
@@ -115,6 +118,7 @@ class MotionDetector(
                         if (flip) dir = if (dir == "in") "out" else "in"
                         if (dir == "in") countIn++ else countOut++
                         onCross(dir)
+                        onCountChanged?.invoke(countIn, countOut)
                     }
                 }
                 t.cx = b[0]; t.cy = b[1]; t.missed = 0

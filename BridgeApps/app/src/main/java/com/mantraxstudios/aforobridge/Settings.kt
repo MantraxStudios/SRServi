@@ -59,6 +59,18 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("autoStart", true)
         set(v) = prefs.edit().putBoolean("autoStart", v).apply()
 
+    var countIn: Int
+        get() = prefs.getInt("countIn", 0)
+        set(v) = prefs.edit().putInt("countIn", v).apply()
+
+    var countOut: Int
+        get() = prefs.getInt("countOut", 0)
+        set(v) = prefs.edit().putInt("countOut", v).apply()
+
+    var countDate: String
+        get() = prefs.getString("countDate", "") ?: ""
+        set(v) = prefs.edit().putString("countDate", v).apply()
+
     val isConfigured: Boolean
         get() = email.isNotBlank() && password.isNotBlank() && storeId > 0 && camIp.isNotBlank()
 

@@ -23,7 +23,7 @@ import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
 import { initInstagramService } from './instagram_autostart.js';
 
-import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone } from './database.js';
+import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
@@ -5158,12 +5158,14 @@ app.put('/api/inventory/ingredient/:id/stock', authenticateToken, async (req, re
     const ingId = parseInt(req.params.id);
     const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
     if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const [prev] = await pool.execute('SELECT stock, name FROM ingredients WHERE id = ?', [ingId]);
     const s = Math.max(0, parseInt(stock) || 0);
     const u = unlimited_stock ? 1 : 0;
     await pool.execute(
       'UPDATE ingredients SET stock = ?, unlimited_stock = ? WHERE id = ? AND store_id = ?',
       [s, u, ingId, parseInt(store_id)]
     );
+    if (prev[0]) logInventoryMovement({ storeId: parseInt(store_id), itemType: 'ingredient', itemId: ingId, itemName: prev[0].name, previousQty: prev[0].stock, newQty: s, reason: 'manual', userName: req.user.name || req.user.email }).catch(() => {});
     req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { ingredient_id: ingId, stock: s, unlimited_stock: !!unlimited_stock });
     res.json({ stock: s, unlimited_stock: !!unlimited_stock });
   } catch (error) {
@@ -5178,12 +5180,14 @@ app.put('/api/inventory/extra/:id/stock', authenticateToken, async (req, res) =>
     const extId = parseInt(req.params.id);
     const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
     if (!isOwner) return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    const [prev] = await pool.execute('SELECT stock, name FROM extras WHERE id = ?', [extId]);
     const s = Math.max(0, parseInt(stock) || 0);
     const u = unlimited_stock ? 1 : 0;
     await pool.execute(
       'UPDATE extras SET stock = ?, unlimited_stock = ? WHERE id = ? AND store_id = ?',
       [s, u, extId, parseInt(store_id)]
     );
+    if (prev[0]) logInventoryMovement({ storeId: parseInt(store_id), itemType: 'extra', itemId: extId, itemName: prev[0].name, previousQty: prev[0].stock, newQty: s, reason: 'manual', userName: req.user.name || req.user.email }).catch(() => {});
     req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { extra_id: extId, stock: s, unlimited_stock: !!unlimited_stock });
     res.json({ stock: s, unlimited_stock: !!unlimited_stock });
   } catch (error) {
@@ -5247,7 +5251,11 @@ app.put('/api/inventory/:productId/stock', authenticateToken, async (req, res) =
     if (!isOwner) {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
+    const [prevRows] = await pool.execute('SELECT stock FROM inventory WHERE product_id = ?', [parseInt(productId)]);
+    const prevStock = prevRows[0] ? prevRows[0].stock : 0;
     const updated = await setInventoryStock(parseInt(productId), parseInt(stock));
+    const [pName] = await pool.execute('SELECT name FROM products WHERE id = ?', [parseInt(productId)]);
+    logInventoryMovement({ storeId: parseInt(store_id), itemType: 'product', itemId: parseInt(productId), itemName: pName[0]?.name || '', previousQty: prevStock, newQty: parseInt(stock), reason: 'manual', userName: req.user.name || req.user.email }).catch(() => {});
     if (store_id) {
       req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { product_id: parseInt(productId), ...updated });
     }
@@ -5335,14 +5343,19 @@ app.put('/api/raw-materials/:id/restock', authenticateToken, async (req, res) =>
     const { quantity, amount, store_id } = req.body;
     const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
     if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
-    // quantity = SET to exact value; amount (legacy) = ADD to existing
+    const [before] = await pool.execute('SELECT * FROM raw_materials WHERE id = ?', [parseInt(req.params.id)]);
+    const prevQty = before[0] ? parseFloat(before[0].quantity) : 0;
     const sql = quantity !== undefined
       ? 'UPDATE raw_materials SET quantity = ? WHERE id = ? AND store_id = ?'
       : 'UPDATE raw_materials SET quantity = quantity + ? WHERE id = ? AND store_id = ?';
     const val = quantity !== undefined ? parseFloat(quantity) : parseFloat(amount) || 0;
     await pool.execute(sql, [val, parseInt(req.params.id), parseInt(store_id)]);
     const [rows] = await pool.execute('SELECT * FROM raw_materials WHERE id = ?', [parseInt(req.params.id)]);
-    res.json(rows[0] || {});
+    const after = rows[0];
+    if (after) {
+      logInventoryMovement({ storeId: parseInt(store_id), itemType: 'raw_material', itemId: after.id, itemName: after.name, previousQty: prevQty, newQty: parseFloat(after.quantity), reason: 'restock', userName: req.user.name || req.user.email }).catch(() => {});
+    }
+    res.json(after || {});
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -14320,6 +14333,61 @@ app.get('/api/people-counter/download-agent', authenticateToken, (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename="srservi-agente-local.js"');
     res.send(content);
   } catch (e) { res.status(500).json({ error: 'Agente no encontrado' }); }
+});
+
+// ─── INVENTORY MOVEMENTS, ALERTS & REPORTS ────────────────────────────────────
+
+app.get('/api/inventory/movements/:storeId', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    const { from, to, item_type, reason, page, limit } = req.query;
+    const result = await getInventoryMovements(storeId, {
+      from, to, itemType: item_type, reason,
+      page: parseInt(page) || 1, limit: parseInt(limit) || 50
+    });
+    res.json(result);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/inventory/alerts/:storeId', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    await checkAndCreateStockAlerts(storeId);
+    const alerts = await getStockAlerts(storeId, req.query.status || 'active');
+    res.json(alerts);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/inventory/alerts/:id/acknowledge', authenticateToken, async (req, res) => {
+  try {
+    await acknowledgeStockAlert(parseInt(req.params.id));
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/inventory/stats/:storeId', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    const stats = await getInventoryStats(storeId);
+    res.json(stats);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/inventory/reports/consumption/:storeId', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    const { from, to } = req.query;
+    const report = await getConsumptionReport(storeId, from, to);
+    res.json(report);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 startServer();

@@ -32,6 +32,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 /**
  * Servicio en primer plano que cuenta el aforo desde la cámara RTSP:
@@ -105,13 +106,36 @@ class CountingService : Service() {
                 status.value = "Error de sesión: ${e.message}"
             }
 
-            // 2) Línea de conteo
+            // 2) Restaurar conteos persistidos (resetear si es un día nuevo)
+            val today = LocalDate.now().toString()
+            val savedIn: Int
+            val savedOut: Int
+            if (settings.countDate == today) {
+                savedIn = settings.countIn
+                savedOut = settings.countOut
+            } else {
+                savedIn = 0
+                savedOut = 0
+                settings.countDate = today
+                settings.countIn = 0
+                settings.countOut = 0
+            }
+            countIn.value = savedIn
+            countOut.value = savedOut
+
+            // 3) Línea de conteo + detector con conteos restaurados
             val line = runCatching { api.getLineConfig(settings.storeId) }.getOrNull()
             detector = MotionDetector(
                 sensitivity = settings.sensitivity,
                 x1 = line?.x1 ?: 0.15, y1 = line?.y1 ?: 0.5,
                 x2 = line?.x2 ?: 0.85, y2 = line?.y2 ?: 0.5,
-                flip = line?.flip ?: false
+                flip = line?.flip ?: false,
+                initialIn = savedIn,
+                initialOut = savedOut,
+                onCountChanged = { cIn, cOut ->
+                    settings.countIn = cIn
+                    settings.countOut = cOut
+                }
             ) { dir ->
                 countIn.value = detector?.countIn ?: 0
                 countOut.value = detector?.countOut ?: 0
@@ -119,20 +143,20 @@ class CountingService : Service() {
                 mainHandler.post { updateNotif() }
             }
 
-            // 3) Guardar info de cámara en el panel (informativo)
+            // 4) Guardar info de cámara en el panel (informativo)
             scope.launch { api.saveRtspInfo(settings.storeId, settings.rtspUrl(), settings.sensitivity) }
 
-            // 4) Arrancar captura + decodificación
+            // 5) Arrancar captura + decodificación
             startCapture()
 
-            // 5) Bucle de subida de snapshots (frame más reciente, una subida a la vez)
+            // 6) Bucle de subida de snapshots (frame más reciente, una subida a la vez)
             scope.launch(Dispatchers.IO) {
                 for (jpeg in snapChannel) {
                     runCatching { api.uploadSnapshot(settings.storeId, jpeg) }
                 }
             }
 
-            // 6) Refrescar la línea cada 60s
+            // 7) Refrescar la línea cada 60s
             scope.launch {
                 while (isActive) {
                     delay(60_000)
@@ -243,6 +267,11 @@ class CountingService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        detector?.let {
+            settings.countIn = it.countIn
+            settings.countOut = it.countOut
+            settings.countDate = LocalDate.now().toString()
+        }
         isRunning.value = false
         status.value = "Detenido"
         runCatching { player?.release() }

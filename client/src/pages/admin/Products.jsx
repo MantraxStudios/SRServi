@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faEdit, faTrash, faBox, faGripVertical, faCamera, faFileExcel, faDownload, faUpload, faCheckCircle, faTimesCircle } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faEdit, faTrash, faBox, faGripVertical, faCamera, faFileExcel, faDownload, faUpload, faCheckCircle, faTimesCircle, faSearch, faFire } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { getImageUrl } from '../../config.js';
 import CameraModal from '../../components/CameraModal';
@@ -67,6 +67,10 @@ function Products() {
   const [excelResults, setExcelResults] = useState(null);
   const excelFileRef = useRef(null);
   const recipeEditorRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [bestSellersMode, setBestSellersMode] = useState(false);
+  const [bestSellersRange, setBestSellersRange] = useState('month');
+  const [topProducts, setTopProducts] = useState([]);
 
   const fetchAllRef = useRef(false);
 
@@ -148,6 +152,44 @@ function Products() {
 
     return () => abortController.abort();
   };
+
+  const fetchTopProducts = async (range = bestSellersRange) => {
+    if (!selectedStore) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/analytics/top-products?store_id=${selectedStore.id}&range=${range}&limit=50`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setTopProducts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching top products:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (bestSellersMode && selectedStore) {
+      fetchTopProducts(bestSellersRange);
+    }
+  }, [bestSellersMode, bestSellersRange]);
+
+  const getDisplayProducts = () => {
+    if (bestSellersMode) {
+      const salesMap = {};
+      topProducts.forEach(tp => { salesMap[tp.id] = tp; });
+      return products
+        .filter(p => salesMap[p.id])
+        .map(p => ({ ...p, total_sold: Number(salesMap[p.id].total_sold), revenue: Number(salesMap[p.id].revenue) }))
+        .sort((a, b) => b.total_sold - a.total_sold);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return products.filter(p => p.name.toLowerCase().includes(q));
+    }
+    return products;
+  };
+
+  const displayProducts = getDisplayProducts();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -631,21 +673,114 @@ function Products() {
       <div className="admin-main">
         {error && <div className="error">{error}</div>}
 
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: '1', minWidth: '200px' }}>
+            <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+            <input
+              type="text"
+              placeholder="Buscar producto..."
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); if (bestSellersMode) setBestSellersMode(false); }}
+              style={{
+                width: '100%', padding: '10px 12px 10px 36px', borderRadius: '8px',
+                border: '1px solid #333', background: '#1a1a1a', color: '#fff', fontSize: '14px', boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          <button
+            onClick={() => { setBestSellersMode(!bestSellersMode); if (!bestSellersMode) setSearchQuery(''); }}
+            style={{
+              padding: '10px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, fontSize: '14px',
+              background: bestSellersMode ? '#D4AF37' : '#2a2a2a', color: bestSellersMode ? '#000' : '#fff',
+              transition: 'all 0.2s'
+            }}
+          >
+            <FontAwesomeIcon icon={faFire} />
+            Más vendidos
+          </button>
+          {bestSellersMode && (
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {[{ key: 'week', label: 'Semana' }, { key: 'month', label: 'Mes' }, { key: 'year', label: 'Año' }].map(r => (
+                <button
+                  key={r.key}
+                  onClick={() => setBestSellersRange(r.key)}
+                  style={{
+                    padding: '8px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px',
+                    background: bestSellersRange === r.key ? '#D4AF37' : '#2a2a2a',
+                    color: bestSellersRange === r.key ? '#000' : '#fff', fontWeight: bestSellersRange === r.key ? 600 : 400
+                  }}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="card">
-          {products.length === 0 ? (
+          {displayProducts.length === 0 ? (
             <div className="empty-state">
               <p className="empty-state-text">
-                No hay productos. Crea tu primer producto.
+                {searchQuery ? 'No se encontraron productos.' : bestSellersMode ? 'No hay ventas en este período.' : 'No hay productos. Crea tu primer producto.'}
               </p>
+            </div>
+          ) : bestSellersMode ? (
+            <div className="product-grid-dnd">
+              {displayProducts.map((product, idx) => (
+                <div
+                  key={product.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px',
+                    background: '#1a1a1a', borderRadius: '10px', marginBottom: '6px',
+                    border: idx < 3 ? '1px solid #D4AF37' : '1px solid #333'
+                  }}
+                >
+                  <span style={{
+                    fontWeight: 700, fontSize: idx < 3 ? '20px' : '16px', minWidth: '32px', textAlign: 'center',
+                    color: idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : '#888'
+                  }}>
+                    #{idx + 1}
+                  </span>
+                  <div className="product-image-container" style={{ width: '50px', height: '50px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden' }}>
+                    {product.image ? (
+                      <img
+                        src={product.image.startsWith('http') ? product.image : getImageUrl(product.image)}
+                        alt={product.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#2a2a2a' }}>
+                        <FontAwesomeIcon icon={faBox} style={{ color: '#555' }} />
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</div>
+                    <div style={{ color: '#888', fontSize: '13px' }}>${Number(product.price || 0).toLocaleString()}</div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '16px', color: '#D4AF37' }}>{product.total_sold} vendidos</div>
+                    <div style={{ color: '#aaa', fontSize: '13px' }}>${Number(product.revenue || 0).toLocaleString()}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                    <button className="btn btn-sm" onClick={() => openEdit(product)} style={{ padding: '6px 10px', background: '#2a2a2a', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#fff' }}>
+                      <FontAwesomeIcon icon={faEdit} />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="drag-hint-bar">
-              <div className="drag-hint">
-                <FontAwesomeIcon icon={faGripVertical} className="drag-handle-icon" />
-                <span className="drag-hint-text">
-                  Arrastra los productos para cambiar su orden en la tienda
-                </span>
-              </div>
+              {!searchQuery && (
+                <div className="drag-hint">
+                  <FontAwesomeIcon icon={faGripVertical} className="drag-handle-icon" />
+                  <span className="drag-hint-text">
+                    Arrastra los productos para cambiar su orden en la tienda
+                  </span>
+                </div>
+              )}
 
               <DndContext
                 sensors={sensors}
@@ -654,11 +789,11 @@ function Products() {
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext
-                  items={products.map(p => p.id)}
+                  items={displayProducts.map(p => p.id)}
                   strategy={verticalListSortingStrategy}
                 >
                   <div className="product-grid-dnd">
-                    {products.map(product => (
+                    {displayProducts.map(product => (
                       <SortableProduct key={product.id} product={product} />
                     ))}
                   </div>

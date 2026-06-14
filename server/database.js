@@ -3624,14 +3624,17 @@ export async function createOrder(storeId, orderData) {
 
     // Deduct product stock
     const [invRows] = await pool.execute(
-      'SELECT unlimited_stock FROM inventory WHERE product_id = ?',
+      'SELECT stock, unlimited_stock FROM inventory WHERE product_id = ?',
       [item.product_id]
     );
     if (invRows.length > 0 && !invRows[0].unlimited_stock) {
+      const prevStock = invRows[0].stock;
+      const newStock = Math.max(0, prevStock - item.quantity);
       await pool.execute(
         'UPDATE inventory SET stock = GREATEST(0, stock - ?) WHERE product_id = ?',
         [item.quantity, item.product_id]
       );
+      logInventoryMovement({ storeId, itemType: 'product', itemId: item.product_id, itemName: item.name || '', previousQty: prevStock, newQty: newStock, reason: 'order', referenceId: finalOrder.id }).catch(() => {});
     }
 
     // Deduct complement (ingredient) stock and raw materials
@@ -3712,14 +3715,18 @@ export async function createOrder(storeId, orderData) {
 
     // Deduct raw materials for product (recipe) — multiplied by order quantity
     const [prodRecipe] = await pool.execute(
-      'SELECT raw_material_id, quantity_used FROM product_recipes WHERE item_type = ? AND item_id = ?',
+      'SELECT pr.raw_material_id, pr.quantity_used, rm.name as rm_name, rm.quantity as rm_qty FROM product_recipes pr JOIN raw_materials rm ON pr.raw_material_id = rm.id WHERE pr.item_type = ? AND pr.item_id = ?',
       ['product', item.product_id]
     );
     for (const r of prodRecipe) {
+      const deduct = r.quantity_used * item.quantity;
+      const prevQ = parseFloat(r.rm_qty);
+      const newQ = Math.max(0, prevQ - deduct);
       await pool.execute(
         'UPDATE raw_materials SET quantity = GREATEST(0, quantity - ?) WHERE id = ?',
-        [r.quantity_used * item.quantity, r.raw_material_id]
+        [deduct, r.raw_material_id]
       );
+      logInventoryMovement({ storeId, itemType: 'raw_material', itemId: r.raw_material_id, itemName: r.rm_name, previousQty: prevQ, newQty: newQ, reason: 'recipe', referenceId: finalOrder.id }).catch(() => {});
     }
   }
 
@@ -6776,6 +6783,217 @@ export async function deleteLoyalCustomer(id, storeId) {
     'DELETE FROM loyal_customers WHERE id = ? AND store_id = ?',
     [id, storeId]
   );
+}
+
+// ─── INVENTORY MOVEMENTS & ALERTS ─────────────────────────────────────────────
+
+let _inventoryTablesReady = false;
+async function ensureInventoryTables() {
+  if (_inventoryTablesReady) return;
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS inventory_movements (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      store_id INT NOT NULL,
+      item_type ENUM('product','ingredient','extra','raw_material') NOT NULL,
+      item_id INT NOT NULL,
+      item_name VARCHAR(255) NOT NULL,
+      previous_qty DECIMAL(10,3) NOT NULL DEFAULT 0,
+      new_qty DECIMAL(10,3) NOT NULL DEFAULT 0,
+      change_qty DECIMAL(10,3) NOT NULL DEFAULT 0,
+      reason ENUM('order','manual','restock','recipe','adjustment') NOT NULL DEFAULT 'manual',
+      reference_id INT,
+      user_name VARCHAR(255),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_im_store_date (store_id, created_at),
+      INDEX idx_im_item (item_type, item_id)
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS stock_alerts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      store_id INT NOT NULL,
+      item_type ENUM('product','ingredient','extra','raw_material') NOT NULL,
+      item_id INT NOT NULL,
+      item_name VARCHAR(255) NOT NULL,
+      current_stock DECIMAL(10,3) NOT NULL DEFAULT 0,
+      threshold DECIMAL(10,3) NOT NULL DEFAULT 0,
+      alert_type ENUM('low_stock','out_of_stock') NOT NULL,
+      status ENUM('active','acknowledged') NOT NULL DEFAULT 'active',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_sa_store_status (store_id, status)
+    )
+  `);
+  _inventoryTablesReady = true;
+}
+
+export async function logInventoryMovement({ storeId, itemType, itemId, itemName, previousQty, newQty, reason, referenceId, userName }) {
+  await ensureInventoryTables();
+  const change = parseFloat(newQty) - parseFloat(previousQty);
+  await pool.execute(
+    `INSERT INTO inventory_movements (store_id, item_type, item_id, item_name, previous_qty, new_qty, change_qty, reason, reference_id, user_name)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [storeId, itemType, itemId, itemName, previousQty, newQty, change, reason, referenceId || null, userName || null]
+  );
+}
+
+export async function getInventoryMovements(storeId, { from, to, itemType, reason, page = 1, limit = 50 } = {}) {
+  await ensureInventoryTables();
+  let where = 'WHERE store_id = ?';
+  const params = [storeId];
+  if (from) { where += ' AND created_at >= ?'; params.push(from); }
+  if (to) { where += ' AND created_at <= ?'; params.push(to + ' 23:59:59'); }
+  if (itemType) { where += ' AND item_type = ?'; params.push(itemType); }
+  if (reason) { where += ' AND reason = ?'; params.push(reason); }
+
+  const offset = (page - 1) * limit;
+  const [countRows] = await pool.execute(`SELECT COUNT(*) as total FROM inventory_movements ${where}`, params);
+  const total = countRows[0].total;
+
+  const [rows] = await pool.execute(
+    `SELECT * FROM inventory_movements ${where} ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`,
+    params
+  );
+  return { movements: rows, total, page, totalPages: Math.ceil(total / limit) };
+}
+
+export async function checkAndCreateStockAlerts(storeId) {
+  await ensureInventoryTables();
+  await pool.execute('DELETE FROM stock_alerts WHERE store_id = ? AND status = ?', [storeId, 'active']);
+
+  // Raw materials
+  const [rms] = await pool.execute(
+    'SELECT id, name, quantity, min_quantity FROM raw_materials WHERE store_id = ?', [storeId]
+  );
+  for (const rm of rms) {
+    const qty = parseFloat(rm.quantity) || 0;
+    const min = parseFloat(rm.min_quantity) || 0;
+    if (qty <= 0) {
+      await pool.execute(
+        'INSERT INTO stock_alerts (store_id, item_type, item_id, item_name, current_stock, threshold, alert_type) VALUES (?,?,?,?,?,?,?)',
+        [storeId, 'raw_material', rm.id, rm.name, qty, min, 'out_of_stock']
+      );
+    } else if (min > 0 && qty <= min) {
+      await pool.execute(
+        'INSERT INTO stock_alerts (store_id, item_type, item_id, item_name, current_stock, threshold, alert_type) VALUES (?,?,?,?,?,?,?)',
+        [storeId, 'raw_material', rm.id, rm.name, qty, min, 'low_stock']
+      );
+    }
+  }
+
+  // Products
+  const [prods] = await pool.execute(
+    `SELECT p.id, p.name, COALESCE(i.stock, 0) as stock, COALESCE(i.min_stock, 0) as min_stock, COALESCE(i.unlimited_stock, 0) as unlimited_stock
+     FROM products p LEFT JOIN inventory i ON p.id = i.product_id WHERE p.store_id = ?`, [storeId]
+  );
+  for (const p of prods) {
+    if (p.unlimited_stock) continue;
+    if (p.stock <= 0) {
+      await pool.execute(
+        'INSERT INTO stock_alerts (store_id, item_type, item_id, item_name, current_stock, threshold, alert_type) VALUES (?,?,?,?,?,?,?)',
+        [storeId, 'product', p.id, p.name, p.stock, p.min_stock, 'out_of_stock']
+      );
+    } else if (p.min_stock > 0 && p.stock <= p.min_stock) {
+      await pool.execute(
+        'INSERT INTO stock_alerts (store_id, item_type, item_id, item_name, current_stock, threshold, alert_type) VALUES (?,?,?,?,?,?,?)',
+        [storeId, 'product', p.id, p.name, p.stock, p.min_stock, 'low_stock']
+      );
+    }
+  }
+
+  // Ingredients
+  const [ings] = await pool.execute(
+    'SELECT id, name, stock, unlimited_stock FROM ingredients WHERE store_id = ?', [storeId]
+  );
+  for (const ing of ings) {
+    if (ing.unlimited_stock) continue;
+    const s = parseInt(ing.stock) || 0;
+    if (s <= 0) {
+      await pool.execute(
+        'INSERT INTO stock_alerts (store_id, item_type, item_id, item_name, current_stock, threshold, alert_type) VALUES (?,?,?,?,?,?,?)',
+        [storeId, 'ingredient', ing.id, ing.name, s, 0, 'out_of_stock']
+      );
+    } else if (s <= 5) {
+      await pool.execute(
+        'INSERT INTO stock_alerts (store_id, item_type, item_id, item_name, current_stock, threshold, alert_type) VALUES (?,?,?,?,?,?,?)',
+        [storeId, 'ingredient', ing.id, ing.name, s, 5, 'low_stock']
+      );
+    }
+  }
+
+  // Extras
+  const [exts] = await pool.execute(
+    'SELECT id, name, stock, unlimited_stock FROM extras WHERE store_id = ?', [storeId]
+  );
+  for (const ext of exts) {
+    if (ext.unlimited_stock) continue;
+    const s = parseInt(ext.stock) || 0;
+    if (s <= 0) {
+      await pool.execute(
+        'INSERT INTO stock_alerts (store_id, item_type, item_id, item_name, current_stock, threshold, alert_type) VALUES (?,?,?,?,?,?,?)',
+        [storeId, 'extra', ext.id, ext.name, s, 0, 'out_of_stock']
+      );
+    } else if (s <= 5) {
+      await pool.execute(
+        'INSERT INTO stock_alerts (store_id, item_type, item_id, item_name, current_stock, threshold, alert_type) VALUES (?,?,?,?,?,?,?)',
+        [storeId, 'extra', ext.id, ext.name, s, 5, 'low_stock']
+      );
+    }
+  }
+}
+
+export async function getStockAlerts(storeId, status = 'active') {
+  await ensureInventoryTables();
+  const [rows] = await pool.execute(
+    'SELECT * FROM stock_alerts WHERE store_id = ? AND status = ? ORDER BY alert_type ASC, created_at DESC',
+    [storeId, status]
+  );
+  return rows;
+}
+
+export async function acknowledgeStockAlert(alertId) {
+  await ensureInventoryTables();
+  await pool.execute('UPDATE stock_alerts SET status = ? WHERE id = ?', ['acknowledged', alertId]);
+}
+
+export async function getInventoryStats(storeId) {
+  await ensureInventoryTables();
+
+  const [rmRows] = await pool.execute(
+    'SELECT COUNT(*) as total, SUM(CASE WHEN quantity <= 0 THEN 1 ELSE 0 END) as out_of_stock, SUM(CASE WHEN min_quantity > 0 AND quantity > 0 AND quantity <= min_quantity THEN 1 ELSE 0 END) as low_stock, SUM(quantity * cost_per_unit) as total_value FROM raw_materials WHERE store_id = ?',
+    [storeId]
+  );
+
+  const [prodRows] = await pool.execute(
+    `SELECT COUNT(*) as total,
+       SUM(CASE WHEN i.unlimited_stock = 0 AND COALESCE(i.stock, 0) <= 0 THEN 1 ELSE 0 END) as out_of_stock,
+       SUM(CASE WHEN i.unlimited_stock = 0 AND i.min_stock > 0 AND i.stock > 0 AND i.stock <= i.min_stock THEN 1 ELSE 0 END) as low_stock
+     FROM products p LEFT JOIN inventory i ON p.id = i.product_id WHERE p.store_id = ?`,
+    [storeId]
+  );
+
+  return {
+    raw_materials: { ...rmRows[0], total_value: parseFloat(rmRows[0].total_value) || 0 },
+    products: prodRows[0]
+  };
+}
+
+export async function getConsumptionReport(storeId, from, to) {
+  await ensureInventoryTables();
+  let dateFilter = '';
+  const params = [storeId];
+  if (from) { dateFilter += ' AND created_at >= ?'; params.push(from); }
+  if (to) { dateFilter += ' AND created_at <= ?'; params.push(to + ' 23:59:59'); }
+
+  const [rows] = await pool.execute(
+    `SELECT item_name, item_type, SUM(ABS(change_qty)) as total_consumed, COUNT(*) as movement_count
+     FROM inventory_movements
+     WHERE store_id = ? AND change_qty < 0 ${dateFilter}
+     GROUP BY item_id, item_type, item_name
+     ORDER BY total_consumed DESC
+     LIMIT 20`,
+    params
+  );
+  return rows;
 }
 
 export { pool };
