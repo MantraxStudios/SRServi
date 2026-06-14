@@ -126,6 +126,7 @@ export default function PeopleCounter() {
   const rtspPrevFrameRef = useRef(null);
   const rtspOffscreenRef = useRef(null);
   const rtspNextIdRef = useRef(0);
+  const rtspRunningRef = useRef(false);
   // ────────────────────────────────────────
   const nextIdRef = useRef(0);
   const dragRef = useRef(null);
@@ -406,15 +407,18 @@ export default function PeopleCounter() {
   // algoritmo de detección que la webcam, dibujando los blobs sobre rtspCanvasRef.
 
   const startRtspLoop = () => {
-    if (rtspAnimRef.current) return; // ya corriendo
+    if (rtspRunningRef.current) return;
+    rtspRunningRef.current = true;
     rtspPrevFrameRef.current = null;
     rtspTracksRef.current = [];
     scheduleRtspFrame();
   };
 
   const stopRtspLoop = () => {
+    rtspRunningRef.current = false;
     if (rtspAnimRef.current) {
       cancelAnimationFrame(rtspAnimRef.current);
+      clearTimeout(rtspAnimRef.current);
       rtspAnimRef.current = null;
     }
     rtspPrevFrameRef.current = null;
@@ -424,13 +428,14 @@ export default function PeopleCounter() {
   };
 
   const scheduleRtspFrame = () => {
-    // ~10 fps para el stream RTSP (suficiente para detección)
+    if (!rtspRunningRef.current) return;
     rtspAnimRef.current = requestAnimationFrame(() => {
       rtspDetectFrame();
     });
   };
 
   const rtspDetectFrame = () => {
+    if (!rtspRunningRef.current) return;
     const img = mjpegImgRef.current;
     const canvas = rtspCanvasRef.current;
 
@@ -502,10 +507,9 @@ export default function PeopleCounter() {
 
         if (best) {
           used.add(best.id);
-          const canCount = best.side !== null && best.side !== side && (now - (best.lastCross || 0) > CROSSING_COOLDOWN);
-          if (canCount) handleCrossing(side === 1 ? 'in' : 'out');
+          const crossed = best.side !== null && best.side !== side && (now - (best.lastCross || 0) > CROSSING_COOLDOWN);
           next.push({ ...best, cx: blob.cx, cy: blob.cy, side, lastSeen: now, blob,
-            lastCross: canCount ? now : best.lastCross });
+            lastCross: crossed ? now : best.lastCross });
         } else {
           next.push({ id: rtspNextIdRef.current++, cx: blob.cx, cy: blob.cy, side, lastSeen: now, blob, lastCross: 0 });
         }
