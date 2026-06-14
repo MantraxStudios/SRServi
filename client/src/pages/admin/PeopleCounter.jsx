@@ -502,6 +502,36 @@ export default function PeopleCounter() {
             ))}
           </div>
 
+          {/* ── Línea de conteo — SIEMPRE VISIBLE sin importar nada ── */}
+          <div style={{ background: '#f9fafb', borderRadius: 12, padding: 16, border: '2px solid #D4AF37', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#374151', whiteSpace: 'nowrap' }}>
+                <FontAwesomeIcon icon={faRulerHorizontal} style={{ marginRight: 7, color: '#D4AF37' }} />
+                Línea de conteo
+              </span>
+              <button onClick={() => setIsEditingLine(e => !e)}
+                style={{ flex: '1 1 auto', minWidth: 180, padding: '10px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                  background: isEditingLine ? '#fffbeb' : '#fff',
+                  border: `1.5px solid ${isEditingLine ? '#D4AF37' : '#d1d5db'}`,
+                  color: isEditingLine ? '#92400e' : '#374151' }}>
+                {isEditingLine
+                  ? <><FontAwesomeIcon icon={faCircleCheck} /> Listo — guardado automático</>
+                  : <><FontAwesomeIcon icon={faRulerHorizontal} /> Ajustar línea en el video</>}
+              </button>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                <input type="checkbox" checked={flipDir}
+                  onChange={e => { const v = e.target.checked; setFlipDir(v); flipRef.current = v; autoSaveConfig(lineRef.current, v); }}
+                  style={{ width: 16, height: 16, accentColor: '#D4AF37' }} />
+                <span style={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>Invertir entrada / salida</span>
+              </label>
+            </div>
+            {isEditingLine && (
+              <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fde68a', fontSize: 12, color: '#92400e', fontWeight: 600 }}>
+                <FontAwesomeIcon icon={faRulerHorizontal} /> Arrastra los puntos dorados sobre el video para reposicionar la línea
+              </div>
+            )}
+          </div>
+
           <div className="pc-live-grid">
             {/* Camera view — RTSP o webcam */}
             <div style={{ background: '#111', borderRadius: 14, overflow: 'hidden' }}>
@@ -641,42 +671,6 @@ export default function PeopleCounter() {
             </div>
           </div>
 
-          {/* ── Línea de conteo — siempre visible para poder ajustar en cualquier momento ── */}
-          <div style={{ background: '#f9fafb', borderRadius: 12, padding: 16, border: '1px solid #e5e7eb', marginTop: 4 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: '#374151' }}>
-                <FontAwesomeIcon icon={faRulerHorizontal} style={{ marginRight: 7, color: '#D4AF37' }} />
-                Línea de conteo
-              </div>
-              {rtspActive && (
-                <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 20, padding: '2px 10px' }}>
-                  Se aplica al conteo RTSP automáticamente
-                </span>
-              )}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <button onClick={() => setIsEditingLine(e => !e)}
-                style={{ flex: '1 1 auto', minWidth: 180, padding: '10px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                  background: isEditingLine ? '#fffbeb' : '#fff',
-                  border: `1.5px solid ${isEditingLine ? '#D4AF37' : '#d1d5db'}`,
-                  color: isEditingLine ? '#92400e' : '#374151' }}>
-                {isEditingLine
-                  ? <><FontAwesomeIcon icon={faCircleCheck} /> Listo — guardado automático</>
-                  : <><FontAwesomeIcon icon={faRulerHorizontal} /> Ajustar línea en el video</>}
-              </button>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                <input type="checkbox" checked={flipDir}
-                  onChange={e => { const v = e.target.checked; setFlipDir(v); flipRef.current = v; autoSaveConfig(lineRef.current, v); }}
-                  style={{ width: 16, height: 16, accentColor: '#D4AF37' }} />
-                <span style={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>Invertir entrada / salida</span>
-              </label>
-            </div>
-            {isEditingLine && (
-              <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fde68a', fontSize: 12, color: '#92400e', fontWeight: 600 }}>
-                <FontAwesomeIcon icon={faRulerHorizontal} /> Arrastra los puntos dorados sobre el video para reposicionar la línea
-              </div>
-            )}
-          </div>
         </>
       )}
 
