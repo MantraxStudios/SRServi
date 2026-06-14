@@ -151,7 +151,15 @@ export default function PeopleCounter() {
       headers: { Authorization: `Bearer ${token}` }
     }).then(r => r.ok ? r.json() : null).then(d => {
       if (!d) return;
-      if (d.line) { setLineConfig(d.line); lineRef.current = d.line; }
+      if (d.line) {
+        const safe = {
+          x1: isFinite(d.line.x1) ? d.line.x1 : DEFAULT_LINE.x1,
+          y1: isFinite(d.line.y1) ? d.line.y1 : DEFAULT_LINE.y1,
+          x2: isFinite(d.line.x2) ? d.line.x2 : DEFAULT_LINE.x2,
+          y2: isFinite(d.line.y2) ? d.line.y2 : DEFAULT_LINE.y2,
+        };
+        setLineConfig(safe); lineRef.current = safe;
+      }
       if (d.flip !== undefined) { setFlipDir(d.flip); flipRef.current = d.flip; }
     }).catch(() => {});
   }, [storeId, token]);
@@ -570,7 +578,12 @@ export default function PeopleCounter() {
                   onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
                 >
                   {(() => {
-                    const { x1, y1, x2, y2 } = lineConfig;
+                    // Fallback a DEFAULT_LINE si algún valor es NaN (evita errores SVG)
+                    const raw = lineConfig;
+                    const x1 = isFinite(raw.x1) ? raw.x1 : DEFAULT_LINE.x1;
+                    const y1 = isFinite(raw.y1) ? raw.y1 : DEFAULT_LINE.y1;
+                    const x2 = isFinite(raw.x2) ? raw.x2 : DEFAULT_LINE.x2;
+                    const y2 = isFinite(raw.y2) ? raw.y2 : DEFAULT_LINE.y2;
                     const mx = (x1 + x2) / 2 * 100, my = (y1 + y2) / 2 * 100; // punto medio en %
                     const dx = x2 - x1, dy = y2 - y1;
                     const dl = Math.hypot(dx, dy) || 1;
