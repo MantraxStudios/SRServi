@@ -609,50 +609,73 @@ export default function PeopleCounter() {
                 </>
               )}
 
-              {/* Sensitivity */}
-              <div style={{ background: '#f9fafb', borderRadius: 12, padding: 16, border: '1px solid #e5e7eb' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Sensibilidad de movimiento</span>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#D4AF37' }}>{sensitivity > 60 ? 'Baja' : sensitivity > 35 ? 'Media' : 'Alta'}</span>
+              {/* Sensitivity — solo relevante en modo webcam */}
+              {!rtspActive && (
+                <div style={{ background: '#f9fafb', borderRadius: 12, padding: 16, border: '1px solid #e5e7eb' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Sensibilidad de movimiento</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: '#D4AF37' }}>{sensitivity > 60 ? 'Baja' : sensitivity > 35 ? 'Media' : 'Alta'}</span>
+                  </div>
+                  <input type="range" min="15" max="80" value={sensitivity}
+                    onChange={e => setSensitivity(Number(e.target.value))}
+                    style={{ width: '100%', accentColor: '#D4AF37' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#9ca3af', marginTop: 4 }}>
+                    <span>Alta (detecta todo)</span><span>Baja (solo grandes)</span>
+                  </div>
                 </div>
-                <input type="range" min="15" max="80" value={sensitivity}
-                  onChange={e => setSensitivity(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#D4AF37' }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#9ca3af', marginTop: 4 }}>
-                  <span>Alta (detecta todo)</span><span>Baja (solo grandes)</span>
-                </div>
-              </div>
-
-              {/* Line config */}
-              <div style={{ background: '#f9fafb', borderRadius: 12, padding: 16, border: '1px solid #e5e7eb' }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: '#374151', marginBottom: 12 }}>Línea de conteo</div>
-                <button onClick={() => setIsEditingLine(e => !e)}
-                  style={{ width: '100%', padding: '9px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 10,
-                    background: isEditingLine ? '#fffbeb' : '#fff',
-                    border: `1.5px solid ${isEditingLine ? '#D4AF37' : '#d1d5db'}`,
-                    color: isEditingLine ? '#92400e' : '#374151' }}>
-                  {isEditingLine ? <><FontAwesomeIcon icon={faCircleCheck} /> Listo (guardado automático)</> : <><FontAwesomeIcon icon={faRulerHorizontal} /> Ajustar línea</>}
-                </button>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={flipDir}
-                    onChange={e => { const v = e.target.checked; setFlipDir(v); flipRef.current = v; autoSaveConfig(lineRef.current, v); }}
-                    style={{ width: 15, height: 15 }} />
-                  <span style={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>Invertir entrada/salida</span>
-                </label>
-              </div>
+              )}
 
               <button onClick={() => setCounter({ in: 0, out: 0 })}
                 style={{ padding: '9px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 <FontAwesomeIcon icon={faRotate} /> Reiniciar conteo
               </button>
 
-              <div style={{ background: '#fffbeb', borderRadius: 10, padding: '12px 14px', border: '1px solid #fde68a', fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
-                <strong>Consejos:</strong><br />
-                • Cámara fija mirando perpendicular al paso<br />
-                • La línea debe cruzar todo el ancho de la entrada<br />
-                • Si hay falsos conteos, baja la sensibilidad
-              </div>
+              {!rtspActive && (
+                <div style={{ background: '#fffbeb', borderRadius: 10, padding: '12px 14px', border: '1px solid #fde68a', fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
+                  <strong>Consejos:</strong><br />
+                  • Cámara fija mirando perpendicular al paso<br />
+                  • La línea debe cruzar todo el ancho de la entrada<br />
+                  • Si hay falsos conteos, baja la sensibilidad
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* ── Línea de conteo — siempre visible para poder ajustar en cualquier momento ── */}
+          <div style={{ background: '#f9fafb', borderRadius: 12, padding: 16, border: '1px solid #e5e7eb', marginTop: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#374151' }}>
+                <FontAwesomeIcon icon={faRulerHorizontal} style={{ marginRight: 7, color: '#D4AF37' }} />
+                Línea de conteo
+              </div>
+              {rtspActive && (
+                <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 20, padding: '2px 10px' }}>
+                  Se aplica al conteo RTSP automáticamente
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <button onClick={() => setIsEditingLine(e => !e)}
+                style={{ flex: '1 1 auto', minWidth: 180, padding: '10px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                  background: isEditingLine ? '#fffbeb' : '#fff',
+                  border: `1.5px solid ${isEditingLine ? '#D4AF37' : '#d1d5db'}`,
+                  color: isEditingLine ? '#92400e' : '#374151' }}>
+                {isEditingLine
+                  ? <><FontAwesomeIcon icon={faCircleCheck} /> Listo — guardado automático</>
+                  : <><FontAwesomeIcon icon={faRulerHorizontal} /> Ajustar línea en el video</>}
+              </button>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                <input type="checkbox" checked={flipDir}
+                  onChange={e => { const v = e.target.checked; setFlipDir(v); flipRef.current = v; autoSaveConfig(lineRef.current, v); }}
+                  style={{ width: 16, height: 16, accentColor: '#D4AF37' }} />
+                <span style={{ fontSize: 13, color: '#374151', fontWeight: 600 }}>Invertir entrada / salida</span>
+              </label>
+            </div>
+            {isEditingLine && (
+              <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fde68a', fontSize: 12, color: '#92400e', fontWeight: 600 }}>
+                <FontAwesomeIcon icon={faRulerHorizontal} /> Arrastra los puntos dorados sobre el video para reposicionar la línea
+              </div>
+            )}
           </div>
         </>
       )}
