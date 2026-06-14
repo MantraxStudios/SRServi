@@ -6625,14 +6625,57 @@ export async function savePeopleCounterEvent(storeId, direction, crossedAt) {
   );
 }
 
+// Offset horario usado para convertir la fecha "local" del usuario (la que
+// ve en el navegador, ej. "2026-06-13") al rango de `crossed_at` que hay que
+// consultar. Chile continental: UTC-4 (invierno) / UTC-3 (verano).
+// `crossed_at` se guarda con `new Date(crossedAt)` (mysql2 lo convierte usando
+// la zona horaria de la conexión, por defecto la del SISTEMA donde corre node,
+// no necesariamente UTC). Antes se comparaba con `DATE(crossed_at) = ?`
+// (la fecha LOCAL del usuario), lo cual rompe el conteo si el servidor está
+// en UTC: un evento a las 22:00 en Chile se guarda como ~02:00 del día
+// siguiente en UTC, y `DATE(crossed_at)` da el día siguiente → 0 resultados
+// para "hoy". Para corregirlo sin asumir la TZ del servidor, calculamos en
+// tiempo de ejecución la diferencia entre el reloj del servidor (NOW()) y
+// UTC (UTC_TIMESTAMP()), y la usamos junto con el offset de Chile para
+// construir el rango correcto de `crossed_at` que corresponde al día local
+// solicitado.
+const CHILE_TZ_OFFSET_HOURS = parseInt(process.env.PEOPLE_COUNTER_TZ_OFFSET || '-4', 10);
+
+let _serverUtcOffsetMsCache = null;
+async function getServerUtcOffsetMs() {
+  if (_serverUtcOffsetMsCache !== null) return _serverUtcOffsetMsCache;
+  const [[row]] = await pool.execute('SELECT NOW() AS srv, UTC_TIMESTAMP() AS utc');
+  // Diferencia entre el reloj del servidor (lo que mysql2 guarda en `crossed_at`)
+  // y UTC, en milisegundos. Si el servidor ya está en UTC esto será ~0.
+  _serverUtcOffsetMsCache = new Date(row.srv).getTime() - new Date(row.utc).getTime();
+  return _serverUtcOffsetMsCache;
+}
+
 export async function getPeopleCounterStats(storeId, date) {
   await ensurePeopleCounterTables();
+  const chileOffsetMs = CHILE_TZ_OFFSET_HOURS * 60 * 60 * 1000;
+  const serverOffsetMs = await getServerUtcOffsetMs();
+
+  // Inicio/fin del día local (Chile) solicitado, expresados en UTC.
+  const startUTC = new Date(new Date(`${date}T00:00:00Z`).getTime() - chileOffsetMs);
+  const endUTC = new Date(startUTC.getTime() + 24 * 60 * 60 * 1000);
+
+  // Convertir ese rango UTC al "reloj del servidor" para comparar contra
+  // `crossed_at` (que está almacenado en hora del servidor).
+  const startServer = new Date(startUTC.getTime() + serverOffsetMs);
+  const endServer = new Date(endUTC.getTime() + serverOffsetMs);
+
+  // Para agrupar por hora local (Chile), convertimos crossed_at de vuelta a UTC
+  // y luego le sumamos el offset de Chile.
+  const hourShiftMs = chileOffsetMs - serverOffsetMs;
+  const hourShiftSeconds = Math.round(hourShiftMs / 1000);
+
   const [rows] = await pool.execute(
-    `SELECT HOUR(crossed_at) AS hour, direction, COUNT(*) AS cnt
+    `SELECT HOUR(DATE_ADD(crossed_at, INTERVAL ? SECOND)) AS hour, direction, COUNT(*) AS cnt
      FROM people_counter_events
-     WHERE store_id = ? AND DATE(crossed_at) = ?
+     WHERE store_id = ? AND crossed_at >= ? AND crossed_at < ?
      GROUP BY hour, direction ORDER BY hour`,
-    [storeId, date]
+    [hourShiftSeconds, storeId, startServer, endServer]
   );
   const map = {};
   for (const r of rows) {
