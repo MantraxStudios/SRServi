@@ -82,7 +82,7 @@ export default function PeopleCounter() {
   const [counter, setCounter] = useState({ in: 0, out: 0 });
   const [cameras, setCameras] = useState([]);
   const [camId, setCamId] = useState('');
-  const [sensitivity, setSensitivity] = useState(45); // motion threshold 20–80
+  const [sensitivity, setSensitivity] = useState(45); // motion threshold 20-80
   const [statsDate, setStatsDate] = useState(getToday);
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -109,6 +109,10 @@ export default function PeopleCounter() {
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  // ── NUEVO: ref para el <img> MJPEG y canvas superpuesto al stream RTSP ──
+  const mjpegImgRef = useRef(null);
+  const rtspCanvasRef = useRef(null);
+  // ────────────────────────────────────────────────────────────────────────────
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const tracksRef = useRef([]);
@@ -116,6 +120,13 @@ export default function PeopleCounter() {
   const flipRef = useRef(false);
   const isRunningRef = useRef(false);
   const animRef = useRef(null);
+  // ── NUEVO: loop independiente para RTSP ──
+  const rtspAnimRef = useRef(null);
+  const rtspTracksRef = useRef([]);
+  const rtspPrevFrameRef = useRef(null);
+  const rtspOffscreenRef = useRef(null);
+  const rtspNextIdRef = useRef(0);
+  // ────────────────────────────────────────
   const nextIdRef = useRef(0);
   const dragRef = useRef(null);
   const storeIdRef = useRef(storeId);
@@ -123,12 +134,14 @@ export default function PeopleCounter() {
   const prevFrameRef = useRef(null);
   const offscreenRef = useRef(null);
   const sensitivityRef = useRef(sensitivity);
+  const rtspSensitivityRef = useRef(rtspSensitivity);
 
   useEffect(() => { lineRef.current = lineConfig; }, [lineConfig]);
   useEffect(() => { flipRef.current = flipDir; }, [flipDir]);
   useEffect(() => { storeIdRef.current = storeId; }, [storeId]);
   useEffect(() => { tokenRef.current = token; }, [token]);
   useEffect(() => { sensitivityRef.current = sensitivity; }, [sensitivity]);
+  useEffect(() => { rtspSensitivityRef.current = rtspSensitivity; }, [rtspSensitivity]);
 
   // Camera enumeration
   useEffect(() => {
@@ -141,6 +154,7 @@ export default function PeopleCounter() {
     return () => {
       isRunningRef.current = false;
       if (animRef.current) cancelAnimationFrame(animRef.current);
+      stopRtspLoop();
     };
   }, []);
 
@@ -197,7 +211,6 @@ export default function PeopleCounter() {
         setRtspEnabled(!!d.rtsp_enabled);
         setRtspSensitivity(d.rtsp_sensitivity || 30);
         setRtspStatus({ running: d.running, in: d.in, out: d.out, error: d.error });
-        // Parsear URL guardada → campos individuales
         if (d.rtsp_url) {
           try {
             const u = new URL(d.rtsp_url);
@@ -206,15 +219,13 @@ export default function PeopleCounter() {
             setRtspUser(decodeURIComponent(u.username || ''));
             setRtspPass(decodeURIComponent(u.password || ''));
             const p = u.pathname.replace(/^\//, '') + (u.search || '');
-            setRtspPath(p);
-            // detectar preset
             setRtspPath(p || 'stream1');
-          } catch { /* URL inválida, dejar vacío */ }
+          } catch { /* URL inválida */ }
         }
       }).catch(() => {});
   }, [storeId, token]);
 
-  // Polling de estado RTSP + agente local (en pestañas En Vivo y RTSP)
+  // Polling de estado RTSP + agente local
   useEffect(() => {
     if ((tab !== 'rtsp' && tab !== 'live') || !storeId || !token) {
       clearInterval(rtspPollRef.current);
@@ -235,13 +246,23 @@ export default function PeopleCounter() {
     return () => clearInterval(rtspPollRef.current);
   }, [tab, storeId, token]);
 
-  // URL del stream MJPEG — conexión única, frames continuos sin polling
   const rtspActive = rtspStatus.running || agentStatus.active;
   const mjpegUrl = rtspActive
     ? `${API}/api/stores/${storeId}/people-counter/mjpeg?token=${encodeURIComponent(token)}`
     : null;
 
-  // Cuando RTSP está activo, refrescar contador desde DB cada 5s (el servidor cuenta)
+  // ── NUEVO: arrancar/parar el loop de detección RTSP cuando cambia rtspActive ──
+  useEffect(() => {
+    if (rtspActive && mjpegUrl) {
+      // Pequeño delay para que el <img> esté montado en el DOM
+      const t = setTimeout(() => startRtspLoop(), 800);
+      return () => { clearTimeout(t); stopRtspLoop(); };
+    } else {
+      stopRtspLoop();
+    }
+  }, [rtspActive, mjpegUrl]);
+
+  // Cuando RTSP está activo, refrescar contador desde DB cada 5s
   useEffect(() => {
     if (!rtspActive || !storeId || !token) return;
     const refresh = () => {
@@ -276,13 +297,7 @@ export default function PeopleCounter() {
     }
   }
 
-  // ── Línea de conteo (overlay SVG) ────────────────────────────────────────────
-  // La línea se dibuja como un <svg> declarativo superpuesto al video usando
-  // coordenadas en % (independientes de cualquier medición en px), por lo que
-  // siempre queda visible y se puede arrastrar para ajustarla. Antes se pintaba en
-  // un <canvas> que se reseteaba en cada frame y desaparecía sobre el stream MJPEG.
-
-  // ── Camera ───────────────────────────────────────────────────────────────────
+  // ── Camera (webcam) ───────────────────────────────────────────────────────────
 
   const startCamera = async () => {
     try {
@@ -310,12 +325,11 @@ export default function PeopleCounter() {
     if (videoRef.current) videoRef.current.srcObject = null;
     tracksRef.current = [];
     prevFrameRef.current = null;
-    // limpiar las marcas de blobs del canvas al detener
     const c = canvasRef.current;
     if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
   };
 
-  // ── Motion detection loop (pure pixel math, runs at full 30fps) ──────────────
+  // ── Motion detection loop — WEBCAM ───────────────────────────────────────────
 
   const detectLoop = () => {
     if (!isRunningRef.current) return;
@@ -328,7 +342,6 @@ export default function PeopleCounter() {
     const W = video.videoWidth || 640, H = video.videoHeight || 360;
     if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
 
-    // Capture downsampled frame (80×60) into offscreen canvas
     if (!offscreenRef.current) offscreenRef.current = document.createElement('canvas');
     const off = offscreenRef.current;
     off.width = GRID_W; off.height = GRID_H;
@@ -344,10 +357,8 @@ export default function PeopleCounter() {
       const blobs = findBlobs(mask);
 
       const line = lineRef.current;
-      const lx1 = line.x1 * W, ly1 = line.y1 * H;
-      const lx2 = line.x2 * W, ly2 = line.y2 * H;
       const now = Date.now();
-      const maxD = 0.18; // max normalized distance to match a track
+      const maxD = 0.18;
       const used = new Set();
       const next = [];
 
@@ -375,7 +386,7 @@ export default function PeopleCounter() {
 
       tracksRef.current = [...next, ...tracksRef.current.filter(t => !used.has(t.id) && now - t.lastSeen < 1200)];
 
-      // Draw blob indicators
+      // Dibujar círculos sobre blobs detectados
       for (const tr of tracksRef.current) {
         const bx = tr.cx * W, by = tr.cy * H;
         const r = Math.sqrt(tr.blob.size / (GRID_W * GRID_H)) * Math.min(W, H) * 0.7;
@@ -389,6 +400,130 @@ export default function PeopleCounter() {
     prevFrameRef.current = currFrame;
     animRef.current = requestAnimationFrame(detectLoop);
   };
+
+  // ── Motion detection loop — RTSP/MJPEG ───────────────────────────────────────
+  // Captura frames del <img> MJPEG usando un canvas oculto y aplica el mismo
+  // algoritmo de detección que la webcam, dibujando los blobs sobre rtspCanvasRef.
+
+  const startRtspLoop = () => {
+    if (rtspAnimRef.current) return; // ya corriendo
+    rtspPrevFrameRef.current = null;
+    rtspTracksRef.current = [];
+    scheduleRtspFrame();
+  };
+
+  const stopRtspLoop = () => {
+    if (rtspAnimRef.current) {
+      cancelAnimationFrame(rtspAnimRef.current);
+      rtspAnimRef.current = null;
+    }
+    rtspPrevFrameRef.current = null;
+    rtspTracksRef.current = [];
+    const c = rtspCanvasRef.current;
+    if (c) c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
+  };
+
+  const scheduleRtspFrame = () => {
+    // ~10 fps para el stream RTSP (suficiente para detección)
+    rtspAnimRef.current = requestAnimationFrame(() => {
+      rtspDetectFrame();
+    });
+  };
+
+  const rtspDetectFrame = () => {
+    const img = mjpegImgRef.current;
+    const canvas = rtspCanvasRef.current;
+
+    if (!img || !canvas || !img.complete || img.naturalWidth === 0) {
+      // imagen aún no lista, reintenta
+      rtspAnimRef.current = setTimeout(scheduleRtspFrame, 100);
+      return;
+    }
+
+    const W = img.naturalWidth || img.clientWidth || 640;
+    const H = img.naturalHeight || img.clientHeight || 360;
+
+    if (canvas.width !== W || canvas.height !== H) {
+      canvas.width = W;
+      canvas.height = H;
+    }
+
+    // Captura frame downsampled en offscreen
+    if (!rtspOffscreenRef.current) rtspOffscreenRef.current = document.createElement('canvas');
+    const off = rtspOffscreenRef.current;
+    off.width = GRID_W; off.height = GRID_H;
+    let offCtx;
+    try {
+      offCtx = off.getContext('2d', { willReadFrequently: true });
+      offCtx.drawImage(img, 0, 0, GRID_W, GRID_H);
+    } catch {
+      // CORS u otro error al leer el frame — reintentar
+      rtspAnimRef.current = setTimeout(scheduleRtspFrame, 200);
+      return;
+    }
+
+    let currFrame;
+    try {
+      currFrame = offCtx.getImageData(0, 0, GRID_W, GRID_H).data;
+    } catch {
+      rtspAnimRef.current = setTimeout(scheduleRtspFrame, 200);
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    if (rtspPrevFrameRef.current) {
+      const mask = buildMotionMask(currFrame, rtspPrevFrameRef.current, rtspSensitivityRef.current);
+      const blobs = findBlobs(mask);
+
+      const line = lineRef.current;
+      const now = Date.now();
+      const maxD = 0.18;
+      const used = new Set();
+      const next = [];
+
+      for (const blob of blobs) {
+        let best = null, bestD = maxD;
+        for (const tr of rtspTracksRef.current) {
+          if (used.has(tr.id)) continue;
+          const d = Math.hypot(blob.cx - tr.cx, blob.cy - tr.cy);
+          if (d < bestD) { bestD = d; best = tr; }
+        }
+
+        const rawSide = getSide(blob.cx, blob.cy, line.x1, line.y1, line.x2, line.y2) > 0 ? 1 : -1;
+        const side = flipRef.current ? -rawSide : rawSide;
+
+        if (best) {
+          used.add(best.id);
+          const canCount = best.side !== null && best.side !== side && (now - (best.lastCross || 0) > CROSSING_COOLDOWN);
+          if (canCount) handleCrossing(side === 1 ? 'in' : 'out');
+          next.push({ ...best, cx: blob.cx, cy: blob.cy, side, lastSeen: now, blob,
+            lastCross: canCount ? now : best.lastCross });
+        } else {
+          next.push({ id: rtspNextIdRef.current++, cx: blob.cx, cy: blob.cy, side, lastSeen: now, blob, lastCross: 0 });
+        }
+      }
+
+      rtspTracksRef.current = [...next, ...rtspTracksRef.current.filter(t => !used.has(t.id) && now - t.lastSeen < 1200)];
+
+      // Dibujar círculos sobre blobs en el canvas RTSP
+      for (const tr of rtspTracksRef.current) {
+        const bx = tr.cx * W, by = tr.cy * H;
+        const r = Math.sqrt(tr.blob.size / (GRID_W * GRID_H)) * Math.min(W, H) * 0.7;
+        ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(bx, by, Math.max(r, 14), 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = 'rgba(34,197,94,0.12)';
+        ctx.beginPath(); ctx.arc(bx, by, Math.max(r, 14), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    rtspPrevFrameRef.current = currFrame;
+    // ~10 fps
+    rtspAnimRef.current = setTimeout(scheduleRtspFrame, 100);
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const handleCrossing = (dir) => {
     setCounter(prev => ({ ...prev, [dir]: prev[dir] + 1 }));
@@ -443,7 +578,7 @@ export default function PeopleCounter() {
       ? { ...lineRef.current, x1: x, y1: y }
       : { ...lineRef.current, x2: x, y2: y };
     lineRef.current = next;
-    setLineConfig(next); // el SVG es declarativo: re-render mueve la línea
+    setLineConfig(next);
   };
 
   const onUp = () => {
@@ -455,6 +590,35 @@ export default function PeopleCounter() {
   // ── Stats ────────────────────────────────────────────────────────────────────
 
   const maxHourly = stats ? Math.max(1, ...stats.hourly.map(h => h.in + h.out)) : 1;
+
+  // SVG de línea — compartido entre webcam y RTSP
+  const renderCountingLine = () => {
+    const raw = lineConfig;
+    const x1 = isFinite(raw.x1) ? raw.x1 : DEFAULT_LINE.x1;
+    const y1 = isFinite(raw.y1) ? raw.y1 : DEFAULT_LINE.y1;
+    const x2 = isFinite(raw.x2) ? raw.x2 : DEFAULT_LINE.x2;
+    const y2 = isFinite(raw.y2) ? raw.y2 : DEFAULT_LINE.y2;
+    const mx = (x1 + x2) / 2 * 100, my = (y1 + y2) / 2 * 100;
+    const dx = x2 - x1, dy = y2 - y1;
+    const dl = Math.hypot(dx, dy) || 1;
+    const off = 30;
+    const tx = -dy / dl * off, ty = dx / dl * off;
+    const labelStyle = { paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.55)', strokeWidth: 3 };
+    return (
+      <>
+        <line x1={`${x1 * 100}%`} y1={`${y1 * 100}%`} x2={`${x2 * 100}%`} y2={`${y2 * 100}%`}
+          stroke="#D4AF37" strokeWidth={3} strokeDasharray="12 5" />
+        {[[x1, y1], [x2, y2]].map(([x, y], i) => (
+          <circle key={i} cx={`${x * 100}%`} cy={`${y * 100}%`} r={isEditingLine ? 11 : 9}
+            fill="#D4AF37" stroke="rgba(0,0,0,0.5)" strokeWidth={1.5} />
+        ))}
+        <text x={`${mx}%`} y={`${my}%`} transform={`translate(${tx}, ${ty + 5})`} textAnchor="middle"
+          fontSize={13} fontWeight="bold" fill="#22c55e" style={labelStyle}>{flipDir ? 'SALIDA' : 'ENTRADA'}</text>
+        <text x={`${mx}%`} y={`${my}%`} transform={`translate(${-tx}, ${-ty + 5})`} textAnchor="middle"
+          fontSize={13} fontWeight="bold" fill="#ef4444" style={labelStyle}>{flipDir ? 'ENTRADA' : 'SALIDA'}</text>
+      </>
+    );
+  };
 
   return (
     <div className="pc-wrap" style={{ fontFamily: 'system-ui, sans-serif' }}>
@@ -475,7 +639,7 @@ export default function PeopleCounter() {
         </div>
       </div>
 
-      {/* ── Descargas de las apps AforoBridge ── */}
+      {/* Descargas AforoBridge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: '#111', borderRadius: 12, padding: '14px 18px', marginBottom: 20 }}>
         <div style={{ flex: '1 1 240px', minWidth: 0 }}>
           <div style={{ color: '#D4AF37', fontWeight: 800, fontSize: 14 }}><FontAwesomeIcon icon={faDownload} /> App AforoBridge</div>
@@ -510,7 +674,7 @@ export default function PeopleCounter() {
             ))}
           </div>
 
-          {/* ── Línea de conteo — SIEMPRE VISIBLE sin importar nada ── */}
+          {/* Línea de conteo */}
           <div style={{ background: '#f9fafb', borderRadius: 12, padding: 16, border: '2px solid #D4AF37', marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 13, fontWeight: 800, color: '#374151', whiteSpace: 'nowrap' }}>
@@ -550,26 +714,34 @@ export default function PeopleCounter() {
                   <FontAwesomeIcon icon={rtspActive ? faSatelliteDish : faVideo} /> {rtspActive ? 'RTSP' : 'Webcam'}
                 </div>
 
-                {/* Video RTSP (MJPEG) */}
+                {/* ── Video RTSP (MJPEG) — con canvas de blobs superpuesto ── */}
                 {rtspActive && mjpegUrl ? (
-                  <img
-                    key={mjpegUrl}
-                    src={mjpegUrl}
-                    style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }}
-                    alt="rtsp"
-                  />
+                  <>
+                    <img
+                      ref={mjpegImgRef}
+                      key={mjpegUrl}
+                      src={mjpegUrl}
+                      crossOrigin="anonymous"
+                      style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }}
+                      alt="rtsp"
+                    />
+                    {/* Canvas para blobs RTSP — superpuesto sobre el <img> */}
+                    <canvas ref={rtspCanvasRef}
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 4, pointerEvents: 'none' }}
+                    />
+                  </>
                 ) : (
-                  <video ref={videoRef} autoPlay playsInline muted
-                    style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }} />
+                  <>
+                    <video ref={videoRef} autoPlay playsInline muted
+                      style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }} />
+                    {/* Canvas para blobs webcam */}
+                    <canvas ref={canvasRef}
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 4, pointerEvents: 'none' }}
+                    />
+                  </>
                 )}
 
-                {/* Canvas — marcas de blobs durante la detección por webcam */}
-                <canvas ref={canvasRef}
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 4, pointerEvents: 'none' }}
-                />
-
-                {/* Línea de conteo (SVG) — siempre visible sobre cualquier fuente (webcam o RTSP).
-                    Todo en % / px / transform → no depende de ninguna medición, nunca se colapsa. */}
+                {/* SVG línea de conteo — siempre visible sobre cualquier fuente */}
                 <svg ref={svgRef}
                   preserveAspectRatio="none"
                   style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 5,
@@ -577,34 +749,7 @@ export default function PeopleCounter() {
                   onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
                   onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
                 >
-                  {(() => {
-                    // Fallback a DEFAULT_LINE si algún valor es NaN (evita errores SVG)
-                    const raw = lineConfig;
-                    const x1 = isFinite(raw.x1) ? raw.x1 : DEFAULT_LINE.x1;
-                    const y1 = isFinite(raw.y1) ? raw.y1 : DEFAULT_LINE.y1;
-                    const x2 = isFinite(raw.x2) ? raw.x2 : DEFAULT_LINE.x2;
-                    const y2 = isFinite(raw.y2) ? raw.y2 : DEFAULT_LINE.y2;
-                    const mx = (x1 + x2) / 2 * 100, my = (y1 + y2) / 2 * 100; // punto medio en %
-                    const dx = x2 - x1, dy = y2 - y1;
-                    const dl = Math.hypot(dx, dy) || 1;
-                    const off = 30; // desplazamiento perpendicular de las etiquetas (px)
-                    const tx = -dy / dl * off, ty = dx / dl * off; // perpendicular unitaria · off
-                    const labelStyle = { paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.55)', strokeWidth: 3 };
-                    return (
-                      <>
-                        <line x1={`${x1 * 100}%`} y1={`${y1 * 100}%`} x2={`${x2 * 100}%`} y2={`${y2 * 100}%`}
-                          stroke="#D4AF37" strokeWidth={3} strokeDasharray="12 5" />
-                        {[[x1, y1], [x2, y2]].map(([x, y], i) => (
-                          <circle key={i} cx={`${x * 100}%`} cy={`${y * 100}%`} r={isEditingLine ? 11 : 9}
-                            fill="#D4AF37" stroke="rgba(0,0,0,0.5)" strokeWidth={1.5} />
-                        ))}
-                        <text x={`${mx}%`} y={`${my}%`} transform={`translate(${tx}, ${ty + 5})`} textAnchor="middle"
-                          fontSize={13} fontWeight="bold" fill="#22c55e" style={labelStyle}>{flipDir ? 'SALIDA' : 'ENTRADA'}</text>
-                        <text x={`${mx}%`} y={`${my}%`} transform={`translate(${-tx}, ${-ty + 5})`} textAnchor="middle"
-                          fontSize={13} fontWeight="bold" fill="#ef4444" style={labelStyle}>{flipDir ? 'ENTRADA' : 'SALIDA'}</text>
-                      </>
-                    );
-                  })()}
+                  {renderCountingLine()}
                 </svg>
 
                 {/* Contadores en vivo */}
@@ -627,11 +772,10 @@ export default function PeopleCounter() {
 
             {/* Controls */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* Fuente de video activa */}
               {rtspActive ? (
                 <div style={{ padding: '12px 14px', borderRadius: 10, background: '#f0fdf4', border: '1.5px solid #86efac', fontSize: 13 }}>
                   <div style={{ fontWeight: 700, color: '#15803d', marginBottom: 2 }}><FontAwesomeIcon icon={faCircle} style={{ color: '#ef4444', fontSize: 10 }} /> Cámara RTSP activa</div>
-                  <div style={{ fontSize: 12, color: '#6b7280' }}>El conteo lo hace el servidor. Ajusta la línea abajo y se aplica automáticamente.</div>
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>Detección activa en cliente y servidor. Ajusta la línea abajo y se aplica automáticamente.</div>
                 </div>
               ) : (
                 <>
@@ -652,38 +796,36 @@ export default function PeopleCounter() {
                 </>
               )}
 
-              {/* Sensitivity — solo relevante en modo webcam */}
-              {!rtspActive && (
-                <div style={{ background: '#f9fafb', borderRadius: 12, padding: 16, border: '1px solid #e5e7eb' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Sensibilidad de movimiento</span>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: '#D4AF37' }}>{sensitivity > 60 ? 'Baja' : sensitivity > 35 ? 'Media' : 'Alta'}</span>
-                  </div>
-                  <input type="range" min="15" max="80" value={sensitivity}
-                    onChange={e => setSensitivity(Number(e.target.value))}
-                    style={{ width: '100%', accentColor: '#D4AF37' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#9ca3af', marginTop: 4 }}>
-                    <span>Alta (detecta todo)</span><span>Baja (solo grandes)</span>
-                  </div>
+              {/* Sensitivity */}
+              <div style={{ background: '#f9fafb', borderRadius: 12, padding: 16, border: '1px solid #e5e7eb' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Sensibilidad de movimiento</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: '#D4AF37' }}>
+                    {(rtspActive ? rtspSensitivity : sensitivity) > 60 ? 'Baja' : (rtspActive ? rtspSensitivity : sensitivity) > 35 ? 'Media' : 'Alta'}
+                  </span>
                 </div>
-              )}
+                <input type="range" min="15" max="80"
+                  value={rtspActive ? rtspSensitivity : sensitivity}
+                  onChange={e => rtspActive ? setRtspSensitivity(Number(e.target.value)) : setSensitivity(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#D4AF37' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#9ca3af', marginTop: 4 }}>
+                  <span>Alta (detecta todo)</span><span>Baja (solo grandes)</span>
+                </div>
+              </div>
 
               <button onClick={() => setCounter({ in: 0, out: 0 })}
                 style={{ padding: '9px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 <FontAwesomeIcon icon={faRotate} /> Reiniciar conteo
               </button>
 
-              {!rtspActive && (
-                <div style={{ background: '#fffbeb', borderRadius: 10, padding: '12px 14px', border: '1px solid #fde68a', fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
-                  <strong>Consejos:</strong><br />
-                  • Cámara fija mirando perpendicular al paso<br />
-                  • La línea debe cruzar todo el ancho de la entrada<br />
-                  • Si hay falsos conteos, baja la sensibilidad
-                </div>
-              )}
+              <div style={{ background: '#fffbeb', borderRadius: 10, padding: '12px 14px', border: '1px solid #fde68a', fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
+                <strong>Consejos:</strong><br />
+                • Cámara fija mirando perpendicular al paso<br />
+                • La línea debe cruzar todo el ancho de la entrada<br />
+                • Si hay falsos conteos, baja la sensibilidad
+              </div>
             </div>
           </div>
-
         </>
       )}
 
@@ -691,11 +833,9 @@ export default function PeopleCounter() {
       {tab === 'rtsp' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Estado de conexión — servidor directo o agente local */}
           {(() => {
-            const serverOk = rtspStatus.running && !rtspStatus.error;
-            const connecting = rtspStatus.running && !rtspStatus.hasSnapshot && !rtspStatus.error;
             const connected = rtspStatus.running && rtspStatus.hasSnapshot;
+            const connecting = rtspStatus.running && !rtspStatus.hasSnapshot && !rtspStatus.error;
             const agentOk = agentStatus.active;
 
             if (connected || agentOk) {
@@ -715,7 +855,7 @@ export default function PeopleCounter() {
             if (connecting) {
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderRadius: 12, background: '#fffbeb', border: '1.5px solid #fde68a' }}>
-                  <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#f59e0b', flexShrink: 0, animation: 'pulse 1s infinite' }} />
+                  <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} />
                   <div style={{ fontWeight: 600, color: '#92400e', fontSize: 14 }}><FontAwesomeIcon icon={faHourglassHalf} /> Conectado — esperando primer frame…</div>
                 </div>
               );
@@ -732,7 +872,6 @@ export default function PeopleCounter() {
             return null;
           })()}
 
-          {/* Error del stream con diagnóstico específico */}
           {rtspStatus.error && (
             <div style={{ borderRadius: 12, overflow: 'hidden', border: '1.5px solid #fca5a5' }}>
               <div style={{ background: '#fef2f2', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -852,7 +991,7 @@ export default function PeopleCounter() {
             </button>
           </div>
 
-          {/* Preview MJPEG — una sola conexión, fluido sin polling */}
+          {/* Preview MJPEG */}
           {mjpegUrl && (
             <div style={{ background: '#fff', borderRadius: 14, padding: 18, border: '1px solid #e5e7eb' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
