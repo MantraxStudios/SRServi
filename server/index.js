@@ -14248,6 +14248,7 @@ app.get('/api/stores/:id/people-counter/mjpeg', async (req, res) => {
     const [owned] = await pool.execute('SELECT id FROM stores WHERE id = ? AND user_id = ?', [storeId, userId]);
     if (!owned[0]) return res.status(403).send('Sin permiso');
 
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'multipart/x-mixed-replace; boundary=mjpegframe');
     res.setHeader('Cache-Control', 'no-cache, no-store');
     res.setHeader('Connection', 'close');

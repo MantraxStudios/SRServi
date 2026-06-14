@@ -434,7 +434,13 @@ export default function PeopleCounter() {
     const img = mjpegImgRef.current;
     const canvas = rtspCanvasRef.current;
 
-    if (!img || !canvas || !img.complete || img.naturalWidth === 0) {
+    // NOTA: NO usamos `img.complete` aquí. Para streams MJPEG
+    // (multipart/x-mixed-replace) Chrome/Firefox no marcan `complete = true`
+    // de forma confiable tras el primer frame, aunque la imagen se esté
+    // actualizando y `naturalWidth/naturalHeight` ya tengan valores válidos.
+    // Si dependemos de `img.complete`, este loop nunca avanza más allá del
+    // primer frame y el conteo RTSP nunca corre (aunque el video se vea bien).
+    if (!img || !canvas || !img.naturalWidth || !img.naturalHeight) {
       // imagen aún no lista, reintenta
       rtspAnimRef.current = setTimeout(scheduleRtspFrame, 100);
       return;
