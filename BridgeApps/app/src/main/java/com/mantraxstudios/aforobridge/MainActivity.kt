@@ -310,9 +310,14 @@ class MainActivity : AppCompatActivity() {
         if (!settings.isConfigured) { toast("Faltan datos. Revisa los pasos anteriores."); return }
         settings.autoStart = autoStartOn
         requestNotifPermission()
-        CountingService.start(this)
-        finishStatus.setTextColor(gold)
-        finishStatus.text = "Iniciando conteo en segundo plano…"
+        try {
+            CountingService.start(this)
+            finishStatus.setTextColor(gold)
+            finishStatus.text = "Iniciando conteo en segundo plano…"
+        } catch (e: Exception) {
+            finishStatus.setTextColor(red)
+            finishStatus.text = "No se pudo iniciar el servicio: ${e.message}"
+        }
     }
 
     /** Abre el panel web auto-logueado, igual que el WebView de AforoBridge Windows. */

@@ -286,10 +286,18 @@ class CountingService : Service() {
     }
 
     private fun startForegroundSafely(notif: Notification) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ServiceCompat.startForeground(this, NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(NOTIF_ID, notif)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ServiceCompat.startForeground(this, NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            } else {
+                startForeground(NOTIF_ID, notif)
+            }
+        } catch (_: Exception) {
+            try {
+                startForeground(NOTIF_ID, notif)
+            } catch (_: Exception) {
+                status.value = "Error al iniciar servicio"
+            }
         }
     }
 

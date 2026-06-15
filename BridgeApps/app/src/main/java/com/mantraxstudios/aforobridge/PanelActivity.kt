@@ -13,6 +13,7 @@ import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,7 +60,17 @@ class PanelActivity : AppCompatActivity() {
             web = WebView(this).apply {
                 layoutParams = FrameLayout.LayoutParams(MATCH, MATCH)
             }
-        } catch (_: Exception) {
+            web.settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                databaseEnabled = true
+                useWideViewPort = true
+                loadWithOverviewMode = true
+                mediaPlaybackRequiresUserGesture = false
+            }
+            CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
+            webReady = true
+        } catch (_: Throwable) {
             val msg = TextView(this).apply {
                 text = "No se pudo abrir el navegador.\nActualiza Android System WebView desde la Play Store."
                 setTextColor(Color.parseColor("#D4AF37"))
@@ -71,16 +82,6 @@ class PanelActivity : AppCompatActivity() {
             setContentView(root)
             return
         }
-        webReady = true
-        web.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            databaseEnabled = true
-            useWideViewPort = true
-            loadWithOverviewMode = true
-            mediaPlaybackRequiresUserGesture = false
-        }
-        CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
 
         web.webChromeClient = object : WebChromeClient() {
             // El panel pide la webcam para la vista "En Vivo"; concedemos automáticamente.
@@ -127,6 +128,17 @@ class PanelActivity : AppCompatActivity() {
         root.addView(spinner)
         setContentView(root)
 
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webReady && web.canGoBack() && web.url?.contains("/admin/people-counter") == false) {
+                    web.goBack()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+
         authenticateAndLoad()
     }
 
@@ -151,12 +163,6 @@ class PanelActivity : AppCompatActivity() {
     private fun hideOverlay() {
         overlay.visibility = ViewGroup.GONE
         spinner.visibility = ViewGroup.GONE
-    }
-
-    @Suppress("DEPRECATION")
-    override fun onBackPressed() {
-        if (web.canGoBack() && web.url?.contains("/admin/people-counter") == false) web.goBack()
-        else super.onBackPressed()
     }
 
     override fun onDestroy() {

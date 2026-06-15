@@ -11,7 +11,9 @@ class BootReceiver : BroadcastReceiver() {
         if (action == Intent.ACTION_BOOT_COMPLETED || action == "android.intent.action.QUICKBOOT_POWERON") {
             val s = Settings(context)
             if (s.isConfigured && s.autoStart) {
-                CountingService.start(context)
+                try {
+                    CountingService.start(context)
+                } catch (_: Exception) { }
             }
         }
     }
