@@ -150,7 +150,9 @@
       "Bash(npx eslint *)",
       "Bash(./gradlew :app:compileDebugKotlin -q)",
       "Bash(./gradlew :app:compileDebugKotlin)",
-      "Bash(./gradlew :app:assembleDebug)"
+      "Bash(./gradlew :app:assembleDebug)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(\\(Get-Item \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\public\\\\downloads\\\\AforoBridge-Android.apk\"\\).Length / 1MB)"
     ]
   }
 }
