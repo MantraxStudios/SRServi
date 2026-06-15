@@ -83,19 +83,29 @@ class CountingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        settings = Settings(this)
-        api = Api(settings.serverUrl)
-        createChannel()
+        try {
+            settings = Settings(this)
+            api = Api(settings.serverUrl)
+            createChannel()
+        } catch (e: Throwable) {
+            status.value = "Error al crear servicio: ${e.message}"
+            stopSelf()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForegroundSafely(buildNotif("Iniciando…"))
-        if (!started) { started = true; setup() }
+        try {
+            startForegroundSafely(buildNotif("Iniciando…"))
+            if (!started) { started = true; setup() }
+        } catch (e: Throwable) {
+            status.value = "Error al iniciar: ${e.message}"
+            runCatching { stopSelf() }
+        }
         return START_STICKY
     }
 
     private fun setup() {
-        acquireWakeLock()
+        runCatching { acquireWakeLock() }
         isRunning.value = true
         status.value = "Conectando…"
 
@@ -292,11 +302,12 @@ class CountingService : Service() {
             } else {
                 startForeground(NOTIF_ID, notif)
             }
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             try {
                 startForeground(NOTIF_ID, notif)
-            } catch (_: Exception) {
+            } catch (_: Throwable) {
                 status.value = "Error al iniciar servicio"
+                stopSelf()
             }
         }
     }

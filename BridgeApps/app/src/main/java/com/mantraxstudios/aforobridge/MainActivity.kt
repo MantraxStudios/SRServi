@@ -88,8 +88,21 @@ class MainActivity : AppCompatActivity() {
         flipper.addView(stepFinish())
         setContentView(flipper)
 
+        showCrashLogIfAny()
+
         if (settings.isConfigured) go(5)
         observeServiceState()
+    }
+
+    private fun showCrashLogIfAny() {
+        val crash = AforoBridgeApp.getLastCrash(this) ?: return
+        AforoBridgeApp.clearCrash(this)
+        val lines = crash.lines().take(15).joinToString("\n")
+        AlertDialog.Builder(this)
+            .setTitle("La app se cerró inesperadamente")
+            .setMessage(lines)
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     private fun go(i: Int) {
@@ -314,18 +327,21 @@ class MainActivity : AppCompatActivity() {
             CountingService.start(this)
             finishStatus.setTextColor(gold)
             finishStatus.text = "Iniciando conteo en segundo plano…"
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             finishStatus.setTextColor(red)
-            finishStatus.text = "No se pudo iniciar el servicio: ${e.message}"
+            finishStatus.text = "Error: ${e::class.simpleName}: ${e.message}"
         }
     }
 
-    /** Abre el panel web auto-logueado, igual que el WebView de AforoBridge Windows. */
     private fun openPanel() {
         if (settings.email.isBlank() || settings.password.isBlank()) {
             toast("Inicia sesión primero"); go(1); return
         }
-        startActivity(android.content.Intent(this, PanelActivity::class.java))
+        try {
+            startActivity(android.content.Intent(this, PanelActivity::class.java))
+        } catch (e: Throwable) {
+            toast("Error al abrir panel: ${e.message}")
+        }
     }
 
     private fun observeServiceState() {

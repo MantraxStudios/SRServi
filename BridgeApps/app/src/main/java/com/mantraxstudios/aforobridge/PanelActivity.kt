@@ -22,19 +22,13 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
-/**
- * Abre el panel web de SRServi (/admin/people-counter) dentro de un WebView,
- * auto-logueado: inicia sesión con las credenciales guardadas, inyecta token+usuario
- * en el localStorage del mismo origen y navega al panel. Equivale al WebView2 de la
- * app de Windows (MainForm.ApplyAuthAndNavigateAsync).
- */
 class PanelActivity : AppCompatActivity() {
 
     private val ui = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private lateinit var settings: Settings
-    private lateinit var web: WebView
-    private lateinit var overlay: TextView
-    private lateinit var spinner: ProgressBar
+    private var web: WebView? = null
+    private var overlay: TextView? = null
+    private var spinner: ProgressBar? = null
 
     private val base by lazy { settings.serverUrl.trimEnd('/') }
     private val panelUrl by lazy { "$base/admin/people-counter" }
@@ -43,11 +37,18 @@ class PanelActivity : AppCompatActivity() {
     private var userJson: String? = null
     private var injected = false
 
-    private var webReady = false
-
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        try {
+            setupUI()
+        } catch (e: Throwable) {
+            showFatalError("Error al abrir el panel:\n${e::class.simpleName}: ${e.message}")
+        }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setupUI() {
         supportActionBar?.hide()
         settings = Settings(this)
 
@@ -56,54 +57,53 @@ class PanelActivity : AppCompatActivity() {
             setBackgroundColor(Color.parseColor("#121212"))
         }
 
+        val wv: WebView
         try {
-            web = WebView(this).apply {
+            wv = WebView(this).apply {
                 layoutParams = FrameLayout.LayoutParams(MATCH, MATCH)
             }
-            web.settings.apply {
+            wv.settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
+                @Suppress("DEPRECATION")
                 databaseEnabled = true
                 useWideViewPort = true
                 loadWithOverviewMode = true
                 mediaPlaybackRequiresUserGesture = false
             }
-            CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
-            webReady = true
-        } catch (_: Throwable) {
-            val msg = TextView(this).apply {
-                text = "No se pudo abrir el navegador.\nActualiza Android System WebView desde la Play Store."
-                setTextColor(Color.parseColor("#D4AF37"))
-                textSize = 16f
-                gravity = Gravity.CENTER
-                setPadding(dp(24), dp(24), dp(24), dp(24))
-            }
-            root.addView(msg)
-            setContentView(root)
+            try {
+                CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
+            } catch (_: Throwable) { }
+        } catch (e: Throwable) {
+            showFatalError("No se pudo abrir el navegador.\nActualiza Android System WebView desde la Play Store.\n\n${e::class.simpleName}: ${e.message}")
             return
         }
+        web = wv
 
-        web.webChromeClient = object : WebChromeClient() {
-            // El panel pide la webcam para la vista "En Vivo"; concedemos automáticamente.
+        wv.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) {
-                runOnUiThread { request.grant(request.resources) }
+                try { runOnUiThread { request.grant(request.resources) } } catch (_: Throwable) { }
             }
         }
 
-        web.webViewClient = object : WebViewClient() {
+        wv.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String?) {
-                if (isFinishing || isDestroyed) return
-                if (!injected && token != null) {
-                    injected = true
-                    val tk = JSONObject.quote(token)
-                    val uj = JSONObject.quote(userJson ?: "")
-                    view.evaluateJavascript(
-                        "try{localStorage.setItem('token',$tk);" +
-                            "localStorage.setItem('user',$uj);}catch(e){}"
-                    ) {
-                        if (!isFinishing && !isDestroyed) view.loadUrl(panelUrl)
+                try {
+                    if (isFinishing || isDestroyed) return
+                    if (!injected && token != null) {
+                        injected = true
+                        val tk = JSONObject.quote(token)
+                        val uj = JSONObject.quote(userJson ?: "")
+                        view.evaluateJavascript(
+                            "try{localStorage.setItem('token',$tk);" +
+                                "localStorage.setItem('user',$uj);}catch(e){}"
+                        ) {
+                            if (!isFinishing && !isDestroyed) view.loadUrl(panelUrl)
+                        }
+                    } else {
+                        hideOverlay()
                     }
-                } else {
+                } catch (_: Throwable) {
                     hideOverlay()
                 }
             }
@@ -123,15 +123,16 @@ class PanelActivity : AppCompatActivity() {
             layoutParams = FrameLayout.LayoutParams(MATCH, MATCH)
         }
 
-        root.addView(web)
+        root.addView(wv)
         root.addView(overlay)
         root.addView(spinner)
         setContentView(root)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (webReady && web.canGoBack() && web.url?.contains("/admin/people-counter") == false) {
-                    web.goBack()
+                val w = web
+                if (w != null && w.canGoBack() && w.url?.contains("/admin/people-counter") == false) {
+                    w.goBack()
                 } else {
                     isEnabled = false
                     onBackPressedDispatcher.onBackPressed()
@@ -142,6 +143,22 @@ class PanelActivity : AppCompatActivity() {
         authenticateAndLoad()
     }
 
+    private fun showFatalError(msg: String) {
+        val root = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(MATCH, MATCH)
+            setBackgroundColor(Color.parseColor("#121212"))
+        }
+        val tv = TextView(this).apply {
+            text = msg
+            setTextColor(Color.parseColor("#D4AF37"))
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+        }
+        root.addView(tv)
+        setContentView(root)
+    }
+
     private fun authenticateAndLoad() {
         ui.launch {
             try {
@@ -149,30 +166,32 @@ class PanelActivity : AppCompatActivity() {
                 val res = api.login(settings.email, settings.password)
                 token = res.token
                 userJson = res.userJson
-                if (!isFinishing && !isDestroyed) web.loadUrl(base)
+                if (!isFinishing && !isDestroyed) web?.loadUrl(base)
             } catch (e: Exception) {
                 if (!isFinishing && !isDestroyed) {
-                    overlay.text = "No se pudo iniciar sesión automáticamente.\nInicia sesión en el panel."
+                    overlay?.text = "No se pudo iniciar sesión automáticamente.\nInicia sesión en el panel."
                     injected = true
-                    web.loadUrl(panelUrl)
+                    web?.loadUrl(panelUrl)
                 }
             }
         }
     }
 
     private fun hideOverlay() {
-        overlay.visibility = ViewGroup.GONE
-        spinner.visibility = ViewGroup.GONE
+        overlay?.visibility = ViewGroup.GONE
+        spinner?.visibility = ViewGroup.GONE
     }
 
     override fun onDestroy() {
         super.onDestroy()
         ui.cancel()
-        if (webReady) {
-            (web.parent as? ViewGroup)?.removeView(web)
-            web.stopLoading()
-            web.destroy()
+        val wv = web
+        if (wv != null) {
+            (wv.parent as? ViewGroup)?.removeView(wv)
+            runCatching { wv.stopLoading() }
+            runCatching { wv.destroy() }
         }
+        web = null
     }
 
     private val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
