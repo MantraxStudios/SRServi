@@ -42,6 +42,8 @@ class PanelActivity : AppCompatActivity() {
     private var userJson: String? = null
     private var injected = false
 
+    private var webReady = false
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,9 +55,23 @@ class PanelActivity : AppCompatActivity() {
             setBackgroundColor(Color.parseColor("#121212"))
         }
 
-        web = WebView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(MATCH, MATCH)
+        try {
+            web = WebView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(MATCH, MATCH)
+            }
+        } catch (_: Exception) {
+            val msg = TextView(this).apply {
+                text = "No se pudo abrir el navegador.\nActualiza Android System WebView desde la Play Store."
+                setTextColor(Color.parseColor("#D4AF37"))
+                textSize = 16f
+                gravity = Gravity.CENTER
+                setPadding(dp(24), dp(24), dp(24), dp(24))
+            }
+            root.addView(msg)
+            setContentView(root)
+            return
         }
+        webReady = true
         web.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -75,8 +91,7 @@ class PanelActivity : AppCompatActivity() {
 
         web.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String?) {
-                // En la primera carga del origen, inyectamos las credenciales en
-                // localStorage y recién ahí navegamos al panel (ya auto-logueado).
+                if (isFinishing || isDestroyed) return
                 if (!injected && token != null) {
                     injected = true
                     val tk = JSONObject.quote(token)
@@ -85,7 +100,7 @@ class PanelActivity : AppCompatActivity() {
                         "try{localStorage.setItem('token',$tk);" +
                             "localStorage.setItem('user',$uj);}catch(e){}"
                     ) {
-                        view.loadUrl(panelUrl)
+                        if (!isFinishing && !isDestroyed) view.loadUrl(panelUrl)
                     }
                 } else {
                     hideOverlay()
@@ -122,14 +137,13 @@ class PanelActivity : AppCompatActivity() {
                 val res = api.login(settings.email, settings.password)
                 token = res.token
                 userJson = res.userJson
-                // Cargamos primero el origen para poder escribir su localStorage;
-                // onPageFinished inyecta el token y navega al panel.
-                web.loadUrl(base)
+                if (!isFinishing && !isDestroyed) web.loadUrl(base)
             } catch (e: Exception) {
-                // Sin auto-login: abrimos el panel igual y el usuario inicia sesión a mano.
-                overlay.text = "No se pudo iniciar sesión automáticamente.\nInicia sesión en el panel."
-                injected = true
-                web.loadUrl(panelUrl)
+                if (!isFinishing && !isDestroyed) {
+                    overlay.text = "No se pudo iniciar sesión automáticamente.\nInicia sesión en el panel."
+                    injected = true
+                    web.loadUrl(panelUrl)
+                }
             }
         }
     }
@@ -148,7 +162,11 @@ class PanelActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         ui.cancel()
-        web.destroy()
+        if (webReady) {
+            (web.parent as? ViewGroup)?.removeView(web)
+            web.stopLoading()
+            web.destroy()
+        }
     }
 
     private val MATCH = ViewGroup.LayoutParams.MATCH_PARENT

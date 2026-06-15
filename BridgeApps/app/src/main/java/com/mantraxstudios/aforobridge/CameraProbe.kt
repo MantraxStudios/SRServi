@@ -48,24 +48,25 @@ object CameraProbe {
     /** @return (conectó, fueErrorDeCredenciales) */
     private suspend fun testUrl(context: Context, url: String): Pair<Boolean, Boolean> =
         withContext(Dispatchers.Main) {
-            val reader = ImageReader.newInstance(64, 48, ImageFormat.YUV_420_888, 2)
-            val deferred = CompletableDeferred<Pair<Boolean, Boolean>>()
-            val player = ExoPlayer.Builder(context).build()
-            val listener = object : Player.Listener {
-                override fun onPlaybackStateChanged(state: Int) {
-                    if (state == Player.STATE_READY && !deferred.isCompleted)
-                        deferred.complete(true to false)
-                }
-                override fun onPlayerError(error: PlaybackException) {
-                    if (!deferred.isCompleted) {
-                        val msg = (error.message ?: "").lowercase()
-                        val auth = msg.contains("401") || msg.contains("unauthorized")
-                        deferred.complete(false to auth)
-                    }
-                }
-            }
+            var reader: ImageReader? = null
+            var player: ExoPlayer? = null
             try {
-                player.addListener(listener)
+                reader = ImageReader.newInstance(64, 48, ImageFormat.YUV_420_888, 2)
+                val deferred = CompletableDeferred<Pair<Boolean, Boolean>>()
+                player = ExoPlayer.Builder(context).build()
+                player.addListener(object : Player.Listener {
+                    override fun onPlaybackStateChanged(state: Int) {
+                        if (state == Player.STATE_READY && !deferred.isCompleted)
+                            deferred.complete(true to false)
+                    }
+                    override fun onPlayerError(error: PlaybackException) {
+                        if (!deferred.isCompleted) {
+                            val msg = (error.message ?: "").lowercase()
+                            val auth = msg.contains("401") || msg.contains("unauthorized")
+                            deferred.complete(false to auth)
+                        }
+                    }
+                })
                 player.setVideoSurface(reader.surface)
                 player.volume = 0f
                 val src = RtspMediaSource.Factory()
@@ -81,8 +82,8 @@ object CameraProbe {
             } catch (_: Exception) {
                 false to false
             } finally {
-                runCatching { player.release() }
-                runCatching { reader.close() }
+                runCatching { player?.release() }
+                runCatching { reader?.close() }
             }
         }
 }

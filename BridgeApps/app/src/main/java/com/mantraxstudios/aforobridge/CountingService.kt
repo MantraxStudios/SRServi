@@ -68,6 +68,8 @@ class CountingService : Service() {
     private var imgThread: HandlerThread? = null
     private var detector: MotionDetector? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var retryRunnable: Runnable? = null
+    private var destroyed = false
 
     private var started = false
     private var lastSnap = 0L
@@ -147,7 +149,13 @@ class CountingService : Service() {
             scope.launch { api.saveRtspInfo(settings.storeId, settings.rtspUrl(), settings.sensitivity) }
 
             // 5) Arrancar captura + decodificación
-            startCapture()
+            try {
+                startCapture()
+            } catch (e: Exception) {
+                status.value = "Error de cámara: ${e.message}"
+                updateNotif()
+                scheduleRetry()
+            }
 
             // 6) Bucle de subida de snapshots (frame más reciente, una subida a la vez)
             scope.launch(Dispatchers.IO) {
@@ -169,18 +177,21 @@ class CountingService : Service() {
     }
 
     private fun startCapture() {
+        releaseCapture()
+
         val ht = HandlerThread("aforo-img").apply { start() }
         imgThread = ht
         val handler = Handler(ht.looper)
 
-        val r = ImageReader.newInstance(640, 360, ImageFormat.YUV_420_888, 2)
+        val r = ImageReader.newInstance(640, 360, ImageFormat.YUV_420_888, 4)
         reader = r
-        r.setOnImageAvailableListener({ reader ->
-            val img = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+        r.setOnImageAvailableListener({ ir ->
+            val img = try { ir.acquireLatestImage() } catch (_: Exception) { null }
+                ?: return@setOnImageAvailableListener
             try {
                 detector?.process(YuvUtils.luminance80x60(img))
                 val now = System.currentTimeMillis()
-                if (now - lastSnap > 66) { // ~15 fps para una vista previa fluida
+                if (now - lastSnap > 66) {
                     lastSnap = now
                     val jpeg = YuvUtils.toJpeg(img)
                     snapChannel.trySend(jpeg)
@@ -205,15 +216,40 @@ class CountingService : Service() {
             override fun onPlayerError(error: PlaybackException) {
                 status.value = "Reconectando…"
                 updateNotif()
-                // Reintentar a los 5s
-                mainHandler.postDelayed({
-                    runCatching { p.setMediaSource(buildSource()); p.prepare(); p.playWhenReady = true }
-                }, 5000)
+                scheduleRetry()
             }
         })
         p.setMediaSource(buildSource())
         p.prepare()
         p.playWhenReady = true
+    }
+
+    private fun scheduleRetry() {
+        if (destroyed) return
+        val r = Runnable {
+            if (!destroyed) {
+                try {
+                    startCapture()
+                } catch (_: Exception) {
+                    status.value = "Error al reconectar"
+                    updateNotif()
+                    scheduleRetry()
+                }
+            }
+        }
+        retryRunnable = r
+        mainHandler.postDelayed(r, 5000)
+    }
+
+    private fun releaseCapture() {
+        retryRunnable?.let { mainHandler.removeCallbacks(it) }
+        retryRunnable = null
+        runCatching { player?.release() }
+        player = null
+        runCatching { reader?.close() }
+        reader = null
+        runCatching { imgThread?.quitSafely() }
+        imgThread = null
     }
 
     private fun buildSource() = RtspMediaSource.Factory()
@@ -267,6 +303,7 @@ class CountingService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        destroyed = true
         detector?.let {
             settings.countIn = it.countIn
             settings.countOut = it.countOut
@@ -274,9 +311,7 @@ class CountingService : Service() {
         }
         isRunning.value = false
         status.value = "Detenido"
-        runCatching { player?.release() }
-        runCatching { reader?.close() }
-        runCatching { imgThread?.quitSafely() }
+        releaseCapture()
         runCatching { wakeLock?.release() }
         scope.cancel()
     }
