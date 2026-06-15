@@ -14,7 +14,9 @@ import {
   faSpinner,
   faChartLine,
   faBoxOpen,
-  faTrophy
+  faTrophy,
+  faFilter,
+  faSortAmountDown
 } from '@fortawesome/free-solid-svg-icons';
 
 function Analytics() {
@@ -27,12 +29,50 @@ function Analytics() {
   const [salesByDow, setSalesByDow] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [topSortBy, setTopSortBy] = useState('quantity');
+  const [topCategoryId, setTopCategoryId] = useState('');
+  const [topLimit, setTopLimit] = useState(10);
 
   useEffect(() => {
     if (selectedStore?.id) {
       fetchAnalytics();
+      fetchCategories();
     }
   }, [selectedStore, dateRange]);
+
+  useEffect(() => {
+    if (selectedStore?.id) {
+      fetchTopProducts();
+    }
+  }, [selectedStore, dateRange, topSortBy, topCategoryId, topLimit]);
+
+  const fetchCategories = async () => {
+    try {
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const res = await fetch(`/api/categories?store_id=${selectedStore.id}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+    }
+  };
+
+  const fetchTopProducts = async () => {
+    try {
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const storeId = selectedStore.id;
+      let url = `/api/analytics/top-products?store_id=${storeId}&range=${dateRange}&limit=${topLimit}&sort_by=${topSortBy}`;
+      if (topCategoryId) url += `&category_id=${topCategoryId}`;
+      const res = await fetch(url, { headers });
+      const data = res.ok ? await res.json() : [];
+      setTopProducts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching top products:', err);
+    }
+  };
 
   const fetchAnalytics = async () => {
     setLoading(true);
@@ -40,18 +80,16 @@ function Analytics() {
       const headers = { 'Authorization': `Bearer ${token}` };
       const storeId = selectedStore.id;
 
-      const [summaryRes, salesRes, productsRes, ordersRes, dowRes] = await Promise.all([
+      const [summaryRes, salesRes, ordersRes, dowRes] = await Promise.all([
         fetch(`/api/analytics/summary?store_id=${storeId}&range=${dateRange}`, { headers }),
         fetch(`/api/analytics/sales-by-day?store_id=${storeId}&range=${dateRange}`, { headers }),
-        fetch(`/api/analytics/top-products?store_id=${storeId}&range=${dateRange}&limit=10`, { headers }),
         fetch(`/api/analytics/recent-orders?store_id=${storeId}&limit=10`, { headers }),
         fetch(`/api/analytics/sales-by-dow?store_id=${storeId}&range=${dateRange}`, { headers }),
       ]);
 
-      const [summaryData, salesData, productsData, ordersData, dowData] = await Promise.all([
+      const [summaryData, salesData, ordersData, dowData] = await Promise.all([
         summaryRes.ok ? summaryRes.json() : { totalOrders: 0, completedOrders: 0, pendingOrders: 0, cancelledOrders: 0, revenue: 0, avgOrder: 0 },
         salesRes.ok ? salesRes.json() : [],
-        productsRes.ok ? productsRes.json() : [],
         ordersRes.ok ? ordersRes.json() : [],
         dowRes.ok ? dowRes.json() : [],
       ]);
@@ -59,7 +97,6 @@ function Analytics() {
       setSummary(summaryData);
       setSalesByDay(Array.isArray(salesData) ? salesData : []);
       setSalesByDow(Array.isArray(dowData) ? dowData : []);
-      setTopProducts(Array.isArray(productsData) ? productsData : []);
       setRecentOrders(Array.isArray(ordersData) ? ordersData : []);
     } catch (err) {
       console.error('Error fetching analytics:', err);
@@ -294,28 +331,114 @@ function Analytics() {
           </div>
 
           <div className="analytics-section">
-            <h3 className="analytics-section-title">
-              <FontAwesomeIcon icon={faBoxOpen} style={{ marginRight: '8px' }} />
-              Productos Más Vendidos
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+              <h3 className="analytics-section-title" style={{ margin: 0 }}>
+                <FontAwesomeIcon icon={faBoxOpen} style={{ marginRight: '8px' }} />
+                Productos Más Vendidos
+              </h3>
+            </div>
+
+            <div style={{
+              display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16,
+              padding: '10px 12px', background: 'var(--muted)', borderRadius: 10,
+              alignItems: 'center',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <FontAwesomeIcon icon={faSortAmountDown} style={{ fontSize: 11, color: 'var(--muted-foreground)' }} />
+                <select
+                  value={topSortBy}
+                  onChange={e => setTopSortBy(e.target.value)}
+                  style={{
+                    background: 'var(--background)', color: 'var(--foreground)',
+                    border: '1px solid var(--border)', borderRadius: 6,
+                    padding: '5px 8px', fontSize: 12, cursor: 'pointer',
+                  }}
+                >
+                  <option value="quantity">Más vendidos</option>
+                  <option value="revenue">Mayor ingreso</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <FontAwesomeIcon icon={faFilter} style={{ fontSize: 11, color: 'var(--muted-foreground)' }} />
+                <select
+                  value={topCategoryId}
+                  onChange={e => setTopCategoryId(e.target.value)}
+                  style={{
+                    background: 'var(--background)', color: 'var(--foreground)',
+                    border: '1px solid var(--border)', borderRadius: 6,
+                    padding: '5px 8px', fontSize: 12, cursor: 'pointer',
+                  }}
+                >
+                  <option value="">Todas las categorías</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <select
+                value={topLimit}
+                onChange={e => setTopLimit(Number(e.target.value))}
+                style={{
+                  background: 'var(--background)', color: 'var(--foreground)',
+                  border: '1px solid var(--border)', borderRadius: 6,
+                  padding: '5px 8px', fontSize: 12, cursor: 'pointer',
+                }}
+              >
+                <option value={5}>Top 5</option>
+                <option value={10}>Top 10</option>
+                <option value={20}>Top 20</option>
+                <option value={50}>Top 50</option>
+              </select>
+            </div>
+
             {topProducts.length > 0 ? (
               <div className="analytics-top-products">
-                {topProducts.map((product, index) => (
-                  <div key={product.id} className="analytics-top-product">
-                    <div className="analytics-rank">
-                      #{index + 1}
-                    </div>
-                    <div className="flex-1">
-                      <div className="analytics-product-name">
-                        {product.name}
+                {topProducts.map((product, index) => {
+                  const maxVal = topSortBy === 'revenue'
+                    ? Math.max(...topProducts.map(p => Number(p.revenue) || 0), 1)
+                    : Math.max(...topProducts.map(p => Number(p.total_sold) || 0), 1);
+                  const currentVal = topSortBy === 'revenue' ? Number(product.revenue) || 0 : Number(product.total_sold) || 0;
+                  const pct = (currentVal / maxVal) * 100;
+
+                  return (
+                    <div key={product.id} className="analytics-top-product" style={{ position: 'relative', overflow: 'hidden' }}>
+                      <div style={{
+                        position: 'absolute', left: 0, top: 0, bottom: 0,
+                        width: `${pct}%`, background: 'rgba(212,175,55,0.07)',
+                        borderRadius: 'inherit', transition: 'width 0.4s ease', pointerEvents: 'none',
+                      }} />
+                      <div className="analytics-rank" style={{ position: 'relative' }}>
+                        #{index + 1}
                       </div>
-                      <div className="analytics-product-stats">
-                        <span>{product.total_sold} vendidos</span>
-                        <span>{formatCurrency(product.revenue)}</span>
+                      <div className="flex-1" style={{ position: 'relative' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div className="analytics-product-name">
+                            {product.name}
+                          </div>
+                          {product.category_name && (
+                            <span style={{
+                              fontSize: 10, padding: '1px 6px', borderRadius: 4,
+                              background: 'rgba(212,175,55,0.12)', color: '#D4AF37',
+                              fontWeight: 600, whiteSpace: 'nowrap',
+                            }}>
+                              {product.category_name}
+                            </span>
+                          )}
+                        </div>
+                        <div className="analytics-product-stats">
+                          <span style={{ fontWeight: topSortBy === 'quantity' ? 700 : 400 }}>
+                            {product.total_sold} vendidos
+                          </span>
+                          <span style={{ fontWeight: topSortBy === 'revenue' ? 700 : 400 }}>
+                            {formatCurrency(product.revenue)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="empty-state">

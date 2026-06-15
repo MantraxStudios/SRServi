@@ -2974,6 +2974,8 @@ app.get('/api/analytics/top-products', authenticateToken, async (req, res) => {
     const storeId = req.query.store_id;
     const dateRange = req.query.range || 'week';
     const limit = parseInt(req.query.limit) || 10;
+    const sortBy = req.query.sort_by || 'quantity';
+    const categoryId = req.query.category_id ? parseInt(req.query.category_id) : null;
     if (!storeId) {
       return res.status(400).json({ error: 'Store ID es requerido' });
     }
@@ -2981,7 +2983,7 @@ app.get('/api/analytics/top-products', authenticateToken, async (req, res) => {
     if (!isOwner) {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
-    const products = await getTopProducts(parseInt(storeId), limit, dateRange);
+    const products = await getTopProducts(parseInt(storeId), limit, dateRange, { sortBy, categoryId });
     res.json(products);
   } catch (error) {
     res.status(500).json({ error: error.message });

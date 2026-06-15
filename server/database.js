@@ -4814,7 +4814,7 @@ export async function getSalesByDay(storeId, dateRange = 'week') {
   return rows;
 }
 
-export async function getTopProducts(storeId, limit = 10, dateRange = 'week') {
+export async function getTopProducts(storeId, limit = 10, dateRange = 'week', { sortBy = 'quantity', categoryId = null } = {}) {
   let interval = '7 DAY';
   switch (dateRange) {
     case 'today': interval = '1 DAY'; break;
@@ -4823,25 +4823,38 @@ export async function getTopProducts(storeId, limit = 10, dateRange = 'week') {
     case 'year': interval = '365 DAY'; break;
   }
 
+  const params = [storeId];
+  let categoryFilter = '';
+  if (categoryId) {
+    categoryFilter = 'AND p.category_id = ?';
+    params.push(categoryId);
+  }
+
+  const orderColumn = sortBy === 'revenue' ? 'revenue' : 'total_sold';
+
   const query = `
-    SELECT 
+    SELECT
       p.id,
       p.name,
       p.image,
+      p.category_id,
+      c.name as category_name,
       SUM(oi.quantity) as total_sold,
       SUM(oi.quantity * oi.unit_price) as revenue
     FROM order_items oi
     JOIN orders o ON oi.order_id = o.id
     JOIN products p ON oi.product_id = p.id
-    WHERE o.store_id = ? 
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE o.store_id = ?
       AND o.status IN ('paid', 'processed', 'completed', 'approved')
       AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
-    GROUP BY p.id, p.name, p.image
-    ORDER BY total_sold DESC
+      ${categoryFilter}
+    GROUP BY p.id, p.name, p.image, p.category_id, c.name
+    ORDER BY ${orderColumn} DESC
     LIMIT ${parseInt(limit)}
   `;
 
-  const [rows] = await pool.execute(query, [storeId]);
+  const [rows] = await pool.execute(query, params);
   return rows;
 }
 
