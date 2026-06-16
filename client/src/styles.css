@@ -2521,6 +2521,73 @@ html body .store-container .store-product-card * {
   border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
+/* ── Combo promo badge ──────────────────────────────────────────── */
+@keyframes combo-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 8px  rgba(212,175,55,0.55),
+      0 0 20px rgba(212,175,55,0.28),
+      0 0 40px rgba(212,175,55,0.12);
+    border-color: rgba(212,175,55,0.7);
+  }
+  50% {
+    box-shadow:
+      0 0 18px rgba(212,175,55,0.9),
+      0 0 36px rgba(212,175,55,0.55),
+      0 0 64px rgba(212,175,55,0.25);
+    border-color: #D4AF37;
+  }
+}
+
+@keyframes combo-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+.combo-promo-card {
+  border: 2px solid rgba(212,175,55,0.7) !important;
+  animation: combo-glow 2.2s ease-in-out infinite;
+}
+
+.combo-promo-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  overflow: hidden;
+}
+
+.combo-promo-label {
+  width: 100%;
+  text-align: center;
+  padding: 4px 4px 3px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #3a2800;
+  background: linear-gradient(90deg, #b8860b 0%, #FFD700 40%, #fff8dc 55%, #FFD700 70%, #b8860b 100%);
+  background-size: 200% auto;
+  animation: combo-shimmer 2.4s linear infinite;
+}
+
+.combo-promo-discount {
+  width: 100%;
+  text-align: center;
+  padding: 2px 4px 5px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #1a1a00;
+  background: #D4AF37;
+}
+/* ─────────────────────────────────────────────────────────────── */
+
 .out-of-stock-badge {
   position: absolute;
   top: 12px;

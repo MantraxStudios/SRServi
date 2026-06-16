@@ -4717,10 +4717,13 @@ function Store() {
               const includedText = (combo.items || []).map(it => `${it.quantity}× ${it.product_name}`).join(' + ');
               return (
                 <div key={combo.id} className="store-product-wrapper" onClick={() => openComboModal(combo)}>
-                  <div className="store-product-card">
+                  <div className={`store-product-card${hasDiscount ? ' combo-promo-card' : ''}`}>
                     {hasDiscount && (
-                      <div className="top-selling-badge">
-                        {combo.discount_type === 'percent' ? `-${combo.discount_value}%` : 'Oferta'}
+                      <div className="combo-promo-badge">
+                        <span className="combo-promo-label">✦ Promoción ✦</span>
+                        <span className="combo-promo-discount">
+                          {combo.discount_type === 'percent' ? `-${combo.discount_value}%` : 'Precio especial'}
+                        </span>
                       </div>
                     )}
                     <div className="store-product-image">
