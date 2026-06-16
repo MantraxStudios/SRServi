@@ -5248,7 +5248,12 @@ function Store() {
           <div className="store-editor-complements" style={{ overflowY: 'auto' }}>
             <div className="store-editor-comp-header">
               <span>Combos y Promociones ({editorCombos.length})</span>
-              <button className="store-editor-comp-add-btn" onClick={openEditorComboCreate}>+ Nuevo combo</button>
+              <button
+                onClick={openEditorComboCreate}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', border: 'none', borderRadius: '8px', background: 'var(--store-primary, #1a1a2e)', color: 'var(--store-secondary, #fff)', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}
+              >
+                <FontAwesomeIcon icon={faPlus} /> Nuevo combo
+              </button>
             </div>
 
             {!editorCombosLoaded ? (
@@ -7203,6 +7208,36 @@ function Store() {
                 {prodSaving ? 'Guardando...' : editingProd ? 'Guardar' : 'Crear'}
               </button>
             </div>
+
+            {editingProd && (
+              <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: '10px', marginTop: '2px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProdModalOpen(false);
+                    setEditorTab('combos');
+                    if (!editorCombosLoaded) loadEditorCombos();
+                    setEditorComboForm({
+                      name: '', description: '', imageFile: null, image: '',
+                      is_active: true, discount_type: 'auto', discount_value: '', fixed_price: '',
+                      items: [{ product_id: editingProd.id, quantity: 1 }]
+                    });
+                    setEditorComboModal({ editing: null });
+                    setEditorComboProdSearch('');
+                    setEditorComboError('');
+                  }}
+                  style={{
+                    width: '100%', padding: '10px', border: '2px solid var(--store-primary, #1a1a2e)',
+                    borderRadius: '10px', background: 'transparent',
+                    color: 'var(--store-primary, #1a1a2e)', fontWeight: 700, fontSize: '13px',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px'
+                  }}
+                >
+                  <FontAwesomeIcon icon={faLayerGroup} />
+                  Crear combo con "{editingProd.name}"
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
