@@ -4703,57 +4703,49 @@ function Store() {
 
 
       {(!editMode || previewMode) && activeCategory === 'all' && (store?.combos || []).filter(c => c.is_active && c.items?.length > 0).length > 0 && (
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', padding: '0 4px' }}>
-            <FontAwesomeIcon icon={faLayerGroup} style={{ color: 'var(--store-accent)', fontSize: '1.1rem' }} />
-            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--store-primary)' }}>
-              {t('combosTitle', lang) || 'Combos y Promociones'}
-            </h3>
+        <div className="category-section">
+          <div className="category-section-header">
+            <div className="flex items-center gap-3">
+              <FontAwesomeIcon icon={faLayerGroup} className="category-section-icon" />
+              <h3 className="category-section-title">Combos y Promociones</h3>
+            </div>
+            <div className="category-section-line" />
           </div>
-          <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'thin' }}>
-            {(store.combos || []).filter(c => c.is_active && c.items?.length > 0).map(combo => (
-              <div key={combo.id}
-                onClick={() => openComboModal(combo)}
-                style={{
-                  minWidth: '180px', maxWidth: '200px', cursor: 'pointer',
-                  background: 'var(--store-secondary, #fff)',
-                  border: '2px solid var(--store-accent)',
-                  borderRadius: '16px', overflow: 'hidden',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-                  flexShrink: 0, transition: 'transform 0.15s, box-shadow 0.15s',
-                  position: 'relative'
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)'; }}
-              >
-                {combo.discount_type !== 'auto' && combo.auto_price > 0 && combo.auto_price !== combo.price && (
-                  <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 2, background: 'var(--store-accent)', color: 'var(--store-primary)', fontWeight: 700, fontSize: '0.72rem', padding: '2px 8px', borderRadius: '20px' }}>
-                    {combo.discount_type === 'percent' ? `-${combo.discount_value}%` : 'Precio esp.'}
-                  </div>
-                )}
-                <div style={{ height: '120px', background: '#f3f3f3', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {combo.image
-                    ? <img src={getProductImageUrl(combo.image)} alt={combo.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: '2.5rem', color: 'var(--store-accent)', opacity: 0.5 }} />}
-                </div>
-                <div style={{ padding: '10px 12px 12px' }}>
-                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--store-primary)', marginBottom: '4px', lineHeight: 1.2 }}>{combo.name}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '8px', lineHeight: 1.4 }}>
-                    {(combo.items || []).map(it => `${it.quantity}× ${it.product_name}`).join(' + ')}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                    <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--store-accent)' }}>
-                      {colors?.currency?.symbol || '$'}{formatPrice(combo.price)}
-                    </span>
-                    {combo.discount_type !== 'auto' && combo.auto_price > 0 && combo.auto_price !== combo.price && (
-                      <span style={{ fontSize: '0.75rem', color: '#bbb', textDecoration: 'line-through' }}>
-                        {colors?.currency?.symbol || '$'}{formatPrice(combo.auto_price)}
-                      </span>
+          <div className="products-grid">
+            {(store.combos || []).filter(c => c.is_active && c.items?.length > 0).map(combo => {
+              const hasDiscount = combo.discount_type !== 'auto' && combo.auto_price > 0 && combo.auto_price !== combo.price;
+              const includedText = (combo.items || []).map(it => `${it.quantity}× ${it.product_name}`).join(' + ');
+              return (
+                <div key={combo.id} className="store-product-wrapper" onClick={() => openComboModal(combo)}>
+                  <div className="store-product-card">
+                    {hasDiscount && (
+                      <div className="top-selling-badge">
+                        {combo.discount_type === 'percent' ? `-${combo.discount_value}%` : 'Oferta'}
+                      </div>
                     )}
+                    <div className="store-product-image">
+                      <img src={getProductImageUrl(combo.image)} alt={combo.name} />
+                    </div>
+                  </div>
+                  <div className="store-product-info">
+                    <p style={{ margin: '0 0 2px', fontSize: '10px', color: 'var(--store-primary)', opacity: 0.5, lineHeight: 1.3, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                      {combo.description || includedText}
+                    </p>
+                    <div className="store-product-details">
+                      <span className="store-product-name">{combo.name}:</span>
+                      <span className="store-product-price">
+                        {colors.currency.symbol}{formatPrice(combo.price)}
+                        {hasDiscount && (
+                          <span style={{ marginLeft: '4px', fontSize: '0.75em', opacity: 0.5, textDecoration: 'line-through' }}>
+                            {colors.currency.symbol}{formatPrice(combo.auto_price)}
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
