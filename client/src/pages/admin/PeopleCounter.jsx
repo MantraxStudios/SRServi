@@ -129,6 +129,7 @@ export default function PeopleCounter() {
   const rtspRunningRef = useRef(false);
   // ────────────────────────────────────────
   const nextIdRef = useRef(0);
+  const counterResetRef = useRef({ in: 0, out: 0 });
   const dragRef = useRef(null);
   const storeIdRef = useRef(storeId);
   const tokenRef = useRef(token);
@@ -270,7 +271,15 @@ export default function PeopleCounter() {
       fetch(`${API}/api/stores/${storeId}/people-counter/stats?date=${getToday()}`, {
         headers: { Authorization: `Bearer ${token}` }
       }).then(r => r.ok ? r.json() : null)
-        .then(d => { if (d) setCounter({ in: d.total?.in || 0, out: d.total?.out || 0 }); })
+        .then(d => {
+        if (d) {
+          const base = counterResetRef.current;
+          setCounter({
+            in: Math.max(0, (d.total?.in || 0) - base.in),
+            out: Math.max(0, (d.total?.out || 0) - base.out),
+          });
+        }
+      })
         .catch(() => {});
     };
     refresh();
@@ -823,7 +832,13 @@ export default function PeopleCounter() {
                 </div>
               </div>
 
-              <button onClick={() => setCounter({ in: 0, out: 0 })}
+              <button onClick={() => {
+                counterResetRef.current = {
+                  in: counter.in + counterResetRef.current.in,
+                  out: counter.out + counterResetRef.current.out,
+                };
+                setCounter({ in: 0, out: 0 });
+              }}
                 style={{ padding: '9px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 <FontAwesomeIcon icon={faRotate} /> Reiniciar conteo
               </button>
