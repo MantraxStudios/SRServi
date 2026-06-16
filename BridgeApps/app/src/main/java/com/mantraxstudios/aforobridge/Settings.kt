@@ -74,7 +74,7 @@ class Settings(context: Context) {
     val isConfigured: Boolean
         get() = email.isNotBlank() && password.isNotBlank() && storeId > 0 && camIp.isNotBlank()
 
-    /** Construye la URL RTSP a partir de los campos individuales. */
+    /** URL RTSP con credenciales embebidas: rtsp://user:pass@ip[:port]/canal */
     fun rtspUrl(channel: String = camChannel): String {
         if (camIp.isBlank()) return ""
         val auth = if (camUser.isNotBlank()) {
@@ -85,6 +85,18 @@ class Settings(context: Context) {
         val portPart = if (camPort.isNotBlank() && camPort != "554") ":$camPort" else ""
         val ch = channel.trimStart('/')
         return "rtsp://$auth$camIp$portPart/$ch"
+    }
+
+    /**
+     * URL RTSP SIN credenciales en la URL.
+     * Se usa como fallback cuando la cámara ignora las credenciales en la URL
+     * (algunas cámaras Digest-only las rechazan si vienen en la URL).
+     */
+    fun rtspUrlNoAuth(channel: String = camChannel): String {
+        if (camIp.isBlank()) return ""
+        val portPart = if (camPort.isNotBlank() && camPort != "554") ":$camPort" else ""
+        val ch = channel.trimStart('/')
+        return "rtsp://$camIp$portPart/$ch"
     }
 
     companion object {

@@ -152,7 +152,8 @@
       "Bash(./gradlew :app:compileDebugKotlin)",
       "Bash(./gradlew :app:assembleDebug)",
       "PowerShell(Test-Path *)",
-      "PowerShell(\\(Get-Item \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\public\\\\downloads\\\\AforoBridge-Android.apk\"\\).Length / 1MB)"
+      "PowerShell(\\(Get-Item \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\public\\\\downloads\\\\AforoBridge-Android.apk\"\\).Length / 1MB)",
+      "Bash(./gradlew.bat assembleDebug)"
     ]
   }
 }
