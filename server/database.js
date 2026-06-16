@@ -323,11 +323,38 @@ async function createTables() {
   // Nueva columna para guardar las selecciones de secciones dinámicas en cada item del pedido
   try {
     const [oiCols] = await pool.execute('SHOW COLUMNS FROM order_items');
-    if (!oiCols.map(c => c.Field).includes('selected_complements')) {
+    const oiColNames = oiCols.map(c => c.Field);
+    if (!oiColNames.includes('selected_complements')) {
       await pool.execute('ALTER TABLE order_items ADD COLUMN selected_complements TEXT');
       console.log('✅ Columna selected_complements agregada a order_items');
     }
-  } catch (e) { console.warn('Migration selected_complements:', e.message); }
+    if (!oiColNames.includes('combo_id')) {
+      await pool.execute('ALTER TABLE order_items ADD COLUMN combo_id INT NULL');
+      console.log('✅ Columna combo_id agregada a order_items');
+    }
+    if (!oiColNames.includes('combo_label')) {
+      await pool.execute('ALTER TABLE order_items ADD COLUMN combo_label VARCHAR(255) NULL');
+      console.log('✅ Columna combo_label agregada a order_items');
+    }
+  } catch (e) { console.warn('Migration order_items columns:', e.message); }
+
+  // Columnas de descuento/precio en combos
+  try {
+    const [comboCols] = await pool.execute('SHOW COLUMNS FROM combos');
+    const comboColNames = comboCols.map(c => c.Field);
+    if (!comboColNames.includes('discount_type')) {
+      await pool.execute("ALTER TABLE combos ADD COLUMN discount_type VARCHAR(20) NOT NULL DEFAULT 'auto'");
+      console.log('✅ Columna discount_type agregada a combos');
+    }
+    if (!comboColNames.includes('discount_value')) {
+      await pool.execute('ALTER TABLE combos ADD COLUMN discount_value DECIMAL(10,2) NOT NULL DEFAULT 0');
+      console.log('✅ Columna discount_value agregada a combos');
+    }
+    if (!comboColNames.includes('fixed_price')) {
+      await pool.execute('ALTER TABLE combos ADD COLUMN fixed_price DECIMAL(10,2) NOT NULL DEFAULT 0');
+      console.log('✅ Columna fixed_price agregada a combos');
+    }
+  } catch (e) { console.warn('Migration combos discount fields:', e.message); }
 
   // Initialize delivery tables early so columns exist before createOrder is called
   try { await ensureDeliveryTables(); } catch (e) { console.warn('Delivery tables init:', e.message); }
@@ -3335,18 +3362,33 @@ async function getCombosForStore(storeId, { activeOnly = false } = {}) {
       ORDER BY ci.id ASC
     `, [combo.id]);
 
-    const mappedItems = items.map(it => ({
-      id: it.id,
-      product_id: it.product_id,
-      quantity: parseInt(it.quantity) || 1,
-      product_name: it.product_name,
-      product_price: parseFloat(it.product_price) || 0,
-      product_image: it.product_image,
-      has_ingredients: !!it.has_ingredients,
-      has_extras: !!it.has_extras
-    }));
+    const mappedItems = [];
+    for (const it of items) {
+      const ingredients = it.has_ingredients ? await getProductIngredients(it.product_id) : [];
+      const extras = it.has_extras ? await getProductExtras(it.product_id) : [];
+      const complement_groups = await getProductComplementGroups(it.product_id);
+      mappedItems.push({
+        id: it.id,
+        product_id: it.product_id,
+        quantity: parseInt(it.quantity) || 1,
+        product_name: it.product_name,
+        product_price: parseFloat(it.product_price) || 0,
+        product_image: it.product_image,
+        has_ingredients: !!it.has_ingredients,
+        has_extras: !!it.has_extras,
+        ingredients,
+        extras,
+        complement_groups
+      });
+    }
 
-    const price = mappedItems.reduce((sum, it) => sum + it.product_price * it.quantity, 0);
+    const autoPrice = mappedItems.reduce((sum, it) => sum + it.product_price * it.quantity, 0);
+    const discountType = combo.discount_type || 'auto';
+    const discountValue = parseFloat(combo.discount_value) || 0;
+    const fixedPrice = parseFloat(combo.fixed_price) || 0;
+    let price = autoPrice;
+    if (discountType === 'fixed') price = fixedPrice;
+    else if (discountType === 'percent') price = autoPrice * (1 - discountValue / 100);
 
     result.push({
       id: combo.id,
@@ -3356,7 +3398,11 @@ async function getCombosForStore(storeId, { activeOnly = false } = {}) {
       image: combo.image,
       is_active: !!combo.is_active,
       sort_order: parseInt(combo.sort_order) || 0,
-      price,
+      discount_type: discountType,
+      discount_value: discountValue,
+      fixed_price: fixedPrice,
+      auto_price: autoPrice,
+      price: Math.max(0, price),
       items: mappedItems
     });
   }
@@ -3388,10 +3434,11 @@ async function replaceComboItems(comboId, items) {
 }
 
 export async function createCombo(storeId, data) {
-  const { name, description, image, is_active, items } = data;
+  const { name, description, image, is_active, items, discount_type, discount_value, fixed_price } = data;
   const [result] = await pool.execute(
-    'INSERT INTO combos (store_id, name, description, image, is_active) VALUES (?, ?, ?, ?, ?)',
-    [storeId, name, description || null, image || null, is_active === false ? 0 : 1]
+    'INSERT INTO combos (store_id, name, description, image, is_active, discount_type, discount_value, fixed_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, name, description || null, image || null, is_active === false ? 0 : 1,
+     discount_type || 'auto', parseFloat(discount_value) || 0, parseFloat(fixed_price) || 0]
   );
   const comboId = result.insertId;
   await replaceComboItems(comboId, items);
@@ -3400,10 +3447,12 @@ export async function createCombo(storeId, data) {
 }
 
 export async function updateCombo(comboId, storeId, data) {
-  const { name, description, image, is_active, items } = data;
+  const { name, description, image, is_active, items, discount_type, discount_value, fixed_price } = data;
   await pool.execute(
-    'UPDATE combos SET name = ?, description = ?, image = ?, is_active = ? WHERE id = ? AND store_id = ?',
-    [name, description || null, image || null, is_active === false ? 0 : 1, comboId, storeId]
+    'UPDATE combos SET name = ?, description = ?, image = ?, is_active = ?, discount_type = ?, discount_value = ?, fixed_price = ? WHERE id = ? AND store_id = ?',
+    [name, description || null, image || null, is_active === false ? 0 : 1,
+     discount_type || 'auto', parseFloat(discount_value) || 0, parseFloat(fixed_price) || 0,
+     comboId, storeId]
   );
   if (items !== undefined) await replaceComboItems(comboId, items);
   const combos = await getCombosForStore(storeId);
@@ -3596,7 +3645,7 @@ export async function createOrder(storeId, orderData) {
     } catch { selectedComplementsCol = '[]'; }
     try {
       await pool.execute(
-        'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras, selected_complements) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras, selected_complements, combo_id, combo_label) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           orderId,
           item.product_id,
@@ -3604,11 +3653,13 @@ export async function createOrder(storeId, orderData) {
           item.unit_price,
           JSON.stringify(item.selected_ingredients || []),
           JSON.stringify(item.selected_extras || []),
-          selectedComplementsCol
+          selectedComplementsCol,
+          item.combo_id || null,
+          item.combo_label || null
         ]
       );
     } catch (e) {
-      // Compatibilidad si la columna aún no existe
+      // Compatibilidad si las columnas aún no existen
       await pool.execute(
         'INSERT INTO order_items (order_id, product_id, quantity, unit_price, selected_ingredients, selected_extras) VALUES (?, ?, ?, ?, ?, ?)',
         [

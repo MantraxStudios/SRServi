@@ -1600,36 +1600,53 @@ function WorkerPanel() {
                       })}
                     </p>
                   </div>
-                  {order.items && order.items.length > 0 && (
-                    <div className="worker-order-items-preview">
-                      {order.items.map((item, idx) => (
-                        <div key={idx} className="worker-order-item-line">
-                          <span className="worker-order-item-qty">{item.quantity}x</span>
-                          <div className="worker-order-item-detail">
-                            <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
-                            {item.selected_ingredients && item.selected_ingredients.length > 0 && (
-                              <div className="worker-order-item-addons">
-                                {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients : []).map((ing, i) => {
-                                  const name = typeof ing === 'object' ? (ing.name || '') : (ing || '');
-                                  const img = addonImages[name.toLowerCase()];
-                                  return <AddonChip key={i} name={name} img={img} />;
-                                })}
-                              </div>
-                            )}
-                            {item.selected_extras && item.selected_extras.length > 0 && (
-                              <div className="worker-order-item-addons">
-                                {(Array.isArray(item.selected_extras) ? item.selected_extras : []).map((ext, i) => {
-                                  const name = typeof ext === 'object' ? (ext.name || '') : (ext || '');
-                                  const img = addonImages[name.toLowerCase()];
-                                  return <AddonChip key={i} name={name} img={img} prefix="+" />;
-                                })}
-                              </div>
-                            )}
-                          </div>
+                  {order.items && order.items.length > 0 && (() => {
+                    const comboGroups = {};
+                    const standalone = [];
+                    for (const item of order.items) {
+                      if (item.combo_label) {
+                        if (!comboGroups[item.combo_label]) comboGroups[item.combo_label] = [];
+                        comboGroups[item.combo_label].push(item);
+                      } else standalone.push(item);
+                    }
+                    const renderLine = (item, k) => (
+                      <div key={k} className="worker-order-item-line">
+                        <span className="worker-order-item-qty">{item.quantity}x</span>
+                        <div className="worker-order-item-detail">
+                          <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                          {item.selected_ingredients && item.selected_ingredients.length > 0 && (
+                            <div className="worker-order-item-addons">
+                              {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients : []).map((ing, i) => {
+                                const name = typeof ing === 'object' ? (ing.name || '') : (ing || '');
+                                const img = addonImages[name.toLowerCase()];
+                                return <AddonChip key={i} name={name} img={img} />;
+                              })}
+                            </div>
+                          )}
+                          {item.selected_extras && item.selected_extras.length > 0 && (
+                            <div className="worker-order-item-addons">
+                              {(Array.isArray(item.selected_extras) ? item.selected_extras : []).map((ext, i) => {
+                                const name = typeof ext === 'object' ? (ext.name || '') : (ext || '');
+                                const img = addonImages[name.toLowerCase()];
+                                return <AddonChip key={i} name={name} img={img} prefix="+" />;
+                              })}
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    );
+                    return (
+                      <div className="worker-order-items-preview">
+                        {standalone.map((item, idx) => renderLine(item, `s${idx}`))}
+                        {Object.entries(comboGroups).map(([label, items]) => (
+                          <div key={label} style={{ borderLeft: '3px solid #D4AF37', paddingLeft: '8px', marginTop: '4px' }}>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#D4AF37', marginBottom: '3px' }}>🎁 {label}</div>
+                            {items.map((item, idx) => renderLine(item, `c${idx}`))}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   {showPrices && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
                       <div className="worker-order-total" style={{ margin: 0 }}>
@@ -1805,36 +1822,53 @@ function WorkerPanel() {
                       })}
                     </p>
                   </div>
-                  {order.items && order.items.length > 0 && (
-                    <div className="worker-order-items-preview">
-                      {order.items.map((item, idx) => (
-                        <div key={idx} className="worker-order-item-line">
-                          <span className="worker-order-item-qty">{item.quantity}x</span>
-                          <div className="worker-order-item-detail">
-                            <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
-                            {item.selected_ingredients && item.selected_ingredients.length > 0 && (
-                              <div className="worker-order-item-addons">
-                                {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients : []).map((ing, i) => {
-                                  const name = typeof ing === 'object' ? (ing.name || '') : (ing || '');
-                                  const img = addonImages[name.toLowerCase()];
-                                  return <AddonChip key={i} name={name} img={img} />;
-                                })}
-                              </div>
-                            )}
-                            {item.selected_extras && item.selected_extras.length > 0 && (
-                              <div className="worker-order-item-addons">
-                                {(Array.isArray(item.selected_extras) ? item.selected_extras : []).map((ext, i) => {
-                                  const name = typeof ext === 'object' ? (ext.name || '') : (ext || '');
-                                  const img = addonImages[name.toLowerCase()];
-                                  return <AddonChip key={i} name={name} img={img} prefix="+" />;
-                                })}
-                              </div>
-                            )}
-                          </div>
+                  {order.items && order.items.length > 0 && (() => {
+                    const comboGroups = {};
+                    const standalone = [];
+                    for (const item of order.items) {
+                      if (item.combo_label) {
+                        if (!comboGroups[item.combo_label]) comboGroups[item.combo_label] = [];
+                        comboGroups[item.combo_label].push(item);
+                      } else standalone.push(item);
+                    }
+                    const renderLine = (item, k) => (
+                      <div key={k} className="worker-order-item-line">
+                        <span className="worker-order-item-qty">{item.quantity}x</span>
+                        <div className="worker-order-item-detail">
+                          <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                          {item.selected_ingredients && item.selected_ingredients.length > 0 && (
+                            <div className="worker-order-item-addons">
+                              {(Array.isArray(item.selected_ingredients) ? item.selected_ingredients : []).map((ing, i) => {
+                                const name = typeof ing === 'object' ? (ing.name || '') : (ing || '');
+                                const img = addonImages[name.toLowerCase()];
+                                return <AddonChip key={i} name={name} img={img} />;
+                              })}
+                            </div>
+                          )}
+                          {item.selected_extras && item.selected_extras.length > 0 && (
+                            <div className="worker-order-item-addons">
+                              {(Array.isArray(item.selected_extras) ? item.selected_extras : []).map((ext, i) => {
+                                const name = typeof ext === 'object' ? (ext.name || '') : (ext || '');
+                                const img = addonImages[name.toLowerCase()];
+                                return <AddonChip key={i} name={name} img={img} prefix="+" />;
+                              })}
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    );
+                    return (
+                      <div className="worker-order-items-preview">
+                        {standalone.map((item, idx) => renderLine(item, `s${idx}`))}
+                        {Object.entries(comboGroups).map(([label, items]) => (
+                          <div key={label} style={{ borderLeft: '3px solid #D4AF37', paddingLeft: '8px', marginTop: '4px' }}>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#D4AF37', marginBottom: '3px' }}>🎁 {label}</div>
+                            {items.map((item, idx) => renderLine(item, `c${idx}`))}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
                     {showPrices ? (
                       <div className="worker-order-total" style={{ margin: 0 }}>
@@ -1938,16 +1972,37 @@ function WorkerPanel() {
                         </span>
                       )}
                     </div>
-                    {order.items && order.items.length > 0 && (
-                      <div className="worker-order-items-preview">
-                        {order.items.map((item, idx) => (
-                          <div key={idx} className="worker-order-item-line">
-                            <span className="worker-order-item-qty">{item.quantity}x</span>
-                            <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {order.items && order.items.length > 0 && (() => {
+                      const comboGroups = {};
+                      const standalone = [];
+                      for (const item of order.items) {
+                        if (item.combo_label) {
+                          if (!comboGroups[item.combo_label]) comboGroups[item.combo_label] = [];
+                          comboGroups[item.combo_label].push(item);
+                        } else standalone.push(item);
+                      }
+                      return (
+                        <div className="worker-order-items-preview">
+                          {standalone.map((item, idx) => (
+                            <div key={idx} className="worker-order-item-line">
+                              <span className="worker-order-item-qty">{item.quantity}x</span>
+                              <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                            </div>
+                          ))}
+                          {Object.entries(comboGroups).map(([label, items]) => (
+                            <div key={label} style={{ borderLeft: '3px solid #D4AF37', paddingLeft: '8px', marginTop: '4px' }}>
+                              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#D4AF37', marginBottom: '3px' }}>🎁 {label}</div>
+                              {items.map((item, idx) => (
+                                <div key={idx} className="worker-order-item-line">
+                                  <span className="worker-order-item-qty">{item.quantity}x</span>
+                                  <span className="worker-order-item-name">{item.product_name || item.name || 'Producto'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
                       {showPrices ? (
                         <div className="worker-order-total" style={{ margin: 0 }}>

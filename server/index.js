@@ -5976,12 +5976,16 @@ app.post('/api/combos', authenticateToken, upload.single('image'), async (req, r
     if (!name) return res.status(400).json({ error: 'El nombre es requerido' });
 
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : (req.body.image_url || null);
+    const { discount_type, discount_value, fixed_price } = req.body;
     const combo = await createCombo(parseInt(store_id), {
       name,
       description,
       image: imageUrl,
       is_active: is_active === undefined ? true : (is_active === 'true' || is_active === true),
-      items: parseComboItems(req.body.items) || []
+      items: parseComboItems(req.body.items) || [],
+      discount_type: discount_type || 'auto',
+      discount_value: parseFloat(discount_value) || 0,
+      fixed_price: parseFloat(fixed_price) || 0
     });
     res.json(combo);
   } catch (error) {
@@ -6002,12 +6006,16 @@ app.put('/api/combos/:id', authenticateToken, upload.single('image'), async (req
     else if (req.body.image_url) imageUrl = req.body.image_url;
     else imageUrl = req.body.existing_image || null;
 
+    const { discount_type: dType, discount_value: dValue, fixed_price: fPrice } = req.body;
     const combo = await updateCombo(parseInt(req.params.id), parseInt(store_id), {
       name,
       description,
       image: imageUrl,
       is_active: is_active === undefined ? true : (is_active === 'true' || is_active === true),
-      items: parseComboItems(req.body.items)
+      items: parseComboItems(req.body.items),
+      discount_type: dType || 'auto',
+      discount_value: parseFloat(dValue) || 0,
+      fixed_price: parseFloat(fPrice) || 0
     });
     res.json(combo);
   } catch (error) {

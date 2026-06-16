@@ -50,6 +50,7 @@ import {
   faSearch,
   faTicket,
   faStar,
+  faLayerGroup,
 } from '@fortawesome/free-solid-svg-icons';
 import { io } from 'socket.io-client';
 import { SOCKET_URL, getImageUrl, getProductImageUrl } from '../config.js';
@@ -967,6 +968,8 @@ function Store() {
   const loyaltyDiscountRef = useRef(0);
   const [loyaltyConfig, setLoyaltyConfig] = useState(null);
   const [pendingOrderData, setPendingOrderData] = useState(null);
+  const [comboModal, setComboModal] = useState(null);
+  const [comboQty, setComboQty] = useState(1);
   const [activeCategory, setActiveCategory] = useState('all');
   const [configurations, setConfigurations] = useState([]);
   const [selectedConfiguration, setSelectedConfiguration] = useState(null);
@@ -2413,6 +2416,66 @@ function Store() {
     setCart(prev => prev.filter(item => item.id !== itemId));
   };
 
+  const openComboModal = (combo) => {
+    const itemConfigs = (combo.items || []).map(it => ({
+      product_id: it.product_id,
+      product_name: it.product_name,
+      product_image: it.product_image,
+      quantity: it.quantity,
+      product_price: it.product_price,
+      selected_ingredients: [],
+      selected_extras: [],
+      selected_complements: [],
+      ingredients: it.ingredients || [],
+      extras: it.extras || [],
+      complement_groups: it.complement_groups || []
+    }));
+    setComboModal({ combo, itemConfigs });
+    setComboQty(1);
+  };
+
+  const updateComboItemConfig = (productId, field, value) => {
+    setComboModal(prev => ({
+      ...prev,
+      itemConfigs: prev.itemConfigs.map(ic =>
+        String(ic.product_id) === String(productId) ? { ...ic, [field]: value } : ic
+      )
+    }));
+  };
+
+  const addComboToCart = () => {
+    if (!comboModal) return;
+    const { combo, itemConfigs } = comboModal;
+    const autoPrice = combo.auto_price || (combo.items || []).reduce((s, it) => s + it.product_price * it.quantity, 0);
+    const comboPrice = combo.price;
+    const _comboConfig = itemConfigs.map(ic => ({
+      product_id: ic.product_id,
+      product_name: ic.product_name,
+      quantity: ic.quantity,
+      unit_price: autoPrice > 0 ? ic.product_price * comboPrice / autoPrice : 0,
+      selected_ingredients: ic.selected_ingredients,
+      selected_extras: ic.selected_extras,
+      selected_complements: ic.selected_complements
+    }));
+    const cartItem = {
+      id: Date.now() + Math.random(),
+      _isCombo: true,
+      combo_id: combo.id,
+      combo_label: combo.name,
+      product_name: combo.name,
+      product_image: combo.image,
+      quantity: comboQty,
+      unit_price: comboPrice,
+      total: comboPrice * comboQty,
+      _comboConfig,
+      selected_ingredients: [],
+      selected_extras: [],
+      selected_complements: []
+    };
+    setCart(prev => [...prev, cartItem]);
+    setComboModal(null);
+  };
+
   const getCartTotal = () => {
     return cart.reduce((total, item) => total + (item.unit_price * item.quantity), 0);
   };
@@ -2552,14 +2615,28 @@ function Store() {
 
     const finalTotal = getFinalTotal();
     const storeId = store.store.id;
-    const cartItems = cart.map(item => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      selected_ingredients: item.selected_ingredients,
-      selected_extras: item.selected_extras,
-      selected_complements: item.selected_complements || []
-    }));
+    const cartItems = cart.flatMap(item => {
+      if (item._isCombo) {
+        return (item._comboConfig || []).map(ci => ({
+          product_id: ci.product_id,
+          quantity: ci.quantity * item.quantity,
+          unit_price: ci.unit_price,
+          selected_ingredients: ci.selected_ingredients || [],
+          selected_extras: ci.selected_extras || [],
+          selected_complements: ci.selected_complements || [],
+          combo_id: item.combo_id,
+          combo_label: item.combo_label
+        }));
+      }
+      return [{
+        product_id: item.product_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        selected_ingredients: item.selected_ingredients,
+        selected_extras: item.selected_extras,
+        selected_complements: item.selected_complements || []
+      }];
+    });
 
     try {
       // --- TUU POS nativo ---
@@ -2807,14 +2884,28 @@ function Store() {
     setPaymentError(null);
     const finalTotal = getFinalTotal();
     const storeId = store.store.id;
-    const cartItems = cart.map(item => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      selected_ingredients: item.selected_ingredients,
-      selected_extras: item.selected_extras,
-      selected_complements: item.selected_complements || []
-    }));
+    const cartItems = cart.flatMap(item => {
+      if (item._isCombo) {
+        return (item._comboConfig || []).map(ci => ({
+          product_id: ci.product_id,
+          quantity: ci.quantity * item.quantity,
+          unit_price: ci.unit_price,
+          selected_ingredients: ci.selected_ingredients || [],
+          selected_extras: ci.selected_extras || [],
+          selected_complements: ci.selected_complements || [],
+          combo_id: item.combo_id,
+          combo_label: item.combo_label
+        }));
+      }
+      return [{
+        product_id: item.product_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        selected_ingredients: item.selected_ingredients,
+        selected_extras: item.selected_extras,
+        selected_complements: item.selected_complements || []
+      }];
+    });
     try {
       const orderRes = await fetch(API + '/api/orders', {
         method: 'POST',
@@ -4495,6 +4586,62 @@ function Store() {
       )}
 
 
+      {(!editMode || previewMode) && activeCategory === 'all' && (store?.combos || []).filter(c => c.is_active && c.items?.length > 0).length > 0 && (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', padding: '0 4px' }}>
+            <FontAwesomeIcon icon={faLayerGroup} style={{ color: 'var(--store-accent)', fontSize: '1.1rem' }} />
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--store-primary)' }}>
+              {t('combosTitle', lang) || 'Combos y Promociones'}
+            </h3>
+          </div>
+          <div style={{ display: 'flex', gap: '14px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'thin' }}>
+            {(store.combos || []).filter(c => c.is_active && c.items?.length > 0).map(combo => (
+              <div key={combo.id}
+                onClick={() => openComboModal(combo)}
+                style={{
+                  minWidth: '180px', maxWidth: '200px', cursor: 'pointer',
+                  background: 'var(--store-secondary, #fff)',
+                  border: '2px solid var(--store-accent)',
+                  borderRadius: '16px', overflow: 'hidden',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                  flexShrink: 0, transition: 'transform 0.15s, box-shadow 0.15s',
+                  position: 'relative'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)'; }}
+              >
+                {combo.discount_type !== 'auto' && combo.auto_price > 0 && combo.auto_price !== combo.price && (
+                  <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 2, background: 'var(--store-accent)', color: 'var(--store-primary)', fontWeight: 700, fontSize: '0.72rem', padding: '2px 8px', borderRadius: '20px' }}>
+                    {combo.discount_type === 'percent' ? `-${combo.discount_value}%` : 'Precio esp.'}
+                  </div>
+                )}
+                <div style={{ height: '120px', background: '#f3f3f3', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {combo.image
+                    ? <img src={getProductImageUrl(combo.image)} alt={combo.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: '2.5rem', color: 'var(--store-accent)', opacity: 0.5 }} />}
+                </div>
+                <div style={{ padding: '10px 12px 12px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--store-primary)', marginBottom: '4px', lineHeight: 1.2 }}>{combo.name}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '8px', lineHeight: 1.4 }}>
+                    {(combo.items || []).map(it => `${it.quantity}× ${it.product_name}`).join(' + ')}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                    <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--store-accent)' }}>
+                      {colors?.currency?.symbol || '$'}{formatPrice(combo.price)}
+                    </span>
+                    {combo.discount_type !== 'auto' && combo.auto_price > 0 && combo.auto_price !== combo.price && (
+                      <span style={{ fontSize: '0.75rem', color: '#bbb', textDecoration: 'line-through' }}>
+                        {colors?.currency?.symbol || '$'}{formatPrice(combo.auto_price)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {(!editMode || previewMode) && activeCategory === 'all' && hasProducts && (
         <div className="category-sections" ref={productsAreaRef}>
           {(() => {
@@ -5522,7 +5669,15 @@ function Store() {
               {cart.map(item => (
                 <div className="store-cart-item" key={item.id}>
                   <div className="store-cart-item-thumb">
-                    <img src={getProductImageUrl(item.product_image)} alt={item.product_name} />
+                    {item._isCombo ? (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(212,175,55,0.15)', borderRadius: '8px' }}>
+                        {item.product_image
+                          ? <img src={getProductImageUrl(item.product_image)} alt={item.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
+                          : <FontAwesomeIcon icon={faLayerGroup} style={{ color: 'var(--store-accent)', fontSize: '1.4rem' }} />}
+                      </div>
+                    ) : (
+                      <img src={getProductImageUrl(item.product_image)} alt={item.product_name} />
+                    )}
                   </div>
                   <div className="store-cart-item-content">
                     <div className="store-cart-item-top">
@@ -5532,13 +5687,21 @@ function Store() {
                       </button>
                     </div>
 
-                    {item.selected_ingredients && item.selected_ingredients.length > 0 && (
+                    {item._isCombo && (item._comboConfig || []).map(ci => (
+                      <div key={ci.product_id} style={{ fontSize: '0.75rem', color: 'rgba(0,0,0,0.55)', lineHeight: 1.4 }}>
+                        {ci.quantity}× {ci.product_name}
+                        {ci.selected_extras?.length > 0 && <span> +{ci.selected_extras.map(x => x?.name || x).join(', ')}</span>}
+                        {ci.selected_complements?.length > 0 && <span> +{ci.selected_complements.map(x => x?.name || x).join(', ')}</span>}
+                      </div>
+                    ))}
+
+                    {!item._isCombo && item.selected_ingredients && item.selected_ingredients.length > 0 && (
                       <div className="store-cart-item-extras">{item.selected_ingredients.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ')}</div>
                     )}
-                    {item.selected_extras && item.selected_extras.length > 0 && (
+                    {!item._isCombo && item.selected_extras && item.selected_extras.length > 0 && (
                       <div className="store-cart-item-extras">+ {item.selected_extras.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ')}</div>
                     )}
-                    {item.selected_complements && item.selected_complements.length > 0 && (
+                    {!item._isCombo && item.selected_complements && item.selected_complements.length > 0 && (
                       <div className="store-cart-item-extras">+ {item.selected_complements.map(x => typeof x === 'string' ? x : x?.name).filter(Boolean).join(', ')}</div>
                     )}
 
@@ -8123,6 +8286,151 @@ function Store() {
         </div>
       )}
     </div>
+
+      {comboModal && (
+        <div className="store-modal-overlay" onClick={() => setComboModal(null)}>
+          <div className="store-prod-modal" onClick={e => e.stopPropagation()} style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column', maxWidth: '440px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+              <div>
+                <h3 style={{ margin: 0, color: 'var(--store-primary)', fontSize: '1.1rem' }}>
+                  <FontAwesomeIcon icon={faLayerGroup} style={{ marginRight: '8px', color: 'var(--store-accent)' }} />
+                  {comboModal.combo.name}
+                </h3>
+                {comboModal.combo.description && (
+                  <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: '#888' }}>{comboModal.combo.description}</p>
+                )}
+              </div>
+              <button onClick={() => setComboModal(null)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#888', padding: 0, marginLeft: '8px' }}>&times;</button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {comboModal.itemConfigs.map(ic => (
+                <div key={ic.product_id} style={{ background: '#f9f9f9', borderRadius: '12px', padding: '12px', border: '1px solid #e5e7eb' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                    <div style={{ width: '44px', height: '44px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {ic.product_image
+                        ? <img src={getProductImageUrl(ic.product_image)} alt={ic.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <FontAwesomeIcon icon={faBox} style={{ color: '#bbb' }} />}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#222' }}>{ic.quantity}× {ic.product_name}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#888' }}>{colors?.currency?.symbol || '$'}{formatPrice(ic.product_price)}</div>
+                    </div>
+                  </div>
+
+                  {ic.ingredients.length > 0 && (
+                    <div style={{ marginBottom: '10px' }}>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#444', marginBottom: '6px' }}>Ingredientes</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {ic.ingredients.map(ing => {
+                          const sel = ic.selected_ingredients.includes(ing.name);
+                          return (
+                            <button key={ing.id} type="button"
+                              onClick={() => updateComboItemConfig(ic.product_id, 'selected_ingredients',
+                                sel ? ic.selected_ingredients.filter(x => x !== ing.name) : [...ic.selected_ingredients, ing.name])}
+                              style={{
+                                padding: '4px 10px', fontSize: '0.75rem', borderRadius: '20px', cursor: 'pointer',
+                                border: `1px solid ${sel ? '#e53e3e' : '#e5e7eb'}`,
+                                background: sel ? '#fee2e2' : '#fff',
+                                color: sel ? '#e53e3e' : '#444',
+                                textDecoration: sel ? 'line-through' : 'none'
+                              }}>
+                              {ing.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {ic.extras.length > 0 && (
+                    <div style={{ marginBottom: '10px' }}>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#444', marginBottom: '6px' }}>Extras</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {ic.extras.map(ex => {
+                          const sel = ic.selected_extras.some(x => (x?.id || x) === ex.id);
+                          return (
+                            <button key={ex.id} type="button"
+                              onClick={() => updateComboItemConfig(ic.product_id, 'selected_extras',
+                                sel ? ic.selected_extras.filter(x => (x?.id || x) !== ex.id) : [...ic.selected_extras, { id: ex.id, name: ex.name, price: ex.price }])}
+                              style={{
+                                padding: '4px 10px', fontSize: '0.75rem', borderRadius: '20px', cursor: 'pointer',
+                                border: `1px solid ${sel ? 'var(--store-primary)' : '#e5e7eb'}`,
+                                background: sel ? 'var(--store-primary)' : '#fff',
+                                color: sel ? 'var(--store-secondary)' : '#444'
+                              }}>
+                              + {ex.name}{Number(ex.price) > 0 ? ` (+${colors?.currency?.symbol || '$'}${formatPrice(ex.price)})` : ''}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {ic.complement_groups.length > 0 && ic.complement_groups.map(group => (
+                    <div key={group.id} style={{ marginBottom: '10px' }}>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#444', marginBottom: '6px' }}>
+                        {group.name}{group.required ? ' *' : ''}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {(group.options || []).filter(o => o.is_active !== false).map(opt => {
+                          const sel = ic.selected_complements.some(x => (x?.id || x) === opt.id);
+                          return (
+                            <button key={opt.id} type="button"
+                              onClick={() => {
+                                const maxSel = group.max_select || 0;
+                                const curSel = ic.selected_complements.filter(x => x?.group_id === group.id);
+                                if (sel) {
+                                  updateComboItemConfig(ic.product_id, 'selected_complements',
+                                    ic.selected_complements.filter(x => (x?.id || x) !== opt.id));
+                                } else if (maxSel === 0 || curSel.length < maxSel) {
+                                  updateComboItemConfig(ic.product_id, 'selected_complements',
+                                    [...ic.selected_complements, { id: opt.id, name: opt.name, price: opt.price, group_id: group.id }]);
+                                }
+                              }}
+                              style={{
+                                padding: '4px 10px', fontSize: '0.75rem', borderRadius: '20px', cursor: 'pointer',
+                                border: `1px solid ${sel ? 'var(--store-accent)' : '#e5e7eb'}`,
+                                background: sel ? 'rgba(212,175,55,0.15)' : '#fff',
+                                color: sel ? 'var(--store-primary)' : '#444',
+                                fontWeight: sel ? 700 : 400
+                              }}>
+                              {opt.name}{Number(opt.price) > 0 ? ` (+${colors?.currency?.symbol || '$'}${formatPrice(opt.price)})` : ''}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '14px', marginTop: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <button onClick={() => setComboQty(q => Math.max(1, q - 1))}
+                    style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--store-primary)', background: '#fff', fontSize: '1.1rem', cursor: 'pointer', color: 'var(--store-primary)', fontWeight: 700 }}>−</button>
+                  <span style={{ fontWeight: 700, fontSize: '1.2rem', color: 'var(--store-primary)' }}>{comboQty}</span>
+                  <button onClick={() => setComboQty(q => q + 1)}
+                    style={{ width: '36px', height: '36px', borderRadius: '50%', border: 'none', background: 'var(--store-primary)', color: 'var(--store-secondary)', fontSize: '1.1rem', cursor: 'pointer', fontWeight: 700 }}>+</button>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#888' }}>Total</div>
+                  <div style={{ fontWeight: 800, fontSize: '1.3rem', color: 'var(--store-accent)' }}>
+                    {colors?.currency?.symbol || '$'}{formatPrice(comboModal.combo.price * comboQty)}
+                  </div>
+                </div>
+              </div>
+              <button onClick={addComboToCart}
+                style={{ width: '100%', padding: '14px', border: 'none', borderRadius: '12px', background: 'var(--store-primary)', color: 'var(--store-secondary)', fontWeight: 700, fontSize: '1rem', cursor: 'pointer' }}>
+                <FontAwesomeIcon icon={faShoppingCart} style={{ marginRight: '8px' }} />
+                Agregar combo al pedido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showExcelModal && (
         <div className="modal-overlay" onClick={() => setShowExcelModal(false)}>
