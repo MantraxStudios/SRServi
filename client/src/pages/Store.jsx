@@ -1005,6 +1005,13 @@ function Store() {
   });
   const [adminToken, setAdminToken] = useState(null);
   const [editorTab, setEditorTab] = useState('products');
+  const [editorCombos, setEditorCombos] = useState([]);
+  const [editorCombosLoaded, setEditorCombosLoaded] = useState(false);
+  const [editorComboModal, setEditorComboModal] = useState(null);
+  const [editorComboForm, setEditorComboForm] = useState(null);
+  const [editorComboProdSearch, setEditorComboProdSearch] = useState('');
+  const [editorComboSaving, setEditorComboSaving] = useState(false);
+  const [editorComboError, setEditorComboError] = useState('');
   const [liveOrders, setLiveOrders] = useState([]);
   const [newOrderCount, setNewOrderCount] = useState(0);
   const [extras, setExtras] = useState([]);
@@ -3927,6 +3934,112 @@ function Store() {
     setProdModalOpen(true);
   };
 
+  const loadEditorCombos = async () => {
+    if (!store?.store?.id || !adminToken) return;
+    try {
+      const res = await fetch(`/api/combos?store_id=${store.store.id}`, {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (res.ok) setEditorCombos(await res.json());
+    } catch {}
+    setEditorCombosLoaded(true);
+  };
+
+  const openEditorComboCreate = () => {
+    setEditorComboForm({ name: '', description: '', imageFile: null, image: '', is_active: true, discount_type: 'auto', discount_value: '', fixed_price: '', items: [] });
+    setEditorComboModal({ editing: null });
+    setEditorComboProdSearch('');
+    setEditorComboError('');
+  };
+
+  const openEditorComboEdit = (combo) => {
+    setEditorComboForm({
+      name: combo.name, description: combo.description || '',
+      imageFile: null, image: combo.image || '',
+      is_active: combo.is_active !== false,
+      discount_type: combo.discount_type || 'auto',
+      discount_value: combo.discount_value ? String(combo.discount_value) : '',
+      fixed_price: combo.fixed_price ? String(combo.fixed_price) : '',
+      items: (combo.items || []).map(it => ({ product_id: it.product_id, quantity: it.quantity }))
+    });
+    setEditorComboModal({ editing: combo });
+    setEditorComboProdSearch('');
+    setEditorComboError('');
+  };
+
+  const submitEditorCombo = async () => {
+    if (!editorComboForm.name.trim()) { setEditorComboError('El nombre es requerido'); return; }
+    if (editorComboForm.items.length === 0) { setEditorComboError('Agrega al menos un producto'); return; }
+    setEditorComboSaving(true);
+    try {
+      const fd = new FormData();
+      fd.append('store_id', store.store.id);
+      fd.append('name', editorComboForm.name.trim());
+      fd.append('description', editorComboForm.description || '');
+      fd.append('is_active', editorComboForm.is_active);
+      fd.append('discount_type', editorComboForm.discount_type);
+      fd.append('discount_value', parseFloat(editorComboForm.discount_value) || 0);
+      fd.append('fixed_price', parseFloat(editorComboForm.fixed_price) || 0);
+      fd.append('items', JSON.stringify(editorComboForm.items));
+      if (editorComboForm.imageFile) fd.append('image', editorComboForm.imageFile);
+      else if (editorComboForm.image) fd.append('existing_image', editorComboForm.image);
+      const isEdit = editorComboModal.editing;
+      const res = await fetch(isEdit ? `/api/combos/${isEdit.id}` : '/api/combos', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Authorization': `Bearer ${adminToken}` },
+        body: fd
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Error al guardar');
+      const combo = await res.json();
+      setEditorCombos(prev => isEdit ? prev.map(c => c.id === combo.id ? combo : c) : [...prev, combo]);
+      setEditorComboModal(null);
+    } catch (e) {
+      setEditorComboError(e.message);
+    } finally {
+      setEditorComboSaving(false);
+    }
+  };
+
+  const deleteEditorCombo = async (id) => {
+    if (!confirm('¿Eliminar este combo?')) return;
+    try {
+      const res = await fetch(`/api/combos/${id}?store_id=${store.store.id}`, {
+        method: 'DELETE', headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (!res.ok) throw new Error('Error al eliminar');
+      setEditorCombos(prev => prev.filter(c => c.id !== id));
+    } catch (e) { alert(e.message); }
+  };
+
+  const toggleEditorComboActive = async (combo) => {
+    try {
+      const fd = new FormData();
+      fd.append('store_id', store.store.id);
+      fd.append('name', combo.name);
+      fd.append('description', combo.description || '');
+      fd.append('is_active', !combo.is_active);
+      fd.append('discount_type', combo.discount_type || 'auto');
+      fd.append('discount_value', combo.discount_value || 0);
+      fd.append('fixed_price', combo.fixed_price || 0);
+      fd.append('items', JSON.stringify((combo.items || []).map(it => ({ product_id: it.product_id, quantity: it.quantity }))));
+      if (combo.image) fd.append('existing_image', combo.image);
+      const res = await fetch(`/api/combos/${combo.id}`, {
+        method: 'PUT', headers: { 'Authorization': `Bearer ${adminToken}` }, body: fd
+      });
+      if (!res.ok) throw new Error('Error');
+      const updated = await res.json();
+      setEditorCombos(prev => prev.map(c => c.id === updated.id ? updated : c));
+    } catch (e) { alert(e.message); }
+  };
+
+  const addProductToEditorCombo = (product) => {
+    setEditorComboForm(prev => {
+      const existing = prev.items.find(it => String(it.product_id) === String(product.id));
+      if (existing) return { ...prev, items: prev.items.map(it => String(it.product_id) === String(product.id) ? { ...it, quantity: it.quantity + 1 } : it) };
+      return { ...prev, items: [...prev.items, { product_id: product.id, quantity: 1 }] };
+    });
+  };
+
   const saveProd = async () => {
     if (!prodForm.name.trim() || !prodForm.price) return;
     setProdSaving(true);
@@ -4440,6 +4553,9 @@ function Store() {
             </button>
             <button className="store-editor-tab" onClick={openExcelModal}>
               <FontAwesomeIcon icon={faFileExcel} style={{ color: '#4ade80' }} /><span className="editor-tab-label">Excel</span>
+            </button>
+            <button className={`store-editor-tab${editorTab === 'combos' ? ' active' : ''}`} onClick={() => { setEditorTab('combos'); if (!editorCombosLoaded) loadEditorCombos(); }}>
+              <FontAwesomeIcon icon={faLayerGroup} /><span className="editor-tab-label">Combos</span>
             </button>
           </div>
           <div className="store-editor-actions">
@@ -5113,6 +5229,197 @@ function Store() {
           )}
         </div>
       )}
+
+      {editMode && !previewMode && editorTab === 'combos' && (() => {
+        const storeProds = store?.products || [];
+        const autoTotal = (editorComboForm?.items || []).reduce((s, it) => {
+          const p = storeProds.find(p => String(p.id) === String(it.product_id));
+          return s + (p ? Number(p.price) * it.quantity : 0);
+        }, 0);
+        const previewPrice = () => {
+          if (!editorComboForm) return 0;
+          if (editorComboForm.discount_type === 'fixed') return parseFloat(editorComboForm.fixed_price) || 0;
+          if (editorComboForm.discount_type === 'percent') return autoTotal * (1 - (parseFloat(editorComboForm.discount_value) || 0) / 100);
+          return autoTotal;
+        };
+        const filteredProds = storeProds.filter(p => !editorComboProdSearch || p.name.toLowerCase().includes(editorComboProdSearch.toLowerCase()));
+
+        return (
+          <div className="store-editor-complements" style={{ overflowY: 'auto' }}>
+            <div className="store-editor-comp-header">
+              <span>Combos y Promociones ({editorCombos.length})</span>
+              <button className="store-editor-comp-add-btn" onClick={openEditorComboCreate}>+ Nuevo combo</button>
+            </div>
+
+            {!editorCombosLoaded ? (
+              <div style={{ textAlign: 'center', padding: '24px', color: '#999', fontSize: '13px' }}>Cargando...</div>
+            ) : editorCombos.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px', color: '#999', fontSize: '13px' }}>No hay combos todavía.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '8px 0' }}>
+                {editorCombos.map(combo => (
+                  <div key={combo.id} style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', overflow: 'hidden', opacity: combo.is_active ? 1 : 0.6 }}>
+                    <div style={{ display: 'flex', gap: '10px', padding: '10px' }}>
+                      <div style={{ width: '52px', height: '52px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {combo.image
+                          ? <img src={getProductImageUrl(combo.image)} alt={combo.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <FontAwesomeIcon icon={faLayerGroup} style={{ color: '#D4AF37', fontSize: '1.2rem' }} />}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#111', lineHeight: 1.2 }}>{combo.name}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#888', marginTop: '3px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {(combo.items || []).map(it => `${it.quantity}× ${it.product_name}`).join(' + ')}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '4px' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--store-accent, #D4AF37)' }}>${formatPrice(combo.price)}</span>
+                          {combo.discount_type !== 'auto' && combo.auto_price > 0 && combo.auto_price !== combo.price && (
+                            <span style={{ fontSize: '0.72rem', color: '#bbb', textDecoration: 'line-through' }}>${formatPrice(combo.auto_price)}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
+                        <button onClick={() => openEditorComboEdit(combo)} className="store-prod-edit-btn" style={{ width: 30, height: 30, fontSize: 12 }}>
+                          <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                        <button onClick={() => toggleEditorComboActive(combo)} style={{ width: 30, height: 30, borderRadius: 6, border: 'none', cursor: 'pointer', background: combo.is_active ? 'rgba(34,197,94,0.12)' : 'rgba(0,0,0,0.06)', color: combo.is_active ? '#16a34a' : '#999', fontSize: 14 }}>
+                          {combo.is_active ? '✓' : '○'}
+                        </button>
+                        <button onClick={() => deleteEditorCombo(combo.id)} className="store-prod-edit-btn danger" style={{ width: 30, height: 30, fontSize: 12 }}>
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {editorComboModal && editorComboForm && (
+              <div className="store-modal-overlay" onClick={() => setEditorComboModal(null)}>
+                <div className="store-prod-modal" onClick={e => e.stopPropagation()} style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+                  <h3 style={{ margin: '0 0 14px', color: 'var(--store-primary)', textAlign: 'center' }}>
+                    {editorComboModal.editing ? 'Editar Combo' : 'Nuevo Combo'}
+                  </h3>
+
+                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {editorComboError && <div style={{ background: '#fee2e2', color: '#991b1b', padding: '8px 12px', borderRadius: '8px', fontSize: '13px' }}>{editorComboError}</div>}
+
+                    {/* Imagen */}
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <label style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', background: '#f3f4f6', border: '2px dashed #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {editorComboForm.imageFile
+                            ? <img src={URL.createObjectURL(editorComboForm.imageFile)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : editorComboForm.image
+                              ? <img src={getProductImageUrl(editorComboForm.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              : <FontAwesomeIcon icon={faCamera} style={{ color: '#9ca3af', fontSize: '1.5rem' }} />}
+                        </div>
+                        <span style={{ fontSize: '12px', color: '#6b7280' }}>Imagen (opcional)</span>
+                        <input type="file" accept="image/*" style={{ display: 'none' }}
+                          onChange={e => { const f = e.target.files[0]; if (f) setEditorComboForm(prev => ({ ...prev, imageFile: f })); }} />
+                      </label>
+                    </div>
+
+                    {/* Nombre */}
+                    <input className="store-prod-modal-input main" placeholder="Nombre del combo *"
+                      value={editorComboForm.name}
+                      onChange={e => setEditorComboForm(prev => ({ ...prev, name: e.target.value }))} />
+
+                    <input className="store-prod-modal-input" placeholder="Descripción (opcional)"
+                      value={editorComboForm.description}
+                      onChange={e => setEditorComboForm(prev => ({ ...prev, description: e.target.value }))} />
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editorComboForm.is_active}
+                        onChange={e => setEditorComboForm(prev => ({ ...prev, is_active: e.target.checked }))} />
+                      Visible en la tienda
+                    </label>
+
+                    {/* Productos */}
+                    <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: '10px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '8px' }}>Productos incluidos</div>
+
+                      {editorComboForm.items.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+                          {editorComboForm.items.map(it => {
+                            const p = storeProds.find(p => String(p.id) === String(it.product_id));
+                            if (!p) return null;
+                            return (
+                              <div key={it.product_id} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: '8px', padding: '6px 8px' }}>
+                                <span style={{ flex: 1, fontSize: '0.83rem', color: '#222' }}>{p.name}</span>
+                                <span style={{ fontSize: '0.75rem', color: '#888' }}>${Number(p.price).toFixed(0)}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <button type="button" onClick={() => setEditorComboForm(prev => ({ ...prev, items: prev.items.map(i => String(i.product_id) === String(it.product_id) ? { ...i, quantity: Math.max(1, i.quantity - 1) } : i).filter(i => i.quantity > 0) }))}
+                                    style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'rgba(0,0,0,0.08)', cursor: 'pointer', fontSize: 13 }}>−</button>
+                                  <span style={{ minWidth: 18, textAlign: 'center', fontWeight: 700, fontSize: '0.85rem' }}>{it.quantity}</span>
+                                  <button type="button" onClick={() => setEditorComboForm(prev => ({ ...prev, items: prev.items.map(i => String(i.product_id) === String(it.product_id) ? { ...i, quantity: i.quantity + 1 } : i) }))}
+                                    style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'rgba(212,175,55,0.2)', cursor: 'pointer', color: '#D4AF37', fontSize: 13 }}>+</button>
+                                </div>
+                                <button type="button" onClick={() => setEditorComboForm(prev => ({ ...prev, items: prev.items.filter(i => String(i.product_id) !== String(it.product_id)) }))}
+                                  style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'rgba(239,68,68,0.12)', color: '#ef4444', cursor: 'pointer', fontSize: 11 }}>✕</button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <input className="store-prod-modal-input" placeholder="Buscar producto..."
+                        value={editorComboProdSearch}
+                        onChange={e => setEditorComboProdSearch(e.target.value)} />
+                      <div style={{ maxHeight: '150px', overflowY: 'auto', marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        {filteredProds.slice(0, 30).map(p => (
+                          <button key={p.id} type="button" onClick={() => addProductToEditorCombo(p)}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '5px 8px', cursor: 'pointer' }}>
+                            <span style={{ flex: 1, fontSize: '0.82rem', color: '#222' }}>{p.name}</span>
+                            <span style={{ fontSize: '0.72rem', color: '#888' }}>${Number(p.price).toFixed(0)}</span>
+                            <span style={{ color: '#D4AF37', fontWeight: 700, fontSize: '1rem' }}>+</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Precio */}
+                    {editorComboForm.items.length > 0 && (
+                      <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: '10px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#374151', marginBottom: '8px' }}>Precio del combo</div>
+                        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                          {[{ v: 'auto', l: 'Automático' }, { v: 'percent', l: '% Descuento' }, { v: 'fixed', l: 'Precio fijo' }].map(opt => (
+                            <button key={opt.v} type="button" onClick={() => setEditorComboForm(prev => ({ ...prev, discount_type: opt.v }))}
+                              style={{ flex: 1, padding: '5px 2px', fontSize: '0.72rem', fontWeight: 600, borderRadius: '7px', cursor: 'pointer',
+                                border: `1px solid ${editorComboForm.discount_type === opt.v ? 'var(--store-primary)' : '#e5e7eb'}`,
+                                background: editorComboForm.discount_type === opt.v ? 'var(--store-primary)' : '#f9fafb',
+                                color: editorComboForm.discount_type === opt.v ? 'var(--store-secondary)' : '#555' }}>
+                              {opt.l}
+                            </button>
+                          ))}
+                        </div>
+                        {editorComboForm.discount_type === 'percent' && (
+                          <input type="number" min="0" max="100" step="0.1" className="store-prod-modal-input" placeholder="Descuento %" value={editorComboForm.discount_value} onChange={e => setEditorComboForm(prev => ({ ...prev, discount_value: e.target.value }))} />
+                        )}
+                        {editorComboForm.discount_type === 'fixed' && (
+                          <input type="number" min="0" step="0.01" className="store-prod-modal-input" placeholder="Precio fijo del combo" value={editorComboForm.fixed_price} onChange={e => setEditorComboForm(prev => ({ ...prev, fixed_price: e.target.value }))} />
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'rgba(212,175,55,0.08)', borderRadius: '8px', marginTop: '8px' }}>
+                          {editorComboForm.discount_type !== 'auto' && <span style={{ fontSize: '0.78rem', color: '#bbb', textDecoration: 'line-through' }}>${autoTotal.toFixed(0)}</span>}
+                          {editorComboForm.discount_type === 'auto' && <span style={{ fontSize: '0.78rem', color: '#888' }}>Total automático</span>}
+                          <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#D4AF37', marginLeft: 'auto' }}>${Math.max(0, previewPrice()).toFixed(0)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px', borderTop: '1px solid #f0f0f0', paddingTop: '12px' }}>
+                    <button onClick={() => setEditorComboModal(null)} className="store-prod-modal-btn cancel">Cancelar</button>
+                    <button onClick={submitEditorCombo} disabled={editorComboSaving} className={`store-prod-modal-btn confirm${editorComboSaving ? ' disabled' : ''}`}>
+                      {editorComboSaving ? 'Guardando...' : (editorComboModal.editing ? 'Guardar' : 'Crear combo')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <PluginSlot name="store-footer" context={{ storeId: store?.store?.id, code }} />
 
