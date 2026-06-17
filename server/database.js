@@ -4954,7 +4954,11 @@ export async function getBottomProducts(storeId, limit = 10, dateRange = 'week',
   return rows;
 }
 
-export async function getProductSalesReport(storeId) {
+export async function getProductSalesReport(storeId, range = 'yesterday') {
+  const dateFilter = range === 'yesterday'
+    ? 'AND DATE(o.created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)'
+    : 'AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+
   const query = `
     SELECT
       p.id,
@@ -4968,7 +4972,7 @@ export async function getProductSalesReport(storeId) {
     LEFT JOIN categories c ON p.category_id = c.id
     WHERE o.store_id = ?
       AND o.status IN ('paid', 'processed', 'completed', 'approved')
-      AND DATE(o.created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+      ${dateFilter}
     GROUP BY p.id, p.name, c.name
     ORDER BY total_sold DESC
   `;
@@ -4983,7 +4987,7 @@ export async function getProductSalesReport(storeId) {
         SELECT DISTINCT oi.product_id FROM order_items oi
         JOIN orders o ON oi.order_id = o.id
         WHERE o.store_id = ? AND o.status IN ('paid', 'processed', 'completed', 'approved')
-          AND DATE(o.created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+          ${dateFilter}
       )
     ORDER BY p.name ASC
     LIMIT 20

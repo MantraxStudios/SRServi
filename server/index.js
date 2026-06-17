@@ -4376,7 +4376,7 @@ app.post('/api/superadmin/notify-existing-premiums', authenticateSuperadminToken
   }
 });
 
-function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode) {
+function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode, periodLabel = 'ayer') {
   const fmt = (v) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: currencyCode || 'USD' }).format(Number(v) || 0);
   const dateStr = new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -4401,7 +4401,7 @@ function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode) {
   const topSection = top.length > 0 ? `
     <tr><td style="padding:24px 32px 8px">
       <h2 style="margin:0;font-size:18px;font-weight:800;color:#111">🏆 Más Vendidos</h2>
-      <p style="margin:4px 0 0;font-size:12px;color:#888">Los productos con mayor demanda ayer</p>
+      <p style="margin:4px 0 0;font-size:12px;color:#888">Los productos con mayor demanda (${periodLabel})</p>
     </td></tr>
     <tr><td style="padding:0 32px 16px">
       <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:10px;overflow:hidden;border:1px solid #f0f0f0">
@@ -4413,7 +4413,7 @@ function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode) {
   const bottomSection = bottom.length > 0 ? `
     <tr><td style="padding:24px 32px 8px">
       <h2 style="margin:0;font-size:18px;font-weight:800;color:#111">📉 Menos Vendidos</h2>
-      <p style="margin:4px 0 0;font-size:12px;color:#888">Productos con menor demanda ayer</p>
+      <p style="margin:4px 0 0;font-size:12px;color:#888">Productos con menor demanda (${periodLabel})</p>
     </td></tr>
     <tr><td style="padding:0 32px 16px">
       <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:10px;overflow:hidden;border:1px solid #f0f0f0">
@@ -4425,7 +4425,7 @@ function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode) {
   const unsoldSection = unsold.length > 0 ? `
     <tr><td style="padding:24px 32px 8px">
       <h2 style="margin:0;font-size:18px;font-weight:800;color:#111">⚠️ Sin Ventas Ayer</h2>
-      <p style="margin:4px 0 0;font-size:12px;color:#888">Productos que no tuvieron ninguna venta</p>
+      <p style="margin:4px 0 0;font-size:12px;color:#888">Productos que no tuvieron ventas (${periodLabel})</p>
     </td></tr>
     <tr><td style="padding:0 32px 24px">
       <div style="display:flex;flex-wrap:wrap;gap:6px">
@@ -4498,18 +4498,23 @@ function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode) {
 
 app.post('/api/superadmin/send-product-stats', authenticateSuperadminToken, async (req, res) => {
   try {
+    console.log('[ProductStats] Superadmin solicitó envío manual de estadísticas...');
     const allStores = await getAllStoresWithOwnerEmail();
+    console.log(`[ProductStats] ${allStores.length} tiendas encontradas`);
     let sent = 0;
     let skipped = 0;
+    let errors = 0;
 
     for (const store of allStores) {
       try {
-        const report = await getProductSalesReport(store.id);
+        const report = await getProductSalesReport(store.id, 'week');
         if (report.top.length === 0 && report.bottom.length === 0) {
+          console.log(`[ProductStats] Tienda "${store.name}" sin ventas, omitida`);
           skipped++;
           continue;
         }
-        const html = buildProductStatsHtml(store.name, report.top, report.bottom, report.unsold, store.currency_code);
+        console.log(`[ProductStats] Enviando a ${store.owner_email} (${store.name}) — ${report.top.length} top, ${report.bottom.length} bottom`);
+        const html = buildProductStatsHtml(store.name, report.top, report.bottom, report.unsold, store.currency_code, 'últimos 7 días');
         await mailer.sendMail({
           from: `"SRServi" <${process.env.EMAIL_USER}>`,
           to: store.owner_email,
@@ -4517,14 +4522,17 @@ app.post('/api/superadmin/send-product-stats', authenticateSuperadminToken, asyn
           html
         });
         sent++;
+        console.log(`[ProductStats] ✅ Email enviado a ${store.owner_email}`);
       } catch (e) {
-        console.error(`[ProductStats] Error tienda ${store.name}:`, e.message);
+        errors++;
+        console.error(`[ProductStats] ❌ Error tienda ${store.name} (${store.owner_email}):`, e.message);
       }
     }
 
-    res.json({ success: true, sent, skipped, total: allStores.length });
+    console.log(`[ProductStats] Resultado: ${sent} enviados, ${skipped} omitidos, ${errors} errores de ${allStores.length} tiendas`);
+    res.json({ success: true, sent, skipped, errors, total: allStores.length });
   } catch (error) {
-    console.error('Error enviando estadísticas de productos:', error);
+    console.error('[ProductStats] Error general:', error);
     res.status(500).json({ error: error.message });
   }
 });
