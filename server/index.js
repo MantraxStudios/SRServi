@@ -273,7 +273,20 @@ import {
   getLoyalCustomers,
   createLoyalCustomer,
   incrementLoyalCustomerPurchases,
-  deleteLoyalCustomer
+  deleteLoyalCustomer,
+  getInventorySections,
+  createInventorySection,
+  updateInventorySection,
+  deleteInventorySection,
+  reorderInventorySections,
+  addItemToSection,
+  removeItemFromSection,
+  createInventoryTransfer,
+  getInventoryTransfers,
+  acceptInventoryTransfer,
+  rejectInventoryTransfer,
+  cancelInventoryTransfer,
+  getInventoryAlertReport
 } from './database.js';
 import { registerSubdomain, unregisterSubdomain } from './nginx-manager.js';
 
@@ -4487,6 +4500,109 @@ function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode, per
         <tr>
           <td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 32px;text-align:center">
             <p style="margin:0;font-size:12px;color:#bbb">SRServi · Reporte automático de productos · ${new Date().toLocaleString('es-AR')}</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+function buildInventoryAlertHtml(storeName, outOfStock, lowStock) {
+  const dateStr = new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const typeLabel = (t) => t === 'raw_material' ? 'Materia prima' : t === 'product' ? 'Producto' : t === 'ingredient' ? 'Ingrediente' : 'Extra';
+
+  const alertRow = (a, i, urgent) => `
+    <tr style="background:${i % 2 === 0 ? '#ffffff' : '#fafafa'}">
+      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600;color:#222">${a.item_name}</td>
+      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:12px;color:#888">${typeLabel(a.item_type)}</td>
+      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:700;text-align:center;color:${urgent ? '#ef4444' : '#f59e0b'}">${parseFloat(a.current_stock)}</td>
+      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:12px;text-align:center;color:#888">${parseFloat(a.threshold)}</td>
+    </tr>`;
+
+  const tableHeader = `
+    <thead><tr style="background:#f5f5f5">
+      <th style="padding:8px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Item</th>
+      <th style="padding:8px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Tipo</th>
+      <th style="padding:8px 16px;text-align:center;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Stock actual</th>
+      <th style="padding:8px 16px;text-align:center;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Mínimo</th>
+    </tr></thead>`;
+
+  const urgentSection = outOfStock.length > 0 ? `
+    <tr><td style="padding:24px 32px 8px">
+      <h2 style="margin:0;font-size:18px;font-weight:800;color:#ef4444">🚨 Agotados — Urgente</h2>
+      <p style="margin:4px 0 0;font-size:12px;color:#888">${outOfStock.length} item(s) sin stock</p>
+    </td></tr>
+    <tr><td style="padding:0 32px 16px">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:10px;overflow:hidden;border:1px solid #fecaca">
+        ${tableHeader}
+        <tbody>${outOfStock.map((a, i) => alertRow(a, i, true)).join('')}</tbody>
+      </table>
+    </td></tr>` : '';
+
+  const lowSection = lowStock.length > 0 ? `
+    <tr><td style="padding:24px 32px 8px">
+      <h2 style="margin:0;font-size:18px;font-weight:800;color:#f59e0b">⚠️ Stock Bajo</h2>
+      <p style="margin:4px 0 0;font-size:12px;color:#888">${lowStock.length} item(s) por debajo del mínimo</p>
+    </td></tr>
+    <tr><td style="padding:0 32px 16px">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:10px;overflow:hidden;border:1px solid #fde68a">
+        ${tableHeader}
+        <tbody>${lowStock.map((a, i) => alertRow(a, i, false)).join('')}</tbody>
+      </table>
+    </td></tr>` : '';
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 16px">
+    <tr><td align="center">
+      <table width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
+        <tr>
+          <td style="background:#111;padding:28px 32px">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td><span style="color:#D4AF37;font-size:24px;font-weight:800">SR</span><span style="color:#fff;font-size:24px;font-weight:800">Servi</span></td>
+                <td align="right"><span style="background:#ef4444;color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px">ALERTA INVENTARIO</span></td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px 0">
+            <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111">Estado de Inventario — ${storeName}</h1>
+            <p style="margin:0;font-size:14px;color:#888">${dateStr}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 32px">
+            <table cellpadding="0" cellspacing="0" style="background:#f8f8f8;border-radius:12px;padding:16px 20px;width:100%">
+              <tr>
+                <td style="text-align:center;padding:0 16px">
+                  <div style="font-size:28px;font-weight:800;color:#ef4444">${outOfStock.length}</div>
+                  <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase">Agotados</div>
+                </td>
+                <td style="width:1px;background:#e5e5e5"></td>
+                <td style="text-align:center;padding:0 16px">
+                  <div style="font-size:28px;font-weight:800;color:#f59e0b">${lowStock.length}</div>
+                  <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase">Stock bajo</div>
+                </td>
+                <td style="width:1px;background:#e5e5e5"></td>
+                <td style="text-align:center;padding:0 16px">
+                  <div style="font-size:28px;font-weight:800;color:#111">${outOfStock.length + lowStock.length}</div>
+                  <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase">Total alertas</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        ${urgentSection}
+        ${lowSection}
+        <tr>
+          <td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:12px;color:#bbb">SRServi · Alerta de inventario diaria · ${new Date().toLocaleString('es-AR')}</p>
           </td>
         </tr>
       </table>
@@ -11327,6 +11443,32 @@ async function startServer() {
       } catch (e) { console.error('[ProductStats] Cron error:', e.message); }
     });
 
+    // Cron diario 7 AM — email de estado de inventario
+    cron.schedule('0 7 * * *', async () => {
+      console.log('[InventoryAlert] Enviando reportes de inventario...');
+      try {
+        const allStores = await getAllStoresWithOwnerEmail();
+        let sent = 0;
+        for (const store of allStores) {
+          try {
+            const report = await getInventoryAlertReport(store.id);
+            if (report.total === 0) continue;
+            const html = buildInventoryAlertHtml(store.name, report.outOfStock, report.lowStock);
+            await mailer.sendMail({
+              from: `"SRServi" <${process.env.EMAIL_USER}>`,
+              to: store.owner_email,
+              subject: `⚠️ Alerta de inventario — ${store.name} — ${report.outOfStock.length} agotados, ${report.lowStock.length} bajos`,
+              html
+            });
+            sent++;
+          } catch (e) {
+            console.error(`[InventoryAlert] Error tienda ${store.name}:`, e.message);
+          }
+        }
+        console.log(`[InventoryAlert] ✅ ${sent} reportes enviados de ${allStores.length} tiendas`);
+      } catch (e) { console.error('[InventoryAlert] Cron error:', e.message); }
+    });
+
     // ─── CCTV Cartelería Digital ──────────────────────────────────────────────
 
     const cctvDir = path.join(__serverDir, 'uploads', 'cctv');
@@ -14608,6 +14750,175 @@ app.get('/api/inventory/reports/consumption/:storeId', authenticateToken, async 
     const { from, to } = req.query;
     const report = await getConsumptionReport(storeId, from, to);
     res.json(report);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Inventory Sections ──────────────────────────────────────────────────────
+
+app.get('/api/inventory/sections/:storeId', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    const sections = await getInventorySections(storeId);
+    res.json(sections);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/inventory/sections/:storeId', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    const { name, color } = req.body;
+    if (!name) return res.status(400).json({ error: 'Nombre requerido' });
+    const id = await createInventorySection(storeId, name, color);
+    res.json({ id });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/inventory/sections/:id', authenticateToken, async (req, res) => {
+  try {
+    const { name, color, store_id } = req.body;
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    await updateInventorySection(parseInt(req.params.id), parseInt(store_id), name, color);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/inventory/sections/:id', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.body;
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    await deleteInventorySection(parseInt(req.params.id), parseInt(store_id));
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/inventory/sections/reorder', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, ids } = req.body;
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    await reorderInventorySections(parseInt(store_id), ids);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/inventory/sections/:id/items', authenticateToken, async (req, res) => {
+  try {
+    const { item_type, item_id, store_id } = req.body;
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    await addItemToSection(parseInt(req.params.id), item_type, parseInt(item_id));
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/inventory/sections/:sectionId/items/:itemType/:itemId', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.body;
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    await removeItemFromSection(parseInt(req.params.sectionId), req.params.itemType, parseInt(req.params.itemId));
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Inventory Movements (Purchase/Entry/Exit) ───────────────────────────────
+
+app.post('/api/inventory/movement', authenticateToken, async (req, res) => {
+  try {
+    const { store_id, reason, items, user_name } = req.body;
+    if (!['purchase', 'entry', 'exit'].includes(reason)) return res.status(400).json({ error: 'Tipo de movimiento inválido' });
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+
+    for (const item of items) {
+      const qty = parseFloat(item.quantity);
+      if (item.item_type === 'raw_material') {
+        const [rows] = await pool.execute('SELECT quantity FROM raw_materials WHERE id = ? AND store_id = ?', [item.item_id, store_id]);
+        if (!rows.length) continue;
+        const prev = parseFloat(rows[0].quantity);
+        const newQty = reason === 'exit' ? Math.max(0, prev - qty) : prev + qty;
+        await pool.execute('UPDATE raw_materials SET quantity = ? WHERE id = ?', [newQty, item.item_id]);
+        await logInventoryMovement({ storeId: store_id, itemType: 'raw_material', itemId: item.item_id, itemName: item.item_name, previousQty: prev, newQty, reason, userName: user_name });
+      } else if (item.item_type === 'product') {
+        const [rows] = await pool.execute('SELECT stock FROM inventory WHERE product_id = ?', [item.item_id]);
+        const prev = rows.length ? parseFloat(rows[0].stock) : 0;
+        const newQty = reason === 'exit' ? Math.max(0, prev - qty) : prev + qty;
+        await pool.execute('INSERT INTO inventory (product_id, stock) VALUES (?, ?) ON DUPLICATE KEY UPDATE stock = ?', [item.item_id, newQty, newQty]);
+        await logInventoryMovement({ storeId: store_id, itemType: 'product', itemId: item.item_id, itemName: item.item_name, previousQty: prev, newQty, reason, userName: user_name });
+      } else if (item.item_type === 'ingredient') {
+        const [rows] = await pool.execute('SELECT stock FROM ingredients WHERE id = ? AND store_id = ?', [item.item_id, store_id]);
+        if (!rows.length) continue;
+        const prev = parseInt(rows[0].stock) || 0;
+        const newQty = reason === 'exit' ? Math.max(0, prev - qty) : prev + qty;
+        await pool.execute('UPDATE ingredients SET stock = ? WHERE id = ?', [newQty, item.item_id]);
+        await logInventoryMovement({ storeId: store_id, itemType: 'ingredient', itemId: item.item_id, itemName: item.item_name, previousQty: prev, newQty, reason, userName: user_name });
+      } else if (item.item_type === 'extra') {
+        const [rows] = await pool.execute('SELECT stock FROM extras WHERE id = ? AND store_id = ?', [item.item_id, store_id]);
+        if (!rows.length) continue;
+        const prev = parseInt(rows[0].stock) || 0;
+        const newQty = reason === 'exit' ? Math.max(0, prev - qty) : prev + qty;
+        await pool.execute('UPDATE extras SET stock = ? WHERE id = ?', [newQty, item.item_id]);
+        await logInventoryMovement({ storeId: store_id, itemType: 'extra', itemId: item.item_id, itemName: item.item_name, previousQty: prev, newQty, reason, userName: user_name });
+      }
+    }
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Inventory Transfers ─────────────────────────────────────────────────────
+
+app.post('/api/inventory/transfers', authenticateToken, async (req, res) => {
+  try {
+    const { from_store_id, to_store_id, items, notes } = req.body;
+    const isOwner = await verifyStoreOwnership(parseInt(from_store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    const isOwnerDst = await verifyStoreOwnership(parseInt(to_store_id), req.user.id);
+    if (!isOwnerDst) return res.status(403).json({ error: 'Solo puedes transferir a tus propias tiendas' });
+    const id = await createInventoryTransfer(parseInt(from_store_id), parseInt(to_store_id), req.user.id, items, notes);
+    res.json({ id });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/inventory/transfers/:storeId', authenticateToken, async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const isOwner = await verifyStoreOwnership(storeId, req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    const transfers = await getInventoryTransfers(storeId);
+    res.json(transfers);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/inventory/transfers/:id/accept', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.body;
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    await acceptInventoryTransfer(parseInt(req.params.id), parseInt(store_id));
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/inventory/transfers/:id/reject', authenticateToken, async (req, res) => {
+  try {
+    const { store_id } = req.body;
+    const isOwner = await verifyStoreOwnership(parseInt(store_id), req.user.id);
+    if (!isOwner) return res.status(403).json({ error: 'No autorizado' });
+    await rejectInventoryTransfer(parseInt(req.params.id), parseInt(store_id));
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/inventory/transfers/:id/cancel', authenticateToken, async (req, res) => {
+  try {
+    await cancelInventoryTransfer(parseInt(req.params.id), req.user.id);
+    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

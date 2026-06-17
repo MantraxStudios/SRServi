@@ -4,7 +4,8 @@ import {
   faWarehouse, faSearch, faSync, faInfinity, faExclamationTriangle,
   faPlus, faEdit, faTrash, faTimes, faCheck, faBoxOpen, faFlask,
   faListUl, faSave, faArrowUp, faBox, faBell, faHistory, faChartBar,
-  faChevronLeft, faChevronRight
+  faChevronLeft, faChevronRight, faFolderOpen, faExchangeAlt, faTruck,
+  faPaperPlane
 } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
@@ -101,6 +102,35 @@ export default function Inventory() {
   const [reportRange, setReportRange] = useState({ from: '', to: '' });
   const [reportLoading, setReportLoading] = useState(false);
 
+  // Sections
+  const [sections, setSections] = useState([]);
+  const [sectionsLoading, setSectionsLoading] = useState(false);
+  const [sectionModal, setSectionModal] = useState(null);
+  const [sectionForm, setSectionForm] = useState({ name: '', color: '#D4AF37' });
+  const [sectionSaving, setSectionSaving] = useState(false);
+  const [addItemModal, setAddItemModal] = useState(null);
+  const [addItemType, setAddItemType] = useState('product');
+  const [addItemSearch, setAddItemSearch] = useState('');
+
+  // Movements (purchase/entry/exit)
+  const [movReason, setMovReason] = useState('purchase');
+  const [movItems, setMovItems] = useState([]);
+  const [movItemType, setMovItemType] = useState('raw_material');
+  const [movItemSearch, setMovItemSearch] = useState('');
+  const [movSaving, setMovSaving] = useState(false);
+
+  // Transfers
+  const [transfers, setTransfers] = useState([]);
+  const [transfersLoading, setTransfersLoading] = useState(false);
+  const [userStores, setUserStores] = useState([]);
+  const [transferModal, setTransferModal] = useState(false);
+  const [transferTo, setTransferTo] = useState('');
+  const [transferItems, setTransferItems] = useState([]);
+  const [transferItemType, setTransferItemType] = useState('raw_material');
+  const [transferItemSearch, setTransferItemSearch] = useState('');
+  const [transferNotes, setTransferNotes] = useState('');
+  const [transferSaving, setTransferSaving] = useState(false);
+
   const fetchAll = useCallback(async () => {
     if (!selectedStore) return;
     setLoading(true);
@@ -163,13 +193,130 @@ export default function Inventory() {
     } finally { setReportLoading(false); }
   }, [selectedStore?.id, token, reportRange]);
 
+  const fetchSections = useCallback(async () => {
+    if (!selectedStore) return;
+    setSectionsLoading(true);
+    try {
+      const res = await fetch(`${API}/api/inventory/sections/${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setSections(await res.json());
+    } finally { setSectionsLoading(false); }
+  }, [selectedStore?.id, token]);
+
+  const fetchTransfers = useCallback(async () => {
+    if (!selectedStore) return;
+    setTransfersLoading(true);
+    try {
+      const res = await fetch(`${API}/api/inventory/transfers/${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setTransfers(await res.json());
+    } finally { setTransfersLoading(false); }
+  }, [selectedStore?.id, token]);
+
+  const fetchUserStores = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/stores`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setUserStores(Array.isArray(data) ? data : []);
+      }
+    } catch (e) { console.error(e); }
+  }, [token]);
+
   useEffect(() => { if (tab === 'alerts') fetchAlerts(); }, [tab, fetchAlerts]);
   useEffect(() => { if (tab === 'history') fetchMovements(1); }, [tab, fetchMovements]);
   useEffect(() => { if (tab === 'reports') fetchStats(); }, [tab, fetchStats]);
+  useEffect(() => { if (tab === 'sections') fetchSections(); }, [tab, fetchSections]);
+  useEffect(() => { if (tab === 'transfers') { fetchTransfers(); fetchUserStores(); } }, [tab, fetchTransfers, fetchUserStores]);
 
   const acknowledgeAlert = async (id) => {
     await fetch(`${API}/api/inventory/alerts/${id}/acknowledge`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
     fetchAlerts();
+  };
+
+  // ── Sections CRUD ────────────────────────────────────────────────────────
+  const saveSection = async () => {
+    if (!sectionForm.name.trim()) return;
+    setSectionSaving(true);
+    try {
+      if (sectionModal === 'new') {
+        await fetch(`${API}/api/inventory/sections/${selectedStore.id}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ name: sectionForm.name, color: sectionForm.color })
+        });
+      } else {
+        await fetch(`${API}/api/inventory/sections/${sectionModal.id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ name: sectionForm.name, color: sectionForm.color, store_id: selectedStore.id })
+        });
+      }
+      setSectionModal(null);
+      fetchSections();
+    } finally { setSectionSaving(false); }
+  };
+
+  const deleteSection = async (s) => {
+    if (!confirm(`¿Eliminar sección "${s.name}"?`)) return;
+    await fetch(`${API}/api/inventory/sections/${s.id}`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ store_id: selectedStore.id })
+    });
+    fetchSections();
+  };
+
+  const addItemToSec = async (sectionId, itemType, itemId) => {
+    await fetch(`${API}/api/inventory/sections/${sectionId}/items`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ item_type: itemType, item_id: itemId, store_id: selectedStore.id })
+    });
+    setAddItemModal(null);
+    fetchSections();
+  };
+
+  const removeItemFromSec = async (sectionId, itemType, itemId) => {
+    await fetch(`${API}/api/inventory/sections/${sectionId}/items/${itemType}/${itemId}`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ store_id: selectedStore.id })
+    });
+    fetchSections();
+  };
+
+  // ── Movements (purchase/entry/exit) ──────────────────────────────────────
+  const submitMovement = async () => {
+    if (movItems.length === 0) return;
+    setMovSaving(true);
+    try {
+      await fetch(`${API}/api/inventory/movement`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ store_id: selectedStore.id, reason: movReason, items: movItems })
+      });
+      setMovItems([]);
+      fetchAll();
+    } finally { setMovSaving(false); }
+  };
+
+  // ── Transfers ────────────────────────────────────────────────────────────
+  const submitTransfer = async () => {
+    if (!transferTo || transferItems.length === 0) return;
+    setTransferSaving(true);
+    try {
+      await fetch(`${API}/api/inventory/transfers`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ from_store_id: selectedStore.id, to_store_id: parseInt(transferTo), items: transferItems, notes: transferNotes })
+      });
+      setTransferModal(false);
+      setTransferItems([]);
+      setTransferNotes('');
+      setTransferTo('');
+      fetchTransfers();
+    } finally { setTransferSaving(false); }
+  };
+
+  const handleTransferAction = async (transferId, action) => {
+    await fetch(`${API}/api/inventory/transfers/${transferId}/${action}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ store_id: selectedStore.id })
+    });
+    fetchTransfers();
+    fetchAll();
   };
 
   // ── Raw Materials CRUD ──────────────────────────────────────────────────────
@@ -319,12 +466,15 @@ export default function Inventory() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   const TABS = [
-    { key: 'raw',     label: 'Materias Primas', icon: faFlask },
-    { key: 'recipes', label: 'Recetas',          icon: faListUl },
-    { key: 'direct',  label: 'Stock Directo',    icon: faBox },
-    { key: 'alerts',  label: 'Alertas',          icon: faBell },
-    { key: 'history', label: 'Historial',        icon: faHistory },
-    { key: 'reports', label: 'Reportes',         icon: faChartBar },
+    { key: 'raw',       label: 'Materias Primas', icon: faFlask },
+    { key: 'recipes',   label: 'Recetas',         icon: faListUl },
+    { key: 'direct',    label: 'Stock Directo',   icon: faBox },
+    { key: 'sections',  label: 'Secciones',       icon: faFolderOpen },
+    { key: 'movements', label: 'Compras/Mov.',    icon: faExchangeAlt },
+    { key: 'transfers', label: 'Transferencias',  icon: faTruck },
+    { key: 'alerts',    label: 'Alertas',         icon: faBell },
+    { key: 'history',   label: 'Historial',       icon: faHistory },
+    { key: 'reports',   label: 'Reportes',        icon: faChartBar },
   ];
 
   return (
@@ -692,6 +842,10 @@ export default function Inventory() {
               <option value="manual">Manual</option>
               <option value="restock">Restock</option>
               <option value="recipe">Receta</option>
+              <option value="purchase">Compra</option>
+              <option value="entry">Entrada</option>
+              <option value="exit">Salida</option>
+              <option value="transfer">Transferencia</option>
             </select>
             <input type="date" value={movFilter.from} onChange={e => setMovFilter(f => ({ ...f, from: e.target.value }))} style={{ ...inputStyle, width: 'auto' }} />
             <input type="date" value={movFilter.to} onChange={e => setMovFilter(f => ({ ...f, to: e.target.value }))} style={{ ...inputStyle, width: 'auto' }} />
@@ -726,10 +880,10 @@ export default function Inventory() {
                     <span style={{ fontSize: 11 }}>
                       <span style={{
                         padding: '2px 7px', borderRadius: 12, fontSize: 10, fontWeight: 600,
-                        background: m.reason === 'order' ? 'rgba(59,130,246,0.1)' : m.reason === 'restock' ? 'rgba(34,197,94,0.1)' : m.reason === 'recipe' ? 'rgba(168,85,247,0.1)' : 'rgba(107,114,128,0.1)',
-                        color: m.reason === 'order' ? '#3b82f6' : m.reason === 'restock' ? '#22c55e' : m.reason === 'recipe' ? '#a855f7' : '#6b7280'
+                        background: m.reason === 'order' ? 'rgba(59,130,246,0.1)' : m.reason === 'restock' ? 'rgba(34,197,94,0.1)' : m.reason === 'recipe' ? 'rgba(168,85,247,0.1)' : m.reason === 'purchase' ? 'rgba(59,130,246,0.1)' : m.reason === 'entry' ? 'rgba(34,197,94,0.1)' : m.reason === 'exit' ? 'rgba(239,68,68,0.1)' : m.reason === 'transfer' ? 'rgba(168,85,247,0.1)' : 'rgba(107,114,128,0.1)',
+                        color: m.reason === 'order' ? '#3b82f6' : m.reason === 'restock' ? '#22c55e' : m.reason === 'recipe' ? '#a855f7' : m.reason === 'purchase' ? '#3b82f6' : m.reason === 'entry' ? '#22c55e' : m.reason === 'exit' ? '#ef4444' : m.reason === 'transfer' ? '#a855f7' : '#6b7280'
                       }}>
-                        {m.reason === 'order' ? 'Orden' : m.reason === 'restock' ? 'Restock' : m.reason === 'recipe' ? 'Receta' : m.reason === 'manual' ? 'Manual' : m.reason}
+                        {m.reason === 'order' ? 'Orden' : m.reason === 'restock' ? 'Restock' : m.reason === 'recipe' ? 'Receta' : m.reason === 'manual' ? 'Manual' : m.reason === 'purchase' ? 'Compra' : m.reason === 'entry' ? 'Entrada' : m.reason === 'exit' ? 'Salida' : m.reason === 'transfer' ? 'Transfer.' : m.reason}
                       </span>
                     </span>
                     <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.user_name || '—'}</span>
@@ -814,6 +968,386 @@ export default function Inventory() {
                 )}
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {/* ──── TAB: SECCIONES ──── */}
+      {tab === 'sections' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Secciones de Inventario</h3>
+            <button onClick={() => { setSectionForm({ name: '', color: '#D4AF37' }); setSectionModal('new'); }} style={btnGold}>
+              <FontAwesomeIcon icon={faPlus} /> Nueva Sección
+            </button>
+          </div>
+          {sectionsLoading ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando secciones...</div>
+          ) : sections.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
+              <FontAwesomeIcon icon={faFolderOpen} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
+              Crea secciones para organizar tu inventario
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {sections.map(sec => (
+                <div key={sec.id} style={{ background: '#fff', border: `1px solid ${sec.color}33`, borderLeft: `4px solid ${sec.color}`, borderRadius: 12, padding: 16, overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: sec.items.length > 0 ? 12 : 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 12, height: 12, borderRadius: '50%', background: sec.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>{sec.name}</span>
+                      <span style={{ fontSize: 11, color: '#9ca3af', background: '#f3f4f6', padding: '2px 8px', borderRadius: 10 }}>{sec.items.length} items</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => { setAddItemType('product'); setAddItemSearch(''); setAddItemModal(sec.id); }} style={{ ...btnGhost, padding: '5px 10px', fontSize: 11 }}>
+                        <FontAwesomeIcon icon={faPlus} /> Agregar
+                      </button>
+                      <button onClick={() => { setSectionForm({ name: sec.name, color: sec.color }); setSectionModal(sec); }} style={{ ...btnGhost, padding: '5px 10px', fontSize: 11 }}>
+                        <FontAwesomeIcon icon={faEdit} />
+                      </button>
+                      <button onClick={() => deleteSection(sec)} style={{ ...btnGhost, padding: '5px 10px', fontSize: 11, color: '#ef4444', borderColor: '#fecaca' }}>
+                        <FontAwesomeIcon icon={faTrash} />
+                      </button>
+                    </div>
+                  </div>
+                  {sec.items.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {sec.items.map(item => {
+                        const stock = parseFloat(item.current_stock) || 0;
+                        const isLow = stock <= 5 && stock > 0;
+                        const isOut = stock <= 0;
+                        return (
+                          <div key={`${item.item_type}-${item.item_id}`} style={{
+                            display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px',
+                            background: isOut ? 'rgba(239,68,68,0.06)' : isLow ? 'rgba(245,158,11,0.06)' : '#f9fafb',
+                            border: `1px solid ${isOut ? '#fecaca' : isLow ? '#fde68a' : '#e5e7eb'}`,
+                            borderRadius: 8, fontSize: 12
+                          }}>
+                            <span style={{ fontWeight: 600, color: '#111' }}>{item.item_name}</span>
+                            <span style={{ color: isOut ? '#ef4444' : isLow ? '#f59e0b' : '#22c55e', fontWeight: 700, fontSize: 11 }}>{stock}</span>
+                            <button onClick={() => removeItemFromSec(sec.id, item.item_type, item.item_id)}
+                              style={{ background: 'none', border: 'none', color: '#d1d5db', cursor: 'pointer', fontSize: 10, padding: 0 }}>
+                              <FontAwesomeIcon icon={faTimes} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {sectionModal !== null && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
+              onClick={() => setSectionModal(null)}>
+              <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 400 }}>
+                <h3 style={{ margin: '0 0 18px', color: '#D4AF37', fontSize: 17, fontWeight: 700 }}>
+                  {sectionModal === 'new' ? 'Nueva Sección' : 'Editar Sección'}
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div>
+                    <label style={labelStyle}>Nombre *</label>
+                    <input autoFocus value={sectionForm.name} onChange={e => setSectionForm({ ...sectionForm, name: e.target.value })} placeholder="ej: Bebidas, Limpieza..." style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Color</label>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input type="color" value={sectionForm.color} onChange={e => setSectionForm({ ...sectionForm, color: e.target.value })} style={{ width: 40, height: 36, border: 'none', cursor: 'pointer', borderRadius: 6 }} />
+                      <span style={{ fontSize: 12, color: '#9ca3af' }}>{sectionForm.color}</span>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                  <button onClick={() => setSectionModal(null)} style={{ ...btnGhost, flex: 1, justifyContent: 'center' }}>Cancelar</button>
+                  <button onClick={saveSection} disabled={!sectionForm.name.trim() || sectionSaving} style={{ ...btnGold, flex: 1, justifyContent: 'center', opacity: !sectionForm.name.trim() ? 0.5 : 1 }}>
+                    <FontAwesomeIcon icon={faSave} /> {sectionSaving ? 'Guardando...' : 'Guardar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {addItemModal !== null && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
+              onClick={() => setAddItemModal(null)}>
+              <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 440, maxHeight: '80vh', overflowY: 'auto' }}>
+                <h3 style={{ margin: '0 0 14px', color: '#D4AF37', fontSize: 17, fontWeight: 700 }}>Agregar Item a Sección</h3>
+                <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
+                  {['product', 'ingredient', 'extra', 'raw_material'].map(t => (
+                    <button key={t} onClick={() => setAddItemType(t)} style={{
+                      flex: 1, padding: '7px 6px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                      background: addItemType === t ? '#D4AF37' : '#f3f4f6', color: addItemType === t ? '#000' : '#6b7280'
+                    }}>
+                      {t === 'product' ? 'Productos' : t === 'ingredient' ? 'Ingredientes' : t === 'extra' ? 'Extras' : 'Mat. Prima'}
+                    </button>
+                  ))}
+                </div>
+                <input value={addItemSearch} onChange={e => setAddItemSearch(e.target.value)} placeholder="Buscar..." style={{ ...inputStyle, marginBottom: 10 }} />
+                <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                  {(() => {
+                    const source = addItemType === 'product' ? directData.products
+                      : addItemType === 'ingredient' ? directData.ingredients
+                      : addItemType === 'extra' ? directData.extras : rawMats;
+                    const filtered = source.filter(i => !addItemSearch || i.name.toLowerCase().includes(addItemSearch.toLowerCase()));
+                    return filtered.length === 0 ? (
+                      <div style={{ padding: 20, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Sin resultados</div>
+                    ) : filtered.map(item => (
+                      <div key={item.id} onClick={() => addItemToSec(addItemModal, addItemType, item.id)}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', borderRadius: 6 }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                        <span style={{ fontSize: 13, fontWeight: 500 }}>{item.name}</span>
+                        <FontAwesomeIcon icon={faPlus} style={{ color: '#D4AF37', fontSize: 12 }} />
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ──── TAB: COMPRAS / MOVIMIENTOS ──── */}
+      {tab === 'movements' && (
+        <div>
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 20, marginBottom: 16 }}>
+            <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700 }}>Registrar Movimiento</h3>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+              {[
+                { key: 'purchase', label: 'Compra', color: '#3b82f6' },
+                { key: 'entry', label: 'Entrada', color: '#22c55e' },
+                { key: 'exit', label: 'Salida', color: '#ef4444' },
+              ].map(r => (
+                <button key={r.key} onClick={() => setMovReason(r.key)} style={{
+                  flex: 1, padding: '9px 10px', borderRadius: 8, border: `1.5px solid ${movReason === r.key ? r.color : '#e5e7eb'}`,
+                  cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                  background: movReason === r.key ? r.color + '15' : '#fff', color: movReason === r.key ? r.color : '#6b7280'
+                }}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+              {['raw_material', 'product', 'ingredient', 'extra'].map(t => (
+                <button key={t} onClick={() => setMovItemType(t)} style={{
+                  padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                  background: movItemType === t ? '#D4AF37' : '#f3f4f6', color: movItemType === t ? '#000' : '#6b7280'
+                }}>
+                  {t === 'raw_material' ? 'Mat. Prima' : t === 'product' ? 'Productos' : t === 'ingredient' ? 'Ingredientes' : 'Extras'}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+              <input value={movItemSearch} onChange={e => setMovItemSearch(e.target.value)} placeholder="Buscar item..." style={{ ...inputStyle, flex: 1 }} />
+            </div>
+            {movItemSearch && (() => {
+              const source = movItemType === 'product' ? directData.products : movItemType === 'ingredient' ? directData.ingredients : movItemType === 'extra' ? directData.extras : rawMats;
+              const filtered = source.filter(i => i.name.toLowerCase().includes(movItemSearch.toLowerCase())).slice(0, 8);
+              return filtered.length > 0 ? (
+                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, marginBottom: 10, maxHeight: 200, overflowY: 'auto' }}>
+                  {filtered.map(item => (
+                    <div key={item.id} onClick={() => {
+                      if (!movItems.find(m => m.item_id === item.id && m.item_type === movItemType)) {
+                        setMovItems([...movItems, { item_type: movItemType, item_id: item.id, item_name: item.name, quantity: 1 }]);
+                      }
+                      setMovItemSearch('');
+                    }}
+                      style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', fontSize: 13 }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                      {item.name}
+                    </div>
+                  ))}
+                </div>
+              ) : null;
+            })()}
+            {movItems.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>Items seleccionados:</div>
+                {movItems.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{item.item_name}</span>
+                    <input type="number" min="0.001" step="0.001" value={item.quantity}
+                      onChange={e => setMovItems(movItems.map((m, i) => i === idx ? { ...m, quantity: parseFloat(e.target.value) || 0 } : m))}
+                      style={{ ...inputStyle, width: 80, padding: '5px 8px', textAlign: 'center' }} />
+                    <button onClick={() => setMovItems(movItems.filter((_, i) => i !== idx))}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 14 }}>
+                      <FontAwesomeIcon icon={faTimes} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={submitMovement} disabled={movItems.length === 0 || movSaving}
+              style={{ ...btnGold, width: '100%', justifyContent: 'center', opacity: movItems.length === 0 ? 0.5 : 1 }}>
+              <FontAwesomeIcon icon={faCheck} /> {movSaving ? 'Registrando...' : `Registrar ${movReason === 'purchase' ? 'Compra' : movReason === 'entry' ? 'Entrada' : 'Salida'}`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ──── TAB: TRANSFERENCIAS ──── */}
+      {tab === 'transfers' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Transferencias entre Locales</h3>
+            <button onClick={() => { setTransferModal(true); setTransferItems([]); setTransferTo(''); setTransferNotes(''); }} style={btnGold}
+              disabled={userStores.filter(s => s.id !== selectedStore?.id).length === 0}>
+              <FontAwesomeIcon icon={faPaperPlane} /> Nueva Transferencia
+            </button>
+          </div>
+
+          {userStores.filter(s => s.id !== selectedStore?.id).length === 0 && (
+            <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, fontSize: 13, color: '#f59e0b' }}>
+              Necesitas más de una tienda en tu cuenta para usar transferencias.
+            </div>
+          )}
+
+          {transfersLoading ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando transferencias...</div>
+          ) : transfers.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
+              <FontAwesomeIcon icon={faTruck} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
+              No hay transferencias registradas
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {transfers.map(t => {
+                const isSender = t.from_store_id === selectedStore?.id;
+                const statusColors = { pending: '#f59e0b', accepted: '#22c55e', rejected: '#ef4444', cancelled: '#9ca3af' };
+                const statusLabels = { pending: 'Pendiente', accepted: 'Aceptada', rejected: 'Rechazada', cancelled: 'Cancelada' };
+                return (
+                  <div key={t.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <FontAwesomeIcon icon={isSender ? faPaperPlane : faTruck} style={{ color: isSender ? '#3b82f6' : '#22c55e', fontSize: 13 }} />
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>
+                          {isSender ? `Enviada a ${t.to_store_name}` : `Recibida de ${t.from_store_name}`}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: statusColors[t.status] + '15', color: statusColors[t.status] }}>
+                        {statusLabels[t.status]}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>
+                      {new Date(t.created_at).toLocaleString('es-CL')}
+                      {t.notes && <span> — {t.notes}</span>}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: t.status === 'pending' ? 10 : 0 }}>
+                      {t.items.map((item, i) => (
+                        <span key={i} style={{ fontSize: 11, padding: '3px 8px', background: '#f3f4f6', borderRadius: 6, fontWeight: 500 }}>
+                          {item.item_name} × {parseFloat(item.quantity)}
+                        </span>
+                      ))}
+                    </div>
+                    {t.status === 'pending' && (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {!isSender && (
+                          <>
+                            <button onClick={() => handleTransferAction(t.id, 'accept')}
+                              style={{ background: '#22c55e', border: 'none', borderRadius: 6, padding: '6px 14px', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+                              <FontAwesomeIcon icon={faCheck} /> Aceptar
+                            </button>
+                            <button onClick={() => handleTransferAction(t.id, 'reject')}
+                              style={{ background: '#ef4444', border: 'none', borderRadius: 6, padding: '6px 14px', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+                              <FontAwesomeIcon icon={faTimes} /> Rechazar
+                            </button>
+                          </>
+                        )}
+                        {isSender && (
+                          <button onClick={() => handleTransferAction(t.id, 'cancel')}
+                            style={{ ...btnGhost, padding: '6px 14px', fontSize: 12, color: '#ef4444', borderColor: '#fecaca' }}>
+                            Cancelar
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {transferModal && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
+              onClick={() => setTransferModal(false)}>
+              <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 500, maxHeight: '85vh', overflowY: 'auto' }}>
+                <h3 style={{ margin: '0 0 18px', color: '#D4AF37', fontSize: 17, fontWeight: 700 }}>
+                  <FontAwesomeIcon icon={faTruck} style={{ marginRight: 8 }} /> Nueva Transferencia
+                </h3>
+                <div style={{ marginBottom: 14 }}>
+                  <label style={labelStyle}>Tienda destino *</label>
+                  <select value={transferTo} onChange={e => setTransferTo(e.target.value)} style={inputStyle}>
+                    <option value="">Seleccionar tienda...</option>
+                    {userStores.filter(s => s.id !== selectedStore?.id).map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label style={labelStyle}>Agregar items</label>
+                  <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                    {['raw_material', 'product', 'ingredient', 'extra'].map(t => (
+                      <button key={t} onClick={() => setTransferItemType(t)} style={{
+                        flex: 1, padding: '5px 6px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                        background: transferItemType === t ? '#D4AF37' : '#f3f4f6', color: transferItemType === t ? '#000' : '#6b7280'
+                      }}>
+                        {t === 'raw_material' ? 'Mat. Prima' : t === 'product' ? 'Productos' : t === 'ingredient' ? 'Ingredientes' : 'Extras'}
+                      </button>
+                    ))}
+                  </div>
+                  <input value={transferItemSearch} onChange={e => setTransferItemSearch(e.target.value)} placeholder="Buscar item..." style={{ ...inputStyle, marginBottom: 6 }} />
+                  {transferItemSearch && (() => {
+                    const source = transferItemType === 'product' ? directData.products : transferItemType === 'ingredient' ? directData.ingredients : transferItemType === 'extra' ? directData.extras : rawMats;
+                    const filtered = source.filter(i => i.name.toLowerCase().includes(transferItemSearch.toLowerCase())).slice(0, 6);
+                    return filtered.length > 0 ? (
+                      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, marginBottom: 8, maxHeight: 180, overflowY: 'auto' }}>
+                        {filtered.map(item => (
+                          <div key={item.id} onClick={() => {
+                            if (!transferItems.find(m => m.item_id === item.id && m.item_type === transferItemType)) {
+                              setTransferItems([...transferItems, { item_type: transferItemType, item_id: item.id, item_name: item.name, quantity: 1 }]);
+                            }
+                            setTransferItemSearch('');
+                          }}
+                            style={{ padding: '7px 12px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', fontSize: 12 }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                            {item.name}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+                {transferItems.length > 0 && (
+                  <div style={{ marginBottom: 14 }}>
+                    {transferItems.map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{item.item_name}</span>
+                        <input type="number" min="0.001" step="0.001" value={item.quantity}
+                          onChange={e => setTransferItems(transferItems.map((m, i) => i === idx ? { ...m, quantity: parseFloat(e.target.value) || 0 } : m))}
+                          style={{ ...inputStyle, width: 80, padding: '5px 8px', textAlign: 'center' }} />
+                        <button onClick={() => setTransferItems(transferItems.filter((_, i) => i !== idx))}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
+                          <FontAwesomeIcon icon={faTimes} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{ marginBottom: 14 }}>
+                  <label style={labelStyle}>Notas (opcional)</label>
+                  <input value={transferNotes} onChange={e => setTransferNotes(e.target.value)} placeholder="ej: Pedido urgente para evento..." style={inputStyle} />
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => setTransferModal(false)} style={{ ...btnGhost, flex: 1, justifyContent: 'center' }}>Cancelar</button>
+                  <button onClick={submitTransfer} disabled={!transferTo || transferItems.length === 0 || transferSaving}
+                    style={{ ...btnGold, flex: 1, justifyContent: 'center', opacity: (!transferTo || transferItems.length === 0) ? 0.5 : 1 }}>
+                    <FontAwesomeIcon icon={faPaperPlane} /> {transferSaving ? 'Enviando...' : 'Enviar Transferencia'}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       )}

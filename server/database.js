@@ -1967,11 +1967,84 @@ export async function createStore(userId, data) {
     { name: 'Pollo a la Plancha', description: 'Pechuga de pollo jugosa con guarnición', price: 11.50 },
   ];
 
+  // ── Default ingredients (shared, active) ──
+  const sampleIngredients = [
+    { name: 'Lechuga', price: 0 },
+    { name: 'Tomate', price: 0 },
+    { name: 'Queso', price: 0.50 },
+    { name: 'Cebolla', price: 0 },
+    { name: 'Salsa Especial', price: 0 },
+  ];
+  const ingredientIds = [];
+  for (const ing of sampleIngredients) {
+    const [r] = await pool.execute(
+      'INSERT INTO ingredients (store_id, user_id, name, price, stock, unlimited_stock, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [storeId, userId, ing.name, ing.price, 0, true, true]
+    );
+    ingredientIds.push(r.insertId);
+  }
+
+  // ── Default extras (shared, active) ──
+  const sampleExtras = [
+    { name: 'Extra Queso', price: 1.00 },
+    { name: 'Bacon', price: 1.50 },
+    { name: 'Aguacate', price: 1.25 },
+    { name: 'Huevo Frito', price: 0.75 },
+  ];
+  const extraIds = [];
+  for (const ext of sampleExtras) {
+    const [r] = await pool.execute(
+      'INSERT INTO extras (store_id, user_id, name, price, stock, unlimited_stock, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [storeId, userId, ext.name, ext.price, 0, true, true]
+    );
+    extraIds.push(r.insertId);
+  }
+
+  // ── Default complement group with options ──
+  const [grpResult] = await pool.execute(
+    'INSERT INTO complement_groups (store_id, name, min_select, max_select, required, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [storeId, 'Tamaño', 0, 1, 0, 0, 1]
+  );
+  const grpId = grpResult.insertId;
+  const complementOptions = [
+    { name: 'Pequeño', price: 0 },
+    { name: 'Mediano', price: 1.00 },
+    { name: 'Grande', price: 2.00 },
+  ];
+  for (let i = 0; i < complementOptions.length; i++) {
+    const opt = complementOptions[i];
+    await pool.execute(
+      'INSERT INTO complement_options (group_id, store_id, name, price, stock, unlimited_stock, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [grpId, storeId, opt.name, opt.price, 0, 1, i, 1]
+    );
+  }
+
+  // ── Default products with ingredients, extras & complements ──
   const shuffled = sampleProducts.sort(() => Math.random() - 0.5);
   for (const product of shuffled.slice(0, 3)) {
-    await pool.execute(
+    const [pResult] = await pool.execute(
       'INSERT INTO products (store_id, user_id, category_id, name, description, price, image, has_extras, has_ingredients, max_extras, max_ingredients) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [storeId, userId, null, product.name, product.description, product.price, null, 0, 0, 0, 0]
+      [storeId, userId, null, product.name, product.description, product.price, null, 1, 1, 0, 0]
+    );
+    const productId = pResult.insertId;
+
+    for (const ingId of ingredientIds) {
+      await pool.execute(
+        'INSERT INTO product_ingredients (product_id, ingredient_id, included_by_default) VALUES (?, ?, ?)',
+        [productId, ingId, 1]
+      );
+    }
+
+    for (const extId of extraIds) {
+      await pool.execute(
+        'INSERT INTO product_extras (product_id, extra_id) VALUES (?, ?)',
+        [productId, extId]
+      );
+    }
+
+    await pool.execute(
+      'INSERT INTO product_complement_groups (product_id, group_id, sort_order) VALUES (?, ?, ?)',
+      [productId, grpId, 0]
     );
   }
 
@@ -6989,6 +7062,54 @@ async function ensureInventoryTables() {
       INDEX idx_sa_store_status (store_id, status)
     )
   `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS inventory_sections (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      store_id INT NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      color VARCHAR(7) DEFAULT '#D4AF37',
+      sort_order INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_is_store (store_id)
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS inventory_section_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      section_id INT NOT NULL,
+      item_type ENUM('product','ingredient','extra','raw_material') NOT NULL,
+      item_id INT NOT NULL,
+      UNIQUE KEY uq_section_item (section_id, item_type, item_id),
+      INDEX idx_isi_section (section_id)
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS inventory_transfers (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      from_store_id INT NOT NULL,
+      to_store_id INT NOT NULL,
+      user_id INT NOT NULL,
+      status ENUM('pending','accepted','rejected','cancelled') DEFAULT 'pending',
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      resolved_at TIMESTAMP NULL,
+      INDEX idx_it_stores (from_store_id, to_store_id)
+    )
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS inventory_transfer_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      transfer_id INT NOT NULL,
+      item_type ENUM('product','ingredient','extra','raw_material') NOT NULL,
+      item_id INT NOT NULL,
+      item_name VARCHAR(255) NOT NULL,
+      quantity DECIMAL(10,3) NOT NULL,
+      INDEX idx_iti_transfer (transfer_id)
+    )
+  `);
+  try {
+    await pool.execute(`ALTER TABLE inventory_movements MODIFY COLUMN reason ENUM('order','manual','restock','recipe','adjustment','purchase','entry','exit','transfer') NOT NULL DEFAULT 'manual'`);
+  } catch (e) { /* already altered */ }
   _inventoryTablesReady = true;
 }
 
@@ -7160,6 +7281,216 @@ export async function getConsumptionReport(storeId, from, to) {
     params
   );
   return rows;
+}
+
+// ── Inventory Sections ──────────────────────────────────────────────────────
+
+export async function getInventorySections(storeId) {
+  await ensureInventoryTables();
+  const [sections] = await pool.execute(
+    'SELECT * FROM inventory_sections WHERE store_id = ? ORDER BY sort_order ASC, id ASC', [storeId]
+  );
+  if (sections.length === 0) return [];
+  const sectionIds = sections.map(s => s.id);
+  const ph = sectionIds.map(() => '?').join(',');
+  const [items] = await pool.execute(
+    `SELECT isi.*,
+       CASE isi.item_type
+         WHEN 'product' THEN (SELECT name FROM products WHERE id = isi.item_id)
+         WHEN 'ingredient' THEN (SELECT name FROM ingredients WHERE id = isi.item_id)
+         WHEN 'extra' THEN (SELECT name FROM extras WHERE id = isi.item_id)
+         WHEN 'raw_material' THEN (SELECT name FROM raw_materials WHERE id = isi.item_id)
+       END as item_name,
+       CASE isi.item_type
+         WHEN 'product' THEN (SELECT COALESCE(i.stock,0) FROM inventory i WHERE i.product_id = isi.item_id)
+         WHEN 'ingredient' THEN (SELECT stock FROM ingredients WHERE id = isi.item_id)
+         WHEN 'extra' THEN (SELECT stock FROM extras WHERE id = isi.item_id)
+         WHEN 'raw_material' THEN (SELECT quantity FROM raw_materials WHERE id = isi.item_id)
+       END as current_stock
+     FROM inventory_section_items isi WHERE isi.section_id IN (${ph})`,
+    sectionIds
+  );
+  return sections.map(s => ({
+    ...s,
+    items: items.filter(i => i.section_id === s.id).filter(i => i.item_name != null)
+  }));
+}
+
+export async function createInventorySection(storeId, name, color) {
+  await ensureInventoryTables();
+  const [maxOrder] = await pool.execute('SELECT COALESCE(MAX(sort_order),0)+1 as next FROM inventory_sections WHERE store_id = ?', [storeId]);
+  const [result] = await pool.execute(
+    'INSERT INTO inventory_sections (store_id, name, color, sort_order) VALUES (?, ?, ?, ?)',
+    [storeId, name, color || '#D4AF37', maxOrder[0].next]
+  );
+  return result.insertId;
+}
+
+export async function updateInventorySection(id, storeId, name, color) {
+  await ensureInventoryTables();
+  await pool.execute('UPDATE inventory_sections SET name = ?, color = ? WHERE id = ? AND store_id = ?', [name, color, id, storeId]);
+}
+
+export async function deleteInventorySection(id, storeId) {
+  await ensureInventoryTables();
+  await pool.execute('DELETE FROM inventory_section_items WHERE section_id = ?', [id]);
+  await pool.execute('DELETE FROM inventory_sections WHERE id = ? AND store_id = ?', [id, storeId]);
+}
+
+export async function reorderInventorySections(storeId, ids) {
+  await ensureInventoryTables();
+  for (let i = 0; i < ids.length; i++) {
+    await pool.execute('UPDATE inventory_sections SET sort_order = ? WHERE id = ? AND store_id = ?', [i, ids[i], storeId]);
+  }
+}
+
+export async function addItemToSection(sectionId, itemType, itemId) {
+  await ensureInventoryTables();
+  await pool.execute(
+    'INSERT IGNORE INTO inventory_section_items (section_id, item_type, item_id) VALUES (?, ?, ?)',
+    [sectionId, itemType, itemId]
+  );
+}
+
+export async function removeItemFromSection(sectionId, itemType, itemId) {
+  await ensureInventoryTables();
+  await pool.execute(
+    'DELETE FROM inventory_section_items WHERE section_id = ? AND item_type = ? AND item_id = ?',
+    [sectionId, itemType, itemId]
+  );
+}
+
+// ── Inventory Transfers ─────────────────────────────────────────────────────
+
+export async function createInventoryTransfer(fromStoreId, toStoreId, userId, items, notes) {
+  await ensureInventoryTables();
+  const [result] = await pool.execute(
+    'INSERT INTO inventory_transfers (from_store_id, to_store_id, user_id, notes) VALUES (?, ?, ?, ?)',
+    [fromStoreId, toStoreId, userId, notes || null]
+  );
+  const transferId = result.insertId;
+  for (const item of items) {
+    await pool.execute(
+      'INSERT INTO inventory_transfer_items (transfer_id, item_type, item_id, item_name, quantity) VALUES (?, ?, ?, ?, ?)',
+      [transferId, item.item_type, item.item_id, item.item_name, item.quantity]
+    );
+  }
+  return transferId;
+}
+
+export async function getInventoryTransfers(storeId) {
+  await ensureInventoryTables();
+  const [transfers] = await pool.execute(
+    `SELECT t.*,
+       fs.name as from_store_name, ts.name as to_store_name
+     FROM inventory_transfers t
+     JOIN stores fs ON t.from_store_id = fs.id
+     JOIN stores ts ON t.to_store_id = ts.id
+     WHERE t.from_store_id = ? OR t.to_store_id = ?
+     ORDER BY t.created_at DESC LIMIT 50`,
+    [storeId, storeId]
+  );
+  if (transfers.length === 0) return [];
+  const tIds = transfers.map(t => t.id);
+  const ph = tIds.map(() => '?').join(',');
+  const [items] = await pool.execute(
+    `SELECT * FROM inventory_transfer_items WHERE transfer_id IN (${ph})`, tIds
+  );
+  return transfers.map(t => ({ ...t, items: items.filter(i => i.transfer_id === t.id) }));
+}
+
+export async function acceptInventoryTransfer(transferId, storeId) {
+  await ensureInventoryTables();
+  const [rows] = await pool.execute('SELECT * FROM inventory_transfers WHERE id = ? AND to_store_id = ? AND status = ?', [transferId, storeId, 'pending']);
+  if (rows.length === 0) throw new Error('Transferencia no encontrada o ya procesada');
+  const transfer = rows[0];
+  const [items] = await pool.execute('SELECT * FROM inventory_transfer_items WHERE transfer_id = ?', [transferId]);
+
+  for (const item of items) {
+    if (item.item_type === 'raw_material') {
+      const [src] = await pool.execute('SELECT quantity FROM raw_materials WHERE id = ? AND store_id = ?', [item.item_id, transfer.from_store_id]);
+      if (src.length) {
+        const prevQty = parseFloat(src[0].quantity);
+        const newQty = Math.max(0, prevQty - item.quantity);
+        await pool.execute('UPDATE raw_materials SET quantity = ? WHERE id = ? AND store_id = ?', [newQty, item.item_id, transfer.from_store_id]);
+        await logInventoryMovement({ storeId: transfer.from_store_id, itemType: 'raw_material', itemId: item.item_id, itemName: item.item_name, previousQty: prevQty, newQty, reason: 'transfer', referenceId: transferId });
+      }
+      const [dst] = await pool.execute('SELECT id, quantity FROM raw_materials WHERE name = ? AND store_id = ?', [item.item_name, storeId]);
+      if (dst.length) {
+        const prevQty = parseFloat(dst[0].quantity);
+        const newQty = prevQty + parseFloat(item.quantity);
+        await pool.execute('UPDATE raw_materials SET quantity = ? WHERE id = ?', [newQty, dst[0].id]);
+        await logInventoryMovement({ storeId, itemType: 'raw_material', itemId: dst[0].id, itemName: item.item_name, previousQty: prevQty, newQty, reason: 'transfer', referenceId: transferId });
+      }
+    } else if (item.item_type === 'product') {
+      const [srcInv] = await pool.execute('SELECT stock FROM inventory WHERE product_id = ?', [item.item_id]);
+      if (srcInv.length) {
+        const prevQty = parseFloat(srcInv[0].stock);
+        const newQty = Math.max(0, prevQty - item.quantity);
+        await pool.execute('UPDATE inventory SET stock = ? WHERE product_id = ?', [newQty, item.item_id]);
+        await logInventoryMovement({ storeId: transfer.from_store_id, itemType: 'product', itemId: item.item_id, itemName: item.item_name, previousQty: prevQty, newQty, reason: 'transfer', referenceId: transferId });
+      }
+      const [dstProd] = await pool.execute('SELECT p.id, COALESCE(i.stock,0) as stock FROM products p LEFT JOIN inventory i ON p.id = i.product_id WHERE p.name = ? AND p.store_id = ?', [item.item_name, storeId]);
+      if (dstProd.length) {
+        const prevQty = parseFloat(dstProd[0].stock);
+        const newQty = prevQty + parseFloat(item.quantity);
+        await pool.execute('INSERT INTO inventory (product_id, stock) VALUES (?, ?) ON DUPLICATE KEY UPDATE stock = ?', [dstProd[0].id, newQty, newQty]);
+        await logInventoryMovement({ storeId, itemType: 'product', itemId: dstProd[0].id, itemName: item.item_name, previousQty: prevQty, newQty, reason: 'transfer', referenceId: transferId });
+      }
+    } else if (item.item_type === 'ingredient') {
+      const [src] = await pool.execute('SELECT stock FROM ingredients WHERE id = ? AND store_id = ?', [item.item_id, transfer.from_store_id]);
+      if (src.length) {
+        const prevQty = parseInt(src[0].stock) || 0;
+        const newQty = Math.max(0, prevQty - parseInt(item.quantity));
+        await pool.execute('UPDATE ingredients SET stock = ? WHERE id = ?', [newQty, item.item_id]);
+        await logInventoryMovement({ storeId: transfer.from_store_id, itemType: 'ingredient', itemId: item.item_id, itemName: item.item_name, previousQty: prevQty, newQty, reason: 'transfer', referenceId: transferId });
+      }
+      const [dst] = await pool.execute('SELECT id, stock FROM ingredients WHERE name = ? AND store_id = ?', [item.item_name, storeId]);
+      if (dst.length) {
+        const prevQty = parseInt(dst[0].stock) || 0;
+        const newQty = prevQty + parseInt(item.quantity);
+        await pool.execute('UPDATE ingredients SET stock = ? WHERE id = ?', [newQty, dst[0].id]);
+        await logInventoryMovement({ storeId, itemType: 'ingredient', itemId: dst[0].id, itemName: item.item_name, previousQty: prevQty, newQty, reason: 'transfer', referenceId: transferId });
+      }
+    } else if (item.item_type === 'extra') {
+      const [src] = await pool.execute('SELECT stock FROM extras WHERE id = ? AND store_id = ?', [item.item_id, transfer.from_store_id]);
+      if (src.length) {
+        const prevQty = parseInt(src[0].stock) || 0;
+        const newQty = Math.max(0, prevQty - parseInt(item.quantity));
+        await pool.execute('UPDATE extras SET stock = ? WHERE id = ?', [newQty, item.item_id]);
+        await logInventoryMovement({ storeId: transfer.from_store_id, itemType: 'extra', itemId: item.item_id, itemName: item.item_name, previousQty: prevQty, newQty, reason: 'transfer', referenceId: transferId });
+      }
+      const [dst] = await pool.execute('SELECT id, stock FROM extras WHERE name = ? AND store_id = ?', [item.item_name, storeId]);
+      if (dst.length) {
+        const prevQty = parseInt(dst[0].stock) || 0;
+        const newQty = prevQty + parseInt(item.quantity);
+        await pool.execute('UPDATE extras SET stock = ? WHERE id = ?', [newQty, dst[0].id]);
+        await logInventoryMovement({ storeId, itemType: 'extra', itemId: dst[0].id, itemName: item.item_name, previousQty: prevQty, newQty, reason: 'transfer', referenceId: transferId });
+      }
+    }
+  }
+  await pool.execute('UPDATE inventory_transfers SET status = ?, resolved_at = NOW() WHERE id = ?', ['accepted', transferId]);
+}
+
+export async function rejectInventoryTransfer(transferId, storeId) {
+  await ensureInventoryTables();
+  await pool.execute('UPDATE inventory_transfers SET status = ?, resolved_at = NOW() WHERE id = ? AND to_store_id = ? AND status = ?', ['rejected', transferId, storeId, 'pending']);
+}
+
+export async function cancelInventoryTransfer(transferId, userId) {
+  await ensureInventoryTables();
+  await pool.execute('UPDATE inventory_transfers SET status = ?, resolved_at = NOW() WHERE id = ? AND user_id = ? AND status = ?', ['cancelled', transferId, userId, 'pending']);
+}
+
+export async function getInventoryAlertReport(storeId) {
+  await checkAndCreateStockAlerts(storeId);
+  const [alerts] = await pool.execute(
+    'SELECT * FROM stock_alerts WHERE store_id = ? AND status = ? ORDER BY alert_type ASC, item_name ASC',
+    [storeId, 'active']
+  );
+  const outOfStock = alerts.filter(a => a.alert_type === 'out_of_stock');
+  const lowStock = alerts.filter(a => a.alert_type === 'low_stock');
+  return { outOfStock, lowStock, total: alerts.length };
 }
 
 export { pool };
