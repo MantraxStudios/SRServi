@@ -98,6 +98,8 @@ function SuperadminDashboard() {
   const [showApkModal, setShowApkModal] = useState(false);
   const [apkForm, setApkForm] = useState({ name: '', description: '', version: '' });
   const [apkFile, setApkFile] = useState(null);
+  const [sendingStats, setSendingStats] = useState(false);
+  const [statsResult, setStatsResult] = useState(null);
   const [apkLogo, setApkLogo] = useState(null);
   const [apkUploading, setApkUploading] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
@@ -837,6 +839,14 @@ function SuperadminDashboard() {
               }} />
             )}
           </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'product-stats' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('product-stats'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faChartBar} />
+            {sidebarOpen && <span>Estadísticas</span>}
+          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -900,10 +910,10 @@ function SuperadminDashboard() {
             </button>
             <div>
               <h1 className="admin-header-title">
-                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : activeTab === 'orders' ? 'Pedidos' : activeTab === 'revenue' ? 'Ingresos por Tienda' : activeTab === 'apps' ? 'Aplicaciones por Cuenta' : activeTab === 'screens' ? 'Pantallas Activas' : 'Suscripciones'}
+                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : activeTab === 'orders' ? 'Pedidos' : activeTab === 'revenue' ? 'Ingresos por Tienda' : activeTab === 'apps' ? 'Aplicaciones por Cuenta' : activeTab === 'screens' ? 'Pantallas Activas' : activeTab === 'product-stats' ? 'Estadísticas de Productos' : 'Suscripciones'}
               </h1>
               <p className="admin-header-subtitle text-muted text-sm">
-                {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : activeTab === 'workshop' ? 'Revisa y aprueba plugins del workshop' : 'Ver todas las suscripciones'}
+                {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : activeTab === 'workshop' ? 'Revisa y aprueba plugins del workshop' : activeTab === 'product-stats' ? 'Envía reportes de productos más y menos vendidos' : 'Ver todas las suscripciones'}
               </p>
             </div>
           </div>
@@ -2336,7 +2346,89 @@ function SuperadminDashboard() {
                   )}
                 </div>
               );
-            })() : null}
+            })() : activeTab === 'product-stats' ? (
+              <div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 28, marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FontAwesomeIcon icon={faChartBar} style={{ color: '#D4AF37', fontSize: 20 }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>Reporte de Productos</div>
+                      <div style={{ fontSize: 12, color: '#888' }}>Envía a cada dueño de tienda un reporte con sus productos más y menos vendidos del día anterior</div>
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 12, color: '#D4AF37' }}>
+                    <strong>Nota:</strong> Este reporte también se envía automáticamente todos los días a las 8:00 AM a cada tienda con ventas del día anterior.
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      if (sendingStats) return;
+                      setSendingStats(true);
+                      setStatsResult(null);
+                      try {
+                        const res = await fetch(`${API}/api/superadmin/send-product-stats`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('superadminToken')}`, 'Content-Type': 'application/json' },
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                          setStatsResult({ success: true, ...data });
+                        } else {
+                          setStatsResult({ success: false, error: data.error || 'Error desconocido' });
+                        }
+                      } catch (err) {
+                        setStatsResult({ success: false, error: err.message });
+                      } finally {
+                        setSendingStats(false);
+                      }
+                    }}
+                    disabled={sendingStats}
+                    style={{
+                      background: sendingStats ? '#555' : 'linear-gradient(135deg, #D4AF37, #B8952D)',
+                      color: '#000', border: 'none', borderRadius: 10, padding: '12px 28px',
+                      fontSize: 14, fontWeight: 700, cursor: sendingStats ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}
+                  >
+                    {sendingStats ? (
+                      <>
+                        <FontAwesomeIcon icon={faClock} spin />
+                        Enviando reportes...
+                      </>
+                    ) : (
+                      <>
+                        <FontAwesomeIcon icon={faEnvelope} />
+                        Enviar estadísticas a todos
+                      </>
+                    )}
+                  </button>
+
+                  {statsResult && (
+                    <div style={{
+                      marginTop: 16, padding: '14px 18px', borderRadius: 10,
+                      background: statsResult.success ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                      border: `1px solid ${statsResult.success ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                      color: statsResult.success ? '#22c55e' : '#ef4444',
+                      fontSize: 13, fontWeight: 600,
+                    }}>
+                      {statsResult.success ? (
+                        <div>
+                          <div style={{ marginBottom: 4 }}>Reportes enviados exitosamente</div>
+                          <div style={{ fontSize: 12, fontWeight: 400, opacity: 0.8 }}>
+                            {statsResult.sent} email{statsResult.sent !== 1 ? 's' : ''} enviado{statsResult.sent !== 1 ? 's' : ''} · {statsResult.skipped} tienda{statsResult.skipped !== 1 ? 's' : ''} sin ventas (omitidas) · {statsResult.total} tiendas totales
+                          </div>
+                        </div>
+                      ) : (
+                        <div>Error: {statsResult.error}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

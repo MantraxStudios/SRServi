@@ -160,6 +160,9 @@ import {
   getAnalytics,
   getSalesByDay,
   getTopProducts,
+  getBottomProducts,
+  getProductSalesReport,
+  getAllStoresWithOwnerEmail,
   getOrdersByHour,
   getRecentOrders,
   getWorkerPaymentMethods,
@@ -2990,6 +2993,27 @@ app.get('/api/analytics/top-products', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/analytics/bottom-products', authenticateToken, async (req, res) => {
+  try {
+    const storeId = req.query.store_id;
+    const dateRange = req.query.range || 'week';
+    const limit = parseInt(req.query.limit) || 10;
+    const sortBy = req.query.sort_by || 'quantity';
+    const categoryId = req.query.category_id ? parseInt(req.query.category_id) : null;
+    if (!storeId) {
+      return res.status(400).json({ error: 'Store ID es requerido' });
+    }
+    const isOwner = await verifyStoreOwnership(parseInt(storeId), req.user.id);
+    if (!isOwner) {
+      return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
+    }
+    const products = await getBottomProducts(parseInt(storeId), limit, dateRange, { sortBy, categoryId });
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/analytics/orders-by-hour', authenticateToken, async (req, res) => {
   try {
     const storeId = req.query.store_id;
@@ -4348,6 +4372,159 @@ app.post('/api/superadmin/notify-existing-premiums', authenticateSuperadminToken
     res.json({ success: true, sent: emails.length, total_premiums: premiumRows.length });
   } catch (error) {
     console.error('Error notificando premiums existentes:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode) {
+  const fmt = (v) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: currencyCode || 'USD' }).format(Number(v) || 0);
+  const dateStr = new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const productRow = (p, i, color) => `
+    <tr style="background:${i % 2 === 0 ? '#ffffff' : '#fafafa'}">
+      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:700;color:${color}">#${i + 1}</td>
+      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#222;font-weight:600">${p.name}</td>
+      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:12px;color:#888">${p.category_name || '—'}</td>
+      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:700;text-align:center">${p.total_sold}</td>
+      <td style="padding:10px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600;text-align:right;color:#16a34a">${fmt(p.revenue)}</td>
+    </tr>`;
+
+  const tableHeader = `
+    <thead><tr style="background:#f5f5f5">
+      <th style="padding:8px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">#</th>
+      <th style="padding:8px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Producto</th>
+      <th style="padding:8px 16px;text-align:left;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Categoría</th>
+      <th style="padding:8px 16px;text-align:center;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Vendidos</th>
+      <th style="padding:8px 16px;text-align:right;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Ingresos</th>
+    </tr></thead>`;
+
+  const topSection = top.length > 0 ? `
+    <tr><td style="padding:24px 32px 8px">
+      <h2 style="margin:0;font-size:18px;font-weight:800;color:#111">🏆 Más Vendidos</h2>
+      <p style="margin:4px 0 0;font-size:12px;color:#888">Los productos con mayor demanda ayer</p>
+    </td></tr>
+    <tr><td style="padding:0 32px 16px">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:10px;overflow:hidden;border:1px solid #f0f0f0">
+        ${tableHeader}
+        <tbody>${top.map((p, i) => productRow(p, i, '#D4AF37')).join('')}</tbody>
+      </table>
+    </td></tr>` : '';
+
+  const bottomSection = bottom.length > 0 ? `
+    <tr><td style="padding:24px 32px 8px">
+      <h2 style="margin:0;font-size:18px;font-weight:800;color:#111">📉 Menos Vendidos</h2>
+      <p style="margin:4px 0 0;font-size:12px;color:#888">Productos con menor demanda ayer</p>
+    </td></tr>
+    <tr><td style="padding:0 32px 16px">
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:10px;overflow:hidden;border:1px solid #f0f0f0">
+        ${tableHeader}
+        <tbody>${bottom.map((p, i) => productRow(p, i, '#ef4444')).join('')}</tbody>
+      </table>
+    </td></tr>` : '';
+
+  const unsoldSection = unsold.length > 0 ? `
+    <tr><td style="padding:24px 32px 8px">
+      <h2 style="margin:0;font-size:18px;font-weight:800;color:#111">⚠️ Sin Ventas Ayer</h2>
+      <p style="margin:4px 0 0;font-size:12px;color:#888">Productos que no tuvieron ninguna venta</p>
+    </td></tr>
+    <tr><td style="padding:0 32px 24px">
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${unsold.map(p => `<span style="display:inline-block;background:#fef2f2;color:#991b1b;font-size:12px;padding:4px 10px;border-radius:20px;font-weight:600">${p.name}</span>`).join(' ')}
+      </div>
+    </td></tr>` : '';
+
+  const totalVendidos = top.reduce((s, p) => s + Number(p.total_sold || 0), 0) + bottom.reduce((s, p) => s + Number(p.total_sold || 0), 0);
+  const totalIngresos = top.reduce((s, p) => s + Number(p.revenue || 0), 0) + bottom.reduce((s, p) => s + Number(p.revenue || 0), 0);
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 16px">
+    <tr><td align="center">
+      <table width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
+        <tr>
+          <td style="background:#111;padding:28px 32px">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td><span style="color:#D4AF37;font-size:24px;font-weight:800">SR</span><span style="color:#fff;font-size:24px;font-weight:800">Servi</span></td>
+                <td align="right"><span style="background:#D4AF37;color:#000;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px">REPORTE DIARIO</span></td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px 0">
+            <h1 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111">Estadísticas de Productos — ${storeName}</h1>
+            <p style="margin:0;font-size:14px;color:#888">${dateStr}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 32px">
+            <table cellpadding="0" cellspacing="0" style="background:#f8f8f8;border-radius:12px;padding:16px 20px;width:100%">
+              <tr>
+                <td style="text-align:center;padding:0 16px">
+                  <div style="font-size:28px;font-weight:800;color:#D4AF37">${top.length + bottom.length}</div>
+                  <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase">Productos vendidos</div>
+                </td>
+                <td style="width:1px;background:#e5e5e5"></td>
+                <td style="text-align:center;padding:0 16px">
+                  <div style="font-size:28px;font-weight:800;color:#111">${totalVendidos}</div>
+                  <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase">Unidades</div>
+                </td>
+                <td style="width:1px;background:#e5e5e5"></td>
+                <td style="text-align:center;padding:0 16px">
+                  <div style="font-size:28px;font-weight:800;color:#16a34a">${fmt(totalIngresos)}</div>
+                  <div style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase">Ingresos</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        ${topSection}
+        ${bottomSection}
+        ${unsoldSection}
+        <tr>
+          <td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:12px;color:#bbb">SRServi · Reporte automático de productos · ${new Date().toLocaleString('es-AR')}</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+app.post('/api/superadmin/send-product-stats', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const allStores = await getAllStoresWithOwnerEmail();
+    let sent = 0;
+    let skipped = 0;
+
+    for (const store of allStores) {
+      try {
+        const report = await getProductSalesReport(store.id);
+        if (report.top.length === 0 && report.bottom.length === 0) {
+          skipped++;
+          continue;
+        }
+        const html = buildProductStatsHtml(store.name, report.top, report.bottom, report.unsold, store.currency_code);
+        await mailer.sendMail({
+          from: `"SRServi" <${process.env.EMAIL_USER}>`,
+          to: store.owner_email,
+          subject: `📊 Estadísticas de productos — ${store.name}`,
+          html
+        });
+        sent++;
+      } catch (e) {
+        console.error(`[ProductStats] Error tienda ${store.name}:`, e.message);
+      }
+    }
+
+    res.json({ success: true, sent, skipped, total: allStores.length });
+  } catch (error) {
+    console.error('Error enviando estadísticas de productos:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -11114,6 +11291,32 @@ async function startServer() {
           }
         }
       } catch (e) { console.error('[Caja] Cron error:', e.message); }
+    });
+
+    // Cron diario 8 AM — enviar estadísticas de productos del día anterior
+    cron.schedule('0 8 * * *', async () => {
+      console.log('[ProductStats] Enviando reportes diarios de productos...');
+      try {
+        const allStores = await getAllStoresWithOwnerEmail();
+        let sent = 0;
+        for (const store of allStores) {
+          try {
+            const report = await getProductSalesReport(store.id);
+            if (report.top.length === 0) continue;
+            const html = buildProductStatsHtml(store.name, report.top, report.bottom, report.unsold, store.currency_code);
+            await mailer.sendMail({
+              from: `"SRServi" <${process.env.EMAIL_USER}>`,
+              to: store.owner_email,
+              subject: `📊 Estadísticas de productos — ${store.name} — ${new Date().toLocaleDateString('es-AR')}`,
+              html
+            });
+            sent++;
+          } catch (e) {
+            console.error(`[ProductStats] Error tienda ${store.name}:`, e.message);
+          }
+        }
+        console.log(`[ProductStats] ✅ ${sent} reportes enviados de ${allStores.length} tiendas`);
+      } catch (e) { console.error('[ProductStats] Cron error:', e.message); }
     });
 
     // ─── CCTV Cartelería Digital ──────────────────────────────────────────────

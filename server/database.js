@@ -4909,6 +4909,104 @@ export async function getTopProducts(storeId, limit = 10, dateRange = 'week', { 
   return rows;
 }
 
+export async function getBottomProducts(storeId, limit = 10, dateRange = 'week', { sortBy = 'quantity', categoryId = null } = {}) {
+  let interval = '7 DAY';
+  switch (dateRange) {
+    case 'today': interval = '1 DAY'; break;
+    case 'week': interval = '7 DAY'; break;
+    case 'month': interval = '30 DAY'; break;
+    case 'year': interval = '365 DAY'; break;
+  }
+
+  const params = [storeId];
+  let categoryFilter = '';
+  if (categoryId) {
+    categoryFilter = 'AND p.category_id = ?';
+    params.push(categoryId);
+  }
+
+  const orderColumn = sortBy === 'revenue' ? 'revenue' : 'total_sold';
+
+  const query = `
+    SELECT
+      p.id,
+      p.name,
+      p.image,
+      p.category_id,
+      c.name as category_name,
+      SUM(oi.quantity) as total_sold,
+      SUM(oi.quantity * oi.unit_price) as revenue
+    FROM order_items oi
+    JOIN orders o ON oi.order_id = o.id
+    JOIN products p ON oi.product_id = p.id
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE o.store_id = ?
+      AND o.status IN ('paid', 'processed', 'completed', 'approved')
+      AND o.created_at >= DATE_SUB(NOW(), INTERVAL ${interval})
+      ${categoryFilter}
+    GROUP BY p.id, p.name, p.image, p.category_id, c.name
+    HAVING total_sold > 0
+    ORDER BY ${orderColumn} ASC
+    LIMIT ${parseInt(limit)}
+  `;
+
+  const [rows] = await pool.execute(query, params);
+  return rows;
+}
+
+export async function getProductSalesReport(storeId) {
+  const query = `
+    SELECT
+      p.id,
+      p.name,
+      c.name as category_name,
+      SUM(oi.quantity) as total_sold,
+      SUM(oi.quantity * oi.unit_price) as revenue
+    FROM order_items oi
+    JOIN orders o ON oi.order_id = o.id
+    JOIN products p ON oi.product_id = p.id
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE o.store_id = ?
+      AND o.status IN ('paid', 'processed', 'completed', 'approved')
+      AND DATE(o.created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+    GROUP BY p.id, p.name, c.name
+    ORDER BY total_sold DESC
+  `;
+  const [rows] = await pool.execute(query, [storeId]);
+
+  const unsoldQuery = `
+    SELECT p.id, p.name, c.name as category_name
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE p.store_id = ?
+      AND p.id NOT IN (
+        SELECT DISTINCT oi.product_id FROM order_items oi
+        JOIN orders o ON oi.order_id = o.id
+        WHERE o.store_id = ? AND o.status IN ('paid', 'processed', 'completed', 'approved')
+          AND DATE(o.created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+      )
+    ORDER BY p.name ASC
+    LIMIT 20
+  `;
+  const [unsold] = await pool.execute(unsoldQuery, [storeId, storeId]);
+
+  const top = rows.slice(0, 10);
+  const bottom = rows.length > 1 ? rows.slice(-10).reverse() : [];
+
+  return { top, bottom, unsold };
+}
+
+export async function getAllStoresWithOwnerEmail() {
+  const [rows] = await pool.execute(`
+    SELECT s.id, s.name, s.code, s.currency_code, u.email as owner_email
+    FROM stores s
+    JOIN users u ON s.user_id = u.id
+    WHERE u.is_banned = FALSE
+    ORDER BY s.name ASC
+  `);
+  return rows;
+}
+
 export async function getOrdersByHour(storeId, dateRange = 'week') {
   let interval = '7 DAY';
   switch (dateRange) {

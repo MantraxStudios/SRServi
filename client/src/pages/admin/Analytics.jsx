@@ -16,7 +16,9 @@ import {
   faBoxOpen,
   faTrophy,
   faFilter,
-  faSortAmountDown
+  faSortAmountDown,
+  faSearch,
+  faArrowDown
 } from '@fortawesome/free-solid-svg-icons';
 
 function Analytics() {
@@ -33,6 +35,8 @@ function Analytics() {
   const [topSortBy, setTopSortBy] = useState('quantity');
   const [topCategoryId, setTopCategoryId] = useState('');
   const [topLimit, setTopLimit] = useState(10);
+  const [productSearch, setProductSearch] = useState('');
+  const [bottomProducts, setBottomProducts] = useState([]);
 
   useEffect(() => {
     if (selectedStore?.id) {
@@ -44,6 +48,7 @@ function Analytics() {
   useEffect(() => {
     if (selectedStore?.id) {
       fetchTopProducts();
+      fetchBottomProducts();
     }
   }, [selectedStore, dateRange, topSortBy, topCategoryId, topLimit]);
 
@@ -71,6 +76,20 @@ function Analytics() {
       setTopProducts(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Error fetching top products:', err);
+    }
+  };
+
+  const fetchBottomProducts = async () => {
+    try {
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const storeId = selectedStore.id;
+      let url = `/api/analytics/bottom-products?store_id=${storeId}&range=${dateRange}&limit=${topLimit}&sort_by=${topSortBy}`;
+      if (topCategoryId) url += `&category_id=${topCategoryId}`;
+      const res = await fetch(url, { headers });
+      const data = res.ok ? await res.json() : [];
+      setBottomProducts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching bottom products:', err);
     }
   };
 
@@ -330,122 +349,209 @@ function Analytics() {
             </div>
           </div>
 
-          <div className="analytics-section">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-              <h3 className="analytics-section-title" style={{ margin: 0 }}>
-                <FontAwesomeIcon icon={faBoxOpen} style={{ marginRight: '8px' }} />
-                Productos Más Vendidos
-              </h3>
+          {/* ── Filtros compartidos para productos ── */}
+          <div style={{
+            display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16,
+            padding: '10px 12px', background: 'var(--muted)', borderRadius: 10,
+            alignItems: 'center',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 180px', minWidth: 140 }}>
+              <FontAwesomeIcon icon={faSearch} style={{ fontSize: 11, color: 'var(--muted-foreground)' }} />
+              <input
+                type="text"
+                placeholder="Buscar producto..."
+                value={productSearch}
+                onChange={e => setProductSearch(e.target.value)}
+                style={{
+                  background: 'var(--background)', color: 'var(--foreground)',
+                  border: '1px solid var(--border)', borderRadius: 6,
+                  padding: '5px 8px', fontSize: 12, width: '100%', outline: 'none',
+                }}
+              />
             </div>
 
-            <div style={{
-              display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16,
-              padding: '10px 12px', background: 'var(--muted)', borderRadius: 10,
-              alignItems: 'center',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <FontAwesomeIcon icon={faSortAmountDown} style={{ fontSize: 11, color: 'var(--muted-foreground)' }} />
-                <select
-                  value={topSortBy}
-                  onChange={e => setTopSortBy(e.target.value)}
-                  style={{
-                    background: 'var(--background)', color: 'var(--foreground)',
-                    border: '1px solid var(--border)', borderRadius: 6,
-                    padding: '5px 8px', fontSize: 12, cursor: 'pointer',
-                  }}
-                >
-                  <option value="quantity">Más vendidos</option>
-                  <option value="revenue">Mayor ingreso</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <FontAwesomeIcon icon={faFilter} style={{ fontSize: 11, color: 'var(--muted-foreground)' }} />
-                <select
-                  value={topCategoryId}
-                  onChange={e => setTopCategoryId(e.target.value)}
-                  style={{
-                    background: 'var(--background)', color: 'var(--foreground)',
-                    border: '1px solid var(--border)', borderRadius: 6,
-                    padding: '5px 8px', fontSize: 12, cursor: 'pointer',
-                  }}
-                >
-                  <option value="">Todas las categorías</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <FontAwesomeIcon icon={faSortAmountDown} style={{ fontSize: 11, color: 'var(--muted-foreground)' }} />
               <select
-                value={topLimit}
-                onChange={e => setTopLimit(Number(e.target.value))}
+                value={topSortBy}
+                onChange={e => setTopSortBy(e.target.value)}
                 style={{
                   background: 'var(--background)', color: 'var(--foreground)',
                   border: '1px solid var(--border)', borderRadius: 6,
                   padding: '5px 8px', fontSize: 12, cursor: 'pointer',
                 }}
               >
-                <option value={5}>Top 5</option>
-                <option value={10}>Top 10</option>
-                <option value={20}>Top 20</option>
-                <option value={50}>Top 50</option>
+                <option value="quantity">Por cantidad</option>
+                <option value="revenue">Por ingreso</option>
               </select>
             </div>
 
-            {topProducts.length > 0 ? (
-              <div className="analytics-top-products">
-                {topProducts.map((product, index) => {
-                  const maxVal = topSortBy === 'revenue'
-                    ? Math.max(...topProducts.map(p => Number(p.revenue) || 0), 1)
-                    : Math.max(...topProducts.map(p => Number(p.total_sold) || 0), 1);
-                  const currentVal = topSortBy === 'revenue' ? Number(product.revenue) || 0 : Number(product.total_sold) || 0;
-                  const pct = (currentVal / maxVal) * 100;
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <FontAwesomeIcon icon={faFilter} style={{ fontSize: 11, color: 'var(--muted-foreground)' }} />
+              <select
+                value={topCategoryId}
+                onChange={e => setTopCategoryId(e.target.value)}
+                style={{
+                  background: 'var(--background)', color: 'var(--foreground)',
+                  border: '1px solid var(--border)', borderRadius: 6,
+                  padding: '5px 8px', fontSize: 12, cursor: 'pointer',
+                }}
+              >
+                <option value="">Todas las categorías</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
 
-                  return (
-                    <div key={product.id} className="analytics-top-product" style={{ position: 'relative', overflow: 'hidden' }}>
-                      <div style={{
-                        position: 'absolute', left: 0, top: 0, bottom: 0,
-                        width: `${pct}%`, background: 'rgba(212,175,55,0.07)',
-                        borderRadius: 'inherit', transition: 'width 0.4s ease', pointerEvents: 'none',
-                      }} />
-                      <div className="analytics-rank" style={{ position: 'relative' }}>
-                        #{index + 1}
-                      </div>
-                      <div className="flex-1" style={{ position: 'relative' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div className="analytics-product-name">
-                            {product.name}
+            <select
+              value={topLimit}
+              onChange={e => setTopLimit(Number(e.target.value))}
+              style={{
+                background: 'var(--background)', color: 'var(--foreground)',
+                border: '1px solid var(--border)', borderRadius: 6,
+                padding: '5px 8px', fontSize: 12, cursor: 'pointer',
+              }}
+            >
+              <option value={5}>Top 5</option>
+              <option value={10}>Top 10</option>
+              <option value={20}>Top 20</option>
+              <option value={50}>Top 50</option>
+            </select>
+          </div>
+
+          {/* ── Productos Más Vendidos ── */}
+          <div className="analytics-section">
+            <h3 className="analytics-section-title" style={{ marginBottom: 12 }}>
+              <FontAwesomeIcon icon={faTrophy} style={{ marginRight: '8px', color: '#D4AF37' }} />
+              Productos Más Vendidos
+            </h3>
+
+            {(() => {
+              const filtered = topProducts.filter(p =>
+                !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase())
+              );
+              return filtered.length > 0 ? (
+                <div className="analytics-top-products">
+                  {filtered.map((product, index) => {
+                    const maxVal = topSortBy === 'revenue'
+                      ? Math.max(...filtered.map(p => Number(p.revenue) || 0), 1)
+                      : Math.max(...filtered.map(p => Number(p.total_sold) || 0), 1);
+                    const currentVal = topSortBy === 'revenue' ? Number(product.revenue) || 0 : Number(product.total_sold) || 0;
+                    const pct = (currentVal / maxVal) * 100;
+
+                    return (
+                      <div key={product.id} className="analytics-top-product" style={{ position: 'relative', overflow: 'hidden' }}>
+                        <div style={{
+                          position: 'absolute', left: 0, top: 0, bottom: 0,
+                          width: `${pct}%`, background: 'rgba(212,175,55,0.07)',
+                          borderRadius: 'inherit', transition: 'width 0.4s ease', pointerEvents: 'none',
+                        }} />
+                        <div className="analytics-rank" style={{ position: 'relative' }}>
+                          #{index + 1}
+                        </div>
+                        <div className="flex-1" style={{ position: 'relative' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div className="analytics-product-name">
+                              {product.name}
+                            </div>
+                            {product.category_name && (
+                              <span style={{
+                                fontSize: 10, padding: '1px 6px', borderRadius: 4,
+                                background: 'rgba(212,175,55,0.12)', color: '#D4AF37',
+                                fontWeight: 600, whiteSpace: 'nowrap',
+                              }}>
+                                {product.category_name}
+                              </span>
+                            )}
                           </div>
-                          {product.category_name && (
-                            <span style={{
-                              fontSize: 10, padding: '1px 6px', borderRadius: 4,
-                              background: 'rgba(212,175,55,0.12)', color: '#D4AF37',
-                              fontWeight: 600, whiteSpace: 'nowrap',
-                            }}>
-                              {product.category_name}
+                          <div className="analytics-product-stats">
+                            <span style={{ fontWeight: topSortBy === 'quantity' ? 700 : 400 }}>
+                              {product.total_sold} vendidos
                             </span>
-                          )}
-                        </div>
-                        <div className="analytics-product-stats">
-                          <span style={{ fontWeight: topSortBy === 'quantity' ? 700 : 400 }}>
-                            {product.total_sold} vendidos
-                          </span>
-                          <span style={{ fontWeight: topSortBy === 'revenue' ? 700 : 400 }}>
-                            {formatCurrency(product.revenue)}
-                          </span>
+                            <span style={{ fontWeight: topSortBy === 'revenue' ? 700 : 400 }}>
+                              {formatCurrency(product.revenue)}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="empty-state">
-                <FontAwesomeIcon icon={faBoxOpen} className="empty-state-icon" />
-                <p className="empty-state-text">No hay datos de productos</p>
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <FontAwesomeIcon icon={faBoxOpen} className="empty-state-icon" />
+                  <p className="empty-state-text">{productSearch ? 'No se encontraron productos' : 'No hay datos de productos'}</p>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* ── Productos Menos Vendidos ── */}
+          <div className="analytics-section" style={{ marginTop: 24 }}>
+            <h3 className="analytics-section-title" style={{ marginBottom: 12 }}>
+              <FontAwesomeIcon icon={faArrowDown} style={{ marginRight: '8px', color: '#ef4444' }} />
+              Productos Menos Vendidos
+            </h3>
+
+            {(() => {
+              const filtered = bottomProducts.filter(p =>
+                !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase())
+              );
+              return filtered.length > 0 ? (
+                <div className="analytics-top-products">
+                  {filtered.map((product, index) => {
+                    const maxVal = topSortBy === 'revenue'
+                      ? Math.max(...filtered.map(p => Number(p.revenue) || 0), 1)
+                      : Math.max(...filtered.map(p => Number(p.total_sold) || 0), 1);
+                    const currentVal = topSortBy === 'revenue' ? Number(product.revenue) || 0 : Number(product.total_sold) || 0;
+                    const pct = (currentVal / maxVal) * 100;
+
+                    return (
+                      <div key={product.id} className="analytics-top-product" style={{ position: 'relative', overflow: 'hidden' }}>
+                        <div style={{
+                          position: 'absolute', left: 0, top: 0, bottom: 0,
+                          width: `${pct}%`, background: 'rgba(239,68,68,0.07)',
+                          borderRadius: 'inherit', transition: 'width 0.4s ease', pointerEvents: 'none',
+                        }} />
+                        <div className="analytics-rank" style={{ position: 'relative', color: '#ef4444' }}>
+                          #{index + 1}
+                        </div>
+                        <div className="flex-1" style={{ position: 'relative' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div className="analytics-product-name">
+                              {product.name}
+                            </div>
+                            {product.category_name && (
+                              <span style={{
+                                fontSize: 10, padding: '1px 6px', borderRadius: 4,
+                                background: 'rgba(239,68,68,0.1)', color: '#ef4444',
+                                fontWeight: 600, whiteSpace: 'nowrap',
+                              }}>
+                                {product.category_name}
+                              </span>
+                            )}
+                          </div>
+                          <div className="analytics-product-stats">
+                            <span style={{ fontWeight: topSortBy === 'quantity' ? 700 : 400 }}>
+                              {product.total_sold} vendidos
+                            </span>
+                            <span style={{ fontWeight: topSortBy === 'revenue' ? 700 : 400 }}>
+                              {formatCurrency(product.revenue)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <FontAwesomeIcon icon={faArrowDown} className="empty-state-icon" />
+                  <p className="empty-state-text">{productSearch ? 'No se encontraron productos' : 'No hay datos de productos con ventas bajas'}</p>
+                </div>
+              );
+            })()}
           </div>
         </>
       )}
