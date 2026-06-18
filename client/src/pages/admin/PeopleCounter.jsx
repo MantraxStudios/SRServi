@@ -517,6 +517,7 @@ export default function PeopleCounter() {
         if (best) {
           used.add(best.id);
           const crossed = best.side !== null && best.side !== side && (now - (best.lastCross || 0) > CROSSING_COOLDOWN);
+          if (crossed) handleCrossing(side === 1 ? 'in' : 'out');
           next.push({ ...best, cx: blob.cx, cy: blob.cy, side, lastSeen: now, blob,
             lastCross: crossed ? now : best.lastCross });
         } else {
