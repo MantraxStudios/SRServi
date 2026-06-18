@@ -4389,6 +4389,96 @@ app.post('/api/superadmin/notify-existing-premiums', authenticateSuperadminToken
   }
 });
 
+app.post('/api/superadmin/send-custom-email', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { to, subject, message } = req.body;
+
+    if (!to || !subject || !message) {
+      return res.status(400).json({ error: 'Faltan campos: to, subject y message son requeridos' });
+    }
+
+    const recipients = String(to)
+      .split(',')
+      .map(e => e.trim())
+      .filter(Boolean);
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalid = recipients.filter(e => !emailRegex.test(e));
+    if (recipients.length === 0 || invalid.length > 0) {
+      return res.status(400).json({ error: `Email inválido: ${invalid.join(', ') || to}` });
+    }
+
+    // El mensaje viene en texto plano desde el panel; lo convertimos a párrafos HTML
+    const messageHtml = String(message)
+      .split(/\n{2,}/)
+      .map(block => `<p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:#333">${block.replace(/\n/g, '<br/>')}</p>`)
+      .join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:32px 16px">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:#111;padding:28px 32px">
+            <span style="color:#D4AF37;font-size:24px;font-weight:800;letter-spacing:-0.5px">SR</span><span style="color:#fff;font-size:24px;font-weight:800;letter-spacing:-0.5px">Servi</span>
+          </td>
+        </tr>
+
+        <!-- Title -->
+        <tr>
+          <td style="padding:32px 32px 0">
+            <h1 style="margin:0 0 20px;font-size:21px;font-weight:800;color:#111">${subject}</h1>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:0 32px 28px">
+            ${messageHtml}
+          </td>
+        </tr>
+
+        <!-- CTA -->
+        <tr>
+          <td style="padding:0 32px 32px">
+            <a href="https://srservi.com" style="display:inline-block;background:#D4AF37;color:#000;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:10px">Conocer SRServi</a>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 32px;text-align:center">
+            <p style="margin:0;font-size:12px;color:#bbb">SRServi · ${new Date().toLocaleString('es-AR')}</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    await Promise.all(recipients.map(rcpt =>
+      mailer.sendMail({
+        from: `"SRServi" <${process.env.EMAIL_USER}>`,
+        to: rcpt,
+        subject,
+        html
+      })
+    ));
+
+    res.json({ success: true, sent: recipients.length, recipients });
+  } catch (error) {
+    console.error('Error enviando email personalizado:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 function buildProductStatsHtml(storeName, top, bottom, unsold, currencyCode, periodLabel = 'ayer') {
   const fmt = (v) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: currencyCode || 'USD' }).format(Number(v) || 0);
   const dateStr = new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });

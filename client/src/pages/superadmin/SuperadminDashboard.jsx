@@ -116,6 +116,11 @@ function SuperadminDashboard() {
   const [profileAvatar, setProfileAvatar] = useState(null);
   const [notifyingPremiums, setNotifyingPremiums] = useState(false);
   const [notifyPremiumsMsg, setNotifyPremiumsMsg] = useState('');
+  const [customEmailTo, setCustomEmailTo] = useState('');
+  const [customEmailSubject, setCustomEmailSubject] = useState('');
+  const [customEmailMessage, setCustomEmailMessage] = useState('');
+  const [sendingCustomEmail, setSendingCustomEmail] = useState(false);
+  const [customEmailResult, setCustomEmailResult] = useState(null);
   const navigate = useNavigate();
   const selectedTicketRef = useRef(null);
   const saMsgEndRef = useRef(null);
@@ -847,6 +852,14 @@ function SuperadminDashboard() {
             <FontAwesomeIcon icon={faChartBar} />
             {sidebarOpen && <span>Estadísticas</span>}
           </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'emails' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('emails'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faPaperPlane} />
+            {sidebarOpen && <span>Enviar Email</span>}
+          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -910,10 +923,10 @@ function SuperadminDashboard() {
             </button>
             <div>
               <h1 className="admin-header-title">
-                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : activeTab === 'orders' ? 'Pedidos' : activeTab === 'revenue' ? 'Ingresos por Tienda' : activeTab === 'apps' ? 'Aplicaciones por Cuenta' : activeTab === 'screens' ? 'Pantallas Activas' : activeTab === 'product-stats' ? 'Estadísticas de Productos' : 'Suscripciones'}
+                {activeTab === 'users' ? 'Usuarios' : activeTab === 'stores' ? 'Tiendas' : activeTab === 'workshop' ? 'Workshop - Plugins' : activeTab === 'tickets' ? 'Tickets de Soporte' : activeTab === 'admins' ? 'Superadministradores' : activeTab === 'apks' ? 'APK Releases' : activeTab === 'orders' ? 'Pedidos' : activeTab === 'revenue' ? 'Ingresos por Tienda' : activeTab === 'apps' ? 'Aplicaciones por Cuenta' : activeTab === 'screens' ? 'Pantallas Activas' : activeTab === 'product-stats' ? 'Estadísticas de Productos' : activeTab === 'emails' ? 'Enviar Email' : 'Suscripciones'}
               </h1>
               <p className="admin-header-subtitle text-muted text-sm">
-                {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : activeTab === 'workshop' ? 'Revisa y aprueba plugins del workshop' : activeTab === 'product-stats' ? 'Envía reportes de productos más y menos vendidos' : 'Ver todas las suscripciones'}
+                {activeTab === 'users' ? 'Administra las cuentas de usuarios' : activeTab === 'stores' ? 'Administra todas las tiendas' : activeTab === 'workshop' ? 'Revisa y aprueba plugins del workshop' : activeTab === 'product-stats' ? 'Envía reportes de productos más y menos vendidos' : activeTab === 'emails' ? 'Redacta y envía un email a quien quieras' : 'Ver todas las suscripciones'}
               </p>
             </div>
           </div>
@@ -938,6 +951,7 @@ function SuperadminDashboard() {
 
         <div className="admin-content">
           <div className="card">
+            {activeTab !== 'emails' && (
             <div className="flex justify-between items-center card-toolbar">
               <div className="flex gap-4 badge-group">
                 <div className="badge badge-success">
@@ -958,6 +972,7 @@ function SuperadminDashboard() {
                 />
               </div>
             </div>
+            )}
 
             {loading ? (
               <div className="empty-state">
@@ -2423,6 +2438,126 @@ function SuperadminDashboard() {
                         </div>
                       ) : (
                         <div>Error: {statsResult.error}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : activeTab === 'emails' ? (
+              <div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 28, maxWidth: 640 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(212,175,55,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FontAwesomeIcon icon={faPaperPlane} style={{ color: '#D4AF37', fontSize: 20 }} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>Redactar Email</div>
+                      <div style={{ fontSize: 12, color: '#888' }}>Envía un email con la información y ventajas de SRServi a quien quieras</div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 18 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#aaa', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Destinatario(s)
+                    </label>
+                    <input
+                      type="text"
+                      value={customEmailTo}
+                      onChange={e => setCustomEmailTo(e.target.value)}
+                      placeholder="cliente@ejemplo.com (separa varios con coma)"
+                      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 14, boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: 18 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#aaa', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Asunto
+                    </label>
+                    <input
+                      type="text"
+                      value={customEmailSubject}
+                      onChange={e => setCustomEmailSubject(e.target.value)}
+                      placeholder="Ej: Conoce SRServi — el sistema para tu negocio"
+                      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 14, boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: 24 }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#aaa', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Mensaje
+                    </label>
+                    <textarea
+                      value={customEmailMessage}
+                      onChange={e => setCustomEmailMessage(e.target.value)}
+                      rows={10}
+                      placeholder="Escribe aquí la información y ventajas de SRServi que quieres compartir. Separa los párrafos con una línea en blanco."
+                      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 14, resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.6, fontFamily: 'inherit' }}
+                    />
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      if (sendingCustomEmail) return;
+                      if (!customEmailTo.trim() || !customEmailSubject.trim() || !customEmailMessage.trim()) {
+                        setCustomEmailResult({ success: false, error: 'Completa destinatario, asunto y mensaje' });
+                        return;
+                      }
+                      setSendingCustomEmail(true);
+                      setCustomEmailResult(null);
+                      try {
+                        const res = await fetch(`${API}/api/superadmin/send-custom-email`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${localStorage.getItem('superadminToken')}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ to: customEmailTo.trim(), subject: customEmailSubject.trim(), message: customEmailMessage.trim() })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                          setCustomEmailResult({ success: true, ...data });
+                          setCustomEmailTo('');
+                          setCustomEmailSubject('');
+                          setCustomEmailMessage('');
+                        } else {
+                          setCustomEmailResult({ success: false, error: data.error || 'Error desconocido' });
+                        }
+                      } catch (err) {
+                        setCustomEmailResult({ success: false, error: err.message });
+                      } finally {
+                        setSendingCustomEmail(false);
+                      }
+                    }}
+                    disabled={sendingCustomEmail}
+                    style={{
+                      background: sendingCustomEmail ? '#555' : 'linear-gradient(135deg, #D4AF37, #B8952D)',
+                      color: '#000', border: 'none', borderRadius: 10, padding: '12px 28px',
+                      fontSize: 14, fontWeight: 700, cursor: sendingCustomEmail ? 'not-allowed' : 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}
+                  >
+                    {sendingCustomEmail ? (
+                      <>
+                        <FontAwesomeIcon icon={faClock} spin />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <FontAwesomeIcon icon={faPaperPlane} />
+                        Enviar email
+                      </>
+                    )}
+                  </button>
+
+                  {customEmailResult && (
+                    <div style={{
+                      marginTop: 16, padding: '14px 18px', borderRadius: 10,
+                      background: customEmailResult.success ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                      border: `1px solid ${customEmailResult.success ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                      color: customEmailResult.success ? '#22c55e' : '#ef4444',
+                      fontSize: 13, fontWeight: 600,
+                    }}>
+                      {customEmailResult.success ? (
+                        <div>Email enviado a {customEmailResult.sent} destinatario{customEmailResult.sent !== 1 ? 's' : ''}</div>
+                      ) : (
+                        <div>Error: {customEmailResult.error}</div>
                       )}
                     </div>
                   )}
