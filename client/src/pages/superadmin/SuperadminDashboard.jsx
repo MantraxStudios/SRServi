@@ -2452,8 +2452,12 @@ function SuperadminDashboard() {
                     </div>
                     <div>
                       <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>Redactar Email</div>
-                      <div style={{ fontSize: 12, color: '#888' }}>Envía un email con la información y ventajas de SRServi a quien quieras</div>
+                      <div style={{ fontSize: 12, color: '#888' }}>Envía toda la información y ventajas de SRServi a quien quieras</div>
                     </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 12, color: '#D4AF37' }}>
+                    <strong>Nota:</strong> El email siempre incluye toda la información y ventajas del sistema SRServi. Asunto y mensaje son opcionales: si los dejas vacíos, se usa el contenido completo por defecto; si escribes algo, se agrega como extra junto con esa información.
                   </div>
 
                   <div style={{ marginBottom: 18 }}>
@@ -2471,26 +2475,26 @@ function SuperadminDashboard() {
 
                   <div style={{ marginBottom: 18 }}>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#aaa', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      Asunto
+                      Asunto <span style={{ textTransform: 'none', fontWeight: 400, color: '#666' }}>(opcional)</span>
                     </label>
                     <input
                       type="text"
                       value={customEmailSubject}
                       onChange={e => setCustomEmailSubject(e.target.value)}
-                      placeholder="Ej: Conoce SRServi — el sistema para tu negocio"
+                      placeholder="Si lo dejas vacío se usa: “SRServi — El sistema todo-en-uno para tu negocio”"
                       style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 14, boxSizing: 'border-box' }}
                     />
                   </div>
 
                   <div style={{ marginBottom: 24 }}>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#aaa', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      Mensaje
+                      Mensaje extra <span style={{ textTransform: 'none', fontWeight: 400, color: '#666' }}>(opcional)</span>
                     </label>
                     <textarea
                       value={customEmailMessage}
                       onChange={e => setCustomEmailMessage(e.target.value)}
-                      rows={10}
-                      placeholder="Escribe aquí la información y ventajas de SRServi que quieres compartir. Separa los párrafos con una línea en blanco."
+                      rows={8}
+                      placeholder="Si quieres agregar algo además de la info completa del sistema, escríbelo aquí. Separa los párrafos con una línea en blanco. Si lo dejas vacío, solo se envía la información completa de SRServi."
                       style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 14, resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.6, fontFamily: 'inherit' }}
                     />
                   </div>
@@ -2498,8 +2502,8 @@ function SuperadminDashboard() {
                   <button
                     onClick={async () => {
                       if (sendingCustomEmail) return;
-                      if (!customEmailTo.trim() || !customEmailSubject.trim() || !customEmailMessage.trim()) {
-                        setCustomEmailResult({ success: false, error: 'Completa destinatario, asunto y mensaje' });
+                      if (!customEmailTo.trim()) {
+                        setCustomEmailResult({ success: false, error: 'Indica al menos un destinatario' });
                         return;
                       }
                       setSendingCustomEmail(true);

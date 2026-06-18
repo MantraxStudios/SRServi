@@ -4389,12 +4389,80 @@ app.post('/api/superadmin/notify-existing-premiums', authenticateSuperadminToken
   }
 });
 
+// Información completa del sistema SRServi, usada como contenido base
+// del email cuando el superadmin no escribe asunto/mensaje propio.
+const SRSERVI_DEFAULT_SUBJECT = 'SRServi — El sistema todo-en-uno para tu negocio';
+
+const SRSERVI_FEATURE_GROUPS = [
+  {
+    title: '🛒 Ventas y Pedidos',
+    items: [
+      'Punto de venta completo con gestión de mesas, pedidos para llevar y delivery',
+      'Mapa de mesas interactivo y comandas en tiempo real',
+      'Pantalla de cocina (KDS) para coordinar la preparación de pedidos',
+      'Carrito, combos, extras, ingredientes y complementos configurables por producto',
+      'Cupones de descuento y programa de fidelización de clientes',
+    ],
+  },
+  {
+    title: '🚚 Delivery e Integraciones',
+    items: [
+      'Integración directa con PedidosYa, Rappi y Uber Eats',
+      'Seguimiento de pedidos de delivery en tiempo real',
+      'Pedidos automáticos por WhatsApp e Instagram',
+      'Automatización de TikTok Live para negocios con venta en vivo',
+    ],
+  },
+  {
+    title: '📊 Administración y Reportes',
+    items: [
+      'Dashboard con ventas del día, del mes y estado de cuenta completo',
+      'Reportes de ingresos, productos más y menos vendidos',
+      'Control de inventario e ingredientes con alertas de stock',
+      'Múltiples cajas registradoras y arqueos de caja',
+      'Gestión de roles, sub-cuentas y permisos por trabajador',
+    ],
+  },
+  {
+    title: '👥 Personal y Seguridad',
+    items: [
+      'Control de asistencia y turnos de trabajadores',
+      'PIN de tienda y accesos diferenciados por rol',
+      'Conteo de personas en tiempo real con cámara (RTSP o webcam)',
+      'Monitoreo de cámaras CCTV integrado al panel',
+    ],
+  },
+  {
+    title: '🤖 Tecnología e Innovación',
+    items: [
+      'LeonIA: asistente con inteligencia artificial integrado al sistema',
+      'Workshop de plugins para extender el sistema sin tocar el código base',
+      'Encuestas de satisfacción y sistema de calificaciones de clientes',
+      'Pantallas (tótems, TV display, screensaver) listas para tu local',
+      'Tickets de soporte y centro de novedades dentro del panel',
+    ],
+  },
+];
+
+function buildDefaultSrserviFeaturesHtml() {
+  return SRSERVI_FEATURE_GROUPS.map(group => `
+    <div style="margin-bottom:22px">
+      <div style="font-size:14px;font-weight:800;color:#111;margin-bottom:10px">${group.title}</div>
+      <ul style="margin:0;padding:0 0 0 18px">
+        ${group.items.map(item => `<li style="font-size:13px;line-height:1.7;color:#444;margin-bottom:4px">${item}</li>`).join('')}
+      </ul>
+    </div>
+  `).join('');
+}
+
 app.post('/api/superadmin/send-custom-email', authenticateSuperadminToken, async (req, res) => {
   try {
-    const { to, subject, message } = req.body;
+    const { to } = req.body;
+    const customSubject = (req.body.subject || '').trim();
+    const customMessage = (req.body.message || '').trim();
 
-    if (!to || !subject || !message) {
-      return res.status(400).json({ error: 'Faltan campos: to, subject y message son requeridos' });
+    if (!to) {
+      return res.status(400).json({ error: 'Falta el destinatario' });
     }
 
     const recipients = String(to)
@@ -4408,11 +4476,17 @@ app.post('/api/superadmin/send-custom-email', authenticateSuperadminToken, async
       return res.status(400).json({ error: `Email inválido: ${invalid.join(', ') || to}` });
     }
 
-    // El mensaje viene en texto plano desde el panel; lo convertimos a párrafos HTML
-    const messageHtml = String(message)
-      .split(/\n{2,}/)
-      .map(block => `<p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:#333">${block.replace(/\n/g, '<br/>')}</p>`)
-      .join('');
+    // Si el superadmin no escribe asunto, usamos el genérico de presentación del sistema
+    const subject = customSubject || SRSERVI_DEFAULT_SUBJECT;
+
+    // El mensaje del superadmin (si lo hay) se agrega como bloque EXTRA,
+    // nunca reemplaza la info completa del sistema.
+    const customMessageHtml = customMessage
+      ? customMessage
+          .split(/\n{2,}/)
+          .map(block => `<p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:#333">${block.replace(/\n/g, '<br/>')}</p>`)
+          .join('')
+      : '';
 
     const html = `<!DOCTYPE html>
 <html lang="es">
@@ -4432,20 +4506,33 @@ app.post('/api/superadmin/send-custom-email', authenticateSuperadminToken, async
         <!-- Title -->
         <tr>
           <td style="padding:32px 32px 0">
-            <h1 style="margin:0 0 20px;font-size:21px;font-weight:800;color:#111">${subject}</h1>
+            <h1 style="margin:0 0 8px;font-size:21px;font-weight:800;color:#111">${subject}</h1>
+            <p style="margin:0 0 20px;font-size:13px;color:#888">El sistema todo-en-uno para gestionar tu negocio: ventas, pedidos, delivery, inventario, personal y mucho más en un solo lugar.</p>
           </td>
         </tr>
 
-        <!-- Body -->
+        ${customMessageHtml ? `
+        <!-- Mensaje extra del remitente -->
         <tr>
-          <td style="padding:0 32px 28px">
-            ${messageHtml}
+          <td style="padding:0 32px 8px">
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:18px 20px">
+              ${customMessageHtml}
+            </div>
+          </td>
+        </tr>
+        ` : ''}
+
+        <!-- Features completas del sistema -->
+        <tr>
+          <td style="padding:24px 32px 8px">
+            <div style="font-size:12px;font-weight:700;color:#D4AF37;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px">Todo lo que incluye SRServi</div>
+            ${buildDefaultSrserviFeaturesHtml()}
           </td>
         </tr>
 
         <!-- CTA -->
         <tr>
-          <td style="padding:0 32px 32px">
+          <td style="padding:8px 32px 32px">
             <a href="https://srservi.com" style="display:inline-block;background:#D4AF37;color:#000;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:10px">Conocer SRServi</a>
           </td>
         </tr>
