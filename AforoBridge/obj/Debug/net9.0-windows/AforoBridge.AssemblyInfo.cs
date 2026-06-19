@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SR Automatica")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f5fe8f9ca94dbdd264488801c8665c7f5139ad4f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3fb4c3550a10f0ef3e83a88e1c957832fdf9664d")]
 [assembly: System.Reflection.AssemblyProductAttribute("AforoBridge")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AforoBridge")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
