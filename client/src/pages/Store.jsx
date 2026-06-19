@@ -7050,6 +7050,8 @@ function Store() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+              {/* 1. Nombre */}
               <input
                 type="text"
                 value={prodForm.name}
@@ -7058,6 +7060,8 @@ function Store() {
                 autoFocus={false}
                 className="store-prod-modal-input main"
               />
+
+              {/* 2. Precio + Categoría */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <input
                   type="number"
@@ -7081,15 +7085,51 @@ function Store() {
                 </select>
               </div>
 
-              {/* ── Extras / Complementos / Secciones — ARRIBA ── */}
+              {/* 3. Descripción */}
+              <input
+                type="text"
+                value={prodForm.description}
+                onChange={(e) => setProdForm({ ...prodForm, description: e.target.value })}
+                placeholder="Descripción (opcional)"
+                className="store-prod-modal-input"
+              />
+
+              {/* 4. Código de barras */}
+              <input
+                type="text"
+                value={prodForm.barcode}
+                onChange={(e) => setProdForm({ ...prodForm, barcode: e.target.value })}
+                placeholder="Código de barras (escanear o escribir)"
+                className="store-prod-modal-input"
+                style={{ fontFamily: 'monospace', letterSpacing: '1px' }}
+              />
+
+              {/* 5. Stock */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer', flex: 1 }}>
+                  <input type="checkbox" checked={prodForm.unlimited_stock} onChange={(e) => setProdForm({ ...prodForm, unlimited_stock: e.target.checked })} />
+                  Stock ilimitado
+                </label>
+                {!prodForm.unlimited_stock && (
+                  <input
+                    type="number"
+                    min="0"
+                    value={prodForm.stock}
+                    onChange={(e) => setProdForm({ ...prodForm, stock: e.target.value })}
+                    placeholder="Stock"
+                    className="store-prod-modal-input"
+                    style={{ width: '80px' }}
+                  />
+                )}
+              </div>
+
+              {/* 6. Extras / Complementos / Secciones */}
               {editMode && (
                 <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: 6 }}>
 
                   {/* Fila: Extras */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: `2px solid ${prodForm.has_extras ? '#22c55e' : '#e0e0e0'}`, background: prodForm.has_extras ? '#dcfce7' : '#fafafa' }}>
-                    {/* Toggle */}
                     <input type="checkbox" checked={prodForm.has_extras} onChange={(e) => setProdForm({ ...prodForm, has_extras: e.target.checked })} style={{ width: 18, height: 18, flexShrink: 0, cursor: 'pointer' }} />
-                    {/* Nombre + lápiz */}
                     <span style={{ flex: 1, fontSize: 13, fontWeight: 600, cursor: 'pointer' }} onClick={() => setProdForm({ ...prodForm, has_extras: !prodForm.has_extras })}>
                       {extrasLabel}
                     </span>
@@ -7098,7 +7138,6 @@ function Store() {
                       title="Editar nombre"
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '2px 5px', fontSize: 13, flexShrink: 0 }}
                     ><FontAwesomeIcon icon={faEdit} /></button>
-                    {/* Botón editar productos */}
                     <button
                       onClick={() => { setComplementsTab('extras'); setShowComplementsModal(true); checkComplementDuplicates(); }}
                       style={{ flexShrink: 0, padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: '1.5px solid var(--store-primary)', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
@@ -7160,7 +7199,6 @@ function Store() {
                           const checked = (prodForm.complement_group_ids || []).includes(g.id);
                           return (
                             <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, border: `2px solid ${checked ? 'var(--store-primary)' : '#e0e0e0'}`, background: checked ? 'var(--store-secondary)' : '#fafafa' }}>
-                              {/* Toggle */}
                               <input
                                 type="checkbox"
                                 checked={checked}
@@ -7170,7 +7208,6 @@ function Store() {
                                 }}
                                 style={{ width: 16, height: 16, flexShrink: 0, cursor: 'pointer' }}
                               />
-                              {/* Nombre */}
                               <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: checked ? 'var(--store-primary)' : '#444', cursor: 'pointer' }}
                                 onClick={() => {
                                   const cur = prodForm.complement_group_ids || [];
@@ -7178,14 +7215,12 @@ function Store() {
                                 }}
                               >{g.name}</span>
                               <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>{(g.options || []).length} opc.</span>
-                              {/* Lápiz: editar nombre/config */}
                               <button
                                 type="button"
                                 onClick={() => setSectionGroupModal({ id: g.id, name: g.name, min_select: String(g.min_select ?? 0), max_select: String(g.max_select ?? 0), required: !!g.required })}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '2px 4px', fontSize: 13, flexShrink: 0 }}
                                 title="Editar nombre y configuración"
                               ><FontAwesomeIcon icon={faEdit} /></button>
-                              {/* Botón editar opciones */}
                               <button
                                 type="button"
                                 onClick={() => setSectionEditingGroup(g)}
@@ -7202,66 +7237,19 @@ function Store() {
                 </div>
               )}
 
-              <input
-                type="text"
-                value={prodForm.description}
-                onChange={(e) => setProdForm({ ...prodForm, description: e.target.value })}
-                placeholder="Descripción (opcional)"
-                className="store-prod-modal-input"
-              />
-              <input
-                type="text"
-                value={prodForm.barcode}
-                onChange={(e) => setProdForm({ ...prodForm, barcode: e.target.value })}
-                placeholder="Código de barras (escanear o escribir)"
-                className="store-prod-modal-input"
-                style={{ fontFamily: 'monospace', letterSpacing: '1px' }}
-              />
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer', flex: 1 }}>
-                  <input type="checkbox" checked={prodForm.unlimited_stock} onChange={(e) => setProdForm({ ...prodForm, unlimited_stock: e.target.checked })} />
-                  Stock ilimitado
-                </label>
-                {!prodForm.unlimited_stock && (
-                  <input
-                    type="number"
-                    min="0"
-                    value={prodForm.stock}
-                    onChange={(e) => setProdForm({ ...prodForm, stock: e.target.value })}
-                    placeholder="Stock"
-                    className="store-prod-modal-input"
-                    style={{ width: '80px' }}
-                  />
-                )}
-              </div>
-            </div>
-            {editMode && editingProd && (
-              <button
-                type="button"
-                onClick={() => setProdRecipeModal(editingProd)}
-                style={{ width: '100%', marginTop: '10px', padding: '10px', borderRadius: '8px', border: '2px solid #D4AF37', background: '#fffbeb', color: '#92400e', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
-              >
-                <FontAwesomeIcon icon={faUtensils} /> Materias Primas (Receta)
-              </button>
-            )}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-              <button
-                onClick={() => { setProdModalOpen(false); setProdImageFile(null); setProdNewExtras([]); setProdNewComplements([]); if (adminToken) fetchComplements(); }}
-                className="store-prod-modal-btn cancel"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={saveProd}
-                disabled={!prodForm.name.trim() || !prodForm.price || prodSaving}
-                className={`store-prod-modal-btn confirm${!prodForm.name.trim() || !prodForm.price || prodSaving ? ' disabled' : ''}`}
-              >
-                {prodSaving ? 'Guardando...' : editingProd ? 'Guardar' : 'Crear'}
-              </button>
-            </div>
+              {/* 7. Materias Primas */}
+              {editMode && editingProd && (
+                <button
+                  type="button"
+                  onClick={() => setProdRecipeModal(editingProd)}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid #D4AF37', background: '#fffbeb', color: '#92400e', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+                >
+                  <FontAwesomeIcon icon={faUtensils} /> Materias Primas (Receta)
+                </button>
+              )}
 
-            {editingProd && (
-              <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: '10px', marginTop: '2px' }}>
+              {/* 8. Combos */}
+              {editingProd && (
                 <button
                   type="button"
                   onClick={() => {
@@ -7287,8 +7275,26 @@ function Store() {
                   <FontAwesomeIcon icon={faLayerGroup} />
                   Crear combo con "{editingProd.name}"
                 </button>
+              )}
+
+              {/* 9. Cancelar / Guardar */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <button
+                  onClick={() => { setProdModalOpen(false); setProdImageFile(null); setProdNewExtras([]); setProdNewComplements([]); if (adminToken) fetchComplements(); }}
+                  className="store-prod-modal-btn cancel"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={saveProd}
+                  disabled={!prodForm.name.trim() || !prodForm.price || prodSaving}
+                  className={`store-prod-modal-btn confirm${!prodForm.name.trim() || !prodForm.price || prodSaving ? ' disabled' : ''}`}
+                >
+                  {prodSaving ? 'Guardando...' : editingProd ? 'Guardar' : 'Crear'}
+                </button>
               </div>
-            )}
+
+            </div>
           </div>
         </div>
       )}
