@@ -1050,6 +1050,7 @@ function Store() {
   const [sectionSaving, setSectionSaving] = useState(false);
   const [prodImageFile, setProdImageFile] = useState(null);
   const [prodCameraOpen, setProdCameraOpen] = useState(false);
+  const [showImagePicker, setShowImagePicker] = useState(false);
   const [prodSaving, setProdSaving] = useState(false);
   const [bgRemoveDialog, setBgRemoveDialog] = useState(false);
   const [bgRemoving, setBgRemoving] = useState(false);
@@ -7010,6 +7011,7 @@ function Store() {
             </h3>
 
             <div className="store-prod-modal-image-area">
+              {/* Foto */}
               {prodImageFile ? (
                 <img src={URL.createObjectURL(prodImageFile)} alt="Preview" className="store-prod-modal-preview" />
               ) : prodForm.image_url ? (
@@ -7017,37 +7019,76 @@ function Store() {
               ) : (
                 <img src={getProductImageUrl(editingProd?.image)} alt="Actual" className="store-prod-modal-preview" />
               )}
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                <label className="store-prod-modal-image-btn">
-                  <FontAwesomeIcon icon={faEdit} /> {prodImageFile || prodForm.image_url || editingProd?.image ? 'Cambiar' : 'Agregar imagen'}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => { if (e.target.files[0]) { setProdForm({ ...prodForm, image_url: '' }); setPendingImageFile(e.target.files[0]); setBgRemoveDialog(true); } }}
-                    style={{ display: 'none' }}
-                  />
-                </label>
+
+              {/* Botón Cambiar + O URL en columna */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <button
                   type="button"
-                  onClick={() => setProdCameraOpen(true)}
+                  onClick={() => setShowImagePicker(true)}
                   className="store-prod-modal-image-btn"
-                  style={{ cursor: 'pointer', border: 'none' }}
+                  style={{ alignSelf: 'flex-start' }}
                 >
-                  <FontAwesomeIcon icon={faCamera} /> Tomar foto
+                  <FontAwesomeIcon icon={faEdit} /> {prodImageFile || prodForm.image_url || editingProd?.image ? 'Cambiar' : 'Agregar imagen'}
                 </button>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                <span style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap' }}>O URL:</span>
-                <input
-                  type="url"
-                  value={prodForm.image_url}
-                  onChange={(e) => { setProdForm({ ...prodForm, image_url: e.target.value }); setProdImageFile(null); }}
-                  placeholder="https://ejemplo.com/imagen.jpg"
-                  className="store-prod-modal-input"
-                  style={{ flex: 1, padding: '6px 10px', fontSize: 13 }}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap' }}>O URL:</span>
+                  <input
+                    type="url"
+                    value={prodForm.image_url}
+                    onChange={(e) => { setProdForm({ ...prodForm, image_url: e.target.value }); setProdImageFile(null); }}
+                    placeholder="https://ejemplo.com/imagen.jpg"
+                    className="store-prod-modal-input"
+                    style={{ flex: 1, padding: '6px 10px', fontSize: 13 }}
+                  />
+                </div>
               </div>
             </div>
+
+            {/* Mini-modal selector de imagen */}
+            {showImagePicker && (
+              <div
+                style={{ position: 'fixed', inset: 0, zIndex: 999999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+                onClick={() => setShowImagePicker(false)}
+              >
+                <div
+                  style={{ background: '#fff', borderRadius: '18px 18px 0 0', padding: '20px 16px 32px', width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 10 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div style={{ width: 36, height: 4, background: '#ddd', borderRadius: 2, margin: '0 auto 8px' }} />
+                  <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: 16, textAlign: 'center', color: '#222' }}>Seleccionar imagen</p>
+
+                  {/* Tomar foto */}
+                  <button
+                    type="button"
+                    onClick={() => { setShowImagePicker(false); setProdCameraOpen(true); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, border: '2px solid #e0e0e0', background: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 600, color: '#222' }}
+                  >
+                    <span style={{ width: 40, height: 40, borderRadius: 10, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📷</span>
+                    Tomar foto
+                  </button>
+
+                  {/* Elegir archivo */}
+                  <label
+                    style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, border: '2px solid #e0e0e0', background: '#fff', cursor: 'pointer', fontSize: 15, fontWeight: 600, color: '#222' }}
+                  >
+                    <span style={{ width: 40, height: 40, borderRadius: 10, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🖼️</span>
+                    Elegir archivo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => { if (e.target.files[0]) { setShowImagePicker(false); setProdForm({ ...prodForm, image_url: '' }); setPendingImageFile(e.target.files[0]); setBgRemoveDialog(true); } }}
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowImagePicker(false)}
+                    style={{ marginTop: 4, padding: '12px', borderRadius: 12, border: 'none', background: '#f3f4f6', color: '#666', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
+                  >Cancelar</button>
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
