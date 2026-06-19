@@ -1046,6 +1046,7 @@ function Store() {
   // Edición de secciones dinámicas desde el editor del tótem
   const [sectionGroupModal, setSectionGroupModal] = useState(null); // { id?, name, min_select, max_select, required }
   const [sectionOptionModal, setSectionOptionModal] = useState(null); // { id?, group_id, name, price, stock, unlimited_stock, imageFile }
+  const [sectionEditingGroup, setSectionEditingGroup] = useState(null); // grupo activo para agregar opciones inline
   const [sectionSaving, setSectionSaving] = useState(false);
   const [prodImageFile, setProdImageFile] = useState(null);
   const [prodCameraOpen, setProdCameraOpen] = useState(false);
@@ -2087,7 +2088,7 @@ function Store() {
     setComplementGroupsModalOpen(false);
   };
 
-  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || complementGroupsModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || !!sectionGroupModal || !!sectionOptionModal || loyaltyModalOpen;
+  const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || complementGroupsModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || !!sectionGroupModal || !!sectionOptionModal || !!sectionEditingGroup || loyaltyModalOpen;
 
   useEffect(() => {
     anyModalOpenRef.current = anyModalOpen;
@@ -3155,6 +3156,14 @@ function Store() {
     if (editMode) fetchComplements();
   }, [editMode, adminToken]);
 
+  // Sincronizar sectionEditingGroup con los datos frescos de storeComplementGroups
+  useEffect(() => {
+    if (sectionEditingGroup) {
+      const fresh = storeComplementGroups.find(g => g.id === sectionEditingGroup.id);
+      if (fresh) setSectionEditingGroup(fresh);
+    }
+  }, [storeComplementGroups]);
+
   // ===== Secciones dinámicas (editor del tótem) =====
   const saveSectionGroup = async () => {
     const g = sectionGroupModal;
@@ -3173,7 +3182,7 @@ function Store() {
           required: !!g.required
         })
       });
-      // Si es creación desde el editor de producto, auto-asignar la sección
+      // Si es creación desde el editor de producto, auto-asignar la sección y abrir panel de opciones
       if (!g.id && g._autoAssign) {
         try {
           const created = await res.json();
@@ -3182,6 +3191,11 @@ function Store() {
               ...prev,
               complement_group_ids: [...(prev.complement_group_ids || []), created.id]
             }));
+            setSectionGroupModal(null);
+            await fetchComplements();
+            // Abrir panel de opciones para la sección recién creada
+            setSectionEditingGroup({ ...created, options: [] });
+            return;
           }
         } catch (_) {}
       }
@@ -3219,6 +3233,13 @@ function Store() {
       await fetch(url, { method: o.id ? 'PUT' : 'POST', body: fd });
       setSectionOptionModal(null);
       await fetchComplements();
+      // Si hay un panel de edición inline abierto, refrescarlo con las opciones actualizadas
+      if (sectionEditingGroup && sectionEditingGroup.id === o.group_id) {
+        setSectionEditingGroup(prev => {
+          const updated = storeComplementGroups.find(g => g.id === o.group_id);
+          return updated ? { ...updated } : prev;
+        });
+      }
     } catch (e) { console.error('Error guardando opción:', e); }
     finally { setSectionSaving(false); }
   };
@@ -7931,6 +7952,63 @@ function Store() {
                 {sectionSaving ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal gestión de opciones de sección (se abre automáticamente al crear desde editor de producto) */}
+      {sectionEditingGroup && !sectionOptionModal && (
+        <div className="store-modal-overlay" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+          <div className="store-prod-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <h3 style={{ margin: '0 0 4px', color: 'var(--store-primary)', textAlign: 'center' }}>
+              {sectionEditingGroup.name}
+            </h3>
+            <p style={{ margin: '0 0 14px', fontSize: 12, color: '#888', textAlign: 'center' }}>
+              Agregá las opciones que verá el cliente
+            </p>
+
+            {/* Lista de opciones existentes */}
+            {(sectionEditingGroup.options || []).length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '16px 0', color: '#bbb', fontSize: 13 }}>
+                Aún no hay opciones. Presioná <strong>+ Agregar opción</strong>.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                {(sectionEditingGroup.options || []).map(opt => (
+                  <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                    {opt.image && <img src={opt.image} alt={opt.name} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6 }} />}
+                    <span style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{opt.name}</span>
+                    {Number(opt.price) > 0 && <span style={{ fontSize: 12, color: '#6b7280' }}>+${Number(opt.price).toFixed(2)}</span>}
+                    <button
+                      onClick={() => setSectionOptionModal({ id: opt.id, group_id: sectionEditingGroup.id, name: opt.name, price: opt.price?.toString() || '', stock: String(opt.stock ?? 0), unlimited_stock: !!opt.unlimited_stock, imageFile: null })}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '2px 5px', fontSize: 13 }}
+                      title="Editar opción"
+                    >✏️</button>
+                    <button
+                      onClick={async () => { if (confirm('¿Eliminar esta opción?')) { await deleteSectionOption(opt.id); } }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px 5px', fontSize: 13 }}
+                      title="Eliminar opción"
+                    >✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Botón agregar opción */}
+            <button
+              onClick={() => setSectionOptionModal({ group_id: sectionEditingGroup.id, name: '', price: '', stock: '', unlimited_stock: true, imageFile: null })}
+              style={{ width: '100%', padding: '10px', borderRadius: 8, border: '2px dashed var(--store-primary)', background: 'transparent', color: 'var(--store-primary)', fontWeight: 700, fontSize: 14, cursor: 'pointer', marginBottom: 12 }}
+            >
+              + Agregar opción
+            </button>
+
+            <button
+              onClick={() => setSectionEditingGroup(null)}
+              className="store-prod-modal-btn confirm"
+              style={{ width: '100%' }}
+            >
+              Listo
+            </button>
           </div>
         </div>
       )}
