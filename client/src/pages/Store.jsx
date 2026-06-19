@@ -7020,27 +7020,25 @@ function Store() {
                 <img src={getProductImageUrl(editingProd?.image)} alt="Actual" className="store-prod-modal-preview" />
               )}
 
-              {/* Botón Cambiar + O URL en columna */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Botón Cambiar + O URL en la misma fila */}
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button
                   type="button"
                   onClick={() => setShowImagePicker(true)}
                   className="store-prod-modal-image-btn"
-                  style={{ alignSelf: 'flex-start' }}
+                  style={{ flexShrink: 0 }}
                 >
-                  <FontAwesomeIcon icon={faEdit} /> {prodImageFile || prodForm.image_url || editingProd?.image ? 'Cambiar' : 'Agregar imagen'}
+                  <FontAwesomeIcon icon={faEdit} /> {prodImageFile || prodForm.image_url || editingProd?.image ? 'Cambiar' : 'Agregar'}
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap' }}>O URL:</span>
-                  <input
-                    type="url"
-                    value={prodForm.image_url}
-                    onChange={(e) => { setProdForm({ ...prodForm, image_url: e.target.value }); setProdImageFile(null); }}
-                    placeholder="https://ejemplo.com/imagen.jpg"
-                    className="store-prod-modal-input"
-                    style={{ flex: 1, padding: '6px 10px', fontSize: 13 }}
-                  />
-                </div>
+                <span style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap' }}>O URL:</span>
+                <input
+                  type="url"
+                  value={prodForm.image_url}
+                  onChange={(e) => { setProdForm({ ...prodForm, image_url: e.target.value }); setProdImageFile(null); }}
+                  placeholder="https://..."
+                  className="store-prod-modal-input"
+                  style={{ flex: 1, padding: '6px 10px', fontSize: 12 }}
+                />
               </div>
             </div>
 
@@ -7224,17 +7222,7 @@ function Store() {
 
                   {/* Secciones personalizadas */}
                   <div style={{ borderTop: '1px solid #eee', paddingTop: 10, marginTop: 2 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Secciones</div>
-                      <button
-                        type="button"
-                        onClick={() => setSectionGroupModal({ name: '', min_select: 0, max_select: 0, required: false, _autoAssign: true })}
-                        style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--store-primary)', color: 'var(--store-secondary)', border: 'none', borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                      >+ Nueva</button>
-                    </div>
-                    {storeComplementGroups.length === 0 ? (
-                      <div style={{ fontSize: 12, color: '#bbb' }}>Presioná <strong>+ Nueva</strong> para crear la primera.</div>
-                    ) : (
+                    {storeComplementGroups.length > 0 && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                         {storeComplementGroups.map(g => {
                           const checked = (prodForm.complement_group_ids || []).includes(g.id);
@@ -7273,49 +7261,47 @@ function Store() {
                         })}
                       </div>
                     )}
+                    {/* + Nueva siempre debajo */}
+                    <button
+                      type="button"
+                      onClick={() => setSectionGroupModal({ name: '', min_select: 0, max_select: 0, required: false, _autoAssign: true })}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: storeComplementGroups.length > 0 ? 8 : 0, background: 'none', border: '2px dashed #ccc', borderRadius: 8, padding: '7px 12px', fontSize: 13, fontWeight: 600, color: '#888', cursor: 'pointer', width: '100%', justifyContent: 'center' }}
+                    >+ Nueva sección</button>
                   </div>
 
                 </div>
               )}
 
-              {/* 7. Materias Primas */}
-              {editMode && editingProd && (
-                <button
-                  type="button"
-                  onClick={() => setProdRecipeModal(editingProd)}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '2px solid #D4AF37', background: '#fffbeb', color: '#92400e', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
-                >
-                  <FontAwesomeIcon icon={faUtensils} /> Materias Primas (Receta)
-                </button>
-              )}
-
-              {/* 8. Combos */}
-              {editingProd && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProdModalOpen(false);
-                    setEditorTab('combos');
-                    if (!editorCombosLoaded) loadEditorCombos();
-                    setEditorComboForm({
-                      name: '', description: '', imageFile: null, image: '',
-                      is_active: true, discount_type: 'auto', discount_value: '', fixed_price: '',
-                      items: [{ product_id: editingProd.id, quantity: 1 }]
-                    });
-                    setEditorComboModal({ editing: null });
-                    setEditorComboProdSearch('');
-                    setEditorComboError('');
-                  }}
-                  style={{
-                    width: '100%', padding: '10px', border: '2px solid var(--store-primary, #1a1a2e)',
-                    borderRadius: '10px', background: 'transparent',
-                    color: 'var(--store-primary, #1a1a2e)', fontWeight: 700, fontSize: '13px',
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px'
-                  }}
-                >
-                  <FontAwesomeIcon icon={faLayerGroup} />
-                  Crear combo con "{editingProd.name}"
-                </button>
+              {/* Materias Primas + Combo en la misma fila */}
+              {(editMode && editingProd) && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setProdRecipeModal(editingProd)}
+                    style={{ flex: 1, padding: '10px 8px', borderRadius: '8px', border: '2px solid #D4AF37', background: '#fffbeb', color: '#92400e', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  >
+                    <FontAwesomeIcon icon={faUtensils} /> Materias Primas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProdModalOpen(false);
+                      setEditorTab('combos');
+                      if (!editorCombosLoaded) loadEditorCombos();
+                      setEditorComboForm({
+                        name: '', description: '', imageFile: null, image: '',
+                        is_active: true, discount_type: 'auto', discount_value: '', fixed_price: '',
+                        items: [{ product_id: editingProd.id, quantity: 1 }]
+                      });
+                      setEditorComboModal({ editing: null });
+                      setEditorComboProdSearch('');
+                      setEditorComboError('');
+                    }}
+                    style={{ flex: 1, padding: '10px 8px', border: '2px solid var(--store-primary)', borderRadius: '8px', background: 'transparent', color: 'var(--store-primary)', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  >
+                    <FontAwesomeIcon icon={faLayerGroup} /> Crear combo
+                  </button>
+                </div>
               )}
 
               {/* 9. Cancelar / Guardar */}
