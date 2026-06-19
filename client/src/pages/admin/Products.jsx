@@ -71,6 +71,11 @@ function Products() {
   const [bestSellersMode, setBestSellersMode] = useState(false);
   const [bestSellersRange, setBestSellersRange] = useState('month');
   const [topProducts, setTopProducts] = useState([]);
+  // Mini-modal para crear sección rápida desde el editor de producto
+  const [showNewSectionModal, setShowNewSectionModal] = useState(false);
+  const [newSectionData, setNewSectionData] = useState({ name: '', required: false, max_options: '', options: [{ name: '', price: '' }] });
+  const [newSectionSaving, setNewSectionSaving] = useState(false);
+  const [newSectionError, setNewSectionError] = useState('');
 
   const fetchAllRef = useRef(false);
 
@@ -511,6 +516,51 @@ function Products() {
         body: JSON.stringify({ store_id: selectedStore.id, items: reordered.map((item, idx) => ({ id: item.id, sort_order: idx })) }),
       });
     } catch (err) { console.error('Error guardando orden ingredientes:', err); }
+  };
+
+  const handleCreateSectionInline = async () => {
+    if (!newSectionData.name.trim()) {
+      setNewSectionError('El nombre de la sección es obligatorio.');
+      return;
+    }
+    if (newSectionData.options.some(o => !o.name.trim())) {
+      setNewSectionError('Todas las opciones deben tener nombre.');
+      return;
+    }
+    setNewSectionSaving(true);
+    setNewSectionError('');
+    try {
+      const token = localStorage.getItem('token');
+      const body = {
+        store_id: selectedStore.id,
+        name: newSectionData.name.trim(),
+        required: newSectionData.required,
+        max_options: parseInt(newSectionData.max_options) || 0,
+        options: newSectionData.options.filter(o => o.name.trim()).map(o => ({
+          name: o.name.trim(),
+          price: parseFloat(o.price) || 0
+        }))
+      };
+      const res = await fetch('/api/complement-groups', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('Error al crear la sección');
+      const created = await res.json();
+      // Add to local list and auto-check it for this product
+      setComplementGroups(prev => [...prev, created]);
+      setFormData(prev => ({
+        ...prev,
+        complement_group_ids: [...(prev.complement_group_ids || []), created.id]
+      }));
+      setShowNewSectionModal(false);
+      setNewSectionData({ name: '', required: false, max_options: '', options: [{ name: '', price: '' }] });
+    } catch (err) {
+      setNewSectionError(err.message || 'Error al crear la sección');
+    } finally {
+      setNewSectionSaving(false);
+    }
   };
 
   function ComplementSortableRow({ item }) {
@@ -959,65 +1009,7 @@ function Products() {
                   </div>
                 </div>
 
-                {/* Sección Precio y Stock */}
-                <div className="product-form-section">
-                  <h3 className="form-section-title">Precio y Stock</h3>
-                  
-                  <div className="form-row-2">
-                    <div className="form-group">
-                      <label>Precio *</label>
-                      <div className="input-with-prefix">
-                        <span className="input-prefix">$</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formData.price}
-                          onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                          required
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label>Stock</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={formData.stock}
-                        onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                        placeholder="0"
-                        disabled={formData.unlimited_stock}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Categoría</label>
-                    <select
-                      value={formData.category_id}
-                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                    >
-                      <option value="">Sin categoría</option>
-                      {categories.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-toggle-simple">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={formData.unlimited_stock}
-                        onChange={(e) => setFormData({ ...formData, unlimited_stock: e.target.checked })}
-                      />
-                      <span>Stock ilimitado</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Sección Complementos */}
+                {/* Sección Complementos - ARRIBA */}
                 <div className="product-form-section">
                   <h3 className="form-section-title">Complementos</h3>
 
@@ -1158,12 +1150,31 @@ function Products() {
                   )}
                 </div>
 
-                {/* Secciones personalizadas */}
+                {/* Secciones personalizadas - ARRIBA con botón + para crear */}
                 <div className="product-form-section">
-                  <h3 className="form-section-title">Secciones personalizadas</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <h3 className="form-section-title" style={{ margin: 0 }}>Secciones personalizadas</h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewSectionData({ name: '', required: false, max_options: '', options: [{ name: '', price: '' }] });
+                        setNewSectionError('');
+                        setShowNewSectionModal(true);
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        background: '#4f46e5', color: '#fff',
+                        border: 'none', borderRadius: 8,
+                        padding: '5px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer'
+                      }}
+                      title="Crear nueva sección"
+                    >
+                      <FontAwesomeIcon icon={faPlus} /> Nueva sección
+                    </button>
+                  </div>
                   {complementGroups.length === 0 ? (
                     <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>
-                      No hay secciones creadas. Creá secciones (ej: Salsas, Bebidas) desde el menú <strong>Secciones</strong>.
+                      Aún no hay secciones. Presioná <strong>+ Nueva sección</strong> para crear una.
                     </p>
                   ) : (
                     <>
@@ -1192,6 +1203,64 @@ function Products() {
                       </div>
                     </>
                   )}
+                </div>
+
+                {/* Sección Precio y Stock */}
+                <div className="product-form-section">
+                  <h3 className="form-section-title">Precio y Stock</h3>
+                  
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label>Precio *</label>
+                      <div className="input-with-prefix">
+                        <span className="input-prefix">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.price}
+                          onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                          required
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Stock</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.stock}
+                        onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                        placeholder="0"
+                        disabled={formData.unlimited_stock}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Categoría</label>
+                    <select
+                      value={formData.category_id}
+                      onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                    >
+                      <option value="">Sin categoría</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-toggle-simple">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={formData.unlimited_stock}
+                        onChange={(e) => setFormData({ ...formData, unlimited_stock: e.target.checked })}
+                      />
+                      <span>Stock ilimitado</span>
+                    </label>
+                  </div>
                 </div>
 
                 {/* Receta */}
@@ -1388,6 +1457,122 @@ function Products() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal rápido para crear nueva sección desde el editor de producto */}
+      {showNewSectionModal && (
+        <div className="product-modal-overlay" style={{ zIndex: 9999 }} onClick={() => setShowNewSectionModal(false)}>
+          <div className="product-modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+            <div className="product-modal-header">
+              <h2 className="product-modal-title">Nueva sección</h2>
+              <button className="product-modal-close" onClick={() => setShowNewSectionModal(false)}>&times;</button>
+            </div>
+            <div className="product-modal-body" style={{ padding: '16px' }}>
+              {newSectionError && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 13 }}>
+                  {newSectionError}
+                </div>
+              )}
+              <div className="form-group">
+                <label>Nombre de la sección *</label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={newSectionData.name}
+                  onChange={e => setNewSectionData({ ...newSectionData, name: e.target.value })}
+                  placeholder="Ej: Salsas, Tamaños, Bebidas"
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                  <label>Máx. opciones (0 = ilimitado)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newSectionData.max_options}
+                    onChange={e => setNewSectionData({ ...newSectionData, max_options: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}>
+                  <label className="form-toggle-simple" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <input
+                      type="checkbox"
+                      checked={newSectionData.required}
+                      onChange={e => setNewSectionData({ ...newSectionData, required: e.target.checked })}
+                    />
+                    <span style={{ fontSize: 13 }}>Obligatoria</span>
+                  </label>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Opciones</label>
+                {newSectionData.options.map((opt, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                    <input
+                      type="text"
+                      value={opt.name}
+                      onChange={e => {
+                        const opts = [...newSectionData.options];
+                        opts[idx] = { ...opts[idx], name: e.target.value };
+                        setNewSectionData({ ...newSectionData, options: opts });
+                      }}
+                      placeholder={`Opción ${idx + 1}`}
+                      style={{ flex: 2 }}
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={opt.price}
+                      onChange={e => {
+                        const opts = [...newSectionData.options];
+                        opts[idx] = { ...opts[idx], price: e.target.value };
+                        setNewSectionData({ ...newSectionData, options: opts });
+                      }}
+                      placeholder="$0.00"
+                      style={{ flex: 1 }}
+                    />
+                    {newSectionData.options.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const opts = newSectionData.options.filter((_, i) => i !== idx);
+                          setNewSectionData({ ...newSectionData, options: opts });
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 18, padding: '0 4px' }}
+                      >×</button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setNewSectionData({ ...newSectionData, options: [...newSectionData.options, { name: '', price: '' }] })}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px dashed #d1d5db', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: '#6b7280', fontSize: 13, marginTop: 4 }}
+                >
+                  <FontAwesomeIcon icon={faPlus} /> Agregar opción
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-full"
+                  disabled={newSectionSaving}
+                  onClick={handleCreateSectionInline}
+                >
+                  {newSectionSaving ? 'Creando…' : 'Crear sección'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowNewSectionModal(false)}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
