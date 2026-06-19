@@ -7083,117 +7083,122 @@ function Store() {
 
               {/* ── Extras / Complementos / Secciones — ARRIBA ── */}
               {editMode && (
-                <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px', marginTop: '4px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '8px', border: '2px solid', borderColor: prodForm.has_extras ? '#22c55e' : '#e0e0e0', background: prodForm.has_extras ? '#dcfce7' : '#fafafa' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', margin: 0 }}>
-                        <input type="checkbox" checked={prodForm.has_extras} onChange={(e) => setProdForm({ ...prodForm, has_extras: e.target.checked })} style={{ width: '18px', height: '18px' }} />
-                        Lleva {extrasLabel}
-                      </label>
-                      {prodForm.has_extras && (
-                        <input type="number" min="0" value={prodForm.max_extras} onChange={(e) => setProdForm({ ...prodForm, max_extras: e.target.value })} placeholder="Max (0=ilim)" className="store-prod-modal-input" style={{ width: '100px', padding: '5px 8px', fontSize: '13px' }} />
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '8px', border: '2px solid', borderColor: prodForm.has_ingredients ? '#22c55e' : '#e0e0e0', background: prodForm.has_ingredients ? '#dcfce7' : '#fafafa' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', margin: 0 }}>
-                        <input type="checkbox" checked={prodForm.has_ingredients} onChange={(e) => setProdForm({ ...prodForm, has_ingredients: e.target.checked })} style={{ width: '18px', height: '18px' }} />
-                        Lleva {complementsLabel}
-                      </label>
-                      {prodForm.has_ingredients && (
-                        <input type="number" min="0" value={prodForm.max_ingredients} onChange={(e) => setProdForm({ ...prodForm, max_ingredients: e.target.value })} placeholder="Max (0=ilim)" className="store-prod-modal-input" style={{ width: '100px', padding: '5px 8px', fontSize: '13px' }} />
-                      )}
-                    </div>
-                    {(prodForm.has_ingredients || prodForm.has_extras) && (
-                      <div style={{ padding: '8px 10px', borderRadius: '8px', border: '2px solid', borderColor: prodForm.complements_private ? '#D4AF37' : '#e0e0e0', background: prodForm.complements_private ? '#fffbeb' : '#fafafa' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', margin: 0 }}>
-                          <input type="checkbox" checked={prodForm.complements_private} onChange={(e) => setProdForm({ ...prodForm, complements_private: e.target.checked })} style={{ width: '18px', height: '18px' }} />
-                          <FontAwesomeIcon icon={faStar} style={{ color: '#D4AF37' }} /> Lista única (complementos solo de este producto)
-                        </label>
-                        <p style={{ margin: '6px 0 0 26px', fontSize: '11px', color: '#92760a', lineHeight: 1.4 }}>
-                          Al activarla, los complementos se vuelven exclusivos de este producto: editarlos no afecta a los demás. Se aplica al guardar.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <div style={{ flex: 1, display: 'flex' }}>
-                      <button
-                        onClick={() => { setComplementsTab('complements'); setShowComplementsModal(true); checkComplementDuplicates(); }}
-                        style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: '600', borderRadius: '8px 0 0 8px', border: '2px solid var(--store-primary)', borderRight: 'none', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
-                      >
-                        {complementsLabel} {selectedIngredientIds.length > 0 && <span style={{ fontSize: '11px', opacity: 0.7 }}>({selectedIngredientIds.length})</span>}
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setLabelEditModal({ type: 'complements', value: (store?.store?.complements_label || '').trim() }); }}
-                        title="Editar el texto que ven los clientes"
-                        style={{ padding: '10px 11px', borderRadius: '0 8px 8px 0', border: '2px solid var(--store-primary)', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
-                      >
-                        <FontAwesomeIcon icon={faEdit} />
-                      </button>
-                    </div>
-                    <div style={{ flex: 1, display: 'flex' }}>
-                      <button
-                        onClick={() => { setComplementsTab('extras'); setShowComplementsModal(true); checkComplementDuplicates(); }}
-                        style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: '600', borderRadius: '8px 0 0 8px', border: '2px solid var(--store-primary)', borderRight: 'none', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
-                      >
-                        {extrasLabel} {selectedExtraIds.length > 0 && <span style={{ fontSize: '11px', opacity: 0.7 }}>({selectedExtraIds.length})</span>}
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setLabelEditModal({ type: 'extras', value: (store?.store?.extras_label || '').trim() }); }}
-                        title="Editar el texto que ven los clientes"
-                        style={{ padding: '10px 11px', borderRadius: '0 8px 8px 0', border: '2px solid var(--store-primary)', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
-                      >
-                        <FontAwesomeIcon icon={faEdit} />
-                      </button>
-                    </div>
-                  </div>
+                <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: 6 }}>
 
-                  {/* Secciones personalizadas con botón + para crear directamente */}
-                  <div style={{ marginTop: 12, borderTop: '1px solid #eee', paddingTop: 10 }}>
+                  {/* Fila: Extras */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: `2px solid ${prodForm.has_extras ? '#22c55e' : '#e0e0e0'}`, background: prodForm.has_extras ? '#dcfce7' : '#fafafa' }}>
+                    {/* Toggle */}
+                    <input type="checkbox" checked={prodForm.has_extras} onChange={(e) => setProdForm({ ...prodForm, has_extras: e.target.checked })} style={{ width: 18, height: 18, flexShrink: 0, cursor: 'pointer' }} />
+                    {/* Nombre + lápiz */}
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, cursor: 'pointer' }} onClick={() => setProdForm({ ...prodForm, has_extras: !prodForm.has_extras })}>
+                      {extrasLabel}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setLabelEditModal({ type: 'extras', value: (store?.store?.extras_label || '').trim() }); }}
+                      title="Editar nombre"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '2px 5px', fontSize: 13, flexShrink: 0 }}
+                    ><FontAwesomeIcon icon={faEdit} /></button>
+                    {/* Botón editar productos */}
+                    <button
+                      onClick={() => { setComplementsTab('extras'); setShowComplementsModal(true); checkComplementDuplicates(); }}
+                      style={{ flexShrink: 0, padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: '1.5px solid var(--store-primary)', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
+                    >
+                      Editar {selectedExtraIds.length > 0 && <span style={{ opacity: 0.7 }}>({selectedExtraIds.length})</span>}
+                    </button>
+                  </div>
+                  {prodForm.has_extras && (
+                    <input type="number" min="0" value={prodForm.max_extras} onChange={(e) => setProdForm({ ...prodForm, max_extras: e.target.value })} placeholder="Máx. por cliente (0=ilimitado)" className="store-prod-modal-input" style={{ fontSize: 13 }} />
+                  )}
+
+                  {/* Fila: Complementos */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: `2px solid ${prodForm.has_ingredients ? '#22c55e' : '#e0e0e0'}`, background: prodForm.has_ingredients ? '#dcfce7' : '#fafafa' }}>
+                    <input type="checkbox" checked={prodForm.has_ingredients} onChange={(e) => setProdForm({ ...prodForm, has_ingredients: e.target.checked })} style={{ width: 18, height: 18, flexShrink: 0, cursor: 'pointer' }} />
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, cursor: 'pointer' }} onClick={() => setProdForm({ ...prodForm, has_ingredients: !prodForm.has_ingredients })}>
+                      {complementsLabel}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setLabelEditModal({ type: 'complements', value: (store?.store?.complements_label || '').trim() }); }}
+                      title="Editar nombre"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '2px 5px', fontSize: 13, flexShrink: 0 }}
+                    ><FontAwesomeIcon icon={faEdit} /></button>
+                    <button
+                      onClick={() => { setComplementsTab('complements'); setShowComplementsModal(true); checkComplementDuplicates(); }}
+                      style={{ flexShrink: 0, padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: '1.5px solid var(--store-primary)', background: 'var(--store-secondary)', color: 'var(--store-primary)', cursor: 'pointer' }}
+                    >
+                      Editar {selectedIngredientIds.length > 0 && <span style={{ opacity: 0.7 }}>({selectedIngredientIds.length})</span>}
+                    </button>
+                  </div>
+                  {prodForm.has_ingredients && (
+                    <input type="number" min="0" value={prodForm.max_ingredients} onChange={(e) => setProdForm({ ...prodForm, max_ingredients: e.target.value })} placeholder="Máx. por cliente (0=ilimitado)" className="store-prod-modal-input" style={{ fontSize: 13 }} />
+                  )}
+
+                  {/* Lista única */}
+                  {(prodForm.has_ingredients || prodForm.has_extras) && (
+                    <div style={{ padding: '7px 10px', borderRadius: 8, border: `2px solid ${prodForm.complements_private ? '#D4AF37' : '#e0e0e0'}`, background: prodForm.complements_private ? '#fffbeb' : '#fafafa' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, margin: 0 }}>
+                        <input type="checkbox" checked={prodForm.complements_private} onChange={(e) => setProdForm({ ...prodForm, complements_private: e.target.checked })} style={{ width: 16, height: 16 }} />
+                        <FontAwesomeIcon icon={faStar} style={{ color: '#D4AF37' }} /> Lista única (solo de este producto)
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Secciones personalizadas */}
+                  <div style={{ borderTop: '1px solid #eee', paddingTop: 10, marginTop: 2 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#333' }}>Secciones personalizadas</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Secciones</div>
                       <button
                         type="button"
                         onClick={() => setSectionGroupModal({ name: '', min_select: 0, max_select: 0, required: false, _autoAssign: true })}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 5,
-                          background: 'var(--store-primary)', color: 'var(--store-secondary)',
-                          border: 'none', borderRadius: 20,
-                          padding: '4px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer'
-                        }}
-                        title="Crear nueva sección"
-                      >
-                        + Nueva
-                      </button>
+                        style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--store-primary)', color: 'var(--store-secondary)', border: 'none', borderRadius: 20, padding: '3px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                      >+ Nueva</button>
                     </div>
                     {storeComplementGroups.length === 0 ? (
-                      <div style={{ fontSize: 12, color: '#999' }}>Presioná <strong>+ Nueva</strong> para crear tu primera sección.</div>
+                      <div style={{ fontSize: 12, color: '#bbb' }}>Presioná <strong>+ Nueva</strong> para crear la primera.</div>
                     ) : (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                         {storeComplementGroups.map(g => {
                           const checked = (prodForm.complement_group_ids || []).includes(g.id);
                           return (
-                            <button
-                              key={g.id}
-                              type="button"
-                              onClick={() => {
-                                const cur = prodForm.complement_group_ids || [];
-                                setProdForm({ ...prodForm, complement_group_ids: checked ? cur.filter(id => id !== g.id) : [...cur, g.id] });
-                              }}
-                              style={{
-                                padding: '6px 12px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                                border: `2px solid ${checked ? 'var(--store-primary)' : '#ddd'}`,
-                                background: checked ? 'var(--store-primary)' : '#fff',
-                                color: checked ? 'var(--store-secondary)' : '#666'
-                              }}
-                            >
-                              {checked ? '✓ ' : '+ '}{g.name}
-                            </button>
+                            <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, border: `2px solid ${checked ? 'var(--store-primary)' : '#e0e0e0'}`, background: checked ? 'var(--store-secondary)' : '#fafafa' }}>
+                              {/* Toggle */}
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  const cur = prodForm.complement_group_ids || [];
+                                  setProdForm({ ...prodForm, complement_group_ids: checked ? cur.filter(id => id !== g.id) : [...cur, g.id] });
+                                }}
+                                style={{ width: 16, height: 16, flexShrink: 0, cursor: 'pointer' }}
+                              />
+                              {/* Nombre */}
+                              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: checked ? 'var(--store-primary)' : '#444', cursor: 'pointer' }}
+                                onClick={() => {
+                                  const cur = prodForm.complement_group_ids || [];
+                                  setProdForm({ ...prodForm, complement_group_ids: checked ? cur.filter(id => id !== g.id) : [...cur, g.id] });
+                                }}
+                              >{g.name}</span>
+                              <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>{(g.options || []).length} opc.</span>
+                              {/* Lápiz: editar nombre/config */}
+                              <button
+                                type="button"
+                                onClick={() => setSectionGroupModal({ id: g.id, name: g.name, min_select: String(g.min_select ?? 0), max_select: String(g.max_select ?? 0), required: !!g.required })}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '2px 4px', fontSize: 13, flexShrink: 0 }}
+                                title="Editar nombre y configuración"
+                              ><FontAwesomeIcon icon={faEdit} /></button>
+                              {/* Botón editar opciones */}
+                              <button
+                                type="button"
+                                onClick={() => setSectionEditingGroup(g)}
+                                style={{ flexShrink: 0, padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: `1.5px solid ${checked ? 'var(--store-primary)' : '#ccc'}`, background: 'transparent', color: checked ? 'var(--store-primary)' : '#777', cursor: 'pointer' }}
+                                title="Editar opciones"
+                              >Editar</button>
+                            </div>
                           );
                         })}
                       </div>
                     )}
                   </div>
+
                 </div>
               )}
 
