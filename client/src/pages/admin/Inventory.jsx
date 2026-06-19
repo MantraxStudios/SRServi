@@ -505,13 +505,13 @@ export default function Inventory() {
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#f3f4f6', borderRadius: 10, padding: 4, border: '1px solid #e5e7eb' }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#f3f4f6', borderRadius: 10, padding: 4, border: '1px solid #e5e7eb', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => { setTab(t.key); setSearch(''); setEditingDirect(null); setRecipeProduct(null); }} style={{
-            flex: 1, padding: '9px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+            flexShrink: 0, padding: '9px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
             background: tab === t.key ? '#D4AF37' : 'transparent',
             color: tab === t.key ? '#000' : '#6b7280',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.15s'
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.15s', whiteSpace: 'nowrap'
           }}>
             <FontAwesomeIcon icon={t.icon} /> {t.label}
           </button>

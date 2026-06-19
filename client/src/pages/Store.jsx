@@ -3162,7 +3162,7 @@ function Store() {
     setSectionSaving(true);
     try {
       const url = g.id ? `/api/public/${code}/complement-groups/${g.id}` : `/api/public/${code}/complement-groups`;
-      await fetch(url, {
+      const res = await fetch(url, {
         method: g.id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3173,6 +3173,18 @@ function Store() {
           required: !!g.required
         })
       });
+      // Si es creación desde el editor de producto, auto-asignar la sección
+      if (!g.id && g._autoAssign) {
+        try {
+          const created = await res.json();
+          if (created && created.id) {
+            setProdForm(prev => ({
+              ...prev,
+              complement_group_ids: [...(prev.complement_group_ids || []), created.id]
+            }));
+          }
+        } catch (_) {}
+      }
       setSectionGroupModal(null);
       await fetchComplements();
     } catch (e) { console.error('Error guardando sección:', e); }
@@ -7047,39 +7059,8 @@ function Store() {
                   ))}
                 </select>
               </div>
-              <input
-                type="text"
-                value={prodForm.description}
-                onChange={(e) => setProdForm({ ...prodForm, description: e.target.value })}
-                placeholder="Descripción (opcional)"
-                className="store-prod-modal-input"
-              />
-              <input
-                type="text"
-                value={prodForm.barcode}
-                onChange={(e) => setProdForm({ ...prodForm, barcode: e.target.value })}
-                placeholder="Código de barras (escanear o escribir)"
-                className="store-prod-modal-input"
-                style={{ fontFamily: 'monospace', letterSpacing: '1px' }}
-              />
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer', flex: 1 }}>
-                  <input type="checkbox" checked={prodForm.unlimited_stock} onChange={(e) => setProdForm({ ...prodForm, unlimited_stock: e.target.checked })} />
-                  Stock ilimitado
-                </label>
-                {!prodForm.unlimited_stock && (
-                  <input
-                    type="number"
-                    min="0"
-                    value={prodForm.stock}
-                    onChange={(e) => setProdForm({ ...prodForm, stock: e.target.value })}
-                    placeholder="Stock"
-                    className="store-prod-modal-input"
-                    style={{ width: '80px' }}
-                  />
-                )}
-              </div>
 
+              {/* ── Extras / Complementos / Secciones — ARRIBA ── */}
               {editMode && (
                 <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '12px', marginTop: '4px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
@@ -7146,10 +7127,27 @@ function Store() {
                     </div>
                   </div>
 
-                  {/* Secciones personalizadas asignadas a este producto */}
-                  {storeComplementGroups.length > 0 && (
-                    <div style={{ marginTop: 12, borderTop: '1px solid #eee', paddingTop: 10 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: '#333' }}>Secciones personalizadas</div>
+                  {/* Secciones personalizadas con botón + para crear directamente */}
+                  <div style={{ marginTop: 12, borderTop: '1px solid #eee', paddingTop: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#333' }}>Secciones personalizadas</div>
+                      <button
+                        type="button"
+                        onClick={() => setSectionGroupModal({ name: '', min_select: 0, max_select: 0, required: false, _autoAssign: true })}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          background: 'var(--store-primary)', color: 'var(--store-secondary)',
+                          border: 'none', borderRadius: 20,
+                          padding: '4px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer'
+                        }}
+                        title="Crear nueva sección"
+                      >
+                        + Nueva
+                      </button>
+                    </div>
+                    {storeComplementGroups.length === 0 ? (
+                      <div style={{ fontSize: 12, color: '#999' }}>Presioná <strong>+ Nueva</strong> para crear tu primera sección.</div>
+                    ) : (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                         {storeComplementGroups.map(g => {
                           const checked = (prodForm.complement_group_ids || []).includes(g.id);
@@ -7173,11 +7171,43 @@ function Store() {
                           );
                         })}
                       </div>
-                      <div style={{ fontSize: 11, color: '#999', marginTop: 6 }}>Creá o editá secciones desde el panel admin → Secciones.</div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
+
+              <input
+                type="text"
+                value={prodForm.description}
+                onChange={(e) => setProdForm({ ...prodForm, description: e.target.value })}
+                placeholder="Descripción (opcional)"
+                className="store-prod-modal-input"
+              />
+              <input
+                type="text"
+                value={prodForm.barcode}
+                onChange={(e) => setProdForm({ ...prodForm, barcode: e.target.value })}
+                placeholder="Código de barras (escanear o escribir)"
+                className="store-prod-modal-input"
+                style={{ fontFamily: 'monospace', letterSpacing: '1px' }}
+              />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer', flex: 1 }}>
+                  <input type="checkbox" checked={prodForm.unlimited_stock} onChange={(e) => setProdForm({ ...prodForm, unlimited_stock: e.target.checked })} />
+                  Stock ilimitado
+                </label>
+                {!prodForm.unlimited_stock && (
+                  <input
+                    type="number"
+                    min="0"
+                    value={prodForm.stock}
+                    onChange={(e) => setProdForm({ ...prodForm, stock: e.target.value })}
+                    placeholder="Stock"
+                    className="store-prod-modal-input"
+                    style={{ width: '80px' }}
+                  />
+                )}
+              </div>
             </div>
             {editMode && editingProd && (
               <button
