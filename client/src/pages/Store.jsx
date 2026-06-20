@@ -983,6 +983,7 @@ function Store() {
   const [sessionPin, setSessionPin] = useState(null);
   const [catModalOpen, setCatModalOpen] = useState(false);
   const [editingCat, setEditingCat] = useState(null);
+  const [catModalFromProduct, setCatModalFromProduct] = useState(false);
   const [catName, setCatName] = useState('');
   const [tuuProvider, setTuuProvider] = useState(null);
   const [qrProvider, setQrProvider] = useState(null);
@@ -3796,9 +3797,10 @@ function Store() {
     }
   };
 
-  const openCatModal = (cat = null) => {
+  const openCatModal = (cat = null, fromProduct = false) => {
     setEditingCat(cat);
     setCatName(cat ? cat.name : '');
+    setCatModalFromProduct(fromProduct);
     setCatModalOpen(true);
   };
 
@@ -3808,14 +3810,19 @@ function Store() {
       const url = editingCat
         ? `/api/public/${code}/categories/${editingCat.id}`
         : `/api/public/${code}/categories`;
-      await fetch(url, {
+      const res = await fetch(url, {
         method: editingCat ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...getAuthBody(), name: catName.trim() })
       });
+      const savedCat = await res.json();
+      if (catModalFromProduct && !editingCat && savedCat?.id) {
+        setProdForm(prev => ({ ...prev, category_id: savedCat.id.toString() }));
+      }
       setCatModalOpen(false);
       setCatName('');
       setEditingCat(null);
+      setCatModalFromProduct(false);
       fetchStore();
     } catch (err) {
       console.error('Error saving category:', err);
@@ -7111,17 +7118,32 @@ function Store() {
                   className="store-prod-modal-input"
                   style={{ flex: '1 1 48%', minWidth: '120px' }}
                 />
-                <select
-                  value={prodForm.category_id}
-                  onChange={(e) => setProdForm({ ...prodForm, category_id: e.target.value })}
-                  className="store-prod-modal-input"
-                  style={{ flex: '1 1 48%', minWidth: '120px' }}
-                >
-                  <option value="">Sin categoría</option>
-                  {(store?.categories || []).map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
+                <div style={{ display: 'flex', gap: 6, flex: '1 1 48%', minWidth: '120px' }}>
+                  <select
+                    value={prodForm.category_id}
+                    onChange={(e) => setProdForm({ ...prodForm, category_id: e.target.value })}
+                    className="store-prod-modal-input"
+                    style={{ flex: 1, minWidth: 0 }}
+                  >
+                    <option value="">Sin categoría</option>
+                    {(store?.categories || []).map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => openCatModal(null, true)}
+                    title="Crear categoría"
+                    style={{
+                      flexShrink: 0, width: 38, borderRadius: 8, border: '2px solid var(--store-primary)',
+                      background: 'var(--store-secondary)', color: 'var(--store-primary)',
+                      fontSize: 16, fontWeight: 700, cursor: 'pointer', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center'
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faPlus} />
+                  </button>
+                </div>
               </div>
 
               {/* 3. Descripción */}
@@ -7185,7 +7207,10 @@ function Store() {
                     </button>
                   </div>
                   {prodForm.has_extras && (
-                    <input type="number" min="0" value={prodForm.max_extras} onChange={(e) => setProdForm({ ...prodForm, max_extras: e.target.value })} placeholder="Máx. por cliente (0=ilimitado)" className="store-prod-modal-input" style={{ fontSize: 13 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>Máx. a elegir:</span>
+                      <input type="number" min="0" value={prodForm.max_extras} onChange={(e) => setProdForm({ ...prodForm, max_extras: e.target.value })} placeholder="0 = ilimitado" className="store-prod-modal-input" style={{ fontSize: 13, flex: 1 }} />
+                    </div>
                   )}
 
                   {/* Fila: Complementos */}
@@ -7207,7 +7232,10 @@ function Store() {
                     </button>
                   </div>
                   {prodForm.has_ingredients && (
-                    <input type="number" min="0" value={prodForm.max_ingredients} onChange={(e) => setProdForm({ ...prodForm, max_ingredients: e.target.value })} placeholder="Máx. por cliente (0=ilimitado)" className="store-prod-modal-input" style={{ fontSize: 13 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>Máx. a elegir:</span>
+                      <input type="number" min="0" value={prodForm.max_ingredients} onChange={(e) => setProdForm({ ...prodForm, max_ingredients: e.target.value })} placeholder="0 = ilimitado" className="store-prod-modal-input" style={{ fontSize: 13, flex: 1 }} />
+                    </div>
                   )}
 
                   {/* Lista única */}
@@ -7769,7 +7797,7 @@ function Store() {
       )}
 
       {catModalOpen && (
-        <div className="store-modal-overlay" onClick={() => setCatModalOpen(false)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+        <div className="store-modal-overlay" onClick={() => { setCatModalOpen(false); setCatModalFromProduct(false); }} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
           <div className="store-pin-modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ margin: '0 0 16px', color: 'var(--store-primary)', textAlign: 'center' }}>
               {editingCat ? 'Editar Categoría' : 'Nueva Categoría'}
@@ -7793,7 +7821,7 @@ function Store() {
             />
             <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
               <button
-                onClick={() => setCatModalOpen(false)}
+                onClick={() => { setCatModalOpen(false); setCatModalFromProduct(false); }}
                 style={{
                   flex: 1, padding: '10px', border: '2px solid #e0e0e0', borderRadius: '8px',
                   background: '#fff', fontSize: '14px', cursor: 'pointer', fontWeight: '600'
