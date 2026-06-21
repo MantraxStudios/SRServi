@@ -12433,6 +12433,26 @@ html body .store-container .store-product-card * {
   .isb-fp-link > span:not([style]) { width: 48px; height: 48px; border-radius: 13px; font-size: 20px; }
   .isb-fp-apps-grid { grid-template-columns: 1fr 1fr; }
   .isb-mobile-header { display: flex; }
+
+  /* Barra inferior móvil — labels más pequeños y overflow seguro */
+  .isb-btn { padding: 5px 1px 4px; gap: 2px; min-width: 0; }
+  .isb-btn-label {
+    font-size: 8px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 2px;
+  }
+  .isb-btn-icon { font-size: 16px; }
+}
+
+/* Pantallas muy pequeñas (≤420px): solo iconos, sin texto */
+@media (max-width: 420px) {
+  .isb-btn-label { display: none; }
+  .isb-btn { padding: 0; justify-content: center; gap: 0; }
+  .isb-btn-icon { font-size: 20px; }
+  .isb-btn.active::before { width: 26px; }
 }
 
 @media (max-width: 480px) {
