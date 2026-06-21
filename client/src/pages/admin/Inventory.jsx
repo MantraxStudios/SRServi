@@ -556,13 +556,6 @@ export default function Inventory() {
           </div>
         </div>
 
-        {/* Search */}
-        <div style={{ position: 'relative', minWidth: 200 }}>
-          <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#80868b', fontSize: 12 }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..."
-            style={{ ...INPUT, paddingLeft: 32, background: '#fff', borderRadius: 20, fontSize: 13, padding: '7px 14px 7px 32px' }} />
-        </div>
-
         {/* Alert indicator */}
         {rmAlerts > 0 && (
           <div onClick={() => setSheet('alerts')} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 600 }}>
