@@ -5,7 +5,7 @@ import {
   faPlus, faTrash, faTimes, faCheck, faBoxOpen, faFlask,
   faListUl, faSave, faBox, faBell, faHistory, faChartBar,
   faChevronLeft, faChevronRight, faFolderOpen, faExchangeAlt, faTruck,
-  faPaperPlane, faEdit
+  faPaperPlane, faEdit, faClock
 } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
@@ -43,7 +43,7 @@ export default function Inventory() {
   const { selectedStore } = useStore();
   const { token } = useAuth();
 
-  const [sheet, setSheet] = useState('raw');
+  const [sheet, setSheet] = useState('sections');
   const [rawMats, setRawMats] = useState([]);
   const [directData, setDirectData] = useState({ products: [], ingredients: [], extras: [] });
   const [products, setProducts] = useState([]);
@@ -530,11 +530,11 @@ export default function Inventory() {
   /* ─── Sheets config ───────────────────────────────────────────────── */
 
   const SHEETS = [
+    { key: 'sections',   label: 'Secciones',       icon: faFolderOpen },
+    { key: 'movements',  label: 'Compras/Mov.',    icon: faExchangeAlt },
     { key: 'raw',        label: 'Materias Primas', icon: faFlask },
     { key: 'direct',     label: 'Stock Directo',   icon: faBox },
     { key: 'recipes',    label: 'Recetas',         icon: faListUl },
-    { key: 'sections',   label: 'Secciones',       icon: faFolderOpen },
-    { key: 'movements',  label: 'Compras/Mov.',    icon: faExchangeAlt },
     { key: 'transfers',  label: 'Transferencias',  icon: faTruck },
     { key: 'alerts',     label: 'Alertas',         icon: faBell },
     { key: 'history',    label: 'Historial',       icon: faHistory },
@@ -547,24 +547,33 @@ export default function Inventory() {
     <div style={{ height: 'calc(100dvh - 62px)', background: '#fff', color: '#202124', fontFamily: "'Google Sans', Roboto, sans-serif", display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ═══ Toolbar ═══ */}
-      <div style={{ background: '#f8f9fa', borderBottom: '1px solid #dadce0', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #e8eaed', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 'auto' }}>
-          <FontAwesomeIcon icon={faWarehouse} style={{ color: '#D4AF37', fontSize: 18 }} />
-          <div>
-            <span style={{ fontSize: 16, fontWeight: 700 }}>Inventario</span>
-            {selectedStore && <span style={{ fontSize: 12, color: '#5f6368', marginLeft: 8 }}>{selectedStore.name}</span>}
+          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'linear-gradient(135deg, #D4AF37, #b8960c)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FontAwesomeIcon icon={faWarehouse} style={{ color: '#fff', fontSize: 15 }} />
           </div>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>Inventario</div>
+            {selectedStore && <div style={{ fontSize: 11, color: '#80868b' }}>{selectedStore.name}</div>}
+          </div>
+        </div>
+
+        {/* Search */}
+        <div style={{ position: 'relative', minWidth: 180 }}>
+          <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#80868b', fontSize: 12 }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..."
+            style={{ ...INPUT, paddingLeft: 32, height: 34, fontSize: 12, borderRadius: 20, background: '#f8f9fa', border: '1px solid #e8eaed' }} />
         </div>
 
         {/* Alert indicator */}
         {rmAlerts > 0 && (
-          <div onClick={() => setSheet('alerts')} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 600 }}>
-            <FontAwesomeIcon icon={faExclamationTriangle} /> {rmAlerts} alerta{rmAlerts > 1 ? 's' : ''}
+          <div onClick={() => setSheet('alerts')} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 20, cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 600 }}>
+            <FontAwesomeIcon icon={faExclamationTriangle} /> {rmAlerts}
           </div>
         )}
 
         <button onClick={fetchAll} disabled={loading} style={{ ...BTN_GHOST, borderRadius: 20, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-          <FontAwesomeIcon icon={faSync} spin={loading} /> Actualizar
+          <FontAwesomeIcon icon={faSync} spin={loading} />
         </button>
       </div>
 
@@ -910,24 +919,28 @@ export default function Inventory() {
         {/* ──── SECCIONES ──── */}
         {sheet === 'sections' && (
           <div style={{ padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: '#202124' }}>Secciones de Inventario</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>Secciones</div>
+                <div style={{ fontSize: 12, color: '#80868b', marginTop: 2 }}>Organiza tu inventario por áreas</div>
+              </div>
               <button onClick={() => { setSectionForm({ name: '', color: '#D4AF37' }); setSectionModal('new'); }} style={BTN_GOLD}>
-                <FontAwesomeIcon icon={faPlus} /> Nueva Sección
+                <FontAwesomeIcon icon={faPlus} /> Nueva
               </button>
             </div>
 
             {sectionsLoading ? (
               <div style={{ textAlign: 'center', padding: 60, color: '#80868b' }}>Cargando...</div>
             ) : sections.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 60, color: '#80868b' }}>
-                <FontAwesomeIcon icon={faFolderOpen} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
-                Crea secciones para organizar tu inventario
+              <div style={{ textAlign: 'center', padding: 80, color: '#80868b' }}>
+                <FontAwesomeIcon icon={faFolderOpen} style={{ fontSize: 36, marginBottom: 12, display: 'block', color: '#dadce0' }} />
+                <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>Sin secciones</div>
+                <div style={{ fontSize: 12 }}>Crea secciones para organizar tu inventario por áreas</div>
               </div>
             ) : (
               <>
-                {/* ── Resumen por sección ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10, marginBottom: 20 }}>
+                {/* ── Summary cards ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
                   {sections.map(sec => {
                     const total = sec.items.length;
                     const ok = sec.items.filter(i => parseFloat(i.current_stock) > 5).length;
@@ -936,71 +949,76 @@ export default function Inventory() {
                     const pct = total > 0 ? Math.round((ok / total) * 100) : 100;
                     const barColor = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
                     return (
-                      <div key={sec.id} style={{ background: '#fff', border: '1px solid #e8eaed', borderRadius: 10, padding: '14px 16px', borderTop: `3px solid ${sec.color}` }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <div key={sec.id} style={{ background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, padding: '16px', position: 'relative', overflow: 'hidden' }}>
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: sec.color }} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                           <span style={{ fontSize: 13, fontWeight: 700, color: '#202124' }}>{sec.name}</span>
-                          <span style={{ fontSize: 20, fontWeight: 800, color: barColor }}>{pct}%</span>
+                          <span style={{ fontSize: 22, fontWeight: 800, color: barColor }}>{pct}%</span>
                         </div>
-                        <div style={{ height: 6, background: '#f1f3f4', borderRadius: 3, overflow: 'hidden', marginBottom: 10 }}>
-                          <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: 3, transition: 'width 0.3s' }} />
+                        <div style={{ height: 5, background: '#f1f3f4', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${barColor}, ${barColor}dd)`, borderRadius: 3, transition: 'width 0.3s' }} />
                         </div>
-                        <div style={{ display: 'flex', gap: 8, fontSize: 11 }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
-                            <span style={{ color: '#5f6368' }}>{ok} OK</span>
+                        <div style={{ display: 'flex', gap: 10, fontSize: 11 }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+                            <span style={{ color: '#5f6368' }}>{ok}</span>
                           </span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
-                            <span style={{ color: '#5f6368' }}>{low} Bajo</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
+                            <span style={{ color: '#5f6368' }}>{low}</span>
                           </span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
-                            <span style={{ color: '#5f6368' }}>{out} Sin</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                            <span style={{ color: '#5f6368' }}>{out}</span>
                           </span>
-                          <span style={{ marginLeft: 'auto', fontWeight: 600, color: '#80868b' }}>{total} items</span>
+                          <span style={{ marginLeft: 'auto', fontWeight: 600, color: '#80868b' }}>{total}</span>
                         </div>
                       </div>
                     );
                   })}
                 </div>
 
-                {/* ── Lista de secciones ── */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* ── Section detail list ── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {sections.map(sec => (
-                    <div key={sec.id} style={{ background: '#fff', border: '1px solid #dadce0', borderLeft: `4px solid ${sec.color}`, borderRadius: 8, padding: 14 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: sec.items.length > 0 ? 10 : 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div key={sec.id} style={{ background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: sec.items.length > 0 ? '1px solid #f1f3f4' : 'none', background: '#fafafa' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 4, height: 24, borderRadius: 2, background: sec.color }} />
                           <span style={{ fontSize: 14, fontWeight: 600 }}>{sec.name}</span>
-                          <span style={{ fontSize: 11, color: '#80868b', background: '#f1f3f4', padding: '2px 8px', borderRadius: 10 }}>{sec.items.length}</span>
+                          <span style={{ fontSize: 11, color: '#80868b', background: '#f1f3f4', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>{sec.items.length}</span>
                         </div>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <button onClick={() => { setAddItemType('product'); setAddItemSearch(''); setAddItemModal(sec.id); }}
-                            style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11 }}>
-                            <FontAwesomeIcon icon={faPlus} />
+                            style={{ background: 'none', border: '1px solid #e8eaed', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', color: '#5f6368', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <FontAwesomeIcon icon={faPlus} /> Agregar
                           </button>
                           <button onClick={() => { setSectionForm({ name: sec.name, color: sec.color }); setSectionModal(sec); }}
-                            style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11 }}>
+                            style={{ background: 'none', border: '1px solid #e8eaed', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: '#5f6368', fontSize: 11 }}>
                             <FontAwesomeIcon icon={faEdit} />
                           </button>
                           <button onClick={() => deleteSection(sec)}
-                            style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11, color: '#ef4444', borderColor: '#fecaca' }}>
+                            style={{ background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: '#ef4444', fontSize: 11 }}>
                             <FontAwesomeIcon icon={faTrash} />
                           </button>
                         </div>
                       </div>
                       {sec.items.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        <div style={{ padding: '10px 16px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {sec.items.map(item => {
                             const stock = parseFloat(item.current_stock) || 0;
+                            const stockColor = stock <= 0 ? '#ef4444' : stock <= 5 ? '#f59e0b' : '#22c55e';
                             return (
                               <div key={`${item.item_type}-${item.item_id}`} style={{
-                                display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
-                                background: '#f8f9fa', border: '1px solid #e8eaed', borderRadius: 6, fontSize: 12
+                                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
+                                background: '#fff', border: '1px solid #e8eaed', borderRadius: 8, fontSize: 12
                               }}>
-                                <span style={{ fontWeight: 500 }}>{item.item_name}</span>
-                                <span style={{ fontWeight: 700, fontSize: 11, color: stock <= 0 ? '#ef4444' : stock <= 5 ? '#f59e0b' : '#22c55e' }}>{stock}</span>
+                                <span style={{ fontWeight: 500, color: '#202124' }}>{item.item_name}</span>
+                                <span style={{ fontWeight: 700, fontSize: 12, color: stockColor, minWidth: 20, textAlign: 'center' }}>{stock}</span>
                                 <button onClick={() => removeItemFromSec(sec.id, item.item_type, item.item_id)}
-                                  style={{ background: 'none', border: 'none', color: '#dadce0', cursor: 'pointer', fontSize: 10, padding: 0 }}>
+                                  style={{ background: 'none', border: 'none', color: '#dadce0', cursor: 'pointer', fontSize: 10, padding: '0 2px', lineHeight: 1 }}
+                                  onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                                  onMouseLeave={e => e.currentTarget.style.color = '#dadce0'}>
                                   <FontAwesomeIcon icon={faTimes} />
                                 </button>
                               </div>
@@ -1018,117 +1036,176 @@ export default function Inventory() {
 
         {/* ──── COMPRAS / MOVIMIENTOS ──── */}
         {sheet === 'movements' && (
-          <div style={{ padding: 20, maxWidth: 700 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Registrar Movimiento</div>
-
-            <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-              {[
-                { key: 'purchase', label: 'Compra', color: '#1a73e8' },
-                { key: 'entry', label: 'Entrada', color: '#34a853' },
-                { key: 'exit', label: 'Salida', color: '#ea4335' },
-              ].map(r => (
-                <button key={r.key} onClick={() => setMovReason(r.key)} style={{
-                  flex: 1, padding: '10px', borderRadius: 6, border: `2px solid ${movReason === r.key ? r.color : '#dadce0'}`,
-                  cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                  background: movReason === r.key ? r.color + '12' : '#fff', color: movReason === r.key ? r.color : '#5f6368'
-                }}>
-                  {r.label}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-              {['raw_material', 'product', 'ingredient', 'extra'].map(t => (
-                <button key={t} onClick={() => setMovItemType(t)} style={{
-                  padding: '6px 12px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                  background: movItemType === t ? '#e8f0fe' : '#f1f3f4', color: movItemType === t ? '#1a73e8' : '#5f6368'
-                }}>
-                  {t === 'raw_material' ? 'Mat. Prima' : t === 'product' ? 'Productos' : t === 'ingredient' ? 'Ingredientes' : 'Extras'}
-                </button>
-              ))}
-            </div>
-
-            <input value={movItemSearch} onChange={e => setMovItemSearch(e.target.value)} placeholder="Buscar item..." style={{ ...INPUT, marginBottom: 8 }} />
-
-            {movItemSearch && (() => {
-              const source = movItemType === 'product' ? directData.products : movItemType === 'ingredient' ? directData.ingredients : movItemType === 'extra' ? directData.extras : rawMats;
-              const filtered = source.filter(i => i.name.toLowerCase().includes(movItemSearch.toLowerCase())).slice(0, 8);
-              return filtered.length > 0 ? (
-                <div style={{ border: '1px solid #dadce0', borderRadius: 6, marginBottom: 10, maxHeight: 200, overflowY: 'auto', background: '#fff' }}>
-                  {filtered.map(item => (
-                    <div key={item.id} onClick={() => {
-                      if (!movItems.find(m => m.item_id === item.id && m.item_type === movItemType))
-                        setMovItems([...movItems, { item_type: movItemType, item_id: item.id, item_name: item.name, quantity: 1 }]);
-                      setMovItemSearch('');
-                    }}
-                      style={{ padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f3f4', fontSize: 13 }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                      {item.name}
-                    </div>
-                  ))}
-                </div>
-              ) : null;
-            })()}
-
-            {movItems.length > 0 && (
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 14 }}>
-                <thead>
-                  <tr>
-                    <th style={TH}>Item</th>
-                    <th style={{ ...TH, width: 90 }}>Cantidad</th>
-                    {movReason === 'purchase' && <th style={{ ...TH, width: 100 }}>Precio/Ud</th>}
-                    {movReason === 'purchase' && <th style={{ ...TH, width: 90 }}>Subtotal</th>}
-                    <th style={{ ...TH, width: 40 }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {movItems.map((item, idx) => (
-                    <tr key={idx}>
-                      <td style={TD}><div style={CELL}>{item.item_name}</div></td>
-                      <td style={TD}>
-                        <input type="number" min="0.001" step="0.001" value={item.quantity}
-                          onChange={e => setMovItems(movItems.map((m, i) => i === idx ? { ...m, quantity: parseFloat(e.target.value) || 0 } : m))}
-                          style={{ ...CELL_INPUT, position: 'relative', inset: 'unset', textAlign: 'center', width: '100%', border: '1px solid #e8eaed' }} />
-                      </td>
-                      {movReason === 'purchase' && (
-                        <td style={TD}>
-                          <input type="number" min="0" step="0.01" placeholder="$0.00" value={item.unit_cost || ''}
-                            onChange={e => setMovItems(movItems.map((m, i) => i === idx ? { ...m, unit_cost: e.target.value } : m))}
-                            style={{ ...CELL_INPUT, position: 'relative', inset: 'unset', textAlign: 'center', width: '100%', border: '1px solid #e8eaed' }} />
-                        </td>
-                      )}
-                      {movReason === 'purchase' && (
-                        <td style={TD}>
-                          <div style={{ ...CELL, justifyContent: 'center', fontWeight: 600, color: '#D4AF37' }}>
-                            ${fmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_cost) || 0), 2)}
-                          </div>
-                        </td>
-                      )}
-                      <td style={{ ...TD, textAlign: 'center' }}>
-                        <button onClick={() => setMovItems(movItems.filter((_, i) => i !== idx))}
-                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
-                          <FontAwesomeIcon icon={faTimes} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-
-            {movReason === 'purchase' && movItems.length > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 14, padding: '10px 14px', background: '#f8f9fa', borderRadius: 8 }}>
-                <span style={{ fontSize: 13, color: '#5f6368' }}>Total compra:</span>
-                <span style={{ fontSize: 18, fontWeight: 800, color: '#D4AF37' }}>
-                  ${fmt(movItems.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_cost) || 0), 0), 2)}
-                </span>
+          <div style={{ padding: 0 }}>
+            {/* Header */}
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e8eaed', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fafafa' }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#202124' }}>Registrar Movimiento</div>
+                <div style={{ fontSize: 12, color: '#80868b', marginTop: 2 }}>Compras, entradas y salidas de inventario</div>
               </div>
-            )}
+              <button onClick={submitMovement} disabled={movItems.length === 0 || movSaving}
+                style={{ ...BTN_GOLD, opacity: movItems.length === 0 ? 0.5 : 1 }}>
+                <FontAwesomeIcon icon={faCheck} /> {movSaving ? 'Registrando...' : 'Registrar'}
+              </button>
+            </div>
 
-            <button onClick={submitMovement} disabled={movItems.length === 0 || movSaving}
-              style={{ ...BTN_GOLD, width: '100%', justifyContent: 'center', opacity: movItems.length === 0 ? 0.5 : 1 }}>
-              <FontAwesomeIcon icon={faCheck} /> {movSaving ? 'Registrando...' : `Registrar ${movReason === 'purchase' ? 'Compra' : movReason === 'entry' ? 'Entrada' : 'Salida'}`}
-            </button>
+            <div style={{ padding: '16px 20px' }}>
+              {/* Reason selector */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                {[
+                  { key: 'purchase', label: 'Compra', icon: faTruck, color: '#1a73e8' },
+                  { key: 'entry', label: 'Entrada', icon: faPlus, color: '#34a853' },
+                  { key: 'exit', label: 'Salida', icon: faExchangeAlt, color: '#ea4335' },
+                ].map(r => (
+                  <button key={r.key} onClick={() => setMovReason(r.key)} style={{
+                    flex: 1, padding: '12px 16px', borderRadius: 10, border: `2px solid ${movReason === r.key ? r.color : '#e8eaed'}`,
+                    cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    background: movReason === r.key ? r.color + '0A' : '#fff', color: movReason === r.key ? r.color : '#5f6368',
+                    transition: 'all 0.15s'
+                  }}>
+                    <FontAwesomeIcon icon={r.icon} style={{ fontSize: 14 }} />
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Item type tabs + search */}
+              <div style={{ display: 'flex', gap: 0, marginBottom: 12, borderBottom: '2px solid #e8eaed' }}>
+                {['raw_material', 'product', 'ingredient', 'extra'].map(t => (
+                  <button key={t} onClick={() => setMovItemType(t)} style={{
+                    padding: '8px 16px', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                    background: 'transparent', color: movItemType === t ? '#D4AF37' : '#5f6368',
+                    borderBottom: movItemType === t ? '2px solid #D4AF37' : '2px solid transparent',
+                    marginBottom: -2, transition: 'all 0.15s'
+                  }}>
+                    {t === 'raw_material' ? 'Mat. Prima' : t === 'product' ? 'Productos' : t === 'ingredient' ? 'Ingredientes' : 'Extras'}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ position: 'relative', marginBottom: 12 }}>
+                <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#80868b', fontSize: 13 }} />
+                <input value={movItemSearch} onChange={e => setMovItemSearch(e.target.value)} placeholder="Buscar item para agregar..."
+                  style={{ ...INPUT, paddingLeft: 36 }} />
+              </div>
+
+              {movItemSearch && (() => {
+                const source = movItemType === 'product' ? directData.products : movItemType === 'ingredient' ? directData.ingredients : movItemType === 'extra' ? directData.extras : rawMats;
+                const filtered = source.filter(i => i.name.toLowerCase().includes(movItemSearch.toLowerCase())).slice(0, 8);
+                return filtered.length > 0 ? (
+                  <div style={{ border: '1px solid #dadce0', borderRadius: 8, marginBottom: 12, maxHeight: 200, overflowY: 'auto', background: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+                    {filtered.map(item => {
+                      const section = sections.find(s => s.items?.some(si => si.item_id === item.id && si.item_type === movItemType));
+                      return (
+                        <div key={item.id} onClick={() => {
+                          if (!movItems.find(m => m.item_id === item.id && m.item_type === movItemType))
+                            setMovItems([...movItems, { item_type: movItemType, item_id: item.id, item_name: item.name, quantity: 1, unit_cost: '', section_name: section?.name || '—', stock: movItemType === 'raw_material' ? (parseFloat(item.quantity) || 0) : (item.stock ?? 0), updated_at: item.updated_at || item.created_at || '' }]);
+                          setMovItemSearch('');
+                        }}
+                          style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f3f4', fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                          <span style={{ fontWeight: 500 }}>{item.name}</span>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            {section && <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: section.color + '15', color: section.color, fontWeight: 600 }}>{section.name}</span>}
+                            <span style={{ fontSize: 11, color: '#80868b' }}>Stock: {movItemType === 'raw_material' ? fmt(item.quantity, 2) : item.stock ?? 0}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null;
+              })()}
+
+              {/* Items table */}
+              {movItems.length > 0 && (
+                <div style={{ border: '1px solid #e8eaed', borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#f8f9fa' }}>
+                        <th style={{ ...TH, minWidth: 140 }}>Item</th>
+                        <th style={{ ...TH, width: 80, textAlign: 'center' }}>Cantidad</th>
+                        {movReason === 'purchase' && <th style={{ ...TH, width: 95, textAlign: 'center' }}>P. Unitario</th>}
+                        {movReason === 'purchase' && <th style={{ ...TH, width: 95, textAlign: 'center' }}>Valor Total</th>}
+                        <th style={{ ...TH, width: 70, textAlign: 'center' }}>Stock</th>
+                        <th style={{ ...TH, width: 90, textAlign: 'center' }}>Sector</th>
+                        <th style={{ ...TH, width: 100, textAlign: 'center' }}>Últ. Actualiz.</th>
+                        <th style={{ ...TH, width: 36, textAlign: 'center' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movItems.map((item, idx) => (
+                        <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
+                          <td style={TD}>
+                            <div style={{ ...CELL, fontWeight: 500 }}>{item.item_name}</div>
+                          </td>
+                          <td style={TD}>
+                            <input type="number" min="0.001" step="0.001" value={item.quantity}
+                              onChange={e => setMovItems(movItems.map((m, i) => i === idx ? { ...m, quantity: parseFloat(e.target.value) || 0 } : m))}
+                              style={{ width: '100%', padding: '6px 8px', border: '1px solid #e8eaed', borderRadius: 4, textAlign: 'center', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                          </td>
+                          {movReason === 'purchase' && (
+                            <td style={TD}>
+                              <input type="number" min="0" step="0.01" placeholder="$0" value={item.unit_cost || ''}
+                                onChange={e => setMovItems(movItems.map((m, i) => i === idx ? { ...m, unit_cost: e.target.value } : m))}
+                                style={{ width: '100%', padding: '6px 8px', border: '1px solid #e8eaed', borderRadius: 4, textAlign: 'center', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                            </td>
+                          )}
+                          {movReason === 'purchase' && (
+                            <td style={TD}>
+                              <div style={{ ...CELL, justifyContent: 'center', fontWeight: 700, color: '#D4AF37' }}>
+                                ${fmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_cost) || 0), 2)}
+                              </div>
+                            </td>
+                          )}
+                          <td style={TD}>
+                            <div style={{ ...CELL, justifyContent: 'center', fontWeight: 600, color: (item.stock || 0) <= 0 ? '#ef4444' : (item.stock || 0) <= 5 ? '#f59e0b' : '#22c55e' }}>
+                              {fmt(item.stock || 0, 2)}
+                            </div>
+                          </td>
+                          <td style={TD}>
+                            <div style={{ ...CELL, justifyContent: 'center' }}>
+                              <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: '#f1f3f4', color: '#5f6368', fontWeight: 500 }}>
+                                {item.section_name || '—'}
+                              </span>
+                            </div>
+                          </td>
+                          <td style={TD}>
+                            <div style={{ ...CELL, justifyContent: 'center', fontSize: 11, color: '#80868b' }}>
+                              {item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
+                            </div>
+                          </td>
+                          <td style={{ ...TD, textAlign: 'center' }}>
+                            <button onClick={() => setMovItems(movItems.filter((_, i) => i !== idx))}
+                              style={{ background: 'none', border: 'none', color: '#dadce0', cursor: 'pointer', fontSize: 13, padding: 4 }}
+                              onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                              onMouseLeave={e => e.currentTarget.style.color = '#dadce0'}>
+                              <FontAwesomeIcon icon={faTrash} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {movItems.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#80868b', border: '2px dashed #e8eaed', borderRadius: 10 }}>
+                  <FontAwesomeIcon icon={faBoxOpen} style={{ fontSize: 28, marginBottom: 10, display: 'block', color: '#dadce0' }} />
+                  <div style={{ fontSize: 13 }}>Busca y agrega items para registrar el movimiento</div>
+                </div>
+              )}
+
+              {/* Purchase total */}
+              {movReason === 'purchase' && movItems.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, padding: '14px 20px', background: 'linear-gradient(135deg, #fffbeb, #fef3cd)', borderRadius: 10, border: '1px solid #f5e6a3' }}>
+                  <span style={{ fontSize: 14, color: '#5f6368', fontWeight: 500 }}>Total compra:</span>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: '#D4AF37' }}>
+                    ${fmt(movItems.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_cost) || 0), 0), 2)}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1416,19 +1493,19 @@ export default function Inventory() {
       </div>
 
       {/* ═══ Sheet tabs (bottom) ═══ */}
-      <div style={{ background: '#f8f9fa', borderTop: '1px solid #dadce0', display: 'flex', gap: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch', flexShrink: 0 }}>
+      <div style={{ background: '#fff', borderTop: '1px solid #e8eaed', display: 'flex', gap: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch', flexShrink: 0, padding: '0 4px' }}>
         {SHEETS.map(s => (
           <button key={s.key} onClick={() => { setSheet(s.key); setSearch(''); setEditCell(null); setNewRmRow(null); setEditingStock(null); setRecipeProduct(null); }}
             style={{
-              padding: '10px 18px', border: 'none', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-              background: sheet === s.key ? '#fff' : 'transparent',
-              color: sheet === s.key ? '#D4AF37' : '#5f6368',
-              fontWeight: sheet === s.key ? 600 : 400,
-              borderTop: sheet === s.key ? '3px solid #D4AF37' : '3px solid transparent',
-              borderRight: '1px solid #e8eaed',
-              transition: 'all 0.1s'
+              padding: '11px 16px', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+              background: 'transparent',
+              color: sheet === s.key ? '#D4AF37' : '#80868b',
+              fontWeight: sheet === s.key ? 700 : 400,
+              borderBottom: sheet === s.key ? '3px solid #D4AF37' : '3px solid transparent',
+              transition: 'all 0.15s',
+              marginBottom: -1
             }}>
-            <FontAwesomeIcon icon={s.icon} style={{ fontSize: 12 }} /> {s.label}
+            <FontAwesomeIcon icon={s.icon} style={{ fontSize: 11 }} /> {s.label}
           </button>
         ))}
       </div>
