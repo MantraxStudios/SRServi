@@ -427,9 +427,14 @@ export default function Inventory() {
     if (movItems.length === 0) return;
     setMovSaving(true);
     try {
+      const items = movItems.map(m => {
+        const item = { item_type: m.item_type, item_id: m.item_id, item_name: m.item_name, quantity: m.quantity };
+        if (movReason === 'purchase' && m.unit_cost) item.unit_cost = parseFloat(m.unit_cost) || 0;
+        return item;
+      });
       await fetch(`${API}/api/inventory/movement`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ store_id: selectedStore.id, reason: movReason, items: movItems })
+        body: JSON.stringify({ store_id: selectedStore.id, reason: movReason, items })
       });
       setMovItems([]); fetchAll();
     } finally { setMovSaving(false); }
@@ -539,7 +544,7 @@ export default function Inventory() {
   /* ─── RENDER ──────────────────────────────────────────────────────── */
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fff', color: '#202124', fontFamily: "'Google Sans', Roboto, sans-serif", display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: 'calc(100dvh - 62px)', background: '#fff', color: '#202124', fontFamily: "'Google Sans', Roboto, sans-serif", display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ═══ Toolbar ═══ */}
       <div style={{ background: '#f8f9fa', borderBottom: '1px solid #dadce0', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -927,59 +932,100 @@ export default function Inventory() {
                 Crea secciones para organizar tu inventario
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {sections.map(sec => (
-                  <div key={sec.id} style={{ background: '#fff', border: '1px solid #dadce0', borderLeft: `4px solid ${sec.color}`, borderRadius: 8, padding: 14 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: sec.items.length > 0 ? 10 : 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600 }}>{sec.name}</span>
-                        <span style={{ fontSize: 11, color: '#80868b', background: '#f1f3f4', padding: '2px 8px', borderRadius: 10 }}>{sec.items.length}</span>
+              <>
+                {/* ── Resumen por sección ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10, marginBottom: 20 }}>
+                  {sections.map(sec => {
+                    const total = sec.items.length;
+                    const ok = sec.items.filter(i => parseFloat(i.current_stock) > 5).length;
+                    const low = sec.items.filter(i => { const s = parseFloat(i.current_stock); return s > 0 && s <= 5; }).length;
+                    const out = sec.items.filter(i => parseFloat(i.current_stock) <= 0).length;
+                    const pct = total > 0 ? Math.round((ok / total) * 100) : 100;
+                    const barColor = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+                    return (
+                      <div key={sec.id} style={{ background: '#fff', border: '1px solid #e8eaed', borderRadius: 10, padding: '14px 16px', borderTop: `3px solid ${sec.color}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#202124' }}>{sec.name}</span>
+                          <span style={{ fontSize: 20, fontWeight: 800, color: barColor }}>{pct}%</span>
+                        </div>
+                        <div style={{ height: 6, background: '#f1f3f4', borderRadius: 3, overflow: 'hidden', marginBottom: 10 }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: 3, transition: 'width 0.3s' }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, fontSize: 11 }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+                            <span style={{ color: '#5f6368' }}>{ok} OK</span>
+                          </span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
+                            <span style={{ color: '#5f6368' }}>{low} Bajo</span>
+                          </span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                            <span style={{ color: '#5f6368' }}>{out} Sin</span>
+                          </span>
+                          <span style={{ marginLeft: 'auto', fontWeight: 600, color: '#80868b' }}>{total} items</span>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button onClick={() => { setAddItemType('product'); setAddItemSearch(''); setAddItemModal(sec.id); }}
-                          style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11 }}>
-                          <FontAwesomeIcon icon={faPlus} />
-                        </button>
-                        <button onClick={() => { setSectionForm({ name: sec.name, color: sec.color }); setSectionModal(sec); }}
-                          style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11 }}>
-                          <FontAwesomeIcon icon={faEdit} />
-                        </button>
-                        <button onClick={() => deleteSection(sec)}
-                          style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11, color: '#ef4444', borderColor: '#fecaca' }}>
-                          <FontAwesomeIcon icon={faTrash} />
-                        </button>
+                    );
+                  })}
+                </div>
+
+                {/* ── Lista de secciones ── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {sections.map(sec => (
+                    <div key={sec.id} style={{ background: '#fff', border: '1px solid #dadce0', borderLeft: `4px solid ${sec.color}`, borderRadius: 8, padding: 14 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: sec.items.length > 0 ? 10 : 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 14, fontWeight: 600 }}>{sec.name}</span>
+                          <span style={{ fontSize: 11, color: '#80868b', background: '#f1f3f4', padding: '2px 8px', borderRadius: 10 }}>{sec.items.length}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button onClick={() => { setAddItemType('product'); setAddItemSearch(''); setAddItemModal(sec.id); }}
+                            style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11 }}>
+                            <FontAwesomeIcon icon={faPlus} />
+                          </button>
+                          <button onClick={() => { setSectionForm({ name: sec.name, color: sec.color }); setSectionModal(sec); }}
+                            style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11 }}>
+                            <FontAwesomeIcon icon={faEdit} />
+                          </button>
+                          <button onClick={() => deleteSection(sec)}
+                            style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11, color: '#ef4444', borderColor: '#fecaca' }}>
+                            <FontAwesomeIcon icon={faTrash} />
+                          </button>
+                        </div>
                       </div>
+                      {sec.items.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {sec.items.map(item => {
+                            const stock = parseFloat(item.current_stock) || 0;
+                            return (
+                              <div key={`${item.item_type}-${item.item_id}`} style={{
+                                display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+                                background: '#f8f9fa', border: '1px solid #e8eaed', borderRadius: 6, fontSize: 12
+                              }}>
+                                <span style={{ fontWeight: 500 }}>{item.item_name}</span>
+                                <span style={{ fontWeight: 700, fontSize: 11, color: stock <= 0 ? '#ef4444' : stock <= 5 ? '#f59e0b' : '#22c55e' }}>{stock}</span>
+                                <button onClick={() => removeItemFromSec(sec.id, item.item_type, item.item_id)}
+                                  style={{ background: 'none', border: 'none', color: '#dadce0', cursor: 'pointer', fontSize: 10, padding: 0 }}>
+                                  <FontAwesomeIcon icon={faTimes} />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                    {sec.items.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                        {sec.items.map(item => {
-                          const stock = parseFloat(item.current_stock) || 0;
-                          return (
-                            <div key={`${item.item_type}-${item.item_id}`} style={{
-                              display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
-                              background: '#f8f9fa', border: '1px solid #e8eaed', borderRadius: 6, fontSize: 12
-                            }}>
-                              <span style={{ fontWeight: 500 }}>{item.item_name}</span>
-                              <span style={{ fontWeight: 700, fontSize: 11, color: stock <= 0 ? '#ef4444' : stock <= 5 ? '#f59e0b' : '#22c55e' }}>{stock}</span>
-                              <button onClick={() => removeItemFromSec(sec.id, item.item_type, item.item_id)}
-                                style={{ background: 'none', border: 'none', color: '#dadce0', cursor: 'pointer', fontSize: 10, padding: 0 }}>
-                                <FontAwesomeIcon icon={faTimes} />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
 
         {/* ──── COMPRAS / MOVIMIENTOS ──── */}
         {sheet === 'movements' && (
-          <div style={{ padding: 20, maxWidth: 600 }}>
+          <div style={{ padding: 20, maxWidth: 700 }}>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Registrar Movimiento</div>
 
             <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
@@ -1036,7 +1082,9 @@ export default function Inventory() {
                 <thead>
                   <tr>
                     <th style={TH}>Item</th>
-                    <th style={{ ...TH, width: 100 }}>Cantidad</th>
+                    <th style={{ ...TH, width: 90 }}>Cantidad</th>
+                    {movReason === 'purchase' && <th style={{ ...TH, width: 100 }}>Precio/Ud</th>}
+                    {movReason === 'purchase' && <th style={{ ...TH, width: 90 }}>Subtotal</th>}
                     <th style={{ ...TH, width: 40 }}></th>
                   </tr>
                 </thead>
@@ -1049,6 +1097,20 @@ export default function Inventory() {
                           onChange={e => setMovItems(movItems.map((m, i) => i === idx ? { ...m, quantity: parseFloat(e.target.value) || 0 } : m))}
                           style={{ ...CELL_INPUT, position: 'relative', inset: 'unset', textAlign: 'center', width: '100%', border: '1px solid #e8eaed' }} />
                       </td>
+                      {movReason === 'purchase' && (
+                        <td style={TD}>
+                          <input type="number" min="0" step="0.01" placeholder="$0.00" value={item.unit_cost || ''}
+                            onChange={e => setMovItems(movItems.map((m, i) => i === idx ? { ...m, unit_cost: e.target.value } : m))}
+                            style={{ ...CELL_INPUT, position: 'relative', inset: 'unset', textAlign: 'center', width: '100%', border: '1px solid #e8eaed' }} />
+                        </td>
+                      )}
+                      {movReason === 'purchase' && (
+                        <td style={TD}>
+                          <div style={{ ...CELL, justifyContent: 'center', fontWeight: 600, color: '#D4AF37' }}>
+                            ${fmt((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_cost) || 0), 2)}
+                          </div>
+                        </td>
+                      )}
                       <td style={{ ...TD, textAlign: 'center' }}>
                         <button onClick={() => setMovItems(movItems.filter((_, i) => i !== idx))}
                           style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
@@ -1059,6 +1121,15 @@ export default function Inventory() {
                   ))}
                 </tbody>
               </table>
+            )}
+
+            {movReason === 'purchase' && movItems.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 14, padding: '10px 14px', background: '#f8f9fa', borderRadius: 8 }}>
+                <span style={{ fontSize: 13, color: '#5f6368' }}>Total compra:</span>
+                <span style={{ fontSize: 18, fontWeight: 800, color: '#D4AF37' }}>
+                  ${fmt(movItems.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_cost) || 0), 0), 2)}
+                </span>
+              </div>
             )}
 
             <button onClick={submitMovement} disabled={movItems.length === 0 || movSaving}
