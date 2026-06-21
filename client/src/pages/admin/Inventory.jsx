@@ -1004,26 +1004,84 @@ export default function Inventory() {
                         </div>
                       </div>
                       {sec.items.length > 0 && (
-                        <div style={{ padding: '10px 16px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {sec.items.map(item => {
-                            const stock = parseFloat(item.current_stock) || 0;
-                            const stockColor = stock <= 0 ? '#ef4444' : stock <= 5 ? '#f59e0b' : '#22c55e';
-                            return (
-                              <div key={`${item.item_type}-${item.item_id}`} style={{
-                                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-                                background: '#fff', border: '1px solid #e8eaed', borderRadius: 8, fontSize: 12
-                              }}>
-                                <span style={{ fontWeight: 500, color: '#202124' }}>{item.item_name}</span>
-                                <span style={{ fontWeight: 700, fontSize: 12, color: stockColor, minWidth: 20, textAlign: 'center' }}>{stock}</span>
-                                <button onClick={() => removeItemFromSec(sec.id, item.item_type, item.item_id)}
-                                  style={{ background: 'none', border: 'none', color: '#dadce0', cursor: 'pointer', fontSize: 10, padding: '0 2px', lineHeight: 1 }}
-                                  onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-                                  onMouseLeave={e => e.currentTarget.style.color = '#dadce0'}>
-                                  <FontAwesomeIcon icon={faTimes} />
-                                </button>
-                              </div>
-                            );
-                          })}
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
+                            <thead>
+                              <tr style={{ background: '#f8f9fa' }}>
+                                <th style={{ ...TH, minWidth: 160, paddingLeft: 20 }}>Item</th>
+                                <th style={{ ...TH, width: 90, textAlign: 'center' }}>Stock</th>
+                                <th style={{ ...TH, width: 120, textAlign: 'center' }}>Sector</th>
+                                <th style={{ ...TH, width: 150, textAlign: 'center' }}>
+                                  <FontAwesomeIcon icon={faClock} style={{ marginRight: 4, fontSize: 10 }} />
+                                  Últ. Actualización
+                                </th>
+                                <th style={{ ...TH, width: 40, textAlign: 'center' }}></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {sec.items.map((item, rowIdx) => {
+                                const stock = parseFloat(item.current_stock) || 0;
+                                const stockColor = stock <= 0 ? '#ef4444' : stock <= 5 ? '#f59e0b' : '#22c55e';
+                                const stockBg = stock <= 0 ? 'rgba(239,68,68,0.08)' : stock <= 5 ? 'rgba(245,158,11,0.08)' : 'rgba(34,197,94,0.08)';
+                                const rawDate = item.updated_at || item.created_at || '';
+                                let dateStr = '—', timeStr = '';
+                                if (rawDate) {
+                                  const d = new Date(rawDate);
+                                  dateStr = d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                                  timeStr = d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+                                }
+                                return (
+                                  <tr key={`${item.item_type}-${item.item_id}`}
+                                    style={{ background: rowIdx % 2 === 0 ? '#fff' : '#fafafa' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#f0f4ff'}
+                                    onMouseLeave={e => e.currentTarget.style.background = rowIdx % 2 === 0 ? '#fff' : '#fafafa'}>
+                                    <td style={{ ...TD, paddingLeft: 20 }}>
+                                      <div style={{ ...CELL, gap: 6, paddingLeft: 8 }}>
+                                        <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: '#f1f3f4', color: '#80868b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                          {item.item_type === 'raw_material' ? 'MP' : item.item_type === 'product' ? 'Prod' : item.item_type === 'ingredient' ? 'Comp' : 'Extra'}
+                                        </span>
+                                        <span style={{ fontWeight: 500, color: '#202124' }}>{item.item_name}</span>
+                                      </div>
+                                    </td>
+                                    <td style={TD}>
+                                      <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 8px' }}>
+                                        <span style={{ fontWeight: 700, fontSize: 13, color: stockColor, background: stockBg, padding: '3px 10px', borderRadius: 20, minWidth: 40, textAlign: 'center' }}>
+                                          {stock % 1 === 0 ? stock : fmt(stock, 2)}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td style={TD}>
+                                      <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 8px' }}>
+                                        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: sec.color + '18', color: sec.color, fontWeight: 600 }}>
+                                          {sec.name}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td style={TD}>
+                                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px 8px', lineHeight: 1.3 }}>
+                                        {rawDate ? (
+                                          <>
+                                            <span style={{ fontSize: 12, fontWeight: 500, color: '#202124' }}>{dateStr}</span>
+                                            <span style={{ fontSize: 10, color: '#80868b' }}>{timeStr}</span>
+                                          </>
+                                        ) : (
+                                          <span style={{ fontSize: 12, color: '#80868b' }}>—</span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td style={{ ...TD, textAlign: 'center' }}>
+                                      <button onClick={() => removeItemFromSec(sec.id, item.item_type, item.item_id)}
+                                        style={{ background: 'none', border: 'none', color: '#dadce0', cursor: 'pointer', fontSize: 13, padding: 4 }}
+                                        onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                                        onMouseLeave={e => e.currentTarget.style.color = '#dadce0'}>
+                                        <FontAwesomeIcon icon={faTimes} />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </div>
                       )}
                     </div>
