@@ -155,7 +155,8 @@
       "PowerShell(\\(Get-Item \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Escritorio\\\\SRServi\\\\server\\\\public\\\\downloads\\\\AforoBridge-Android.apk\"\\).Length / 1MB)",
       "Bash(./gradlew.bat assembleDebug)",
       "Bash(Sort-Object FullName)",
-      "PowerShell($dotnet = Get-Command dotnet -ErrorAction SilentlyContinue; if \\($null -eq $dotnet\\) { @\\(\"C:\\\\Program Files\\\\dotnet\\\\dotnet.exe\",\"C:\\\\Program Files \\(x86\\)\\\\dotnet\\\\dotnet.exe\"\\) | Where-Object { Test-Path $_ } } else { $dotnet.Source })"
+      "PowerShell($dotnet = Get-Command dotnet -ErrorAction SilentlyContinue; if \\($null -eq $dotnet\\) { @\\(\"C:\\\\Program Files\\\\dotnet\\\\dotnet.exe\",\"C:\\\\Program Files \\(x86\\)\\\\dotnet\\\\dotnet.exe\"\\) | Where-Object { Test-Path $_ } } else { $dotnet.Source })",
+      "Bash(npx --no-install vite build --logLevel error)"
     ]
   }
 }

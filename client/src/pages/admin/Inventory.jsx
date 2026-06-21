@@ -1,83 +1,68 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faWarehouse, faSearch, faSync, faInfinity, faExclamationTriangle,
-  faPlus, faEdit, faTrash, faTimes, faCheck, faBoxOpen, faFlask,
-  faListUl, faSave, faArrowUp, faBox, faBell, faHistory, faChartBar,
+  faPlus, faTrash, faTimes, faCheck, faBoxOpen, faFlask,
+  faListUl, faSave, faBox, faBell, faHistory, faChartBar,
   faChevronLeft, faChevronRight, faFolderOpen, faExchangeAlt, faTruck,
-  faPaperPlane
+  faPaperPlane, faEdit
 } from '@fortawesome/free-solid-svg-icons';
 import { useStore } from '../../components/Layout';
 import { useAuth } from '../../context/AuthContext';
 
 const API = 'https://srservi2.srautomatic.com';
-
 const UNITS = ['unidades', 'kg', 'g', 'mg', 'litros', 'ml', 'porciones', 'tazas', 'cucharadas'];
-
-/** Formatea un número eliminando ceros decimales innecesarios. */
 const fmt = (n, max = 4) => parseFloat(parseFloat(n || 0).toFixed(max));
 
-function statusBadge(item) {
-  if (item.unlimited_stock) return { label: 'Ilimitado', color: '#D4AF37', bg: 'rgba(212,175,55,0.12)', border: 'rgba(212,175,55,0.3)' };
-  if (item.stock === 0)     return { label: 'Sin stock', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)' };
-  if (item.stock <= 5)      return { label: 'Stock bajo', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' };
-  return                           { label: 'OK', color: '#22c55e', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.3)' };
-}
+const RM_COLS = ['name', 'quantity', 'unit', 'min_quantity', 'cost_per_unit'];
 
 function rmBadge(rm) {
-  const qty = parseFloat(rm.quantity) || 0;
-  const min = parseFloat(rm.min_quantity) || 0;
-  if (qty <= 0)          return { label: 'Agotado', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)' };
-  if (qty <= min && min > 0)
-                         return { label: 'Stock bajo', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.3)' };
-  return                        { label: 'OK', color: '#22c55e', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.3)' };
+  const qty = parseFloat(rm.quantity) || 0, min = parseFloat(rm.min_quantity) || 0;
+  if (qty <= 0) return { label: 'Agotado', color: '#ef4444', bg: 'rgba(239,68,68,0.10)' };
+  if (qty <= min && min > 0) return { label: 'Bajo', color: '#f59e0b', bg: 'rgba(245,158,11,0.10)' };
+  return { label: 'OK', color: '#22c55e', bg: 'rgba(34,197,94,0.10)' };
+}
+function statusBadge(item) {
+  if (item.unlimited_stock) return { label: '∞', color: '#D4AF37', bg: 'rgba(212,175,55,0.10)' };
+  if (item.stock === 0) return { label: 'Sin stock', color: '#ef4444', bg: 'rgba(239,68,68,0.10)' };
+  if (item.stock <= 5) return { label: 'Bajo', color: '#f59e0b', bg: 'rgba(245,158,11,0.10)' };
+  return { label: 'OK', color: '#22c55e', bg: 'rgba(34,197,94,0.10)' };
 }
 
-const inputStyle = {
-  width: '100%', padding: '10px 12px', background: '#fff',
-  border: '1px solid #d1d5db', borderRadius: 8,
-  color: '#111', fontSize: 13, outline: 'none', boxSizing: 'border-box'
-};
-const labelStyle = { fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' };
-const btnGold = {
-  background: '#D4AF37', border: 'none', borderRadius: 8, padding: '10px 18px',
-  cursor: 'pointer', color: '#000', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6
-};
-const btnGhost = {
-  background: 'transparent', border: '1px solid #d1d5db', borderRadius: 8,
-  padding: '9px 14px', cursor: 'pointer', color: '#555', fontSize: 13
-};
+const TH = { padding: '7px 12px', background: '#f8f9fa', borderBottom: '2px solid #dadce0', borderRight: '1px solid #e8eaed', fontWeight: 600, fontSize: 12, color: '#5f6368', textAlign: 'left', whiteSpace: 'nowrap' };
+const TD = { padding: 0, borderBottom: '1px solid #e8eaed', borderRight: '1px solid #e8eaed', height: 36, position: 'relative', fontSize: 13 };
+const CELL = { padding: '6px 12px', cursor: 'pointer', height: '100%', display: 'flex', alignItems: 'center', minHeight: 36 };
+const CELL_INPUT = { width: '100%', height: '100%', padding: '6px 12px', border: '2px solid #D4AF37', outline: 'none', fontSize: 13, boxSizing: 'border-box', background: '#fff', position: 'absolute', inset: 0, zIndex: 2 };
+const ROW_NUM = { ...TD, padding: '6px 8px', background: '#f8f9fa', color: '#80868b', fontSize: 12, textAlign: 'center', width: 40, cursor: 'default' };
+const BADGE = (b) => ({ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 12, background: b.bg, color: b.color, whiteSpace: 'nowrap' });
+const INPUT = { width: '100%', padding: '8px 12px', background: '#fff', border: '1px solid #dadce0', borderRadius: 6, color: '#111', fontSize: 13, outline: 'none', boxSizing: 'border-box' };
+const BTN_GOLD = { background: '#D4AF37', border: 'none', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', color: '#000', fontWeight: 700, fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 };
+const BTN_GHOST = { background: 'transparent', border: '1px solid #dadce0', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', color: '#5f6368', fontSize: 13 };
 
 export default function Inventory() {
   const { selectedStore } = useStore();
   const { token } = useAuth();
 
-  const [tab, setTab] = useState('raw');          // 'raw' | 'recipes' | 'direct'
+  const [sheet, setSheet] = useState('raw');
   const [rawMats, setRawMats] = useState([]);
   const [directData, setDirectData] = useState({ products: [], ingredients: [], extras: [] });
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
 
-  // Raw materials modal
-  const [rmModal, setRmModal] = useState(null); // null | 'new' | item (edit)
-  const [rmForm, setRmForm] = useState({ name: '', quantity: '', unit: 'unidades', min_quantity: '', cost_per_unit: '' });
-  const [rmSaving, setRmSaving] = useState(false);
+  // Inline editing
+  const [editCell, setEditCell] = useState(null);
+  const [newRmRow, setNewRmRow] = useState(null);
 
-  // Restock modal
-  const [restockItem, setRestockItem] = useState(null);
-  const [restockAmount, setRestockAmount] = useState('');
-  const [restockSaving, setRestockSaving] = useState(false);
-
-  // Direct stock editing
+  // Direct stock
   const [directTab, setDirectTab] = useState('products');
-  const [editingDirect, setEditingDirect] = useState(null);
-  const [editDirectVal, setEditDirectVal] = useState('');
-  const [savingDirect, setSavingDirect] = useState(false);
+  const [editingStock, setEditingStock] = useState(null);
+  const [editStockVal, setEditStockVal] = useState('');
+  const [savingStock, setSavingStock] = useState(false);
 
   // Recipes
-  const [recipeProduct, setRecipeProduct] = useState(null); // product being edited
-  const [recipe, setRecipe] = useState([]);            // [{raw_material_id, quantity_used, name, unit}]
+  const [recipeProduct, setRecipeProduct] = useState(null);
+  const [recipe, setRecipe] = useState([]);
   const [recipeType, setRecipeType] = useState('product');
   const [recipeSaving, setRecipeSaving] = useState(false);
   const [addingRm, setAddingRm] = useState(false);
@@ -112,7 +97,7 @@ export default function Inventory() {
   const [addItemType, setAddItemType] = useState('product');
   const [addItemSearch, setAddItemSearch] = useState('');
 
-  // Movements (purchase/entry/exit)
+  // Movements
   const [movReason, setMovReason] = useState('purchase');
   const [movItems, setMovItems] = useState([]);
   const [movItemType, setMovItemType] = useState('raw_material');
@@ -131,6 +116,8 @@ export default function Inventory() {
   const [transferNotes, setTransferNotes] = useState('');
   const [transferSaving, setTransferSaving] = useState(false);
 
+  /* ─── Fetch functions ─────────────────────────────────────────────── */
+
   const fetchAll = useCallback(async () => {
     if (!selectedStore) return;
     setLoading(true);
@@ -142,10 +129,7 @@ export default function Inventory() {
       ]);
       if (rmRes.ok) setRawMats(await rmRes.json());
       if (dirRes.ok) setDirectData(await dirRes.json());
-      if (prodRes.ok) {
-        const d = await prodRes.json();
-        setProducts(Array.isArray(d) ? d : (d.products || []));
-      }
+      if (prodRes.ok) { const d = await prodRes.json(); setProducts(Array.isArray(d) ? d : (d.products || [])); }
     } finally { setLoading(false); }
   }, [selectedStore?.id, token]);
 
@@ -172,10 +156,8 @@ export default function Inventory() {
       const res = await fetch(`${API}/api/inventory/movements/${selectedStore.id}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
-        setMovements(data.movements || []);
-        setMovementsTotal(data.total || 0);
-        setMovPage(data.page || 1);
-        setMovTotalPages(data.totalPages || 1);
+        setMovements(data.movements || []); setMovementsTotal(data.total || 0);
+        setMovPage(data.page || 1); setMovTotalPages(data.totalPages || 1);
       }
     } finally { setMovLoading(false); }
   }, [selectedStore?.id, token, movFilter]);
@@ -184,12 +166,12 @@ export default function Inventory() {
     if (!selectedStore) return;
     setReportLoading(true);
     try {
-      const [statsRes, consRes] = await Promise.all([
+      const [sR, cR] = await Promise.all([
         fetch(`${API}/api/inventory/stats/${selectedStore.id}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API}/api/inventory/reports/consumption/${selectedStore.id}?from=${reportRange.from}&to=${reportRange.to}`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
-      if (statsRes.ok) setStats(await statsRes.json());
-      if (consRes.ok) setConsumption(await consRes.json());
+      if (sR.ok) setStats(await sR.json());
+      if (cR.ok) setConsumption(await cR.json());
     } finally { setReportLoading(false); }
   }, [selectedStore?.id, token, reportRange]);
 
@@ -214,25 +196,187 @@ export default function Inventory() {
   const fetchUserStores = useCallback(async () => {
     try {
       const res = await fetch(`${API}/api/stores`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        setUserStores(Array.isArray(data) ? data : []);
-      }
+      if (res.ok) { const d = await res.json(); setUserStores(Array.isArray(d) ? d : []); }
     } catch (e) { console.error(e); }
   }, [token]);
 
-  useEffect(() => { if (tab === 'alerts') fetchAlerts(); }, [tab, fetchAlerts]);
-  useEffect(() => { if (tab === 'history') fetchMovements(1); }, [tab, fetchMovements]);
-  useEffect(() => { if (tab === 'reports') fetchStats(); }, [tab, fetchStats]);
-  useEffect(() => { if (tab === 'sections') fetchSections(); }, [tab, fetchSections]);
-  useEffect(() => { if (tab === 'transfers') { fetchTransfers(); fetchUserStores(); } }, [tab, fetchTransfers, fetchUserStores]);
+  useEffect(() => { if (sheet === 'alerts') fetchAlerts(); }, [sheet, fetchAlerts]);
+  useEffect(() => { if (sheet === 'history') fetchMovements(1); }, [sheet, fetchMovements]);
+  useEffect(() => { if (sheet === 'reports') fetchStats(); }, [sheet, fetchStats]);
+  useEffect(() => { if (sheet === 'sections') fetchSections(); }, [sheet, fetchSections]);
+  useEffect(() => { if (sheet === 'transfers') { fetchTransfers(); fetchUserStores(); } }, [sheet, fetchTransfers, fetchUserStores]);
 
-  const acknowledgeAlert = async (id) => {
-    await fetch(`${API}/api/inventory/alerts/${id}/acknowledge`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
-    fetchAlerts();
+  /* ─── Raw Materials CRUD ──────────────────────────────────────────── */
+
+  const saveRmCell = async (rm, col, value) => {
+    const body = {
+      name: col === 'name' ? value.trim() : rm.name,
+      quantity: col === 'quantity' ? (parseFloat(value) || 0) : (parseFloat(rm.quantity) || 0),
+      unit: col === 'unit' ? value : rm.unit,
+      min_quantity: col === 'min_quantity' ? (parseFloat(value) || 0) : (parseFloat(rm.min_quantity) || 0),
+      cost_per_unit: col === 'cost_per_unit' ? (parseFloat(value) || 0) : (parseFloat(rm.cost_per_unit) || 0),
+      store_id: selectedStore.id
+    };
+    if (!body.name) return;
+    await fetch(`${API}/api/raw-materials/${rm.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body)
+    });
+    fetchAll();
   };
 
-  // ── Sections CRUD ────────────────────────────────────────────────────────
+  const createRm = async (row) => {
+    if (!row.name?.trim()) return;
+    await fetch(`${API}/api/raw-materials/store/${selectedStore.id}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: row.name.trim(), quantity: parseFloat(row.quantity) || 0,
+        unit: row.unit || 'unidades', min_quantity: parseFloat(row.min_quantity) || 0,
+        cost_per_unit: parseFloat(row.cost_per_unit) || 0, store_id: selectedStore.id
+      })
+    });
+    setNewRmRow(null);
+    fetchAll();
+  };
+
+  const deleteRm = async (rm) => {
+    if (!confirm(`¿Eliminar "${rm.name}"?`)) return;
+    await fetch(`${API}/api/raw-materials/${rm.id}`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ store_id: selectedStore.id })
+    });
+    fetchAll();
+  };
+
+  /* ─── Inline edit handlers ────────────────────────────────────────── */
+
+  const startEdit = (id, col, val) => setEditCell({ id, col, value: String(val ?? '') });
+
+  const finishEdit = async () => {
+    if (!editCell) return;
+    const { id, col, value } = editCell;
+    setEditCell(null);
+    const rm = rawMats.find(r => r.id === id);
+    if (!rm) return;
+    const oldVal = col === 'quantity' || col === 'min_quantity' || col === 'cost_per_unit'
+      ? String(fmt(rm[col], col === 'cost_per_unit' ? 4 : 3))
+      : String(rm[col] ?? '');
+    if (value === oldVal) return;
+    await saveRmCell(rm, col, value);
+  };
+
+  const handleCellKey = (e, id, col) => {
+    if (e.key === 'Enter') { finishEdit(); return; }
+    if (e.key === 'Escape') { setEditCell(null); return; }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const curIdx = RM_COLS.indexOf(col);
+      if (e.shiftKey) {
+        if (curIdx > 0) {
+          finishEdit();
+          const prev = RM_COLS[curIdx - 1];
+          const rm = rawMats.find(r => r.id === id);
+          if (rm) startEdit(id, prev, rm[prev]);
+        }
+      } else {
+        if (curIdx < RM_COLS.length - 1) {
+          finishEdit();
+          const next = RM_COLS[curIdx + 1];
+          const rm = rawMats.find(r => r.id === id);
+          if (rm) startEdit(id, next, rm[next]);
+        } else {
+          finishEdit();
+          const rowIdx = rawMats.findIndex(r => r.id === id);
+          if (rowIdx < rawMats.length - 1) {
+            const nr = rawMats[rowIdx + 1];
+            startEdit(nr.id, 'name', nr.name);
+          }
+        }
+      }
+    }
+  };
+
+  /* ─── New row key handler ─────────────────────────────────────────── */
+
+  const handleNewRowKey = (e, col) => {
+    if (e.key === 'Enter') { if (newRmRow?.name?.trim()) createRm(newRmRow); return; }
+    if (e.key === 'Escape') { setNewRmRow(null); return; }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const curIdx = RM_COLS.indexOf(col);
+      if (!e.shiftKey && curIdx === RM_COLS.length - 1 && newRmRow?.name?.trim()) {
+        createRm(newRmRow);
+      }
+    }
+  };
+
+  /* ─── Direct stock ────────────────────────────────────────────────── */
+
+  const saveDirectStock = async (item, unlimited = null) => {
+    setSavingStock(true);
+    try {
+      if (directTab === 'products') {
+        if (unlimited !== null) {
+          await fetch(`${API}/api/inventory/${item.id}/unlimited`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ unlimited_stock: unlimited, store_id: selectedStore.id })
+          });
+        } else {
+          await fetch(`${API}/api/inventory/${item.id}/stock`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ stock: parseInt(editStockVal) || 0, store_id: selectedStore.id })
+          });
+        }
+      } else {
+        const endpoint = directTab === 'ingredients' ? 'ingredient' : 'extra';
+        await fetch(`${API}/api/inventory/${endpoint}/${item.id}/stock`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            stock: unlimited !== null ? item.stock : (parseInt(editStockVal) || 0),
+            unlimited_stock: unlimited !== null ? unlimited : item.unlimited_stock,
+            store_id: selectedStore.id
+          })
+        });
+      }
+      setEditingStock(null);
+      fetchAll();
+    } finally { setSavingStock(false); }
+  };
+
+  /* ─── Recipes ─────────────────────────────────────────────────────── */
+
+  const openRecipe = async (item, type = 'product') => {
+    setRecipeProduct(item); setRecipeType(type);
+    setAddingRm(false); setNewRmId(''); setNewRmQty('');
+    const res = await fetch(`${API}/api/recipes/${type}/${item.id}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) setRecipe(await res.json()); else setRecipe([]);
+  };
+
+  const saveRecipe = async () => {
+    setRecipeSaving(true);
+    try {
+      await fetch(`${API}/api/recipes/${recipeType}/${recipeProduct.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ items: recipe.map(r => ({ raw_material_id: r.raw_material_id, quantity_used: r.quantity_used })), store_id: selectedStore.id })
+      });
+      setRecipeProduct(null); setRecipe([]);
+    } finally { setRecipeSaving(false); }
+  };
+
+  const addToRecipe = () => {
+    if (!newRmId || !newRmQty) return;
+    const rm = rawMats.find(r => r.id === parseInt(newRmId));
+    if (!rm) return;
+    if (recipe.find(r => r.raw_material_id === rm.id)) {
+      setRecipe(recipe.map(r => r.raw_material_id === rm.id ? { ...r, quantity_used: parseFloat(newRmQty) } : r));
+    } else {
+      setRecipe([...recipe, { raw_material_id: rm.id, quantity_used: parseFloat(newRmQty), name: rm.name, unit: rm.unit }]);
+    }
+    setNewRmId(''); setNewRmQty(''); setAddingRm(false);
+  };
+
+  /* ─── Sections ────────────────────────────────────────────────────── */
+
   const saveSection = async () => {
     if (!sectionForm.name.trim()) return;
     setSectionSaving(true);
@@ -248,8 +392,7 @@ export default function Inventory() {
           body: JSON.stringify({ name: sectionForm.name, color: sectionForm.color, store_id: selectedStore.id })
         });
       }
-      setSectionModal(null);
-      fetchSections();
+      setSectionModal(null); fetchSections();
     } finally { setSectionSaving(false); }
   };
 
@@ -267,8 +410,7 @@ export default function Inventory() {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ item_type: itemType, item_id: itemId, store_id: selectedStore.id })
     });
-    setAddItemModal(null);
-    fetchSections();
+    setAddItemModal(null); fetchSections();
   };
 
   const removeItemFromSec = async (sectionId, itemType, itemId) => {
@@ -279,7 +421,8 @@ export default function Inventory() {
     fetchSections();
   };
 
-  // ── Movements (purchase/entry/exit) ──────────────────────────────────────
+  /* ─── Movements ───────────────────────────────────────────────────── */
+
   const submitMovement = async () => {
     if (movItems.length === 0) return;
     setMovSaving(true);
@@ -288,12 +431,12 @@ export default function Inventory() {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ store_id: selectedStore.id, reason: movReason, items: movItems })
       });
-      setMovItems([]);
-      fetchAll();
+      setMovItems([]); fetchAll();
     } finally { setMovSaving(false); }
   };
 
-  // ── Transfers ────────────────────────────────────────────────────────────
+  /* ─── Transfers ───────────────────────────────────────────────────── */
+
   const submitTransfer = async () => {
     if (!transferTo || transferItems.length === 0) return;
     setTransferSaving(true);
@@ -302,11 +445,7 @@ export default function Inventory() {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ from_store_id: selectedStore.id, to_store_id: parseInt(transferTo), items: transferItems, notes: transferNotes })
       });
-      setTransferModal(false);
-      setTransferItems([]);
-      setTransferNotes('');
-      setTransferTo('');
-      fetchTransfers();
+      setTransferModal(false); setTransferItems([]); setTransferNotes(''); setTransferTo(''); fetchTransfers();
     } finally { setTransferSaving(false); }
   };
 
@@ -315,1118 +454,1066 @@ export default function Inventory() {
       method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ store_id: selectedStore.id })
     });
-    fetchTransfers();
-    fetchAll();
+    fetchTransfers(); fetchAll();
   };
 
-  // ── Raw Materials CRUD ──────────────────────────────────────────────────────
-
-  const openNewRm = () => {
-    setRmForm({ name: '', quantity: '', unit: 'unidades', min_quantity: '', cost_per_unit: '' });
-    setRmModal('new');
-  };
-  const openEditRm = (rm) => {
-    setRmForm({ name: rm.name, quantity: String(parseFloat(rm.quantity) || ''), unit: rm.unit, min_quantity: rm.min_quantity > 0 ? String(parseFloat(rm.min_quantity)) : '', cost_per_unit: String(parseFloat(rm.cost_per_unit) || '') });
-    setRmModal(rm);
+  const acknowledgeAlert = async (id) => {
+    await fetch(`${API}/api/inventory/alerts/${id}/acknowledge`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+    fetchAlerts();
   };
 
-  const saveRm = async () => {
-    if (!rmForm.name.trim()) return;
-    setRmSaving(true);
-    try {
-      const body = {
-        name: rmForm.name.trim(), quantity: parseFloat(rmForm.quantity) || 0,
-        unit: rmForm.unit, min_quantity: parseFloat(rmForm.min_quantity) || 0,
-        cost_per_unit: parseFloat(rmForm.cost_per_unit) || 0,
-        store_id: selectedStore.id
-      };
-      if (rmModal === 'new') {
-        await fetch(`${API}/api/raw-materials/store/${selectedStore.id}`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(body)
-        });
-      } else {
-        await fetch(`${API}/api/raw-materials/${rmModal.id}`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(body)
-        });
-      }
-      setRmModal(null);
-      await fetchAll();
-    } finally { setRmSaving(false); }
-  };
-
-  const deleteRm = async (rm) => {
-    if (!confirm(`¿Eliminar "${rm.name}"? Se eliminarán sus recetas asociadas.`)) return;
-    await fetch(`${API}/api/raw-materials/${rm.id}`, {
-      method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ store_id: selectedStore.id })
-    });
-    await fetchAll();
-  };
-
-  const doRestock = async () => {
-    if (restockAmount === '' || parseFloat(restockAmount) < 0) return;
-    setRestockSaving(true);
-    try {
-      await fetch(`${API}/api/raw-materials/${restockItem.id}/restock`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ quantity: parseFloat(restockAmount), store_id: selectedStore.id })
-      });
-      setRestockItem(null);
-      setRestockAmount('');
-      await fetchAll();
-    } finally { setRestockSaving(false); }
-  };
-
-  // ── Recipe editing ──────────────────────────────────────────────────────────
-
-  const openRecipe = async (item, type = 'product') => {
-    setRecipeProduct(item);
-    setRecipeType(type);
-    setAddingRm(false);
-    setNewRmId(''); setNewRmQty('');
-    const res = await fetch(`${API}/api/recipes/${type}/${item.id}`, { headers: { Authorization: `Bearer ${token}` } });
-    if (res.ok) setRecipe(await res.json());
-    else setRecipe([]);
-  };
-
-  const saveRecipe = async () => {
-    setRecipeSaving(true);
-    try {
-      await fetch(`${API}/api/recipes/${recipeType}/${recipeProduct.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ items: recipe.map(r => ({ raw_material_id: r.raw_material_id, quantity_used: r.quantity_used })), store_id: selectedStore.id })
-      });
-      setRecipeProduct(null);
-      setRecipe([]);
-    } finally { setRecipeSaving(false); }
-  };
-
-  const addToRecipe = () => {
-    if (!newRmId || !newRmQty) return;
-    const rm = rawMats.find(r => r.id === parseInt(newRmId));
-    if (!rm) return;
-    if (recipe.find(r => r.raw_material_id === rm.id)) {
-      setRecipe(recipe.map(r => r.raw_material_id === rm.id ? { ...r, quantity_used: parseFloat(newRmQty) } : r));
-    } else {
-      setRecipe([...recipe, { raw_material_id: rm.id, quantity_used: parseFloat(newRmQty), name: rm.name, unit: rm.unit }]);
-    }
-    setNewRmId(''); setNewRmQty(''); setAddingRm(false);
-  };
-
-  // ── Direct stock editing ────────────────────────────────────────────────────
-
-  const saveDirectStock = async (item, unlimited = null) => {
-    setSavingDirect(true);
-    try {
-      if (directTab === 'products') {
-        const isUnlimitedToggle = unlimited !== null;
-        if (isUnlimitedToggle) {
-          await fetch(`${API}/api/inventory/${item.id}/unlimited`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ unlimited_stock: unlimited, store_id: selectedStore.id })
-          });
-        } else {
-          await fetch(`${API}/api/inventory/${item.id}/stock`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ stock: parseInt(editDirectVal) || 0, store_id: selectedStore.id })
-          });
-        }
-      } else {
-        const endpoint = directTab === 'ingredients' ? 'ingredient' : 'extra';
-        const stockVal = unlimited !== null ? item.stock : parseInt(editDirectVal) || 0;
-        const unlimitedVal = unlimited !== null ? unlimited : item.unlimited_stock;
-        await fetch(`${API}/api/inventory/${endpoint}/${item.id}/stock`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ stock: stockVal, unlimited_stock: unlimitedVal, store_id: selectedStore.id })
-        });
-      }
-      setEditingDirect(null);
-      await fetchAll();
-    } finally { setSavingDirect(false); }
-  };
-
-  // ── Derived data ────────────────────────────────────────────────────────────
+  /* ─── Derived data ────────────────────────────────────────────────── */
 
   const filteredRm = rawMats.filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()));
   const rmAlerts = rawMats.filter(r => { const q = parseFloat(r.quantity) || 0, m = parseFloat(r.min_quantity) || 0; return q <= 0 || (m > 0 && q <= m); }).length;
   const directItems = directTab === 'products' ? directData.products : directTab === 'ingredients' ? directData.ingredients : directData.extras;
   const filteredDirect = directItems.filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()));
-
-  const recipeItems = recipeType === 'product' ? (products.length > 0 ? products : directData.products)
-    : recipeType === 'ingredient' ? directData.ingredients : directData.extras;
+  const recipeItems = recipeType === 'product' ? (products.length > 0 ? products : directData.products) : recipeType === 'ingredient' ? directData.ingredients : directData.extras;
   const filteredRecipeItems = recipeItems.filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()));
+  const estimatedCost = recipe.reduce((sum, r) => { const rm = rawMats.find(m => m.id === r.raw_material_id); return sum + (rm ? rm.cost_per_unit * r.quantity_used : 0); }, 0);
 
-  const estimatedCost = recipe.reduce((sum, r) => {
-    const rm = rawMats.find(m => m.id === r.raw_material_id);
-    return sum + (rm ? rm.cost_per_unit * r.quantity_used : 0);
-  }, 0);
+  /* ─── Cell renderer ───────────────────────────────────────────────── */
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const renderRmCell = (rm, col) => {
+    const isEditing = editCell?.id === rm.id && editCell?.col === col;
+    let displayVal;
+    if (col === 'name') displayVal = rm.name;
+    else if (col === 'quantity') displayVal = fmt(rm.quantity, 3);
+    else if (col === 'unit') displayVal = rm.unit;
+    else if (col === 'min_quantity') displayVal = rm.min_quantity > 0 ? fmt(rm.min_quantity) : '—';
+    else if (col === 'cost_per_unit') displayVal = rm.cost_per_unit > 0 ? `$${fmt(rm.cost_per_unit)}` : '—';
 
-  const TABS = [
-    { key: 'raw',       label: 'Materias Primas', icon: faFlask },
-    { key: 'recipes',   label: 'Recetas',         icon: faListUl },
-    { key: 'direct',    label: 'Stock Directo',   icon: faBox },
-    { key: 'sections',  label: 'Secciones',       icon: faFolderOpen },
-    { key: 'movements', label: 'Compras/Mov.',    icon: faExchangeAlt },
-    { key: 'transfers', label: 'Transferencias',  icon: faTruck },
-    { key: 'alerts',    label: 'Alertas',         icon: faBell },
-    { key: 'history',   label: 'Historial',       icon: faHistory },
-    { key: 'reports',   label: 'Reportes',        icon: faChartBar },
+    if (isEditing) {
+      if (col === 'unit') {
+        return (
+          <td style={TD}>
+            <select autoFocus value={editCell.value}
+              onChange={e => setEditCell({ ...editCell, value: e.target.value })}
+              onBlur={finishEdit}
+              onKeyDown={e => handleCellKey(e, rm.id, col)}
+              style={{ ...CELL_INPUT, cursor: 'pointer' }}>
+              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </td>
+        );
+      }
+      return (
+        <td style={TD}>
+          <input autoFocus
+            type={col === 'name' ? 'text' : 'number'}
+            step={col === 'name' ? undefined : '0.001'}
+            min={col === 'name' ? undefined : '0'}
+            value={editCell.value}
+            onChange={e => setEditCell({ ...editCell, value: e.target.value })}
+            onBlur={finishEdit}
+            onKeyDown={e => handleCellKey(e, rm.id, col)}
+            style={CELL_INPUT} />
+        </td>
+      );
+    }
+
+    const rawVal = col === 'cost_per_unit' ? (rm.cost_per_unit > 0 ? fmt(rm.cost_per_unit) : '') : (col === 'min_quantity' ? (rm.min_quantity > 0 ? fmt(rm.min_quantity) : '') : rm[col]);
+    return (
+      <td style={TD} onClick={() => startEdit(rm.id, col, rawVal)}>
+        <div style={{ ...CELL, color: (col === 'quantity') ? rmBadge(rm).color : undefined, fontWeight: col === 'quantity' ? 700 : undefined }}>
+          {displayVal}
+        </div>
+      </td>
+    );
+  };
+
+  /* ─── Sheets config ───────────────────────────────────────────────── */
+
+  const SHEETS = [
+    { key: 'raw',        label: 'Materias Primas', icon: faFlask },
+    { key: 'direct',     label: 'Stock Directo',   icon: faBox },
+    { key: 'recipes',    label: 'Recetas',         icon: faListUl },
+    { key: 'sections',   label: 'Secciones',       icon: faFolderOpen },
+    { key: 'movements',  label: 'Compras/Mov.',    icon: faExchangeAlt },
+    { key: 'transfers',  label: 'Transferencias',  icon: faTruck },
+    { key: 'alerts',     label: 'Alertas',         icon: faBell },
+    { key: 'history',    label: 'Historial',       icon: faHistory },
+    { key: 'reports',    label: 'Reportes',        icon: faChartBar },
   ];
 
-  return (
-    <div style={{ minHeight: '100vh', background: '#fafafa', color: '#111', padding: '24px', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
+  /* ─── RENDER ──────────────────────────────────────────────────────── */
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 40, height: 40, background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FontAwesomeIcon icon={faWarehouse} style={{ color: '#D4AF37', fontSize: 16 }} />
-          </div>
+  return (
+    <div style={{ minHeight: '100vh', background: '#fff', color: '#202124', fontFamily: "'Google Sans', Roboto, sans-serif", display: 'flex', flexDirection: 'column' }}>
+
+      {/* ═══ Toolbar ═══ */}
+      <div style={{ background: '#f8f9fa', borderBottom: '1px solid #dadce0', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 'auto' }}>
+          <FontAwesomeIcon icon={faWarehouse} style={{ color: '#D4AF37', fontSize: 18 }} />
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Inventario</h1>
-            {selectedStore && <p style={{ margin: 0, fontSize: 12, color: '#9ca3af' }}>{selectedStore.name}</p>}
+            <span style={{ fontSize: 16, fontWeight: 700 }}>Inventario</span>
+            {selectedStore && <span style={{ fontSize: 12, color: '#5f6368', marginLeft: 8 }}>{selectedStore.name}</span>}
           </div>
         </div>
-        <button onClick={fetchAll} disabled={loading} style={{ ...btnGhost, display: 'flex', alignItems: 'center', gap: 7 }}>
+
+        {/* Search */}
+        <div style={{ position: 'relative', minWidth: 200 }}>
+          <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#80868b', fontSize: 12 }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..."
+            style={{ ...INPUT, paddingLeft: 32, background: '#fff', borderRadius: 20, fontSize: 13, padding: '7px 14px 7px 32px' }} />
+        </div>
+
+        {/* Alert indicator */}
+        {rmAlerts > 0 && (
+          <div onClick={() => setSheet('alerts')} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, cursor: 'pointer', fontSize: 12, color: '#ef4444', fontWeight: 600 }}>
+            <FontAwesomeIcon icon={faExclamationTriangle} /> {rmAlerts} alerta{rmAlerts > 1 ? 's' : ''}
+          </div>
+        )}
+
+        <button onClick={fetchAll} disabled={loading} style={{ ...BTN_GHOST, borderRadius: 20, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
           <FontAwesomeIcon icon={faSync} spin={loading} /> Actualizar
         </button>
       </div>
 
-      {/* Alert banner */}
-      {rmAlerts > 0 && (
-        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-          <FontAwesomeIcon icon={faExclamationTriangle} style={{ color: '#ef4444' }} />
-          <span style={{ color: '#fca5a5' }}><strong>{rmAlerts}</strong> materia(s) prima(s) con stock bajo o agotado</span>
-        </div>
-      )}
+      {/* ═══ Sheet content ═══ */}
+      <div style={{ flex: 1, padding: '0', overflow: 'auto' }}>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: '#f3f4f6', borderRadius: 10, padding: 4, border: '1px solid #e5e7eb', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => { setTab(t.key); setSearch(''); setEditingDirect(null); setRecipeProduct(null); }} style={{
-            flexShrink: 0, padding: '9px 12px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-            background: tab === t.key ? '#D4AF37' : 'transparent',
-            color: tab === t.key ? '#000' : '#6b7280',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.15s', whiteSpace: 'nowrap'
-          }}>
-            <FontAwesomeIcon icon={t.icon} /> {t.label}
-          </button>
-        ))}
-      </div>
+        {/* ──── MATERIAS PRIMAS ──── */}
+        {sheet === 'raw' && (
+          <div style={{ overflow: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...TH, width: 40, textAlign: 'center' }}>#</th>
+                  <th style={{ ...TH, minWidth: 180 }}>Nombre</th>
+                  <th style={{ ...TH, width: 110 }}>Cantidad</th>
+                  <th style={{ ...TH, width: 110 }}>Unidad</th>
+                  <th style={{ ...TH, width: 100 }}>Mínimo</th>
+                  <th style={{ ...TH, width: 110 }}>Costo/Ud</th>
+                  <th style={{ ...TH, width: 70, textAlign: 'center' }}>Estado</th>
+                  <th style={{ ...TH, width: 50, textAlign: 'center' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading && filteredRm.length === 0 ? (
+                  <tr><td colSpan={8} style={{ ...TD, textAlign: 'center', padding: 40, color: '#80868b' }}>Cargando...</td></tr>
+                ) : filteredRm.length === 0 && !newRmRow ? (
+                  <tr><td colSpan={8} style={{ ...TD, textAlign: 'center', padding: 40, color: '#80868b' }}>
+                    <FontAwesomeIcon icon={faBoxOpen} style={{ fontSize: 24, marginBottom: 8, display: 'block' }} />
+                    {search ? 'Sin resultados' : 'Sin materias primas. Click "+ Agregar fila" para empezar.'}
+                  </td></tr>
+                ) : filteredRm.map((rm, idx) => {
+                  const b = rmBadge(rm);
+                  return (
+                    <tr key={rm.id} style={{ background: (parseFloat(rm.quantity) || 0) <= 0 ? 'rgba(239,68,68,0.03)' : undefined }}>
+                      <td style={ROW_NUM}>{idx + 1}</td>
+                      {renderRmCell(rm, 'name')}
+                      {renderRmCell(rm, 'quantity')}
+                      {renderRmCell(rm, 'unit')}
+                      {renderRmCell(rm, 'min_quantity')}
+                      {renderRmCell(rm, 'cost_per_unit')}
+                      <td style={{ ...TD, textAlign: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 4px' }}>
+                          <span style={BADGE(b)}>{b.label}</span>
+                        </div>
+                      </td>
+                      <td style={{ ...TD, textAlign: 'center' }}>
+                        <button onClick={() => deleteRm(rm)} title="Eliminar"
+                          style={{ background: 'none', border: 'none', color: '#dadce0', cursor: 'pointer', fontSize: 13, padding: 4 }}
+                          onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                          onMouseLeave={e => e.currentTarget.style.color = '#dadce0'}>
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
 
-      {/* Search bar */}
-      <div style={{ position: 'relative', marginBottom: 16 }}>
-        <FontAwesomeIcon icon={faSearch} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 12 }} />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." style={{ ...inputStyle, paddingLeft: 34 }} />
-      </div>
+                {/* New row */}
+                {newRmRow !== null && (
+                  <tr style={{ background: '#fffbeb' }}>
+                    <td style={ROW_NUM}><FontAwesomeIcon icon={faPlus} style={{ fontSize: 10 }} /></td>
+                    <td style={TD}>
+                      <input autoFocus placeholder="Nombre..." value={newRmRow.name}
+                        onChange={e => setNewRmRow({ ...newRmRow, name: e.target.value })}
+                        onKeyDown={e => handleNewRowKey(e, 'name')}
+                        style={CELL_INPUT} />
+                    </td>
+                    <td style={TD}>
+                      <input type="number" min="0" step="0.001" placeholder="0" value={newRmRow.quantity}
+                        onChange={e => setNewRmRow({ ...newRmRow, quantity: e.target.value })}
+                        onKeyDown={e => handleNewRowKey(e, 'quantity')}
+                        style={CELL_INPUT} />
+                    </td>
+                    <td style={TD}>
+                      <select value={newRmRow.unit}
+                        onChange={e => setNewRmRow({ ...newRmRow, unit: e.target.value })}
+                        onKeyDown={e => handleNewRowKey(e, 'unit')}
+                        style={{ ...CELL_INPUT, cursor: 'pointer' }}>
+                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </td>
+                    <td style={TD}>
+                      <input type="number" min="0" step="0.001" placeholder="0" value={newRmRow.min_quantity}
+                        onChange={e => setNewRmRow({ ...newRmRow, min_quantity: e.target.value })}
+                        onKeyDown={e => handleNewRowKey(e, 'min_quantity')}
+                        style={CELL_INPUT} />
+                    </td>
+                    <td style={TD}>
+                      <input type="number" min="0" step="0.0001" placeholder="0.00" value={newRmRow.cost_per_unit}
+                        onChange={e => setNewRmRow({ ...newRmRow, cost_per_unit: e.target.value })}
+                        onKeyDown={e => handleNewRowKey(e, 'cost_per_unit')}
+                        style={CELL_INPUT} />
+                    </td>
+                    <td style={TD}></td>
+                    <td style={{ ...TD, textAlign: 'center' }}>
+                      <button onClick={() => setNewRmRow(null)} style={{ background: 'none', border: 'none', color: '#80868b', cursor: 'pointer', fontSize: 12 }}>
+                        <FontAwesomeIcon icon={faTimes} />
+                      </button>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
 
-      {/* ──── TAB: MATERIAS PRIMAS ──── */}
-      {tab === 'raw' && (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-            <button onClick={openNewRm} style={btnGold}>
-              <FontAwesomeIcon icon={faPlus} /> Nueva Materia Prima
-            </button>
+            {/* Add row bar */}
+            <div onClick={() => !newRmRow && setNewRmRow({ name: '', quantity: '', unit: 'unidades', min_quantity: '', cost_per_unit: '' })}
+              style={{ padding: '10px 20px', borderTop: '1px solid #e8eaed', color: '#1a73e8', fontSize: 13, cursor: newRmRow ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: newRmRow ? 0.4 : 1, userSelect: 'none' }}
+              onMouseEnter={e => { if (!newRmRow) e.currentTarget.style.background = '#f8f9fa'; }}
+              onMouseLeave={e => e.currentTarget.style.background = ''}>
+              <FontAwesomeIcon icon={faPlus} style={{ fontSize: 11 }} /> Agregar fila
+            </div>
           </div>
+        )}
 
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando...</div>
-          ) : filteredRm.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
-              <FontAwesomeIcon icon={faBoxOpen} style={{ fontSize: 32, marginBottom: 12, display: 'block' }} />
-              {search ? 'Sin resultados' : 'Aún no hay materias primas. Agrega harina, arroz, pollo, etc.'}
-            </div>
-          ) : (
-            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 100px 110px 100px 110px', padding: '10px 16px', borderBottom: '1px solid #f3f4f6', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                <span>Nombre</span><span>Cantidad</span><span>Unidad</span><span>Mínimo</span><span>Estado</span><span style={{ textAlign: 'right' }}>Acciones</span>
-              </div>
-              {filteredRm.map((rm, idx) => {
-                const b = rmBadge(rm);
-                return (
-                  <div key={rm.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 100px 110px 100px 110px', padding: '12px 16px', borderBottom: idx < filteredRm.length - 1 ? '1px solid #f3f4f6' : 'none', alignItems: 'center', background: (parseFloat(rm.quantity)||0) <= 0 ? 'rgba(239,68,68,0.03)' : (parseFloat(rm.quantity)||0) <= (parseFloat(rm.min_quantity)||0) && (parseFloat(rm.min_quantity)||0) > 0 ? 'rgba(245,158,11,0.03)' : 'transparent' }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>{rm.name}</div>
-                      {rm.cost_per_unit > 0 && <div style={{ fontSize: 11, color: '#9ca3af' }}>Costo: ${fmt(rm.cost_per_unit)}/{rm.unit}</div>}
-                    </div>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: b.color }}>{fmt(rm.quantity, 3)}</span>
-                    <span style={{ fontSize: 13, color: '#6b7280' }}>{rm.unit}</span>
-                    <span style={{ fontSize: 13, color: '#9ca3af' }}>{rm.min_quantity > 0 ? `≥ ${fmt(rm.min_quantity)}` : '—'}</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, background: b.bg, color: b.color, border: `1px solid ${b.border}`, padding: '2px 9px', borderRadius: 20, whiteSpace: 'nowrap', display: 'inline-block' }}>{b.label}</span>
-                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                      <button onClick={() => { setRestockItem(rm); setRestockAmount(''); }} title="Reponer stock" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#22c55e', fontSize: 12 }}>
-                        <FontAwesomeIcon icon={faArrowUp} />
-                      </button>
-                      <button onClick={() => openEditRm(rm)} style={{ background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.2)', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#D4AF37', fontSize: 12 }}>
-                        <FontAwesomeIcon icon={faEdit} />
-                      </button>
-                      <button onClick={() => deleteRm(rm)} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', color: '#ef4444', fontSize: 12 }}>
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ──── TAB: RECETAS ──── */}
-      {tab === 'recipes' && !recipeProduct && (
-        <>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-            {['product', 'ingredient', 'extra'].map(t => (
-              <button key={t} onClick={() => setRecipeType(t)} style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${recipeType === t ? '#D4AF37' : '#e5e7eb'}`, background: recipeType === t ? 'rgba(212,175,55,0.12)' : 'transparent', color: recipeType === t ? '#D4AF37' : '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                {t === 'product' ? 'Productos' : t === 'ingredient' ? 'Complementos' : 'Extras'}
-              </button>
-            ))}
-          </div>
-
-          {rawMats.length === 0 && (
-            <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, padding: '10px 16px', marginBottom: 14, fontSize: 13, color: '#fbbf24' }}>
-              <FontAwesomeIcon icon={faExclamationTriangle} style={{ marginRight: 8 }} />
-              Primero carga tus materias primas en la pestaña "Materias Primas".
-            </div>
-          )}
-
-          {filteredRecipeItems.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Sin ítems</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {filteredRecipeItems.map(item => (
-                <div key={item.id} onClick={() => openRecipe(item, recipeType)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, cursor: 'pointer', transition: 'border-color 0.15s' }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = '#D4AF37'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
-                >
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>{item.name}</div>
-                    {item.price > 0 && <div style={{ fontSize: 12, color: '#9ca3af' }}>${fmt(item.price, 2)}</div>}
-                  </div>
-                  <div style={{ fontSize: 12, color: '#9ca3af' }}>
-                    Click para editar receta →
-                  </div>
-                </div>
+        {/* ──── STOCK DIRECTO ──── */}
+        {sheet === 'direct' && (
+          <div>
+            {/* Sub-tabs */}
+            <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #dadce0', background: '#f8f9fa', paddingLeft: 12 }}>
+              {[
+                { key: 'products', label: `Productos (${directData.products.length})` },
+                { key: 'ingredients', label: `Complementos (${directData.ingredients.length})` },
+                { key: 'extras', label: `Extras (${directData.extras.length})` },
+              ].map(t => (
+                <button key={t.key} onClick={() => { setDirectTab(t.key); setEditingStock(null); }}
+                  style={{ padding: '10px 18px', border: 'none', borderBottom: directTab === t.key ? '3px solid #D4AF37' : '3px solid transparent', cursor: 'pointer', fontSize: 13, fontWeight: directTab === t.key ? 600 : 400, background: 'transparent', color: directTab === t.key ? '#D4AF37' : '#5f6368' }}>
+                  {t.label}
+                </button>
               ))}
             </div>
-          )}
-        </>
-      )}
 
-      {/* Recipe editor panel */}
-      {tab === 'recipes' && recipeProduct && (
-        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid rgba(212,175,55,0.3)', padding: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Receta de</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: '#D4AF37' }}>{recipeProduct.name}</div>
+            <div style={{ overflow: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...TH, width: 40, textAlign: 'center' }}>#</th>
+                    <th style={{ ...TH, minWidth: 200 }}>Nombre</th>
+                    <th style={{ ...TH, width: 140 }}>Categoría</th>
+                    <th style={{ ...TH, width: 100, textAlign: 'center' }}>Stock</th>
+                    <th style={{ ...TH, width: 80, textAlign: 'center' }}>Estado</th>
+                    <th style={{ ...TH, width: 80, textAlign: 'center' }}>Ilimitado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading && filteredDirect.length === 0 ? (
+                    <tr><td colSpan={6} style={{ ...TD, textAlign: 'center', padding: 40, color: '#80868b' }}>Cargando...</td></tr>
+                  ) : filteredDirect.length === 0 ? (
+                    <tr><td colSpan={6} style={{ ...TD, textAlign: 'center', padding: 40, color: '#80868b' }}>
+                      <FontAwesomeIcon icon={faBoxOpen} style={{ fontSize: 24, marginBottom: 8, display: 'block' }} /> Sin ítems
+                    </td></tr>
+                  ) : filteredDirect.map((item, idx) => {
+                    const b = statusBadge(item);
+                    const isEditing = editingStock === item.id;
+                    return (
+                      <tr key={item.id} style={{ background: !item.unlimited_stock && item.stock === 0 ? 'rgba(239,68,68,0.03)' : undefined }}>
+                        <td style={ROW_NUM}>{idx + 1}</td>
+                        <td style={TD}><div style={CELL}>{item.name}</div></td>
+                        <td style={TD}><div style={{ ...CELL, color: '#5f6368' }}>{item.category_name || '—'}</div></td>
+                        <td style={{ ...TD, textAlign: 'center' }}>
+                          {item.unlimited_stock ? (
+                            <div style={{ ...CELL, justifyContent: 'center', color: '#D4AF37' }}><FontAwesomeIcon icon={faInfinity} /></div>
+                          ) : isEditing ? (
+                            <input autoFocus type="number" min="0" value={editStockVal}
+                              onChange={e => setEditStockVal(e.target.value)}
+                              onBlur={() => saveDirectStock(item)}
+                              onKeyDown={e => { if (e.key === 'Enter') saveDirectStock(item); if (e.key === 'Escape') setEditingStock(null); }}
+                              style={{ ...CELL_INPUT, textAlign: 'center' }} />
+                          ) : (
+                            <div onClick={() => { setEditingStock(item.id); setEditStockVal(String(item.stock)); }}
+                              style={{ ...CELL, justifyContent: 'center', fontWeight: 700, color: b.color, cursor: 'pointer' }}>
+                              {item.stock}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ ...TD, textAlign: 'center' }}>
+                          <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 4px' }}>
+                            <span style={BADGE(b)}>{b.label}</span>
+                          </div>
+                        </td>
+                        <td style={{ ...TD, textAlign: 'center' }}>
+                          <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 4px' }}>
+                            <button onClick={() => saveDirectStock(item, !item.unlimited_stock)} disabled={savingStock}
+                              style={{ background: 'none', border: `1px solid ${item.unlimited_stock ? '#D4AF37' : '#dadce0'}`, borderRadius: 4, padding: '3px 8px', cursor: 'pointer', color: item.unlimited_stock ? '#D4AF37' : '#dadce0', fontSize: 12 }}>
+                              <FontAwesomeIcon icon={faInfinity} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <button onClick={() => { setRecipeProduct(null); setRecipe([]); }} style={btnGhost}>
-              <FontAwesomeIcon icon={faTimes} /> Volver
-            </button>
           </div>
+        )}
 
-          <p style={{ fontSize: 13, color: '#6b7280', marginTop: 0, marginBottom: 16 }}>
-            Define qué materias primas se consumen por cada unidad vendida de este ítem.
-          </p>
-
-          {recipe.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af', fontSize: 13 }}>Sin ingredientes en la receta aún.</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 36px', fontSize: 11, color: '#9ca3af', fontWeight: 700, padding: '0 4px', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <span>Materia Prima</span><span>Cantidad</span><span>Unidad</span><span></span>
-              </div>
-              {recipe.map((r, i) => {
-                const rm = rawMats.find(m => m.id === r.raw_material_id);
-                return (
-                  <div key={r.raw_material_id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 36px', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{r.name || rm?.name}</span>
-                    <input
-                      type="number" min="0.001" step="0.001"
-                      value={r.quantity_used}
-                      onChange={e => setRecipe(recipe.map((x, j) => j === i ? { ...x, quantity_used: parseFloat(e.target.value) || 0 } : x))}
-                      style={{ ...inputStyle, textAlign: 'center', padding: '6px 8px' }}
-                    />
-                    <span style={{ fontSize: 12, color: '#6b7280' }}>{r.unit || rm?.unit}</span>
-                    <button onClick={() => setRecipe(recipe.filter((_, j) => j !== i))} style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', color: '#ef4444' }}>
-                      <FontAwesomeIcon icon={faTimes} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {estimatedCost > 0 && (
-            <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
-              Costo estimado por unidad: <span style={{ color: '#D4AF37', fontWeight: 700 }}>${fmt(estimatedCost)}</span>
-            </div>
-          )}
-
-          {/* Add raw material to recipe */}
-          {rawMats.length > 0 && (
-            addingRm ? (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 14, flexWrap: 'wrap' }}>
-                <div style={{ flex: 2, minWidth: 140 }}>
-                  <label style={labelStyle}>Materia Prima</label>
-                  <select value={newRmId} onChange={e => setNewRmId(e.target.value)} style={{ ...inputStyle }}>
-                    <option value="">Seleccionar...</option>
-                    {rawMats.map(rm => <option key={rm.id} value={rm.id}>{rm.name} ({rm.unit})</option>)}
-                  </select>
-                </div>
-                <div style={{ flex: 1, minWidth: 90 }}>
-                  <label style={labelStyle}>Cantidad</label>
-                  <input type="number" min="0.001" step="0.001" placeholder="ej: 0.200" value={newRmQty} onChange={e => setNewRmQty(e.target.value)} style={inputStyle} />
-                </div>
-                <button onClick={addToRecipe} disabled={!newRmId || !newRmQty} style={{ ...btnGold, opacity: (!newRmId || !newRmQty) ? 0.5 : 1 }}>
-                  <FontAwesomeIcon icon={faPlus} /> Agregar
+        {/* ──── RECETAS ──── */}
+        {sheet === 'recipes' && !recipeProduct && (
+          <div>
+            <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #dadce0', background: '#f8f9fa', paddingLeft: 12 }}>
+              {['product', 'ingredient', 'extra'].map(t => (
+                <button key={t} onClick={() => setRecipeType(t)}
+                  style={{ padding: '10px 18px', border: 'none', borderBottom: recipeType === t ? '3px solid #D4AF37' : '3px solid transparent', cursor: 'pointer', fontSize: 13, fontWeight: recipeType === t ? 600 : 400, background: 'transparent', color: recipeType === t ? '#D4AF37' : '#5f6368' }}>
+                  {t === 'product' ? 'Productos' : t === 'ingredient' ? 'Complementos' : 'Extras'}
                 </button>
-                <button onClick={() => { setAddingRm(false); setNewRmId(''); setNewRmQty(''); }} style={btnGhost}>Cancelar</button>
+              ))}
+            </div>
+
+            {rawMats.length === 0 && (
+              <div style={{ padding: '12px 20px', background: '#fef3cd', borderBottom: '1px solid #ffc107', fontSize: 13, color: '#856404', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FontAwesomeIcon icon={faExclamationTriangle} /> Primero carga materias primas en la hoja "Materias Primas".
+              </div>
+            )}
+
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ ...TH, width: 40, textAlign: 'center' }}>#</th>
+                  <th style={TH}>Nombre</th>
+                  <th style={{ ...TH, width: 100 }}>Precio</th>
+                  <th style={{ ...TH, width: 140, textAlign: 'center' }}>Receta</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRecipeItems.length === 0 ? (
+                  <tr><td colSpan={4} style={{ ...TD, textAlign: 'center', padding: 40, color: '#80868b' }}>Sin ítems</td></tr>
+                ) : filteredRecipeItems.map((item, idx) => (
+                  <tr key={item.id} style={{ cursor: 'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <td style={ROW_NUM}>{idx + 1}</td>
+                    <td style={TD}><div style={CELL}>{item.name}</div></td>
+                    <td style={TD}><div style={{ ...CELL, color: '#5f6368' }}>{item.price > 0 ? `$${fmt(item.price, 2)}` : '—'}</div></td>
+                    <td style={{ ...TD, textAlign: 'center' }}>
+                      <div style={{ ...CELL, justifyContent: 'center' }}>
+                        <button onClick={() => openRecipe(item, recipeType)}
+                          style={{ ...BTN_GHOST, padding: '4px 12px', fontSize: 12, borderRadius: 4, color: '#1a73e8', borderColor: '#1a73e8' }}>
+                          <FontAwesomeIcon icon={faEdit} style={{ marginRight: 4 }} /> Editar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Recipe editor */}
+        {sheet === 'recipes' && recipeProduct && (
+          <div style={{ padding: 24, maxWidth: 700 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 12, color: '#5f6368', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Receta de</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#D4AF37' }}>{recipeProduct.name}</div>
+              </div>
+              <button onClick={() => { setRecipeProduct(null); setRecipe([]); }} style={BTN_GHOST}>
+                <FontAwesomeIcon icon={faTimes} /> Volver
+              </button>
+            </div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...TH, width: 40, textAlign: 'center' }}>#</th>
+                  <th style={TH}>Materia Prima</th>
+                  <th style={{ ...TH, width: 120 }}>Cantidad</th>
+                  <th style={{ ...TH, width: 80 }}>Unidad</th>
+                  <th style={{ ...TH, width: 50 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {recipe.length === 0 ? (
+                  <tr><td colSpan={5} style={{ ...TD, textAlign: 'center', padding: 30, color: '#80868b', fontSize: 13 }}>Sin ingredientes aún</td></tr>
+                ) : recipe.map((r, i) => {
+                  const rm = rawMats.find(m => m.id === r.raw_material_id);
+                  return (
+                    <tr key={r.raw_material_id}>
+                      <td style={ROW_NUM}>{i + 1}</td>
+                      <td style={TD}><div style={CELL}>{r.name || rm?.name}</div></td>
+                      <td style={TD}>
+                        <input type="number" min="0.001" step="0.001" value={r.quantity_used}
+                          onChange={e => setRecipe(recipe.map((x, j) => j === i ? { ...x, quantity_used: parseFloat(e.target.value) || 0 } : x))}
+                          style={{ ...CELL_INPUT, position: 'relative', inset: 'unset', border: '1px solid #e8eaed', width: '100%' }} />
+                      </td>
+                      <td style={TD}><div style={{ ...CELL, color: '#5f6368' }}>{r.unit || rm?.unit}</div></td>
+                      <td style={{ ...TD, textAlign: 'center' }}>
+                        <button onClick={() => setRecipe(recipe.filter((_, j) => j !== i))}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 13 }}>
+                          <FontAwesomeIcon icon={faTimes} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {estimatedCost > 0 && (
+              <div style={{ fontSize: 13, color: '#5f6368', marginBottom: 14 }}>
+                Costo estimado: <strong style={{ color: '#D4AF37' }}>${fmt(estimatedCost)}</strong>
+              </div>
+            )}
+
+            {rawMats.length > 0 && (
+              addingRm ? (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 2, minWidth: 140 }}>
+                    <label style={{ fontSize: 12, color: '#5f6368', display: 'block', marginBottom: 4 }}>Materia Prima</label>
+                    <select value={newRmId} onChange={e => setNewRmId(e.target.value)} style={INPUT}>
+                      <option value="">Seleccionar...</option>
+                      {rawMats.map(rm => <option key={rm.id} value={rm.id}>{rm.name} ({rm.unit})</option>)}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 80 }}>
+                    <label style={{ fontSize: 12, color: '#5f6368', display: 'block', marginBottom: 4 }}>Cantidad</label>
+                    <input type="number" min="0.001" step="0.001" value={newRmQty} onChange={e => setNewRmQty(e.target.value)} placeholder="0.000" style={INPUT} />
+                  </div>
+                  <button onClick={addToRecipe} disabled={!newRmId || !newRmQty} style={{ ...BTN_GOLD, opacity: (!newRmId || !newRmQty) ? 0.5 : 1 }}>
+                    <FontAwesomeIcon icon={faPlus} /> Agregar
+                  </button>
+                  <button onClick={() => { setAddingRm(false); setNewRmId(''); setNewRmQty(''); }} style={BTN_GHOST}>Cancelar</button>
+                </div>
+              ) : (
+                <div onClick={() => setAddingRm(true)}
+                  style={{ padding: '10px 20px', borderTop: '1px solid #e8eaed', color: '#1a73e8', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'}
+                  onMouseLeave={e => e.currentTarget.style.background = ''}>
+                  <FontAwesomeIcon icon={faPlus} style={{ fontSize: 11 }} /> Agregar materia prima
+                </div>
+              )
+            )}
+
+            <div style={{ display: 'flex', gap: 10, paddingTop: 12, borderTop: '1px solid #e8eaed' }}>
+              <button onClick={() => { setRecipeProduct(null); setRecipe([]); }} style={BTN_GHOST}>Cancelar</button>
+              <button onClick={saveRecipe} disabled={recipeSaving} style={BTN_GOLD}>
+                <FontAwesomeIcon icon={faSave} /> {recipeSaving ? 'Guardando...' : 'Guardar Receta'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ──── SECCIONES ──── */}
+        {sheet === 'sections' && (
+          <div style={{ padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: '#202124' }}>Secciones de Inventario</span>
+              <button onClick={() => { setSectionForm({ name: '', color: '#D4AF37' }); setSectionModal('new'); }} style={BTN_GOLD}>
+                <FontAwesomeIcon icon={faPlus} /> Nueva Sección
+              </button>
+            </div>
+
+            {sectionsLoading ? (
+              <div style={{ textAlign: 'center', padding: 60, color: '#80868b' }}>Cargando...</div>
+            ) : sections.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 60, color: '#80868b' }}>
+                <FontAwesomeIcon icon={faFolderOpen} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
+                Crea secciones para organizar tu inventario
               </div>
             ) : (
-              <button onClick={() => setAddingRm(true)} style={{ ...btnGhost, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6, color: '#D4AF37', borderColor: 'rgba(212,175,55,0.4)' }}>
-                <FontAwesomeIcon icon={faPlus} /> Agregar Materia Prima
-              </button>
-            )
-          )}
-
-          <div style={{ display: 'flex', gap: 10, paddingTop: 8, borderTop: '1px solid #e5e7eb' }}>
-            <button onClick={() => { setRecipeProduct(null); setRecipe([]); }} style={btnGhost}>Cancelar</button>
-            <button onClick={saveRecipe} disabled={recipeSaving} style={btnGold}>
-              <FontAwesomeIcon icon={faSave} /> {recipeSaving ? 'Guardando...' : 'Guardar Receta'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ──── TAB: STOCK DIRECTO (minimarket) ──── */}
-      {tab === 'direct' && (
-        <>
-          <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: '#f3f4f6', borderRadius: 8, padding: 4, border: '1px solid #e5e7eb' }}>
-            {[
-              { key: 'products', label: `Productos (${directData.products.length})` },
-              { key: 'ingredients', label: `Complementos (${directData.ingredients.length})` },
-              { key: 'extras', label: `Extras (${directData.extras.length})` },
-            ].map(t => (
-              <button key={t.key} onClick={() => { setDirectTab(t.key); setEditingDirect(null); }} style={{ flex: 1, padding: '7px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, background: directTab === t.key ? '#D4AF37' : 'transparent', color: directTab === t.key ? '#000' : '#6b7280', transition: 'all 0.15s' }}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 0, marginBottom: 14 }}>
-            Para minimarket o ítems sin receta. Gestiona unidades de stock directamente.
-          </p>
-
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando...</div>
-          ) : filteredDirect.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
-              <FontAwesomeIcon icon={faBoxOpen} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
-              Sin ítems
-            </div>
-          ) : (
-            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 110px 140px', padding: '10px 16px', borderBottom: '1px solid #f3f4f6', fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                <span>Nombre</span><span>Categoría</span><span style={{ textAlign: 'center' }}>Stock</span><span style={{ textAlign: 'center' }}>Estado</span>
-              </div>
-              {filteredDirect.map((item, idx) => {
-                const b = statusBadge(item);
-                const isEditing = editingDirect === item.id;
-                return (
-                  <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr 150px 110px 140px', padding: '11px 16px', borderBottom: idx < filteredDirect.length - 1 ? '1px solid #f3f4f6' : 'none', alignItems: 'center', background: item.unlimited_stock ? 'transparent' : item.stock === 0 ? 'rgba(239,68,68,0.03)' : 'transparent' }}>
-                    <span style={{ fontSize: 13, fontWeight: 500 }}>{item.name}</span>
-                    <span style={{ fontSize: 12, color: '#9ca3af' }}>{item.category_name || '—'}</span>
-                    <div style={{ textAlign: 'center' }}>
-                      {item.unlimited_stock ? (
-                        <span style={{ color: '#D4AF37', fontSize: 14 }}><FontAwesomeIcon icon={faInfinity} /></span>
-                      ) : isEditing ? (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                          <input type="number" min="0" value={editDirectVal} onChange={e => setEditDirectVal(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') saveDirectStock(item); if (e.key === 'Escape') setEditingDirect(null); }}
-                            autoFocus style={{ width: 56, padding: '4px 6px', background: '#fff', border: '1px solid #D4AF37', borderRadius: 6, color: '#111', fontSize: 13, textAlign: 'center', outline: 'none' }} />
-                          <button onClick={() => saveDirectStock(item)} disabled={savingDirect} style={{ background: '#D4AF37', border: 'none', borderRadius: 5, padding: '4px 8px', cursor: 'pointer', color: '#000', fontSize: 12, fontWeight: 700 }}>✓</button>
-                          <button onClick={() => setEditingDirect(null)} style={{ background: '#f3f4f6', border: 'none', borderRadius: 5, padding: '4px 8px', cursor: 'pointer', color: '#374151', fontSize: 12 }}>✕</button>
-                        </div>
-                      ) : (
-                        <span onClick={() => { setEditingDirect(item.id); setEditDirectVal(String(item.stock)); }} title="Click para editar"
-                          style={{ cursor: 'pointer', fontSize: 14, fontWeight: 700, color: b.color, borderBottom: '1px dashed #d1d5db', paddingBottom: 1 }}>
-                          {item.stock}
-                        </span>
-                      )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {sections.map(sec => (
+                  <div key={sec.id} style={{ background: '#fff', border: '1px solid #dadce0', borderLeft: `4px solid ${sec.color}`, borderRadius: 8, padding: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: sec.items.length > 0 ? 10 : 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600 }}>{sec.name}</span>
+                        <span style={{ fontSize: 11, color: '#80868b', background: '#f1f3f4', padding: '2px 8px', borderRadius: 10 }}>{sec.items.length}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button onClick={() => { setAddItemType('product'); setAddItemSearch(''); setAddItemModal(sec.id); }}
+                          style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11 }}>
+                          <FontAwesomeIcon icon={faPlus} />
+                        </button>
+                        <button onClick={() => { setSectionForm({ name: sec.name, color: sec.color }); setSectionModal(sec); }}
+                          style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11 }}>
+                          <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                        <button onClick={() => deleteSection(sec)}
+                          style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11, color: '#ef4444', borderColor: '#fecaca' }}>
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, background: b.bg, color: b.color, border: `1px solid ${b.border}`, padding: '2px 9px', borderRadius: 20, whiteSpace: 'nowrap' }}>
-                        {b.label}
-                      </span>
-                      <button onClick={() => saveDirectStock(item, !item.unlimited_stock)} disabled={savingDirect}
-                        title={item.unlimited_stock ? 'Quitar ilimitado' : 'Marcar ilimitado'}
-                        style={{ background: 'transparent', border: '1px solid #e5e7eb', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontSize: 12, color: item.unlimited_stock ? '#D4AF37' : '#d1d5db' }}>
-                        <FontAwesomeIcon icon={faInfinity} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ──── TAB: ALERTAS ──── */}
-      {tab === 'alerts' && (
-        <div>
-          {alertsLoading ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando alertas...</div>
-          ) : alerts.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#22c55e' }}>
-              <FontAwesomeIcon icon={faCheck} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
-              No hay alertas activas. Todo el inventario está en orden.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {alerts.map(a => (
-                <div key={a.id} style={{
-                  background: a.alert_type === 'out_of_stock' ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)',
-                  border: `1px solid ${a.alert_type === 'out_of_stock' ? 'rgba(239,68,68,0.25)' : 'rgba(245,158,11,0.25)'}`,
-                  borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12
-                }}>
-                  <FontAwesomeIcon icon={faExclamationTriangle}
-                    style={{ color: a.alert_type === 'out_of_stock' ? '#ef4444' : '#f59e0b', fontSize: 16 }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: '#111' }}>{a.item_name}</div>
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>
-                      {a.item_type === 'raw_material' ? 'Materia prima' : a.item_type === 'product' ? 'Producto' : a.item_type === 'ingredient' ? 'Ingrediente' : 'Extra'}
-                      {' · '}Stock: <strong style={{ color: a.alert_type === 'out_of_stock' ? '#ef4444' : '#f59e0b' }}>{fmt(a.current_stock)}</strong>
-                      {a.threshold > 0 && <> · Mínimo: {fmt(a.threshold)}</>}
-                    </div>
-                  </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20,
-                    background: a.alert_type === 'out_of_stock' ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)',
-                    color: a.alert_type === 'out_of_stock' ? '#ef4444' : '#f59e0b',
-                    border: `1px solid ${a.alert_type === 'out_of_stock' ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'}`
-                  }}>
-                    {a.alert_type === 'out_of_stock' ? 'Agotado' : 'Stock bajo'}
-                  </span>
-                  <button onClick={() => acknowledgeAlert(a.id)}
-                    style={{ background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontSize: 12, color: '#374151', fontWeight: 500 }}>
-                    Enterado
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ──── TAB: HISTORIAL ──── */}
-      {tab === 'history' && (
-        <div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-            <select value={movFilter.item_type} onChange={e => setMovFilter(f => ({ ...f, item_type: e.target.value }))} style={{ ...inputStyle, width: 'auto', minWidth: 130 }}>
-              <option value="">Todos los tipos</option>
-              <option value="product">Productos</option>
-              <option value="ingredient">Ingredientes</option>
-              <option value="extra">Extras</option>
-              <option value="raw_material">Materias primas</option>
-            </select>
-            <select value={movFilter.reason} onChange={e => setMovFilter(f => ({ ...f, reason: e.target.value }))} style={{ ...inputStyle, width: 'auto', minWidth: 130 }}>
-              <option value="">Todas las razones</option>
-              <option value="order">Orden</option>
-              <option value="manual">Manual</option>
-              <option value="restock">Restock</option>
-              <option value="recipe">Receta</option>
-              <option value="purchase">Compra</option>
-              <option value="entry">Entrada</option>
-              <option value="exit">Salida</option>
-              <option value="transfer">Transferencia</option>
-            </select>
-            <input type="date" value={movFilter.from} onChange={e => setMovFilter(f => ({ ...f, from: e.target.value }))} style={{ ...inputStyle, width: 'auto' }} />
-            <input type="date" value={movFilter.to} onChange={e => setMovFilter(f => ({ ...f, to: e.target.value }))} style={{ ...inputStyle, width: 'auto' }} />
-          </div>
-
-          {movLoading ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando historial...</div>
-          ) : movements.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
-              <FontAwesomeIcon icon={faHistory} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
-              Sin movimientos registrados
-            </div>
-          ) : (
-            <>
-              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10 }}>{movementsTotal} movimiento(s) encontrado(s)</div>
-              <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 90px 80px 80px 80px 90px 100px', padding: '10px 12px', borderBottom: '1px solid #f3f4f6', fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', gap: 4 }}>
-                  <span>Fecha</span><span>Item</span><span>Tipo</span><span style={{ textAlign: 'right' }}>Anterior</span><span style={{ textAlign: 'right' }}>Cambio</span><span style={{ textAlign: 'right' }}>Nuevo</span><span>Razón</span><span>Usuario</span>
-                </div>
-                {movements.map((m, idx) => (
-                  <div key={m.id} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 90px 80px 80px 80px 90px 100px', padding: '9px 12px', borderBottom: idx < movements.length - 1 ? '1px solid #f3f4f6' : 'none', fontSize: 12, alignItems: 'center', gap: 4 }}>
-                    <span style={{ color: '#6b7280', fontSize: 11 }}>{new Date(m.created_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                    <span style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.item_name}</span>
-                    <span style={{ fontSize: 11, color: '#9ca3af' }}>
-                      {m.item_type === 'raw_material' ? 'Mat. prima' : m.item_type === 'product' ? 'Producto' : m.item_type === 'ingredient' ? 'Ingrediente' : 'Extra'}
-                    </span>
-                    <span style={{ textAlign: 'right', color: '#6b7280' }}>{fmt(m.previous_qty, 2)}</span>
-                    <span style={{ textAlign: 'right', fontWeight: 600, color: parseFloat(m.change_qty) >= 0 ? '#22c55e' : '#ef4444' }}>
-                      {parseFloat(m.change_qty) >= 0 ? '+' : ''}{fmt(m.change_qty, 2)}
-                    </span>
-                    <span style={{ textAlign: 'right', fontWeight: 600 }}>{fmt(m.new_qty, 2)}</span>
-                    <span style={{ fontSize: 11 }}>
-                      <span style={{
-                        padding: '2px 7px', borderRadius: 12, fontSize: 10, fontWeight: 600,
-                        background: m.reason === 'order' ? 'rgba(59,130,246,0.1)' : m.reason === 'restock' ? 'rgba(34,197,94,0.1)' : m.reason === 'recipe' ? 'rgba(168,85,247,0.1)' : m.reason === 'purchase' ? 'rgba(59,130,246,0.1)' : m.reason === 'entry' ? 'rgba(34,197,94,0.1)' : m.reason === 'exit' ? 'rgba(239,68,68,0.1)' : m.reason === 'transfer' ? 'rgba(168,85,247,0.1)' : 'rgba(107,114,128,0.1)',
-                        color: m.reason === 'order' ? '#3b82f6' : m.reason === 'restock' ? '#22c55e' : m.reason === 'recipe' ? '#a855f7' : m.reason === 'purchase' ? '#3b82f6' : m.reason === 'entry' ? '#22c55e' : m.reason === 'exit' ? '#ef4444' : m.reason === 'transfer' ? '#a855f7' : '#6b7280'
-                      }}>
-                        {m.reason === 'order' ? 'Orden' : m.reason === 'restock' ? 'Restock' : m.reason === 'recipe' ? 'Receta' : m.reason === 'manual' ? 'Manual' : m.reason === 'purchase' ? 'Compra' : m.reason === 'entry' ? 'Entrada' : m.reason === 'exit' ? 'Salida' : m.reason === 'transfer' ? 'Transfer.' : m.reason}
-                      </span>
-                    </span>
-                    <span style={{ fontSize: 11, color: '#9ca3af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.user_name || '—'}</span>
+                    {sec.items.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {sec.items.map(item => {
+                          const stock = parseFloat(item.current_stock) || 0;
+                          return (
+                            <div key={`${item.item_type}-${item.item_id}`} style={{
+                              display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+                              background: '#f8f9fa', border: '1px solid #e8eaed', borderRadius: 6, fontSize: 12
+                            }}>
+                              <span style={{ fontWeight: 500 }}>{item.item_name}</span>
+                              <span style={{ fontWeight: 700, fontSize: 11, color: stock <= 0 ? '#ef4444' : stock <= 5 ? '#f59e0b' : '#22c55e' }}>{stock}</span>
+                              <button onClick={() => removeItemFromSec(sec.id, item.item_type, item.item_id)}
+                                style={{ background: 'none', border: 'none', color: '#dadce0', cursor: 'pointer', fontSize: 10, padding: 0 }}>
+                                <FontAwesomeIcon icon={faTimes} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-              {movTotalPages > 1 && (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 16 }}>
-                  <button disabled={movPage <= 1} onClick={() => fetchMovements(movPage - 1)}
-                    style={{ ...btnGhost, padding: '6px 12px', opacity: movPage <= 1 ? 0.4 : 1 }}>
-                    <FontAwesomeIcon icon={faChevronLeft} />
-                  </button>
-                  <span style={{ fontSize: 13, color: '#6b7280' }}>Página {movPage} de {movTotalPages}</span>
-                  <button disabled={movPage >= movTotalPages} onClick={() => fetchMovements(movPage + 1)}
-                    style={{ ...btnGhost, padding: '6px 12px', opacity: movPage >= movTotalPages ? 0.4 : 1 }}>
-                    <FontAwesomeIcon icon={faChevronRight} />
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ──── TAB: REPORTES ──── */}
-      {tab === 'reports' && (
-        <div>
-          {reportLoading ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando reportes...</div>
-          ) : (
-            <>
-              {stats && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
-                  {[
-                    { label: 'Total materias primas', value: stats.raw_materials?.total || 0, color: '#6366f1' },
-                    { label: 'Sin stock (MP)', value: stats.raw_materials?.out_of_stock || 0, color: '#ef4444' },
-                    { label: 'Stock bajo (MP)', value: stats.raw_materials?.low_stock || 0, color: '#f59e0b' },
-                    { label: 'Valor inventario (MP)', value: `$${(stats.raw_materials?.total_value || 0).toLocaleString()}`, color: '#22c55e' },
-                    { label: 'Total productos', value: stats.products?.total || 0, color: '#6366f1' },
-                    { label: 'Sin stock (Prod)', value: stats.products?.out_of_stock || 0, color: '#ef4444' },
-                  ].map((c, i) => (
-                    <div key={i} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 18px', borderLeft: `4px solid ${c.color}` }}>
-                      <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c.label}</div>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: '#111' }}>{c.value}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#111' }}>Top consumo de materias primas</h3>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <input type="date" value={reportRange.from} onChange={e => setReportRange(r => ({ ...r, from: e.target.value }))} style={{ ...inputStyle, width: 'auto', padding: '6px 10px', fontSize: 12 }} />
-                    <span style={{ color: '#9ca3af', fontSize: 12 }}>a</span>
-                    <input type="date" value={reportRange.to} onChange={e => setReportRange(r => ({ ...r, to: e.target.value }))} style={{ ...inputStyle, width: 'auto', padding: '6px 10px', fontSize: 12 }} />
-                  </div>
-                </div>
-                {consumption.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 40, color: '#9ca3af', fontSize: 13 }}>Sin datos de consumo en este período</div>
-                ) : (
-                  <div>
-                    {(() => {
-                      const maxVal = Math.max(...consumption.map(c => parseFloat(c.total_consumed) || 0), 1);
-                      return consumption.map((c, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                          <span style={{ minWidth: 140, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.item_name}</span>
-                          <div style={{ flex: 1, height: 20, background: '#f3f4f6', borderRadius: 6, overflow: 'hidden' }}>
-                            <div style={{
-                              height: '100%', borderRadius: 6,
-                              width: `${(parseFloat(c.total_consumed) / maxVal * 100)}%`,
-                              background: 'linear-gradient(90deg, #D4AF37, #f59e0b)',
-                              transition: 'width 0.3s'
-                            }} />
-                          </div>
-                          <span style={{ minWidth: 70, textAlign: 'right', fontSize: 13, fontWeight: 600 }}>{fmt(c.total_consumed, 2)}</span>
-                          <span style={{ fontSize: 11, color: '#9ca3af', minWidth: 40 }}>{c.movement_count} mov</span>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ──── TAB: SECCIONES ──── */}
-      {tab === 'sections' && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Secciones de Inventario</h3>
-            <button onClick={() => { setSectionForm({ name: '', color: '#D4AF37' }); setSectionModal('new'); }} style={btnGold}>
-              <FontAwesomeIcon icon={faPlus} /> Nueva Sección
-            </button>
+            )}
           </div>
-          {sectionsLoading ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando secciones...</div>
-          ) : sections.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
-              <FontAwesomeIcon icon={faFolderOpen} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
-              Crea secciones para organizar tu inventario
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {sections.map(sec => (
-                <div key={sec.id} style={{ background: '#fff', border: `1px solid ${sec.color}33`, borderLeft: `4px solid ${sec.color}`, borderRadius: 12, padding: 16, overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: sec.items.length > 0 ? 12 : 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 12, height: 12, borderRadius: '50%', background: sec.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>{sec.name}</span>
-                      <span style={{ fontSize: 11, color: '#9ca3af', background: '#f3f4f6', padding: '2px 8px', borderRadius: 10 }}>{sec.items.length} items</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={() => { setAddItemType('product'); setAddItemSearch(''); setAddItemModal(sec.id); }} style={{ ...btnGhost, padding: '5px 10px', fontSize: 11 }}>
-                        <FontAwesomeIcon icon={faPlus} /> Agregar
-                      </button>
-                      <button onClick={() => { setSectionForm({ name: sec.name, color: sec.color }); setSectionModal(sec); }} style={{ ...btnGhost, padding: '5px 10px', fontSize: 11 }}>
-                        <FontAwesomeIcon icon={faEdit} />
-                      </button>
-                      <button onClick={() => deleteSection(sec)} style={{ ...btnGhost, padding: '5px 10px', fontSize: 11, color: '#ef4444', borderColor: '#fecaca' }}>
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    </div>
-                  </div>
-                  {sec.items.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {sec.items.map(item => {
-                        const stock = parseFloat(item.current_stock) || 0;
-                        const isLow = stock <= 5 && stock > 0;
-                        const isOut = stock <= 0;
-                        return (
-                          <div key={`${item.item_type}-${item.item_id}`} style={{
-                            display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px',
-                            background: isOut ? 'rgba(239,68,68,0.06)' : isLow ? 'rgba(245,158,11,0.06)' : '#f9fafb',
-                            border: `1px solid ${isOut ? '#fecaca' : isLow ? '#fde68a' : '#e5e7eb'}`,
-                            borderRadius: 8, fontSize: 12
-                          }}>
-                            <span style={{ fontWeight: 600, color: '#111' }}>{item.item_name}</span>
-                            <span style={{ color: isOut ? '#ef4444' : isLow ? '#f59e0b' : '#22c55e', fontWeight: 700, fontSize: 11 }}>{stock}</span>
-                            <button onClick={() => removeItemFromSec(sec.id, item.item_type, item.item_id)}
-                              style={{ background: 'none', border: 'none', color: '#d1d5db', cursor: 'pointer', fontSize: 10, padding: 0 }}>
-                              <FontAwesomeIcon icon={faTimes} />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+        )}
 
-          {sectionModal !== null && (
-            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
-              onClick={() => setSectionModal(null)}>
-              <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 400 }}>
-                <h3 style={{ margin: '0 0 18px', color: '#D4AF37', fontSize: 17, fontWeight: 700 }}>
-                  {sectionModal === 'new' ? 'Nueva Sección' : 'Editar Sección'}
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div>
-                    <label style={labelStyle}>Nombre *</label>
-                    <input autoFocus value={sectionForm.name} onChange={e => setSectionForm({ ...sectionForm, name: e.target.value })} placeholder="ej: Bebidas, Limpieza..." style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Color</label>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <input type="color" value={sectionForm.color} onChange={e => setSectionForm({ ...sectionForm, color: e.target.value })} style={{ width: 40, height: 36, border: 'none', cursor: 'pointer', borderRadius: 6 }} />
-                      <span style={{ fontSize: 12, color: '#9ca3af' }}>{sectionForm.color}</span>
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-                  <button onClick={() => setSectionModal(null)} style={{ ...btnGhost, flex: 1, justifyContent: 'center' }}>Cancelar</button>
-                  <button onClick={saveSection} disabled={!sectionForm.name.trim() || sectionSaving} style={{ ...btnGold, flex: 1, justifyContent: 'center', opacity: !sectionForm.name.trim() ? 0.5 : 1 }}>
-                    <FontAwesomeIcon icon={faSave} /> {sectionSaving ? 'Guardando...' : 'Guardar'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+        {/* ──── COMPRAS / MOVIMIENTOS ──── */}
+        {sheet === 'movements' && (
+          <div style={{ padding: 20, maxWidth: 600 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Registrar Movimiento</div>
 
-          {addItemModal !== null && (
-            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
-              onClick={() => setAddItemModal(null)}>
-              <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 440, maxHeight: '80vh', overflowY: 'auto' }}>
-                <h3 style={{ margin: '0 0 14px', color: '#D4AF37', fontSize: 17, fontWeight: 700 }}>Agregar Item a Sección</h3>
-                <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
-                  {['product', 'ingredient', 'extra', 'raw_material'].map(t => (
-                    <button key={t} onClick={() => setAddItemType(t)} style={{
-                      flex: 1, padding: '7px 6px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                      background: addItemType === t ? '#D4AF37' : '#f3f4f6', color: addItemType === t ? '#000' : '#6b7280'
-                    }}>
-                      {t === 'product' ? 'Productos' : t === 'ingredient' ? 'Ingredientes' : t === 'extra' ? 'Extras' : 'Mat. Prima'}
-                    </button>
-                  ))}
-                </div>
-                <input value={addItemSearch} onChange={e => setAddItemSearch(e.target.value)} placeholder="Buscar..." style={{ ...inputStyle, marginBottom: 10 }} />
-                <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                  {(() => {
-                    const source = addItemType === 'product' ? directData.products
-                      : addItemType === 'ingredient' ? directData.ingredients
-                      : addItemType === 'extra' ? directData.extras : rawMats;
-                    const filtered = source.filter(i => !addItemSearch || i.name.toLowerCase().includes(addItemSearch.toLowerCase()));
-                    return filtered.length === 0 ? (
-                      <div style={{ padding: 20, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Sin resultados</div>
-                    ) : filtered.map(item => (
-                      <div key={item.id} onClick={() => addItemToSec(addItemModal, addItemType, item.id)}
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', borderRadius: 6 }}
-                        onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                        <span style={{ fontSize: 13, fontWeight: 500 }}>{item.name}</span>
-                        <FontAwesomeIcon icon={faPlus} style={{ color: '#D4AF37', fontSize: 12 }} />
-                      </div>
-                    ));
-                  })()}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ──── TAB: COMPRAS / MOVIMIENTOS ──── */}
-      {tab === 'movements' && (
-        <div>
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 20, marginBottom: 16 }}>
-            <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700 }}>Registrar Movimiento</h3>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
               {[
-                { key: 'purchase', label: 'Compra', color: '#3b82f6' },
-                { key: 'entry', label: 'Entrada', color: '#22c55e' },
-                { key: 'exit', label: 'Salida', color: '#ef4444' },
+                { key: 'purchase', label: 'Compra', color: '#1a73e8' },
+                { key: 'entry', label: 'Entrada', color: '#34a853' },
+                { key: 'exit', label: 'Salida', color: '#ea4335' },
               ].map(r => (
                 <button key={r.key} onClick={() => setMovReason(r.key)} style={{
-                  flex: 1, padding: '9px 10px', borderRadius: 8, border: `1.5px solid ${movReason === r.key ? r.color : '#e5e7eb'}`,
-                  cursor: 'pointer', fontSize: 13, fontWeight: 700,
-                  background: movReason === r.key ? r.color + '15' : '#fff', color: movReason === r.key ? r.color : '#6b7280'
+                  flex: 1, padding: '10px', borderRadius: 6, border: `2px solid ${movReason === r.key ? r.color : '#dadce0'}`,
+                  cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                  background: movReason === r.key ? r.color + '12' : '#fff', color: movReason === r.key ? r.color : '#5f6368'
                 }}>
                   {r.label}
                 </button>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+
+            <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
               {['raw_material', 'product', 'ingredient', 'extra'].map(t => (
                 <button key={t} onClick={() => setMovItemType(t)} style={{
-                  padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                  background: movItemType === t ? '#D4AF37' : '#f3f4f6', color: movItemType === t ? '#000' : '#6b7280'
+                  padding: '6px 12px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                  background: movItemType === t ? '#e8f0fe' : '#f1f3f4', color: movItemType === t ? '#1a73e8' : '#5f6368'
                 }}>
                   {t === 'raw_material' ? 'Mat. Prima' : t === 'product' ? 'Productos' : t === 'ingredient' ? 'Ingredientes' : 'Extras'}
                 </button>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
-              <input value={movItemSearch} onChange={e => setMovItemSearch(e.target.value)} placeholder="Buscar item..." style={{ ...inputStyle, flex: 1 }} />
-            </div>
+
+            <input value={movItemSearch} onChange={e => setMovItemSearch(e.target.value)} placeholder="Buscar item..." style={{ ...INPUT, marginBottom: 8 }} />
+
             {movItemSearch && (() => {
               const source = movItemType === 'product' ? directData.products : movItemType === 'ingredient' ? directData.ingredients : movItemType === 'extra' ? directData.extras : rawMats;
               const filtered = source.filter(i => i.name.toLowerCase().includes(movItemSearch.toLowerCase())).slice(0, 8);
               return filtered.length > 0 ? (
-                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, marginBottom: 10, maxHeight: 200, overflowY: 'auto' }}>
+                <div style={{ border: '1px solid #dadce0', borderRadius: 6, marginBottom: 10, maxHeight: 200, overflowY: 'auto', background: '#fff' }}>
                   {filtered.map(item => (
                     <div key={item.id} onClick={() => {
-                      if (!movItems.find(m => m.item_id === item.id && m.item_type === movItemType)) {
+                      if (!movItems.find(m => m.item_id === item.id && m.item_type === movItemType))
                         setMovItems([...movItems, { item_type: movItemType, item_id: item.id, item_name: item.name, quantity: 1 }]);
-                      }
                       setMovItemSearch('');
                     }}
-                      style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', fontSize: 13 }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                      style={{ padding: '8px 14px', cursor: 'pointer', borderBottom: '1px solid #f1f3f4', fontSize: 13 }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                       {item.name}
                     </div>
                   ))}
                 </div>
               ) : null;
             })()}
+
             {movItems.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 8 }}>Items seleccionados:</div>
-                {movItems.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{item.item_name}</span>
-                    <input type="number" min="0.001" step="0.001" value={item.quantity}
-                      onChange={e => setMovItems(movItems.map((m, i) => i === idx ? { ...m, quantity: parseFloat(e.target.value) || 0 } : m))}
-                      style={{ ...inputStyle, width: 80, padding: '5px 8px', textAlign: 'center' }} />
-                    <button onClick={() => setMovItems(movItems.filter((_, i) => i !== idx))}
-                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 14 }}>
-                      <FontAwesomeIcon icon={faTimes} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <button onClick={submitMovement} disabled={movItems.length === 0 || movSaving}
-              style={{ ...btnGold, width: '100%', justifyContent: 'center', opacity: movItems.length === 0 ? 0.5 : 1 }}>
-              <FontAwesomeIcon icon={faCheck} /> {movSaving ? 'Registrando...' : `Registrar ${movReason === 'purchase' ? 'Compra' : movReason === 'entry' ? 'Entrada' : 'Salida'}`}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ──── TAB: TRANSFERENCIAS ──── */}
-      {tab === 'transfers' && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Transferencias entre Locales</h3>
-            <button onClick={() => { setTransferModal(true); setTransferItems([]); setTransferTo(''); setTransferNotes(''); }} style={btnGold}
-              disabled={userStores.filter(s => s.id !== selectedStore?.id).length === 0}>
-              <FontAwesomeIcon icon={faPaperPlane} /> Nueva Transferencia
-            </button>
-          </div>
-
-          {userStores.filter(s => s.id !== selectedStore?.id).length === 0 && (
-            <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, fontSize: 13, color: '#f59e0b' }}>
-              Necesitas más de una tienda en tu cuenta para usar transferencias.
-            </div>
-          )}
-
-          {transfersLoading ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>Cargando transferencias...</div>
-          ) : transfers.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
-              <FontAwesomeIcon icon={faTruck} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
-              No hay transferencias registradas
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {transfers.map(t => {
-                const isSender = t.from_store_id === selectedStore?.id;
-                const statusColors = { pending: '#f59e0b', accepted: '#22c55e', rejected: '#ef4444', cancelled: '#9ca3af' };
-                const statusLabels = { pending: 'Pendiente', accepted: 'Aceptada', rejected: 'Rechazada', cancelled: 'Cancelada' };
-                return (
-                  <div key={t.id} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 16 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <FontAwesomeIcon icon={isSender ? faPaperPlane : faTruck} style={{ color: isSender ? '#3b82f6' : '#22c55e', fontSize: 13 }} />
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>
-                          {isSender ? `Enviada a ${t.to_store_name}` : `Recibida de ${t.from_store_name}`}
-                        </span>
-                      </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: statusColors[t.status] + '15', color: statusColors[t.status] }}>
-                        {statusLabels[t.status]}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>
-                      {new Date(t.created_at).toLocaleString('es-CL')}
-                      {t.notes && <span> — {t.notes}</span>}
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: t.status === 'pending' ? 10 : 0 }}>
-                      {t.items.map((item, i) => (
-                        <span key={i} style={{ fontSize: 11, padding: '3px 8px', background: '#f3f4f6', borderRadius: 6, fontWeight: 500 }}>
-                          {item.item_name} × {parseFloat(item.quantity)}
-                        </span>
-                      ))}
-                    </div>
-                    {t.status === 'pending' && (
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        {!isSender && (
-                          <>
-                            <button onClick={() => handleTransferAction(t.id, 'accept')}
-                              style={{ background: '#22c55e', border: 'none', borderRadius: 6, padding: '6px 14px', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
-                              <FontAwesomeIcon icon={faCheck} /> Aceptar
-                            </button>
-                            <button onClick={() => handleTransferAction(t.id, 'reject')}
-                              style={{ background: '#ef4444', border: 'none', borderRadius: 6, padding: '6px 14px', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
-                              <FontAwesomeIcon icon={faTimes} /> Rechazar
-                            </button>
-                          </>
-                        )}
-                        {isSender && (
-                          <button onClick={() => handleTransferAction(t.id, 'cancel')}
-                            style={{ ...btnGhost, padding: '6px 14px', fontSize: 12, color: '#ef4444', borderColor: '#fecaca' }}>
-                            Cancelar
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {transferModal && (
-            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
-              onClick={() => setTransferModal(false)}>
-              <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 500, maxHeight: '85vh', overflowY: 'auto' }}>
-                <h3 style={{ margin: '0 0 18px', color: '#D4AF37', fontSize: 17, fontWeight: 700 }}>
-                  <FontAwesomeIcon icon={faTruck} style={{ marginRight: 8 }} /> Nueva Transferencia
-                </h3>
-                <div style={{ marginBottom: 14 }}>
-                  <label style={labelStyle}>Tienda destino *</label>
-                  <select value={transferTo} onChange={e => setTransferTo(e.target.value)} style={inputStyle}>
-                    <option value="">Seleccionar tienda...</option>
-                    {userStores.filter(s => s.id !== selectedStore?.id).map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ marginBottom: 10 }}>
-                  <label style={labelStyle}>Agregar items</label>
-                  <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-                    {['raw_material', 'product', 'ingredient', 'extra'].map(t => (
-                      <button key={t} onClick={() => setTransferItemType(t)} style={{
-                        flex: 1, padding: '5px 6px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                        background: transferItemType === t ? '#D4AF37' : '#f3f4f6', color: transferItemType === t ? '#000' : '#6b7280'
-                      }}>
-                        {t === 'raw_material' ? 'Mat. Prima' : t === 'product' ? 'Productos' : t === 'ingredient' ? 'Ingredientes' : 'Extras'}
-                      </button>
-                    ))}
-                  </div>
-                  <input value={transferItemSearch} onChange={e => setTransferItemSearch(e.target.value)} placeholder="Buscar item..." style={{ ...inputStyle, marginBottom: 6 }} />
-                  {transferItemSearch && (() => {
-                    const source = transferItemType === 'product' ? directData.products : transferItemType === 'ingredient' ? directData.ingredients : transferItemType === 'extra' ? directData.extras : rawMats;
-                    const filtered = source.filter(i => i.name.toLowerCase().includes(transferItemSearch.toLowerCase())).slice(0, 6);
-                    return filtered.length > 0 ? (
-                      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, marginBottom: 8, maxHeight: 180, overflowY: 'auto' }}>
-                        {filtered.map(item => (
-                          <div key={item.id} onClick={() => {
-                            if (!transferItems.find(m => m.item_id === item.id && m.item_type === transferItemType)) {
-                              setTransferItems([...transferItems, { item_type: transferItemType, item_id: item.id, item_name: item.name, quantity: 1 }]);
-                            }
-                            setTransferItemSearch('');
-                          }}
-                            style={{ padding: '7px 12px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', fontSize: 12 }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                            {item.name}
-                          </div>
-                        ))}
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
-                {transferItems.length > 0 && (
-                  <div style={{ marginBottom: 14 }}>
-                    {transferItems.map((item, idx) => (
-                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
-                        <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{item.item_name}</span>
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 14 }}>
+                <thead>
+                  <tr>
+                    <th style={TH}>Item</th>
+                    <th style={{ ...TH, width: 100 }}>Cantidad</th>
+                    <th style={{ ...TH, width: 40 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {movItems.map((item, idx) => (
+                    <tr key={idx}>
+                      <td style={TD}><div style={CELL}>{item.item_name}</div></td>
+                      <td style={TD}>
                         <input type="number" min="0.001" step="0.001" value={item.quantity}
-                          onChange={e => setTransferItems(transferItems.map((m, i) => i === idx ? { ...m, quantity: parseFloat(e.target.value) || 0 } : m))}
-                          style={{ ...inputStyle, width: 80, padding: '5px 8px', textAlign: 'center' }} />
-                        <button onClick={() => setTransferItems(transferItems.filter((_, i) => i !== idx))}
+                          onChange={e => setMovItems(movItems.map((m, i) => i === idx ? { ...m, quantity: parseFloat(e.target.value) || 0 } : m))}
+                          style={{ ...CELL_INPUT, position: 'relative', inset: 'unset', textAlign: 'center', width: '100%', border: '1px solid #e8eaed' }} />
+                      </td>
+                      <td style={{ ...TD, textAlign: 'center' }}>
+                        <button onClick={() => setMovItems(movItems.filter((_, i) => i !== idx))}
                           style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
                           <FontAwesomeIcon icon={faTimes} />
                         </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <button onClick={submitMovement} disabled={movItems.length === 0 || movSaving}
+              style={{ ...BTN_GOLD, width: '100%', justifyContent: 'center', opacity: movItems.length === 0 ? 0.5 : 1 }}>
+              <FontAwesomeIcon icon={faCheck} /> {movSaving ? 'Registrando...' : `Registrar ${movReason === 'purchase' ? 'Compra' : movReason === 'entry' ? 'Entrada' : 'Salida'}`}
+            </button>
+          </div>
+        )}
+
+        {/* ──── TRANSFERENCIAS ──── */}
+        {sheet === 'transfers' && (
+          <div style={{ padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <span style={{ fontSize: 14, fontWeight: 600 }}>Transferencias entre Locales</span>
+              <button onClick={() => { setTransferModal(true); setTransferItems([]); setTransferTo(''); setTransferNotes(''); }} style={BTN_GOLD}
+                disabled={userStores.filter(s => s.id !== selectedStore?.id).length === 0}>
+                <FontAwesomeIcon icon={faPaperPlane} /> Nueva
+              </button>
+            </div>
+
+            {userStores.filter(s => s.id !== selectedStore?.id).length === 0 && (
+              <div style={{ padding: '10px 16px', background: '#fef3cd', border: '1px solid #ffc107', borderRadius: 6, marginBottom: 14, fontSize: 13, color: '#856404' }}>
+                Necesitas más de una tienda para usar transferencias.
+              </div>
+            )}
+
+            {transfersLoading ? (
+              <div style={{ textAlign: 'center', padding: 60, color: '#80868b' }}>Cargando...</div>
+            ) : transfers.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 60, color: '#80868b' }}>
+                <FontAwesomeIcon icon={faTruck} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} /> Sin transferencias
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {transfers.map(t => {
+                  const isSender = t.from_store_id === selectedStore?.id;
+                  const sc = { pending: '#f59e0b', accepted: '#34a853', rejected: '#ea4335', cancelled: '#80868b' };
+                  const sl = { pending: 'Pendiente', accepted: 'Aceptada', rejected: 'Rechazada', cancelled: 'Cancelada' };
+                  return (
+                    <div key={t.id} style={{ background: '#fff', border: '1px solid #dadce0', borderRadius: 8, padding: 14 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
+                          <FontAwesomeIcon icon={isSender ? faPaperPlane : faTruck} style={{ color: isSender ? '#1a73e8' : '#34a853', fontSize: 12 }} />
+                          {isSender ? `Enviada a ${t.to_store_name}` : `Recibida de ${t.from_store_name}`}
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 12, background: sc[t.status] + '15', color: sc[t.status] }}>
+                          {sl[t.status]}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#80868b', marginBottom: 8 }}>
+                        {new Date(t.created_at).toLocaleString('es-CL')}{t.notes && ` — ${t.notes}`}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: t.status === 'pending' ? 10 : 0 }}>
+                        {t.items.map((item, i) => (
+                          <span key={i} style={{ fontSize: 11, padding: '3px 8px', background: '#f1f3f4', borderRadius: 4, fontWeight: 500 }}>
+                            {item.item_name} × {parseFloat(item.quantity)}
+                          </span>
+                        ))}
+                      </div>
+                      {t.status === 'pending' && (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {!isSender && (
+                            <>
+                              <button onClick={() => handleTransferAction(t.id, 'accept')}
+                                style={{ background: '#34a853', border: 'none', borderRadius: 4, padding: '6px 14px', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+                                <FontAwesomeIcon icon={faCheck} /> Aceptar
+                              </button>
+                              <button onClick={() => handleTransferAction(t.id, 'reject')}
+                                style={{ background: '#ea4335', border: 'none', borderRadius: 4, padding: '6px 14px', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+                                <FontAwesomeIcon icon={faTimes} /> Rechazar
+                              </button>
+                            </>
+                          )}
+                          {isSender && (
+                            <button onClick={() => handleTransferAction(t.id, 'cancel')}
+                              style={{ ...BTN_GHOST, padding: '6px 14px', fontSize: 12, color: '#ea4335' }}>Cancelar</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ──── ALERTAS ──── */}
+        {sheet === 'alerts' && (
+          <div style={{ padding: 20 }}>
+            {alertsLoading ? (
+              <div style={{ textAlign: 'center', padding: 60, color: '#80868b' }}>Cargando alertas...</div>
+            ) : alerts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 60, color: '#34a853' }}>
+                <FontAwesomeIcon icon={faCheck} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} />
+                No hay alertas. Inventario en orden.
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...TH, width: 40, textAlign: 'center' }}>#</th>
+                    <th style={TH}>Item</th>
+                    <th style={{ ...TH, width: 100 }}>Tipo</th>
+                    <th style={{ ...TH, width: 80, textAlign: 'center' }}>Stock</th>
+                    <th style={{ ...TH, width: 80, textAlign: 'center' }}>Mínimo</th>
+                    <th style={{ ...TH, width: 90, textAlign: 'center' }}>Estado</th>
+                    <th style={{ ...TH, width: 80 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {alerts.map((a, idx) => (
+                    <tr key={a.id} style={{ background: a.alert_type === 'out_of_stock' ? 'rgba(239,68,68,0.03)' : 'rgba(245,158,11,0.03)' }}>
+                      <td style={ROW_NUM}>{idx + 1}</td>
+                      <td style={TD}><div style={{ ...CELL, fontWeight: 600 }}>{a.item_name}</div></td>
+                      <td style={TD}><div style={{ ...CELL, color: '#5f6368', fontSize: 12 }}>
+                        {a.item_type === 'raw_material' ? 'Mat. prima' : a.item_type === 'product' ? 'Producto' : a.item_type === 'ingredient' ? 'Ingrediente' : 'Extra'}
+                      </div></td>
+                      <td style={{ ...TD, textAlign: 'center' }}>
+                        <div style={{ ...CELL, justifyContent: 'center', fontWeight: 700, color: a.alert_type === 'out_of_stock' ? '#ef4444' : '#f59e0b' }}>{fmt(a.current_stock)}</div>
+                      </td>
+                      <td style={{ ...TD, textAlign: 'center' }}><div style={{ ...CELL, justifyContent: 'center', color: '#5f6368' }}>{a.threshold > 0 ? fmt(a.threshold) : '—'}</div></td>
+                      <td style={{ ...TD, textAlign: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 4px' }}>
+                          <span style={BADGE({ color: a.alert_type === 'out_of_stock' ? '#ef4444' : '#f59e0b', bg: a.alert_type === 'out_of_stock' ? 'rgba(239,68,68,0.10)' : 'rgba(245,158,11,0.10)' })}>
+                            {a.alert_type === 'out_of_stock' ? 'Agotado' : 'Bajo'}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ ...TD, textAlign: 'center' }}>
+                        <button onClick={() => acknowledgeAlert(a.id)}
+                          style={{ ...BTN_GHOST, padding: '4px 10px', fontSize: 11, borderRadius: 4 }}>Enterado</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* ──── HISTORIAL ──── */}
+        {sheet === 'history' && (
+          <div>
+            {/* Filters bar */}
+            <div style={{ display: 'flex', gap: 8, padding: '12px 16px', borderBottom: '1px solid #dadce0', background: '#f8f9fa', flexWrap: 'wrap', alignItems: 'center' }}>
+              <select value={movFilter.item_type} onChange={e => setMovFilter(f => ({ ...f, item_type: e.target.value }))} style={{ ...INPUT, width: 'auto', minWidth: 120, padding: '6px 10px', fontSize: 12 }}>
+                <option value="">Todos los tipos</option>
+                <option value="product">Productos</option>
+                <option value="ingredient">Ingredientes</option>
+                <option value="extra">Extras</option>
+                <option value="raw_material">Materias primas</option>
+              </select>
+              <select value={movFilter.reason} onChange={e => setMovFilter(f => ({ ...f, reason: e.target.value }))} style={{ ...INPUT, width: 'auto', minWidth: 120, padding: '6px 10px', fontSize: 12 }}>
+                <option value="">Todas las razones</option>
+                <option value="order">Orden</option><option value="manual">Manual</option>
+                <option value="restock">Restock</option><option value="recipe">Receta</option>
+                <option value="purchase">Compra</option><option value="entry">Entrada</option>
+                <option value="exit">Salida</option><option value="transfer">Transferencia</option>
+              </select>
+              <input type="date" value={movFilter.from} onChange={e => setMovFilter(f => ({ ...f, from: e.target.value }))} style={{ ...INPUT, width: 'auto', padding: '6px 10px', fontSize: 12 }} />
+              <input type="date" value={movFilter.to} onChange={e => setMovFilter(f => ({ ...f, to: e.target.value }))} style={{ ...INPUT, width: 'auto', padding: '6px 10px', fontSize: 12 }} />
+              {movementsTotal > 0 && <span style={{ fontSize: 12, color: '#80868b' }}>{movementsTotal} mov.</span>}
+            </div>
+
+            {movLoading ? (
+              <div style={{ textAlign: 'center', padding: 60, color: '#80868b' }}>Cargando...</div>
+            ) : movements.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 60, color: '#80868b' }}>
+                <FontAwesomeIcon icon={faHistory} style={{ fontSize: 28, marginBottom: 10, display: 'block' }} /> Sin movimientos
+              </div>
+            ) : (
+              <>
+                <div style={{ overflow: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...TH, width: 40, textAlign: 'center' }}>#</th>
+                        <th style={{ ...TH, width: 130 }}>Fecha</th>
+                        <th style={TH}>Item</th>
+                        <th style={{ ...TH, width: 90 }}>Tipo</th>
+                        <th style={{ ...TH, width: 80, textAlign: 'right' }}>Anterior</th>
+                        <th style={{ ...TH, width: 80, textAlign: 'right' }}>Cambio</th>
+                        <th style={{ ...TH, width: 80, textAlign: 'right' }}>Nuevo</th>
+                        <th style={{ ...TH, width: 90 }}>Razón</th>
+                        <th style={{ ...TH, width: 100 }}>Usuario</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movements.map((m, idx) => {
+                        const reasonColors = { order: '#1a73e8', restock: '#34a853', recipe: '#ab47bc', manual: '#5f6368', purchase: '#1a73e8', entry: '#34a853', exit: '#ea4335', transfer: '#ab47bc' };
+                        const reasonLabels = { order: 'Orden', restock: 'Restock', recipe: 'Receta', manual: 'Manual', purchase: 'Compra', entry: 'Entrada', exit: 'Salida', transfer: 'Transfer.' };
+                        return (
+                          <tr key={m.id}>
+                            <td style={ROW_NUM}>{(movPage - 1) * 30 + idx + 1}</td>
+                            <td style={TD}><div style={{ ...CELL, color: '#5f6368', fontSize: 12 }}>{new Date(m.created_at).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div></td>
+                            <td style={TD}><div style={{ ...CELL, fontWeight: 500 }}>{m.item_name}</div></td>
+                            <td style={TD}><div style={{ ...CELL, color: '#80868b', fontSize: 12 }}>
+                              {m.item_type === 'raw_material' ? 'Mat. prima' : m.item_type === 'product' ? 'Producto' : m.item_type === 'ingredient' ? 'Ingrediente' : 'Extra'}
+                            </div></td>
+                            <td style={TD}><div style={{ ...CELL, justifyContent: 'flex-end', color: '#5f6368' }}>{fmt(m.previous_qty, 2)}</div></td>
+                            <td style={TD}><div style={{ ...CELL, justifyContent: 'flex-end', fontWeight: 600, color: parseFloat(m.change_qty) >= 0 ? '#34a853' : '#ea4335' }}>
+                              {parseFloat(m.change_qty) >= 0 ? '+' : ''}{fmt(m.change_qty, 2)}
+                            </div></td>
+                            <td style={TD}><div style={{ ...CELL, justifyContent: 'flex-end', fontWeight: 600 }}>{fmt(m.new_qty, 2)}</div></td>
+                            <td style={TD}><div style={{ ...CELL }}>
+                              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: (reasonColors[m.reason] || '#5f6368') + '12', color: reasonColors[m.reason] || '#5f6368' }}>
+                                {reasonLabels[m.reason] || m.reason}
+                              </span>
+                            </div></td>
+                            <td style={TD}><div style={{ ...CELL, color: '#80868b', fontSize: 12 }}>{m.user_name || '—'}</div></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {movTotalPages > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: '12px 0', borderTop: '1px solid #e8eaed' }}>
+                    <button disabled={movPage <= 1} onClick={() => fetchMovements(movPage - 1)}
+                      style={{ ...BTN_GHOST, padding: '5px 12px', opacity: movPage <= 1 ? 0.4 : 1 }}>
+                      <FontAwesomeIcon icon={faChevronLeft} />
+                    </button>
+                    <span style={{ fontSize: 13, color: '#5f6368' }}>{movPage} / {movTotalPages}</span>
+                    <button disabled={movPage >= movTotalPages} onClick={() => fetchMovements(movPage + 1)}
+                      style={{ ...BTN_GHOST, padding: '5px 12px', opacity: movPage >= movTotalPages ? 0.4 : 1 }}>
+                      <FontAwesomeIcon icon={faChevronRight} />
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ──── REPORTES ──── */}
+        {sheet === 'reports' && (
+          <div style={{ padding: 20 }}>
+            {reportLoading ? (
+              <div style={{ textAlign: 'center', padding: 60, color: '#80868b' }}>Cargando...</div>
+            ) : (
+              <>
+                {stats && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 24 }}>
+                    {[
+                      { label: 'Total MP', value: stats.raw_materials?.total || 0, color: '#1a73e8' },
+                      { label: 'Sin stock (MP)', value: stats.raw_materials?.out_of_stock || 0, color: '#ea4335' },
+                      { label: 'Stock bajo (MP)', value: stats.raw_materials?.low_stock || 0, color: '#f59e0b' },
+                      { label: 'Valor inv. (MP)', value: `$${(stats.raw_materials?.total_value || 0).toLocaleString()}`, color: '#34a853' },
+                      { label: 'Total productos', value: stats.products?.total || 0, color: '#1a73e8' },
+                      { label: 'Sin stock (Prod)', value: stats.products?.out_of_stock || 0, color: '#ea4335' },
+                    ].map((c, i) => (
+                      <div key={i} style={{ background: '#fff', border: '1px solid #dadce0', borderRadius: 8, padding: '14px 16px', borderTop: `3px solid ${c.color}` }}>
+                        <div style={{ fontSize: 11, color: '#5f6368', marginBottom: 4 }}>{c.label}</div>
+                        <div style={{ fontSize: 22, fontWeight: 700 }}>{c.value}</div>
                       </div>
                     ))}
                   </div>
                 )}
-                <div style={{ marginBottom: 14 }}>
-                  <label style={labelStyle}>Notas (opcional)</label>
-                  <input value={transferNotes} onChange={e => setTransferNotes(e.target.value)} placeholder="ej: Pedido urgente para evento..." style={inputStyle} />
-                </div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => setTransferModal(false)} style={{ ...btnGhost, flex: 1, justifyContent: 'center' }}>Cancelar</button>
-                  <button onClick={submitTransfer} disabled={!transferTo || transferItems.length === 0 || transferSaving}
-                    style={{ ...btnGold, flex: 1, justifyContent: 'center', opacity: (!transferTo || transferItems.length === 0) ? 0.5 : 1 }}>
-                    <FontAwesomeIcon icon={faPaperPlane} /> {transferSaving ? 'Enviando...' : 'Enviar Transferencia'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* ──── MODAL: Nueva / Editar Materia Prima ──── */}
-      {rmModal !== null && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
-          onClick={() => setRmModal(null)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid rgba(212,175,55,0.3)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 440 }}>
-            <h3 style={{ margin: '0 0 18px', color: '#D4AF37', fontSize: 17, fontWeight: 700 }}>
-              {rmModal === 'new' ? 'Nueva Materia Prima' : `Editar: ${rmModal.name}`}
-            </h3>
+                <div style={{ background: '#fff', border: '1px solid #dadce0', borderRadius: 8, padding: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>Top consumo de materias primas</span>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <input type="date" value={reportRange.from} onChange={e => setReportRange(r => ({ ...r, from: e.target.value }))} style={{ ...INPUT, width: 'auto', padding: '6px 10px', fontSize: 12 }} />
+                      <span style={{ color: '#80868b', fontSize: 12 }}>a</span>
+                      <input type="date" value={reportRange.to} onChange={e => setReportRange(r => ({ ...r, to: e.target.value }))} style={{ ...INPUT, width: 'auto', padding: '6px 10px', fontSize: 12 }} />
+                    </div>
+                  </div>
+                  {consumption.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: 30, color: '#80868b', fontSize: 13 }}>Sin datos de consumo</div>
+                  ) : (() => {
+                    const maxVal = Math.max(...consumption.map(c => parseFloat(c.total_consumed) || 0), 1);
+                    return consumption.map((c, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                        <span style={{ minWidth: 130, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.item_name}</span>
+                        <div style={{ flex: 1, height: 18, background: '#f1f3f4', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', borderRadius: 4, width: `${(parseFloat(c.total_consumed) / maxVal * 100)}%`, background: 'linear-gradient(90deg, #D4AF37, #f59e0b)' }} />
+                        </div>
+                        <span style={{ minWidth: 60, textAlign: 'right', fontSize: 13, fontWeight: 600 }}>{fmt(c.total_consumed, 2)}</span>
+                        <span style={{ fontSize: 11, color: '#80868b', minWidth: 36 }}>{c.movement_count} mov</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ═══ Sheet tabs (bottom) ═══ */}
+      <div style={{ background: '#f8f9fa', borderTop: '1px solid #dadce0', display: 'flex', gap: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch', flexShrink: 0 }}>
+        {SHEETS.map(s => (
+          <button key={s.key} onClick={() => { setSheet(s.key); setSearch(''); setEditCell(null); setNewRmRow(null); setEditingStock(null); setRecipeProduct(null); }}
+            style={{
+              padding: '10px 18px', border: 'none', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+              background: sheet === s.key ? '#fff' : 'transparent',
+              color: sheet === s.key ? '#D4AF37' : '#5f6368',
+              fontWeight: sheet === s.key ? 600 : 400,
+              borderTop: sheet === s.key ? '3px solid #D4AF37' : '3px solid transparent',
+              borderRight: '1px solid #e8eaed',
+              transition: 'all 0.1s'
+            }}>
+            <FontAwesomeIcon icon={s.icon} style={{ fontSize: 12 }} /> {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ═══ MODALS ═══ */}
+
+      {/* Section modal */}
+      {sectionModal !== null && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
+          onClick={() => setSectionModal(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 8, padding: 24, width: '100%', maxWidth: 400 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 18, color: '#202124' }}>
+              {sectionModal === 'new' ? 'Nueva Sección' : 'Editar Sección'}
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={labelStyle}>Nombre *</label>
-                <input autoFocus value={rmForm.name} onChange={e => setRmForm({ ...rmForm, name: e.target.value })} placeholder="ej: Harina, Pollo, Arroz..." style={inputStyle} />
+                <label style={{ fontSize: 12, color: '#5f6368', display: 'block', marginBottom: 4 }}>Nombre *</label>
+                <input autoFocus value={sectionForm.name} onChange={e => setSectionForm({ ...sectionForm, name: e.target.value })} placeholder="ej: Bebidas" style={INPUT} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>Cantidad actual</label>
-                  <input type="number" min="0" step="0.001" value={rmForm.quantity} onChange={e => setRmForm({ ...rmForm, quantity: e.target.value })} placeholder="0" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Unidad</label>
-                  <select value={rmForm.unit} onChange={e => setRmForm({ ...rmForm, unit: e.target.value })} style={inputStyle}>
-                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>Stock mínimo (alerta)</label>
-                  <input type="number" min="0" step="0.001" value={rmForm.min_quantity} onChange={e => setRmForm({ ...rmForm, min_quantity: e.target.value })} placeholder="0" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Costo por {rmForm.unit || 'unidad'}</label>
-                  <input type="number" min="0" step="0.0001" value={rmForm.cost_per_unit} onChange={e => setRmForm({ ...rmForm, cost_per_unit: e.target.value })} placeholder="0.00" style={inputStyle} />
+              <div>
+                <label style={{ fontSize: 12, color: '#5f6368', display: 'block', marginBottom: 4 }}>Color</label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input type="color" value={sectionForm.color} onChange={e => setSectionForm({ ...sectionForm, color: e.target.value })} style={{ width: 36, height: 32, border: 'none', cursor: 'pointer', borderRadius: 4 }} />
+                  <span style={{ fontSize: 12, color: '#80868b' }}>{sectionForm.color}</span>
                 </div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={() => setRmModal(null)} style={{ ...btnGhost, flex: 1, justifyContent: 'center' }}>Cancelar</button>
-              <button onClick={saveRm} disabled={!rmForm.name.trim() || rmSaving} style={{ ...btnGold, flex: 1, justifyContent: 'center', opacity: !rmForm.name.trim() ? 0.5 : 1 }}>
-                <FontAwesomeIcon icon={faSave} /> {rmSaving ? 'Guardando...' : (rmModal === 'new' ? 'Crear' : 'Guardar')}
+              <button onClick={() => setSectionModal(null)} style={{ ...BTN_GHOST, flex: 1, textAlign: 'center' }}>Cancelar</button>
+              <button onClick={saveSection} disabled={!sectionForm.name.trim() || sectionSaving} style={{ ...BTN_GOLD, flex: 1, justifyContent: 'center', opacity: !sectionForm.name.trim() ? 0.5 : 1 }}>
+                {sectionSaving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ──── MODAL: Reponer stock ──── */}
-      {restockItem && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
-          onClick={() => setRestockItem(null)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 360 }}>
-            <h3 style={{ margin: '0 0 6px', color: '#22c55e', fontSize: 17, fontWeight: 700 }}>
-              <FontAwesomeIcon icon={faArrowUp} style={{ marginRight: 8 }} /> Actualizar Stock
-            </h3>
-            <p style={{ fontSize: 13, color: '#6b7280', margin: '0 0 18px' }}>
-              {restockItem.name} — stock actual: <strong style={{ color: '#111' }}>{fmt(restockItem.quantity, 3)} {restockItem.unit}</strong>
-            </p>
-            <div>
-              <label style={labelStyle}>Nueva cantidad ({restockItem.unit})</label>
-              <input autoFocus type="number" min="0" step="0.001" value={restockAmount}
-                onChange={e => setRestockAmount(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && doRestock()}
-                placeholder={`Ej: ${fmt(restockItem.quantity, 3)}`}
-                style={inputStyle} />
+      {/* Add item to section modal */}
+      {addItemModal !== null && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
+          onClick={() => setAddItemModal(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 8, padding: 24, width: '100%', maxWidth: 440, maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 14 }}>Agregar Item a Sección</div>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
+              {['product', 'ingredient', 'extra', 'raw_material'].map(t => (
+                <button key={t} onClick={() => setAddItemType(t)} style={{
+                  flex: 1, padding: '7px 6px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                  background: addItemType === t ? '#e8f0fe' : '#f1f3f4', color: addItemType === t ? '#1a73e8' : '#5f6368'
+                }}>
+                  {t === 'product' ? 'Productos' : t === 'ingredient' ? 'Ingredientes' : t === 'extra' ? 'Extras' : 'Mat. Prima'}
+                </button>
+              ))}
             </div>
-            {restockAmount !== '' && parseFloat(restockAmount) >= 0 && (
-              <div style={{ fontSize: 13, color: '#6b7280', marginTop: 8 }}>
-                {fmt(restockItem.quantity, 3)} → <strong style={{ color: '#22c55e' }}>{fmt(restockAmount, 3)} {restockItem.unit}</strong>
+            <input value={addItemSearch} onChange={e => setAddItemSearch(e.target.value)} placeholder="Buscar..." style={{ ...INPUT, marginBottom: 10 }} />
+            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+              {(() => {
+                const source = addItemType === 'product' ? directData.products : addItemType === 'ingredient' ? directData.ingredients : addItemType === 'extra' ? directData.extras : rawMats;
+                const filtered = source.filter(i => !addItemSearch || i.name.toLowerCase().includes(addItemSearch.toLowerCase()));
+                return filtered.length === 0 ? (
+                  <div style={{ padding: 20, textAlign: 'center', color: '#80868b', fontSize: 13 }}>Sin resultados</div>
+                ) : filtered.map(item => (
+                  <div key={item.id} onClick={() => addItemToSec(addItemModal, addItemType, item.id)}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f3f4', borderRadius: 4 }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <span style={{ fontSize: 13 }}>{item.name}</span>
+                    <FontAwesomeIcon icon={faPlus} style={{ color: '#1a73e8', fontSize: 12 }} />
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer modal */}
+      {transferModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}
+          onClick={() => setTransferModal(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 8, padding: 24, width: '100%', maxWidth: 500, maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 18 }}>
+              <FontAwesomeIcon icon={faTruck} style={{ marginRight: 8, color: '#D4AF37' }} /> Nueva Transferencia
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, color: '#5f6368', display: 'block', marginBottom: 4 }}>Tienda destino *</label>
+              <select value={transferTo} onChange={e => setTransferTo(e.target.value)} style={INPUT}>
+                <option value="">Seleccionar tienda...</option>
+                {userStores.filter(s => s.id !== selectedStore?.id).map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 12, color: '#5f6368', display: 'block', marginBottom: 4 }}>Agregar items</label>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+                {['raw_material', 'product', 'ingredient', 'extra'].map(t => (
+                  <button key={t} onClick={() => setTransferItemType(t)} style={{
+                    flex: 1, padding: '6px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                    background: transferItemType === t ? '#e8f0fe' : '#f1f3f4', color: transferItemType === t ? '#1a73e8' : '#5f6368'
+                  }}>
+                    {t === 'raw_material' ? 'Mat. Prima' : t === 'product' ? 'Productos' : t === 'ingredient' ? 'Ingredientes' : 'Extras'}
+                  </button>
+                ))}
+              </div>
+              <input value={transferItemSearch} onChange={e => setTransferItemSearch(e.target.value)} placeholder="Buscar item..." style={{ ...INPUT, marginBottom: 6 }} />
+              {transferItemSearch && (() => {
+                const source = transferItemType === 'product' ? directData.products : transferItemType === 'ingredient' ? directData.ingredients : transferItemType === 'extra' ? directData.extras : rawMats;
+                const filtered = source.filter(i => i.name.toLowerCase().includes(transferItemSearch.toLowerCase())).slice(0, 6);
+                return filtered.length > 0 ? (
+                  <div style={{ border: '1px solid #dadce0', borderRadius: 6, marginBottom: 8, maxHeight: 180, overflowY: 'auto' }}>
+                    {filtered.map(item => (
+                      <div key={item.id} onClick={() => {
+                        if (!transferItems.find(m => m.item_id === item.id && m.item_type === transferItemType))
+                          setTransferItems([...transferItems, { item_type: transferItemType, item_id: item.id, item_name: item.name, quantity: 1 }]);
+                        setTransferItemSearch('');
+                      }}
+                        style={{ padding: '7px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f3f4', fontSize: 12 }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f8f9fa'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                        {item.name}
+                      </div>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
+            </div>
+            {transferItems.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                {transferItems.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #f1f3f4' }}>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{item.item_name}</span>
+                    <input type="number" min="0.001" step="0.001" value={item.quantity}
+                      onChange={e => setTransferItems(transferItems.map((m, i) => i === idx ? { ...m, quantity: parseFloat(e.target.value) || 0 } : m))}
+                      style={{ ...INPUT, width: 80, padding: '5px 8px', textAlign: 'center' }} />
+                    <button onClick={() => setTransferItems(transferItems.filter((_, i) => i !== idx))}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
+                      <FontAwesomeIcon icon={faTimes} />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
-            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={() => setRestockItem(null)} style={{ ...btnGhost, flex: 1, justifyContent: 'center' }}>Cancelar</button>
-              <button onClick={doRestock} disabled={restockAmount === '' || parseFloat(restockAmount) < 0 || restockSaving}
-                style={{ background: '#22c55e', border: 'none', borderRadius: 8, padding: '10px 18px', cursor: 'pointer', color: '#000', fontWeight: 700, fontSize: 13, flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: restockAmount === '' || parseFloat(restockAmount) < 0 ? 0.5 : 1 }}>
-                <FontAwesomeIcon icon={faCheck} /> {restockSaving ? 'Guardando...' : 'Guardar'}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, color: '#5f6368', display: 'block', marginBottom: 4 }}>Notas (opcional)</label>
+              <input value={transferNotes} onChange={e => setTransferNotes(e.target.value)} placeholder="ej: Pedido urgente..." style={INPUT} />
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setTransferModal(false)} style={{ ...BTN_GHOST, flex: 1, textAlign: 'center' }}>Cancelar</button>
+              <button onClick={submitTransfer} disabled={!transferTo || transferItems.length === 0 || transferSaving}
+                style={{ ...BTN_GOLD, flex: 1, justifyContent: 'center', opacity: (!transferTo || transferItems.length === 0) ? 0.5 : 1 }}>
+                <FontAwesomeIcon icon={faPaperPlane} /> {transferSaving ? 'Enviando...' : 'Enviar'}
               </button>
             </div>
           </div>
