@@ -1186,7 +1186,10 @@ export default function Inventory() {
                         {movReason === 'purchase' && <th style={{ ...TH, width: 95, textAlign: 'center' }}>Valor Total</th>}
                         <th style={{ ...TH, width: 70, textAlign: 'center' }}>Stock</th>
                         <th style={{ ...TH, width: 90, textAlign: 'center' }}>Sector</th>
-                        <th style={{ ...TH, width: 100, textAlign: 'center' }}>Últ. Actualiz.</th>
+                        <th style={{ ...TH, width: 100, textAlign: 'center' }}>
+                          <FontAwesomeIcon icon={faClock} style={{ marginRight: 4, fontSize: 10 }} />
+                          Últ. Actualiz.
+                        </th>
                         <th style={{ ...TH, width: 36, textAlign: 'center' }}></th>
                       </tr>
                     </thead>
@@ -1216,21 +1219,48 @@ export default function Inventory() {
                             </td>
                           )}
                           <td style={TD}>
-                            <div style={{ ...CELL, justifyContent: 'center', fontWeight: 600, color: (item.stock || 0) <= 0 ? '#ef4444' : (item.stock || 0) <= 5 ? '#f59e0b' : '#22c55e' }}>
-                              {fmt(item.stock || 0, 2)}
-                            </div>
+                            {(() => {
+                              const s = item.stock || 0;
+                              const sc = s <= 0 ? '#ef4444' : s <= 5 ? '#f59e0b' : '#22c55e';
+                              const sb = s <= 0 ? 'rgba(239,68,68,0.08)' : s <= 5 ? 'rgba(245,158,11,0.08)' : 'rgba(34,197,94,0.08)';
+                              return (
+                                <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 8px' }}>
+                                  <span style={{ fontWeight: 700, fontSize: 13, color: sc, background: sb, padding: '3px 10px', borderRadius: 20, minWidth: 40, textAlign: 'center' }}>
+                                    {fmt(s, 2)}
+                                  </span>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td style={TD}>
-                            <div style={{ ...CELL, justifyContent: 'center' }}>
-                              <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, background: '#f1f3f4', color: '#5f6368', fontWeight: 500 }}>
-                                {item.section_name || '—'}
-                              </span>
-                            </div>
+                            {(() => {
+                              const sec = sections.find(s => s.name === item.section_name);
+                              const color = sec?.color || '#80868b';
+                              return (
+                                <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 8px' }}>
+                                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: color + '18', color: color, fontWeight: 600 }}>
+                                    {item.section_name || '—'}
+                                  </span>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td style={TD}>
-                            <div style={{ ...CELL, justifyContent: 'center', fontSize: 11, color: '#80868b' }}>
-                              {item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
-                            </div>
+                            {(() => {
+                              const rawDate = item.updated_at;
+                              if (!rawDate) return <div style={{ ...CELL, justifyContent: 'center', color: '#80868b', fontSize: 12 }}>—</div>;
+                              const d = new Date(rawDate);
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px 8px', lineHeight: 1.3 }}>
+                                  <span style={{ fontSize: 12, fontWeight: 500, color: '#202124' }}>
+                                    {d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                  </span>
+                                  <span style={{ fontSize: 10, color: '#80868b' }}>
+                                    {d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td style={{ ...TD, textAlign: 'center' }}>
                             <button onClick={() => setMovItems(movItems.filter((_, i) => i !== idx))}
