@@ -577,6 +577,24 @@ export default function Inventory() {
         </button>
       </div>
 
+      {/* ═══ Sheet tabs ═══ */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #e8eaed', display: 'flex', gap: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch', flexShrink: 0, padding: '0 4px', position: 'sticky', top: 0, zIndex: 10 }}>
+        {SHEETS.map(s => (
+          <button key={s.key} onClick={() => { setSheet(s.key); setSearch(''); setEditCell(null); setNewRmRow(null); setEditingStock(null); setRecipeProduct(null); }}
+            style={{
+              padding: '11px 16px', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+              background: 'transparent',
+              color: sheet === s.key ? '#D4AF37' : '#80868b',
+              fontWeight: sheet === s.key ? 700 : 400,
+              borderBottom: sheet === s.key ? '3px solid #D4AF37' : '3px solid transparent',
+              transition: 'all 0.15s',
+              marginBottom: -1
+            }}>
+            <FontAwesomeIcon icon={s.icon} style={{ fontSize: 11 }} /> {s.label}
+          </button>
+        ))}
+      </div>
+
       {/* ═══ Sheet content ═══ */}
       <div style={{ flex: 1, padding: '0', overflow: 'auto' }}>
 
@@ -1580,23 +1598,7 @@ export default function Inventory() {
         )}
       </div>
 
-      {/* ═══ Sheet tabs (bottom) ═══ */}
-      <div style={{ background: '#fff', borderTop: '1px solid #e8eaed', display: 'flex', gap: 0, overflowX: 'auto', WebkitOverflowScrolling: 'touch', flexShrink: 0, padding: '0 4px' }}>
-        {SHEETS.map(s => (
-          <button key={s.key} onClick={() => { setSheet(s.key); setSearch(''); setEditCell(null); setNewRmRow(null); setEditingStock(null); setRecipeProduct(null); }}
-            style={{
-              padding: '11px 16px', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
-              background: 'transparent',
-              color: sheet === s.key ? '#D4AF37' : '#80868b',
-              fontWeight: sheet === s.key ? 700 : 400,
-              borderBottom: sheet === s.key ? '3px solid #D4AF37' : '3px solid transparent',
-              transition: 'all 0.15s',
-              marginBottom: -1
-            }}>
-            <FontAwesomeIcon icon={s.icon} style={{ fontSize: 11 }} /> {s.label}
-          </button>
-        ))}
-      </div>
+
 
       {/* ═══ MODALS ═══ */}
 
