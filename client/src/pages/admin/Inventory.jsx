@@ -958,7 +958,7 @@ export default function Inventory() {
             ) : (
               <>
                 {/* ── Summary cards ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8, marginBottom: 20 }}>
                   {sections.map(sec => {
                     const total = sec.items.length;
                     const ok = sec.items.filter(i => parseFloat(i.current_stock) > 5).length;
@@ -967,26 +967,26 @@ export default function Inventory() {
                     const pct = total > 0 ? Math.round((ok / total) * 100) : 100;
                     const barColor = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
                     return (
-                      <div key={sec.id} style={{ background: '#fff', border: '1px solid #e8eaed', borderRadius: 12, padding: '16px', position: 'relative', overflow: 'hidden' }}>
+                      <div key={sec.id} style={{ background: '#fff', border: '1px solid #e8eaed', borderRadius: 10, padding: '10px 12px', position: 'relative', overflow: 'hidden' }}>
                         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: sec.color }} />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#202124' }}>{sec.name}</span>
-                          <span style={{ fontSize: 22, fontWeight: 800, color: barColor }}>{pct}%</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#202124', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 4 }}>{sec.name}</span>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: barColor }}>{pct}%</span>
                         </div>
-                        <div style={{ height: 5, background: '#f1f3f4', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
+                        <div style={{ height: 4, background: '#f1f3f4', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
                           <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${barColor}, ${barColor}dd)`, borderRadius: 3, transition: 'width 0.3s' }} />
                         </div>
-                        <div style={{ display: 'flex', gap: 10, fontSize: 11 }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+                        <div style={{ display: 'flex', gap: 6, fontSize: 10 }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
                             <span style={{ color: '#5f6368' }}>{ok}</span>
                           </span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
                             <span style={{ color: '#5f6368' }}>{low}</span>
                           </span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
                             <span style={{ color: '#5f6368' }}>{out}</span>
                           </span>
                           <span style={{ marginLeft: 'auto', fontWeight: 600, color: '#80868b' }}>{total}</span>
