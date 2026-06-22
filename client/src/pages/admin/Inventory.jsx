@@ -1176,8 +1176,8 @@ export default function Inventory() {
 
               {/* Items table */}
               {movItems.length > 0 && (
-                <div style={{ border: '1px solid #e8eaed', borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ border: '1px solid #e8eaed', borderRadius: 10, overflowX: 'auto', overflowY: 'visible', marginBottom: 16, WebkitOverflowScrolling: 'touch' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 540 }}>
                     <thead>
                       <tr style={{ background: '#f8f9fa' }}>
                         <th style={{ ...TH, minWidth: 140 }}>Item</th>
