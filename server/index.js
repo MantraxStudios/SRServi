@@ -2191,11 +2191,12 @@ app.put('/api/public/:code/products/:id/stock', async (req, res) => {
     if (store.user_id !== decoded.id) return res.status(403).json({ error: 'No autorizado' });
     const productId = parseInt(req.params.id);
     const { stock, unlimited_stock } = req.body;
-    await pool.execute(
-      'INSERT INTO inventory (product_id, stock, unlimited_stock) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE stock = ?, unlimited_stock = ?',
-      [productId, parseInt(stock) || 0, unlimited_stock ? 1 : 0, parseInt(stock) || 0, unlimited_stock ? 1 : 0]
-    );
-    emitProductUpdate(store.id, 'inventory_updated', { product_id: productId, stock: parseInt(stock) || 0, unlimited_stock: !!unlimited_stock });
+    const sVal = parseInt(stock) || 0, uVal = unlimited_stock ? 1 : 0;
+    const [upd] = await pool.execute('UPDATE inventory SET stock = ?, unlimited_stock = ? WHERE product_id = ?', [sVal, uVal, productId]);
+    if (upd.affectedRows === 0) {
+      await pool.execute('INSERT INTO inventory (product_id, stock, unlimited_stock) VALUES (?, ?, ?)', [productId, sVal, uVal]);
+    }
+    emitProductUpdate(store.id, 'inventory_updated', { product_id: productId, stock: sVal, unlimited_stock: !!unlimited_stock });
     res.json({ success: true });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -2265,10 +2266,10 @@ app.post('/api/public/:code/products', upload.single('image'), async (req, res) 
       max_ingredients: parseInt(req.body.max_ingredients) || 0
     });
 
-    await pool.execute(
-      'INSERT INTO inventory (product_id, stock, unlimited_stock) VALUES (?, 0, TRUE) ON DUPLICATE KEY UPDATE unlimited_stock = TRUE',
-      [product.id]
-    );
+    const [updInv] = await pool.execute('UPDATE inventory SET unlimited_stock = 1 WHERE product_id = ?', [product.id]);
+    if (updInv.affectedRows === 0) {
+      await pool.execute('INSERT INTO inventory (product_id, stock, unlimited_stock) VALUES (?, 0, 1)', [product.id]);
+    }
 
     emitProductUpdate(auth.store.id, 'product_created', product);
     res.json(product);
@@ -5759,11 +5760,12 @@ app.put('/api/inventory/:productId/unlimited', authenticateToken, async (req, re
     if (!isOwner) {
       return res.status(403).json({ error: 'No tienes acceso a esta tienda' });
     }
-    await pool.execute(
-      'INSERT INTO inventory (product_id, unlimited_stock) VALUES (?, ?) ON DUPLICATE KEY UPDATE unlimited_stock = ?',
-      [parseInt(productId), unlimited_stock, unlimited_stock]
-    );
-    const updated = await getInventory(parseInt(productId));
+    const pid = parseInt(productId);
+    const [upd] = await pool.execute('UPDATE inventory SET unlimited_stock = ? WHERE product_id = ?', [unlimited_stock ? 1 : 0, pid]);
+    if (upd.affectedRows === 0) {
+      await pool.execute('INSERT INTO inventory (product_id, unlimited_stock) VALUES (?, ?)', [pid, unlimited_stock ? 1 : 0]);
+    }
+    const updated = await getInventory(pid);
     if (store_id) {
       req.app.get('io').to(`store_${store_id}`).emit('inventory_updated', { product_id: parseInt(productId), ...updated });
     }
@@ -15026,7 +15028,10 @@ app.post('/api/inventory/movement', authenticateToken, async (req, res) => {
         const [rows] = await pool.execute('SELECT stock FROM inventory WHERE product_id = ?', [item.item_id]);
         const prev = rows.length ? parseFloat(rows[0].stock) : 0;
         const newQty = reason === 'exit' ? Math.max(0, prev - qty) : prev + qty;
-        await pool.execute('INSERT INTO inventory (product_id, stock) VALUES (?, ?) ON DUPLICATE KEY UPDATE stock = ?', [item.item_id, newQty, newQty]);
+        const [mUpd] = await pool.execute('UPDATE inventory SET stock = ? WHERE product_id = ?', [newQty, item.item_id]);
+        if (mUpd.affectedRows === 0) {
+          await pool.execute('INSERT INTO inventory (product_id, stock) VALUES (?, ?)', [item.item_id, newQty]);
+        }
         await logInventoryMovement({ storeId: store_id, itemType: 'product', itemId: item.item_id, itemName: item.item_name, previousQty: prev, newQty, reason, userName: user_name });
       } else if (item.item_type === 'ingredient') {
         const [rows] = await pool.execute('SELECT stock FROM ingredients WHERE id = ? AND store_id = ?', [item.item_id, store_id]);

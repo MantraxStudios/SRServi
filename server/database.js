@@ -7434,7 +7434,10 @@ export async function acceptInventoryTransfer(transferId, storeId) {
       if (dstProd.length) {
         const prevQty = parseFloat(dstProd[0].stock);
         const newQty = prevQty + parseFloat(item.quantity);
-        await pool.execute('INSERT INTO inventory (product_id, stock) VALUES (?, ?) ON DUPLICATE KEY UPDATE stock = ?', [dstProd[0].id, newQty, newQty]);
+        const [tUpd] = await pool.execute('UPDATE inventory SET stock = ? WHERE product_id = ?', [newQty, dstProd[0].id]);
+        if (tUpd.affectedRows === 0) {
+          await pool.execute('INSERT INTO inventory (product_id, stock) VALUES (?, ?)', [dstProd[0].id, newQty]);
+        }
         await logInventoryMovement({ storeId, itemType: 'product', itemId: dstProd[0].id, itemName: item.item_name, previousQty: prevQty, newQty, reason: 'transfer', referenceId: transferId });
       }
     } else if (item.item_type === 'ingredient') {
