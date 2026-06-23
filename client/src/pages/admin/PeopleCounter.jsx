@@ -137,6 +137,8 @@ export default function PeopleCounter() {
   const offscreenRef = useRef(null);
   const sensitivityRef = useRef(sensitivity);
   const rtspSensitivityRef = useRef(rtspSensitivity);
+  const mjpegLastFrameRef = useRef(Date.now());
+  const mjpegReconnectRef = useRef(null);
 
   useEffect(() => { lineRef.current = lineConfig; }, [lineConfig]);
   useEffect(() => { flipRef.current = flipDir; }, [flipDir]);
@@ -256,12 +258,31 @@ export default function PeopleCounter() {
   // ── NUEVO: arrancar/parar el loop de detección RTSP cuando cambia rtspActive ──
   useEffect(() => {
     if (rtspActive && mjpegUrl) {
-      // Pequeño delay para que el <img> esté montado en el DOM
       const t = setTimeout(() => startRtspLoop(), 800);
       return () => { clearTimeout(t); stopRtspLoop(); };
     } else {
       stopRtspLoop();
     }
+  }, [rtspActive, mjpegUrl]);
+
+  // MJPEG stall detection: if no new frame is drawn for 30s, reconnect the img
+  useEffect(() => {
+    if (!rtspActive || !mjpegUrl) {
+      clearInterval(mjpegReconnectRef.current);
+      return;
+    }
+    mjpegLastFrameRef.current = Date.now();
+    const check = setInterval(() => {
+      const elapsed = Date.now() - mjpegLastFrameRef.current;
+      if (elapsed > 30000 && mjpegImgRef.current) {
+        const sep = mjpegUrl.includes('?') ? '&' : '?';
+        mjpegImgRef.current.src = mjpegUrl + sep + '_r=' + Date.now();
+        mjpegLastFrameRef.current = Date.now();
+        rtspPrevFrameRef.current = null;
+      }
+    }, 10000);
+    mjpegReconnectRef.current = check;
+    return () => clearInterval(check);
   }, [rtspActive, mjpegUrl]);
 
   // Cuando RTSP está activo, refrescar contador desde DB cada 5s
@@ -539,6 +560,7 @@ export default function PeopleCounter() {
     }
 
     rtspPrevFrameRef.current = currFrame;
+    mjpegLastFrameRef.current = Date.now();
     // ~10 fps
     rtspAnimRef.current = setTimeout(scheduleRtspFrame, 100);
   };
@@ -744,6 +766,14 @@ export default function PeopleCounter() {
                       crossOrigin="anonymous"
                       style={{ width: '100%', display: 'block', minHeight: 340, background: '#000', objectFit: 'cover' }}
                       alt="rtsp"
+                      onError={() => {
+                        setTimeout(() => {
+                          if (mjpegImgRef.current && mjpegUrl) {
+                            const sep = mjpegUrl.includes('?') ? '&' : '?';
+                            mjpegImgRef.current.src = mjpegUrl + sep + '_r=' + Date.now();
+                          }
+                        }, 3000);
+                      }}
                     />
                     {/* Canvas para blobs RTSP — superpuesto sobre el <img> */}
                     <canvas ref={rtspCanvasRef}
@@ -1030,6 +1060,14 @@ export default function PeopleCounter() {
                   src={mjpegUrl}
                   style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
                   alt="preview"
+                  onError={(e) => {
+                    setTimeout(() => {
+                      if (mjpegUrl) {
+                        const sep = mjpegUrl.includes('?') ? '&' : '?';
+                        e.target.src = mjpegUrl + sep + '_r=' + Date.now();
+                      }
+                    }, 3000);
+                  }}
                 />
               </div>
               <p style={{ fontSize: 11, color: '#9ca3af', margin: '8px 0 0' }}>

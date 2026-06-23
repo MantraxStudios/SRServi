@@ -53,9 +53,10 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
   const [productConfig, setProductConfig] = useState({
     selectedIngredients: [],
     selectedExtras: [],
+    selectedComplements: [],
     quantity: 1
   });
-  const [modalStep, setModalStep] = useState('ingredients'); // 'ingredients' | 'extras'
+  const [modalStep, setModalStep] = useState('ingredients'); // 'ingredients' | 'extras' | 'groups'
 
   const [selectedTerminalId, setSelectedTerminalId] = useState('');
   const [posLinkModalOpen, setPosLinkModalOpen] = useState(false);
@@ -294,9 +295,9 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
 
     const hasIngredients = product.has_ingredients && product.ingredients && product.ingredients.length > 0;
     const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
+    const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
 
-    if (!hasIngredients && !hasExtras) {
-      // Add directly to cart
+    if (!hasIngredients && !hasExtras && !hasGroups) {
       const cartItem = {
         id: Date.now(),
         product_id: product.id,
@@ -306,22 +307,27 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
         quantity: 1,
         total: product.price,
         selected_ingredients: [],
-        selected_extras: []
+        selected_extras: [],
+        selected_complements: []
       };
       setCart(prev => [...prev, cartItem]);
       return;
     }
 
     setSelectedProduct(product);
-    setProductConfig({ selectedIngredients: (product.ingredients || []).filter(i => i.included_by_default), selectedExtras: [], quantity: 1 });
-    setModalStep(hasIngredients ? 'ingredients' : 'extras');
+    setProductConfig({
+      selectedIngredients: (product.ingredients || []).filter(i => i.included_by_default),
+      selectedExtras: [],
+      selectedComplements: [],
+      quantity: 1
+    });
+    setModalStep(hasIngredients ? 'ingredients' : hasExtras ? 'extras' : 'groups');
   };
 
   const closeProductModal = () => {
-    // Cancelling the modal aborts any remaining combo items
     comboFlowRef.current = { name: null, queue: [] };
     setSelectedProduct(null);
-    setProductConfig({ selectedIngredients: [], selectedExtras: [], quantity: 1 });
+    setProductConfig({ selectedIngredients: [], selectedExtras: [], selectedComplements: [], quantity: 1 });
   };
 
   const toggleIngredient = (ingredient) => {
@@ -351,6 +357,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
     let price = selectedProduct.price;
     productConfig.selectedIngredients.forEach(ing => { if (!ing.included_by_default) price += ing.price || 0; });
     productConfig.selectedExtras.forEach(ext => { price += ext.price || 0; });
+    (productConfig.selectedComplements || []).forEach(sel => { price += sel.price || 0; });
     return price;
   };
 
@@ -367,8 +374,49 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
     if (selectedProduct.has_extras && selectedProduct.extras && selectedProduct.extras.length > 0) {
       setModalStep('extras');
     } else {
+      proceedAfterExtras();
+    }
+  };
+
+  const proceedAfterExtras = () => {
+    const hasGroups = Array.isArray(selectedProduct?.complement_groups) && selectedProduct.complement_groups.length > 0;
+    if (hasGroups) {
+      setModalStep('groups');
+    } else {
       addToCart();
     }
+  };
+
+  const finishGroupsStep = () => {
+    const groups = selectedProduct?.complement_groups || [];
+    for (const g of groups) {
+      const count = (productConfig.selectedComplements || []).filter(s => s.group_id === g.id).length;
+      const min = g.required ? Math.max(1, g.min_select || 0) : (g.min_select || 0);
+      if (count < min) {
+        alert(`Elegí al menos ${min} en "${g.name}".`);
+        return;
+      }
+    }
+    addToCart();
+  };
+
+  const toggleComplementOption = (group, option) => {
+    setProductConfig(prev => {
+      const list = prev.selectedComplements || [];
+      const exists = list.some(s => s.option_id === option.id);
+      if (exists) {
+        return { ...prev, selectedComplements: list.filter(s => s.option_id !== option.id) };
+      }
+      const inGroup = list.filter(s => s.group_id === group.id);
+      if (group.max_select > 0 && inGroup.length >= group.max_select) {
+        if (group.max_select === 1) {
+          const without = list.filter(s => s.group_id !== group.id);
+          return { ...prev, selectedComplements: [...without, { group_id: group.id, group_name: group.name, option_id: option.id, name: option.name, price: Number(option.price) || 0 }] };
+        }
+        return prev;
+      }
+      return { ...prev, selectedComplements: [...list, { group_id: group.id, group_name: group.name, option_id: option.id, name: option.name, price: Number(option.price) || 0 }] };
+    });
   };
 
   const addToCart = () => {
@@ -389,6 +437,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
       total: unitPrice * productConfig.quantity,
       selected_ingredients: [...removed, ...added],
       selected_extras: productConfig.selectedExtras.map(e => e.name),
+      selected_complements: productConfig.selectedComplements || [],
       combo_name: comboName || null
     };
     setCart(prev => [...prev, cartItem]);
@@ -412,6 +461,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
       total: product.price * quantity,
       selected_ingredients: [],
       selected_extras: [],
+      selected_complements: [],
       combo_name: comboName || null
     };
     setCart(prev => [...prev, cartItem]);
@@ -425,27 +475,26 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
       const { product, quantity } = flow.queue.shift();
       const hasIngredients = product.has_ingredients && product.ingredients && product.ingredients.length > 0;
       const hasExtras = product.has_extras && product.extras && product.extras.length > 0;
+      const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
 
-      if (hasIngredients || hasExtras) {
-        // Open the personalization modal for this product
+      if (hasIngredients || hasExtras || hasGroups) {
         setSelectedProduct(product);
         setProductConfig({
           selectedIngredients: (product.ingredients || []).filter(i => i.included_by_default),
           selectedExtras: [],
+          selectedComplements: [],
           quantity: quantity || 1
         });
-        setModalStep(hasIngredients ? 'ingredients' : 'extras');
-        return; // wait for the worker to confirm (addToCart resumes the loop)
+        setModalStep(hasIngredients ? 'ingredients' : hasExtras ? 'extras' : 'groups');
+        return;
       }
 
-      // No options → add directly and keep going
       addDirectToCart(product, quantity || 1, flow.name);
     }
 
-    // Queue drained → close modal and clear flow
     flow.name = null;
     setSelectedProduct(null);
-    setProductConfig({ selectedIngredients: [], selectedExtras: [], quantity: 1 });
+    setProductConfig({ selectedIngredients: [], selectedExtras: [], selectedComplements: [], quantity: 1 });
   };
 
   const startCombo = (combo) => {
@@ -521,7 +570,8 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
         quantity: item.quantity,
         unit_price: item.unit_price,
         selected_ingredients: item.selected_ingredients,
-        selected_extras: item.selected_extras
+        selected_extras: item.selected_extras,
+        selected_complements: item.selected_complements || []
       })),
       selected_terminal_id: method === 'card' && selectedTerminalId ? parseInt(selectedTerminalId) : null,
       total: Number(total).toFixed(2),
@@ -949,9 +999,9 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
                     <div style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {item.product_name}
                     </div>
-                    {(item.selected_ingredients?.length > 0 || item.selected_extras?.length > 0) && (
+                    {(item.selected_ingredients?.length > 0 || item.selected_extras?.length > 0 || item.selected_complements?.length > 0) && (
                       <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', marginTop: '2px' }}>
-                        {[...(item.selected_ingredients || []), ...(item.selected_extras || [])].join(', ')}
+                        {[...(item.selected_ingredients || []), ...(item.selected_extras || []), ...(item.selected_complements || []).map(c => c.name)].join(', ')}
                       </div>
                     )}
                     <div style={{ color: '#D4AF37', fontSize: '0.85rem', fontWeight: 600, marginTop: '4px' }}>
@@ -1212,6 +1262,59 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
                   </>
                 )}
 
+                {modalStep === 'groups' && selectedProduct.complement_groups && selectedProduct.complement_groups.length > 0 && (
+                  <>
+                    {selectedProduct.complement_groups.map(group => {
+                      const selInGroup = (productConfig.selectedComplements || []).filter(s => s.group_id === group.id);
+                      return (
+                        <div key={group.id} style={{ marginBottom: '1rem' }}>
+                          <h4 style={{ color: 'rgba(255,255,255,0.7)', margin: '0 0 0.5rem', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {group.name}
+                            {group.required && <span style={{ color: '#ef4444', fontSize: '0.7rem' }}>*</span>}
+                            {(group.min_select > 0 || group.max_select > 0) && (
+                              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', fontWeight: 400 }}>
+                                ({selInGroup.length}{group.max_select > 0 ? `/${group.max_select}` : ''})
+                              </span>
+                            )}
+                          </h4>
+                          {(group.options || []).map(opt => {
+                            const isSelected = selInGroup.some(s => s.option_id === opt.id);
+                            return (
+                              <div
+                                key={opt.id}
+                                onClick={() => toggleComplementOption(group, opt)}
+                                style={{
+                                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                  padding: '0.65rem 0.75rem', marginBottom: '0.4rem', borderRadius: '8px', cursor: 'pointer',
+                                  background: isSelected ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)',
+                                  border: isSelected ? '1px solid rgba(212,175,55,0.3)' : '1px solid rgba(255,255,255,0.06)'
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <div style={{
+                                    width: '20px', height: '20px', borderRadius: group.max_select === 1 ? '50%' : '4px',
+                                    background: isSelected ? '#D4AF37' : 'rgba(255,255,255,0.08)',
+                                    border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.15)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                  }}>
+                                    {isSelected && <FontAwesomeIcon icon={faCheck} style={{ fontSize: '0.6rem', color: '#000' }} />}
+                                  </div>
+                                  <span style={{ color: '#fff', fontSize: '0.9rem' }}>{opt.name}</span>
+                                </div>
+                                {Number(opt.price) > 0 && (
+                                  <span style={{ color: '#D4AF37', fontSize: '0.8rem', fontWeight: 600 }}>
+                                    +{currencySymbol}{formatPrice(opt.price)}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+
                 {/* Quantity */}
                 <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
                   <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem' }}>Cantidad:</span>
@@ -1244,27 +1347,42 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
                     {complementsLabel}
                   </button>
                 )}
+                {modalStep === 'groups' && (
+                  <button
+                    onClick={() => {
+                      const hasExtras = selectedProduct.has_extras && selectedProduct.extras && selectedProduct.extras.length > 0;
+                      const hasIngredients = selectedProduct.has_ingredients && selectedProduct.ingredients && selectedProduct.ingredients.length > 0;
+                      setModalStep(hasExtras ? 'extras' : hasIngredients ? 'ingredients' : 'groups');
+                    }}
+                    style={{ padding: '0.65rem 1rem', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <FontAwesomeIcon icon={faArrowLeft} />
+                    Volver
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     if (modalStep === 'ingredients') {
                       handleNextFromIngredients();
-                    } else {
-                      addToCart();
+                    } else if (modalStep === 'extras') {
+                      proceedAfterExtras();
+                    } else if (modalStep === 'groups') {
+                      finishGroupsStep();
                     }
                   }}
                   style={{ flex: 1, padding: '0.65rem 1rem', borderRadius: '8px', border: 'none', background: '#D4AF37', color: '#000', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                 >
-                  {modalStep === 'ingredients' && selectedProduct.has_extras && selectedProduct.extras && selectedProduct.extras.length > 0 ? (
-                    <>
-                      {extrasLabel}
-                      <FontAwesomeIcon icon={faArrowRight} />
-                    </>
-                  ) : (
-                    <>
-                      <FontAwesomeIcon icon={faPlus} />
-                      Agregar {currencySymbol}{formatPrice(calculateProductPrice() * productConfig.quantity)}
-                    </>
-                  )}
+                  {(() => {
+                    const hasExtras = selectedProduct.has_extras && selectedProduct.extras && selectedProduct.extras.length > 0;
+                    const hasGroups = Array.isArray(selectedProduct.complement_groups) && selectedProduct.complement_groups.length > 0;
+                    if (modalStep === 'ingredients' && (hasExtras || hasGroups)) {
+                      return <>{hasExtras ? extrasLabel : 'Secciones'} <FontAwesomeIcon icon={faArrowRight} /></>;
+                    }
+                    if (modalStep === 'extras' && hasGroups) {
+                      return <>Secciones <FontAwesomeIcon icon={faArrowRight} /></>;
+                    }
+                    return <><FontAwesomeIcon icon={faPlus} /> Agregar {currencySymbol}{formatPrice(calculateProductPrice() * productConfig.quantity)}</>;
+                  })()}
                 </button>
               </div>
             </div>

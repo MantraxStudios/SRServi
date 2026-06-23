@@ -934,7 +934,9 @@ function Store() {
   const [productConfig, setProductConfig] = useState({
     selectedIngredients: [],
     selectedExtras: [],
-    quantity: 1
+    selectedComplements: [],
+    quantity: 1,
+    notes: ''
   });
   const [ingredientsModalOpen, setIngredientsModalOpen] = useState(false);
   const [extrasModalOpen, setExtrasModalOpen] = useState(false);
@@ -2088,6 +2090,7 @@ function Store() {
     setIngredientsModalOpen(false);
     setExtrasModalOpen(false);
     setComplementGroupsModalOpen(false);
+    setProductConfig({ selectedIngredients: [], selectedExtras: [], selectedComplements: [], quantity: 1, notes: '' });
   };
 
   const anyModalOpen = pinModalOpen || prodModalOpen || catModalOpen || complementModal || showRestartConfirm || editMode || ingredientsModalOpen || extrasModalOpen || complementGroupsModalOpen || paymentModalOpen || cartOpen || paymentConfirmed || cashPaymentSuccess || pinOptionsModalOpen || posSelectModalOpen || infoModalOpen || inactivityModalOpen || tableModalOpen || showRatingStep || !!editComplementModal || !!prodRecipeModal || !!labelEditModal || !!sectionGroupModal || !!sectionOptionModal || !!sectionEditingGroup || loyaltyModalOpen;
