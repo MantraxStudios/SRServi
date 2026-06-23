@@ -778,7 +778,7 @@ function Layout() {
                 <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faCog} /> Configuración</div>
                 {can('settings', 'view') && <NavLink to="/admin/settings" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faPalette} /> Colores y QR</NavLink>}
                 {can('configurations', 'view') && <NavLink to="/admin/configurations" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faTabletAlt} /> Tótems y Pagos</NavLink>}
-                {!isSubAccount && <NavLink to="/admin/worker-config" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faCreditCard} /> Config. Vendedor</NavLink>}
+                {!isSubAccount && <NavLink to="/admin/worker-config" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faCreditCard} /> Configuración Vendedor</NavLink>}
                 {!isSubAccount && <NavLink to="/admin/store-pin" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faLock} /> PIN Tienda</NavLink>}
                 {!isSubAccount && <NavLink to="/admin/screensaver" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faTv} /> Salva Pantallas</NavLink>}
                 {!isSubAccount && <NavLink to="/admin/cctv" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faVideo} /> Cartelería Digital</NavLink>}
