@@ -23,7 +23,7 @@ import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
 import { initInstagramService } from './instagram_autostart.js';
 
-import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport } from './database.js';
+import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
@@ -1503,7 +1503,7 @@ app.post('/api/stores', authenticateToken, upload.single('logo'), async (req, re
 
 app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req, res) => {
   try {
-    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label, worker_show_prices } = req.body;
+    const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, remove_logo, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label, worker_show_prices, worker_panel_tabs, ranking_store_ids } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Nombre es requerido' });
     }
@@ -1532,7 +1532,9 @@ app.put('/api/stores/:id', authenticateToken, upload.single('logo'), async (req,
       paid_order_status,
       complements_label,
       extras_label,
-      worker_show_prices
+      worker_show_prices,
+      worker_panel_tabs,
+      ranking_store_ids
     });
     res.json(store);
   } catch (error) {
@@ -5422,6 +5424,56 @@ app.get('/api/public/worker-payment-methods/:storeId', async (req, res) => {
   try {
     const methods = await getWorkerPaymentMethods(parseInt(req.params.storeId));
     res.json(methods.filter(m => m.is_active));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Worker Comments
+app.get('/api/stores/:storeId/worker-comments', async (req, res) => {
+  try {
+    const comments = await getWorkerComments(parseInt(req.params.storeId));
+    res.json(comments);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/stores/:storeId/worker-comments', async (req, res) => {
+  try {
+    const { worker_id, worker_name, comment } = req.body;
+    if (!comment || !comment.trim()) return res.status(400).json({ error: 'Comentario requerido' });
+    const result = await createWorkerComment(parseInt(req.params.storeId), worker_id, worker_name, comment.trim());
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/stores/:storeId/worker-comments/:id', authenticateToken, async (req, res) => {
+  try {
+    await deleteWorkerComment(parseInt(req.params.id), parseInt(req.params.storeId));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Rankings
+app.get('/api/stores/:storeId/rankings', async (req, res) => {
+  try {
+    const storeId = parseInt(req.params.storeId);
+    const period = req.query.period || 'today';
+    const [store] = await pool.execute('SELECT ranking_store_ids FROM stores WHERE id = ?', [storeId]);
+    let storeIds = [storeId];
+    if (store[0]?.ranking_store_ids) {
+      try {
+        const parsed = JSON.parse(store[0].ranking_store_ids);
+        if (Array.isArray(parsed) && parsed.length > 0) storeIds = parsed.map(Number);
+      } catch {}
+    }
+    const rankings = await getStoreRankings(storeIds, period);
+    res.json(rankings);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock, faBook, faChair, faFire, faPlay } from '@fortawesome/free-solid-svg-icons';
+import { faBox, faClock, faCheck, faTimes, faSearch, faSignOutAlt, faUserCog, faMoneyBillWave, faPlus, faExternalLinkAlt, faUtensils, faShoppingBag, faMotorcycle, faConciergeBell, faPrint, faClipboardList, faExclamationTriangle, faCashRegister, faLock, faBook, faChair, faFire, faPlay, faTrophy, faCommentDots } from '@fortawesome/free-solid-svg-icons';
 import { SOCKET_URL } from '../config.js';
 import WorkerNewOrder from '../components/WorkerNewOrder';
 import WorkerTableMap from '../components/WorkerTableMap';
@@ -439,6 +439,13 @@ function WorkerPanel() {
   const [showSessionExpired, setShowSessionExpired] = useState(false);
   const [deliveryOrders, setDeliveryOrders] = useState([]);
   const [deliveryLoading, setDeliveryLoading] = useState(false);
+  const [panelTabs, setPanelTabs] = useState({});
+  const [rankings, setRankings] = useState({ stores: [], workers: [] });
+  const [rankingPeriod, setRankingPeriod] = useState('today');
+  const [rankingsLoading, setRankingsLoading] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [commentSending, setCommentSending] = useState(false);
 
   const colors = storeColors || {
     primary: '#0a0a0a',
@@ -743,6 +750,9 @@ function WorkerPanel() {
       });
       if (data.code) setStoreCode(data.code);
       setShowPrices(data.worker_show_prices === undefined ? true : !!data.worker_show_prices);
+      if (data.worker_panel_tabs) {
+        try { setPanelTabs(typeof data.worker_panel_tabs === 'string' ? JSON.parse(data.worker_panel_tabs) : data.worker_panel_tabs); } catch { setPanelTabs({}); }
+      }
     } catch (error) {
       console.error('Error fetching store colors:', error);
     }
@@ -755,6 +765,55 @@ function WorkerPanel() {
       }
     } catch {}
   };
+
+  const isTabVisible = (key) => panelTabs[key] !== false;
+
+  const fetchRankings = async (period) => {
+    if (!worker) return;
+    setRankingsLoading(true);
+    try {
+      const res = await fetch(`/api/stores/${worker.store_id}/rankings?period=${period}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRankings(data);
+      }
+    } catch {} finally { setRankingsLoading(false); }
+  };
+
+  const fetchComments = async () => {
+    if (!worker) return;
+    try {
+      const res = await fetch(`/api/stores/${worker.store_id}/worker-comments`);
+      if (res.ok) {
+        const data = await res.json();
+        setComments(Array.isArray(data) ? data : []);
+      }
+    } catch {}
+  };
+
+  const sendComment = async () => {
+    if (!newComment.trim() || !worker) return;
+    setCommentSending(true);
+    try {
+      const res = await fetch(`/api/stores/${worker.store_id}/worker-comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ worker_id: worker.id, worker_name: worker.name, comment: newComment.trim() })
+      });
+      if (res.ok) {
+        setNewComment('');
+        fetchComments();
+      }
+    } catch {} finally { setCommentSending(false); }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'rankings' && worker) fetchRankings(rankingPeriod);
+  }, [activeTab, rankingPeriod, worker?.store_id]);
+
+  useEffect(() => {
+    if (activeTab === 'comments' && worker) fetchComments();
+  }, [activeTab, worker?.store_id]);
 
   const downloadPrepTablePDF = (table) => {
     const cols = table.columns || [];
@@ -1368,61 +1427,75 @@ function WorkerPanel() {
         <div className="worker-main">
           <div className="worker-main-top">
             <div className="worker-tab-bar">
-              <button
+              {isTabVisible('ventarapida') && <button
                 className={`worker-tab-btn ${activeTab === 'ventarapida' ? 'active' : ''}`}
                 onClick={() => setActiveTab('ventarapida')}
                 title="Menú de venta"
               >
                 <FontAwesomeIcon icon={faPlus} />
                 <span>Venta rápida</span>
-              </button>
-              <button
+              </button>}
+              {isTabVisible('active') && <button
                 className={`worker-tab-btn ${activeTab === 'active' ? 'active' : ''}`}
                 onClick={() => setActiveTab('active')}
               >
                 <FontAwesomeIcon icon={faClock} />
                 <span>Pedidos</span>
                 {(orders.length + deliveryOrders.length) > 0 && <span className="worker-tab-badge">{orders.length + deliveryOrders.length}</span>}
-              </button>
-              <button
+              </button>}
+              {isTabVisible('completed') && <button
                 className={`worker-tab-btn ${activeTab === 'completed' ? 'active' : ''}`}
                 onClick={() => setActiveTab('completed')}
               >
                 <FontAwesomeIcon icon={faCheck} />
                 <span>Completados</span>
                 {completedOrders.length > 0 && <span className="worker-tab-badge">{completedOrders.length}</span>}
-              </button>
-              <button
+              </button>}
+              {isTabVisible('whatsapp') && <button
                 className={`worker-tab-btn ${activeTab === 'whatsapp' ? 'active' : ''}`}
                 onClick={() => setActiveTab('whatsapp')}
               >
                 <span>💬</span>
                 <span>WhatsApp</span>
                 {whatsappOrders.length > 0 && <span className="worker-tab-badge">{whatsappOrders.length}</span>}
-              </button>
-              <button
+              </button>}
+              {isTabVisible('mesas') && <button
                 className={`worker-tab-btn ${activeTab === 'mesas' ? 'active' : ''}`}
                 onClick={() => setActiveTab('mesas')}
               >
                 <FontAwesomeIcon icon={faChair} />
                 <span>Mesas</span>
-              </button>
+              </button>}
               <div className="worker-tab-bar-sep" />
-              <button
+              {isTabVisible('tasks') && <button
                 className={`worker-tab-btn ${activeTab === 'tasks' ? 'active' : ''}`}
                 onClick={() => { setActiveTab('tasks'); setTaskError(''); }}
               >
                 <FontAwesomeIcon icon={faClipboardList} />
                 <span>Tareas</span>
                 {(() => { const n = tasks.filter(t => t.day_of_week === new Date().getDay() && !t.completed_at).length; return n > 0 ? <span className="worker-tab-badge">{n}</span> : null; })()}
-              </button>
-              <button
+              </button>}
+              {isTabVisible('procedures') && <button
                 className={`worker-tab-btn ${activeTab === 'procedures' ? 'active' : ''}`}
                 onClick={() => setActiveTab('procedures')}
               >
                 <FontAwesomeIcon icon={faBook} />
                 <span>Guías</span>
-              </button>
+              </button>}
+              {isTabVisible('rankings') && <button
+                className={`worker-tab-btn ${activeTab === 'rankings' ? 'active' : ''}`}
+                onClick={() => setActiveTab('rankings')}
+              >
+                <FontAwesomeIcon icon={faTrophy} />
+                <span>Rankings</span>
+              </button>}
+              {isTabVisible('comments') && <button
+                className={`worker-tab-btn ${activeTab === 'comments' ? 'active' : ''}`}
+                onClick={() => setActiveTab('comments')}
+              >
+                <FontAwesomeIcon icon={faCommentDots} />
+                <span>Comentarios</span>
+              </button>}
             </div>
             <div className="worker-search">
               <FontAwesomeIcon icon={faSearch} className="worker-search-icon" />
@@ -1435,7 +1508,7 @@ function WorkerPanel() {
             </div>
           </div>
 
-      <div className="worker-orders" style={activeTab === 'tasks' || activeTab === 'mesas' || activeTab === 'ventarapida' ? { padding: 0 } : undefined}>
+      <div className="worker-orders" style={activeTab === 'tasks' || activeTab === 'mesas' || activeTab === 'ventarapida' || activeTab === 'rankings' || activeTab === 'comments' ? { padding: 0 } : undefined}>
         {activeTab === 'active' ? (
           (filteredOrders.length === 0 && deliveryOrders.length === 0) ? (
             <div className="empty-state">
@@ -2316,6 +2389,145 @@ function WorkerPanel() {
             </div>
           );
         })()}
+
+        {activeTab === 'rankings' && (
+          <div style={{ padding: '16px', overflowY: 'auto', height: 'calc(100svh - 155px)', background: '#0a0a0a' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+              {[{ key: 'today', label: 'Hoy' }, { key: 'week', label: 'Semana' }, { key: 'month', label: 'Mes' }].map(p => (
+                <button
+                  key={p.key}
+                  onClick={() => setRankingPeriod(p.key)}
+                  style={{
+                    padding: '8px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                    background: rankingPeriod === p.key ? '#D4AF37' : '#1e1e1e',
+                    color: rankingPeriod === p.key ? '#000' : '#aaa',
+                    fontWeight: 700, fontSize: 13
+                  }}
+                >{p.label}</button>
+              ))}
+            </div>
+
+            {rankingsLoading ? <p style={{ color: '#666', textAlign: 'center', padding: 20 }}>Cargando...</p> : (
+              <>
+                <div style={{ marginBottom: '24px' }}>
+                  <h3 style={{ color: '#D4AF37', fontSize: 14, fontWeight: 800, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    <FontAwesomeIcon icon={faTrophy} style={{ marginRight: 8 }} />Ranking Sucursales
+                  </h3>
+                  {rankings.stores?.length === 0 ? (
+                    <p style={{ color: '#666', fontSize: 13 }}>No hay datos para este período</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {rankings.stores?.map((s, i) => (
+                        <div key={s.id} style={{
+                          display: 'flex', alignItems: 'center', gap: 12,
+                          padding: '12px 14px', borderRadius: 12,
+                          background: i === 0 ? 'rgba(212,175,55,0.1)' : '#111',
+                          border: i === 0 ? '1px solid rgba(212,175,55,0.3)' : '1px solid #1e1e1e'
+                        }}>
+                          <div style={{
+                            width: 32, height: 32, borderRadius: '50%',
+                            background: i === 0 ? '#D4AF37' : i === 1 ? '#9ca3af' : i === 2 ? '#b45309' : '#333',
+                            color: i < 3 ? '#000' : '#aaa',
+                            fontWeight: 900, fontSize: 14,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                          }}>{i + 1}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
+                            <div style={{ fontSize: 11, color: '#666' }}>{s.order_count} pedidos</div>
+                          </div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: i === 0 ? '#D4AF37' : '#fff' }}>${Number(s.total_sales).toLocaleString()}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 style={{ color: '#D4AF37', fontSize: 14, fontWeight: 800, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    <FontAwesomeIcon icon={faUserCog} style={{ marginRight: 8 }} />Ranking Vendedores
+                  </h3>
+                  {rankings.workers?.length === 0 ? (
+                    <p style={{ color: '#666', fontSize: 13 }}>No hay datos para este período</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {rankings.workers?.map((w, i) => (
+                        <div key={`${w.id}`} style={{
+                          display: 'flex', alignItems: 'center', gap: 12,
+                          padding: '12px 14px', borderRadius: 12,
+                          background: i === 0 ? 'rgba(212,175,55,0.1)' : '#111',
+                          border: i === 0 ? '1px solid rgba(212,175,55,0.3)' : '1px solid #1e1e1e'
+                        }}>
+                          <div style={{
+                            width: 32, height: 32, borderRadius: '50%',
+                            background: i === 0 ? '#D4AF37' : i === 1 ? '#9ca3af' : i === 2 ? '#b45309' : '#333',
+                            color: i < 3 ? '#000' : '#aaa',
+                            fontWeight: 900, fontSize: 14,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                          }}>{i + 1}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.name}</div>
+                            <div style={{ fontSize: 11, color: '#666' }}>{w.store_name} · {w.order_count} pedidos</div>
+                          </div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: i === 0 ? '#D4AF37' : '#fff' }}>${Number(w.total_sales).toLocaleString()}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'comments' && (
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100svh - 155px)', background: '#0a0a0a' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+              {comments.length === 0 ? (
+                <div className="empty-state"><p>No hay comentarios aún</p></div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {comments.map(c => (
+                    <div key={c.id} style={{
+                      padding: '12px 14px', borderRadius: 12, background: '#111', border: '1px solid #1e1e1e'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#D4AF37' }}>{c.worker_name}</span>
+                        <span style={{ fontSize: 11, color: '#555' }}>{new Date(c.created_at).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p style={{ fontSize: 13, color: '#ccc', lineHeight: 1.5, margin: 0 }}>{c.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{
+              flexShrink: 0, padding: '12px 16px', borderTop: '1px solid #1e1e1e',
+              display: 'flex', gap: 10
+            }}>
+              <input
+                type="text"
+                value={newComment}
+                onChange={e => setNewComment(e.target.value)}
+                placeholder="Escribe un comentario..."
+                onKeyDown={e => e.key === 'Enter' && sendComment()}
+                style={{
+                  flex: 1, background: '#1a1a1a', border: '1px solid #333', borderRadius: 10,
+                  padding: '10px 14px', color: '#fff', fontSize: 13, outline: 'none'
+                }}
+              />
+              <button
+                onClick={sendComment}
+                disabled={commentSending || !newComment.trim()}
+                style={{
+                  padding: '10px 18px', borderRadius: 10, border: 'none',
+                  background: newComment.trim() ? '#D4AF37' : '#333',
+                  color: newComment.trim() ? '#000' : '#666',
+                  fontWeight: 700, fontSize: 13, cursor: newComment.trim() ? 'pointer' : 'default'
+                }}
+              >{commentSending ? '...' : 'Enviar'}</button>
+            </div>
+          </div>
+        )}
       </div>
         </div>{/* /worker-main */}
       </div>{/* /worker-body */}

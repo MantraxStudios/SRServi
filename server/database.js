@@ -1562,6 +1562,23 @@ async function migrateTables() {
       console.error('❌ Error creando tabla task_completions:', err.message);
     }
 
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS worker_comments (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          store_id INT NOT NULL,
+          worker_id INT NOT NULL,
+          worker_name VARCHAR(255) NOT NULL,
+          comment TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
+          FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE
+        )
+      `);
+    } catch (err) {
+      console.error('Error creando tabla worker_comments:', err.message);
+    }
+
     // Track which system update each user has seen last
     try {
       const [userCols] = await pool.execute('SHOW COLUMNS FROM users');
@@ -2065,7 +2082,7 @@ export async function createStore(userId, data) {
 }
 
 export async function updateStore(storeId, userId, data) {
-  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label, worker_show_prices } = data;
+  const { name, primary_color, secondary_color, accent_color, header_color, currency_code, currency_symbol, currency_name, logo_url, worker_accept_cash, worker_accept_card, smart_mode, inactivity_timeout, hide_decimals, show_top_selling, paid_order_status, complements_label, extras_label, worker_show_prices, worker_panel_tabs, ranking_store_ids } = data;
 
   // Ensure columns exist
   try {
@@ -2079,6 +2096,8 @@ export async function updateStore(storeId, userId, data) {
     if (!names.includes('complements_label')) await pool.execute("ALTER TABLE stores ADD COLUMN complements_label VARCHAR(100) DEFAULT NULL");
     if (!names.includes('extras_label')) await pool.execute("ALTER TABLE stores ADD COLUMN extras_label VARCHAR(100) DEFAULT NULL");
     if (!names.includes('worker_show_prices')) await pool.execute('ALTER TABLE stores ADD COLUMN worker_show_prices BOOLEAN DEFAULT TRUE');
+    if (!names.includes('worker_panel_tabs')) await pool.execute("ALTER TABLE stores ADD COLUMN worker_panel_tabs TEXT DEFAULT NULL");
+    if (!names.includes('ranking_store_ids')) await pool.execute("ALTER TABLE stores ADD COLUMN ranking_store_ids TEXT DEFAULT NULL");
   } catch { /* ignore */ }
 
   let query = `UPDATE stores SET name = ?, primary_color = ?, secondary_color = ?, accent_color = ?, header_color = ?, currency_code = ?, currency_symbol = ?, currency_name = ?`;
@@ -2139,6 +2158,16 @@ export async function updateStore(storeId, userId, data) {
   if (worker_show_prices !== undefined) {
     query += `, worker_show_prices = ?`;
     params.push(worker_show_prices === true || worker_show_prices === 'true' || worker_show_prices === 1 || worker_show_prices === '1' ? 1 : 0);
+  }
+
+  if (worker_panel_tabs !== undefined) {
+    query += `, worker_panel_tabs = ?`;
+    params.push(typeof worker_panel_tabs === 'string' ? worker_panel_tabs : JSON.stringify(worker_panel_tabs));
+  }
+
+  if (ranking_store_ids !== undefined) {
+    query += `, ranking_store_ids = ?`;
+    params.push(typeof ranking_store_ids === 'string' ? ranking_store_ids : JSON.stringify(ranking_store_ids));
   }
 
   query += ` WHERE id = ? AND user_id = ?`;
@@ -7494,6 +7523,61 @@ export async function getInventoryAlertReport(storeId) {
   const outOfStock = alerts.filter(a => a.alert_type === 'out_of_stock');
   const lowStock = alerts.filter(a => a.alert_type === 'low_stock');
   return { outOfStock, lowStock, total: alerts.length };
+}
+
+// Worker Comments
+export async function getWorkerComments(storeId, limit = 50) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM worker_comments WHERE store_id = ? ORDER BY created_at DESC LIMIT ?',
+    [storeId, limit]
+  );
+  return rows;
+}
+
+export async function createWorkerComment(storeId, workerId, workerName, comment) {
+  const [result] = await pool.execute(
+    'INSERT INTO worker_comments (store_id, worker_id, worker_name, comment) VALUES (?, ?, ?, ?)',
+    [storeId, workerId, workerName, comment]
+  );
+  return { id: result.insertId, store_id: storeId, worker_id: workerId, worker_name: workerName, comment, created_at: new Date() };
+}
+
+export async function deleteWorkerComment(commentId, storeId) {
+  await pool.execute('DELETE FROM worker_comments WHERE id = ? AND store_id = ?', [commentId, storeId]);
+}
+
+// Rankings
+export async function getStoreRankings(storeIds, period = 'today') {
+  if (!storeIds || storeIds.length === 0) return { stores: [], workers: [] };
+  const placeholders = storeIds.map(() => '?').join(',');
+  let dateFilter = '';
+  if (period === 'today') dateFilter = 'AND DATE(o.created_at) = CURDATE()';
+  else if (period === 'week') dateFilter = 'AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)';
+  else if (period === 'month') dateFilter = 'AND o.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
+
+  const [storeRows] = await pool.execute(`
+    SELECT s.id, s.name, COUNT(o.id) AS order_count, COALESCE(SUM(o.total), 0) AS total_sales
+    FROM stores s
+    LEFT JOIN orders o ON o.store_id = s.id AND o.status != 'canceled' ${dateFilter}
+    WHERE s.id IN (${placeholders})
+    GROUP BY s.id
+    ORDER BY total_sales DESC
+  `, storeIds);
+
+  const [workerRows] = await pool.execute(`
+    SELECT w.id, w.name, s.name AS store_name, COUNT(o.id) AS order_count, COALESCE(SUM(o.total), 0) AS total_sales
+    FROM workers w
+    JOIN stores s ON s.id = w.store_id
+    LEFT JOIN orders o ON o.worker_name = w.name AND o.store_id = w.store_id AND o.status != 'canceled' ${dateFilter}
+    WHERE w.store_id IN (${placeholders})
+    GROUP BY w.id
+    ORDER BY total_sales DESC
+  `, storeIds);
+
+  return {
+    stores: storeRows.map(r => ({ ...r, total_sales: Number(r.total_sales) })),
+    workers: workerRows.map(r => ({ ...r, total_sales: Number(r.total_sales) }))
+  };
 }
 
 export { pool };
