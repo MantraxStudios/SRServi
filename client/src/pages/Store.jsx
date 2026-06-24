@@ -2539,15 +2539,13 @@ function Store() {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     setCartOpen(false);
-    const configTip = parseFloat(selectedConfiguration?.tip_percentage) || 0;
-    setTipPercent(configTip);
-    setTipEnabled(configTip > 0);
 
-    // Si solo hay un método de pago activo y no hay propina configurada, ir directo
-    // (solo contar tarjeta y efectivo — qrProvider/haulmerNative son variantes de tarjeta)
+    // Si solo hay un método de pago activo, ir directo sin propina
     if (!deliveryMode) {
       const methodCount = [localAcceptCard, localAcceptCash].filter(Boolean).length;
       if (methodCount === 1) {
+        setTipEnabled(false);
+        setTipPercent(0);
         const singleMethod = localAcceptCard ? 'card' : 'cash';
         if (loyaltyConfig?.enabled && !loyaltyCustomer && loyaltyDiscount === 0) {
           setLoyaltyModalOpen(true);
@@ -2559,7 +2557,11 @@ function Store() {
       }
     }
 
-    // Más de un método o hay propina → mostrar modal normal
+    // Más de un método → mostrar modal con propina configurada
+    const configTip = parseFloat(selectedConfiguration?.tip_percentage) || 0;
+    setTipPercent(configTip);
+    setTipEnabled(configTip > 0);
+
     if (!deliveryMode && loyaltyConfig?.enabled && !loyaltyCustomer && loyaltyDiscount === 0) {
       setLoyaltyModalOpen(true);
     } else {
