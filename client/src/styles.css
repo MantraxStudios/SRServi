@@ -12007,8 +12007,8 @@ html body .store-container .store-product-card * {
   text-decoration: none; outline: none;
   -webkit-tap-highlight-color: transparent;
 }
-.isb-btn-icon { display: flex; align-items: center; justify-content: center; position: relative; font-size: 17px; }
-.isb-btn-label { display: block; font-size: 9px; font-weight: 600; line-height: 1; white-space: nowrap; color: #333; }
+.isb-btn-icon { display: flex; align-items: center; justify-content: center; position: relative; font-size: 19px; }
+.isb-btn-label { display: block; font-size: 11px; font-weight: 700; line-height: 1; white-space: nowrap; color: #333; }
 
 .isb-btn:hover { background: rgba(212,175,55,0.08); color: var(--isb-gold); }
 .isb-btn:hover .isb-btn-label { color: #111; }
@@ -12130,8 +12130,8 @@ html body .store-container .store-product-card * {
 /* Título de sección: ocupa todo el ancho */
 .isb-fp-sec-title {
   grid-column: 1 / -1;
-  font-size: 10px; font-weight: 700;
-  color: #999;
+  font-size: 12px; font-weight: 800;
+  color: #777;
   text-transform: uppercase; letter-spacing: 1.1px;
   margin-bottom: -4px;
   display: flex; align-items: center; gap: 6px;
@@ -12148,8 +12148,8 @@ html body .store-container .store-product-card * {
   padding: 2px 2px 4px;
   text-decoration: none;
   color: #333;
-  font-size: 10.5px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   text-align: center;
   line-height: 1.35;
   transition: transform 0.1s;
@@ -12437,14 +12437,14 @@ html body .store-container .store-product-card * {
   /* Barra inferior móvil — labels más pequeños y overflow seguro */
   .isb-btn { padding: 5px 1px 4px; gap: 2px; min-width: 0; }
   .isb-btn-label {
-    font-size: 8px;
+    font-size: 10px;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     padding: 0 2px;
   }
-  .isb-btn-icon { font-size: 16px; }
+  .isb-btn-icon { font-size: 18px; }
 }
 
 /* Pantallas muy pequeñas (≤420px): solo iconos, sin texto */
