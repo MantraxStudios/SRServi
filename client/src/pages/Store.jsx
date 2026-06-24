@@ -1445,6 +1445,12 @@ function Store() {
   const [paymentCancelled, setPaymentCancelled] = useState(false);
   const [cashPaymentSuccess, setCashPaymentSuccess] = useState(false);
   const [paymentTimeLeft, setPaymentTimeLeft] = useState(60);
+  const [paymentComment, setPaymentComment] = useState('');
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [showCommentKb, setShowCommentKb] = useState(false);
+  const [pendingCommentMethod, setPendingCommentMethod] = useState(null);
+  const [pendingCommentTableNum, setPendingCommentTableNum] = useState(null);
+  const skipCommentCheckRef = useRef(false);
   const [notification, setNotification] = useState(null);
   const [barcode, setBarcode] = useState('');
   const barcodeInputRef = useRef(null);
@@ -1466,6 +1472,7 @@ function Store() {
       loyaltyDiscountRef.current = 0;
       setLoyaltyDiscount(0);
     }
+    setPaymentComment('');
     const toRatingTimer = setTimeout(() => {
       setPaymentConfirmed(false);
       setOrderRating(null);
@@ -1487,6 +1494,7 @@ function Store() {
       loyaltyDiscountRef.current = 0;
       setLoyaltyDiscount(0);
     }
+    setPaymentComment('');
     const toRatingTimer = setTimeout(() => {
       setCashPaymentSuccess(false);
       setCart([]);
@@ -2613,6 +2621,16 @@ function Store() {
 
   const processPayment = async (selectedMethod = paymentMethod, tableNum = null) => {
     if (cart.length === 0) return;
+
+    if (selectedConfiguration?.require_order_comment && !skipCommentCheckRef.current) {
+      setPendingCommentMethod(selectedMethod);
+      setPendingCommentTableNum(tableNum);
+      setPaymentComment('');
+      setShowCommentModal(true);
+      return;
+    }
+    skipCommentCheckRef.current = false;
+
     const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
     const isTuu = selectedMethod === 'card' && lastTerminalProvider === 'tuu';
     const isSquare = selectedMethod === 'card' && lastTerminalProvider === 'square';
@@ -2664,7 +2682,8 @@ function Store() {
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
-            terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null
+            terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
+            customer_comment: paymentComment || null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -2701,7 +2720,8 @@ function Store() {
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
-            terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null
+            terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
+            customer_comment: paymentComment || null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -2735,7 +2755,7 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: selectedMethod,
             items: cartItems, selected_terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
             coupon_code: appliedCoupon?.coupon_code || null, total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null
+            table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
           })
         });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
@@ -2753,7 +2773,7 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null
+            table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -2786,7 +2806,7 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null
+            table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -2820,7 +2840,7 @@ function Store() {
             store_id: storeId, order_type: orderType, payment_method: 'card',
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
-            table_number: tableNum ? parseInt(tableNum) : null
+            table_number: tableNum ? parseInt(tableNum) : null, customer_comment: paymentComment || null
           })
         });
         if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -2854,7 +2874,8 @@ function Store() {
             items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
             total: Number(finalTotal).toFixed(2), delivery: deliveryMode,
             table_number: tableNum ? parseInt(tableNum) : null,
-            terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null
+            terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
+            customer_comment: paymentComment || null
           })
         });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al procesar');
@@ -2895,6 +2916,14 @@ function Store() {
   // method: 1 = crédito, 2 = débito
   const handleAndroidTuuPayment = async (method) => {
     if (!window.AndroidBridge || cart.length === 0) return;
+    if (selectedConfiguration?.require_order_comment && !skipCommentCheckRef.current) {
+      setPendingCommentMethod('android_tuu_' + method);
+      setPendingCommentTableNum(null);
+      setPaymentComment('');
+      setShowCommentModal(true);
+      return;
+    }
+    skipCommentCheckRef.current = false;
     setProcessingPayment(true);
     setPaymentError(null);
     const finalTotal = getFinalTotal();
@@ -2928,7 +2957,8 @@ function Store() {
         body: JSON.stringify({
           store_id: storeId, order_type: orderType, payment_method: 'card',
           items: cartItems, coupon_code: appliedCoupon?.coupon_code || null,
-          total: Number(finalTotal).toFixed(2), delivery: false, table_number: null, terminal_id: null
+          total: Number(finalTotal).toFixed(2), delivery: false, table_number: null, terminal_id: null,
+          customer_comment: paymentComment || null
         })
       });
       if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al crear pedido');
@@ -6228,6 +6258,80 @@ function Store() {
             }}
           />
         </Suspense>
+      )}
+
+      {showCommentModal && (
+        <div className="modal-overlay">
+          <div className="modal text-center" style={{ maxWidth: '400px' }}>
+            <h2 style={{ color: 'var(--store-primary)', marginBottom: '8px', fontSize: '22px' }}>
+              Agregar comentario
+            </h2>
+            <p className="text-muted" style={{ marginBottom: '18px', fontSize: '14px' }}>
+              Puedes dejar una nota para el pedido (opcional)
+            </p>
+            <div
+              onClick={() => setShowCommentKb(true)}
+              style={{
+                background: 'var(--store-secondary)', borderRadius: '12px', padding: '14px 16px',
+                border: '2px solid var(--store-primary)', marginBottom: '20px', textAlign: 'left',
+                minHeight: '52px', cursor: 'text', display: 'flex', alignItems: 'center'
+              }}
+            >
+              <span style={{ color: paymentComment ? 'var(--store-primary)' : '#aaa', fontSize: '16px', fontWeight: paymentComment ? '600' : '400', wordBreak: 'break-word' }}>
+                {paymentComment || 'Toca aquí para escribir…'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button
+                className="btn btn-lg btn-full store-glow-pulse"
+                style={{ backgroundColor: 'var(--store-secondary)', color: 'var(--store-primary)', border: '2px solid var(--store-primary)', borderRadius: '12px' }}
+                onClick={() => setShowCommentKb(true)}
+              >
+                ✏️ {paymentComment ? 'Editar comentario' : 'Escribir comentario'}
+              </button>
+              <button
+                className="btn btn-lg btn-full"
+                style={{ backgroundColor: 'var(--store-accent)', color: 'var(--store-primary)', border: 'none', borderRadius: '12px', fontWeight: '700' }}
+                onClick={() => {
+                  const method = pendingCommentMethod;
+                  const tNum = pendingCommentTableNum;
+                  setPendingCommentMethod(null);
+                  setPendingCommentTableNum(null);
+                  setShowCommentModal(false);
+                  skipCommentCheckRef.current = true;
+                  if (typeof method === 'string' && method.startsWith('android_tuu_')) {
+                    handleAndroidTuuPayment(parseInt(method.replace('android_tuu_', '')));
+                  } else {
+                    processPayment(method, tNum);
+                  }
+                }}
+              >
+                {paymentComment ? '✓ Confirmar y pagar' : 'Continuar sin comentario'}
+              </button>
+              <button
+                className="btn btn-lg btn-full"
+                style={{ backgroundColor: 'transparent', color: 'var(--store-primary)', border: '2px solid var(--store-primary)', borderRadius: '12px', opacity: 0.6 }}
+                onClick={() => {
+                  setShowCommentModal(false);
+                  setPendingCommentMethod(null);
+                  setPendingCommentTableNum(null);
+                  setPaymentComment('');
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCommentKb && (
+        <VirtualKeyboard
+          value={paymentComment}
+          onChange={setPaymentComment}
+          placeholder="Comentario del pedido"
+          onClose={() => setShowCommentKb(false)}
+        />
       )}
 
       {paymentModalOpen && (

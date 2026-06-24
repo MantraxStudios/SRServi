@@ -884,6 +884,10 @@ async function migrateTables() {
         await pool.execute('ALTER TABLE orders ADD COLUMN show_time DATETIME DEFAULT NULL');
         console.log('✅ Columna show_time agregada a orders');
       }
+      if (!orderColumnNames.includes('customer_comment')) {
+        await pool.execute('ALTER TABLE orders ADD COLUMN customer_comment TEXT DEFAULT NULL');
+        console.log('✅ Columna customer_comment agregada a orders');
+      }
     } catch (orderMigrationError) {
       console.error('❌ Error migrando columnas de cupones en orders:', orderMigrationError.message);
     }
@@ -1221,6 +1225,9 @@ async function migrateTables() {
       }
       if (!configColNames.includes('delivery_payment_methods')) {
         await pool.execute("ALTER TABLE store_configurations ADD COLUMN delivery_payment_methods VARCHAR(255) NOT NULL DEFAULT 'tuu,mercadopago'");
+      }
+      if (!configColNames.includes('require_order_comment')) {
+        await pool.execute('ALTER TABLE store_configurations ADD COLUMN require_order_comment BOOLEAN NOT NULL DEFAULT FALSE');
       }
     } catch (migErr) {
       if (migErr.message.includes('Duplicate column')) {
@@ -2752,7 +2759,8 @@ export async function getStoreConfigurations(storeId) {
     allow_ticketeria: Boolean(row.allow_ticketeria),
     hide_decimals: Boolean(row.hide_decimals),
     allow_table_service: Boolean(row.allow_table_service),
-    delivery_enabled: Boolean(row.delivery_enabled)
+    delivery_enabled: Boolean(row.delivery_enabled),
+    require_order_comment: Boolean(row.require_order_comment)
   }));
 }
 
@@ -2765,7 +2773,7 @@ export async function getStoreConfigurationById(configId, storeId) {
 }
 
 export async function createStoreConfiguration(storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods } = data;
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods, require_order_comment } = data;
   const tipPct = parseFloat(tip_percentage) || 0;
   const delivMethods = Array.isArray(delivery_payment_methods) ? delivery_payment_methods.join(',') : (delivery_payment_methods || 'tuu,mercadopago');
 
@@ -2777,8 +2785,8 @@ export async function createStoreConfiguration(storeId, data) {
   }
 
   const [result] = await pool.execute(
-    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, !!is_default, !!is_minimarket, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, !!hide_decimals, !!allow_table_service, tipPct, !!delivery_enabled, delivMethods]
+    'INSERT INTO store_configurations (store_id, name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods, require_order_comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, !!is_default, !!is_minimarket, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, !!hide_decimals, !!allow_table_service, tipPct, !!delivery_enabled, delivMethods, !!require_order_comment]
   );
   return {
     id: result.insertId,
@@ -2797,12 +2805,13 @@ export async function createStoreConfiguration(storeId, data) {
     allow_table_service: !!allow_table_service,
     tip_percentage: tipPct,
     delivery_enabled: !!delivery_enabled,
-    delivery_payment_methods: delivMethods
+    delivery_payment_methods: delivMethods,
+    require_order_comment: !!require_order_comment
   };
 }
 
 export async function updateStoreConfiguration(configId, storeId, data) {
-  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods } = data;
+  const { name, description, accept_cash, accept_card, is_active, is_default, is_minimarket, default_minimarket_terminal, allow_serve, allow_takeout, hide_decimals, allow_table_service, tip_percentage, delivery_enabled, delivery_payment_methods, require_order_comment } = data;
   const tipPct = parseFloat(tip_percentage) || 0;
   const delivMethods = Array.isArray(delivery_payment_methods) ? delivery_payment_methods.join(',') : (delivery_payment_methods || 'tuu,mercadopago');
 
@@ -2814,8 +2823,8 @@ export async function updateStoreConfiguration(configId, storeId, data) {
   }
 
   await pool.execute(
-    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ?, allow_serve = ?, allow_takeout = ?, hide_decimals = ?, allow_table_service = ?, tip_percentage = ?, delivery_enabled = ?, delivery_payment_methods = ? WHERE id = ? AND store_id = ?',
-    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, !!is_default, !!is_minimarket, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, !!hide_decimals, !!allow_table_service, tipPct, !!delivery_enabled, delivMethods, configId, storeId]
+    'UPDATE store_configurations SET name = ?, description = ?, accept_cash = ?, accept_card = ?, is_active = ?, is_default = ?, is_minimarket = ?, default_minimarket_terminal = ?, allow_serve = ?, allow_takeout = ?, hide_decimals = ?, allow_table_service = ?, tip_percentage = ?, delivery_enabled = ?, delivery_payment_methods = ?, require_order_comment = ? WHERE id = ? AND store_id = ?',
+    [name, description || null, accept_cash !== false, accept_card !== false, is_active !== false, !!is_default, !!is_minimarket, default_minimarket_terminal || null, allow_serve !== false, allow_takeout !== false, !!hide_decimals, !!allow_table_service, tipPct, !!delivery_enabled, delivMethods, !!require_order_comment, configId, storeId]
   );
   return {
     id: configId,
@@ -2834,7 +2843,8 @@ export async function updateStoreConfiguration(configId, storeId, data) {
     allow_table_service: !!allow_table_service,
     tip_percentage: tipPct,
     delivery_enabled: !!delivery_enabled,
-    delivery_payment_methods: delivMethods
+    delivery_payment_methods: delivMethods,
+    require_order_comment: !!require_order_comment
   };
 }
 
@@ -3672,7 +3682,7 @@ export async function generateUniqueOrderNumber(storeId) {
 }
 
 export async function createOrder(storeId, orderData) {
-  const { order_type, items, payment_method, coupon_code, table_number, delivery_address, delivery_customer_id, customer_email, customer_name, persons, event_name, show_time } = orderData;
+  const { order_type, items, payment_method, coupon_code, table_number, delivery_address, delivery_customer_id, customer_email, customer_name, persons, event_name, show_time, customer_comment } = orderData;
   
   let subtotal = 0;
   items.forEach(item => {
@@ -3705,8 +3715,8 @@ export async function createOrder(storeId, orderData) {
   const finalPaymentProcess = isDeliveryApp ? 1 : paymentProcess;
 
   const [result] = await pool.execute(
-    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number, persons, source, customer_phone, customer_name, delivery_address, delivery_status, delivery_customer_id, customer_email, event_name, show_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', finalCashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, finalPaymentProcess, finalStatus, table_number || null, persons || null, orderData.source || null, orderData.customer_phone || null, customer_name || null, delivery_address || null, deliveryStatus, delivery_customer_id || null, customer_email || null, event_name || null, show_time || null]
+    'INSERT INTO orders (store_id, user_id, order_type, subtotal, discount_total, coupon_code, total, payment_method, cash_approved, mp_order_id, external_reference, terminal_id, pos_pin, payment_process, status, table_number, persons, source, customer_phone, customer_name, delivery_address, delivery_status, delivery_customer_id, customer_email, event_name, show_time, customer_comment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, store.user_id, order_type || 'serve', couponData.subtotal, couponData.discount_total, couponData.coupon_code, total, payment_method || 'card', finalCashApproved, orderData.mp_order_id || null, orderData.external_reference || null, orderData.terminal_id || null, posPin, finalPaymentProcess, finalStatus, table_number || null, persons || null, orderData.source || null, orderData.customer_phone || null, customer_name || null, delivery_address || null, deliveryStatus, delivery_customer_id || null, customer_email || null, event_name || null, show_time || null, customer_comment || null]
   );
   const orderId = result.insertId;
 
