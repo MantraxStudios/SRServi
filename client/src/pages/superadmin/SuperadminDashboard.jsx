@@ -63,6 +63,7 @@ import {
   faUserTie,
   faWifi,
 } from '@fortawesome/free-solid-svg-icons';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 function SuperadminDashboard() {
   const [activeTab, setActiveTab] = useState('users');
@@ -680,6 +681,13 @@ function SuperadminDashboard() {
     usersPremium: users.filter(u => premiumUserIds.has(u.id)).length,
   };
 
+  const getWhatsAppUrl = (phone) => {
+    if (!phone) return null;
+    const clean = phone.replace(/[\s\-\(\)]/g, '').replace(/^\+/, '');
+    const msg = encodeURIComponent('Hola, somos del equipo de SRAutomatic. ¿Cómo podemos ayudarte?');
+    return `https://wa.me/${clean}?text=${msg}`;
+  };
+
   const formatLastActive = (date) => {
     if (!date) return 'Nunca';
     const now = new Date();
@@ -1074,6 +1082,11 @@ function SuperadminDashboard() {
                             <button className={`btn btn-sm btn-icon ${user.is_banned ? 'btn-unban' : 'btn-ban'}`} onClick={() => handleToggleBanUser(user)} title={user.is_banned ? 'Desbanear' : 'Banear'}><FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} /></button>
                             <button className="btn btn-sm btn-icon btn-delete" onClick={() => setShowDeleteConfirm({ type: 'user', id: user.id, name: user.username })} title="Eliminar"><FontAwesomeIcon icon={faTrash} /></button>
                             <button className="btn btn-sm btn-icon" onClick={() => handleImpersonate(user)} title="Ingresar como este usuario" style={{ background: '#7c3aed', color: '#fff', border: 'none' }}><FontAwesomeIcon icon={faUserSecret} /></button>
+                            {getWhatsAppUrl(user.phone) && (
+                              <a href={getWhatsAppUrl(user.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-icon" title={`WhatsApp: ${user.phone}`} style={{ background: '#25D366', color: '#fff', border: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <FontAwesomeIcon icon={faWhatsapp} />
+                              </a>
+                            )}
                           </div>
                         </div>
                       );
@@ -1130,6 +1143,11 @@ function SuperadminDashboard() {
                                 <button className={`btn btn-sm btn-icon ${user.is_banned ? 'btn-unban' : 'btn-ban'}`} onClick={() => handleToggleBanUser(user)} title={user.is_banned ? 'Desbanear' : 'Banear'}><FontAwesomeIcon icon={user.is_banned ? faCheck : faBan} /></button>
                                 <button className="btn btn-sm btn-icon btn-delete" onClick={() => setShowDeleteConfirm({ type: 'user', id: user.id, name: user.username })} title="Eliminar"><FontAwesomeIcon icon={faTrash} /></button>
                                 <button className="btn btn-sm btn-icon" onClick={() => handleImpersonate(user)} title="Ingresar como este usuario" style={{ background: '#7c3aed', color: '#fff', border: 'none' }}><FontAwesomeIcon icon={faUserSecret} /></button>
+                                {getWhatsAppUrl(user.phone) && (
+                                  <a href={getWhatsAppUrl(user.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-icon" title={`Contactar por WhatsApp: ${user.phone}`} style={{ background: '#25D366', color: '#fff', border: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <FontAwesomeIcon icon={faWhatsapp} />
+                                  </a>
+                                )}
                               </td>
                             </tr>
                           );

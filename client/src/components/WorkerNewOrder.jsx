@@ -80,6 +80,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
   const [editingPayTotal, setEditingPayTotal] = useState(false);
   const [tables, setTables] = useState([]);
   const [selectedTableId, setSelectedTableId] = useState(null);
+  const [orderNote, setOrderNote] = useState('');
 
   const categoryScrollRef = useRef(null);
   const payEditInputRef = useRef(null);
@@ -246,6 +247,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
           setPaymentConfirmed(true);
           setLastOrderNumber(pendingOrderData.order.order_number);
           setCart([]);
+          setOrderNote('');
           setPaymentWaiting(false);
         } else if (isCancelled) {
           clearInterval(pollInterval);
@@ -577,7 +579,8 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
       total: Number(total).toFixed(2),
       custom_total: customTotal !== null ? Number(customTotal) : null,
       from_worker: true,
-      table_number: orderType === 'serve' && selectedTableId ? selectedTableId : null
+      table_number: orderType === 'serve' && selectedTableId ? selectedTableId : null,
+      customer_comment: orderNote.trim() || null
     };
 
     try {
@@ -636,6 +639,7 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
         setLastOrderNumber(order.order_number);
         setCashPaymentSuccess(true);
         setCart([]);
+        setOrderNote('');
       }
     } catch (err) {
       setPaymentError(err.message);
@@ -1135,6 +1139,30 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
                   </div>
                 </div>
               )}
+
+              {/* Nota / Comentario del pedido */}
+              <div style={{ marginBottom: '8px' }}>
+                <textarea
+                  value={orderNote}
+                  onChange={e => setOrderNote(e.target.value)}
+                  placeholder="Comentario del pedido (opcional)..."
+                  rows={2}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: orderNote.trim() ? '1px solid rgba(212,175,55,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '0.85rem',
+                    resize: 'none',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    fontFamily: 'inherit',
+                    lineHeight: 1.4
+                  }}
+                />
+              </div>
 
               <button
                 disabled={cart.length === 0}

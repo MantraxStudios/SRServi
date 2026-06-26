@@ -4552,7 +4552,7 @@ export async function authenticateSuperadmin(email, password) {
 
 export async function getAllUsers() {
   const [rows] = await pool.execute(`
-    SELECT u.id, u.username, u.email, u.business_name, u.code, u.is_banned, u.created_at, u.last_active, u.country,
+    SELECT u.id, u.username, u.email, u.business_name, u.code, u.is_banned, u.created_at, u.last_active, u.country, u.phone,
            COUNT(s.id) as store_count
     FROM users u
     LEFT JOIN stores s ON u.id = s.user_id
