@@ -1451,6 +1451,7 @@ function Store() {
   const [pendingCommentMethod, setPendingCommentMethod] = useState(null);
   const [pendingCommentTableNum, setPendingCommentTableNum] = useState(null);
   const skipCommentCheckRef = useRef(false);
+  const [androidTuuWaiting, setAndroidTuuWaiting] = useState(false);
   const [notification, setNotification] = useState(null);
   const [barcode, setBarcode] = useState('');
   const barcodeInputRef = useRef(null);
@@ -2966,29 +2967,39 @@ function Store() {
       const amount = Math.round(Number(finalTotal));
       const orderRef = String(order.order_number || order.id);
       setProcessingPayment(false);
+      setPaymentModalOpen(false);
+      setPendingOrderData({ order, storeId });
+      setAndroidTuuWaiting(true);
+      setPaymentWaiting(true);
+      setPaymentTimeLeft(300);
 
       window.onTuuPaymentResult = (result) => {
         const data = typeof result === 'string' ? JSON.parse(result) : result;
         if (data.approved) {
+          setAndroidTuuWaiting(false);
+          setPaymentWaiting(false);
           setPaymentConfirmed(true);
           setLastOrderNumber(order.order_number);
           setCart([]);
           setCartOpen(false);
           setPaymentModalOpen(false);
         } else {
-          // Cancelar el pedido en el servidor para que el usuario pueda reintentar
           fetch(`${API}/api/orders/${order.id}/cancel-payment`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ store_id: storeId })
           }).catch(() => {});
+          setAndroidTuuWaiting(false);
+          setPaymentWaiting(false);
           setProcessingPayment(false);
-          setPaymentError(data.errorMessage || 'Pago cancelado');
+          setPaymentCancelled(true);
         }
       };
 
       window.AndroidBridge.processTuuPayment(amount, method, orderRef);
     } catch (err) {
+      setAndroidTuuWaiting(false);
+      setPaymentWaiting(false);
       setPaymentError(err.message);
       setProcessingPayment(false);
       alert(err.message);
@@ -2997,6 +3008,21 @@ function Store() {
 
   useEffect(() => {
     if (!paymentWaiting || !pendingOrderData) return;
+    if (androidTuuWaiting) {
+      const timerInterval = setInterval(() => {
+        setPaymentTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timerInterval);
+            setAndroidTuuWaiting(false);
+            setPaymentWaiting(false);
+            setPaymentCancelled(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timerInterval);
+    }
 
     const orderId = pendingOrderData.order.id;
     const storeId = pendingOrderData.storeId;
@@ -3128,7 +3154,7 @@ function Store() {
       clearInterval(pollInterval);
       clearInterval(timerInterval);
     };
-  }, [paymentWaiting, pendingOrderData, tuuPaymentKey, squarePaymentKey, haulmerReference]);
+  }, [paymentWaiting, pendingOrderData, tuuPaymentKey, squarePaymentKey, haulmerReference, androidTuuWaiting]);
 
   useEffect(() => {
     setAppliedCoupon(null);
