@@ -6261,7 +6261,7 @@ function Store() {
       )}
 
       {showCommentModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" style={{ zIndex: 3100 }}>
           <div className="modal text-center" style={{ maxWidth: '400px' }}>
             <h2 style={{ color: 'var(--store-primary)', marginBottom: '8px', fontSize: '22px' }}>
               Agregar comentario
@@ -6307,18 +6307,6 @@ function Store() {
                 }}
               >
                 {paymentComment ? '✓ Confirmar y pagar' : 'Continuar sin comentario'}
-              </button>
-              <button
-                className="btn btn-lg btn-full"
-                style={{ backgroundColor: 'transparent', color: 'var(--store-primary)', border: '2px solid var(--store-primary)', borderRadius: '12px', opacity: 0.6 }}
-                onClick={() => {
-                  setShowCommentModal(false);
-                  setPendingCommentMethod(null);
-                  setPendingCommentTableNum(null);
-                  setPaymentComment('');
-                }}
-              >
-                Cancelar
               </button>
             </div>
           </div>
