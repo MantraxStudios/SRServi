@@ -7289,20 +7289,25 @@ function Store() {
               />
 
               {/* 5. Stock */}
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer', flex: 1 }}>
-                  <input type="checkbox" checked={prodForm.unlimited_stock} onChange={(e) => setProdForm({ ...prodForm, unlimited_stock: e.target.checked })} />
-                  Stock ilimitado
-                </label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 12px', borderRadius: 10, border: `2px solid ${prodForm.unlimited_stock ? '#22c55e' : '#e0e0e0'}`, background: prodForm.unlimited_stock ? '#f0fdf4' : '#fafafa', transition: 'all 0.2s' }}>
+                <div
+                  onClick={() => setProdForm({ ...prodForm, unlimited_stock: !prodForm.unlimited_stock })}
+                  style={{ width: 40, height: 22, borderRadius: 11, background: prodForm.unlimited_stock ? '#22c55e' : '#ccc', position: 'relative', cursor: 'pointer', flexShrink: 0, transition: 'background 0.2s' }}
+                >
+                  <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: prodForm.unlimited_stock ? 20 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                </div>
+                <span onClick={() => setProdForm({ ...prodForm, unlimited_stock: !prodForm.unlimited_stock })} style={{ fontSize: 13, fontWeight: 600, color: prodForm.unlimited_stock ? '#15803d' : '#666', cursor: 'pointer', flex: 1 }}>
+                  {prodForm.unlimited_stock ? '∞ Stock ilimitado' : 'Stock limitado'}
+                </span>
                 {!prodForm.unlimited_stock && (
                   <input
                     type="number"
                     min="0"
                     value={prodForm.stock}
                     onChange={(e) => setProdForm({ ...prodForm, stock: e.target.value })}
-                    placeholder="Stock"
+                    placeholder="0"
                     className="store-prod-modal-input"
-                    style={{ width: '80px' }}
+                    style={{ width: 70, textAlign: 'center', fontSize: 14, fontWeight: 700 }}
                   />
                 )}
               </div>
