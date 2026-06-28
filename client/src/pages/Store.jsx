@@ -2973,9 +2973,16 @@ function Store() {
       setPaymentWaiting(true);
       setPaymentTimeLeft(300);
 
-      window.onTuuPaymentResult = (result) => {
+      window.onTuuPaymentResult = async (result) => {
         const data = typeof result === 'string' ? JSON.parse(result) : result;
         if (data.approved) {
+          try {
+            await fetch(`${API}/api/orders/${order.id}/confirm-payment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ store_id: storeId })
+            });
+          } catch (e) { console.error('Error confirming payment:', e); }
           setAndroidTuuWaiting(false);
           setPaymentWaiting(false);
           setPaymentConfirmed(true);
