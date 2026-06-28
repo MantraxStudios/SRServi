@@ -2550,7 +2550,8 @@ function Store() {
     setCartOpen(false);
 
     // Si solo hay un método de pago activo, ir directo sin propina
-    if (!deliveryMode) {
+    // (excepto en modo TUU Android, que necesita mostrar el modal con los botones TUU)
+    if (!deliveryMode && !(tuuModePayFromUrl && androidBridgeAvailable)) {
       const methodCount = [localAcceptCard, localAcceptCash].filter(Boolean).length;
       if (methodCount === 1) {
         setTipEnabled(false);
