@@ -7393,6 +7393,12 @@ function Store() {
                               ><FontAwesomeIcon icon={faEdit} /></button>
                               <button
                                 type="button"
+                                onClick={() => deleteSectionGroup(g.id)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px 4px', fontSize: 13, flexShrink: 0 }}
+                                title="Eliminar sección"
+                              ><FontAwesomeIcon icon={faTrash} /></button>
+                              <button
+                                type="button"
                                 onClick={() => setSectionEditingGroup(g)}
                                 style={{ flexShrink: 0, padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: `1.5px solid ${checked ? 'var(--store-primary)' : '#ccc'}`, background: 'transparent', color: checked ? 'var(--store-primary)' : '#777', cursor: 'pointer' }}
                                 title="Editar opciones"
