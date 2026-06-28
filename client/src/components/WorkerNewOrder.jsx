@@ -339,6 +339,9 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
       if (exists) {
         return { ...prev, selectedIngredients: prev.selectedIngredients.filter(i => i.id !== ingredient.id) };
       }
+      const max = parseInt(selectedProduct?.max_ingredients) || 0;
+      const nonDefaultCount = prev.selectedIngredients.filter(i => !i.included_by_default).length;
+      if (max > 0 && !ingredient.included_by_default && nonDefaultCount >= max) return prev;
       return { ...prev, selectedIngredients: [...prev.selectedIngredients, ingredient] };
     });
   };
@@ -350,6 +353,8 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
       if (exists) {
         return { ...prev, selectedExtras: prev.selectedExtras.filter(e => e.id !== extra.id) };
       }
+      const max = parseInt(selectedProduct?.max_extras) || 0;
+      if (max > 0 && prev.selectedExtras.length >= max) return prev;
       return { ...prev, selectedExtras: [...prev.selectedExtras, extra] };
     });
   };
@@ -1199,24 +1204,34 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
 
               {/* Modal body */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem' }}>
-                {modalStep === 'ingredients' && selectedProduct.ingredients && selectedProduct.ingredients.length > 0 && (
+                {modalStep === 'ingredients' && selectedProduct.ingredients && selectedProduct.ingredients.length > 0 && (() => {
+                  const maxIng = parseInt(selectedProduct.max_ingredients) || 0;
+                  const nonDefaultSelected = productConfig.selectedIngredients.filter(i => !i.included_by_default).length;
+                  const atMaxIng = maxIng > 0 && nonDefaultSelected >= maxIng;
+                  return (
                   <>
-                    <h4 style={{ color: 'rgba(255,255,255,0.7)', margin: '0 0 0.75rem', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <h4 style={{ color: 'rgba(255,255,255,0.7)', margin: '0 0 0.75rem', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {complementsLabel}
+                      {maxIng > 0 && (
+                        <span style={{ color: atMaxIng ? '#D4AF37' : 'rgba(255,255,255,0.4)', fontSize: '0.72rem', fontWeight: 400 }}>
+                          ({nonDefaultSelected}/{maxIng})
+                        </span>
+                      )}
                     </h4>
                     {selectedProduct.ingredients.map(ing => {
                       const isSelected = productConfig.selectedIngredients.some(s => s.id === ing.id);
                       const isOutOfStock = !ing.unlimited_stock && ing.stock === 0;
+                      const isDisabled = isOutOfStock || (!isSelected && !ing.included_by_default && atMaxIng);
                       return (
                         <div
                           key={ing.id}
-                          onClick={() => !isOutOfStock && toggleIngredient(ing)}
+                          onClick={() => !isDisabled && toggleIngredient(ing)}
                           style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: '0.65rem 0.75rem', marginBottom: '0.4rem', borderRadius: '8px', cursor: isOutOfStock ? 'not-allowed' : 'pointer',
+                            padding: '0.65rem 0.75rem', marginBottom: '0.4rem', borderRadius: '8px', cursor: isDisabled ? 'not-allowed' : 'pointer',
                             background: isSelected ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)',
                             border: isSelected ? '1px solid rgba(212,175,55,0.3)' : '1px solid rgba(255,255,255,0.06)',
-                            opacity: isOutOfStock ? 0.4 : 1
+                            opacity: isDisabled ? 0.4 : 1
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1246,26 +1261,37 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
                       );
                     })}
                   </>
-                )}
+                  );
+                })()}
 
-                {modalStep === 'extras' && selectedProduct.extras && selectedProduct.extras.length > 0 && (
+                {modalStep === 'extras' && selectedProduct.extras && selectedProduct.extras.length > 0 && (() => {
+                  const maxExt = parseInt(selectedProduct.max_extras) || 0;
+                  const extSelected = productConfig.selectedExtras.length;
+                  const atMaxExt = maxExt > 0 && extSelected >= maxExt;
+                  return (
                   <>
-                    <h4 style={{ color: 'rgba(255,255,255,0.7)', margin: '0 0 0.75rem', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <h4 style={{ color: 'rgba(255,255,255,0.7)', margin: '0 0 0.75rem', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {extrasLabel}
+                      {maxExt > 0 && (
+                        <span style={{ color: atMaxExt ? '#D4AF37' : 'rgba(255,255,255,0.4)', fontSize: '0.72rem', fontWeight: 400 }}>
+                          ({extSelected}/{maxExt})
+                        </span>
+                      )}
                     </h4>
                     {selectedProduct.extras.map(ext => {
                       const isSelected = productConfig.selectedExtras.some(s => s.id === ext.id);
                       const isOutOfStock = !ext.unlimited_stock && ext.stock === 0;
+                      const isDisabled = isOutOfStock || (!isSelected && atMaxExt);
                       return (
                         <div
                           key={ext.id}
-                          onClick={() => !isOutOfStock && toggleExtra(ext)}
+                          onClick={() => !isDisabled && toggleExtra(ext)}
                           style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: '0.65rem 0.75rem', marginBottom: '0.4rem', borderRadius: '8px', cursor: isOutOfStock ? 'not-allowed' : 'pointer',
+                            padding: '0.65rem 0.75rem', marginBottom: '0.4rem', borderRadius: '8px', cursor: isDisabled ? 'not-allowed' : 'pointer',
                             background: isSelected ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)',
                             border: isSelected ? '1px solid rgba(212,175,55,0.3)' : '1px solid rgba(255,255,255,0.06)',
-                            opacity: isOutOfStock ? 0.4 : 1
+                            opacity: isDisabled ? 0.4 : 1
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1288,34 +1314,38 @@ function WorkerNewOrder({ worker, storeId, storeCode, onClose, onOrderCreated, e
                       );
                     })}
                   </>
-                )}
+                  );
+                })()}
 
                 {modalStep === 'groups' && selectedProduct.complement_groups && selectedProduct.complement_groups.length > 0 && (
                   <>
                     {selectedProduct.complement_groups.map(group => {
                       const selInGroup = (productConfig.selectedComplements || []).filter(s => s.group_id === group.id);
+                      const atMaxGroup = group.max_select > 0 && selInGroup.length >= group.max_select;
                       return (
                         <div key={group.id} style={{ marginBottom: '1rem' }}>
                           <h4 style={{ color: 'rgba(255,255,255,0.7)', margin: '0 0 0.5rem', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             {group.name}
                             {group.required && <span style={{ color: '#ef4444', fontSize: '0.7rem' }}>*</span>}
                             {(group.min_select > 0 || group.max_select > 0) && (
-                              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', fontWeight: 400 }}>
+                              <span style={{ color: atMaxGroup ? '#D4AF37' : 'rgba(255,255,255,0.4)', fontSize: '0.72rem', fontWeight: 400 }}>
                                 ({selInGroup.length}{group.max_select > 0 ? `/${group.max_select}` : ''})
                               </span>
                             )}
                           </h4>
                           {(group.options || []).map(opt => {
                             const isSelected = selInGroup.some(s => s.option_id === opt.id);
+                            const isOptDisabled = !isSelected && atMaxGroup && group.max_select !== 1;
                             return (
                               <div
                                 key={opt.id}
-                                onClick={() => toggleComplementOption(group, opt)}
+                                onClick={() => !isOptDisabled && toggleComplementOption(group, opt)}
                                 style={{
                                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                  padding: '0.65rem 0.75rem', marginBottom: '0.4rem', borderRadius: '8px', cursor: 'pointer',
+                                  padding: '0.65rem 0.75rem', marginBottom: '0.4rem', borderRadius: '8px', cursor: isOptDisabled ? 'not-allowed' : 'pointer',
                                   background: isSelected ? 'rgba(212,175,55,0.12)' : 'rgba(255,255,255,0.04)',
-                                  border: isSelected ? '1px solid rgba(212,175,55,0.3)' : '1px solid rgba(255,255,255,0.06)'
+                                  border: isSelected ? '1px solid rgba(212,175,55,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                                  opacity: isOptDisabled ? 0.4 : 1
                                 }}
                               >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
