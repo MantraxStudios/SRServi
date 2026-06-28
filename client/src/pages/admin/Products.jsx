@@ -518,6 +518,25 @@ function Products() {
     } catch (err) { console.error('Error guardando orden ingredientes:', err); }
   };
 
+  const handleDeleteSection = async (groupId) => {
+    if (!confirm('¿Eliminar esta sección? Se quitará de todos los productos que la usen.')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/complement-groups/${groupId}?store_id=${selectedStore.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Error al eliminar la sección');
+      setComplementGroups(prev => prev.filter(g => g.id !== groupId));
+      setFormData(prev => ({
+        ...prev,
+        complement_group_ids: (prev.complement_group_ids || []).filter(id => id !== groupId)
+      }));
+    } catch (err) {
+      alert(err.message || 'Error al eliminar la sección');
+    }
+  };
+
   const handleCreateSectionInline = async () => {
     if (!newSectionData.name.trim()) {
       setNewSectionError('El nombre de la sección es obligatorio.');
@@ -1183,21 +1202,31 @@ function Products() {
                         {complementGroups.map(g => {
                           const checked = (formData.complement_group_ids || []).includes(g.id);
                           return (
-                            <label key={g.id} className="form-toggle-card" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={(e) => {
-                                  const cur = formData.complement_group_ids || [];
-                                  setFormData({
-                                    ...formData,
-                                    complement_group_ids: e.target.checked ? [...cur, g.id] : cur.filter(id => id !== g.id)
-                                  });
-                                }}
-                              />
-                              <span className="toggle-card-title">{g.name}</span>
-                              <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 'auto' }}>{g.options.length} opciones</span>
-                            </label>
+                            <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <label className="form-toggle-card" style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1, margin: 0 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    const cur = formData.complement_group_ids || [];
+                                    setFormData({
+                                      ...formData,
+                                      complement_group_ids: e.target.checked ? [...cur, g.id] : cur.filter(id => id !== g.id)
+                                    });
+                                  }}
+                                />
+                                <span className="toggle-card-title">{g.name}</span>
+                                <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 'auto' }}>{g.options.length} opciones</span>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSection(g.id)}
+                                title="Eliminar sección"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '6px 8px', fontSize: 14, flexShrink: 0, borderRadius: 6 }}
+                              >
+                                <FontAwesomeIcon icon={faTrash} />
+                              </button>
+                            </div>
                           );
                         })}
                       </div>
