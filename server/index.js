@@ -1405,6 +1405,19 @@ app.put('/api/user/settings', authenticateToken, async (req, res) => {
   }
  });
 
+app.put('/api/user/phone', authenticateToken, async (req, res) => {
+  try {
+    const phone = (req.body.phone || '').trim();
+    if (!phone || phone.replace(/\D/g, '').length < 6) {
+      return res.status(400).json({ error: 'Número de teléfono inválido' });
+    }
+    await pool.execute('UPDATE users SET phone = ? WHERE id = ?', [phone, req.user.id]);
+    res.json({ success: true, phone });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/user/chatgpt-key', authenticateToken, async (req, res) => {
   try {
     const key = await getChatGptKey(req.user.id);

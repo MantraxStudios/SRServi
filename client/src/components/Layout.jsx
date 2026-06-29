@@ -139,6 +139,10 @@ function Layout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [fpStoreOpen, setFpStoreOpen] = useState(false);
+  const [phoneModal, setPhoneModal] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
   const [canInstall, setCanInstall] = useState(() => !!window.__pwaInstallPrompt);
   const [isInstalled, setIsInstalled] = useState(() =>
     window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
@@ -156,6 +160,30 @@ function Layout() {
     setAccountOpen(false);
     setFpStoreOpen(false);
   }, [location.pathname]);
+
+  // Check if user needs to add phone number
+  useEffect(() => {
+    if (user && !user.phone && !isSubAccount) setPhoneModal(true);
+  }, [user]);
+
+  const savePhone = async () => {
+    const digits = phoneInput.replace(/\D/g, '');
+    if (digits.length < 6) { setPhoneError('Ingresa un número válido'); return; }
+    setPhoneSaving(true);
+    setPhoneError('');
+    try {
+      const res = await fetch(`${API}/api/user/phone`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ phone: phoneInput.trim() })
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Error'); }
+      const updated = { ...user, phone: phoneInput.trim() };
+      localStorage.setItem('user', JSON.stringify(updated));
+      window.location.reload();
+    } catch (e) { setPhoneError(e.message); }
+    setPhoneSaving(false);
+  };
 
   // PWA install availability
   useEffect(() => {
@@ -967,6 +995,58 @@ function Layout() {
         </main>
       </div>
 
+
+      {/* Phone required modal */}
+      {phoneModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 99999,
+          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+        }}>
+          <div style={{
+            background: '#111', border: '1px solid rgba(212,175,55,0.3)',
+            borderRadius: 16, padding: '28px 24px', maxWidth: 400, width: '100%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>📞</div>
+              <h3 style={{ color: '#fff', margin: '0 0 6px', fontSize: 18, fontWeight: 800 }}>Número de teléfono requerido</h3>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, margin: 0 }}>
+                Para continuar usando SRServi necesitamos tu número de contacto
+              </p>
+            </div>
+            {phoneError && (
+              <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#f87171', marginBottom: 12 }}>
+                {phoneError}
+              </div>
+            )}
+            <input
+              type="tel"
+              placeholder="Ej: +56 9 1234 5678"
+              value={phoneInput}
+              onChange={e => setPhoneInput(e.target.value)}
+              style={{
+                width: '100%', padding: '12px 14px', background: 'rgba(255,255,255,0.06)',
+                border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10,
+                color: '#fff', fontSize: 15, outline: 'none', boxSizing: 'border-box',
+                marginBottom: 14
+              }}
+            />
+            <button
+              onClick={savePhone}
+              disabled={phoneSaving || !phoneInput.trim()}
+              style={{
+                width: '100%', padding: '13px', border: 'none', borderRadius: 10,
+                background: !phoneInput.trim() || phoneSaving ? '#333' : 'linear-gradient(135deg, #D4AF37, #B8952D)',
+                color: !phoneInput.trim() || phoneSaving ? '#666' : '#000',
+                fontWeight: 800, fontSize: 15, cursor: !phoneInput.trim() || phoneSaving ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {phoneSaving ? 'Guardando...' : 'Guardar y continuar'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Duplicate store modal */}
       {duplicateModal && (
