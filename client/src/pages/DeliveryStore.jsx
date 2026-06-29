@@ -1019,8 +1019,15 @@ export default function DeliveryStore() {
 
       {/* ── Floating Cart ─────────────────────────────────────────────────────── */}
       {cart.length > 0 && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px 32px', background: 'linear-gradient(to top, #f4f4f6 72%, transparent)', zIndex: 40 }}>
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '8px 16px 32px', background: 'linear-gradient(to top, #f4f4f6 72%, transparent)', zIndex: 40 }}>
           <div style={{ maxWidth: 700, margin: '0 auto' }}>
+            <textarea
+              placeholder="Comentario: sin cebolla, tocar timbre..."
+              value={orderNotes}
+              onChange={e => setOrderNotes(e.target.value)}
+              rows={1}
+              style={{ width: '100%', padding: '9px 14px', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 12, color: '#111', fontSize: 13, outline: 'none', boxSizing: 'border-box', resize: 'none', fontFamily: 'inherit', marginBottom: 8 }}
+            />
             <button
               onClick={handleCheckout}
               disabled={cartTotal < minOrder}
@@ -1188,18 +1195,6 @@ export default function DeliveryStore() {
                     💵 Efectivo contra entrega
                   </div>
                 )}
-              </div>
-
-              {/* Order notes */}
-              <div style={{ background: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
-                <div style={{ fontWeight: 800, fontSize: 12, color: '#9ca3af', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.6 }}>Comentario (opcional)</div>
-                <textarea
-                  placeholder="Ej: Sin cebolla, tocar timbre, dejar en portería..."
-                  value={orderNotes}
-                  onChange={e => setOrderNotes(e.target.value)}
-                  rows={2}
-                  style={{ width: '100%', padding: '12px 14px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 12, color: '#111', fontSize: 14, outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
-                />
               </div>
 
               <button
