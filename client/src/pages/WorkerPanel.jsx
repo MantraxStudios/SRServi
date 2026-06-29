@@ -868,7 +868,8 @@ function WorkerPanel() {
       const items = (o.items||[]).map(i => {
         const ings = Array.isArray(i.selected_ingredients) ? i.selected_ingredients.map(x=>x.name||x).join(', ') : '';
         const exts = Array.isArray(i.selected_extras) ? i.selected_extras.map(x=>x.name||x).join(', ') : '';
-        return '<div style="margin-bottom:3px"><strong>'+i.quantity+'x</strong> '+(i.product_name||i.name||'Producto')+(ings?'<br><span style="color:#666;font-size:11px">'+ings+'</span>':'')+(exts?'<br><span style="color:#888;font-size:11px">+ '+exts+'</span>':'')+'</div>';
+        const comps = Array.isArray(i.selected_complements) ? i.selected_complements.map(x=>x.name||x).join(', ') : '';
+        return '<div style="margin-bottom:3px"><strong>'+i.quantity+'x</strong> '+(i.product_name||i.name||'Producto')+(ings?'<br><span style="color:#666;font-size:11px">'+ings+'</span>':'')+(exts?'<br><span style="color:#888;font-size:11px">+ '+exts+'</span>':'')+(comps?'<br><span style="color:#888;font-size:11px">+ '+comps+'</span>':'')+'</div>';
       }).join('');
       const originalTotal = (o.items||[]).reduce((s,i) => s + Number(i.unit_price||0)*Number(i.quantity||1), 0);
       const finalTotal = Number(o.total||0);
@@ -1705,6 +1706,15 @@ function WorkerPanel() {
                               })}
                             </div>
                           )}
+                          {Array.isArray(item.selected_complements) && item.selected_complements.length > 0 && (
+                            <div className="worker-order-item-addons">
+                              {item.selected_complements.map((c, i) => {
+                                const name = typeof c === 'object' ? (c.name || '') : (c || '');
+                                const img = addonImages[name.toLowerCase()];
+                                return <AddonChip key={i} name={name} img={img} prefix="+" />;
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -1922,6 +1932,15 @@ function WorkerPanel() {
                             <div className="worker-order-item-addons">
                               {(Array.isArray(item.selected_extras) ? item.selected_extras : []).map((ext, i) => {
                                 const name = typeof ext === 'object' ? (ext.name || '') : (ext || '');
+                                const img = addonImages[name.toLowerCase()];
+                                return <AddonChip key={i} name={name} img={img} prefix="+" />;
+                              })}
+                            </div>
+                          )}
+                          {Array.isArray(item.selected_complements) && item.selected_complements.length > 0 && (
+                            <div className="worker-order-item-addons">
+                              {item.selected_complements.map((c, i) => {
+                                const name = typeof c === 'object' ? (c.name || '') : (c || '');
                                 const img = addonImages[name.toLowerCase()];
                                 return <AddonChip key={i} name={name} img={img} prefix="+" />;
                               })}
