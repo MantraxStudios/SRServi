@@ -169,7 +169,7 @@ function DeliveryAuthModal({ onAuth, onClose }) {
 }
 
 // ── Product Detail Modal ───────────────────────────────────────────────────────
-function ProductModal({ product, comboName, onAdd, onClose }) {
+function ProductModal({ product, comboName, complementsLabel, extrasLabel, onAdd, onClose }) {
   const [qty, setQty] = useState(product._comboQty || 1);
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [selectedIngredients, setSelectedIngredients] = useState(
@@ -347,7 +347,7 @@ function ProductModal({ product, comboName, onAdd, onClose }) {
                 {defaultIngs.length > 0 && (
                   <div style={{ marginBottom: 16 }}>
                     <div style={{ background: '#f9fafb', borderRadius: 10, padding: '9px 14px', marginBottom: 6, borderLeft: '3px solid #D4AF37' }}>
-                      <div style={{ fontWeight: 800, fontSize: 13, color: '#111' }}>Ingredientes incluidos</div>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: '#111' }}>{complementsLabel} — incluidos</div>
                       <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>Desmarcá los que no querés</div>
                     </div>
                     {defaultIngs.map(ing => {
@@ -370,7 +370,7 @@ function ProductModal({ product, comboName, onAdd, onClose }) {
                   <div>
                     <div style={{ background: '#f9fafb', borderRadius: 10, padding: '9px 14px', marginBottom: 6, borderLeft: '3px solid #D4AF37' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ fontWeight: 800, fontSize: 13, color: '#111' }}>Ingredientes adicionales</div>
+                        <div style={{ fontWeight: 800, fontSize: 13, color: '#111' }}>{complementsLabel} — adicionales</div>
                         {maxIngredients > 0 && (
                           <span style={{ fontSize: 12, fontWeight: 700, color: atMaxIng ? '#D4AF37' : '#9ca3af' }}>{nonDefaultSelected}/{maxIngredients}</span>
                         )}
@@ -403,7 +403,7 @@ function ProductModal({ product, comboName, onAdd, onClose }) {
               <div>
                 <div style={{ background: '#f9fafb', borderRadius: 10, padding: '9px 14px', marginBottom: 6, borderLeft: '3px solid #D4AF37' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ fontWeight: 800, fontSize: 13, color: '#111' }}>Extras</div>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: '#111' }}>{extrasLabel}</div>
                     {maxExtras > 0 && (
                       <span style={{ fontSize: 12, fontWeight: 700, color: selectedExtras.length >= maxExtras ? '#D4AF37' : '#9ca3af' }}>{selectedExtras.length}/{maxExtras}</span>
                     )}
@@ -1059,6 +1059,8 @@ export default function DeliveryStore() {
         <ProductModal
           product={selectedProduct}
           comboName={comboFlowRef.current.name}
+          complementsLabel={(store.complements_label || '').trim() || 'Ingredientes'}
+          extrasLabel={(store.extras_label || '').trim() || 'Extras'}
           onAdd={(item) => {
             addToCart(item);
             if (comboFlowRef.current.name) {
