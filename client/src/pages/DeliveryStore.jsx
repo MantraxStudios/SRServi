@@ -192,6 +192,8 @@ function ProductModal({ product, comboName, onAdd, onClose }) {
   const hasIngredients = product.has_ingredients && ingredients.length > 0;
   const hasExtras = product.has_extras && extras.length > 0;
   const hasGroups = complementGroups.length > 0;
+  const maxIngredients = parseInt(product.max_ingredients) || 0;
+  const maxExtras = product.max_extras || 0;
 
   const extrasTotal = selectedExtras.reduce((sum, extraId) => {
     const extra = extras.find(e => e.id === extraId);
@@ -201,7 +203,12 @@ function ProductModal({ product, comboName, onAdd, onClose }) {
   const itemUnitPrice = Number(product.price) + extrasTotal + complementsTotal;
   const itemTotal = itemUnitPrice * qty;
   const outOfStock = !product.unlimited_stock && product.stock === 0;
-  const maxExtras = product.max_extras || 0;
+
+  // Count only non-default selected ingredients (added ones, not removals)
+  const nonDefaultSelected = selectedIngredients.filter(id => {
+    const ing = ingredients.find(i => i.id === id);
+    return ing && !ing.included_by_default;
+  }).length;
 
   const toggleExtra = (extraId) => {
     setSelectedExtras(prev => {
@@ -211,10 +218,15 @@ function ProductModal({ product, comboName, onAdd, onClose }) {
     });
   };
 
-  const toggleIngredient = (ingredientId) => {
-    setSelectedIngredients(prev =>
-      prev.includes(ingredientId) ? prev.filter(id => id !== ingredientId) : [...prev, ingredientId]
-    );
+  const toggleIngredient = (ing) => {
+    if (!ing.unlimited_stock && ing.stock === 0) return;
+    setSelectedIngredients(prev => {
+      const isSelected = prev.includes(ing.id);
+      if (isSelected) return prev.filter(id => id !== ing.id);
+      // For non-default ingredients, enforce max_ingredients
+      if (!ing.included_by_default && maxIngredients > 0 && nonDefaultSelected >= maxIngredients) return prev;
+      return [...prev, ing.id];
+    });
   };
 
   const toggleComplementOption = (group, option) => {
@@ -304,26 +316,69 @@ function ProductModal({ product, comboName, onAdd, onClose }) {
             )}
           </div>
 
-          {step === 'ingredients' && hasIngredients && (
-            <div style={{ marginBottom: 22 }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: '#111', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 3, height: 16, background: '#D4AF37', borderRadius: 2 }} />
-                Ingredientes
-              </div>
-              {ingredients.map(ing => {
-                const selected = selectedIngredients.includes(ing.id);
-                const outOfStockIng = !ing.unlimited_stock && ing.stock === 0;
-                return (
-                  <div key={ing.id} onClick={() => !outOfStockIng && toggleIngredient(ing.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f3f4f6', cursor: outOfStockIng ? 'default' : 'pointer', opacity: outOfStockIng ? 0.4 : 1 }}>
-                    <span style={{ fontSize: 14, color: selected ? '#111' : '#6b7280', fontWeight: selected ? 600 : 400 }}>{ing.name}{outOfStockIng ? ' (agotado)' : ''}</span>
-                    <div style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: selected ? '#D4AF37' : '#f3f4f6', border: selected ? 'none' : '1.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-                      {selected && <span style={{ color: '#fff', fontSize: 12, fontWeight: 900 }}>✓</span>}
+          {step === 'ingredients' && hasIngredients && (() => {
+            const defaultIngs = ingredients.filter(i => i.included_by_default);
+            const extraIngs = ingredients.filter(i => !i.included_by_default);
+            const atMax = maxIngredients > 0 && nonDefaultSelected >= maxIngredients;
+            return (
+              <div style={{ marginBottom: 22 }}>
+                {/* Included ingredients (deselect to remove) */}
+                {defaultIngs.length > 0 && (
+                  <div style={{ marginBottom: extraIngs.length > 0 ? 18 : 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: '#111', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 3, height: 14, background: '#D4AF37', borderRadius: 2 }} />
+                      Incluidos
+                      <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400 }}>Desmarcá los que no querés</span>
                     </div>
+                    {defaultIngs.map(ing => {
+                      const selected = selectedIngredients.includes(ing.id);
+                      const outOfStockIng = !ing.unlimited_stock && ing.stock === 0;
+                      return (
+                        <div key={ing.id} onClick={() => !outOfStockIng && toggleIngredient(ing)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid #f3f4f6', cursor: outOfStockIng ? 'default' : 'pointer', opacity: outOfStockIng ? 0.4 : 1 }}>
+                          <span style={{ fontSize: 14, color: selected ? '#111' : '#9ca3af', fontWeight: selected ? 600 : 400, textDecoration: selected ? 'none' : 'line-through' }}>
+                            {ing.name}{outOfStockIng ? ' (agotado)' : ''}
+                          </span>
+                          <div style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: selected ? '#D4AF37' : '#f3f4f6', border: selected ? 'none' : '1.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                            {selected && <span style={{ color: '#fff', fontSize: 12, fontWeight: 900 }}>✓</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                )}
+                {/* Extra ingredients (select to add) */}
+                {extraIngs.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: '#111', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 3, height: 14, background: '#D4AF37', borderRadius: 2 }} />
+                      Adicionales
+                      {maxIngredients > 0 && (
+                        <span style={{ fontSize: 11, color: atMax ? '#D4AF37' : '#9ca3af', fontWeight: 700 }}>
+                          Elegí hasta {maxIngredients} · {nonDefaultSelected}/{maxIngredients}
+                        </span>
+                      )}
+                    </div>
+                    {extraIngs.map(ing => {
+                      const isSelected = selectedIngredients.includes(ing.id);
+                      const outOfStockIng = !ing.unlimited_stock && ing.stock === 0;
+                      const disabled = outOfStockIng || (!isSelected && atMax);
+                      return (
+                        <div key={ing.id} onClick={() => !disabled && toggleIngredient(ing)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid #f3f4f6', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
+                          <div>
+                            <div style={{ fontSize: 14, color: '#111', fontWeight: isSelected ? 700 : 400 }}>{ing.name}{outOfStockIng ? ' (agotado)' : ''}</div>
+                            {Number(ing.price) > 0 && <div style={{ fontSize: 12, color: '#D4AF37', fontWeight: 700, marginTop: 2 }}>+${Number(ing.price).toFixed(0)}</div>}
+                          </div>
+                          <div style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: isSelected ? '#D4AF37' : '#f3f4f6', border: isSelected ? 'none' : '1.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                            {isSelected && <span style={{ color: '#fff', fontSize: 12, fontWeight: 900 }}>✓</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {step === 'extras' && hasExtras && (
             <div style={{ marginBottom: 22 }}>
@@ -360,25 +415,37 @@ function ProductModal({ product, comboName, onAdd, onClose }) {
               {complementGroups.map(group => {
                 const selInGroup = selectedComplements.filter(s => s.group_id === group.id);
                 const atMax = group.max_select > 0 && selInGroup.length >= group.max_select;
+                const isRadio = group.max_select === 1;
+                const subtitle = isRadio
+                  ? 'Elegí una opción'
+                  : group.max_select > 0
+                    ? `Elegí hasta ${group.max_select}`
+                    : group.min_select > 0
+                      ? `Elegí al menos ${group.min_select}`
+                      : 'Opcional';
                 return (
-                  <div key={group.id} style={{ marginBottom: 20 }}>
-                    <div style={{ fontWeight: 800, fontSize: 14, color: '#111', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 3, height: 16, background: '#D4AF37', borderRadius: 2 }} />
-                      {group.name}
-                      {group.required && <span style={{ color: '#ef4444', fontSize: 11, fontWeight: 700 }}>*</span>}
-                      {group.max_select > 0 && (
-                        <span style={{ fontSize: 12, color: atMax ? '#D4AF37' : '#9ca3af', fontWeight: 600, marginLeft: 4 }}>
-                          {selInGroup.length}/{group.max_select}
-                        </span>
-                      )}
+                  <div key={group.id} style={{ marginBottom: 24 }}>
+                    {/* Section header */}
+                    <div style={{ background: '#f9fafb', borderRadius: 10, padding: '10px 14px', marginBottom: 8, borderLeft: '3px solid #D4AF37' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontWeight: 800, fontSize: 14, color: '#111' }}>{group.name}</span>
+                          {group.required && <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', background: '#ef4444', borderRadius: 20, padding: '1px 7px' }}>Obligatorio</span>}
+                        </div>
+                        {group.max_select > 0 && (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: atMax ? '#D4AF37' : '#9ca3af' }}>
+                            {selInGroup.length}/{group.max_select}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{subtitle}</div>
                     </div>
                     {(group.options || []).map(opt => {
                       const isSelected = selInGroup.some(s => s.option_id === opt.id);
                       const outOfStockOpt = !opt.unlimited_stock && opt.stock === 0;
-                      const disabled = outOfStockOpt || (!isSelected && atMax && group.max_select !== 1);
-                      const isRadio = group.max_select === 1;
+                      const disabled = outOfStockOpt || (!isSelected && atMax && !isRadio);
                       return (
-                        <div key={opt.id} onClick={() => !disabled && toggleComplementOption(group, opt)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f3f4f6', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
+                        <div key={opt.id} onClick={() => !disabled && toggleComplementOption(group, opt)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid #f3f4f6', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <div style={{ width: 22, height: 22, borderRadius: isRadio ? '50%' : 6, flexShrink: 0, background: isSelected ? '#D4AF37' : '#f3f4f6', border: isSelected ? 'none' : '1.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
                               {isSelected && <span style={{ color: '#fff', fontSize: 11, fontWeight: 900 }}>✓</span>}
