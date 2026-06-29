@@ -872,34 +872,22 @@ export default function DeliveryStore() {
         </div>
       </header>
 
-      {/* ── Hero Banner ───────────────────────────────────────────────────────── */}
-      <div style={{ position: 'relative', height: 200, background: '#111', overflow: 'hidden' }}>
-        {logoSrc && (
-          <img src={logoSrc} alt={store.name} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.65 }} />
-        )}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.25) 55%, transparent 100%)',
-          display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '18px 20px'
-        }}>
-          <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 900, margin: '0 0 10px', textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>{store.name}</h1>
-          {deliverySettings && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', color: '#fff', borderRadius: 20, padding: '5px 12px', fontSize: 12, fontWeight: 700, border: '1px solid rgba(255,255,255,0.2)' }}>
-                🚚 {deliverySettings.fee > 0 ? `Envío $${deliverySettings.fee}` : 'Envío gratis'}
-              </span>
-              <span style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', color: '#fff', borderRadius: 20, padding: '5px 12px', fontSize: 12, fontWeight: 700, border: '1px solid rgba(255,255,255,0.2)' }}>
-                ⏱ ~{deliverySettings.estimated_minutes || 45} min
-              </span>
-              {minOrder > 0 && (
-                <span style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', color: '#fff', borderRadius: 20, padding: '5px 12px', fontSize: 12, fontWeight: 700, border: '1px solid rgba(255,255,255,0.2)' }}>
-                  🛒 Mínimo ${minOrder}
-                </span>
-              )}
-            </div>
+      {/* ── Store Info Bar ────────────────────────────────────────────────────── */}
+      {deliverySettings && (
+        <div style={{ maxWidth: 700, margin: '0 auto', padding: '10px 16px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ background: '#f3f4f6', color: '#374151', borderRadius: 20, padding: '4px 10px', fontSize: 11, fontWeight: 600 }}>
+            🚚 {deliverySettings.fee > 0 ? `Envío $${deliverySettings.fee}` : 'Envío gratis'}
+          </span>
+          <span style={{ background: '#f3f4f6', color: '#374151', borderRadius: 20, padding: '4px 10px', fontSize: 11, fontWeight: 600 }}>
+            ⏱ ~{deliverySettings.estimated_minutes || 45} min
+          </span>
+          {minOrder > 0 && (
+            <span style={{ background: '#f3f4f6', color: '#374151', borderRadius: 20, padding: '4px 10px', fontSize: 11, fontWeight: 600 }}>
+              🛒 Mínimo ${minOrder}
+            </span>
           )}
         </div>
-      </div>
+      )}
 
       {/* ── Category Pills ────────────────────────────────────────────────────── */}
       {hasCategoryBar && (
