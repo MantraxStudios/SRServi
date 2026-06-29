@@ -2610,6 +2610,7 @@ html body .store-container .store-product-card * {
   justify-content: center;
   overflow: hidden;
   position: relative;
+  border-radius: 12px;
 }
 
 .store-product-image img {
@@ -2617,6 +2618,7 @@ html body .store-container .store-product-card * {
   max-height: 100%;
   object-fit: contain;
   transition: transform var(--transition-slow);
+  border-radius: 12px;
 }
 
 .store-product-image img.grayscale {
