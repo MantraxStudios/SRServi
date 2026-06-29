@@ -172,15 +172,33 @@ function DeliveryAuthModal({ onAuth, onClose }) {
 function ProductModal({ product, onAdd, onClose }) {
   const [qty, setQty] = useState(1);
   const [selectedExtras, setSelectedExtras] = useState([]);
-  const [selectedIngredients, setSelectedIngredients] = useState([]);
+  const [selectedIngredients, setSelectedIngredients] = useState(
+    () => (product.ingredients || []).filter(i => i.included_by_default).map(i => i.id)
+  );
+  const [selectedComplements, setSelectedComplements] = useState([]);
+  const [step, setStep] = useState(() => {
+    const hasIngredients = product.has_ingredients && (product.ingredients || []).length > 0;
+    const hasExtras = product.has_extras && (product.extras || []).length > 0;
+    const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
+    if (hasIngredients) return 'ingredients';
+    if (hasExtras) return 'extras';
+    if (hasGroups) return 'groups';
+    return 'ingredients';
+  });
 
   const extras = Array.isArray(product.extras) ? product.extras : [];
   const ingredients = Array.isArray(product.ingredients) ? product.ingredients : [];
+  const complementGroups = Array.isArray(product.complement_groups) ? product.complement_groups : [];
+  const hasIngredients = product.has_ingredients && ingredients.length > 0;
+  const hasExtras = product.has_extras && extras.length > 0;
+  const hasGroups = complementGroups.length > 0;
+
   const extrasTotal = selectedExtras.reduce((sum, extraId) => {
     const extra = extras.find(e => e.id === extraId);
     return sum + (Number(extra?.price) || 0);
   }, 0);
-  const itemUnitPrice = Number(product.price) + extrasTotal;
+  const complementsTotal = selectedComplements.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+  const itemUnitPrice = Number(product.price) + extrasTotal + complementsTotal;
   const itemTotal = itemUnitPrice * qty;
   const outOfStock = !product.unlimited_stock && product.stock === 0;
   const maxExtras = product.max_extras || 0;
@@ -199,14 +217,53 @@ function ProductModal({ product, onAdd, onClose }) {
     );
   };
 
-  const handleAdd = () => {
+  const toggleComplementOption = (group, option) => {
+    setSelectedComplements(prev => {
+      const exists = prev.some(s => s.option_id === option.id);
+      if (exists) return prev.filter(s => s.option_id !== option.id);
+      const inGroup = prev.filter(s => s.group_id === group.id);
+      if (group.max_select > 0 && inGroup.length >= group.max_select) {
+        if (group.max_select === 1) {
+          return [...prev.filter(s => s.group_id !== group.id), { group_id: group.id, group_name: group.name, option_id: option.id, name: option.name, price: Number(option.price) || 0 }];
+        }
+        return prev;
+      }
+      return [...prev, { group_id: group.id, group_name: group.name, option_id: option.id, name: option.name, price: Number(option.price) || 0 }];
+    });
+  };
+
+  const handleNext = () => {
+    if (step === 'ingredients') {
+      if (hasExtras) { setStep('extras'); return; }
+      if (hasGroups) { setStep('groups'); return; }
+    } else if (step === 'extras') {
+      if (hasGroups) { setStep('groups'); return; }
+    } else if (step === 'groups') {
+      for (const g of complementGroups) {
+        const count = selectedComplements.filter(s => s.group_id === g.id).length;
+        const min = g.required ? Math.max(1, g.min_select || 0) : (g.min_select || 0);
+        if (count < min) {
+          alert(`Elegí al menos ${min} en "${g.name}".`);
+          return;
+        }
+      }
+    }
     onAdd({
       id: product.id, name: product.name, price: itemUnitPrice, qty,
       selectedIngredients: ingredients.filter(i => selectedIngredients.includes(i.id)).map(i => ({ id: i.id, name: i.name })),
       selectedExtras: extras.filter(e => selectedExtras.includes(e.id)).map(e => ({ id: e.id, name: e.name, price: Number(e.price) })),
+      selectedComplements,
     });
     onClose();
   };
+
+  const handleBack = () => {
+    if (step === 'groups') { setStep(hasExtras ? 'extras' : hasIngredients ? 'ingredients' : 'groups'); }
+    else if (step === 'extras') { setStep(hasIngredients ? 'ingredients' : 'extras'); }
+  };
+
+  const showBackBtn = (step === 'extras' && hasIngredients) || (step === 'groups' && (hasExtras || hasIngredients));
+  const isLastStep = (step === 'groups') || (!hasGroups && step === 'extras') || (!hasGroups && !hasExtras);
 
   const imgSrc = product.image ? (product.image.startsWith('http') ? product.image : `${API}${product.image}`) : null;
 
@@ -231,7 +288,7 @@ function ProductModal({ product, onAdd, onClose }) {
           <div style={{ height: 24 }} />
         )}
 
-        <div style={{ padding: '20px 20px 40px' }}>
+        <div style={{ padding: '20px 20px 16px' }}>
           <div style={{ marginBottom: 18 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
               <h2 style={{ margin: 0, fontSize: 21, fontWeight: 900, color: '#111', lineHeight: 1.2, flex: 1 }}>{product.name}</h2>
@@ -242,7 +299,7 @@ function ProductModal({ product, onAdd, onClose }) {
             )}
           </div>
 
-          {product.has_ingredients && ingredients.length > 0 && (
+          {step === 'ingredients' && hasIngredients && (
             <div style={{ marginBottom: 22 }}>
               <div style={{ fontWeight: 800, fontSize: 14, color: '#111', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 3, height: 16, background: '#D4AF37', borderRadius: 2 }} />
@@ -250,9 +307,10 @@ function ProductModal({ product, onAdd, onClose }) {
               </div>
               {ingredients.map(ing => {
                 const selected = selectedIngredients.includes(ing.id);
+                const outOfStockIng = !ing.unlimited_stock && ing.stock === 0;
                 return (
-                  <div key={ing.id} onClick={() => toggleIngredient(ing.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }}>
-                    <span style={{ fontSize: 14, color: selected ? '#111' : '#6b7280', fontWeight: selected ? 600 : 400 }}>{ing.name}</span>
+                  <div key={ing.id} onClick={() => !outOfStockIng && toggleIngredient(ing.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f3f4f6', cursor: outOfStockIng ? 'default' : 'pointer', opacity: outOfStockIng ? 0.4 : 1 }}>
+                    <span style={{ fontSize: 14, color: selected ? '#111' : '#6b7280', fontWeight: selected ? 600 : 400 }}>{ing.name}{outOfStockIng ? ' (agotado)' : ''}</span>
                     <div style={{ width: 24, height: 24, borderRadius: 7, flexShrink: 0, background: selected ? '#D4AF37' : '#f3f4f6', border: selected ? 'none' : '1.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
                       {selected && <span style={{ color: '#fff', fontSize: 12, fontWeight: 900 }}>✓</span>}
                     </div>
@@ -262,7 +320,7 @@ function ProductModal({ product, onAdd, onClose }) {
             </div>
           )}
 
-          {product.has_extras && extras.length > 0 && (
+          {step === 'extras' && hasExtras && (
             <div style={{ marginBottom: 22 }}>
               <div style={{ fontWeight: 800, fontSize: 14, color: '#111', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 3, height: 16, background: '#D4AF37', borderRadius: 2 }} />
@@ -292,13 +350,61 @@ function ProductModal({ product, onAdd, onClose }) {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', paddingTop: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', background: '#f3f4f6', borderRadius: 14, overflow: 'hidden', flexShrink: 0 }}>
-              <button onClick={() => setQty(q => Math.max(1, q - 1))} style={{ background: 'none', border: 'none', width: 44, height: 48, cursor: 'pointer', color: '#374151', fontWeight: 800, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-              <span style={{ fontWeight: 900, fontSize: 16, minWidth: 28, textAlign: 'center', color: '#111' }}>{qty}</span>
-              <button onClick={() => setQty(q => q + 1)} style={{ background: 'none', border: 'none', width: 44, height: 48, cursor: 'pointer', color: '#374151', fontWeight: 800, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+          {step === 'groups' && hasGroups && (
+            <div style={{ marginBottom: 22 }}>
+              {complementGroups.map(group => {
+                const selInGroup = selectedComplements.filter(s => s.group_id === group.id);
+                const atMax = group.max_select > 0 && selInGroup.length >= group.max_select;
+                return (
+                  <div key={group.id} style={{ marginBottom: 20 }}>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: '#111', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 3, height: 16, background: '#D4AF37', borderRadius: 2 }} />
+                      {group.name}
+                      {group.required && <span style={{ color: '#ef4444', fontSize: 11, fontWeight: 700 }}>*</span>}
+                      {group.max_select > 0 && (
+                        <span style={{ fontSize: 12, color: atMax ? '#D4AF37' : '#9ca3af', fontWeight: 600, marginLeft: 4 }}>
+                          {selInGroup.length}/{group.max_select}
+                        </span>
+                      )}
+                    </div>
+                    {(group.options || []).map(opt => {
+                      const isSelected = selInGroup.some(s => s.option_id === opt.id);
+                      const outOfStockOpt = !opt.unlimited_stock && opt.stock === 0;
+                      const disabled = outOfStockOpt || (!isSelected && atMax && group.max_select !== 1);
+                      const isRadio = group.max_select === 1;
+                      return (
+                        <div key={opt.id} onClick={() => !disabled && toggleComplementOption(group, opt)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f3f4f6', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 22, height: 22, borderRadius: isRadio ? '50%' : 6, flexShrink: 0, background: isSelected ? '#D4AF37' : '#f3f4f6', border: isSelected ? 'none' : '1.5px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                              {isSelected && <span style={{ color: '#fff', fontSize: 11, fontWeight: 900 }}>✓</span>}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 14, color: '#111', fontWeight: isSelected ? 700 : 400 }}>{opt.name}</div>
+                              {outOfStockOpt && <div style={{ fontSize: 11, color: '#ef4444' }}>Agotado</div>}
+                            </div>
+                          </div>
+                          {Number(opt.price) > 0 && <div style={{ fontSize: 13, color: '#D4AF37', fontWeight: 700 }}>+${Number(opt.price).toFixed(0)}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
-            <button onClick={handleAdd} disabled={outOfStock} style={{
+          )}
+        </div>
+
+        <div style={{ padding: '12px 20px 40px', borderTop: '1px solid #f3f4f6', background: '#fff', position: 'sticky', bottom: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', background: '#f3f4f6', borderRadius: 14, overflow: 'hidden', marginBottom: 12, alignSelf: 'flex-start', width: 'fit-content' }}>
+            <button onClick={() => setQty(q => Math.max(1, q - 1))} style={{ background: 'none', border: 'none', width: 44, height: 44, cursor: 'pointer', color: '#374151', fontWeight: 800, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+            <span style={{ fontWeight: 900, fontSize: 16, minWidth: 28, textAlign: 'center', color: '#111' }}>{qty}</span>
+            <button onClick={() => setQty(q => q + 1)} style={{ background: 'none', border: 'none', width: 44, height: 44, cursor: 'pointer', color: '#374151', fontWeight: 800, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {showBackBtn && (
+              <button onClick={handleBack} style={{ padding: '14px 18px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 14, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>← Volver</button>
+            )}
+            <button onClick={handleNext} disabled={outOfStock} style={{
               flex: 1, padding: '14px 16px',
               background: outOfStock ? '#e5e7eb' : '#D4AF37',
               color: outOfStock ? '#9ca3af' : '#000',
@@ -307,8 +413,8 @@ function ProductModal({ product, onAdd, onClose }) {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               boxShadow: outOfStock ? 'none' : '0 4px 16px rgba(212,175,55,0.4)'
             }}>
-              <span>{outOfStock ? 'Sin stock' : 'Agregar'}</span>
-              {!outOfStock && <span style={{ fontWeight: 900 }}>${itemTotal.toFixed(0)}</span>}
+              <span>{outOfStock ? 'Sin stock' : isLastStep ? 'Agregar' : 'Siguiente →'}</span>
+              {!outOfStock && isLastStep && <span style={{ fontWeight: 900 }}>${itemTotal.toFixed(0)}</span>}
             </button>
           </div>
         </div>
@@ -477,7 +583,8 @@ export default function DeliveryStore() {
 
   const addToCart = (item) => {
     const extraIds = (item.selectedExtras || []).map(e => e.id).sort((a, b) => a - b);
-    const key = `${item.id}_${extraIds.join(',')}`;
+    const compIds = (item.selectedComplements || []).map(s => s.option_id).sort((a, b) => a - b);
+    const key = `${item.id}_${extraIds.join(',')}_${compIds.join(',')}`;
     setCart(prev => {
       const existing = prev.find(i => i.cartKey === key);
       if (existing) return prev.map(i => i.cartKey === key ? { ...i, qty: i.qty + item.qty } : i);
@@ -516,7 +623,8 @@ export default function DeliveryStore() {
         items: cart.map(i => ({
           product_id: i.id, quantity: i.qty, unit_price: i.price,
           selected_ingredients: i.selectedIngredients || [],
-          selected_extras: i.selectedExtras || []
+          selected_extras: i.selectedExtras || [],
+          selected_complements: i.selectedComplements || []
         })),
         delivery: true
       };
@@ -799,6 +907,9 @@ export default function DeliveryStore() {
                       </div>
                       {item.selectedExtras?.length > 0 && (
                         <div style={{ fontSize: 12, color: '#D4AF37', marginTop: 2, fontWeight: 500 }}>+ {item.selectedExtras.map(e => e.name).join(', ')}</div>
+                      )}
+                      {item.selectedComplements?.length > 0 && (
+                        <div style={{ fontSize: 12, color: '#D4AF37', marginTop: 2, fontWeight: 500 }}>{item.selectedComplements.map(s => s.name).join(', ')}</div>
                       )}
                       {item.selectedIngredients?.length > 0 && (
                         <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>{item.selectedIngredients.map(i => i.name).join(', ')}</div>
