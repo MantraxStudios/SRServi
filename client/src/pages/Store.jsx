@@ -6243,17 +6243,15 @@ function Store() {
               </div>
             )}
 
-            {deliveryMode && (
-              <div style={{ marginBottom: 10 }}>
+            <div style={{ marginBottom: 10 }}>
                 <textarea
-                  placeholder="Comentario (opcional): sin cebolla, tocar timbre..."
+                  placeholder="Comentario (opcional): sin cebolla, para llevar..."
                   value={paymentComment}
                   onChange={e => setPaymentComment(e.target.value)}
                   rows={2}
                   style={{ width: '100%', padding: '10px 12px', background: 'var(--store-bg, #f9fafb)', border: '1.5px solid rgba(0,0,0,0.1)', borderRadius: 10, color: 'var(--store-primary, #111)', fontSize: 13, outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
                 />
               </div>
-            )}
 
             <button onClick={handleCheckout} className="store-cart-checkout-btn store-glow-pulse">
               <FontAwesomeIcon icon={faCheck} />
