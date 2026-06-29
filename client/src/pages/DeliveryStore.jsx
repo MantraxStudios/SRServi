@@ -180,8 +180,8 @@ function ProductModal({ product, comboName, onAdd, onClose }) {
   const extras = Array.isArray(product.extras) ? product.extras : [];
   const ingredients = Array.isArray(product.ingredients) ? product.ingredients : [];
   const complementGroups = Array.isArray(product.complement_groups) ? product.complement_groups : [];
-  const hasIngredients = product.has_ingredients && ingredients.length > 0;
-  const hasExtras = product.has_extras && extras.length > 0;
+  const hasIngredients = ingredients.length > 0;
+  const hasExtras = extras.length > 0;
   const hasGroups = complementGroups.length > 0;
   const maxIngredients = parseInt(product.max_ingredients) || 0;
   const maxExtras = parseInt(product.max_extras) || 0;
@@ -646,8 +646,8 @@ export default function DeliveryStore() {
   };
 
   const openProductForCombo = (product, quantity) => {
-    const hasIngredients = product.has_ingredients && (product.ingredients || []).length > 0;
-    const hasExtras = product.has_extras && (product.extras || []).length > 0;
+    const hasIngredients = (product.ingredients || []).length > 0;
+    const hasExtras = (product.extras || []).length > 0;
     const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
     if (!hasIngredients && !hasExtras && !hasGroups) {
       addToCart({ id: product.id, name: product.name, price: Number(product.price), qty: quantity, comboName: comboFlowRef.current.name, selectedIngredients: [], selectedExtras: [], selectedComplements: [] });
