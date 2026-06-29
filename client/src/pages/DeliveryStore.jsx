@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const API = 'https://srservi2.srautomatic.com';
@@ -169,8 +169,8 @@ function DeliveryAuthModal({ onAuth, onClose }) {
 }
 
 // ── Product Detail Modal ───────────────────────────────────────────────────────
-function ProductModal({ product, onAdd, onClose }) {
-  const [qty, setQty] = useState(1);
+function ProductModal({ product, comboName, onAdd, onClose }) {
+  const [qty, setQty] = useState(product._comboQty || 1);
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [selectedIngredients, setSelectedIngredients] = useState(
     () => (product.ingredients || []).filter(i => i.included_by_default).map(i => i.id)
@@ -250,11 +250,11 @@ function ProductModal({ product, onAdd, onClose }) {
     }
     onAdd({
       id: product.id, name: product.name, price: itemUnitPrice, qty,
+      comboName: comboName || null,
       selectedIngredients: ingredients.filter(i => selectedIngredients.includes(i.id)).map(i => ({ id: i.id, name: i.name })),
       selectedExtras: extras.filter(e => selectedExtras.includes(e.id)).map(e => ({ id: e.id, name: e.name, price: Number(e.price) })),
       selectedComplements,
     });
-    onClose();
   };
 
   const handleBack = () => {
@@ -290,6 +290,11 @@ function ProductModal({ product, onAdd, onClose }) {
 
         <div style={{ padding: '20px 20px 16px' }}>
           <div style={{ marginBottom: 18 }}>
+            {comboName && (
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#D4AF37', background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: 20, padding: '3px 10px', display: 'inline-block', marginBottom: 8 }}>
+                Combo: {comboName}
+              </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
               <h2 style={{ margin: 0, fontSize: 21, fontWeight: 900, color: '#111', lineHeight: 1.2, flex: 1 }}>{product.name}</h2>
               <div style={{ fontSize: 20, fontWeight: 900, color: '#D4AF37', flexShrink: 0 }}>${Number(product.price).toFixed(0)}</div>
@@ -395,11 +400,13 @@ function ProductModal({ product, onAdd, onClose }) {
         </div>
 
         <div style={{ padding: '12px 20px 40px', borderTop: '1px solid #f3f4f6', background: '#fff', position: 'sticky', bottom: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', background: '#f3f4f6', borderRadius: 14, overflow: 'hidden', marginBottom: 12, alignSelf: 'flex-start', width: 'fit-content' }}>
-            <button onClick={() => setQty(q => Math.max(1, q - 1))} style={{ background: 'none', border: 'none', width: 44, height: 44, cursor: 'pointer', color: '#374151', fontWeight: 800, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-            <span style={{ fontWeight: 900, fontSize: 16, minWidth: 28, textAlign: 'center', color: '#111' }}>{qty}</span>
-            <button onClick={() => setQty(q => q + 1)} style={{ background: 'none', border: 'none', width: 44, height: 44, cursor: 'pointer', color: '#374151', fontWeight: 800, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-          </div>
+          {!comboName && (
+            <div style={{ display: 'flex', alignItems: 'center', background: '#f3f4f6', borderRadius: 14, overflow: 'hidden', marginBottom: 12, alignSelf: 'flex-start', width: 'fit-content' }}>
+              <button onClick={() => setQty(q => Math.max(1, q - 1))} style={{ background: 'none', border: 'none', width: 44, height: 44, cursor: 'pointer', color: '#374151', fontWeight: 800, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+              <span style={{ fontWeight: 900, fontSize: 16, minWidth: 28, textAlign: 'center', color: '#111' }}>{qty}</span>
+              <button onClick={() => setQty(q => q + 1)} style={{ background: 'none', border: 'none', width: 44, height: 44, cursor: 'pointer', color: '#374151', fontWeight: 800, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 10 }}>
             {showBackBtn && (
               <button onClick={handleBack} style={{ padding: '14px 18px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 14, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>← Volver</button>
@@ -413,8 +420,8 @@ function ProductModal({ product, onAdd, onClose }) {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               boxShadow: outOfStock ? 'none' : '0 4px 16px rgba(212,175,55,0.4)'
             }}>
-              <span>{outOfStock ? 'Sin stock' : isLastStep ? 'Agregar' : 'Siguiente →'}</span>
-              {!outOfStock && isLastStep && <span style={{ fontWeight: 900 }}>${itemTotal.toFixed(0)}</span>}
+              <span>{outOfStock ? 'Sin stock' : !isLastStep ? 'Siguiente →' : comboName ? 'Continuar combo →' : 'Agregar'}</span>
+              {!outOfStock && isLastStep && !comboName && <span style={{ fontWeight: 900 }}>${itemTotal.toFixed(0)}</span>}
             </button>
           </div>
         </div>
@@ -501,7 +508,9 @@ export default function DeliveryStore() {
   });
 
   const [cart, setCart] = useState([]);
+  const [combos, setCombos] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const comboFlowRef = useRef({ name: null, queue: [] });
   const [showAuth, setShowAuth] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [pendingCheckout, setPendingCheckout] = useState(false);
@@ -540,6 +549,7 @@ export default function DeliveryStore() {
       setStore(storeData.store || storeData);
       setProducts((storeData.products || []).filter((p, i, a) => a.findIndex(x => x.id === p.id) === i));
       setCategories(storeData.categories || []);
+      setCombos(Array.isArray(storeData.combos) ? storeData.combos : []);
       if (dsRes.ok) {
         const ds = await dsRes.json();
         setDeliverySettings(ds);
@@ -584,12 +594,51 @@ export default function DeliveryStore() {
   const addToCart = (item) => {
     const extraIds = (item.selectedExtras || []).map(e => e.id).sort((a, b) => a - b);
     const compIds = (item.selectedComplements || []).map(s => s.option_id).sort((a, b) => a - b);
-    const key = `${item.id}_${extraIds.join(',')}_${compIds.join(',')}`;
+    const comboKey = item.comboName ? `_combo${Date.now()}` : '';
+    const key = `${item.id}_${extraIds.join(',')}_${compIds.join(',')}${comboKey}`;
     setCart(prev => {
+      if (item.comboName) return [...prev, { ...item, cartKey: key }];
       const existing = prev.find(i => i.cartKey === key);
       if (existing) return prev.map(i => i.cartKey === key ? { ...i, qty: i.qty + item.qty } : i);
       return [...prev, { ...item, cartKey: key }];
     });
+  };
+
+  const openProductForCombo = (product, quantity) => {
+    const hasIngredients = product.has_ingredients && (product.ingredients || []).length > 0;
+    const hasExtras = product.has_extras && (product.extras || []).length > 0;
+    const hasGroups = Array.isArray(product.complement_groups) && product.complement_groups.length > 0;
+    if (!hasIngredients && !hasExtras && !hasGroups) {
+      addToCart({ id: product.id, name: product.name, price: Number(product.price), qty: quantity, comboName: comboFlowRef.current.name, selectedIngredients: [], selectedExtras: [], selectedComplements: [] });
+      processNextComboItem();
+    } else {
+      setSelectedProduct({ ...product, _comboQty: quantity });
+    }
+  };
+
+  const processNextComboItem = () => {
+    const flow = comboFlowRef.current;
+    if (flow.queue.length === 0) {
+      flow.name = null;
+      setSelectedProduct(null);
+      return;
+    }
+    const next = flow.queue.shift();
+    openProductForCombo(next.product, next.quantity);
+  };
+
+  const startCombo = (combo) => {
+    const items = (combo.items || [])
+      .map(ci => {
+        const product = products.find(p => String(p.id) === String(ci.product_id));
+        if (!product) return null;
+        if (!product.unlimited_stock && product.stock === 0) return null;
+        return { product, quantity: ci.quantity || 1 };
+      })
+      .filter(Boolean);
+    if (items.length === 0) { alert('Este combo no tiene productos disponibles.'); return; }
+    comboFlowRef.current = { name: combo.name, queue: items };
+    processNextComboItem();
   };
 
   const handleCheckout = () => {
@@ -622,6 +671,7 @@ export default function DeliveryStore() {
         total: finalTotal.toFixed(2),
         items: cart.map(i => ({
           product_id: i.id, quantity: i.qty, unit_price: i.price,
+          combo_name: i.comboName || null,
           selected_ingredients: i.selectedIngredients || [],
           selected_extras: i.selectedExtras || [],
           selected_complements: i.selectedComplements || []
@@ -799,6 +849,57 @@ export default function DeliveryStore() {
         </div>
       )}
 
+      {/* ── Combos ───────────────────────────────────────────────────────────── */}
+      {combos.length > 0 && (
+        <div style={{ maxWidth: 700, margin: '0 auto', padding: '20px 16px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <div style={{ width: 4, height: 20, background: '#D4AF37', borderRadius: 2, flexShrink: 0 }} />
+            <h2 style={{ fontSize: 18, fontWeight: 800, color: '#111', margin: 0, letterSpacing: -0.3 }}>Combos</h2>
+            <div style={{ flex: 1, height: 1, background: 'rgba(0,0,0,0.08)' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {combos.map(combo => {
+              const comboPrice = (combo.items || []).reduce((sum, ci) => {
+                const p = products.find(pr => String(pr.id) === String(ci.product_id));
+                return sum + (p ? Number(p.price) * (ci.quantity || 1) : 0);
+              }, 0);
+              const finalPrice = combo.fixed_price ? Number(combo.fixed_price) :
+                combo.discount_type === 'percent' ? comboPrice * (1 - Number(combo.discount_value || 0) / 100) :
+                combo.discount_type === 'fixed' ? Math.max(0, comboPrice - Number(combo.discount_value || 0)) :
+                comboPrice;
+              const hasDiscount = finalPrice < comboPrice;
+              return (
+                <div
+                  key={combo.id}
+                  onClick={() => startCombo(combo)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: '#fff', borderRadius: 16, padding: '14px 16px',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.07)',
+                    cursor: 'pointer', gap: 12, transition: 'all 0.15s'
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: '#111', marginBottom: 4 }}>{combo.name}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.4 }}>
+                      {(combo.items || []).map(ci => {
+                        const p = products.find(pr => String(pr.id) === String(ci.product_id));
+                        return p ? `${ci.quantity > 1 ? `${ci.quantity}× ` : ''}${p.name}` : null;
+                      }).filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    {hasDiscount && <div style={{ fontSize: 11, color: '#9ca3af', textDecoration: 'line-through' }}>${comboPrice.toFixed(0)}</div>}
+                    <div style={{ fontSize: 17, fontWeight: 900, color: '#D4AF37' }}>${finalPrice.toFixed(0)}</div>
+                  </div>
+                  <div style={{ background: '#D4AF37', color: '#000', width: 30, height: 30, borderRadius: '50%', fontSize: 20, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 8px rgba(212,175,55,0.4)' }}>+</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Menu ──────────────────────────────────────────────────────────────── */}
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '20px 16px 0' }}>
         {categoriesWithProducts.map(cat => (
@@ -872,7 +973,24 @@ export default function DeliveryStore() {
       )}
 
       {/* Product Modal */}
-      {selectedProduct && <ProductModal product={selectedProduct} onAdd={addToCart} onClose={() => setSelectedProduct(null)} />}
+      {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          comboName={comboFlowRef.current.name}
+          onAdd={(item) => {
+            addToCart(item);
+            if (comboFlowRef.current.name) {
+              processNextComboItem();
+            } else {
+              setSelectedProduct(null);
+            }
+          }}
+          onClose={() => {
+            comboFlowRef.current = { name: null, queue: [] };
+            setSelectedProduct(null);
+          }}
+        />
+      )}
 
       {/* Auth Modal */}
       {showAuth && <DeliveryAuthModal onAuth={handleAuth} onClose={() => setShowAuth(false)} />}
@@ -901,6 +1019,7 @@ export default function DeliveryStore() {
                 <div style={{ padding: '10px 16px 0' }}>
                   {cart.map(item => (
                     <div key={item.cartKey} style={{ padding: '9px 0', borderBottom: '1px solid #f3f4f6' }}>
+                      {item.comboName && <div style={{ fontSize: 10, fontWeight: 700, color: '#D4AF37', marginBottom: 2 }}>📦 {item.comboName}</div>}
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#111', fontWeight: 600 }}>
                         <span>{item.qty}× {item.name}</span>
                         <span>${(item.price * item.qty).toFixed(0)}</span>
