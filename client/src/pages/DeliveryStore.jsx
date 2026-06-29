@@ -556,9 +556,9 @@ function ProductCard({ product, cart, onSelect }) {
 
       <div style={{ position: 'relative', width: 96, flexShrink: 0 }}>
         {imgSrc ? (
-          <img src={imgSrc} alt="" style={{ width: 96, height: '100%', minHeight: 88, objectFit: 'cover', display: 'block' }} />
+          <img src={imgSrc} alt="" style={{ width: 96, height: '100%', minHeight: 88, objectFit: 'cover', display: 'block', borderRadius: '0 14px 14px 0' }} />
         ) : (
-          <div style={{ width: 96, height: '100%', minHeight: 88, background: 'linear-gradient(135deg, #f3f4f6, #e9eaec)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🍽️</div>
+          <div style={{ width: 96, height: '100%', minHeight: 88, background: 'linear-gradient(135deg, #f3f4f6, #e9eaec)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, borderRadius: '0 14px 14px 0' }}>🍽️</div>
         )}
         {!outOfStock && cartQty === 0 && (
           <div style={{ position: 'absolute', bottom: 8, right: 8, background: '#D4AF37', color: '#000', width: 26, height: 26, borderRadius: '50%', fontSize: 18, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(212,175,55,0.5)', lineHeight: 1 }}>+</div>
