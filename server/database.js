@@ -1974,52 +1974,52 @@ export async function createStore(userId, data) {
   );
 
   const sampleProducts = [
-    { name: 'Hamburguesa Clásica', description: 'Jugosa hamburguesa con lechuga, tomate y queso', price: 8.99 },
-    { name: 'Pizza Margherita', description: 'Pizza con salsa de tomate, mozzarella y albahaca', price: 12.99 },
-    { name: 'Café Americano', description: 'Café negro intenso recién preparado', price: 2.50 },
-    { name: 'Refresco', description: 'Bebida fría de tu sabor favorito', price: 1.99 },
-    { name: 'Sándwich de Pollo', description: 'Pollo a la plancha con vegetales frescos', price: 7.50 },
-    { name: 'Hot Dog', description: 'Salchicha con mostaza, ketchup y cebolla', price: 4.99 },
-    { name: 'Papas Fritas', description: 'Papas crujientes con sal y especias', price: 3.50 },
-    { name: 'Ensalada César', description: 'Lechuga romana, crutones y aderezo César', price: 6.99 },
-    { name: 'Tacos (3 piezas)', description: 'Tacos con carne, cebolla y cilantro', price: 9.00 },
-    { name: 'Jugo Natural', description: 'Jugo exprimido al momento de frutas frescas', price: 3.99 },
-    { name: 'Agua Mineral', description: 'Agua purificada fría', price: 1.50 },
-    { name: 'Helado de Vainilla', description: 'Helado cremoso artesanal de vainilla', price: 3.00 },
-    { name: 'Sopa del Día', description: 'Sopa casera preparada con ingredientes frescos', price: 5.99 },
-    { name: 'Pasta Alfredo', description: 'Pasta con crema, mantequilla y parmesano', price: 10.99 },
-    { name: 'Pollo a la Plancha', description: 'Pechuga de pollo jugosa con guarnición', price: 11.50 },
+    { name: 'Hamburguesa Clásica', description: 'Jugosa hamburguesa con lechuga, tomate y queso', price: 8.99, image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop' },
+    { name: 'Pizza Margherita', description: 'Pizza con salsa de tomate, mozzarella y albahaca', price: 12.99, image: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop' },
+    { name: 'Café Americano', description: 'Café negro intenso recién preparado', price: 2.50, image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400&h=300&fit=crop' },
+    { name: 'Refresco', description: 'Bebida fría de tu sabor favorito', price: 1.99, image: 'https://images.unsplash.com/photo-1581636625402-29b2a704ef13?w=400&h=300&fit=crop' },
+    { name: 'Sándwich de Pollo', description: 'Pollo a la plancha con vegetales frescos', price: 7.50, image: 'https://images.unsplash.com/photo-1553909489-cd47e0907980?w=400&h=300&fit=crop' },
+    { name: 'Hot Dog', description: 'Salchicha con mostaza, ketchup y cebolla', price: 4.99, image: 'https://images.unsplash.com/photo-1612392062126-ef0a80cfd5c4?w=400&h=300&fit=crop' },
+    { name: 'Papas Fritas', description: 'Papas crujientes con sal y especias', price: 3.50, image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400&h=300&fit=crop' },
+    { name: 'Ensalada César', description: 'Lechuga romana, crutones y aderezo César', price: 6.99, image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400&h=300&fit=crop' },
+    { name: 'Tacos (3 piezas)', description: 'Tacos con carne, cebolla y cilantro', price: 9.00, image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&h=300&fit=crop' },
+    { name: 'Jugo Natural', description: 'Jugo exprimido al momento de frutas frescas', price: 3.99, image: 'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=400&h=300&fit=crop' },
+    { name: 'Agua Mineral', description: 'Agua purificada fría', price: 1.50, image: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=400&h=300&fit=crop' },
+    { name: 'Helado de Vainilla', description: 'Helado cremoso artesanal de vainilla', price: 3.00, image: 'https://images.unsplash.com/photo-1570197788417-0e82375c9be7?w=400&h=300&fit=crop' },
+    { name: 'Sopa del Día', description: 'Sopa casera preparada con ingredientes frescos', price: 5.99, image: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop' },
+    { name: 'Pasta Alfredo', description: 'Pasta con crema, mantequilla y parmesano', price: 10.99, image: 'https://images.unsplash.com/photo-1645112411341-6c4fd023714a?w=400&h=300&fit=crop' },
+    { name: 'Pollo a la Plancha', description: 'Pechuga de pollo jugosa con guarnición', price: 11.50, image: 'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=400&h=300&fit=crop' },
   ];
 
   // ── Default ingredients (shared, active) ──
   const sampleIngredients = [
-    { name: 'Lechuga', price: 0 },
-    { name: 'Tomate', price: 0 },
-    { name: 'Queso', price: 0.50 },
-    { name: 'Cebolla', price: 0 },
-    { name: 'Salsa Especial', price: 0 },
+    { name: 'Lechuga', price: 0, image: 'https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?w=200&h=200&fit=crop' },
+    { name: 'Tomate', price: 0, image: 'https://images.unsplash.com/photo-1546470427-0d4db154ceb8?w=200&h=200&fit=crop' },
+    { name: 'Queso', price: 0.50, image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop' },
+    { name: 'Cebolla', price: 0, image: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=200&h=200&fit=crop' },
+    { name: 'Salsa Especial', price: 0, image: 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?w=200&h=200&fit=crop' },
   ];
   const ingredientIds = [];
   for (const ing of sampleIngredients) {
     const [r] = await pool.execute(
-      'INSERT INTO ingredients (store_id, user_id, name, price, stock, unlimited_stock, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [storeId, userId, ing.name, ing.price, 0, true, true]
+      'INSERT INTO ingredients (store_id, user_id, name, price, stock, unlimited_stock, is_active, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [storeId, userId, ing.name, ing.price, 0, true, true, ing.image || null]
     );
     ingredientIds.push(r.insertId);
   }
 
   // ── Default extras (shared, active) ──
   const sampleExtras = [
-    { name: 'Extra Queso', price: 1.00 },
-    { name: 'Bacon', price: 1.50 },
-    { name: 'Aguacate', price: 1.25 },
-    { name: 'Huevo Frito', price: 0.75 },
+    { name: 'Extra Queso', price: 1.00, image: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&h=200&fit=crop' },
+    { name: 'Bacon', price: 1.50, image: 'https://images.unsplash.com/photo-1528607929212-2636ec44253e?w=200&h=200&fit=crop' },
+    { name: 'Aguacate', price: 1.25, image: 'https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=200&h=200&fit=crop' },
+    { name: 'Huevo Frito', price: 0.75, image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=200&h=200&fit=crop' },
   ];
   const extraIds = [];
   for (const ext of sampleExtras) {
     const [r] = await pool.execute(
-      'INSERT INTO extras (store_id, user_id, name, price, stock, unlimited_stock, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [storeId, userId, ext.name, ext.price, 0, true, true]
+      'INSERT INTO extras (store_id, user_id, name, price, stock, unlimited_stock, is_active, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [storeId, userId, ext.name, ext.price, 0, true, true, ext.image || null]
     );
     extraIds.push(r.insertId);
   }
@@ -2031,15 +2031,15 @@ export async function createStore(userId, data) {
   );
   const grpId = grpResult.insertId;
   const complementOptions = [
-    { name: 'Pequeño', price: 0 },
-    { name: 'Mediano', price: 1.00 },
-    { name: 'Grande', price: 2.00 },
+    { name: 'Pequeño', price: 0, image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefda?w=200&h=200&fit=crop' },
+    { name: 'Mediano', price: 1.00, image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=200&h=200&fit=crop' },
+    { name: 'Grande', price: 2.00, image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=200&h=200&fit=crop' },
   ];
   for (let i = 0; i < complementOptions.length; i++) {
     const opt = complementOptions[i];
     await pool.execute(
-      'INSERT INTO complement_options (group_id, store_id, name, price, stock, unlimited_stock, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [grpId, storeId, opt.name, opt.price, 0, 1, i, 1]
+      'INSERT INTO complement_options (group_id, store_id, name, price, stock, unlimited_stock, sort_order, is_active, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [grpId, storeId, opt.name, opt.price, 0, 1, i, 1, opt.image || null]
     );
   }
 
@@ -2048,7 +2048,7 @@ export async function createStore(userId, data) {
   for (const product of shuffled.slice(0, 3)) {
     const [pResult] = await pool.execute(
       'INSERT INTO products (store_id, user_id, category_id, name, description, price, image, has_extras, has_ingredients, max_extras, max_ingredients) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [storeId, userId, null, product.name, product.description, product.price, null, 1, 1, 0, 0]
+      [storeId, userId, null, product.name, product.description, product.price, product.image || null, 1, 1, 0, 0]
     );
     const productId = pResult.insertId;
 
