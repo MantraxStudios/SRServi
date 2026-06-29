@@ -600,6 +600,7 @@ export default function DeliveryStore() {
   const [payStep, setPayStep] = useState('address');
   const [placing, setPlacing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [orderNotes, setOrderNotes] = useState('');
   const [customerCoords, setCustomerCoords] = useState(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [calculatedFee, setCalculatedFee] = useState(null);
@@ -758,7 +759,8 @@ export default function DeliveryStore() {
           selected_extras: i.selectedExtras || [],
           selected_complements: i.selectedComplements || []
         })),
-        delivery: true
+        delivery: true,
+        customer_comment: orderNotes.trim() || null
       };
 
       const orderRes = await fetch(`${API}/api/orders`, {
@@ -1186,6 +1188,18 @@ export default function DeliveryStore() {
                     💵 Efectivo contra entrega
                   </div>
                 )}
+              </div>
+
+              {/* Order notes */}
+              <div style={{ background: '#fff', borderRadius: 16, padding: '14px 16px', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+                <div style={{ fontWeight: 800, fontSize: 12, color: '#9ca3af', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.6 }}>Comentario (opcional)</div>
+                <textarea
+                  placeholder="Ej: Sin cebolla, tocar timbre, dejar en portería..."
+                  value={orderNotes}
+                  onChange={e => setOrderNotes(e.target.value)}
+                  rows={2}
+                  style={{ width: '100%', padding: '12px 14px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 12, color: '#111', fontSize: 14, outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
+                />
               </div>
 
               <button
