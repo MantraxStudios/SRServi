@@ -1237,19 +1237,26 @@ function Store() {
   // Verificar versión de APK: apks nuevas envían app_version, las viejas no envían nada
   useEffect(() => {
     const ua = navigator.userAgent;
-    const isAndroidWebView = /Android/.test(ua) && /; wv\)/.test(ua);
+    // Android WebView incluye "; wv)" o "Version/X.X" (que Chrome normal no tiene)
+    const isAndroidWebView = /Android/.test(ua) && (/; wv\)/.test(ua) || /Version\/\d+\.\d+/.test(ua));
     if (!appVersionFromUrl && !isAndroidWebView) return;
+
     fetch('/api/apk/latest')
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (!data || !data.version) return;
-        setApkServerVersion(data.version);
-        if (data.apk_url) setApkDownloadUrl(data.apk_url);
-        if (!appVersionFromUrl || appVersionFromUrl !== data.version) {
+        if (data?.version) setApkServerVersion(data.version);
+        if (data?.apk_url) setApkDownloadUrl(data.apk_url);
+        if (!appVersionFromUrl) {
+          // APK vieja sin sistema de versiones — siempre desactualizada
+          setApkUpdateNeeded(true);
+        } else if (data?.version && appVersionFromUrl !== data.version) {
           setApkUpdateNeeded(true);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Si la API falla, igual avisar a APKs viejas
+        if (!appVersionFromUrl) setApkUpdateNeeded(true);
+      });
   }, [appVersionFromUrl]);
 
   // Auto-download receipt for successful delivery QR/Haulmer payments
@@ -4547,8 +4554,8 @@ function Store() {
         <div style={{ background: '#f59e0b', color: '#fff', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', fontWeight: '600', flexWrap: 'wrap' }}>
           <span style={{ flex: 1 }}>
             {appVersionFromUrl
-              ? `Nueva versión disponible (v${apkServerVersion}). Tu versión: v${appVersionFromUrl}.`
-              : `Nueva versión disponible (v${apkServerVersion}). Descarga la actualización.`}
+              ? `Nueva versión disponible${apkServerVersion ? ` (v${apkServerVersion})` : ''}. Tu versión: v${appVersionFromUrl}.`
+              : `Tu versión de la app está desactualizada.${apkServerVersion ? ` Versión actual: v${apkServerVersion}.` : ''} Descarga la actualización.`}
           </span>
           {apkDownloadUrl && (
             <a
