@@ -1286,10 +1286,9 @@ function Store() {
   // Verificar versión de APK: apks nuevas envían app_version, las viejas no envían nada
   useEffect(() => {
     const ua = navigator.userAgent;
-    // Android WebView incluye "; wv)" o "Version/X.X" (que Chrome normal no tiene)
-    const isAndroidWebView = /Android/.test(ua) && (/; wv\)/.test(ua) || /Version\/\d+\.\d+/.test(ua));
+    const isAndroid = /Android/.test(ua);
     if (tuuModePayFromUrl) return;
-    if (!appVersionFromUrl && !isAndroidWebView) return;
+    if (!appVersionFromUrl && !isAndroid) return;
 
     fetch('/api/apps/android/version/launcher')
       .then(r => r.ok ? r.json() : null)
@@ -9099,13 +9098,13 @@ function Store() {
               </span>
             </div>
             <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-              {appVersionFromUrl && apkBuildState !== 'downloaded' && (
+              {apkBuildState !== 'downloaded' && (
                 <button
                   onClick={handleApkUpdate}
                   disabled={apkBuildState === 'building'}
                   style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.25)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, cursor: apkBuildState === 'building' ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
                 >
-                  {apkBuildState === 'building' ? '...' : apkBuildState === 'error' ? 'Reintentar' : `Actualizar${apkAutoCountdown > 0 && !apkBuildState ? ` (${apkAutoCountdown})` : ''}`}
+                  {apkBuildState === 'building' ? '...' : apkBuildState === 'error' ? 'Reintentar' : `Descargar${apkAutoCountdown > 0 && !apkBuildState ? ` (${apkAutoCountdown})` : ''}`}
                 </button>
               )}
               <button
@@ -9118,12 +9117,7 @@ function Store() {
           </div>
           {apkBuildState === 'downloaded' && (
             <div style={{ padding: '4px 12px 8px', fontSize: 11, lineHeight: 1.5, opacity: 0.95 }}>
-              1. Quita el modo kiosco y sal de la tienda &nbsp;2. Abre el archivo descargado desde notificaciones o Descargas &nbsp;3. Permite instalar y presiona "Instalar"
-            </div>
-          )}
-          {!appVersionFromUrl && apkBuildState !== 'downloaded' && (
-            <div style={{ padding: '4px 12px 8px', fontSize: 11, lineHeight: 1.5, opacity: 0.95 }}>
-              Tu app no soporta auto-actualización. Ve al Panel Admin → Mis Apps → descarga Totem Android → transfiere al dispositivo e instala.
+              1. Quita el modo kiosco &nbsp;2. Sal de la tienda con el botón de regresar &nbsp;3. Dale los permisos que pida para instalar
             </div>
           )}
         </div>
