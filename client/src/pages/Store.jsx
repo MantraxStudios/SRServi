@@ -916,6 +916,7 @@ function Store() {
   const appVersionFromUrl = searchParams.get('app_version');
   const { setMenuOpen } = useStore() || {};
   const [apkUpdateNeeded, setApkUpdateNeeded] = useState(false);
+  const [apkUpdateDismissed, setApkUpdateDismissed] = useState(false);
   const [apkServerVersion, setApkServerVersion] = useState('');
   const [apkDownloadUrl, setApkDownloadUrl] = useState('');
   const deliveryMode = searchParams.get('delivery') === 'true';
@@ -4550,24 +4551,6 @@ function Store() {
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
     >
-      {apkUpdateNeeded && (
-        <div style={{ background: '#f59e0b', color: '#fff', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', fontWeight: '600', flexWrap: 'wrap' }}>
-          <span style={{ flex: 1 }}>
-            {appVersionFromUrl
-              ? `Nueva versión disponible${apkServerVersion ? ` (v${apkServerVersion})` : ''}. Tu versión: v${appVersionFromUrl}.`
-              : `Tu versión de la app está desactualizada.${apkServerVersion ? ` Versión actual: v${apkServerVersion}.` : ''} Descarga la actualización.`}
-          </span>
-          {apkDownloadUrl && (
-            <a
-              href={apkDownloadUrl}
-              download
-              style={{ background: '#fff', color: '#f59e0b', padding: '5px 14px', borderRadius: '6px', textDecoration: 'none', fontWeight: '700', flexShrink: 0, fontSize: '13px' }}
-            >
-              Actualizar APK
-            </a>
-          )}
-        </div>
-      )}
       <header className="store-header">
         <div className="store-header-content">
           <div className="store-header-brand">
@@ -8942,6 +8925,59 @@ function Store() {
           </div>
         );
       })()}
+
+      {/* APK update modal */}
+      {apkUpdateNeeded && !apkUpdateDismissed && (
+        <div
+          className="store-modal-overlay"
+          style={{ zIndex: 99999 }}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: '20px', padding: '32px 24px', maxWidth: '380px', width: '90%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔄</div>
+            <h2 style={{ margin: '0 0 10px', fontSize: '22px', color: '#1a1a2e', fontWeight: '800' }}>
+              Actualización requerida
+            </h2>
+            <p style={{ margin: '0 0 6px', fontSize: '15px', color: '#555', lineHeight: '1.5' }}>
+              {appVersionFromUrl
+                ? `Tu versión (v${appVersionFromUrl}) está desactualizada.`
+                : 'Tu versión de la app está desactualizada.'}
+            </p>
+            {apkServerVersion && (
+              <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#f59e0b', fontWeight: '700' }}>
+                Versión disponible: v{apkServerVersion}
+              </p>
+            )}
+            {!apkServerVersion && <div style={{ marginBottom: '20px' }} />}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {apkDownloadUrl ? (
+                <a
+                  href={apkDownloadUrl}
+                  download
+                  style={{ display: 'block', width: '100%', padding: '15px', borderRadius: '12px', background: '#f59e0b', color: '#fff', fontSize: '16px', fontWeight: '700', textDecoration: 'none', boxSizing: 'border-box' }}
+                >
+                  Descargar actualización
+                </a>
+              ) : (
+                <button
+                  disabled
+                  style={{ width: '100%', padding: '15px', borderRadius: '12px', background: '#e5e7eb', color: '#9ca3af', fontSize: '16px', fontWeight: '700', border: 'none', cursor: 'not-allowed' }}
+                >
+                  Actualización no disponible
+                </button>
+              )}
+              <button
+                onClick={() => setApkUpdateDismissed(true)}
+                style={{ width: '100%', padding: '13px', borderRadius: '12px', background: 'transparent', color: '#888', fontSize: '14px', fontWeight: '600', border: '1px solid #e5e7eb', cursor: 'pointer' }}
+              >
+                Más tarde
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Inactivity modal - auto restart */}
       {inactivityModalOpen && (
