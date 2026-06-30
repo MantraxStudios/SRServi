@@ -9163,38 +9163,48 @@ function Store() {
 
       {/* APK update modal */}
       {apkUpdateNeeded && !apkUpdateDismissed && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999, background: apkBuildState === 'downloaded' ? '#16a34a' : apkBuildState === 'error' ? '#dc2626' : '#f59e0b', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 12, color: '#fff', fontWeight: 600 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
-            <span>{apkBuildState === 'downloaded' ? '✅' : apkBuildState === 'building' ? '⏳' : '🔄'}</span>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {apkBuildState === 'downloaded'
-                ? 'Descargada — sal de la app e instala desde Descargas'
-                : apkBuildState === 'building'
-                  ? (apkBuildProgress || 'Compilando...')
-                  : apkBuildState === 'error'
-                    ? 'Error al compilar'
-                    : appVersionFromUrl
-                      ? `Actualización disponible${apkServerVersion ? ` v${apkServerVersion}` : ''}`
-                      : 'App desactualizada — actualiza desde el panel admin'}
-            </span>
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-            {appVersionFromUrl && apkBuildState !== 'downloaded' && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999, background: apkBuildState === 'downloaded' ? '#16a34a' : apkBuildState === 'error' ? '#dc2626' : '#f59e0b', color: '#fff', fontSize: 12, fontWeight: 600 }}>
+          <div style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+              <span>{apkBuildState === 'downloaded' ? '✅' : apkBuildState === 'building' ? '⏳' : '🔄'}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {apkBuildState === 'downloaded'
+                  ? '¡Descarga completada!'
+                  : apkBuildState === 'building'
+                    ? (apkBuildProgress || 'Compilando...')
+                    : apkBuildState === 'error'
+                      ? 'Error al compilar'
+                      : `Actualización disponible${apkServerVersion ? ` v${apkServerVersion}` : ''}`}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              {appVersionFromUrl && apkBuildState !== 'downloaded' && (
+                <button
+                  onClick={handleApkUpdate}
+                  disabled={apkBuildState === 'building'}
+                  style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.25)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, cursor: apkBuildState === 'building' ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  {apkBuildState === 'building' ? '...' : apkBuildState === 'error' ? 'Reintentar' : `Actualizar${apkAutoCountdown > 0 && !apkBuildState ? ` (${apkAutoCountdown})` : ''}`}
+                </button>
+              )}
               <button
-                onClick={handleApkUpdate}
-                disabled={apkBuildState === 'building'}
-                style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.25)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, cursor: apkBuildState === 'building' ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                onClick={() => { setApkUpdateDismissed(true); clearInterval(apkBuildPollRef.current); clearInterval(apkAutoTimerRef.current); }}
+                style={{ padding: '4px 8px', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.8)', fontSize: 14, cursor: 'pointer', lineHeight: 1 }}
               >
-                {apkBuildState === 'building' ? '...' : apkBuildState === 'error' ? 'Reintentar' : `Actualizar${apkAutoCountdown > 0 && !apkBuildState ? ` (${apkAutoCountdown})` : ''}`}
+                ×
               </button>
-            )}
-            <button
-              onClick={() => { setApkUpdateDismissed(true); clearInterval(apkBuildPollRef.current); clearInterval(apkAutoTimerRef.current); }}
-              style={{ padding: '4px 8px', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.8)', fontSize: 14, cursor: 'pointer', lineHeight: 1 }}
-            >
-              ×
-            </button>
+            </div>
           </div>
+          {apkBuildState === 'downloaded' && (
+            <div style={{ padding: '4px 12px 8px', fontSize: 11, lineHeight: 1.5, opacity: 0.95 }}>
+              1. Quita el modo kiosco y sal de la tienda &nbsp;2. Abre el archivo descargado desde notificaciones o Descargas &nbsp;3. Permite instalar y presiona "Instalar"
+            </div>
+          )}
+          {!appVersionFromUrl && apkBuildState !== 'downloaded' && (
+            <div style={{ padding: '4px 12px 8px', fontSize: 11, lineHeight: 1.5, opacity: 0.95 }}>
+              Tu app no soporta auto-actualización. Ve al Panel Admin → Mis Apps → descarga Totem Android → transfiere al dispositivo e instala.
+            </div>
+          )}
         </div>
       )}
 
