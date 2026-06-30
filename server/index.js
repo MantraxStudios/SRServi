@@ -9199,16 +9199,23 @@ app.get('/api/superadmin/revenue', authenticateSuperadminToken, async (req, res)
 app.get('/api/apk/latest', async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT * FROM apk_releases ORDER BY version_code DESC LIMIT 1');
-    if (rows.length === 0) return res.status(404).json({ error: 'No hay versiones disponibles' });
-    const release = rows[0];
+    if (rows.length > 0) {
+      const release = rows[0];
+      return res.json({
+        name: release.name,
+        description: release.description,
+        version: release.version,
+        version_code: release.version_code,
+        logo: release.logo,
+        apk_url: release.apk_url,
+        created_at: release.created_at
+      });
+    }
+    // Fallback: usar APP_VERSIONS cuando no hay releases subidos aún
+    const cachedApk = getCachedApk('launcher', null);
     res.json({
-      name: release.name,
-      description: release.description,
-      version: release.version,
-      version_code: release.version_code,
-      logo: release.logo,
-      apk_url: release.apk_url,
-      created_at: release.created_at
+      version: APP_VERSIONS.launcher,
+      apk_url: cachedApk ? '/api/apps/android/download?appName=launcher' : null
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
