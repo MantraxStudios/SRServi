@@ -14,6 +14,8 @@ const GRADLE_BIN      = `${GRADLE_DIR}/gradle-${GRADLE_VERSION}/bin/gradle`;
 const CACHE_DIR       = join(__dir, 'apk-cache');
 const BUILD_JOBS      = new Map();
 
+export const APP_VERSIONS = { launcher: '1.0.0', tvordenes: '1.0.0', cctv: '1.0.0' };
+
 const APPS = {
   launcher: {
     srcDir:     join(__dir, 'web', 'SRServiClientLauncher'),
@@ -111,6 +113,21 @@ async function buildInBackground(jobId, app, appName, storeCode, cacheFile) {
           const filePath = join(tmpDir, rel);
           if (existsSync(filePath)) {
             const content = readFileSync(filePath, 'utf8').replaceAll(placeholder, storeCode);
+            writeFileSync(filePath, content, 'utf8');
+          }
+        }
+      }
+    }
+
+    // Inject app version into config files
+    const ver = APP_VERSIONS[appName];
+    if (ver) {
+      for (const { rel } of app.injectFiles) {
+        const filePath = join(tmpDir, rel);
+        if (existsSync(filePath)) {
+          let content = readFileSync(filePath, 'utf8');
+          if (content.includes('APP_VERSION')) {
+            content = content.replace(/const val APP_VERSION = ".*?"/, `const val APP_VERSION = "${ver}"`);
             writeFileSync(filePath, content, 'utf8');
           }
         }

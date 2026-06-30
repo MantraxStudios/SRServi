@@ -36,6 +36,15 @@ object ApiService {
         } else null
     }
 
+    fun fetchAppVersion(appName: String): String? {
+        val url = "https://srservi2.srautomatic.com/api/apps/android/version/$appName"
+        val response = httpGet(url) ?: return null
+        return try {
+            val map = gson.fromJson(response, Map::class.java)
+            map["version"] as? String
+        } catch (_: Exception) { null }
+    }
+
     private fun httpGet(urlString: String): String? {
         try {
             val url = URL(urlString)

@@ -90,7 +90,8 @@ class SellActivity : AppCompatActivity() {
 
         val storeCode = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
             .getString("store_code", "")
-        val sellUrl = if (!storeCode.isNullOrBlank()) "$BASE_URL/store/$storeCode" else BASE_URL
+        val ver = com.mantraxstudios.srservi.SRServiConfig.APP_VERSION
+        val sellUrl = if (!storeCode.isNullOrBlank()) "$BASE_URL/store/$storeCode?app_version=$ver" else "$BASE_URL?app_version=$ver"
         webView.loadUrl(sellUrl)
 
         // Hidden exit: long-press the top-left corner

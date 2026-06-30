@@ -12,7 +12,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import QRCode from 'qrcode';
 import AdmZip from 'adm-zip';
-import { startBuild, getBuildJob, getCachedApk } from './android-build.js';
+import { startBuild, getBuildJob, getCachedApk, APP_VERSIONS } from './android-build.js';
 import { execFile, execSync } from 'child_process';
 import speakeasy from 'speakeasy';
 import bcrypt from 'bcryptjs';
@@ -12984,6 +12984,12 @@ Incluye entre 4 y 8 pasos. Cada instrucción debe ser clara para un trabajador n
         console.error('[Apps/Windows] Error:', err.message);
         res.status(500).json({ error: 'Error generando la app: ' + err.message });
       }
+    });
+
+    app.get('/api/apps/android/version/:appName', (req, res) => {
+      const ver = APP_VERSIONS[req.params.appName];
+      if (!ver) return res.status(404).json({ error: 'App no encontrada' });
+      res.json({ version: ver });
     });
 
     // Android app build — starts background compile job and returns jobId

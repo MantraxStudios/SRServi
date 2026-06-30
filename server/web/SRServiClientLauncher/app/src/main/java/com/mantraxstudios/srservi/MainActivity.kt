@@ -1,16 +1,21 @@
 package com.mantraxstudios.srservi
 
+import android.app.AlertDialog
+import android.app.DownloadManager
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.view.View
 import android.view.WindowManager
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.mantraxstudios.srservi.admin.SRServiDeviceAdminReceiver
+import com.mantraxstudios.srservi.network.ApiService
 import com.mantraxstudios.srservi.printer.BluetoothPrinterManager
 import com.mantraxstudios.srservi.printer.PrinterForegroundService
 import com.mantraxstudios.srservi.ui.RateActivity
@@ -23,8 +28,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var printerManager: BluetoothPrinterManager
     private lateinit var tvPrinterStatus: TextView
 
-    // Evita llamar startLockTask() más de una vez
     private var kioskModeActive = false
+    private var updateDialogShown = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,20 +69,16 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnAppSettings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+
+        checkForUpdate()
     }
 
     override fun onResume() {
         super.onResume()
         applyRotationPreference()
 
-        // El servicio se inicia SIEMPRE para que onTaskRemoved pueda relanzar
-        // la app aunque el wizard todavía no esté completo.
-        // BluetoothPrinterManager ya maneja gracefully la falta de permisos.
         PrinterForegroundService.start(this)
 
-        // Si falta algún permiso o configuración crítica, mostrar el wizard.
-        // El kiosk/lock-task se activa DESPUÉS del wizard para que el usuario
-        // pueda navegar a los ajustes del sistema durante la configuración.
         if (SetupWizardActivity.isSetupNeeded(this)) {
             startActivity(Intent(this, SetupWizardActivity::class.java))
             return
@@ -90,6 +91,60 @@ class MainActivity : AppCompatActivity() {
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
         // Bloquear el botón atrás en modo kiosk.
+    }
+
+    private fun checkForUpdate() {
+        Thread {
+            try {
+                val serverVersion = ApiService.fetchAppVersion("launcher") ?: return@Thread
+                val localVersion = SRServiConfig.APP_VERSION
+                if (serverVersion != localVersion) {
+                    runOnUiThread { showUpdateDialog(serverVersion) }
+                }
+            } catch (_: Exception) {}
+        }.start()
+    }
+
+    private fun showUpdateDialog(serverVersion: String) {
+        if (updateDialogShown) return
+        updateDialogShown = true
+
+        val prefs = getSharedPreferences("srservi_prefs", Context.MODE_PRIVATE)
+        val storeCode = prefs.getString("store_code", "") ?: ""
+
+        AlertDialog.Builder(this)
+            .setTitle("Actualización requerida")
+            .setMessage("Hay una nueva versión disponible (v$serverVersion). Tu versión actual es v${SRServiConfig.APP_VERSION}.\n\nDebes actualizar para continuar usando la aplicación.")
+            .setCancelable(false)
+            .setPositiveButton("Descargar actualización") { _, _ ->
+                downloadApk(storeCode)
+            }
+            .show()
+    }
+
+    private fun downloadApk(storeCode: String) {
+        try {
+            val url = if (storeCode.isNotBlank()) {
+                "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher&storeCode=$storeCode"
+            } else {
+                "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher"
+            }
+
+            val request = DownloadManager.Request(Uri.parse(url))
+                .setTitle("SRServi POS - Actualización")
+                .setDescription("Descargando nueva versión...")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "SRServi-POS.apk")
+                .setMimeType("application/vnd.android.package-archive")
+
+            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            dm.enqueue(request)
+
+            Toast.makeText(this, "Descargando actualización... Revisa tus notificaciones.", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Error al descargar: ${e.message}", Toast.LENGTH_LONG).show()
+            updateDialogShown = false
+        }
     }
 
     private fun setupKioskMode() {
@@ -107,11 +162,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        // Sin Device Owner, el modo kiosk se logra combinando:
-        //   - La app registrada como HOME launcher (el botón Inicio regresa a la app)
-        //   - onBackPressed bloqueado (arriba)
-        //   - excludeFromRecents en el manifest
-        //   - PrinterForegroundService.onTaskRemoved relanza la app si la cierran
     }
 
     private fun applyRotationPreference() {

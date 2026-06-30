@@ -913,7 +913,11 @@ function Store() {
   const terminalFromUrl = searchParams.get('terminal');
   const configFromUrl = searchParams.get('config');
   const adminEditToken = searchParams.get('admin_edit');
+  const appVersionFromUrl = searchParams.get('app_version');
   const { setMenuOpen } = useStore() || {};
+  const [apkUpdateNeeded, setApkUpdateNeeded] = useState(false);
+  const [apkServerVersion, setApkServerVersion] = useState('');
+  const [apkDownloadUrl, setApkDownloadUrl] = useState('');
   const deliveryMode = searchParams.get('delivery') === 'true';
   const tuuModePayFromUrl = searchParams.get('tuumodepay') === 'true';
   const qrReturnResult = searchParams.get('x_result');
@@ -1229,6 +1233,24 @@ function Store() {
       setQrPaymentResult({ success: false, message: 'Error verificando pago' });
     });
   }, [qrReturnRef]);
+
+  // Verificar versión de APK: apks nuevas envían app_version, las viejas no envían nada
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    const isAndroidWebView = /Android/.test(ua) && /; wv\)/.test(ua);
+    if (!appVersionFromUrl && !isAndroidWebView) return;
+    fetch('/api/apk/latest')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data || !data.version) return;
+        setApkServerVersion(data.version);
+        if (data.apk_url) setApkDownloadUrl(data.apk_url);
+        if (!appVersionFromUrl || appVersionFromUrl !== data.version) {
+          setApkUpdateNeeded(true);
+        }
+      })
+      .catch(() => {});
+  }, [appVersionFromUrl]);
 
   // Auto-download receipt for successful delivery QR/Haulmer payments
   useEffect(() => {
@@ -4521,6 +4543,24 @@ function Store() {
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
     >
+      {apkUpdateNeeded && (
+        <div style={{ background: '#f59e0b', color: '#fff', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', fontWeight: '600', flexWrap: 'wrap' }}>
+          <span style={{ flex: 1 }}>
+            {appVersionFromUrl
+              ? `Nueva versión disponible (v${apkServerVersion}). Tu versión: v${appVersionFromUrl}.`
+              : `Nueva versión disponible (v${apkServerVersion}). Descarga la actualización.`}
+          </span>
+          {apkDownloadUrl && (
+            <a
+              href={apkDownloadUrl}
+              download
+              style={{ background: '#fff', color: '#f59e0b', padding: '5px 14px', borderRadius: '6px', textDecoration: 'none', fontWeight: '700', flexShrink: 0, fontSize: '13px' }}
+            >
+              Actualizar APK
+            </a>
+          )}
+        </div>
+      )}
       <header className="store-header">
         <div className="store-header-content">
           <div className="store-header-brand">
