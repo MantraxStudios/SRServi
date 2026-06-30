@@ -105,6 +105,9 @@ class SettingsActivity : AppCompatActivity() {
         }
         findViewById<MaterialButton>(R.id.btnClearCache).setOnClickListener { clearAppCache() }
         findViewById<MaterialButton>(R.id.btnSave).setOnClickListener { saveSettings() }
+
+        findViewById<TextView>(R.id.tvAppVersion).text =
+            "SRServi POS v${com.mantraxstudios.srservi.SRServiConfig.APP_VERSION}"
     }
 
     override fun onResume() {

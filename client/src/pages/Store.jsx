@@ -919,6 +919,9 @@ function Store() {
   const [apkUpdateDismissed, setApkUpdateDismissed] = useState(false);
   const [apkServerVersion, setApkServerVersion] = useState('');
   const [apkDownloadUrl, setApkDownloadUrl] = useState('');
+  const [apkBuildState, setApkBuildState] = useState(null); // null | 'building' | 'ready' | 'error'
+  const [apkBuildProgress, setApkBuildProgress] = useState(0);
+  const apkBuildPollRef = useRef(null);
   const deliveryMode = searchParams.get('delivery') === 'true';
   const tuuModePayFromUrl = searchParams.get('tuumodepay') === 'true';
   const qrReturnResult = searchParams.get('x_result');
@@ -4518,6 +4521,52 @@ function Store() {
         </div>
       </div>
     );
+  };
+
+  const handleApkUpdate = async () => {
+    if (apkDownloadUrl) {
+      window.location.href = apkDownloadUrl;
+      return;
+    }
+    setApkBuildState('building');
+    setApkBuildProgress(0);
+    try {
+      const res = await fetch('/api/apps/android/build', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appName: 'launcher', storeCode: code || null })
+      });
+      const data = await res.json();
+      if (data.cached || data.status === 'done') {
+        setApkBuildState('ready');
+        const url = code
+          ? `/api/apps/android/download?appName=launcher&storeCode=${code}`
+          : '/api/apps/android/download?appName=launcher';
+        window.location.href = url;
+        return;
+      }
+      const jobId = data.jobId;
+      apkBuildPollRef.current = setInterval(async () => {
+        try {
+          const r = await fetch(`/api/apps/android/status/${jobId}`);
+          const s = await r.json();
+          setApkBuildProgress(s.progress || 0);
+          if (s.status === 'done') {
+            clearInterval(apkBuildPollRef.current);
+            setApkBuildState('ready');
+            const url = code
+              ? `/api/apps/android/download?appName=launcher&storeCode=${code}`
+              : '/api/apps/android/download?appName=launcher';
+            window.location.href = url;
+          } else if (s.status === 'error') {
+            clearInterval(apkBuildPollRef.current);
+            setApkBuildState('error');
+          }
+        } catch { clearInterval(apkBuildPollRef.current); setApkBuildState('error'); }
+      }, 3000);
+    } catch {
+      setApkBuildState('error');
+    }
   };
 
   const renderAddProductCard = () => (
@@ -8952,24 +9001,30 @@ function Store() {
             )}
             {!apkServerVersion && <div style={{ marginBottom: '20px' }} />}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {apkDownloadUrl ? (
-                <a
-                  href={apkDownloadUrl}
-                  download
-                  style={{ display: 'block', width: '100%', padding: '15px', borderRadius: '12px', background: '#f59e0b', color: '#fff', fontSize: '16px', fontWeight: '700', textDecoration: 'none', boxSizing: 'border-box' }}
-                >
-                  Descargar actualización
-                </a>
-              ) : (
-                <button
-                  disabled
-                  style={{ width: '100%', padding: '15px', borderRadius: '12px', background: '#e5e7eb', color: '#9ca3af', fontSize: '16px', fontWeight: '700', border: 'none', cursor: 'not-allowed' }}
-                >
-                  Actualización no disponible
-                </button>
-              )}
+              {apkBuildState === 'building' ? (
+                <div style={{ padding: '15px', borderRadius: '12px', background: '#fef3c7', border: '1px solid #f59e0b' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#92400e', marginBottom: '8px' }}>
+                    Compilando APK... {apkBuildProgress > 0 ? `${apkBuildProgress}%` : ''}
+                  </div>
+                  <div style={{ background: '#e5e7eb', borderRadius: '99px', height: '6px', overflow: 'hidden' }}>
+                    <div style={{ background: '#f59e0b', height: '100%', borderRadius: '99px', width: apkBuildProgress > 0 ? `${apkBuildProgress}%` : '30%', transition: 'width 0.5s', animation: apkBuildProgress === 0 ? 'none' : undefined }} />
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#92400e', marginTop: '6px' }}>Esto puede tardar varios minutos</div>
+                </div>
+              ) : apkBuildState === 'error' ? (
+                <div style={{ padding: '12px', borderRadius: '12px', background: '#fee2e2', color: '#991b1b', fontSize: '14px', fontWeight: '600', textAlign: 'center' }}>
+                  Error al compilar. Intenta de nuevo.
+                </div>
+              ) : null}
               <button
-                onClick={() => setApkUpdateDismissed(true)}
+                onClick={handleApkUpdate}
+                disabled={apkBuildState === 'building'}
+                style={{ width: '100%', padding: '15px', borderRadius: '12px', background: apkBuildState === 'building' ? '#e5e7eb' : '#f59e0b', color: apkBuildState === 'building' ? '#9ca3af' : '#fff', fontSize: '16px', fontWeight: '700', border: 'none', cursor: apkBuildState === 'building' ? 'not-allowed' : 'pointer' }}
+              >
+                {apkBuildState === 'building' ? 'Compilando...' : apkBuildState === 'error' ? 'Reintentar descarga' : 'Descargar actualización'}
+              </button>
+              <button
+                onClick={() => { setApkUpdateDismissed(true); clearInterval(apkBuildPollRef.current); }}
                 style={{ width: '100%', padding: '13px', borderRadius: '12px', background: 'transparent', color: '#888', fontSize: '14px', fontWeight: '600', border: '1px solid #e5e7eb', cursor: 'pointer' }}
               >
                 Más tarde
