@@ -215,31 +215,72 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startApkDownload(storeCode: String) {
+        val progressDialog = AlertDialog.Builder(this)
+            .setTitle("Descargando actualización")
+            .setMessage("Descargando APK...")
+            .setCancelable(false)
+            .create()
+        runOnUiThread { progressDialog.show() }
+
+        Thread {
+            try {
+                val url = if (storeCode.isNotBlank())
+                    "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher&storeCode=$storeCode"
+                else
+                    "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher"
+
+                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.connect()
+
+                val total = conn.contentLengthLong
+                val apkFile = java.io.File(cacheDir, "SRServi-POS-update.apk")
+                val input = conn.inputStream
+                val output = java.io.FileOutputStream(apkFile)
+                val buffer = ByteArray(8192)
+                var downloaded = 0L
+                var bytes: Int
+
+                while (input.read(buffer).also { bytes = it } != -1) {
+                    output.write(buffer, 0, bytes)
+                    downloaded += bytes
+                    if (total > 0) {
+                        val pct = (downloaded * 100 / total).toInt()
+                        runOnUiThread { progressDialog.setMessage("Descargando... $pct%") }
+                    }
+                }
+                output.flush()
+                output.close()
+                input.close()
+                conn.disconnect()
+
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    installApk(apkFile)
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    Toast.makeText(this, "Error al descargar: ${e.message}", Toast.LENGTH_LONG).show()
+                    updateDialogShown = false
+                }
+            }
+        }.start()
+    }
+
+    private fun installApk(file: java.io.File) {
         try {
-            val url = if (storeCode.isNotBlank()) {
-                "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher&storeCode=$storeCode"
-            } else {
-                "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher"
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                this, "$packageName.fileprovider", file
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-
-            val request = DownloadManager.Request(Uri.parse(url))
-                .setTitle("SRServi POS - Actualización")
-                .setDescription("Descargando nueva versión...")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "SRServi-POS.apk")
-                .setMimeType("application/vnd.android.package-archive")
-
-            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            dm.enqueue(request)
-
-            runOnUiThread {
-                Toast.makeText(this, "Descargando actualización... Revisa tus notificaciones.", Toast.LENGTH_LONG).show()
-            }
+            startActivity(intent)
         } catch (e: Exception) {
-            runOnUiThread {
-                Toast.makeText(this, "Error al descargar: ${e.message}", Toast.LENGTH_LONG).show()
-                updateDialogShown = false
-            }
+            Toast.makeText(this, "No se pudo abrir el instalador: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 

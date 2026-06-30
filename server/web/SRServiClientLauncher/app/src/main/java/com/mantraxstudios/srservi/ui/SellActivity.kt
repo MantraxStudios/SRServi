@@ -366,7 +366,11 @@ class SellActivity : AppCompatActivity() {
 
                 runOnUiThread {
                     dialog.dismiss()
-                    showShareDialog(destFile, mimeType)
+                    if (destFile.name.endsWith(".apk")) {
+                        openDownloadedFile(destFile, "application/vnd.android.package-archive")
+                    } else {
+                        showShareDialog(destFile, mimeType)
+                    }
                 }
             } catch (e: Exception) {
                 runOnUiThread {

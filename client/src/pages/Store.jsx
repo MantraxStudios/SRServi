@@ -919,7 +919,7 @@ function Store() {
   const [apkUpdateDismissed, setApkUpdateDismissed] = useState(false);
   const [apkServerVersion, setApkServerVersion] = useState('');
   const [apkDownloadUrl, setApkDownloadUrl] = useState('');
-  const [apkBuildState, setApkBuildState] = useState(null); // null | 'building' | 'ready' | 'error'
+  const [apkBuildState, setApkBuildState] = useState(null); // null | 'building' | 'downloaded' | 'error'
   const [apkBuildProgress, setApkBuildProgress] = useState(0);
   const apkBuildPollRef = useRef(null);
   const [apkAutoCountdown, setApkAutoCountdown] = useState(5);
@@ -4573,8 +4573,7 @@ function Store() {
 
       if (data.cached || data.status === 'done') {
         triggerApkDownload(sc, null);
-        setApkBuildState(null);
-        setApkUpdateDismissed(true);
+        setApkBuildState('downloaded');
         return;
       }
 
@@ -4585,8 +4584,7 @@ function Store() {
           const s = await r.json();
           if (s.status === 'done') {
             triggerApkDownload(sc, jobId);
-            setApkBuildState(null);
-            setApkUpdateDismissed(true);
+            setApkBuildState('downloaded');
           } else if (s.status === 'error') {
             setApkBuildState('error');
           } else {
@@ -9021,48 +9019,73 @@ function Store() {
             style={{ background: '#fff', borderRadius: '20px', padding: '32px 24px', maxWidth: '380px', width: '90%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔄</div>
-            <h2 style={{ margin: '0 0 10px', fontSize: '22px', color: '#1a1a2e', fontWeight: '800' }}>
-              Actualización requerida
-            </h2>
+            {apkBuildState !== 'downloaded' && (
+              <>
+                <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔄</div>
+                <h2 style={{ margin: '0 0 10px', fontSize: '22px', color: '#1a1a2e', fontWeight: '800' }}>
+                  Actualización requerida
+                </h2>
+              </>
+            )}
             {appVersionFromUrl ? (
               <>
-                <p style={{ margin: '0 0 6px', fontSize: '15px', color: '#555', lineHeight: '1.5' }}>
-                  Tu versión (v{appVersionFromUrl}) está desactualizada.
-                </p>
-                {apkServerVersion && (
-                  <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#f59e0b', fontWeight: '700' }}>
-                    Versión disponible: v{apkServerVersion}
-                  </p>
+                {apkBuildState === 'downloaded' ? (
+                  <>
+                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>✅</div>
+                    <p style={{ margin: '0 0 16px', fontSize: '15px', color: '#16a34a', fontWeight: '700' }}>
+                      ¡Descarga completada!
+                    </p>
+                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '16px', textAlign: 'left', marginBottom: '16px' }}>
+                      <p style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: '700', color: '#166534' }}>Para instalar la actualización:</p>
+                      <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#15803d', lineHeight: '2' }}>
+                        <li>Sal de esta pantalla presionando el <b>botón de inicio</b> o cerrando la app</li>
+                        <li>Abre la <b>notificación de descarga</b> o busca el archivo en <b>Descargas</b></li>
+                        <li>Toca el archivo <b>.apk</b> descargado</li>
+                        <li>Si el sistema lo pide, permite <b>"Instalar apps de fuentes desconocidas"</b></li>
+                        <li>Presiona <b>"Instalar"</b> y espera a que termine</li>
+                      </ol>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ margin: '0 0 6px', fontSize: '15px', color: '#555', lineHeight: '1.5' }}>
+                      Tu versión (v{appVersionFromUrl}) está desactualizada.
+                    </p>
+                    {apkServerVersion && (
+                      <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#f59e0b', fontWeight: '700' }}>
+                        Versión disponible: v{apkServerVersion}
+                      </p>
+                    )}
+                    {!apkServerVersion && <div style={{ marginBottom: '20px' }} />}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {apkBuildState === 'building' ? (
+                        <div style={{ padding: '15px', borderRadius: '12px', background: '#fef3c7', border: '1px solid #f59e0b' }}>
+                          <div style={{ fontSize: '14px', fontWeight: '700', color: '#92400e', marginBottom: '8px' }}>
+                            {apkBuildProgress || 'Compilando...'}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>Esto puede tardar varios minutos</div>
+                        </div>
+                      ) : apkBuildState === 'error' ? (
+                        <div style={{ padding: '12px', borderRadius: '12px', background: '#fee2e2', color: '#991b1b', fontSize: '14px', fontWeight: '600', textAlign: 'center' }}>
+                          Error al compilar. Intenta de nuevo.
+                        </div>
+                      ) : null}
+                      <button
+                        onClick={handleApkUpdate}
+                        disabled={apkBuildState === 'building'}
+                        style={{ width: '100%', padding: '15px', borderRadius: '12px', background: apkBuildState === 'building' ? '#e5e7eb' : '#f59e0b', color: apkBuildState === 'building' ? '#9ca3af' : '#fff', fontSize: '16px', fontWeight: '700', border: 'none', cursor: apkBuildState === 'building' ? 'not-allowed' : 'pointer' }}
+                      >
+                        {apkBuildState === 'building' ? 'Compilando...' : apkBuildState === 'error' ? 'Reintentar descarga' : `Descargar actualización${apkAutoCountdown > 0 && !apkBuildState ? ` (${apkAutoCountdown}s)` : ''}`}
+                      </button>
+                      <button
+                        onClick={() => { setApkUpdateDismissed(true); clearInterval(apkBuildPollRef.current); clearInterval(apkAutoTimerRef.current); }}
+                        style={{ width: '100%', padding: '13px', borderRadius: '12px', background: 'transparent', color: '#888', fontSize: '14px', fontWeight: '600', border: '1px solid #e5e7eb', cursor: 'pointer' }}
+                      >
+                        Más tarde
+                      </button>
+                    </div>
+                  </>
                 )}
-                {!apkServerVersion && <div style={{ marginBottom: '20px' }} />}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {apkBuildState === 'building' ? (
-                    <div style={{ padding: '15px', borderRadius: '12px', background: '#fef3c7', border: '1px solid #f59e0b' }}>
-                      <div style={{ fontSize: '14px', fontWeight: '700', color: '#92400e', marginBottom: '8px' }}>
-                        {apkBuildProgress || 'Compilando...'}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>Esto puede tardar varios minutos</div>
-                    </div>
-                  ) : apkBuildState === 'error' ? (
-                    <div style={{ padding: '12px', borderRadius: '12px', background: '#fee2e2', color: '#991b1b', fontSize: '14px', fontWeight: '600', textAlign: 'center' }}>
-                      Error al compilar. Intenta de nuevo.
-                    </div>
-                  ) : null}
-                  <button
-                    onClick={handleApkUpdate}
-                    disabled={apkBuildState === 'building'}
-                    style={{ width: '100%', padding: '15px', borderRadius: '12px', background: apkBuildState === 'building' ? '#e5e7eb' : '#f59e0b', color: apkBuildState === 'building' ? '#9ca3af' : '#fff', fontSize: '16px', fontWeight: '700', border: 'none', cursor: apkBuildState === 'building' ? 'not-allowed' : 'pointer' }}
-                  >
-                    {apkBuildState === 'building' ? 'Compilando...' : apkBuildState === 'error' ? 'Reintentar descarga' : `Descargar actualización${apkAutoCountdown > 0 && !apkBuildState ? ` (${apkAutoCountdown}s)` : ''}`}
-                  </button>
-                  <button
-                    onClick={() => { setApkUpdateDismissed(true); clearInterval(apkBuildPollRef.current); clearInterval(apkAutoTimerRef.current); }}
-                    style={{ width: '100%', padding: '13px', borderRadius: '12px', background: 'transparent', color: '#888', fontSize: '14px', fontWeight: '600', border: '1px solid #e5e7eb', cursor: 'pointer' }}
-                  >
-                    Más tarde
-                  </button>
-                </div>
               </>
             ) : (
               <>
