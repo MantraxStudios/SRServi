@@ -2645,6 +2645,47 @@ function Store() {
     if (cart.length === 0) return;
     setCartOpen(false);
 
+    // Modo restaurante: solo confirmar pedido, agregar a mesa, sin cobrar
+    if (restaurantMode && activeTable) {
+      try {
+        setProcessingPayment(true);
+        const storeId = store.store.id;
+        const API = '';
+        const items = cart.map(item => ({
+          product_id: item.product_id || item.combo_id,
+          quantity: item.quantity || 1,
+          unit_price: item.unit_price,
+          selected_ingredients: item.selected_ingredients || [],
+          selected_extras: item.selected_extras || [],
+          selected_complements: item.selected_complements || [],
+          customer_comment: paymentComment || null,
+          ...(item._isCombo ? { combo_id: item.combo_id, combo_label: item.combo_label, _comboConfig: item._comboConfig } : {})
+        }));
+        const orderRes = await fetch(API + '/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            store_id: storeId,
+            items,
+            payment_method: 'pending',
+            table_number: activeTable.number,
+            terminal_id: selectedTerminalId ? parseInt(selectedTerminalId) : null,
+            customer_comment: paymentComment || null
+          })
+        });
+        if (!orderRes.ok) throw new Error((await orderRes.json()).error || 'Error al enviar pedido');
+        addToTable(activeTable.id, cart);
+        setCart([]);
+        setPaymentComment('');
+        setActiveTable(null);
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        setProcessingPayment(false);
+      }
+      return;
+    }
+
     // Si solo hay un método de pago activo, ir directo sin propina
     // (excepto en modo TUU Android, que necesita mostrar el modal con los botones TUU)
     if (!deliveryMode && !(tuuModePayFromUrl && androidBridgeAvailable)) {
@@ -2974,11 +3015,11 @@ function Store() {
         setCashPaymentSuccess(true);
         setPaymentModalOpen(false);
 
-        if (activeTable) addToTable(activeTable.id, cart);
+
         if (billingTableId) { clearTable(billingTableId); setBillingTableId(null); }
         setCart([]);
         setCartOpen(false);
-        if (activeTable) setActiveTable(null);
+
       }
     } catch (err) {
       setPaymentError(err.message);
@@ -3070,12 +3111,12 @@ function Store() {
           setPaymentWaiting(false);
           setPaymentConfirmed(true);
           setLastOrderNumber(order.order_number);
-          if (activeTable) addToTable(activeTable.id, cart);
+  
           if (billingTableId) { clearTable(billingTableId); setBillingTableId(null); }
           setCart([]);
           setCartOpen(false);
           setPaymentModalOpen(false);
-          if (activeTable) setActiveTable(null);
+  
         } else {
           fetch(`${API}/api/orders/${order.id}/cancel-payment`, {
             method: 'POST',
@@ -4670,17 +4711,7 @@ function Store() {
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
     >
-      <header className="store-header"
-        onPointerDown={() => { setModeToggleTimer(setTimeout(() => {
-          const next = !restaurantMode;
-          setRestaurantMode(next);
-          localStorage.setItem('srservi_restaurant_mode', next ? '1' : '0');
-          if (next && tables.length === 0) setTableConfigOpen(true);
-          setActiveTable(null);
-        }, 1500)); }}
-        onPointerUp={() => { clearTimeout(modeToggleTimer); }}
-        onPointerLeave={() => { clearTimeout(modeToggleTimer); }}
-      >
+      <header className="store-header">
         <div className="store-header-content">
           <div className="store-header-brand">
             {store?.store?.logo_url && (
@@ -8762,6 +8793,20 @@ function Store() {
               </button>
               <button
                 onClick={() => {
+                  const next = !restaurantMode;
+                  setRestaurantMode(next);
+                  localStorage.setItem('srservi_restaurant_mode', next ? '1' : '0');
+                  if (next && tables.length === 0) setTableConfigOpen(true);
+                  setActiveTable(null);
+                  setCart([]);
+                  setPinOptionsModalOpen(false);
+                }}
+                style={{ padding: '14px', borderRadius: '10px', border: '2px solid #16a34a', background: restaurantMode ? '#16a34a' : '#f0fdf4', color: restaurantMode ? '#fff' : '#166534', fontSize: '15px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                🍽️ {restaurantMode ? 'Salir modo Restaurante' : 'Modo Restaurante'}
+              </button>
+              <button
+                onClick={() => {
                   setPinOptionsModalOpen(false);
                   setEditMode(true);
                 }}
@@ -9115,11 +9160,13 @@ function Store() {
               </button>
             </div>
           </div>
-          {apkBuildState === 'downloaded' && (
-            <div style={{ padding: '4px 12px 8px', fontSize: 11, lineHeight: 1.5, opacity: 0.95 }}>
-              1. Quita el modo kiosco &nbsp;2. Sal de la tienda con el botón de regresar &nbsp;3. Dale los permisos que pida para instalar
-            </div>
-          )}
+          <div style={{ padding: '6px 12px 8px', fontSize: 12, lineHeight: 1.6, background: 'rgba(0,0,0,0.15)', fontWeight: 500 }}>
+            {apkBuildState === 'downloaded'
+              ? '① Quita el modo kiosco → ② Sal de la tienda con el botón de regresar → ③ Dale los permisos que pida para instalar'
+              : apkBuildState === 'building'
+                ? '⏳ Espera a que termine de compilar y se descargue automáticamente...'
+                : '① Quita el modo kiosco → ② Presiona Descargar → ③ Sal con el botón de regresar y dale los permisos para instalar'}
+          </div>
         </div>
       )}
 
