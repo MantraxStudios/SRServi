@@ -158,7 +158,10 @@
       "PowerShell($dotnet = Get-Command dotnet -ErrorAction SilentlyContinue; if \\($null -eq $dotnet\\) { @\\(\"C:\\\\Program Files\\\\dotnet\\\\dotnet.exe\",\"C:\\\\Program Files \\(x86\\)\\\\dotnet\\\\dotnet.exe\"\\) | Where-Object { Test-Path $_ } } else { $dotnet.Source })",
       "Bash(npx --no-install vite build --logLevel error)",
       "Bash(npx react-scripts *)",
-      "Bash(dir \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Desktop\\\\SRServi\\\\client\\\\node_modules\\\\@fortawesome\\\\free-brands-svg-icons\")"
+      "Bash(dir \"C:\\\\Users\\\\tupap\\\\OneDrive\\\\Desktop\\\\SRServi\\\\client\\\\node_modules\\\\@fortawesome\\\\free-brands-svg-icons\")",
+      "Bash(grep \"?$\\\\|? \\($\")",
+      "Bash(grep -n \": null$\\\\|: null }\" \"D:/Trabajo/SRServi/client/src/pages/superadmin/SuperadminDashboard.jsx\")",
+      "Bash(grep -n \"null$\" \"D:/Trabajo/SRServi/client/src/pages/superadmin/SuperadminDashboard.jsx\")"
     ]
   }
 }

@@ -23,7 +23,7 @@ import { initLeonIA } from './leon_ia/autostart.js';
 import { generatePromoImage, startInstagramLogin, completeInstagramVerify, postToInstagram, deleteInstagramSession } from './instagram-service.js';
 import { initInstagramService } from './instagram_autostart.js';
 
-import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings } from './database.js';
+import { getInstagramConfig, saveInstagramConfig, getActiveInstagramConfigs, updateInstagramPosted, saveInstagramSession, clearInstagramSession, getTikTokConfig, saveTikTokConfig, saveTikTokSession, clearTikTokTokens, getActiveTikTokConfigs, updateTikTokPosted, createScheduledMessage, getScheduledMessages, cancelScheduledMessage, getPendingScheduledMessages, markScheduledMessageSent, markScheduledMessageFailed, getWorkersWithPhone, logInventoryMovement, getInventoryMovements, checkAndCreateStockAlerts, getStockAlerts, acknowledgeStockAlert, getInventoryStats, getConsumptionReport, getWorkerComments, createWorkerComment, deleteWorkerComment, getStoreRankings, createFeedbackCampaign, createFeedbackToken, getFeedbackToken, submitFeedbackResponse, updateCampaignSentCount, getFeedbackCampaigns, getFeedbackResponses, getAllActiveUsersForFeedback, createTotemRental, getTotemRentalByUser, updateTotemRentalMpPreference, updateTotemRentalPayment, markTotemRentalInstalled, updateTotemRentalStatus, updateTotemSubscriptionStatus, getAllTotemRentals, logTotemPayment } from './database.js';
 import { runSrBrain, runSrBrainForStore } from './sr_brain.js';
 import { initWhatsApp, getWhatsAppStatus, sendWhatsAppMessage, getWhatsAppGroups, disconnectWhatsApp, reconnectWhatsApp, getAutoStartStoreIds, setBotEnabled, getBotEnabled, getBotPhone } from './whatsapp.js';
 import cron from 'node-cron';
@@ -2599,7 +2599,15 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
       
       if (payment.status === 'approved') {
         const externalRef = payment.external_reference;
-        if (externalRef && externalRef.startsWith('subscription-')) {
+        if (externalRef && externalRef.startsWith('totem-install-')) {
+          const parts = externalRef.split('-');
+          const rentalId = parseInt(parts[2]);
+          if (rentalId) {
+            await updateTotemRentalPayment(rentalId, String(payment.id));
+            await logTotemPayment(rentalId, payment.transaction_amount, 'installation', String(payment.id), 'approved');
+            console.log(`[TotemRental] Pago instalación aprobado para rental #${rentalId}`);
+          }
+        } else if (externalRef && externalRef.startsWith('subscription-')) {
           const parts = externalRef.split('-');
           const userId = parseInt(parts[1]);
           const planId = parseInt(parts[2]);
@@ -15251,5 +15259,266 @@ app.put('/api/inventory/transfers/:id/cancel', authenticateToken, async (req, re
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+// FEEDBACK / ENCUESTAS DE SATISFACCIÓN
+// ═══════════════════════════════════════════════════════════════════════
+
+async function sendFeedbackToUsers(users, campaignId) {
+  const BASE = process.env.BASE_URL || process.env.CLIENT_URL || 'https://srservi2.srautomatic.com';
+  let sent = 0;
+  for (const user of users) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const link = `${BASE}/feedback/${token}`;
+    let sentVia = 'email';
+    await createFeedbackToken(campaignId, user.id, token, sentVia);
+
+    // Email
+    try {
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="padding:30px 10px;">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+  <tr><td style="background:#C8A415;padding:24px 30px;text-align:center;">
+    <h1 style="margin:0;color:#fff;font-size:22px;font-weight:900;">⭐ Tu opinión nos importa</h1>
+    <p style="margin:6px 0 0;color:rgba(255,255,255,0.9);font-size:14px;">Hola ${user.business_name || user.username}, ¿cómo te ha ido con SRServi?</p>
+  </td></tr>
+  <tr><td style="background:#fff;padding:28px 30px;text-align:center;">
+    <p style="font-size:15px;color:#374151;margin:0 0 20px;">Tómate 2 minutos para contarnos tu experiencia. Tu feedback nos ayuda a mejorar el sistema para ti.</p>
+    <a href="${link}" style="display:inline-block;background:#C8A415;color:#fff;font-weight:800;font-size:16px;padding:14px 36px;border-radius:10px;text-decoration:none;">Responder encuesta</a>
+    <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">O copia este enlace: ${link}</p>
+  </td></tr>
+  <tr><td style="background:#f9fafb;padding:14px 30px;text-align:center;border-top:1px solid #e5e7eb;">
+    <p style="margin:0;font-size:11px;color:#9ca3af;">SRServi — Sistema de gestión para restaurantes</p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`;
+      await mailer.sendMail({
+        from: `"SRServi" <${process.env.EMAIL_USER}>`,
+        to: user.email,
+        subject: '⭐ ¿Cómo ha sido tu experiencia con SRServi?',
+        html
+      });
+    } catch (e) { console.error(`[Feedback] Email failed for ${user.email}:`, e.message); }
+
+    // WhatsApp (sistema, storeId=0)
+    const waStatus = getWhatsAppStatus(0);
+    if (waStatus?.isConnected && user.phone) {
+      try {
+        const phone = user.phone.replace(/\D/g, '');
+        await sendWhatsAppMessage(0, `${phone}@s.whatsapp.net`,
+          `⭐ *Hola ${user.business_name || user.username}!*\nTu opinión sobre SRServi nos ayuda a mejorar.\nTómate 2 min para responder nuestra encuesta:\n${link}`
+        );
+        sentVia = 'both';
+        await pool.execute('UPDATE feedback_tokens SET sent_via = ? WHERE token = ?', [sentVia, token]);
+      } catch (e) { console.error(`[Feedback] WhatsApp failed for ${user.phone}:`, e.message); }
+    }
+
+    sent++;
+  }
+  await updateCampaignSentCount(campaignId, sent);
+  return sent;
+}
+
+// Superadmin: enviar encuesta de feedback
+app.post('/api/superadmin/feedback/send', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const campaignId = await createFeedbackCampaign('manual');
+    const users = await getAllActiveUsersForFeedback();
+    // Run async, don't block response
+    sendFeedbackToUsers(users, campaignId).catch(e => console.error('[Feedback]', e.message));
+    res.json({ success: true, campaignId, total: users.length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Superadmin: listar campañas
+app.get('/api/superadmin/feedback/campaigns', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const campaigns = await getFeedbackCampaigns();
+    res.json(campaigns);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Superadmin: ver respuestas
+app.get('/api/superadmin/feedback/responses', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { campaign_id } = req.query;
+    const responses = await getFeedbackResponses(campaign_id ? parseInt(campaign_id) : null);
+    res.json(responses);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Público: obtener info del token (para mostrar el formulario)
+app.get('/api/feedback/:token', async (req, res) => {
+  try {
+    const ft = await getFeedbackToken(req.params.token);
+    if (!ft) return res.status(404).json({ error: 'Enlace no válido' });
+    if (ft.status === 'responded') return res.json({ already_responded: true, business_name: ft.business_name });
+    res.json({ valid: true, business_name: ft.business_name || ft.username });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Público: enviar respuesta
+app.post('/api/feedback/:token', async (req, res) => {
+  try {
+    const ft = await getFeedbackToken(req.params.token);
+    if (!ft) return res.status(404).json({ error: 'Enlace no válido' });
+    if (ft.status === 'responded') return res.status(409).json({ error: 'Ya respondiste esta encuesta' });
+    const { overall_rating, ease_of_use, support_quality, would_recommend, comment, improvement_suggestions } = req.body;
+    if (!overall_rating || overall_rating < 1 || overall_rating > 5) return res.status(400).json({ error: 'Calificación inválida (1-5)' });
+    await submitFeedbackResponse(ft.id, ft.user_id, req.body);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Cron mensual: primer día de cada mes a las 9am
+cron.schedule('0 9 1 * *', async () => {
+  console.log('[Feedback Cron] Iniciando encuesta mensual automática...');
+  try {
+    const campaignId = await createFeedbackCampaign('monthly');
+    const users = await getAllActiveUsersForFeedback();
+    const sent = await sendFeedbackToUsers(users, campaignId);
+    console.log(`[Feedback Cron] Encuesta enviada a ${sent} usuarios`);
+  } catch (e) { console.error('[Feedback Cron]', e.message); }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// ARRIENDO DE TÓTEM
+// ═══════════════════════════════════════════════════════════════════════
+
+const TOTEM_INSTALLATION_FEE = parseFloat(process.env.TOTEM_INSTALL_FEE || '150000'); // CLP
+const TOTEM_MONTHLY_FEE = parseFloat(process.env.TOTEM_MONTHLY_FEE || '50000');       // CLP
+
+// Admin: solicitar arriendo
+app.post('/api/admin/totem-rental/request', authenticateToken, async (req, res) => {
+  try {
+    const { contact_name, contact_phone, address, notes } = req.body;
+    if (!contact_name || !contact_phone || !address) return res.status(400).json({ error: 'Nombre, teléfono y dirección son requeridos' });
+    const existing = await getTotemRentalByUser(req.user.id);
+    if (existing && ['pending_payment','pending_install','active'].includes(existing.status)) {
+      return res.status(409).json({ error: 'Ya tienes una solicitud de tótem activa', rental: existing });
+    }
+    const rentalId = await createTotemRental(req.user.id, {
+      contact_name, contact_phone, address, notes,
+      installation_fee: TOTEM_INSTALLATION_FEE,
+      monthly_fee: TOTEM_MONTHLY_FEE,
+      currency_id: 'CLP'
+    });
+    res.json({ success: true, rental_id: rentalId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: obtener estado del arriendo
+app.get('/api/admin/totem-rental', authenticateToken, async (req, res) => {
+  try {
+    const rental = await getTotemRentalByUser(req.user.id);
+    res.json(rental || null);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: crear preferencia de pago de instalación con MP
+app.post('/api/admin/totem-rental/checkout', authenticateToken, async (req, res) => {
+  try {
+    const rental = await getTotemRentalByUser(req.user.id);
+    if (!rental) return res.status(404).json({ error: 'Sin solicitud de tótem' });
+    if (rental.status !== 'pending_payment') return res.status(400).json({ error: `Estado actual: ${rental.status}` });
+
+    const [userRows] = await pool.execute('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    const user = userRows[0];
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
+    const preferenceClient = new Preference(mpClient);
+    const response = await preferenceClient.create({
+      body: {
+        items: [{
+          id: `totem-install-${rental.id}`,
+          title: 'Cuota de instalación — Tótem SRServi',
+          description: `Instalación del tótem en ${rental.address}`,
+          quantity: 1,
+          currency_id: 'CLP',
+          unit_price: Number(rental.installation_fee)
+        }],
+        payer: { email: user.email, name: user.business_name || user.username },
+        external_reference: `totem-install-${rental.id}-${req.user.id}`,
+        notification_url: `${process.env.BASE_URL || 'http://localhost:3001'}/api/mercadopago-webhook`,
+        back_urls: {
+          success: `${clientUrl}/admin/totem-rental?payment=success`,
+          failure: `${clientUrl}/admin/totem-rental?payment=failure`,
+          pending: `${clientUrl}/admin/totem-rental?payment=pending`
+        }
+      }
+    });
+
+    await updateTotemRentalMpPreference(rental.id, response.id);
+    res.json({ success: true, init_point: response.init_point, preference_id: response.id });
+  } catch (e) {
+    console.error('[TotemRental] Checkout error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Superadmin: listar todos los arriendos
+app.get('/api/superadmin/totem-rentals', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const rentals = await getAllTotemRentals();
+    res.json(rentals);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Superadmin: marcar como instalado + crear suscripción MP
+app.put('/api/superadmin/totem-rentals/:id/install', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const rentalId = parseInt(req.params.id);
+    const [rows] = await pool.execute('SELECT tr.*, u.email, u.business_name, u.username FROM totem_rentals tr JOIN users u ON u.id = tr.user_id WHERE tr.id = ?', [rentalId]);
+    const rental = rows[0];
+    if (!rental) return res.status(404).json({ error: 'Arriendo no encontrado' });
+
+    let subscriptionId = null;
+    // Create MP preapproval subscription
+    try {
+      const mpRes = await fetch('https://api.mercadopago.com/preapproval', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: 'Arriendo mensual Tótem SRServi',
+          auto_recurring: {
+            frequency: 1,
+            frequency_type: 'months',
+            transaction_amount: Number(rental.monthly_fee),
+            currency_id: rental.currency_id || 'CLP'
+          },
+          back_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/admin/totem-rental`,
+          payer_email: rental.email,
+          status: 'authorized'
+        })
+      });
+      if (mpRes.ok) {
+        const mpData = await mpRes.json();
+        subscriptionId = mpData.id || null;
+      }
+    } catch (e) { console.warn('[TotemRental] Could not create MP subscription:', e.message); }
+
+    await markTotemRentalInstalled(rentalId, subscriptionId);
+    res.json({ success: true, mp_subscription_id: subscriptionId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Superadmin: actualizar estado del arriendo
+app.put('/api/superadmin/totem-rentals/:id/status', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const allowed = ['pending_payment','pending_install','active','suspended','cancelled'];
+    if (!allowed.includes(status)) return res.status(400).json({ error: 'Estado inválido' });
+    await updateTotemRentalStatus(parseInt(req.params.id), status);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// MP Webhook handler for totem rental payments (added inside existing webhook handler via external_reference check)
+// Note: The existing /api/mercadopago-webhook already handles payment events.
+// We add totem logic inside that handler by checking external_reference prefix "totem-install-"
 
 startServer();

@@ -83,6 +83,8 @@ import Attendance from './pages/Attendance';
 import SuperadminLogin from './pages/superadmin/SuperadminLogin';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 import Ticketeria from './pages/admin/Ticketeria';
+import Feedback from './pages/Feedback';
+import TotemRental from './pages/admin/TotemRental';
 import TicketeriaPublic from './pages/TicketeriaPublic';
 import TicketViewer from './pages/TicketViewer';
 
@@ -330,6 +332,7 @@ function App() {
             <Route path="ventas-mes" element={<PermissionGate section="ventas_mes"><VentasDelMes /></PermissionGate>} />
             <Route path="ventas-dia" element={<PermissionGate section="analytics"><VentasDelDia /></PermissionGate>} />
             <Route path="ticketeria" element={<Ticketeria />} />
+            <Route path="totem-rental" element={<TotemRental />} />
             <Route path="editor/:code" element={<Store />} />
           </Route>
           <Route path="/tickets/:storeCode" element={<TicketeriaPublic />} />
@@ -340,6 +343,7 @@ function App() {
           <Route path="/cocina" element={<KitchenDisplay />} />
           <Route path="/superadmin/login" element={<SuperadminLogin />} />
           <Route path="/superadmin/dashboard" element={<SuperadminDashboard />} />
+          <Route path="/feedback/:token" element={<Feedback />} />
         </Routes>
       </Router>
     </AuthProvider>

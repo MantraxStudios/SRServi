@@ -1806,6 +1806,99 @@ async function migrateTables() {
       console.error('❌ Error creando tabla scheduled_whatsapp_messages:', err.message);
     }
 
+    // Feedback campaigns
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS feedback_campaigns (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          type ENUM('monthly','manual') DEFAULT 'manual',
+          status ENUM('sending','done') DEFAULT 'sending',
+          total_sent INT DEFAULT 0,
+          total_responded INT DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_fc_created (created_at)
+        )
+      `);
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS feedback_tokens (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          campaign_id INT NOT NULL,
+          user_id INT NOT NULL,
+          token VARCHAR(64) NOT NULL UNIQUE,
+          sent_via VARCHAR(20) DEFAULT 'email',
+          status ENUM('pending','responded') DEFAULT 'pending',
+          sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          responded_at TIMESTAMP NULL DEFAULT NULL,
+          FOREIGN KEY (campaign_id) REFERENCES feedback_campaigns(id) ON DELETE CASCADE,
+          INDEX idx_ft_token (token),
+          INDEX idx_ft_user (user_id)
+        )
+      `);
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS feedback_responses (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          token_id INT NOT NULL,
+          user_id INT NOT NULL,
+          overall_rating TINYINT NOT NULL,
+          ease_of_use TINYINT DEFAULT NULL,
+          support_quality TINYINT DEFAULT NULL,
+          would_recommend BOOLEAN DEFAULT NULL,
+          comment TEXT DEFAULT NULL,
+          improvement_suggestions TEXT DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (token_id) REFERENCES feedback_tokens(id) ON DELETE CASCADE,
+          INDEX idx_fr_user (user_id)
+        )
+      `);
+      console.log('ℹ️ Tablas de feedback verificadas/creadas');
+    } catch (err) {
+      console.error('❌ Error creando tablas de feedback:', err.message);
+    }
+
+    // Totem rentals
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS totem_rentals (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          user_id INT NOT NULL,
+          status ENUM('pending_payment','pending_install','active','suspended','cancelled') DEFAULT 'pending_payment',
+          contact_name VARCHAR(255) NOT NULL,
+          contact_phone VARCHAR(50) NOT NULL,
+          address TEXT NOT NULL,
+          notes TEXT DEFAULT NULL,
+          installation_fee DECIMAL(10,2) NOT NULL DEFAULT 0,
+          monthly_fee DECIMAL(10,2) NOT NULL DEFAULT 0,
+          currency_id VARCHAR(10) DEFAULT 'CLP',
+          mp_preference_id VARCHAR(100) DEFAULT NULL,
+          mp_payment_id VARCHAR(100) DEFAULT NULL,
+          mp_subscription_id VARCHAR(100) DEFAULT NULL,
+          mp_subscription_status VARCHAR(50) DEFAULT NULL,
+          installed_at TIMESTAMP NULL DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          INDEX idx_tr_user (user_id),
+          INDEX idx_tr_status (status)
+        )
+      `);
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS totem_rental_payments (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          rental_id INT NOT NULL,
+          amount DECIMAL(10,2) NOT NULL,
+          type ENUM('installation','monthly') NOT NULL,
+          mp_payment_id VARCHAR(100) DEFAULT NULL,
+          status VARCHAR(50) DEFAULT 'pending',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (rental_id) REFERENCES totem_rentals(id) ON DELETE CASCADE,
+          INDEX idx_trp_rental (rental_id)
+        )
+      `);
+      console.log('ℹ️ Tablas de arriendo tótem verificadas/creadas');
+    } catch (err) {
+      console.error('❌ Error creando tablas de arriendo tótem:', err.message);
+    }
+
     console.log('✅ Migración de tablas completada');
   } catch (error) {
     console.error('❌ Error en migración:', error.message);
@@ -7621,3 +7714,131 @@ export async function getStoreRankings(storeIds, period = 'today') {
 }
 
 export { pool };
+
+// ── Feedback ──────────────────────────────────────────────────────────
+export async function createFeedbackCampaign(type = 'manual') {
+  const [r] = await pool.execute('INSERT INTO feedback_campaigns (type, status) VALUES (?, "sending")', [type]);
+  return r.insertId;
+}
+
+export async function createFeedbackToken(campaignId, userId, token, sentVia) {
+  await pool.execute(
+    'INSERT INTO feedback_tokens (campaign_id, user_id, token, sent_via) VALUES (?, ?, ?, ?)',
+    [campaignId, userId, token, sentVia]
+  );
+}
+
+export async function getFeedbackToken(token) {
+  const [rows] = await pool.execute(`
+    SELECT ft.*, u.username, u.email, u.business_name
+    FROM feedback_tokens ft
+    JOIN users u ON u.id = ft.user_id
+    WHERE ft.token = ?
+  `, [token]);
+  return rows[0] || null;
+}
+
+export async function submitFeedbackResponse(tokenId, userId, data) {
+  const [existing] = await pool.execute('SELECT id FROM feedback_responses WHERE token_id = ?', [tokenId]);
+  if (existing[0]) throw new Error('Este enlace ya fue respondido');
+  const [r] = await pool.execute(
+    'INSERT INTO feedback_responses (token_id, user_id, overall_rating, ease_of_use, support_quality, would_recommend, comment, improvement_suggestions) VALUES (?,?,?,?,?,?,?,?)',
+    [tokenId, userId, data.overall_rating, data.ease_of_use || null, data.support_quality || null, data.would_recommend ?? null, data.comment || null, data.improvement_suggestions || null]
+  );
+  await pool.execute('UPDATE feedback_tokens SET status="responded", responded_at=NOW() WHERE id=?', [tokenId]);
+  await pool.execute(`
+    UPDATE feedback_campaigns fc
+    SET fc.total_responded = (SELECT COUNT(*) FROM feedback_tokens WHERE campaign_id = fc.id AND status = "responded")
+    WHERE fc.id = (SELECT campaign_id FROM feedback_tokens WHERE id = ?)
+  `, [tokenId]);
+  return r.insertId;
+}
+
+export async function updateCampaignSentCount(campaignId, count) {
+  await pool.execute('UPDATE feedback_campaigns SET total_sent = ?, status = "done" WHERE id = ?', [count, campaignId]);
+}
+
+export async function getFeedbackCampaigns() {
+  const [rows] = await pool.execute('SELECT * FROM feedback_campaigns ORDER BY created_at DESC LIMIT 50');
+  return rows;
+}
+
+export async function getFeedbackResponses(campaignId) {
+  const [rows] = await pool.execute(`
+    SELECT fr.*, u.username, u.business_name, u.email, ft.sent_via
+    FROM feedback_responses fr
+    JOIN feedback_tokens ft ON ft.id = fr.token_id
+    JOIN users u ON u.id = fr.user_id
+    ${campaignId ? 'WHERE ft.campaign_id = ?' : ''}
+    ORDER BY fr.created_at DESC
+    LIMIT 200
+  `, campaignId ? [campaignId] : []);
+  return rows;
+}
+
+export async function getAllActiveUsersForFeedback() {
+  const [rows] = await pool.execute(`
+    SELECT id, username, email, phone, business_name
+    FROM users
+    WHERE is_banned = FALSE AND email_verified = TRUE
+    ORDER BY id
+  `);
+  return rows;
+}
+
+// ── Totem Rentals ─────────────────────────────────────────────────────
+export async function createTotemRental(userId, data) {
+  const [r] = await pool.execute(
+    'INSERT INTO totem_rentals (user_id, contact_name, contact_phone, address, notes, installation_fee, monthly_fee, currency_id) VALUES (?,?,?,?,?,?,?,?)',
+    [userId, data.contact_name, data.contact_phone, data.address, data.notes || null, data.installation_fee, data.monthly_fee, data.currency_id || 'CLP']
+  );
+  return r.insertId;
+}
+
+export async function getTotemRentalByUser(userId) {
+  const [rows] = await pool.execute('SELECT * FROM totem_rentals WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', [userId]);
+  return rows[0] || null;
+}
+
+export async function updateTotemRentalMpPreference(rentalId, prefId) {
+  await pool.execute('UPDATE totem_rentals SET mp_preference_id = ? WHERE id = ?', [prefId, rentalId]);
+}
+
+export async function updateTotemRentalPayment(rentalId, mpPaymentId) {
+  await pool.execute(
+    "UPDATE totem_rentals SET mp_payment_id = ?, status = 'pending_install' WHERE id = ?",
+    [mpPaymentId, rentalId]
+  );
+}
+
+export async function markTotemRentalInstalled(rentalId, mpSubscriptionId) {
+  await pool.execute(
+    "UPDATE totem_rentals SET status = 'active', mp_subscription_id = ?, installed_at = NOW() WHERE id = ?",
+    [mpSubscriptionId || null, rentalId]
+  );
+}
+
+export async function updateTotemRentalStatus(rentalId, status) {
+  await pool.execute('UPDATE totem_rentals SET status = ? WHERE id = ?', [status, rentalId]);
+}
+
+export async function updateTotemSubscriptionStatus(subscriptionId, status) {
+  await pool.execute('UPDATE totem_rentals SET mp_subscription_status = ? WHERE mp_subscription_id = ?', [status, subscriptionId]);
+}
+
+export async function getAllTotemRentals() {
+  const [rows] = await pool.execute(`
+    SELECT tr.*, u.username, u.email, u.business_name, u.phone AS user_phone
+    FROM totem_rentals tr
+    JOIN users u ON u.id = tr.user_id
+    ORDER BY tr.created_at DESC
+  `);
+  return rows;
+}
+
+export async function logTotemPayment(rentalId, amount, type, mpPaymentId, status) {
+  await pool.execute(
+    'INSERT INTO totem_rental_payments (rental_id, amount, type, mp_payment_id, status) VALUES (?,?,?,?,?)',
+    [rentalId, amount, type, mpPaymentId || null, status]
+  );
+}

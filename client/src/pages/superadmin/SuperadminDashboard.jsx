@@ -107,6 +107,14 @@ function SuperadminDashboard() {
   const [workshopTab, setWorkshopTab] = useState('pending');
   const [appStats, setAppStats] = useState(null);
   const [appStatsLoading, setAppStatsLoading] = useState(false);
+  const [feedbackCampaigns, setFeedbackCampaigns] = useState([]);
+  const [feedbackResponses, setFeedbackResponses] = useState([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackSendResult, setFeedbackSendResult] = useState(null);
+  const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [totemRentals, setTotemRentals] = useState([]);
+  const [totemLoading, setTotemLoading] = useState(false);
   const [selectedWorkshopPlugin, setSelectedWorkshopPlugin] = useState(null);
   const [premiumTarget, setPremiumTarget] = useState(null);
   const [premiumForever, setPremiumForever] = useState(true);
@@ -358,6 +366,22 @@ function SuperadminDashboard() {
           const data = await res.json();
           setAppStats(data);
         } finally { setAppStatsLoading(false); }
+      } else if (activeTab === 'feedback') {
+        setFeedbackLoading(true);
+        try {
+          const [campRes, respRes] = await Promise.all([
+            fetch(API + '/api/superadmin/feedback/campaigns', { headers: { 'Authorization': 'Bearer ' + token } }),
+            fetch(API + '/api/superadmin/feedback/responses', { headers: { 'Authorization': 'Bearer ' + token } }),
+          ]);
+          if (campRes.ok) setFeedbackCampaigns(await campRes.json());
+          if (respRes.ok) setFeedbackResponses(await respRes.json());
+        } finally { setFeedbackLoading(false); }
+      } else if (activeTab === 'totem-rentals') {
+        setTotemLoading(true);
+        try {
+          const res = await fetch(API + '/api/superadmin/totem-rentals', { headers: { 'Authorization': 'Bearer ' + token } });
+          if (res.ok) setTotemRentals(await res.json());
+        } finally { setTotemLoading(false); }
       } else if (activeTab === 'orders') {
         await fetchSaOrders();
         return;
@@ -826,6 +850,22 @@ function SuperadminDashboard() {
           >
             <FontAwesomeIcon icon={faChartBar} />
             {sidebarOpen && <span>Uso de Apps</span>}
+          </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'feedback' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('feedback'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faEnvelope} />
+            {sidebarOpen && <span>Feedback</span>}
+          </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'totem-rentals' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('totem-rentals'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faChair} />
+            {sidebarOpen && <span>Arriendo Tótem</span>}
           </div>
 
           <div
@@ -1972,6 +2012,201 @@ function SuperadminDashboard() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+            ) : activeTab === 'feedback' ? (
+              <div>
+                {/* Header + send button */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontWeight: 800 }}>Feedback de Usuarios</h3>
+                    <p style={{ margin: '4px 0 0', color: '#888', fontSize: 13 }}>Envía encuestas de satisfacción por email (y WhatsApp si está conectado). Se envía automáticamente el 1° de cada mes.</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('¿Enviar encuesta de feedback a TODOS los usuarios activos ahora?')) return;
+                      setFeedbackSending(true); setFeedbackSendResult(null);
+                      try {
+                        const res = await fetch(API + '/api/superadmin/feedback/send', { method: 'POST', headers: { Authorization: 'Bearer ' + localStorage.getItem('superadminToken') } });
+                        const d = await res.json();
+                        setFeedbackSendResult(d.success ? `✅ Encuesta enviada a ${d.total} usuarios` : `❌ ${d.error}`);
+                        if (d.success) setTimeout(() => fetchData(), 2000);
+                      } catch { setFeedbackSendResult('❌ Error de conexión'); }
+                      setFeedbackSending(false);
+                    }}
+                    disabled={feedbackSending}
+                    style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: feedbackSending ? '#d1d5db' : '#C8A415', color: '#fff', fontWeight: 700, fontSize: 14, cursor: feedbackSending ? 'not-allowed' : 'pointer' }}
+                  >
+                    {feedbackSending ? 'Enviando...' : '📨 Enviar encuesta ahora'}
+                  </button>
+                </div>
+                {feedbackSendResult && <div style={{ background: feedbackSendResult.startsWith('✅') ? '#ecfdf5' : '#fef2f2', border: `1px solid ${feedbackSendResult.startsWith('✅') ? '#6ee7b7' : '#fca5a5'}`, borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontWeight: 600, fontSize: 14, color: feedbackSendResult.startsWith('✅') ? '#065f46' : '#dc2626' }}>{feedbackSendResult}</div>}
+
+                {/* Stats */}
+                {feedbackResponses.length > 0 && (() => {
+                  const avg = arr => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1) : '—';
+                  const ratings = feedbackResponses.map(r => r.overall_rating).filter(Boolean);
+                  const ease = feedbackResponses.map(r => r.ease_of_use).filter(Boolean);
+                  const support = feedbackResponses.map(r => r.support_quality).filter(Boolean);
+                  const rec = feedbackResponses.filter(r => r.would_recommend === 1 || r.would_recommend === true).length;
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 12, marginBottom: 24 }}>
+                      {[
+                        ['⭐ Satisfacción', avg(ratings) + '/5', '#C8A415'],
+                        ['🖱️ Facilidad', avg(ease) + '/5', '#3b82f6'],
+                        ['🛠️ Soporte', avg(support) + '/5', '#8b5cf6'],
+                        ['👍 Recomendarían', `${rec}/${feedbackResponses.length}`, '#10b981'],
+                      ].map(([label, value, color]) => (
+                        <div key={label} style={{ background: '#fff', borderRadius: 12, padding: '16px', border: '1px solid #f0f0f0', textAlign: 'center' }}>
+                          <div style={{ fontSize: 20, fontWeight: 900, color }}>{value}</div>
+                          <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Campaigns */}
+                {feedbackLoading ? <div style={{ textAlign: 'center', color: '#888', padding: 32 }}>Cargando...</div> : (
+                  <>
+                    <h4 style={{ margin: '0 0 12px', fontSize: 14, color: '#374151', fontWeight: 700 }}>Campañas</h4>
+                    {feedbackCampaigns.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: '#888', padding: 32, background: '#f9fafb', borderRadius: 12 }}>No hay campañas aún. Envía la primera encuesta.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
+                        {feedbackCampaigns.map(c => (
+                          <div key={c.id} onClick={() => setSelectedCampaign(selectedCampaign === c.id ? null : c.id)}
+                            style={{ background: '#fff', border: `2px solid ${selectedCampaign === c.id ? '#C8A415' : '#f0f0f0'}`, borderRadius: 12, padding: '14px 18px', cursor: 'pointer', display: 'flex', gap: 16, alignItems: 'center' }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 700, fontSize: 14 }}>{c.type === 'monthly' ? '📅 Mensual automática' : '📨 Manual'}</div>
+                              <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{new Date(c.created_at).toLocaleString('es-CL')}</div>
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: 18, fontWeight: 900 }}>{c.total_responded}/{c.total_sent}</div>
+                              <div style={{ fontSize: 11, color: '#888' }}>respuestas</div>
+                            </div>
+                            <div style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: c.status === 'done' ? '#ecfdf5' : '#fef9c3', color: c.status === 'done' ? '#065f46' : '#92400e' }}>
+                              {c.status === 'done' ? 'Enviada' : 'Enviando...'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <h4 style={{ margin: '0 0 12px', fontSize: 14, color: '#374151', fontWeight: 700 }}>
+                      Respuestas {selectedCampaign ? `— Campaña #${selectedCampaign}` : '(todas)'}
+                    </h4>
+                    {feedbackResponses.filter(r => !selectedCampaign || feedbackCampaigns.find(c => c.id === selectedCampaign)).length === 0 ? (
+                      <div style={{ textAlign: 'center', color: '#888', padding: 32, background: '#f9fafb', borderRadius: 12 }}>Sin respuestas aún.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {feedbackResponses.slice(0, 50).map(r => (
+                          <div key={r.id} style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: 12, padding: '14px 18px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: 14 }}>{r.business_name || r.username} <span style={{ color: '#888', fontSize: 12, fontWeight: 400 }}>({r.email})</span></div>
+                                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{new Date(r.created_at).toLocaleDateString('es-CL')} · via {r.sent_via}</div>
+                              </div>
+                              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                                {[['⭐', r.overall_rating], ['🖱️', r.ease_of_use], ['🛠️', r.support_quality]].filter(([, v]) => v).map(([icon, v]) => (
+                                  <span key={icon} style={{ fontSize: 13, fontWeight: 700 }}>{icon} {v}/5</span>
+                                ))}
+                                {r.would_recommend !== null && <span style={{ fontSize: 13 }}>{r.would_recommend ? '👍' : '👎'}</span>}
+                              </div>
+                            </div>
+                            {r.comment && <p style={{ margin: '10px 0 0', fontSize: 13, color: '#374151', background: '#f9fafb', borderRadius: 8, padding: '8px 12px' }}>{r.comment}</p>}
+                            {r.improvement_suggestions && <p style={{ margin: '6px 0 0', fontSize: 13, color: '#374151', background: '#fef9c3', borderRadius: 8, padding: '8px 12px' }}>💡 {r.improvement_suggestions}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : activeTab === 'totem-rentals' ? (
+              <div>
+                <h3 style={{ margin: '0 0 4px', fontWeight: 800 }}>Arriendo de Tótems</h3>
+                <p style={{ margin: '0 0 20px', color: '#888', fontSize: 13 }}>Gestiona las solicitudes de arriendo de tótem de autoservicio.</p>
+
+                {totemLoading ? <div style={{ textAlign: 'center', color: '#888', padding: 32 }}>Cargando...</div> : totemRentals.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: '#888', padding: 48, background: '#f9fafb', borderRadius: 16 }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>🖥️</div>
+                    <div>No hay solicitudes de arriendo aún.</div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {(() => {
+                      const STATUS = {
+                        pending_payment: { label: 'Pend. pago', color: '#f59e0b', bg: '#fffbeb' },
+                        pending_install: { label: 'Pend. instalación', color: '#3b82f6', bg: '#eff6ff' },
+                        active: { label: 'Activo', color: '#10b981', bg: '#ecfdf5' },
+                        suspended: { label: 'Suspendido', color: '#6b7280', bg: '#f9fafb' },
+                        cancelled: { label: 'Cancelado', color: '#ef4444', bg: '#fef2f2' },
+                      };
+                      const CLP = v => `$${Number(v).toLocaleString('es-CL')}`;
+                      return totemRentals.map(r => (
+                        <div key={r.id} style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: 14, padding: '18px 20px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                            <div style={{ flex: 1, minWidth: 200 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                                <span style={{ fontWeight: 800, fontSize: 15 }}>{r.business_name || r.username}</span>
+                                <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, color: STATUS[r.status]?.color, background: STATUS[r.status]?.bg }}>
+                                  {STATUS[r.status]?.label || r.status}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 13, color: '#6b7280' }}>
+                                📞 {r.contact_name} · {r.contact_phone}<br/>
+                                📍 {r.address}
+                              </div>
+                              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+                                Instalación: {CLP(r.installation_fee)} · Mensual: {CLP(r.monthly_fee)}/mes · Solicitado: {new Date(r.created_at).toLocaleDateString('es-CL')}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+                              {r.status === 'pending_install' && (
+                                <button
+                                  onClick={async () => {
+                                    if (!window.confirm(`¿Marcar como instalado el tótem para ${r.business_name || r.username}? Se intentará crear la suscripción mensual en Mercado Pago.`)) return;
+                                    const token = localStorage.getItem('superadminToken');
+                                    const res = await fetch(`${API}/api/superadmin/totem-rentals/${r.id}/install`, { method: 'PUT', headers: { Authorization: 'Bearer ' + token } });
+                                    const d = await res.json();
+                                    if (d.success) { alert('✅ Marcado como instalado' + (d.mp_subscription_id ? `. Suscripción MP: ${d.mp_subscription_id}` : '')); fetchData(); }
+                                    else alert('❌ ' + d.error);
+                                  }}
+                                  style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#10b981', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                                >✅ Marcar instalado</button>
+                              )}
+                              {['pending_payment','active'].includes(r.status) && (
+                                <select
+                                  defaultValue=""
+                                  onChange={async e => {
+                                    const newStatus = e.target.value;
+                                    if (!newStatus) return;
+                                    if (!window.confirm(`¿Cambiar estado a "${STATUS[newStatus]?.label || newStatus}"?`)) { e.target.value = ''; return; }
+                                    const token = localStorage.getItem('superadminToken');
+                                    const res = await fetch(`${API}/api/superadmin/totem-rentals/${r.id}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ status: newStatus }) });
+                                    const d = await res.json();
+                                    if (d.success) fetchData(); else alert('❌ ' + d.error);
+                                    e.target.value = '';
+                                  }}
+                                  style={{ padding: '7px 12px', borderRadius: 8, border: '1.5px solid #e5e7eb', background: '#fff', fontSize: 13, cursor: 'pointer' }}
+                                >
+                                  <option value="">Cambiar estado...</option>
+                                  <option value="suspended">Suspender</option>
+                                  <option value="cancelled">Cancelar</option>
+                                </select>
+                              )}
+                            </div>
+                          </div>
+                          {r.mp_subscription_id && (
+                            <div style={{ marginTop: 10, fontSize: 12, color: '#6b7280', background: '#f9fafb', borderRadius: 8, padding: '6px 10px' }}>
+                              🔄 Suscripción MP: <code>{r.mp_subscription_id}</code> · Estado: {r.mp_subscription_status || 'authorized'}
+                            </div>
+                          )}
+                        </div>
+                      ));
+                    })()}
                   </div>
                 )}
               </div>
