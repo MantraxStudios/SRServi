@@ -1139,6 +1139,49 @@ function Store() {
   const [deleteSelectedCountdown, setDeleteSelectedCountdown] = useState(5);
   const [deletingSelected, setDeletingSelected] = useState(false);
 
+  // ── Restaurant mode (Fudo-style) ──
+  const [restaurantMode, setRestaurantMode] = useState(() => localStorage.getItem('srservi_restaurant_mode') === '1');
+  const [tables, setTables] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('srservi_tables') || '[]'); } catch { return []; }
+  });
+  const [activeTable, setActiveTable] = useState(null); // table object being served
+  const [tableOrders, setTableOrders] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('srservi_table_orders') || '{}'); } catch { return {}; }
+  });
+  const [tableConfigOpen, setTableConfigOpen] = useState(false);
+  const [tableConfigCount, setTableConfigCount] = useState('');
+  const [tableBillOpen, setTableBillOpen] = useState(null); // table id viewing bill
+  const [billingTableId, setBillingTableId] = useState(null); // table being billed (cobrar)
+  const [modeToggleTimer, setModeToggleTimer] = useState(null);
+
+  const saveTableOrders = (orders) => {
+    setTableOrders(orders);
+    sessionStorage.setItem('srservi_table_orders', JSON.stringify(orders));
+  };
+
+  const getTableStatus = (tableId) => {
+    const items = tableOrders[tableId];
+    if (!items || items.length === 0) return 'free';
+    return 'occupied';
+  };
+
+  const addToTable = (tableId, cartItems) => {
+    const existing = tableOrders[tableId] || [];
+    const updated = { ...tableOrders, [tableId]: [...existing, ...cartItems.map(i => ({ ...i, addedAt: Date.now() }))] };
+    saveTableOrders(updated);
+  };
+
+  const clearTable = (tableId) => {
+    const updated = { ...tableOrders };
+    delete updated[tableId];
+    saveTableOrders(updated);
+  };
+
+  const getTableTotal = (tableId) => {
+    const items = tableOrders[tableId] || [];
+    return items.reduce((sum, i) => sum + (i.price + (i.extrasTotal || 0) + (i.complementsTotal || 0)) * i.qty, 0);
+  };
+
   // Screensaver
   const [screensaverCfg, setScreensaverCfg] = useState(null);
   const [screensaverActive, setScreensaverActive] = useState(false);
@@ -2941,8 +2984,11 @@ function Store() {
         setCashPaymentSuccess(true);
         setPaymentModalOpen(false);
 
+        if (activeTable) addToTable(activeTable.id, cart);
+        if (billingTableId) { clearTable(billingTableId); setBillingTableId(null); }
         setCart([]);
         setCartOpen(false);
+        if (activeTable) setActiveTable(null);
       }
     } catch (err) {
       setPaymentError(err.message);
@@ -3042,9 +3088,12 @@ function Store() {
           setPaymentWaiting(false);
           setPaymentConfirmed(true);
           setLastOrderNumber(order.order_number);
+          if (activeTable) addToTable(activeTable.id, cart);
+          if (billingTableId) { clearTable(billingTableId); setBillingTableId(null); }
           setCart([]);
           setCartOpen(false);
           setPaymentModalOpen(false);
+          if (activeTable) setActiveTable(null);
         } else {
           fetch(`${API}/api/orders/${order.id}/cancel-payment`, {
             method: 'POST',
@@ -3096,9 +3145,12 @@ function Store() {
     const onPaymentSuccess = (orderNumberOverride) => {
       setPaymentConfirmed(true);
       setLastOrderNumber(orderNumberOverride || pendingOrderData.order.order_number);
+      if (activeTable) addToTable(activeTable.id, cart);
+      if (billingTableId) { clearTable(billingTableId); setBillingTableId(null); }
       setCart([]);
       setCartOpen(false);
       setPaymentModalOpen(false);
+      if (activeTable) setActiveTable(null);
       setPaymentWaiting(false); setQrPaymentUrl(null);
       setTuuPaymentKey(null);
       setSquarePaymentKey(null);
@@ -4632,11 +4684,21 @@ function Store() {
     )}
     <div
       ref={storeContainerRef}
-      className="store-container"
+      className={`store-container${restaurantMode && !activeTable ? ' restaurant-table-view' : ''}`}
       style={{ '--store-primary': colors.primary, '--store-secondary': colors.secondary, '--store-accent': colors.accent, '--store-header': colors.header || colors.primary, zoom: totemZoom }}
       onClick={() => { if (adminEditToken && setMenuOpen) setMenuOpen(false); }}
     >
-      <header className="store-header">
+      <header className="store-header"
+        onPointerDown={() => { setModeToggleTimer(setTimeout(() => {
+          const next = !restaurantMode;
+          setRestaurantMode(next);
+          localStorage.setItem('srservi_restaurant_mode', next ? '1' : '0');
+          if (next && tables.length === 0) setTableConfigOpen(true);
+          setActiveTable(null);
+        }, 1500)); }}
+        onPointerUp={() => { clearTimeout(modeToggleTimer); }}
+        onPointerLeave={() => { clearTimeout(modeToggleTimer); }}
+      >
         <div className="store-header-content">
           <div className="store-header-brand">
             {store?.store?.logo_url && (
@@ -4681,7 +4743,95 @@ function Store() {
 
       <PluginSlot name="store-header" context={{ storeId: store?.store?.id, code }} />
 
-      <div className="category-tabs">
+      {/* Restaurant mode indicator */}
+      {restaurantMode && (
+        <div style={{ background: 'linear-gradient(135deg, #1e293b, #334155)', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 16 }}>🍽️</span>
+            <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>
+              {activeTable ? `Mesa ${activeTable.number}` : 'Modo Restaurante'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {activeTable && (
+              <button onClick={() => { setActiveTable(null); setCart([]); }} style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '5px 12px', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                ← Volver a mesas
+              </button>
+            )}
+            <button onClick={() => setTableConfigOpen(true)} style={{ background: 'rgba(212,175,55,0.2)', border: '1px solid rgba(212,175,55,0.4)', borderRadius: 8, padding: '5px 12px', color: '#D4AF37', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              ⚙️ Mesas
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Restaurant: Table grid ── */}
+      {restaurantMode && !activeTable && (
+        <div style={{ flex: 1, padding: '20px 16px', background: '#f8fafc', overflowY: 'auto' }}>
+          {tables.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🪑</div>
+              <p style={{ fontSize: 16, color: '#64748b', marginBottom: 16 }}>No hay mesas configuradas</p>
+              <button onClick={() => setTableConfigOpen(true)} style={{ padding: '12px 24px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+                Configurar mesas
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 14 }}>
+              {tables.map(table => {
+                const status = getTableStatus(table.id);
+                const total = getTableTotal(table.id);
+                const itemCount = (tableOrders[table.id] || []).reduce((s, i) => s + i.qty, 0);
+                const tColors = status === 'occupied'
+                  ? { bg: '#fef3c7', border: '#f59e0b', text: '#92400e', badge: '#f59e0b' }
+                  : { bg: '#f0fdf4', border: '#86efac', text: '#166534', badge: '#22c55e' };
+                return (
+                  <div
+                    key={table.id}
+                    onClick={() => { setActiveTable(table); setCart([]); }}
+                    style={{
+                      background: tColors.bg, border: `2px solid ${tColors.border}`, borderRadius: 16,
+                      padding: '20px 14px', textAlign: 'center', cursor: 'pointer',
+                      transition: 'transform 0.15s', position: 'relative',
+                      minHeight: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+                    }}
+                  >
+                    <div style={{ fontSize: 32, marginBottom: 6 }}>
+                      {status === 'occupied' ? '🍽️' : '🪑'}
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: tColors.text }}>
+                      Mesa {table.number}
+                    </div>
+                    {status === 'occupied' && (
+                      <>
+                        <div style={{ fontSize: 12, color: tColors.text, marginTop: 4, opacity: 0.8 }}>
+                          {itemCount} item{itemCount !== 1 ? 's' : ''}
+                        </div>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: tColors.badge, marginTop: 4 }}>
+                          ${total.toLocaleString()}
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setTableBillOpen(table.id); }}
+                          style={{ marginTop: 8, padding: '5px 14px', background: tColors.badge, color: '#fff', border: 'none', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                        >
+                          Ver cuenta
+                        </button>
+                      </>
+                    )}
+                    {status === 'free' && (
+                      <div style={{ fontSize: 12, color: tColors.text, marginTop: 4, opacity: 0.7, fontWeight: 600 }}>
+                        Disponible
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="category-tabs" style={restaurantMode && !activeTable ? { display: 'none' } : {}}>
         <div
           ref={categoryRef}
           className="category-tabs-list"
@@ -9525,6 +9675,107 @@ function Store() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Restaurant: Table config modal ── */}
+      {tableConfigOpen && (
+        <div className="store-modal-overlay" style={{ zIndex: 99990 }} onClick={() => setTableConfigOpen(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 20, padding: '28px 24px', maxWidth: 380, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, color: '#1a1a2e' }}>Configurar mesas</h3>
+            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 14px' }}>¿Cuántas mesas tiene tu restaurante?</p>
+            <input
+              type="number"
+              value={tableConfigCount}
+              onChange={e => setTableConfigCount(e.target.value)}
+              placeholder="Ej: 12"
+              min="1" max="100"
+              style={{ width: '100%', padding: '12px 14px', border: '1.5px solid #e2e8f0', borderRadius: 10, fontSize: 16, fontWeight: 600, boxSizing: 'border-box', marginBottom: 14, textAlign: 'center' }}
+            />
+            <button
+              onClick={() => {
+                const count = parseInt(tableConfigCount) || 0;
+                if (count < 1 || count > 100) return;
+                const newTables = Array.from({ length: count }, (_, i) => ({ id: i + 1, number: i + 1 }));
+                setTables(newTables);
+                localStorage.setItem('srservi_tables', JSON.stringify(newTables));
+                setTableConfigCount('');
+                setTableConfigOpen(false);
+              }}
+              disabled={!tableConfigCount || parseInt(tableConfigCount) < 1}
+              style={{ width: '100%', padding: 14, background: !tableConfigCount ? '#e5e7eb' : '#D4AF37', color: !tableConfigCount ? '#9ca3af' : '#000', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: !tableConfigCount ? 'not-allowed' : 'pointer' }}
+            >
+              Guardar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Restaurant: Table bill modal ── */}
+      {tableBillOpen !== null && (
+        <div className="store-modal-overlay" style={{ zIndex: 99990 }} onClick={() => setTableBillOpen(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 20, padding: '24px 20px', maxWidth: 420, width: '92%', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#1a1a2e' }}>
+                🧾 Cuenta — Mesa {tableBillOpen}
+              </h3>
+              <button onClick={() => setTableBillOpen(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 16, cursor: 'pointer', color: '#64748b' }}>×</button>
+            </div>
+            {(tableOrders[tableBillOpen] || []).length === 0 ? (
+              <p style={{ color: '#94a3b8', textAlign: 'center', padding: '20px 0' }}>Mesa vacía</p>
+            ) : (
+              <>
+                {(tableOrders[tableBillOpen] || []).map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>
+                        {item.qty}× {item.name}
+                      </div>
+                      {item.selectedExtras?.length > 0 && (
+                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                          + {item.selectedExtras.map(e => e.name).join(', ')}
+                        </div>
+                      )}
+                      {item.selectedComplements?.length > 0 && (
+                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                          + {item.selectedComplements.map(c => typeof c === 'object' ? c.name : c).join(', ')}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', whiteSpace: 'nowrap', marginLeft: 12 }}>
+                      ${((item.price + (item.extrasTotal || 0) + (item.complementsTotal || 0)) * item.qty).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0 12px', borderTop: '2px solid #e2e8f0', marginTop: 8 }}>
+                  <span style={{ fontWeight: 800, fontSize: 18, color: '#1e293b' }}>Total</span>
+                  <span style={{ fontWeight: 900, fontSize: 20, color: '#D4AF37' }}>
+                    ${getTableTotal(tableBillOpen).toLocaleString()}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={() => {
+                      const items = tableOrders[tableBillOpen] || [];
+                      setCart(items);
+                      setBillingTableId(tableBillOpen);
+                      setTableBillOpen(null);
+                      setPaymentModalOpen(true);
+                    }}
+                    style={{ flex: 1, padding: 14, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
+                  >
+                    Cobrar mesa
+                  </button>
+                  <button
+                    onClick={() => { clearTable(tableBillOpen); setTableBillOpen(null); }}
+                    style={{ padding: '14px 18px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                  >
+                    Liberar
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

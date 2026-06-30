@@ -9360,6 +9360,16 @@ html body .store-container .store-product-card * {
   border-color: var(--store-primary, #000);
 }
 
+/* ========== Restaurant Table View ========== */
+.store-container.restaurant-table-view .category-tabs,
+.store-container.restaurant-table-view .category-sections,
+.store-container.restaurant-table-view .store-cart-sheet,
+.store-container.restaurant-table-view .store-cart-fab,
+.store-container.restaurant-table-view .products-grid,
+.store-container.restaurant-table-view .store-editor-bar {
+  display: none !important;
+}
+
 /* ========== Store Editor ========== */
 .store-editor-bar {
   display: flex;
