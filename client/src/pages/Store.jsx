@@ -1179,7 +1179,7 @@ function Store() {
 
   const getTableTotal = (tableId) => {
     const items = tableOrders[tableId] || [];
-    return items.reduce((sum, i) => sum + (i.price + (i.extrasTotal || 0) + (i.complementsTotal || 0)) * i.qty, 0);
+    return items.reduce((sum, i) => sum + (i.total || (i.unit_price || 0) * (i.quantity || 1)), 0);
   };
 
   // Screensaver
@@ -2721,15 +2721,6 @@ function Store() {
   const processPayment = async (selectedMethod = paymentMethod, tableNum = null) => {
     if (cart.length === 0) return;
 
-    if (selectedConfiguration?.require_order_comment && !skipCommentCheckRef.current) {
-      setPendingCommentMethod(selectedMethod);
-      setPendingCommentTableNum(tableNum);
-      setPaymentComment('');
-      setShowCommentModal(true);
-      return;
-    }
-    skipCommentCheckRef.current = false;
-
     const lastTerminalProvider = localStorage.getItem('srservi_last_terminal_provider') || '';
     const isTuu = selectedMethod === 'card' && lastTerminalProvider === 'tuu';
     const isSquare = selectedMethod === 'card' && lastTerminalProvider === 'square';
@@ -3018,14 +3009,6 @@ function Store() {
   // method: 1 = crédito, 2 = débito
   const handleAndroidTuuPayment = async (method) => {
     if (!window.AndroidBridge || cart.length === 0) return;
-    if (selectedConfiguration?.require_order_comment && !skipCommentCheckRef.current) {
-      setPendingCommentMethod('android_tuu_' + method);
-      setPendingCommentTableNum(null);
-      setPaymentComment('');
-      setShowCommentModal(true);
-      return;
-    }
-    skipCommentCheckRef.current = false;
     setProcessingPayment(true);
     setPaymentError(null);
     const finalTotal = getFinalTotal();
@@ -4781,7 +4764,7 @@ function Store() {
               {tables.map(table => {
                 const status = getTableStatus(table.id);
                 const total = getTableTotal(table.id);
-                const itemCount = (tableOrders[table.id] || []).reduce((s, i) => s + i.qty, 0);
+                const itemCount = (tableOrders[table.id] || []).reduce((s, i) => s + (i.quantity || 1), 0);
                 const tColors = status === 'occupied'
                   ? { bg: '#fef3c7', border: '#f59e0b', text: '#92400e', badge: '#f59e0b' }
                   : { bg: '#f0fdf4', border: '#86efac', text: '#166534', badge: '#22c55e' };
@@ -6567,68 +6550,6 @@ function Store() {
             }}
           />
         </Suspense>
-      )}
-
-      {showCommentModal && (
-        <div className="modal-overlay" style={{ zIndex: 3100 }}>
-          <div className="modal text-center" style={{ maxWidth: '400px' }}>
-            <h2 style={{ color: 'var(--store-primary)', marginBottom: '8px', fontSize: '22px' }}>
-              Agregar comentario
-            </h2>
-            <p className="text-muted" style={{ marginBottom: '18px', fontSize: '14px' }}>
-              Puedes dejar una nota para el pedido (opcional)
-            </p>
-            <div
-              onClick={() => setShowCommentKb(true)}
-              style={{
-                background: 'var(--store-secondary)', borderRadius: '12px', padding: '14px 16px',
-                border: '2px solid var(--store-primary)', marginBottom: '20px', textAlign: 'left',
-                minHeight: '52px', cursor: 'text', display: 'flex', alignItems: 'center'
-              }}
-            >
-              <span style={{ color: paymentComment ? 'var(--store-primary)' : '#aaa', fontSize: '16px', fontWeight: paymentComment ? '600' : '400', wordBreak: 'break-word' }}>
-                {paymentComment || 'Toca aquí para escribir…'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <button
-                className="btn btn-lg btn-full store-glow-pulse"
-                style={{ backgroundColor: 'var(--store-secondary)', color: 'var(--store-primary)', border: '2px solid var(--store-primary)', borderRadius: '12px' }}
-                onClick={() => setShowCommentKb(true)}
-              >
-                ✏️ {paymentComment ? 'Editar comentario' : 'Escribir comentario'}
-              </button>
-              <button
-                className="btn btn-lg btn-full"
-                style={{ backgroundColor: 'var(--store-accent)', color: 'var(--store-primary)', border: 'none', borderRadius: '12px', fontWeight: '700' }}
-                onClick={() => {
-                  const method = pendingCommentMethod;
-                  const tNum = pendingCommentTableNum;
-                  setPendingCommentMethod(null);
-                  setPendingCommentTableNum(null);
-                  setShowCommentModal(false);
-                  skipCommentCheckRef.current = true;
-                  if (typeof method === 'string' && method.startsWith('android_tuu_')) {
-                    handleAndroidTuuPayment(parseInt(method.replace('android_tuu_', '')));
-                  } else {
-                    processPayment(method, tNum);
-                  }
-                }}
-              >
-                {paymentComment ? '✓ Confirmar y pagar' : 'Continuar sin comentario'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showCommentKb && (
-        <VirtualKeyboard
-          value={paymentComment}
-          onChange={setPaymentComment}
-          placeholder="Comentario del pedido"
-          onClose={() => setShowCommentKb(false)}
-        />
       )}
 
       {paymentModalOpen && (
@@ -9667,21 +9588,21 @@ function Store() {
                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>
-                        {item.qty}× {item.name}
+                        {item.quantity || 1}× {item.product_name || item.name}
                       </div>
-                      {item.selectedExtras?.length > 0 && (
+                      {item.selected_extras?.length > 0 && (
                         <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                          + {item.selectedExtras.map(e => e.name).join(', ')}
+                          + {item.selected_extras.map(e => typeof e === 'object' ? e.name : e).join(', ')}
                         </div>
                       )}
-                      {item.selectedComplements?.length > 0 && (
+                      {item.selected_complements?.length > 0 && (
                         <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                          + {item.selectedComplements.map(c => typeof c === 'object' ? c.name : c).join(', ')}
+                          + {item.selected_complements.map(c => typeof c === 'object' ? c.name : c).join(', ')}
                         </div>
                       )}
                     </div>
                     <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', whiteSpace: 'nowrap', marginLeft: 12 }}>
-                      ${((item.price + (item.extrasTotal || 0) + (item.complementsTotal || 0)) * item.qty).toLocaleString()}
+                      ${(item.total || (item.unit_price || 0) * (item.quantity || 1)).toLocaleString()}
                     </div>
                   </div>
                 ))}
