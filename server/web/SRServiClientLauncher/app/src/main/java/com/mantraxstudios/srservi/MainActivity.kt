@@ -123,6 +123,98 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun downloadApk(storeCode: String) {
+        val progressDialog = AlertDialog.Builder(this)
+            .setTitle("Compilando actualización")
+            .setMessage("Iniciando compilación...")
+            .setCancelable(false)
+            .create()
+        progressDialog.show()
+
+        Thread {
+            try {
+                val buildUrl = java.net.URL("https://srservi2.srautomatic.com/api/apps/android/build")
+                val conn = buildUrl.openConnection() as java.net.HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                val body = if (storeCode.isNotBlank())
+                    """{"appName":"launcher","storeCode":"$storeCode"}"""
+                else
+                    """{"appName":"launcher"}"""
+                conn.outputStream.use { it.write(body.toByteArray()) }
+
+                if (conn.responseCode != 200) {
+                    runOnUiThread {
+                        progressDialog.dismiss()
+                        Toast.makeText(this, "Error al iniciar compilación", Toast.LENGTH_LONG).show()
+                        updateDialogShown = false
+                    }
+                    return@Thread
+                }
+
+                val response = conn.inputStream.bufferedReader().readText()
+                conn.disconnect()
+                val gson = com.google.gson.Gson()
+                val buildResult = gson.fromJson(response, Map::class.java)
+
+                val cached = buildResult["cached"] as? Boolean ?: false
+                if (cached || buildResult["status"] == "done") {
+                    runOnUiThread { progressDialog.dismiss() }
+                    startApkDownload(storeCode)
+                    return@Thread
+                }
+
+                val jobId = buildResult["jobId"] as? String
+                if (jobId == null) {
+                    runOnUiThread {
+                        progressDialog.dismiss()
+                        Toast.makeText(this, "Error: no se obtuvo jobId", Toast.LENGTH_LONG).show()
+                        updateDialogShown = false
+                    }
+                    return@Thread
+                }
+
+                // Poll build status
+                while (true) {
+                    Thread.sleep(3000)
+                    val statusUrl = java.net.URL("https://srservi2.srautomatic.com/api/apps/android/status/$jobId")
+                    val sc = statusUrl.openConnection() as java.net.HttpURLConnection
+                    sc.requestMethod = "GET"
+                    if (sc.responseCode != 200) { sc.disconnect(); continue }
+                    val statusResp = sc.inputStream.bufferedReader().readText()
+                    sc.disconnect()
+                    val statusData = gson.fromJson(statusResp, Map::class.java)
+                    val status = statusData["status"] as? String ?: ""
+                    val progress = statusData["progress"] as? String ?: ""
+
+                    runOnUiThread {
+                        progressDialog.setMessage("$progress")
+                    }
+
+                    if (status == "done") {
+                        runOnUiThread { progressDialog.dismiss() }
+                        startApkDownload(storeCode)
+                        break
+                    } else if (status == "error") {
+                        runOnUiThread {
+                            progressDialog.dismiss()
+                            Toast.makeText(this, "Error al compilar: ${statusData["error"] ?: "desconocido"}", Toast.LENGTH_LONG).show()
+                            updateDialogShown = false
+                        }
+                        break
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                    updateDialogShown = false
+                }
+            }
+        }.start()
+    }
+
+    private fun startApkDownload(storeCode: String) {
         try {
             val url = if (storeCode.isNotBlank()) {
                 "https://srservi2.srautomatic.com/api/apps/android/download?appName=launcher&storeCode=$storeCode"
@@ -140,10 +232,14 @@ class MainActivity : AppCompatActivity() {
             val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             dm.enqueue(request)
 
-            Toast.makeText(this, "Descargando actualización... Revisa tus notificaciones.", Toast.LENGTH_LONG).show()
+            runOnUiThread {
+                Toast.makeText(this, "Descargando actualización... Revisa tus notificaciones.", Toast.LENGTH_LONG).show()
+            }
         } catch (e: Exception) {
-            Toast.makeText(this, "Error al descargar: ${e.message}", Toast.LENGTH_LONG).show()
-            updateDialogShown = false
+            runOnUiThread {
+                Toast.makeText(this, "Error al descargar: ${e.message}", Toast.LENGTH_LONG).show()
+                updateDialogShown = false
+            }
         }
     }
 
