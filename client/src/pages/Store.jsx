@@ -915,11 +915,11 @@ function Store() {
   const adminEditToken = searchParams.get('admin_edit');
   const appVersionFromUrl = searchParams.get('app_version');
   const { setMenuOpen } = useStore() || {};
-  const [apkUpdateNeeded, setApkUpdateNeeded] = useState(false);
+  const [apkUpdateNeeded, setApkUpdateNeeded] = useState(() => sessionStorage.getItem('apk_downloaded') === '1');
   const [apkUpdateDismissed, setApkUpdateDismissed] = useState(false);
   const [apkServerVersion, setApkServerVersion] = useState('');
   const [apkDownloadUrl, setApkDownloadUrl] = useState('');
-  const [apkBuildState, setApkBuildState] = useState(null); // null | 'building' | 'downloaded' | 'error'
+  const [apkBuildState, setApkBuildState] = useState(() => sessionStorage.getItem('apk_downloaded') === '1' ? 'downloaded' : null);
   const [apkBuildProgress, setApkBuildProgress] = useState(0);
   const apkBuildPollRef = useRef(null);
   const [apkAutoCountdown, setApkAutoCountdown] = useState(5);
@@ -1266,7 +1266,7 @@ function Store() {
   // Auto-execute APK update after 5 seconds
   const handleApkUpdateRef = useRef(null);
   useEffect(() => {
-    if (!apkUpdateNeeded || apkUpdateDismissed || apkBuildState === 'building' || !appVersionFromUrl) {
+    if (!apkUpdateNeeded || apkUpdateDismissed || apkBuildState === 'building' || apkBuildState === 'downloaded' || !appVersionFromUrl) {
       clearInterval(apkAutoTimerRef.current);
       return;
     }
@@ -4574,6 +4574,7 @@ function Store() {
       if (data.cached || data.status === 'done') {
         triggerApkDownload(sc, null);
         setApkBuildState('downloaded');
+        sessionStorage.setItem('apk_downloaded', '1');
         return;
       }
 
@@ -4585,6 +4586,7 @@ function Store() {
           if (s.status === 'done') {
             triggerApkDownload(sc, jobId);
             setApkBuildState('downloaded');
+            sessionStorage.setItem('apk_downloaded', '1');
           } else if (s.status === 'error') {
             setApkBuildState('error');
           } else {
