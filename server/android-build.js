@@ -14,7 +14,7 @@ const GRADLE_BIN      = `${GRADLE_DIR}/gradle-${GRADLE_VERSION}/bin/gradle`;
 const CACHE_DIR       = join(__dir, 'apk-cache');
 const BUILD_JOBS      = new Map();
 
-export const APP_VERSIONS = { launcher: '1.0.2', tvordenes: '1.0.0', cctv: '1.0.0' };
+export const APP_VERSIONS = { launcher: '1.0.3', tvordenes: '1.0.0', cctv: '1.0.0' };
 
 const APPS = {
   launcher: {
