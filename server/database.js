@@ -1521,6 +1521,36 @@ async function migrateTables() {
     }
 
     try {
+      const [apkCols] = await pool.execute('SHOW COLUMNS FROM apk_releases');
+      if (!apkCols.map(c => c.Field).includes('app_name')) {
+        await pool.execute("ALTER TABLE apk_releases ADD COLUMN app_name VARCHAR(50) DEFAULT 'launcher' AFTER id");
+        console.log('✅ Columna app_name agregada a apk_releases');
+      }
+    } catch (err) {
+      console.error('❌ Error migrando apk_releases app_name:', err.message);
+    }
+
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS app_activity (
+          id INT PRIMARY KEY AUTO_INCREMENT,
+          app_name VARCHAR(50) NOT NULL,
+          store_code VARCHAR(50),
+          device_id VARCHAR(100),
+          app_version VARCHAR(20),
+          event VARCHAR(20) NOT NULL,
+          ip VARCHAR(45),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_app_activity_app (app_name, created_at),
+          INDEX idx_app_activity_store (store_code, created_at)
+        )
+      `);
+      console.log('ℹ️ Tabla app_activity verificada/creada');
+    } catch (err) {
+      console.error('❌ Error creando tabla app_activity:', err.message);
+    }
+
+    try {
       await pool.execute(`
         CREATE TABLE IF NOT EXISTS tasks (
           id INT PRIMARY KEY AUTO_INCREMENT,

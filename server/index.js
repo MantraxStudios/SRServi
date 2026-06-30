@@ -9049,6 +9049,68 @@ app.get('/api/download/aforo-android', (req, res) => {
   res.sendFile(apkPath);
 });
 
+// ==================== App Activity / Heartbeat ====================
+
+app.post('/api/app/heartbeat', async (req, res) => {
+  try {
+    const { app_name, store_code, device_id, app_version, event = 'heartbeat' } = req.body;
+    if (!app_name) return res.status(400).json({ error: 'app_name requerido' });
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
+    await pool.execute(
+      'INSERT INTO app_activity (app_name, store_code, device_id, app_version, event, ip) VALUES (?, ?, ?, ?, ?, ?)',
+      [app_name, store_code || null, device_id || null, app_version || null, event, ip]
+    );
+    const ver = APP_VERSIONS[app_name] || null;
+    res.json({ ok: true, latest_version: ver, update_available: ver && app_version ? ver !== app_version : false });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/superadmin/app-stats', authenticateSuperadminToken, async (req, res) => {
+  try {
+    const [activeNow] = await pool.execute(`
+      SELECT app_name,
+             COUNT(DISTINCT COALESCE(device_id, ip, 'anon')) AS active_devices,
+             COUNT(DISTINCT store_code) AS active_stores,
+             MAX(created_at) AS last_seen
+      FROM app_activity
+      WHERE created_at >= NOW() - INTERVAL 24 HOUR
+      GROUP BY app_name
+      ORDER BY active_devices DESC
+    `);
+    const [dailyTrend] = await pool.execute(`
+      SELECT app_name,
+             DATE(created_at) AS day,
+             COUNT(*) AS events
+      FROM app_activity
+      WHERE created_at >= NOW() - INTERVAL 30 DAY AND event IN ('open','heartbeat')
+      GROUP BY app_name, DATE(created_at)
+      ORDER BY day DESC
+    `);
+    const [topStores] = await pool.execute(`
+      SELECT app_name, store_code,
+             COUNT(DISTINCT COALESCE(device_id, ip, 'anon')) AS devices,
+             MAX(created_at) AS last_seen
+      FROM app_activity
+      WHERE created_at >= NOW() - INTERVAL 7 DAY AND store_code IS NOT NULL
+      GROUP BY app_name, store_code
+      ORDER BY devices DESC
+      LIMIT 50
+    `);
+    const [versions] = await pool.execute(`
+      SELECT app_name, app_version, COUNT(DISTINCT COALESCE(device_id, ip, 'anon')) AS devices
+      FROM app_activity
+      WHERE created_at >= NOW() - INTERVAL 7 DAY AND app_version IS NOT NULL
+      GROUP BY app_name, app_version
+      ORDER BY app_name, devices DESC
+    `);
+    res.json({ active_now: activeNow, daily_trend: dailyTrend, top_stores: topStores, versions });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== APK Releases ====================
 
 app.get('/api/superadmin/apks', authenticateSuperadminToken, async (req, res) => {
@@ -9195,28 +9257,35 @@ app.get('/api/superadmin/revenue', authenticateSuperadminToken, async (req, res)
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Endpoint público para obtener la última versión
+// Endpoint público para obtener la última versión (soporta ?app=launcher|tvordenes|cctv)
 app.get('/api/apk/latest', async (req, res) => {
   try {
-    const [rows] = await pool.execute('SELECT * FROM apk_releases ORDER BY version_code DESC LIMIT 1');
-    if (rows.length > 0) {
-      const release = rows[0];
+    const appName = req.query.app || 'launcher';
+    const validApps = ['launcher', 'tvordenes', 'cctv'];
+    if (!validApps.includes(appName)) return res.status(400).json({ error: 'App inválida' });
+
+    const [rows] = await pool.execute(
+      'SELECT * FROM apk_releases WHERE app_name = ? ORDER BY version_code DESC LIMIT 1',
+      [appName]
+    );
+    if (rows.length === 0) {
+      if (appName === 'launcher') {
+        const [legacyRows] = await pool.execute(
+          "SELECT * FROM apk_releases WHERE app_name IS NULL OR app_name = '' ORDER BY version_code DESC LIMIT 1"
+        );
+        if (legacyRows.length > 0) {
+          const r = legacyRows[0];
+          return res.json({ name: r.name, description: r.description, version: r.version, version_code: r.version_code, logo: r.logo, apk_url: r.apk_url, created_at: r.created_at });
+        }
+      }
+      const cachedApk = getCachedApk(appName, null);
       return res.json({
-        name: release.name,
-        description: release.description,
-        version: release.version,
-        version_code: release.version_code,
-        logo: release.logo,
-        apk_url: release.apk_url,
-        created_at: release.created_at
+        version: APP_VERSIONS[appName] || null,
+        apk_url: cachedApk ? `/api/apps/android/download?appName=${appName}` : null
       });
     }
-    // Fallback: usar APP_VERSIONS cuando no hay releases subidos aún
-    const cachedApk = getCachedApk('launcher', null);
-    res.json({
-      version: APP_VERSIONS.launcher,
-      apk_url: cachedApk ? '/api/apps/android/download?appName=launcher' : null
-    });
+    const release = rows[0];
+    res.json({ name: release.name, description: release.description, version: release.version, version_code: release.version_code, logo: release.logo, apk_url: release.apk_url, created_at: release.created_at });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

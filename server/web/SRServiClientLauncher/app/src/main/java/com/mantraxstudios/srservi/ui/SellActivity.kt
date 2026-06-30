@@ -94,6 +94,8 @@ class SellActivity : AppCompatActivity() {
         val sellUrl = if (!storeCode.isNullOrBlank()) "$BASE_URL/store/$storeCode?app_version=$ver" else "$BASE_URL?app_version=$ver"
         webView.loadUrl(sellUrl)
 
+        sendHeartbeat(storeCode ?: "", ver)
+
         // Hidden exit: long-press the top-left corner
         findViewById<View>(R.id.exitHotspot).setOnLongClickListener {
             promptExitPin()
@@ -101,6 +103,23 @@ class SellActivity : AppCompatActivity() {
         }
 
         startKioskLock()
+    }
+
+    private fun sendHeartbeat(storeCode: String, appVersion: String) {
+        Thread {
+            try {
+                val conn = java.net.URL("$BASE_URL/api/app/heartbeat").openConnection() as java.net.HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
+                val body = """{"app_name":"launcher","store_code":"$storeCode","app_version":"$appVersion","event":"open"}"""
+                conn.outputStream.use { it.write(body.toByteArray()) }
+                conn.responseCode
+                conn.disconnect()
+            } catch (_: Exception) {}
+        }.start()
     }
 
     private fun applyImmersiveMode() {

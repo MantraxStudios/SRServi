@@ -1,5 +1,6 @@
 package com.mantraxstudios.cctv
 
+import android.app.DownloadManager
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
@@ -8,6 +9,7 @@ import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.Environment
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -78,6 +80,7 @@ private val CardBg = Color(0xFF141414)
 
 private const val BASE_URL = "https://srservi2.srautomatic.com"
 private const val STORE_CODE = "AUTO_STORE_CODE" // build system replaces this; empty = manual pair
+private const val CCTV_APP_VERSION = "1.0.0"
 private const val PREFS_NAME = "cctv_signage"
 private const val KEY_TOKEN = "device_token"
 private const val KEY_VIDEO_PATH = "current_video_path"
@@ -141,6 +144,8 @@ class MainActivity : ComponentActivity() {
             var isConnected by remember { mutableStateOf(isNetworkAvailable(context)) }
             var showVideoList by remember { mutableStateOf(false) }
             var overrideVideoPath by remember { mutableStateOf<String?>(null) }
+            var showUpdateDialog by remember { mutableStateOf(false) }
+            var updateServerVersion by remember { mutableStateOf("") }
 
             // Monitorear conectividad cada 5 segundos
             LaunchedEffect(Unit) {
@@ -165,6 +170,41 @@ class MainActivity : ComponentActivity() {
                                 .apply()
                         }
                     }
+                }
+            }
+
+            // Heartbeat + version check on startup
+            LaunchedEffect(Unit) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        val sc = if (STORE_CODE == "AUTO_STORE_CODE") "" else STORE_CODE
+                        val hbConn = openSecureConnection("$BASE_URL/api/app/heartbeat")
+                        hbConn.requestMethod = "POST"
+                        hbConn.setRequestProperty("Content-Type", "application/json")
+                        hbConn.doOutput = true
+                        hbConn.connectTimeout = 8000
+                        hbConn.readTimeout = 8000
+                        val body = """{"app_name":"cctv","store_code":"$sc","app_version":"$CCTV_APP_VERSION","event":"open"}"""
+                        hbConn.outputStream.use { it.write(body.toByteArray()) }
+                        hbConn.responseCode
+                        hbConn.disconnect()
+                    } catch (_: Exception) {}
+                    try {
+                        val conn = openSecureConnection("$BASE_URL/api/apps/android/version/cctv")
+                        conn.connectTimeout = 10000
+                        conn.readTimeout = 10000
+                        if (conn.responseCode == 200) {
+                            val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                            val sv = json.optString("version")
+                            conn.disconnect()
+                            if (sv.isNotEmpty() && sv != CCTV_APP_VERSION) {
+                                withContext(Dispatchers.Main) {
+                                    updateServerVersion = sv
+                                    showUpdateDialog = true
+                                }
+                            }
+                        } else conn.disconnect()
+                    } catch (_: Exception) {}
                 }
             }
 
@@ -240,6 +280,63 @@ class MainActivity : ComponentActivity() {
                         },
                         onDismiss = { showVideoList = false }
                     )
+                }
+
+                if (showUpdateDialog) {
+                    androidx.compose.ui.window.Dialog(onDismissRequest = { showUpdateDialog = false }) {
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = CardBg),
+                            border = BorderStroke(1.dp, Gold.copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth().padding(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(28.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Text(
+                                    "Actualización disponible",
+                                    color = Color.White,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    "Versión $updateServerVersion disponible.\nTu versión: $CCTV_APP_VERSION",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 14.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                                Button(
+                                    onClick = {
+                                        val url = "$BASE_URL/api/apps/android/download?appName=cctv"
+                                        val req = DownloadManager.Request(Uri.parse(url))
+                                            .setTitle("SRServi CCTV - Actualización")
+                                            .setDescription("Descargando v$updateServerVersion...")
+                                            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "SRServi-CCTV.apk")
+                                            .setMimeType("application/vnd.android.package-archive")
+                                        (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(req)
+                                        showUpdateDialog = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Gold),
+                                    shape = RoundedCornerShape(14.dp)
+                                ) {
+                                    Text("Descargar actualización", color = DarkBg, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                }
+                                OutlinedButton(
+                                    onClick = { showUpdateDialog = false },
+                                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                                    shape = RoundedCornerShape(14.dp)
+                                ) {
+                                    Text("Más tarde", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

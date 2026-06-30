@@ -105,6 +105,8 @@ function SuperadminDashboard() {
   const [apkUploading, setApkUploading] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [workshopTab, setWorkshopTab] = useState('pending');
+  const [appStats, setAppStats] = useState(null);
+  const [appStatsLoading, setAppStatsLoading] = useState(false);
   const [selectedWorkshopPlugin, setSelectedWorkshopPlugin] = useState(null);
   const [premiumTarget, setPremiumTarget] = useState(null);
   const [premiumForever, setPremiumForever] = useState(true);
@@ -349,6 +351,13 @@ function SuperadminDashboard() {
         const res = await fetch(API + '/api/superadmin/apks', { headers: { 'Authorization': 'Bearer ' + token } });
         const data = await res.json();
         setApkReleases(Array.isArray(data) ? data : []);
+      } else if (activeTab === 'app-stats') {
+        setAppStatsLoading(true);
+        try {
+          const res = await fetch(API + '/api/superadmin/app-stats', { headers: { 'Authorization': 'Bearer ' + token } });
+          const data = await res.json();
+          setAppStats(data);
+        } finally { setAppStatsLoading(false); }
       } else if (activeTab === 'orders') {
         await fetchSaOrders();
         return;
@@ -809,6 +818,14 @@ function SuperadminDashboard() {
           >
             <FontAwesomeIcon icon={faMobileAlt} />
             {sidebarOpen && <span>APK Releases</span>}
+          </div>
+
+          <div
+            className={`sidebar-nav-item ${activeTab === 'app-stats' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('app-stats'); setMobileMenuOpen(false); }}
+          >
+            <FontAwesomeIcon icon={faChartBar} />
+            {sidebarOpen && <span>Uso de Apps</span>}
           </div>
 
           <div
@@ -1881,6 +1898,80 @@ function SuperadminDashboard() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            ) : activeTab === 'app-stats' ? (
+              <div>
+                {appStatsLoading ? (
+                  <div className="empty-state"><div>Cargando estadísticas...</div></div>
+                ) : !appStats ? (
+                  <div className="empty-state"><FontAwesomeIcon icon={faChartBar} className="empty-state-icon" /><div>Sin datos aún. Las apps reportan actividad al abrirse.</div></div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {/* Activos últimas 24h */}
+                    <div>
+                      <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: '700', color: '#1a1a2e' }}>Activos en las últimas 24h</h3>
+                      {appStats.active_now.length === 0 ? (
+                        <div style={{ color: '#888', fontSize: '14px' }}>Sin actividad reciente</div>
+                      ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                          {appStats.active_now.map(a => (
+                            <div key={a.app_name} style={{ background: '#f8fafc', border: '2px solid #e2e8f0', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                              <div style={{ fontSize: '28px', fontWeight: '800', color: '#1a1a2e' }}>{a.active_devices}</div>
+                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#555', marginTop: '4px', textTransform: 'capitalize' }}>{a.app_name}</div>
+                              <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>{a.active_stores} tiendas</div>
+                              <div style={{ fontSize: '10px', color: '#bbb', marginTop: '4px' }}>último: {new Date(a.last_seen).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Distribución de versiones */}
+                    {appStats.versions.length > 0 && (
+                      <div>
+                        <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: '700', color: '#1a1a2e' }}>Versiones en uso (últimos 7 días)</h3>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {appStats.versions.map(v => (
+                            <div key={`${v.app_name}-${v.app_version}`} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 14px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                              <span style={{ fontSize: '11px', fontWeight: '700', color: '#888', textTransform: 'capitalize' }}>{v.app_name}</span>
+                              <span style={{ background: '#1a1a2e', color: '#fff', borderRadius: '6px', padding: '2px 8px', fontSize: '12px', fontWeight: '700' }}>v{v.app_version}</span>
+                              <span style={{ fontSize: '13px', fontWeight: '700', color: '#22c55e' }}>{v.devices} disp.</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Top tiendas */}
+                    {appStats.top_stores.length > 0 && (
+                      <div>
+                        <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: '700', color: '#1a1a2e' }}>Tiendas más activas (últimos 7 días)</h3>
+                        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                            <thead>
+                              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: '700', color: '#555' }}>App</th>
+                                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: '700', color: '#555' }}>Tienda</th>
+                                <th style={{ padding: '10px 16px', textAlign: 'center', fontWeight: '700', color: '#555' }}>Dispositivos</th>
+                                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: '700', color: '#555' }}>Último uso</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {appStats.top_stores.slice(0, 20).map((s, i) => (
+                                <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                                  <td style={{ padding: '10px 16px', textTransform: 'capitalize', fontWeight: '600', color: '#333' }}>{s.app_name}</td>
+                                  <td style={{ padding: '10px 16px', fontFamily: 'monospace', color: '#1a1a2e', fontWeight: '700' }}>{s.store_code || '—'}</td>
+                                  <td style={{ padding: '10px 16px', textAlign: 'center', fontWeight: '700', color: '#22c55e' }}>{s.devices}</td>
+                                  <td style={{ padding: '10px 16px', textAlign: 'right', color: '#888', fontSize: '12px' }}>{new Date(s.last_seen).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
