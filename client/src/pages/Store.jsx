@@ -4544,44 +4544,60 @@ function Store() {
     );
   };
 
+  const triggerApkDownload = (storeCode, jobId) => {
+    const params = new URLSearchParams({ appName: 'launcher' });
+    if (storeCode) params.set('storeCode', storeCode);
+    if (jobId) params.set('jobId', jobId);
+    const a = document.createElement('a');
+    a.href = `/api/apps/android/download?${params}`;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const handleApkUpdate = async () => {
     clearInterval(apkAutoTimerRef.current);
+    if (apkBuildState === 'building') return;
     setApkBuildState('building');
-    setApkBuildProgress(0);
+    setApkBuildProgress('Iniciando...');
     try {
+      const sc = code ? code.toUpperCase() : null;
       const res = await fetch('/api/apps/android/build', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ appName: 'launcher', storeCode: code || null })
+        body: JSON.stringify({ appName: 'launcher', storeCode: sc, force: true })
       });
       const data = await res.json();
+      if (!res.ok) { setApkBuildState('error'); return; }
+
       if (data.cached || data.status === 'done') {
-        setApkBuildState('ready');
-        const url = code
-          ? `/api/apps/android/download?appName=launcher&storeCode=${code}`
-          : '/api/apps/android/download?appName=launcher';
-        window.location.href = url;
+        triggerApkDownload(sc, null);
+        setApkBuildState(null);
+        setApkUpdateDismissed(true);
         return;
       }
+
       const jobId = data.jobId;
-      apkBuildPollRef.current = setInterval(async () => {
+      const poll = async () => {
         try {
           const r = await fetch(`/api/apps/android/status/${jobId}`);
           const s = await r.json();
-          setApkBuildProgress(s.progress || 0);
           if (s.status === 'done') {
-            clearInterval(apkBuildPollRef.current);
-            setApkBuildState('ready');
-            const url = code
-              ? `/api/apps/android/download?appName=launcher&storeCode=${code}`
-              : '/api/apps/android/download?appName=launcher';
-            window.location.href = url;
+            triggerApkDownload(sc, jobId);
+            setApkBuildState(null);
+            setApkUpdateDismissed(true);
           } else if (s.status === 'error') {
-            clearInterval(apkBuildPollRef.current);
             setApkBuildState('error');
+          } else {
+            setApkBuildProgress(s.progress || 'Compilando...');
+            setTimeout(poll, 4000);
           }
-        } catch { clearInterval(apkBuildPollRef.current); setApkBuildState('error'); }
-      }, 3000);
+        } catch {
+          setTimeout(poll, 6000);
+        }
+      };
+      setTimeout(poll, 4000);
     } catch {
       setApkBuildState('error');
     }
@@ -9024,12 +9040,9 @@ function Store() {
                   {apkBuildState === 'building' ? (
                     <div style={{ padding: '15px', borderRadius: '12px', background: '#fef3c7', border: '1px solid #f59e0b' }}>
                       <div style={{ fontSize: '14px', fontWeight: '700', color: '#92400e', marginBottom: '8px' }}>
-                        Compilando APK... {apkBuildProgress > 0 ? `${apkBuildProgress}%` : ''}
+                        {apkBuildProgress || 'Compilando...'}
                       </div>
-                      <div style={{ background: '#e5e7eb', borderRadius: '99px', height: '6px', overflow: 'hidden' }}>
-                        <div style={{ background: '#f59e0b', height: '100%', borderRadius: '99px', width: apkBuildProgress > 0 ? `${apkBuildProgress}%` : '30%', transition: 'width 0.5s' }} />
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#92400e', marginTop: '6px' }}>Esto puede tardar varios minutos</div>
+                      <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>Esto puede tardar varios minutos</div>
                     </div>
                   ) : apkBuildState === 'error' ? (
                     <div style={{ padding: '12px', borderRadius: '12px', background: '#fee2e2', color: '#991b1b', fontSize: '14px', fontWeight: '600', textAlign: 'center' }}>

@@ -138,9 +138,9 @@ class MainActivity : AppCompatActivity() {
                 conn.setRequestProperty("Content-Type", "application/json")
                 conn.doOutput = true
                 val body = if (storeCode.isNotBlank())
-                    """{"appName":"launcher","storeCode":"$storeCode"}"""
+                    """{"appName":"launcher","storeCode":"$storeCode","force":true}"""
                 else
-                    """{"appName":"launcher"}"""
+                    """{"appName":"launcher","force":true}"""
                 conn.outputStream.use { it.write(body.toByteArray()) }
 
                 if (conn.responseCode != 200) {
