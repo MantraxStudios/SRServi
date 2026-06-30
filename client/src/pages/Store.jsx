@@ -9163,110 +9163,37 @@ function Store() {
 
       {/* APK update modal */}
       {apkUpdateNeeded && !apkUpdateDismissed && (
-        <div
-          className="store-modal-overlay"
-          style={{ zIndex: 99999 }}
-        >
-          <div
-            style={{ background: '#fff', borderRadius: '20px', padding: '32px 24px', maxWidth: '380px', width: '90%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}
-            onClick={e => e.stopPropagation()}
-          >
-            {apkBuildState !== 'downloaded' && (
-              <>
-                <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔄</div>
-                <h2 style={{ margin: '0 0 10px', fontSize: '22px', color: '#1a1a2e', fontWeight: '800' }}>
-                  Actualización requerida
-                </h2>
-              </>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999, background: apkBuildState === 'downloaded' ? '#16a34a' : apkBuildState === 'error' ? '#dc2626' : '#f59e0b', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 12, color: '#fff', fontWeight: 600 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+            <span>{apkBuildState === 'downloaded' ? '✅' : apkBuildState === 'building' ? '⏳' : '🔄'}</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {apkBuildState === 'downloaded'
+                ? 'Descargada — sal de la app e instala desde Descargas'
+                : apkBuildState === 'building'
+                  ? (apkBuildProgress || 'Compilando...')
+                  : apkBuildState === 'error'
+                    ? 'Error al compilar'
+                    : appVersionFromUrl
+                      ? `Actualización disponible${apkServerVersion ? ` v${apkServerVersion}` : ''}`
+                      : 'App desactualizada — actualiza desde el panel admin'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            {appVersionFromUrl && apkBuildState !== 'downloaded' && (
+              <button
+                onClick={handleApkUpdate}
+                disabled={apkBuildState === 'building'}
+                style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.25)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, cursor: apkBuildState === 'building' ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+              >
+                {apkBuildState === 'building' ? '...' : apkBuildState === 'error' ? 'Reintentar' : `Actualizar${apkAutoCountdown > 0 && !apkBuildState ? ` (${apkAutoCountdown})` : ''}`}
+              </button>
             )}
-            {appVersionFromUrl ? (
-              <>
-                {apkBuildState === 'downloaded' ? (
-                  <>
-                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>✅</div>
-                    <p style={{ margin: '0 0 16px', fontSize: '15px', color: '#16a34a', fontWeight: '700' }}>
-                      ¡Descarga completada!
-                    </p>
-                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '16px', textAlign: 'left', marginBottom: '16px' }}>
-                      <p style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: '700', color: '#166534' }}>Para instalar la actualización:</p>
-                      <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#15803d', lineHeight: '2' }}>
-                        <li>Sal de esta pantalla presionando el <b>botón de inicio</b> o cerrando la app</li>
-                        <li>Abre la <b>notificación de descarga</b> o busca el archivo en <b>Descargas</b></li>
-                        <li>Toca el archivo <b>.apk</b> descargado</li>
-                        <li>Si el sistema lo pide, permite <b>"Instalar apps de fuentes desconocidas"</b></li>
-                        <li>Presiona <b>"Instalar"</b> y espera a que termine</li>
-                      </ol>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p style={{ margin: '0 0 6px', fontSize: '15px', color: '#555', lineHeight: '1.5' }}>
-                      Tu versión (v{appVersionFromUrl}) está desactualizada.
-                    </p>
-                    {apkServerVersion && (
-                      <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#f59e0b', fontWeight: '700' }}>
-                        Versión disponible: v{apkServerVersion}
-                      </p>
-                    )}
-                    {!apkServerVersion && <div style={{ marginBottom: '20px' }} />}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {apkBuildState === 'building' ? (
-                        <div style={{ padding: '15px', borderRadius: '12px', background: '#fef3c7', border: '1px solid #f59e0b' }}>
-                          <div style={{ fontSize: '14px', fontWeight: '700', color: '#92400e', marginBottom: '8px' }}>
-                            {apkBuildProgress || 'Compilando...'}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>Esto puede tardar varios minutos</div>
-                        </div>
-                      ) : apkBuildState === 'error' ? (
-                        <div style={{ padding: '12px', borderRadius: '12px', background: '#fee2e2', color: '#991b1b', fontSize: '14px', fontWeight: '600', textAlign: 'center' }}>
-                          Error al compilar. Intenta de nuevo.
-                        </div>
-                      ) : null}
-                      <button
-                        onClick={handleApkUpdate}
-                        disabled={apkBuildState === 'building'}
-                        style={{ width: '100%', padding: '15px', borderRadius: '12px', background: apkBuildState === 'building' ? '#e5e7eb' : '#f59e0b', color: apkBuildState === 'building' ? '#9ca3af' : '#fff', fontSize: '16px', fontWeight: '700', border: 'none', cursor: apkBuildState === 'building' ? 'not-allowed' : 'pointer' }}
-                      >
-                        {apkBuildState === 'building' ? 'Compilando...' : apkBuildState === 'error' ? 'Reintentar descarga' : `Descargar actualización${apkAutoCountdown > 0 && !apkBuildState ? ` (${apkAutoCountdown}s)` : ''}`}
-                      </button>
-                      <button
-                        onClick={() => { setApkUpdateDismissed(true); clearInterval(apkBuildPollRef.current); clearInterval(apkAutoTimerRef.current); }}
-                        style={{ width: '100%', padding: '13px', borderRadius: '12px', background: 'transparent', color: '#888', fontSize: '14px', fontWeight: '600', border: '1px solid #e5e7eb', cursor: 'pointer' }}
-                      >
-                        Más tarde
-                      </button>
-                    </div>
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                <p style={{ margin: '0 0 6px', fontSize: '15px', color: '#555', lineHeight: '1.5' }}>
-                  Tu versión de la app es muy antigua y no soporta actualizaciones automáticas.
-                </p>
-                {apkServerVersion && (
-                  <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#f59e0b', fontWeight: '700' }}>
-                    Versión disponible: v{apkServerVersion}
-                  </p>
-                )}
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', textAlign: 'left', marginBottom: '16px' }}>
-                  <p style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>Cómo actualizar:</p>
-                  <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#475569', lineHeight: '1.8' }}>
-                    <li>Ingresa al <b>panel de administración</b> de SRServi desde un computador o celular</li>
-                    <li>Ve a <b>Aplicaciones Android</b> en el menú lateral</li>
-                    <li>Selecciona <b>"SRServi POS"</b> y tu código de tienda</li>
-                    <li>Presiona <b>"Compilar y descargar"</b></li>
-                    <li>Transfiere el APK al dispositivo e instálalo</li>
-                  </ol>
-                </div>
-                <button
-                  onClick={() => { setApkUpdateDismissed(true); clearInterval(apkAutoTimerRef.current); }}
-                  style={{ width: '100%', padding: '13px', borderRadius: '12px', background: '#f59e0b', color: '#fff', fontSize: '15px', fontWeight: '700', border: 'none', cursor: 'pointer' }}
-                >
-                  Entendido
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => { setApkUpdateDismissed(true); clearInterval(apkBuildPollRef.current); clearInterval(apkAutoTimerRef.current); }}
+              style={{ padding: '4px 8px', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.8)', fontSize: 14, cursor: 'pointer', lineHeight: 1 }}
+            >
+              ×
+            </button>
           </div>
         </div>
       )}
