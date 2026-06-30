@@ -806,6 +806,7 @@ function Layout() {
                 <div className="isb-fp-sec-title"><FontAwesomeIcon icon={faCog} /> Configuración</div>
                 {can('settings', 'view') && <NavLink to="/admin/settings" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faPalette} /> Colores y QR</NavLink>}
                 {can('configurations', 'view') && <NavLink to="/admin/configurations" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faTabletAlt} /> Tótems y Pagos</NavLink>}
+                {!isSubAccount && <NavLink to="/admin/totem-rental" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faTabletAlt} /> Arriendo de Tótem</NavLink>}
                 {!isSubAccount && <NavLink to="/admin/worker-config" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faCreditCard} /> Configuración Vendedor</NavLink>}
                 {!isSubAccount && <NavLink to="/admin/store-pin" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faLock} /> PIN Tienda</NavLink>}
                 {!isSubAccount && <NavLink to="/admin/screensaver" className="isb-fp-link" onClick={() => setSettingsOpen(false)}><FontAwesomeIcon icon={faTv} /> Salva Pantallas</NavLink>}
