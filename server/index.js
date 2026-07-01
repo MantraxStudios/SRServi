@@ -8156,9 +8156,10 @@ app.patch('/api/mercado-pago-terminals/:id/mode', authenticateToken, async (req,
     if (!device_id || !operating_mode) return res.status(400).json({ error: 'device_id y operating_mode requeridos' });
     if (!['PDV', 'STANDALONE'].includes(operating_mode)) return res.status(400).json({ error: 'Modo debe ser PDV o STANDALONE' });
 
-    // If switching to PDV, first disable PDV on any other terminal using the same token
+    // If switching to PDV, first disable PDV on all other terminals AND delete conflicting pos-stores
     if (operating_mode === 'PDV') {
       try {
+        // 1. Switch all other PDV/SUSPENDED terminals to STANDALONE
         const listRes = await fetch('https://api.mercadopago.com/terminals/v1/list?limit=50', {
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.api_key}` }
         });
@@ -8170,10 +8171,30 @@ app.patch('/api/mercado-pago-terminals/:id/mode', authenticateToken, async (req,
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.api_key}` },
               body: JSON.stringify({ terminals: [{ id: d.id, operating_mode: 'STANDALONE' }] })
-            });
+            }).catch(() => {});
           }
         }
       } catch {}
+      try {
+        // 2. Delete all existing pos-stores that have PDV mode ON (the constraint is per-account)
+        const posRes = await fetch('https://api.mercadopago.com/pos?limit=100', {
+          headers: { 'Authorization': `Bearer ${terminal.api_key}` }
+        });
+        if (posRes.ok) {
+          const posData = await posRes.json();
+          const posList = posData.results || posData || [];
+          for (const pos of posList) {
+            if (pos.pdv?.mode === 'ON' || pos.pdv?.mode === 'SUSPENDED') {
+              await fetch(`https://api.mercadopago.com/pos/${pos.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${terminal.api_key}` }
+              }).catch(() => {});
+            }
+          }
+        }
+      } catch {}
+      // Small delay to let MP propagate changes
+      await new Promise(r => setTimeout(r, 1000));
     }
 
     const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/setup', {
