@@ -40,6 +40,7 @@ class SetupWizardActivity : AppCompatActivity() {
         val description: String,
         val actionLabel: String,
         val icon: String,
+        val skippable: Boolean = false,
         val isDone: (Context) -> Boolean,
         val execute: (SetupWizardActivity) -> Unit
     )
@@ -69,8 +70,14 @@ class SetupWizardActivity : AppCompatActivity() {
             }
         })
 
-        // El botón "omitir" nunca se muestra — todos los pasos son obligatorios.
-        binding.btnSkip.visibility = View.GONE
+        binding.btnSkip.setOnClickListener {
+            val step = steps.getOrNull(currentIndex)
+            if (step != null && step.skippable) {
+                prefs().edit().putBoolean("${step.id}_skipped", true).apply()
+                currentIndex++
+                refresh()
+            }
+        }
 
         binding.btnAction.setOnClickListener {
             steps.getOrNull(currentIndex)?.execute?.invoke(this)
@@ -118,6 +125,7 @@ class SetupWizardActivity : AppCompatActivity() {
         binding.tvStepTitle.text       = step.title
         binding.tvStepDescription.text = step.description
         binding.btnAction.text         = step.actionLabel
+        binding.btnSkip.visibility     = if (step.skippable) View.VISIBLE else View.GONE
 
         val isStoreCode = step.id == "store_code"
         binding.ivHowTo.visibility    = if (isStoreCode) View.VISIBLE else View.GONE
@@ -340,10 +348,11 @@ class SetupWizardActivity : AppCompatActivity() {
         list += Step(
             id          = "launcher",
             title       = "Lanzador predeterminado",
-            description = "SRServi debe ser la pantalla de inicio del dispositivo.\n\n" +
-                          "Esto es obligatorio para que funcione como punto de autoservicio " +
-                          "y para que el botón de inicio siempre regrese a SRServi.\n\n" +
-                          "Toca el botón y selecciona SRServi cuando el sistema lo solicite.",
+            description = "SRServi puede ser la pantalla de inicio del dispositivo.\n\n" +
+                          "Esto permite que funcione como punto de autoservicio " +
+                          "y que el botón de inicio siempre regrese a SRServi.\n\n" +
+                          "Si no lo necesitas, puedes omitir este paso.",
+            skippable   = true,
             actionLabel = "Establecer como lanzador",
             icon        = "\uD83C\uDFE0", // 🏠
             // Algunos OEMs (Samsung, Xiaomi) devuelven isRoleHeld=false aunque SRServi
@@ -352,7 +361,9 @@ class SetupWizardActivity : AppCompatActivity() {
             isDone      = { ctx ->
                 isDefaultLauncher(ctx) ||
                 ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                    .getBoolean("launcher_configured", false)
+                    .getBoolean("launcher_configured", false) ||
+                ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .getBoolean("launcher_skipped", false)
             },
             execute     = { activity ->
                 // Marcar ANTES de abrir ajustes: al volver isDone = true
@@ -409,8 +420,10 @@ class SetupWizardActivity : AppCompatActivity() {
             val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             if (!pm.isIgnoringBatteryOptimizations(context.packageName)) return true
 
+            val setupPrefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             if (!isDefaultLauncher(context) &&
-                !context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("launcher_configured", false)) return true
+                !setupPrefs.getBoolean("launcher_configured", false) &&
+                !setupPrefs.getBoolean("launcher_skipped", false)) return true
 
             return false
         }

@@ -1286,9 +1286,9 @@ function Store() {
   // Verificar versión de APK: apks nuevas envían app_version, las viejas no envían nada
   useEffect(() => {
     const ua = navigator.userAgent;
-    const isAndroid = /Android/.test(ua);
+    const isAndroidWebView = /Android/.test(ua) && (/; wv\)/.test(ua) || /SRServi/.test(ua));
     if (tuuModePayFromUrl) return;
-    if (!appVersionFromUrl && !isAndroid) return;
+    if (!appVersionFromUrl && !isAndroidWebView) return;
 
     fetch('/api/apps/android/version/launcher')
       .then(r => r.ok ? r.json() : null)
