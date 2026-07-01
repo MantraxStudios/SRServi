@@ -8155,6 +8155,27 @@ app.patch('/api/mercado-pago-terminals/:id/mode', authenticateToken, async (req,
     const { device_id, operating_mode } = req.body;
     if (!device_id || !operating_mode) return res.status(400).json({ error: 'device_id y operating_mode requeridos' });
     if (!['PDV', 'STANDALONE'].includes(operating_mode)) return res.status(400).json({ error: 'Modo debe ser PDV o STANDALONE' });
+
+    // If switching to PDV, first disable PDV on any other terminal using the same token
+    if (operating_mode === 'PDV') {
+      try {
+        const listRes = await fetch('https://api.mercadopago.com/terminals/v1/list?limit=50', {
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.api_key}` }
+        });
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          const pdvDevices = (listData.data?.terminals || []).filter(t => t.id !== device_id && (t.operating_mode === 'PDV' || t.operating_mode === 'SUSPENDED'));
+          for (const d of pdvDevices) {
+            await fetch('https://api.mercadopago.com/terminals/v1/setup', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.api_key}` },
+              body: JSON.stringify({ terminals: [{ id: d.id, operating_mode: 'STANDALONE' }] })
+            });
+          }
+        }
+      } catch {}
+    }
+
     const mpRes = await fetch('https://api.mercadopago.com/terminals/v1/setup', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${terminal.api_key}` },
