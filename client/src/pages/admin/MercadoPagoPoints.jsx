@@ -1075,6 +1075,39 @@ function MercadoPagoPoints({ view = 'pos' }) {
                     <div style={{ fontSize: '11px', color: '#aaa', fontFamily: 'monospace' }}>
                       {pos.provider === 'tuu' ? `Serial: ${pos.device_id || '—'}` : pos.provider === 'mercadopago' ? `ID: ${pos.terminal_id ? pos.terminal_id.slice(0,12) + '…' : '—'}` : pos.provider === 'sumup' ? `Merchant: ${pos.device_id || '—'}` : pos.terminal_id ? pos.terminal_id.slice(0,14) + '…' : '—'}
                     </div>
+                    {pos.provider === 'mercadopago' && (() => {
+                      const devices = mpDevices[pos.id];
+                      const device = Array.isArray(devices) ? devices.find(d => d.id === pos.device_id) || devices[0] : null;
+                      const mode = device?.operating_mode;
+                      return (
+                        <div style={{ marginTop: '10px' }}>
+                          <div style={{ fontSize: '10px', fontWeight: '700', color: '#666', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Modo de operación</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {loadingDevices[pos.id] ? (
+                              <span style={{ fontSize: '11px', color: '#aaa' }}><FontAwesomeIcon icon={faSpinner} spin /> Cargando...</span>
+                            ) : device ? (
+                              <>
+                                <select
+                                  value={mode || 'PDV'}
+                                  onChange={(e) => changeMode(pos.id, device.id, e.target.value)}
+                                  disabled={changingMode === device.id}
+                                  style={{ padding: '5px 8px', fontSize: '12px', fontWeight: '700', border: '1.5px solid #e2e2e2', borderRadius: '7px', background: '#fafafa', cursor: changingMode === device.id ? 'wait' : 'pointer', color: '#333' }}
+                                >
+                                  <option value="PDV">PDV (integrado)</option>
+                                  <option value="STANDALONE">Standalone</option>
+                                </select>
+                                <span style={{ fontSize: '10px', fontWeight: '700', padding: '3px 8px', borderRadius: '20px', background: mode === 'PDV' ? '#dcfce7' : '#dbeafe', color: mode === 'PDV' ? '#15803d' : '#1d4ed8' }}>
+                                  {mode === 'PDV' ? 'PDV' : mode || '—'}
+                                </span>
+                                {changingMode === device.id && <FontAwesomeIcon icon={faSpinner} spin style={{ fontSize: '11px', color: '#aaa' }} />}
+                              </>
+                            ) : (
+                              <span style={{ fontSize: '11px', color: '#ccc' }}>No se detectaron dispositivos</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {pos.pos_pin && (
                       <div style={{ marginTop: '10px', background: '#f9f6ee', border: '1px solid #e8d99a', borderRadius: '8px', padding: '8px 10px' }}>
                         <div style={{ fontSize: '10px', color: '#9a8000', fontWeight: '700', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PIN de acceso</div>
