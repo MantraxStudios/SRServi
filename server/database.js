@@ -375,6 +375,14 @@ async function createTables() {
     )
   `);
 
+  // Migration: add section column to restaurant_tables
+  try {
+    const [cols] = await pool.execute('SHOW COLUMNS FROM restaurant_tables');
+    if (!cols.find(c => c.Field === 'section')) {
+      await pool.execute("ALTER TABLE restaurant_tables ADD COLUMN section VARCHAR(100) DEFAULT 'Primer Piso'");
+    }
+  } catch {}
+
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS store_ratings (
       id INT PRIMARY KEY AUTO_INCREMENT,
@@ -6642,20 +6650,20 @@ export async function getRestaurantTablesWithStatus(storeId) {
 }
 
 export async function createRestaurantTable(storeId, data) {
-  const { label, capacity, x, y, w, h, shape, sort_order } = data;
+  const { label, capacity, x, y, w, h, shape, sort_order, section } = data;
   const [result] = await pool.execute(
-    'INSERT INTO restaurant_tables (store_id, label, capacity, x, y, w, h, shape, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [storeId, label || 'Mesa', capacity || 4, x || 50, y || 50, w || 120, h || 80, shape || 'rect', sort_order || 0]
+    'INSERT INTO restaurant_tables (store_id, label, capacity, x, y, w, h, shape, sort_order, section) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [storeId, label || 'Mesa', capacity || 4, x || 50, y || 50, w || 120, h || 80, shape || 'rect', sort_order || 0, section || 'Primer Piso']
   );
   const [rows] = await pool.execute('SELECT * FROM restaurant_tables WHERE id = ?', [result.insertId]);
   return rows[0];
 }
 
 export async function updateRestaurantTable(id, storeId, data) {
-  const { label, capacity, x, y, w, h, shape, sort_order } = data;
+  const { label, capacity, x, y, w, h, shape, sort_order, section } = data;
   await pool.execute(
-    'UPDATE restaurant_tables SET label = ?, capacity = ?, x = ?, y = ?, w = ?, h = ?, shape = ?, sort_order = ? WHERE id = ? AND store_id = ?',
-    [label, capacity, x, y, w, h, shape, sort_order ?? 0, id, storeId]
+    'UPDATE restaurant_tables SET label = ?, capacity = ?, x = ?, y = ?, w = ?, h = ?, shape = ?, sort_order = ?, section = ? WHERE id = ? AND store_id = ?',
+    [label, capacity, x, y, w, h, shape, sort_order ?? 0, section || 'Primer Piso', id, storeId]
   );
   const [rows] = await pool.execute('SELECT * FROM restaurant_tables WHERE id = ? AND store_id = ?', [id, storeId]);
   return rows[0] || null;

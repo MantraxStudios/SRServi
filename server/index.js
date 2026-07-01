@@ -13571,14 +13571,14 @@ app.post('/api/public/restaurant-tables/:storeCode', async (req, res) => {
     for (const t of tables) {
       if (t.id && !t._new) {
         await pool.execute(
-          'UPDATE restaurant_tables SET label = ?, capacity = ?, x = ?, y = ?, w = ?, h = ?, shape = ?, sort_order = ? WHERE id = ? AND store_id = ?',
-          [t.label || 'Mesa', t.capacity || 4, t.x || 0, t.y || 0, t.w || 120, t.h || 80, t.shape || 'rect', t.sort_order || 0, t.id, store.id]
+          'UPDATE restaurant_tables SET label = ?, capacity = ?, x = ?, y = ?, w = ?, h = ?, shape = ?, sort_order = ?, section = ? WHERE id = ? AND store_id = ?',
+          [t.label || 'Mesa', t.capacity || 4, t.x || 0, t.y || 0, t.w || 120, t.h || 80, t.shape || 'rect', t.sort_order || 0, t.section || 'Primer Piso', t.id, store.id]
         );
         saved.push({ ...t, store_id: store.id });
       } else {
         const [result] = await pool.execute(
-          'INSERT INTO restaurant_tables (store_id, label, capacity, x, y, w, h, shape, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [store.id, t.label || 'Mesa', t.capacity || 4, t.x || 0, t.y || 0, t.w || 120, t.h || 80, t.shape || 'rect', t.sort_order || 0]
+          'INSERT INTO restaurant_tables (store_id, label, capacity, x, y, w, h, shape, sort_order, section) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [store.id, t.label || 'Mesa', t.capacity || 4, t.x || 0, t.y || 0, t.w || 120, t.h || 80, t.shape || 'rect', t.sort_order || 0, t.section || 'Primer Piso']
         );
         saved.push({ ...t, id: result.insertId, store_id: store.id });
       }

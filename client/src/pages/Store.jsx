@@ -1155,7 +1155,29 @@ function Store() {
   const [tablePersons, setTablePersons] = useState({});
   const [draggingTable, setDraggingTable] = useState(null);
   const [resizingTable, setResizingTable] = useState(null);
+  const [activeSection, setActiveSection] = useState(null);
+  const [editingSectionName, setEditingSectionName] = useState(null);
   const mapRef = useRef(null);
+
+  const DEFAULT_SECTIONS = [
+    { name: 'Primer Piso', tables: [
+      { label: 'Mesa 1', capacity: 4, x: 40, y: 40, w: 120, h: 80, shape: 'rect' },
+      { label: 'Mesa 2', capacity: 4, x: 200, y: 40, w: 120, h: 80, shape: 'rect' },
+      { label: 'Mesa 3', capacity: 4, x: 360, y: 40, w: 120, h: 80, shape: 'rect' },
+    ]},
+    { name: 'Terraza', tables: [
+      { label: 'Mesa 4', capacity: 2, x: 40, y: 40, w: 100, h: 100, shape: 'circle' },
+      { label: 'Mesa 5', capacity: 2, x: 200, y: 40, w: 100, h: 100, shape: 'circle' },
+      { label: 'Mesa 6', capacity: 2, x: 360, y: 40, w: 100, h: 100, shape: 'circle' },
+    ]},
+    { name: 'Exterior', tables: [
+      { label: 'Mesa 7', capacity: 6, x: 40, y: 40, w: 140, h: 90, shape: 'rect' },
+      { label: 'Mesa 8', capacity: 6, x: 220, y: 40, w: 140, h: 90, shape: 'rect' },
+      { label: 'Mesa 9', capacity: 6, x: 400, y: 40, w: 140, h: 90, shape: 'rect' },
+    ]},
+  ];
+
+  const sections = [...new Set(tables.map(t => t.section || 'Primer Piso'))];
 
   const fetchTables = async () => {
     if (!code) return;
@@ -1164,8 +1186,25 @@ function Store() {
       if (res.ok) {
         const data = await res.json();
         setTables(data);
+        if (data.length > 0 && !activeSection) {
+          setActiveSection(data[0].section || 'Primer Piso');
+        }
       }
     } catch {}
+  };
+
+  const createDefaultTables = async () => {
+    if (!code) return;
+    const allTables = [];
+    let sortIdx = 0;
+    for (const sec of DEFAULT_SECTIONS) {
+      for (const t of sec.tables) {
+        allTables.push({ ...t, section: sec.name, sort_order: sortIdx++, _new: true });
+      }
+    }
+    const saved = await saveTablesToDb(allTables);
+    setActiveSection('Primer Piso');
+    return saved;
   };
 
   const saveTablesToDb = async (newTables) => {
@@ -1206,7 +1245,7 @@ function Store() {
 
   useEffect(() => {
     if (restaurantMode && code) {
-      fetchTables();
+      fetchTables().then(() => {});
     }
   }, [restaurantMode, code]);
 
@@ -4792,22 +4831,83 @@ function Store() {
 
       {/* ── Restaurant: Table map ── */}
       {restaurantMode && !activeTable && (
-        <div style={{ flex: 1, background: '#f1f5f9', overflow: 'hidden', position: 'relative' }}>
+        <div style={{ flex: 1, background: '#f1f5f9', overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
           {tables.length === 0 && !tableMapEditing ? (
             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
               <FontAwesomeIcon icon={faChair} style={{ fontSize: 48, marginBottom: 12, color: '#64748b' }} />
               <p style={{ fontSize: 16, color: '#64748b', marginBottom: 16 }}>No hay mesas configuradas</p>
-              <button onClick={() => setTableMapEditing(true)} style={{ padding: '12px 24px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+              <button onClick={async () => { await createDefaultTables(); }} style={{ padding: '12px 24px', background: '#D4AF37', color: '#000', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
                 <FontAwesomeIcon icon={faPlus} style={{ marginRight: 6 }} /> Crear mapa de mesas
               </button>
             </div>
           ) : (
             <>
+              {/* Section tabs */}
+              <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '6px 12px', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                {sections.map(sec => (
+                  <button key={sec} onClick={() => setActiveSection(sec)} style={{
+                    padding: '6px 16px', borderRadius: 8, fontSize: 13, fontWeight: activeSection === sec ? 800 : 600, cursor: 'pointer',
+                    background: activeSection === sec ? '#D4AF37' : '#f1f5f9', color: activeSection === sec ? '#000' : '#475569',
+                    border: activeSection === sec ? '2px solid #b8941e' : '1px solid #e2e8f0', transition: 'all 0.2s'
+                  }}>
+                    <FontAwesomeIcon icon={faLayerGroup} style={{ marginRight: 5, fontSize: 11 }} />
+                    {editingSectionName === sec ? (
+                      <input
+                        autoFocus
+                        defaultValue={sec}
+                        onClick={e => e.stopPropagation()}
+                        onBlur={async (e) => {
+                          const newName = e.target.value.trim();
+                          setEditingSectionName(null);
+                          if (newName && newName !== sec) {
+                            const updated = tables.map(t => t.section === sec ? { ...t, section: newName } : t);
+                            setTables(updated);
+                            setActiveSection(newName);
+                            await saveTablesToDb(updated);
+                          }
+                        }}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') e.target.blur();
+                          if (e.key === 'Escape') setEditingSectionName(null);
+                        }}
+                        style={{ background: '#fff', border: '1px solid #D4AF37', borderRadius: 4, padding: '2px 6px', fontSize: 13, fontWeight: 700, width: 100 }}
+                      />
+                    ) : sec}
+                  </button>
+                ))}
+                {tableMapEditing && (
+                  <>
+                    <button onClick={() => {
+                      const name = `Sección ${sections.length + 1}`;
+                      setActiveSection(name);
+                    }} style={{ padding: '6px 12px', background: '#e0f2fe', color: '#0369a1', border: '1px dashed #7dd3fc', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                      <FontAwesomeIcon icon={faPlus} style={{ marginRight: 4 }} /> Sección
+                    </button>
+                    {activeSection && sections.length > 1 && (
+                      <>
+                        <button onClick={() => setEditingSectionName(activeSection)} style={{ padding: '4px 8px', background: '#dbeafe', color: '#2563eb', border: 'none', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
+                          <FontAwesomeIcon icon={faEdit} /> Renombrar
+                        </button>
+                        <button onClick={async () => {
+                          if (!confirm(`¿Eliminar sección "${activeSection}" y sus mesas?`)) return;
+                          const updated = tables.filter(t => (t.section || 'Primer Piso') !== activeSection);
+                          setTables(updated);
+                          setActiveSection(sections.find(s => s !== activeSection) || sections[0]);
+                          await saveTablesToDb(updated);
+                        }} style={{ padding: '4px 8px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
+                          <FontAwesomeIcon icon={faTrash} /> Eliminar sección
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
               {tableMapEditing && (
                 <div style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button onClick={async () => {
                     const maxSort = tables.reduce((m, t) => Math.max(m, t.sort_order || 0), 0);
-                    const newTable = { _new: true, id: Date.now(), label: `Mesa ${tables.length + 1}`, capacity: 4, x: 20, y: 20, w: 120, h: 80, shape: 'rect', sort_order: maxSort + 1 };
+                    const sec = activeSection || sections[0] || 'Primer Piso';
+                    const newTable = { _new: true, id: Date.now(), label: `Mesa ${tables.length + 1}`, capacity: 4, x: 20, y: 20, w: 120, h: 80, shape: 'rect', sort_order: maxSort + 1, section: sec };
                     const updated = [...tables, newTable];
                     setTables(updated);
                     await saveTablesToDb(updated);
@@ -4816,7 +4916,8 @@ function Store() {
                   </button>
                   <button onClick={async () => {
                     const maxSort = tables.reduce((m, t) => Math.max(m, t.sort_order || 0), 0);
-                    const newTable = { _new: true, id: Date.now(), label: `Mesa ${tables.length + 1}`, capacity: 4, x: 20, y: 20, w: 100, h: 100, shape: 'circle', sort_order: maxSort + 1 };
+                    const sec = activeSection || sections[0] || 'Primer Piso';
+                    const newTable = { _new: true, id: Date.now(), label: `Mesa ${tables.length + 1}`, capacity: 4, x: 20, y: 20, w: 100, h: 100, shape: 'circle', sort_order: maxSort + 1, section: sec };
                     const updated = [...tables, newTable];
                     setTables(updated);
                     await saveTablesToDb(updated);
@@ -4859,7 +4960,7 @@ function Store() {
                 }}
               >
                 <div style={{ position: 'relative', width: 1200, height: 800, minWidth: '100%', minHeight: '100%' }}>
-                  {tables.map(table => {
+                  {tables.filter(t => (t.section || 'Primer Piso') === activeSection).map(table => {
                     const status = getTableStatus(table.id);
                     const total = getTableTotal(table.id);
                     const itemCount = getTableItemCount(table.id);
@@ -9678,12 +9779,17 @@ function Store() {
               ))}
             </div>
             <input type="hidden" id="table-edit-shape-val" defaultValue={tableConfigOpen.shape || 'rect'} />
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 4, display: 'block' }}>Sección</label>
+            <select id="table-edit-section" defaultValue={tableConfigOpen.section || activeSection || 'Primer Piso'} style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: 15, fontWeight: 600, boxSizing: 'border-box', marginBottom: 16 }}>
+              {sections.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
             <button
               onClick={async () => {
                 const label = document.getElementById('table-edit-label').value || 'Mesa';
                 const capacity = parseInt(document.getElementById('table-edit-capacity').value) || 4;
                 const shape = document.getElementById('table-edit-shape-val').value;
-                const updated = tables.map(t => t.id === tableConfigOpen.id ? { ...t, label, capacity, shape } : t);
+                const section = document.getElementById('table-edit-section').value;
+                const updated = tables.map(t => t.id === tableConfigOpen.id ? { ...t, label, capacity, shape, section } : t);
                 setTables(updated);
                 await saveTablesToDb(updated);
                 setTableConfigOpen(false);
