@@ -1980,7 +1980,8 @@ export async function authenticateUser(email, password) {
     is_banned: user.is_banned,
     totp_enabled: Boolean(user.totp_enabled),
     totp_secret: user.totp_secret || null,
-    email_verified: Boolean(user.email_verified)
+    email_verified: Boolean(user.email_verified),
+    phone: user.phone || null
   };
 }
 

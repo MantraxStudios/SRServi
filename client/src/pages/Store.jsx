@@ -1283,48 +1283,7 @@ function Store() {
     });
   }, [qrReturnRef]);
 
-  // Verificar versión de APK: apks nuevas envían app_version, las viejas no envían nada
-  useEffect(() => {
-    const ua = navigator.userAgent;
-    const isAndroidWebView = /Android/.test(ua) && (/; wv\)/.test(ua) || /SRServi/.test(ua));
-    if (tuuModePayFromUrl) return;
-    if (!appVersionFromUrl && !isAndroidWebView) return;
-
-    fetch('/api/apps/android/version/launcher')
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.version) setApkServerVersion(data.version);
-        if (!appVersionFromUrl) {
-          setApkUpdateNeeded(true);
-        } else if (data?.version && appVersionFromUrl !== data.version) {
-          setApkUpdateNeeded(true);
-        }
-      })
-      .catch(() => {
-        if (!appVersionFromUrl) setApkUpdateNeeded(true);
-      });
-  }, [appVersionFromUrl]);
-
-  // Auto-execute APK update after 5 seconds
-  const handleApkUpdateRef = useRef(null);
-  useEffect(() => {
-    if (!apkUpdateNeeded || apkUpdateDismissed || apkBuildState === 'building' || apkBuildState === 'downloaded' || !appVersionFromUrl) {
-      clearInterval(apkAutoTimerRef.current);
-      return;
-    }
-    setApkAutoCountdown(5);
-    apkAutoTimerRef.current = setInterval(() => {
-      setApkAutoCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(apkAutoTimerRef.current);
-          if (handleApkUpdateRef.current) handleApkUpdateRef.current();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(apkAutoTimerRef.current);
-  }, [apkUpdateNeeded, apkUpdateDismissed, apkBuildState]);
+  // APK version check disabled in Store.jsx — updates handled via admin panel and MainActivity only
 
   // Auto-download receipt for successful delivery QR/Haulmer payments
   useEffect(() => {
@@ -9126,49 +9085,7 @@ function Store() {
         );
       })()}
 
-      {/* APK update modal */}
-      {apkUpdateNeeded && !apkUpdateDismissed && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999, background: apkBuildState === 'downloaded' ? '#16a34a' : apkBuildState === 'error' ? '#dc2626' : '#f59e0b', color: '#fff', fontSize: 12, fontWeight: 600 }}>
-          <div style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
-              <span>{apkBuildState === 'downloaded' ? '✅' : apkBuildState === 'building' ? '⏳' : '🔄'}</span>
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {apkBuildState === 'downloaded'
-                  ? '¡Descarga completada!'
-                  : apkBuildState === 'building'
-                    ? (apkBuildProgress || 'Compilando...')
-                    : apkBuildState === 'error'
-                      ? 'Error al compilar'
-                      : `Actualización disponible${apkServerVersion ? ` v${apkServerVersion}` : ''}`}
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-              {apkBuildState !== 'downloaded' && (
-                <button
-                  onClick={handleApkUpdate}
-                  disabled={apkBuildState === 'building'}
-                  style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.25)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', fontSize: 11, fontWeight: 700, cursor: apkBuildState === 'building' ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
-                >
-                  {apkBuildState === 'building' ? '...' : apkBuildState === 'error' ? 'Reintentar' : `Descargar${apkAutoCountdown > 0 && !apkBuildState ? ` (${apkAutoCountdown})` : ''}`}
-                </button>
-              )}
-              <button
-                onClick={() => { setApkUpdateDismissed(true); clearInterval(apkBuildPollRef.current); clearInterval(apkAutoTimerRef.current); }}
-                style={{ padding: '4px 8px', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.8)', fontSize: 14, cursor: 'pointer', lineHeight: 1 }}
-              >
-                ×
-              </button>
-            </div>
-          </div>
-          <div style={{ padding: '6px 12px 8px', fontSize: 12, lineHeight: 1.6, background: 'rgba(0,0,0,0.15)', fontWeight: 500 }}>
-            {apkBuildState === 'downloaded'
-              ? '① Quita el modo kiosco → ② Sal de la tienda con el botón de regresar → ③ Dale los permisos que pida para instalar'
-              : apkBuildState === 'building'
-                ? '⏳ Espera a que termine de compilar y se descargue automáticamente...'
-                : '① Quita el modo kiosco → ② Presiona Descargar → ③ Sal con el botón de regresar y dale los permisos para instalar'}
-          </div>
-        </div>
-      )}
+      {/* APK update banner removed — updates handled in admin panel only */}
 
       {/* Inactivity modal - auto restart */}
       {inactivityModalOpen && (
